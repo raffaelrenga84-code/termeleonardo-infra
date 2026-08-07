@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Prepara il tuo arrivo — Hotel Terme Leonardo</title>
+<style>
+  :root{
+    --acqua:#1E7F88; --acqua-scura:#0F5C64; --acqua-chiara:#E3F0F1;
+    --pietra:#EDE7DC; --sabbia:#FAF8F4; --inchiostro:#2A2E2B;
+    --grigio:#7B756A; --tenue:#A79E8F; --salvia:#7A8450; --arancio:#E8751A;
+    --bordo:#E4DED2;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--pietra);color:var(--inchiostro);
+       font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+       font-size:16px;line-height:1.55;}
+  .foglio{max-width:620px;margin:0 auto;background:#fff;min-height:100vh;}
+  header{padding:30px 26px 20px;text-align:center;}
+  .marchio{font-family:Georgia,serif;font-size:21px;letter-spacing:7px;}
+  .stelle{font-size:9px;letter-spacing:3.5px;color:var(--tenue);margin-top:6px;}
+  .vasche{display:flex;gap:6px;padding:0 26px;}
+  .vasche i{height:3px;background:var(--acqua);display:block;}
+  .vasche i:nth-child(1){flex:46;} .vasche i:nth-child(2){flex:30;}
+  .vasche i:nth-child(3){flex:16;background:#8FC5C9;}
+  main{padding:26px;}
+  h1{font-family:Georgia,serif;font-size:26px;line-height:1.25;font-weight:400;margin:0 0 10px;}
+  .sotto{color:var(--grigio);margin:0 0 22px;font-size:15px;}
+  .riepilogo{background:var(--sabbia);border-left:4px solid var(--acqua);
+             padding:14px 18px;margin-bottom:26px;font-size:14px;color:#55524B;}
+  .riepilogo b{color:var(--inchiostro);}
+  fieldset{border:0;border-top:1px solid var(--bordo);padding:22px 0 0;margin:0 0 22px;}
+  legend{font-family:Georgia,serif;font-size:18px;padding:0 10px 0 0;}
+  .aiuto{color:var(--grigio);font-size:14px;margin:-4px 0 14px;}
+  label.campo{display:block;margin-bottom:14px;font-size:14px;color:#55524B;}
+  label.campo span{display:block;margin-bottom:5px;}
+  input[type=text],input[type=time],input[type=date],input[type=tel],input[type=number],select,textarea{
+    width:100%;padding:11px 12px;border:1px solid #D8D0C2;border-radius:6px;
+    font:inherit;font-size:15px;background:#fff;color:var(--inchiostro);}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--acqua);outline-offset:-1px;border-color:var(--acqua);}
+  textarea{min-height:80px;resize:vertical;}
+  .duecol{display:flex;gap:12px;flex-wrap:wrap;}
+  .duecol > *{flex:1 1 180px;}
+  .scelta{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--sabbia);
+          border-left:3px solid var(--salvia);border-radius:0 6px 6px 0;margin-bottom:9px;cursor:pointer;}
+  .scelta input{margin-top:3px;flex:0 0 auto;width:18px;height:18px;accent-color:var(--acqua);}
+  .scelta b{display:block;}
+  .scelta em{font-style:normal;color:var(--grigio);font-size:13.5px;}
+  .nascosto{display:none;}
+  .avviso{background:var(--acqua-chiara);border-left:4px solid var(--acqua);
+          padding:12px 16px;font-size:14px;color:#3C6266;margin:12px 0 16px;}
+  .persona{display:flex;gap:10px;margin-bottom:9px;}
+  .persona input:first-child{flex:3;} .persona input:last-child{flex:1;}
+  button.invia{width:100%;padding:15px;border:0;border-radius:6px;background:var(--arancio);
+               color:#fff;font:inherit;font-size:17px;font-weight:600;cursor:pointer;margin-top:8px;}
+  button.invia:disabled{background:#CFC8BB;cursor:not-allowed;}
+  button.agg{background:none;border:1px dashed #C8BFAE;color:var(--acqua);
+             padding:9px 14px;border-radius:6px;font:inherit;font-size:14px;cursor:pointer;}
+  footer{padding:24px 26px 40px;text-align:center;color:var(--tenue);font-size:12px;line-height:1.7;}
+  .stato{text-align:center;padding:60px 26px;color:var(--grigio);}
+  .fatto{text-align:center;padding:50px 26px;}
+  .fatto .segno{font-size:44px;color:var(--acqua);}
+  .fatto h2{font-family:Georgia,serif;font-weight:400;font-size:24px;margin:14px 0 8px;}
+</style>
+</head>
+<body>
+<div class="foglio">
+  <header>
+    <div class="marchio">LEONARDO</div>
+    <div class="stelle">TERME HOTEL ★★★★</div>
+  </header>
+  <div class="vasche"><i></i><i></i><i></i></div>
+
+  <div id="caricamento" class="stato" data-t="attendi">Un momento…</div>
+
+  <div id="errore" class="stato nascosto"></div>
+
+  <main id="modulo" class="nascosto">
+    <h1 data-t="titolo">Prepariamo il suo arrivo</h1>
+    <p class="sotto" data-t="sottotitolo">Poche domande, così troverà tutto pronto. Meno di due minuti.</p>
+
+    <div class="riepilogo" id="riepilogo"></div>
+
+    <form id="form">
+
+      <!-- ORARIO -->
+      <fieldset>
+        <legend data-t="l_orario">A che ora arriva?</legend>
+        <p class="aiuto" data-t="a_orario">Anche in tarda serata non è un problema.</p>
+        <div class="duecol">
+          <label class="campo"><span data-t="c_ora">Orario indicativo</span>
+            <input type="time" name="ora_arrivo" /></label>
+          <label class="campo"><span data-t="c_mezzo">Come arriva</span>
+            <select name="mezzo">
+              <option value="" data-t="m_boh">Non saprei ancora</option>
+              <option data-t="m_auto">In auto</option>
+              <option data-t="m_treno">In treno</option>
+              <option data-t="m_aereo">In aereo</option>
+              <option data-t="m_altro">Altro</option>
+            </select></label>
+        </div>
+      </fieldset>
+
+      <!-- FATTURA -->
+      <fieldset>
+        <legend data-t="l_fattura">Le serve la fattura?</legend>
+        <label class="scelta">
+          <input type="checkbox" id="vuoleFattura" />
+          <span><b data-t="f_si">Sì, mi serve fattura intestata</b>
+          <em data-t="f_nota">Ce lo dica ora.</em></span>
+        </label>
+        <div id="datiFattura" class="nascosto">
+          <label class="campo"><span data-t="f_rag">Ragione sociale o intestazione</span>
+            <input type="text" name="fatt_ragione" autocomplete="organization" /></label>
+          <label class="campo"><span data-t="f_ind">Indirizzo completo</span>
+            <input type="text" name="fatt_indirizzo" autocomplete="street-address" /></label>
+          <div class="duecol">
+            <label class="campo"><span data-t="f_piva">Partita IVA</span>
+              <input type="text" name="fatt_piva" /></label>
+            <label class="campo"><span data-t="f_cf">Codice fiscale</span>
+              <input type="text" name="fatt_cf" /></label>
+          </div>
+          <div class="duecol">
+            <label class="campo"><span data-t="f_sdi">Codice destinatario (SDI)</span>
+              <input type="text" name="fatt_sdi" maxlength="7" /></label>
+            <label class="campo"><span data-t="f_pec">PEC</span>
+              <input type="text" name="fatt_pec" inputmode="email" /></label>
+          </div>
+          <p class="aiuto" data-t="f_aiuto">Per la fattura elettronica basta uno fra i due.</p>
+        </div>
+      </fieldset>
+
+      <!-- PERSONE -->
+      <fieldset>
+        <legend data-t="l_persone">Siete più di quanti risultano?</legend>
+        <p class="aiuto" id="quantiRisultano"></p>
+        <div class="avviso">
+          <span data-t="p_avviso">Questa è una richiesta, non una modifica automatica.</span>
+        </div>
+        <div id="persone"></div>
+        <button type="button" class="agg" id="aggiungiPersona" data-t="p_aggiungi">+ Aggiungi una persona</button>
+      </fieldset>
+
+      <!-- TRANSFER -->
+      <fieldset>
+        <legend data-t="l_transfer">Vuole il transfer?</legend>
+        <label class="scelta">
+          <input type="checkbox" id="vuoleTransfer" />
+          <span><b data-t="t_si">Sì, organizzatemelo voi</b>
+          <em data-t="t_nota">Navetta da 65 €, privato da 135 €.</em></span>
+        </label>
+        <div id="datiTransfer" class="nascosto">
+          <div class="duecol">
+            <label class="campo"><span data-t="t_dove">Da dove</span>
+              <select name="transfer_scalo">
+                <option data-t="t_ve">Aeroporto di Venezia</option>
+                <option data-t="t_tv">Aeroporto di Treviso</option>
+                <option data-t="t_pd">Padova</option>
+                <option data-t="t_st">Stazione Terme Euganee</option>
+                <option data-t="m_altro">Altro</option>
+              </select></label>
+            <label class="campo"><span data-t="t_pref">Preferenza</span>
+              <select name="transfer_tipo">
+                <option value="da valutare" data-t="t_val">Consigliatemi voi</option>
+                <option value="navetta" data-t="t_nav">Navetta condivisa, più economica</option>
+                <option value="privato" data-t="t_priv">Taxi privato, diretto</option>
+              </select></label>
+          </div>
+          <div class="duecol">
+            <label class="campo"><span data-t="t_volo">Volo o treno</span>
+              <input type="text" name="transfer_volo" placeholder="es. FR1234" /></label>
+            <label class="campo"><span data-t="t_pax">Passeggeri</span>
+              <input type="number" name="transfer_pax" min="1" max="8" /></label>
+          </div>
+          <label class="campo"><span data-t="t_quando">Data e ora di arrivo del volo</span>
+            <input type="datetime-local" name="transfer_quando" /></label>
+          <label class="campo"><span data-t="t_cell">Cellulare</span>
+            <input type="tel" name="transfer_cell" autocomplete="tel" />
+            <em class="aiuto" style="margin:5px 0 0;" data-t="t_cellnota">Serve al conducente.</em></label>
+        </div>
+      </fieldset>
+
+      <!-- EXTRA -->
+      <fieldset>
+        <legend data-t="l_extra">Vuole aggiungere qualcosa?</legend>
+        <label class="scelta"><input type="checkbox" name="extra" value="Massaggio antistress" />
+          <span><b>Massaggio antistress</b> — 55 € (45 minuti)
+          <em>Il più richiesto. Gli orari si esauriscono presto.</em></span></label>
+        <label class="scelta"><input type="checkbox" name="extra" value="Early Bird Swimming" />
+          <span><b>Early Bird Swimming</b> — 20 € a persona
+          <em>Piscine già dalle 9:00 il giorno dell'arrivo.</em></span></label>
+        <label class="scelta"><input type="checkbox" name="extra" value="Piscine il giorno della partenza" />
+          <span><b>Piscine il giorno della partenza</b> — 30 € a persona
+          <em>Fino alle 19:30, con spogliatoi.</em></span></label>
+        <label class="scelta"><input type="checkbox" name="extra" value="Cena tardiva (mezza pensione)" />
+          <span><b>Arrivo dopo le 20:20</b>
+          <em>Con la mezza pensione le lasciamo un piatto freddo in camera, incluso.</em></span></label>
+        <label class="scelta"><input type="checkbox" name="extra" value="Informazioni cure termali" />
+          <span><b>Vorrei informazioni sulle cure termali</b>
+          <em>La segreteria cure la ricontatterà.</em></span></label>
+      </fieldset>
+
+      <!-- NOTE -->
+      <fieldset>
+        <legend data-t="l_note">Altro da segnalarci?</legend>
+        <p class="aiuto" data-t="a_note">Allergie, intolleranze, ricorrenze.</p>
+        <textarea name="note" maxlength="1000"></textarea>
+      </fieldset>
+
+      <button type="submit" class="invia" id="invia" data-t="invia">Invia alla reception</button>
+      <p class="aiuto" style="text-align:center;margin-top:12px;">
+        <span data-t="nopay">Nessun pagamento richiesto ora.</span>
+      </p>
+    </form>
+  </main>
+
+  <div id="fatto" class="fatto nascosto">
+    <div class="segno">✓</div>
+    <h2 data-t="ok_titolo">Grazie, abbiamo tutto</h2>
+    <p class="sotto" data-t="ok_testo">La reception le risponde prima dell'arrivo.</p>
+  </div>
+
+  <footer>
+    Hotel Terme Leonardo · Via Monteortone 46 · 35037 Monteortone di Teolo (PD)<br />
+    +39 049 9939 200 · info@termeleonardo.com<br /><br />
+    <span data-t="privacy">I dati che ci invia servono solo a preparare il suo soggiorno.</span><br />
+    Tria S.r.l. · P.IVA IT 02042330288
+  </footer>
+</div>
+
+<script>
+const API = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/prepara-arrivo';
+const token = new URLSearchParams(location.search).get('t');
+
+const $ = (id) => document.getElementById(id);
+const mostra = (id) => $(id).classList.remove('nascosto');
+const nascondi = (id) => $(id).classList.add('nascosto');
+
+function errore(testo) {
+  nascondi('caricamento');
+  $('errore').textContent = testo;
+  mostra('errore');
+}
+
+const MESI = ['gennaio','febbraio','marzo','aprile','maggio','giugno',
+              'luglio','agosto','settembre','ottobre','novembre','dicembre'];
+function dataIT(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return `${d.getDate()} ${MESI[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+let dati = null;
+
+async function avvia() {
+  if (!token) return errore('Link non valido. Usi il collegamento che le abbiamo inviato via email.');
+  try {
+    const r = await fetch(`${API}?token=${encodeURIComponent(token)}`);
+    if (r.status === 410) return errore('Questo link è scaduto. Ci scriva a info@termeleonardo.com e gliene inviamo uno nuovo.');
+    if (!r.ok)            return errore('Link non valido. Ci scriva a info@termeleonardo.com.');
+    dati = await r.json();
+  } catch { return errore('Non riusciamo a caricare i dati. Riprovi fra poco.'); }
+
+  const notti = Math.round(
+    (new Date(dati.data_partenza) - new Date(dati.data_arrivo)) / 86400000
+  );
+  $('riepilogo').innerHTML =
+    `<b>${dati.intestatario}</b><br>` +
+    `Dal ${dataIT(dati.data_arrivo)} al ${dataIT(dati.data_partenza)} · ${notti} ${notti === 1 ? 'notte' : 'notti'}` +
+    (dati.numero ? `<br>Prenotazione ${dati.numero}` : '');
+
+  const persone = dati.adulti + dati.bambini;
+  $('quantiRisultano').textContent =
+    `Al momento risultano ${persone} ${persone === 1 ? 'persona' : 'persone'}. Se siete di più, ce lo dica qui.`;
+
+  nascondi('caricamento');
+  mostra('modulo');
+}
+
+/* mostra/nasconde i blocchi condizionali */
+$('vuoleFattura').addEventListener('change', e =>
+  $('datiFattura').classList.toggle('nascosto', !e.target.checked));
+$('vuoleTransfer').addEventListener('change', e =>
+  $('datiTransfer').classList.toggle('nascosto', !e.target.checked));
+
+/* persone aggiuntive */
+$('aggiungiPersona').addEventListener('click', () => {
+  const n = $('persone').children.length;
+  if (n >= 6) return;
+  const riga = document.createElement('div');
+  riga.className = 'persona';
+  riga.innerHTML =
+    '<input type="text" placeholder="Nome e cognome" class="pnome" />' +
+    '<input type="text" placeholder="Età" class="peta" inputmode="numeric" />';
+  $('persone').appendChild(riga);
+  riga.querySelector('.pnome').focus();
+});
+
+/* invio */
+$('form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const b = $('invia');
+  b.disabled = true;
+  b.textContent = 'Invio in corso…';
+
+  const f = new FormData($('form'));
+  const persone_extra = [...document.querySelectorAll('.persona')]
+    .map(r => ({ nome: r.querySelector('.pnome').value.trim(),
+                 eta:  r.querySelector('.peta').value.trim() }))
+    .filter(p => p.nome);
+
+  const corpo = {
+    ora_arrivo: f.get('ora_arrivo') || null,
+    mezzo:      f.get('mezzo') || null,
+    fattura:    $('vuoleFattura').checked,
+    fatt_ragione: f.get('fatt_ragione'), fatt_indirizzo: f.get('fatt_indirizzo'),
+    fatt_piva: f.get('fatt_piva'), fatt_cf: f.get('fatt_cf'),
+    fatt_sdi: f.get('fatt_sdi'), fatt_pec: f.get('fatt_pec'),
+    persone_extra,
+    transfer:  $('vuoleTransfer').checked,
+    transfer_tipo: f.get('transfer_tipo'), transfer_scalo: f.get('transfer_scalo'),
+    transfer_volo: f.get('transfer_volo'),
+    transfer_quando: f.get('transfer_quando') ? f.get('transfer_quando') + ':00Z' : null,
+    transfer_pax: f.get('transfer_pax'), transfer_cell: f.get('transfer_cell'),
+    extra: f.getAll('extra'),
+    note:  f.get('note')
+  };
+
+  try {
+    const r = await fetch(`${API}?token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo)
+    });
+    if (!r.ok) throw new Error();
+    nascondi('modulo');
+    mostra('fatto');
+    window.scrollTo(0, 0);
+  } catch {
+    b.disabled = false;
+    b.textContent = 'Riprova a inviare';
+    alert('Non siamo riusciti a inviare la richiesta. Riprovi fra poco, oppure ci scriva a info@termeleonardo.com.');
+  }
+});
+
+avvia();
+</script>
+</body>
+</html>
