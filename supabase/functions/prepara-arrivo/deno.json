@@ -1,0 +1,6 @@
+{
+  "tasks": {
+    "start": "deno serve -A ./index.ts"
+  },
+  "imports": {}
+}
