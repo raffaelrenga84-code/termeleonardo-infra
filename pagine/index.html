@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Prepara il suo arrivo — Hotel Terme Leonardo</title>
+<style>
+  :root{
+    --acqua:#1E7F88; --acqua-scura:#0F5C64; --acqua-chiara:#E3F0F1;
+    --pietra:#EDE7DC; --carta:#FAF8F4; --inchiostro:#2A2E2B;
+    --grigio:#7B756A; --arancio:#E8751A; --oliva:#7A8450; --allarme:#C0392B;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--carta);color:var(--inchiostro);
+       font:16px/1.5 Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;}
+  .fascia{height:6px;background:linear-gradient(90deg,var(--acqua-scura),var(--acqua) 45%,#6FB1B8);}
+  header{background:#fff;border-bottom:1px solid var(--pietra);padding:26px 20px 22px;text-align:center;}
+  header img{height:56px;}
+  header .sotto{font-size:11px;letter-spacing:4px;color:var(--grigio);margin-top:8px;}
+  main{max-width:640px;margin:0 auto;padding:24px 16px 60px;}
+  h1{font-family:Georgia,'Times New Roman',serif;font-weight:normal;font-size:27px;
+     line-height:1.25;color:var(--inchiostro);margin:10px 0 6px;}
+  .sotto-titolo{color:var(--grigio);font-size:15px;margin-bottom:22px;}
+  .lingue{text-align:right;padding:10px 0 0;}
+  .lingue button{border:1px solid var(--pietra);background:#fff;color:var(--grigio);
+     font:12px Arial;padding:5px 9px;border-radius:4px;cursor:pointer;margin-left:4px;}
+  .lingue button.attiva{background:var(--acqua);border-color:var(--acqua);color:#fff;}
+  .scheda{background:#fff;border:1px solid var(--pietra);border-radius:8px;
+     padding:20px;margin-bottom:16px;}
+  .soggiorno{border-left:4px solid var(--acqua);}
+  .soggiorno .nome{font-family:Georgia,serif;font-size:21px;color:var(--inchiostro);}
+  .soggiorno .date{color:var(--acqua-scura);font-size:15px;margin-top:4px;}
+  .soggiorno .dett{color:var(--grigio);font-size:14px;margin-top:2px;}
+  h2{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--acqua);
+     font-weight:600;margin:0 0 14px;}
+  label{display:block;font-size:13px;color:var(--grigio);margin:12px 0 5px;}
+  input[type=text],input[type=tel],input[type=email],input[type=number],
+  input[type=datetime-local],select,textarea{
+     width:100%;padding:12px;border:1px solid #D8D2C4;border-radius:6px;
+     font:16px Arial;color:var(--inchiostro);background:#fff;}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--acqua);outline-offset:1px;}
+  .due{display:flex;gap:12px;}
+  .due>div{flex:1;}
+  .interruttore{display:flex;align-items:center;gap:12px;cursor:pointer;
+     font-size:16px;color:var(--inchiostro);margin:0;}
+  .interruttore input{width:22px;height:22px;accent-color:var(--acqua);flex:none;}
+  .ripiega{display:none;margin-top:6px;}
+  .aperta .ripiega{display:block;}
+  .spunte label{display:flex;align-items:center;gap:12px;font-size:16px;
+     color:var(--inchiostro);margin:12px 0;cursor:pointer;}
+  .spunte input{width:22px;height:22px;accent-color:var(--acqua);flex:none;}
+  .persona{display:flex;gap:10px;margin-top:8px;}
+  .persona input:first-child{flex:3;}
+  .persona input:last-child{flex:1;}
+  .aggiungi{background:none;border:none;color:var(--acqua);font:14px Arial;
+     cursor:pointer;padding:10px 0 0;}
+  .invia{display:block;width:100%;background:var(--arancio);color:#fff;border:none;
+     border-radius:6px;padding:16px;font:600 17px Arial;cursor:pointer;margin-top:8px;}
+  .invia:disabled{background:#CFCABF;}
+  .nota-invio{text-align:center;color:var(--grigio);font-size:13px;margin-top:12px;}
+  .esito-errore{background:#FDEDEC;border-left:4px solid var(--allarme);color:#922B21;
+     padding:12px 14px;border-radius:0 6px 6px 0;margin-top:14px;font-size:15px;display:none;}
+  .stato{max-width:520px;margin:60px auto;text-align:center;padding:0 20px;}
+  .stato .segno{font-size:44px;color:var(--acqua);}
+  .stato h1{margin-top:14px;}
+  .stato p{color:var(--grigio);margin-top:10px;font-size:16px;}
+  footer{text-align:center;color:var(--grigio);font-size:12px;letter-spacing:1px;
+     padding:30px 20px 40px;border-top:1px solid var(--pietra);background:#fff;}
+  footer .marchio{font-family:Georgia,serif;font-size:14px;letter-spacing:5px;
+     color:var(--inchiostro);margin-bottom:6px;}
+  @media (prefers-reduced-motion:no-preference){
+    .scheda{animation:sale .35s ease both;}
+    @keyframes sale{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  }
+</style>
+</head>
+<body>
+<div class="fascia"></div>
+<header>
+  <img src="https://www.termeleonardo.com/img/logo.png" alt="Hotel Terme Leonardo"
+       onerror="this.outerHTML='&lt;div style=&quot;font-family:Georgia,serif;font-size:22px;letter-spacing:6px;&quot;&gt;LEONARDO&lt;/div&gt;'" />
+  <div class="sotto">TERME HOTEL ····</div>
+</header>
+
+<main id="app">
+  <div class="stato" id="caricamento">
+    <div class="segno">···</div>
+    <p data-t="caricamento">Un momento, apriamo il suo soggiorno…</p>
+  </div>
+</main>
+
+<footer>
+  <div class="marchio">TERME LEONARDO</div>
+  Via Santuario 130 · Monteortone di Abano Terme (PD)<br />
+  +39 049 8669088 · info@termeleonardo.com
+</footer>
+
+<script>
+const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/prepara-arrivo';
+
+/* ---------- dizionario ---------- */
+const T = {
+ it:{
+  caricamento:'Un momento, apriamo il suo soggiorno…',
+  titolo:'Prepari il suo arrivo',
+  sotto:'Due minuti ora, niente attese in hotel: ci dica quando arriva e di cosa ha bisogno.',
+  notti:(n)=>n===1?'1 notte':`${n} notti`,
+  ospiti:(a,b)=>`${a} ${a===1?'adulto':'adulti'}`+(b?` · ${b} ${b===1?'bambino':'bambini'}`:''),
+  pratica:'pratica',
+  arrivoT:'Il suo arrivo', oraA:'A che ora pensa di arrivare?',
+  ore:['Prima delle 12:00','Tra le 12:00 e le 15:00','Tra le 15:00 e le 18:00','Dopo le 18:00','Non lo so ancora'],
+  mezzoL:'Con quale mezzo?', mezzi:['Auto','Treno','Aereo','Altro'],
+  personeT:'Persone da aggiungere', personeS:'Se qualcuno si unisce al soggiorno. La reception le confermerà disponibilità e prezzo.',
+  nome:'Nome e cognome', eta:'Età', altraPersona:'+ un\u2019altra persona',
+  fatturaT:'Fattura', fatturaI:'Mi serve la fattura',
+  ragione:'Intestazione / ragione sociale', indirizzo:'Indirizzo completo',
+  piva:'Partita IVA', cf:'Codice fiscale', sdi:'Codice SDI', pec:'PEC',
+  transferT:'Transfer', transferI:'Vorrei un transfer',
+  trTipo:'Per', trTipi:['L\u2019arrivo','La partenza','Andata e ritorno'],
+  trScalo:'Da dove? (aeroporto o stazione)', trVolo:'Numero volo o treno',
+  trQuando:'Giorno e ora', trPax:'Persone', trCell:'Cellulare per l\u2019autista',
+  extraT:'Piccole attenzioni', extraOpz:['Culla per neonato','Seggiolone al ristorante','Parcheggio','Cane al seguito'],
+  noteT:'Altro da dirci', notePh:'Intolleranze, preferenze per la camera, occasioni speciali…',
+  invia:'Invii alla reception', inviaNota:'Riceviamo subito noi della reception, nessuna conferma automatica.',
+  attendere:'Un attimo…',
+  erroreInvio:'Non siamo riusciti a salvare. Riprovi tra un momento, o ci scriva a info@termeleonardo.com.',
+  grazieT:'Grazie, è tutto pronto', grazie:'Abbiamo ricevuto le sue indicazioni: la reception le legge oggi stesso. A prestissimo alle terme.',
+  nonValidoT:'Questo link non è più attivo', nonValido:'Il collegamento non risulta valido. Controlli di aver aperto l\u2019ultimo link ricevuto, o ci scriva a info@termeleonardo.com.',
+  scadutoT:'Soggiorno già concluso', scaduto:'Questo link era legato a un soggiorno ormai passato. Per una nuova prenotazione ci trova a info@termeleonardo.com.'
+ },
+ de:{
+  caricamento:'Einen Moment, wir öffnen Ihren Aufenthalt…',
+  titolo:'Bereiten Sie Ihre Anreise vor',
+  sotto:'Zwei Minuten jetzt, kein Warten im Hotel: Sagen Sie uns, wann Sie ankommen und was Sie brauchen.',
+  notti:(n)=>n===1?'1 Nacht':`${n} Nächte`,
+  ospiti:(a,b)=>`${a} ${a===1?'Erwachsener':'Erwachsene'}`+(b?` · ${b} ${b===1?'Kind':'Kinder'}`:''),
+  pratica:'Vorgang',
+  arrivoT:'Ihre Anreise', oraA:'Wann kommen Sie voraussichtlich an?',
+  ore:['Vor 12:00','Zwischen 12:00 und 15:00','Zwischen 15:00 und 18:00','Nach 18:00','Weiß ich noch nicht'],
+  mezzoL:'Womit reisen Sie an?', mezzi:['Auto','Zug','Flugzeug','Anderes'],
+  personeT:'Weitere Personen', personeS:'Falls jemand dazukommt. Die Rezeption bestätigt Verfügbarkeit und Preis.',
+  nome:'Vor- und Nachname', eta:'Alter', altraPersona:'+ eine weitere Person',
+  fatturaT:'Rechnung', fatturaI:'Ich brauche eine Rechnung',
+  ragione:'Firmenname / Rechnungsempfänger', indirizzo:'Vollständige Adresse',
+  piva:'USt-IdNr.', cf:'Steuernummer', sdi:'SDI-Code (Italien)', pec:'PEC / E-Mail',
+  transferT:'Transfer', transferI:'Ich möchte einen Transfer',
+  trTipo:'Für', trTipi:['Die Anreise','Die Abreise','Hin und zurück'],
+  trScalo:'Von wo? (Flughafen oder Bahnhof)', trVolo:'Flug- oder Zugnummer',
+  trQuando:'Tag und Uhrzeit', trPax:'Personen', trCell:'Handy für den Fahrer',
+  extraT:'Kleine Aufmerksamkeiten', extraOpz:['Babybett','Hochstuhl im Restaurant','Parkplatz','Hund dabei'],
+  noteT:'Sonst noch etwas?', notePh:'Unverträglichkeiten, Zimmerwünsche, besondere Anlässe…',
+  invia:'An die Rezeption senden', inviaNota:'Ihre Angaben gehen direkt an uns — keine automatische Bestätigung.',
+  attendere:'Einen Moment…',
+  erroreInvio:'Speichern nicht möglich. Versuchen Sie es gleich noch einmal oder schreiben Sie an info@termeleonardo.com.',
+  grazieT:'Danke, alles bereit', grazie:'Wir haben Ihre Angaben erhalten: die Rezeption liest sie noch heute. Bis bald in den Thermen.',
+  nonValidoT:'Dieser Link ist nicht mehr aktiv', nonValido:'Der Link ist ungültig. Öffnen Sie bitte den zuletzt erhaltenen Link oder schreiben Sie an info@termeleonardo.com.',
+  scadutoT:'Aufenthalt bereits beendet', scaduto:'Dieser Link gehörte zu einem vergangenen Aufenthalt. Für eine neue Buchung: info@termeleonardo.com.'
+ },
+ en:{
+  caricamento:'One moment, opening your stay…',
+  titolo:'Prepare your arrival',
+  sotto:'Two minutes now, no waiting at the hotel: tell us when you arrive and what you need.',
+  notti:(n)=>n===1?'1 night':`${n} nights`,
+  ospiti:(a,b)=>`${a} ${a===1?'adult':'adults'}`+(b?` · ${b} ${b===1?'child':'children'}`:''),
+  pratica:'booking',
+  arrivoT:'Your arrival', oraA:'What time do you expect to arrive?',
+  ore:['Before 12:00','Between 12:00 and 15:00','Between 15:00 and 18:00','After 18:00','I don\u2019t know yet'],
+  mezzoL:'How are you travelling?', mezzi:['Car','Train','Plane','Other'],
+  personeT:'People to add', personeS:'If someone is joining the stay. Reception will confirm availability and price.',
+  nome:'Full name', eta:'Age', altraPersona:'+ another person',
+  fatturaT:'Invoice', fatturaI:'I need an invoice',
+  ragione:'Company / billing name', indirizzo:'Full address',
+  piva:'VAT number', cf:'Tax code', sdi:'SDI code (Italy)', pec:'PEC / email',
+  transferT:'Transfer', transferI:'I\u2019d like a transfer',
+  trTipo:'For', trTipi:['Arrival','Departure','Both ways'],
+  trScalo:'From where? (airport or station)', trVolo:'Flight or train number',
+  trQuando:'Day and time', trPax:'People', trCell:'Mobile for the driver',
+  extraT:'Small touches', extraOpz:['Baby cot','High chair at the restaurant','Parking','Dog coming along'],
+  noteT:'Anything else?', notePh:'Intolerances, room preferences, special occasions…',
+  invia:'Send to reception', inviaNota:'It goes straight to us at reception — no automated reply.',
+  attendere:'One moment…',
+  erroreInvio:'We couldn\u2019t save your details. Please try again shortly, or write to info@termeleonardo.com.',
+  grazieT:'Thank you, all set', grazie:'We\u2019ve received your details: reception reads them today. See you very soon at the thermal pools.',
+  nonValidoT:'This link is no longer active', nonValido:'The link isn\u2019t valid. Please open the most recent link you received, or write to info@termeleonardo.com.',
+  scadutoT:'Stay already ended', scaduto:'This link belonged to a past stay. For a new booking: info@termeleonardo.com.'
+ },
+ fr:{
+  caricamento:'Un instant, nous ouvrons votre séjour…',
+  titolo:'Préparez votre arrivée',
+  sotto:'Deux minutes maintenant, aucune attente à l\u2019hôtel : dites-nous quand vous arrivez et ce qu\u2019il vous faut.',
+  notti:(n)=>n===1?'1 nuit':`${n} nuits`,
+  ospiti:(a,b)=>`${a} ${a===1?'adulte':'adultes'}`+(b?` · ${b} ${b===1?'enfant':'enfants'}`:''),
+  pratica:'dossier',
+  arrivoT:'Votre arrivée', oraA:'À quelle heure pensez-vous arriver ?',
+  ore:['Avant 12h00','Entre 12h00 et 15h00','Entre 15h00 et 18h00','Après 18h00','Je ne sais pas encore'],
+  mezzoL:'Comment voyagez-vous ?', mezzi:['Voiture','Train','Avion','Autre'],
+  personeT:'Personnes à ajouter', personeS:'Si quelqu\u2019un se joint au séjour. La réception confirmera disponibilité et prix.',
+  nome:'Nom et prénom', eta:'Âge', altraPersona:'+ une autre personne',
+  fatturaT:'Facture', fatturaI:'J\u2019ai besoin d\u2019une facture',
+  ragione:'Raison sociale', indirizzo:'Adresse complète',
+  piva:'N° TVA', cf:'Code fiscal', sdi:'Code SDI (Italie)', pec:'PEC / e-mail',
+  transferT:'Transfert', transferI:'Je souhaite un transfert',
+  trTipo:'Pour', trTipi:['L\u2019arrivée','Le départ','Aller-retour'],
+  trScalo:'Depuis où ? (aéroport ou gare)', trVolo:'N° de vol ou de train',
+  trQuando:'Jour et heure', trPax:'Personnes', trCell:'Portable pour le chauffeur',
+  extraT:'Petites attentions', extraOpz:['Lit bébé','Chaise haute au restaurant','Parking','Chien accepté'],
+  noteT:'Autre chose ?', notePh:'Intolérances, préférences de chambre, occasions spéciales…',
+  invia:'Envoyer à la réception', inviaNota:'Vos indications arrivent directement à la réception — pas de réponse automatique.',
+  attendere:'Un instant…',
+  erroreInvio:'Enregistrement impossible. Réessayez dans un instant ou écrivez à info@termeleonardo.com.',
+  grazieT:'Merci, tout est prêt', grazie:'Nous avons bien reçu vos indications : la réception les lit aujourd\u2019hui même. À très bientôt aux thermes.',
+  nonValidoT:'Ce lien n\u2019est plus actif', nonValido:'Le lien n\u2019est pas valide. Ouvrez le dernier lien reçu ou écrivez à info@termeleonardo.com.',
+  scadutoT:'Séjour déjà terminé', scaduto:'Ce lien concernait un séjour passé. Pour une nouvelle réservation : info@termeleonardo.com.'
+ }
+};
+
+const MESI = {
+ it:['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'],
+ de:['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'],
+ en:['January','February','March','April','May','June','July','August','September','October','November','December'],
+ fr:['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre']
+};
+
+let LINGUA = 'it', DATI = null, TOKEN = null;
+const app = document.getElementById('app');
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function dataBella(iso, lingua){
+  const d = new Date(iso + 'T00:00');
+  const g = d.getDate(), m = MESI[lingua][d.getMonth()], a = d.getFullYear();
+  if (lingua === 'en') return `${g} ${m} ${a}`;
+  if (lingua === 'de') return `${g}. ${m} ${a}`;
+  return `${g} ${m} ${a}`;
+}
+
+function stato(titolo, testo, segno){
+  app.innerHTML = `<div class="stato"><div class="segno">${segno}</div>
+    <h1>${esc(titolo)}</h1><p>${esc(testo)}</p></div>`;
+}
+
+function selettoreLingue(){
+  return `<div class="lingue">${['it','de','en','fr'].map(l =>
+    `<button type="button" data-l="${l}" class="${l===LINGUA?'attiva':''}">${l.toUpperCase()}</button>`).join('')}</div>`;
+}
+
+function modulo(){
+  const t = T[LINGUA];
+  const notti = Math.round((new Date(DATI.data_partenza) - new Date(DATI.data_arrivo)) / 86400000);
+  app.innerHTML = `
+  ${selettoreLingue()}
+  <h1>${t.titolo}</h1>
+  <div class="sotto-titolo">${t.sotto}</div>
+
+  <div class="scheda soggiorno">
+    <div class="nome">${esc(DATI.intestatario)}</div>
+    <div class="date">${dataBella(DATI.data_arrivo, LINGUA)} → ${dataBella(DATI.data_partenza, LINGUA)}</div>
+    <div class="dett">${t.notti(notti)} · ${t.ospiti(DATI.adulti, DATI.bambini)}${DATI.numero ? ' · ' + t.pratica + ' ' + esc(DATI.numero) : ''}</div>
+  </div>
+
+  <div class="scheda">
+    <h2>${t.arrivoT}</h2>
+    <label>${t.oraA}</label>
+    <select id="ora">${t.ore.map(o=>`<option>${o}</option>`).join('')}</select>
+    <label>${t.mezzoL}</label>
+    <select id="mezzo">${t.mezzi.map(o=>`<option>${o}</option>`).join('')}</select>
+  </div>
+
+  <div class="scheda">
+    <h2>${t.personeT}</h2>
+    <div style="color:var(--grigio);font-size:13px;">${t.personeS}</div>
+    <div id="persone"></div>
+    <button type="button" class="aggiungi" id="piuPersona">${t.altraPersona}</button>
+  </div>
+
+  <div class="scheda" id="schedaFatt">
+    <label class="interruttore"><input type="checkbox" id="fattura" /> ${t.fatturaI}</label>
+    <div class="ripiega">
+      <label>${t.ragione}</label><input type="text" id="fRagione" maxlength="160" />
+      <label>${t.indirizzo}</label><input type="text" id="fIndirizzo" maxlength="200" />
+      <div class="due">
+        <div><label>${t.piva}</label><input type="text" id="fPiva" maxlength="20" /></div>
+        <div><label>${t.cf}</label><input type="text" id="fCf" maxlength="20" /></div>
+      </div>
+      <div class="due">
+        <div><label>${t.sdi}</label><input type="text" id="fSdi" maxlength="10" /></div>
+        <div><label>${t.pec}</label><input type="email" id="fPec" maxlength="160" /></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scheda" id="schedaTr">
+    <label class="interruttore"><input type="checkbox" id="transfer" /> ${t.transferI}</label>
+    <div class="ripiega">
+      <label>${t.trTipo}</label>
+      <select id="trTipo">${t.trTipi.map(o=>`<option>${o}</option>`).join('')}</select>
+      <label>${t.trScalo}</label><input type="text" id="trScalo" maxlength="40" />
+      <div class="due">
+        <div><label>${t.trVolo}</label><input type="text" id="trVolo" maxlength="20" /></div>
+        <div><label>${t.trPax}</label><input type="number" id="trPax" min="1" max="9" value="${DATI.adulti + DATI.bambini}" /></div>
+      </div>
+      <label>${t.trQuando}</label><input type="datetime-local" id="trQuando" />
+      <label>${t.trCell}</label><input type="tel" id="trCell" maxlength="30" />
+    </div>
+  </div>
+
+  <div class="scheda spunte">
+    <h2>${t.extraT}</h2>
+    ${t.extraOpz.map((o,i)=>`<label><input type="checkbox" class="extra" data-i="${i}" /> ${o}</label>`).join('')}
+  </div>
+
+  <div class="scheda">
+    <h2>${t.noteT}</h2>
+    <textarea id="note" rows="4" maxlength="1000" placeholder="${t.notePh}"></textarea>
+  </div>
+
+  <button class="invia" id="invia">${t.invia}</button>
+  <div class="nota-invio">${t.inviaNota}</div>
+  <div class="esito-errore" id="erroreInvio">${t.erroreInvio}</div>`;
+
+  document.querySelectorAll('.lingue button').forEach(b =>
+    b.addEventListener('click', () => { LINGUA = b.dataset.l; modulo(); }));
+  ['schedaFatt','schedaTr'].forEach(id => {
+    const s = document.getElementById(id);
+    s.querySelector('input[type=checkbox]').addEventListener('change', e =>
+      s.classList.toggle('aperta', e.target.checked));
+  });
+  const box = document.getElementById('persone');
+  const t2 = T[LINGUA];
+  function rigaPersona(){
+    if (box.children.length >= 6) return;
+    const d = document.createElement('div');
+    d.className = 'persona';
+    d.innerHTML = `<input type="text" placeholder="${t2.nome}" maxlength="80" />
+                   <input type="text" placeholder="${t2.eta}" maxlength="10" />`;
+    box.appendChild(d);
+  }
+  document.getElementById('piuPersona').addEventListener('click', rigaPersona);
+  document.getElementById('invia').addEventListener('click', invia);
+}
+
+async function invia(){
+  const t = T[LINGUA];
+  const b = document.getElementById('invia');
+  b.disabled = true; b.textContent = t.attendere;
+  document.getElementById('erroreInvio').style.display = 'none';
+  const v = id => document.getElementById(id)?.value?.trim() || null;
+  const fatt = document.getElementById('fattura').checked;
+  const tr = document.getElementById('transfer').checked;
+  const corpo = {
+    ora_arrivo: v('ora'), mezzo: v('mezzo'),
+    persone_extra: [...document.querySelectorAll('.persona')].map(p => ({
+      nome: p.children[0].value.trim(), eta: p.children[1].value.trim()
+    })).filter(p => p.nome),
+    fattura: fatt,
+    fatt_ragione: fatt ? v('fRagione') : null,
+    fatt_indirizzo: fatt ? v('fIndirizzo') : null,
+    fatt_piva: fatt ? v('fPiva') : null,
+    fatt_cf: fatt ? v('fCf') : null,
+    fatt_sdi: fatt ? v('fSdi') : null,
+    fatt_pec: fatt ? v('fPec') : null,
+    transfer: tr,
+    transfer_tipo: tr ? v('trTipo') : null,
+    transfer_scalo: tr ? v('trScalo') : null,
+    transfer_volo: tr ? v('trVolo') : null,
+    transfer_quando: tr ? v('trQuando') : null,
+    transfer_pax: tr ? (Number(v('trPax')) || null) : null,
+    transfer_cell: tr ? v('trCell') : null,
+    extra: [...document.querySelectorAll('.extra:checked')].map(c => T[LINGUA].extraOpz[+c.dataset.i]),
+    note: v('note')
+  };
+  try {
+    const r = await fetch(`${FUNZIONE}?token=${encodeURIComponent(TOKEN)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo)
+    });
+    if (!r.ok) throw new Error('salvataggio');
+    stato(t.grazieT, t.grazie, '✓');
+    window.scrollTo(0, 0);
+  } catch (e) {
+    document.getElementById('erroreInvio').style.display = 'block';
+    b.disabled = false; b.textContent = t.invia;
+  }
+}
+
+(async function avvia(){
+  TOKEN = new URLSearchParams(location.search).get('t');
+  if (!TOKEN) { stato(T.it.nonValidoT, T.it.nonValido, '·'); return; }
+  try {
+    const r = await fetch(`${FUNZIONE}?token=${encodeURIComponent(TOKEN)}`);
+    if (r.status === 410) {
+      const l = LINGUA; stato(T[l].scadutoT, T[l].scaduto, '·'); return;
+    }
+    if (!r.ok) { stato(T.it.nonValidoT, T.it.nonValido, '·'); return; }
+    DATI = await r.json();
+    LINGUA = ['it','de','en','fr'].includes(DATI.lingua) ? DATI.lingua : 'it';
+    document.documentElement.lang = LINGUA;
+    modulo();
+  } catch (e) {
+    stato(T.it.nonValidoT, T.it.nonValido, '·');
+  }
+})();
+</script>
+</body>
+</html>
