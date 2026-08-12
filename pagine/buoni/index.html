@@ -6,72 +6,113 @@
 <meta name="robots" content="noindex, nofollow" />
 <title>Buoni regalo — back office</title>
 <style>
-  :root{--acqua:#1E7F88;--acqua-scura:#0F5C64;--acqua-chiara:#E3F0F1;
-    --pietra:#EDE7DC;--carta:#FAF8F4;--inchiostro:#2A2E2B;--grigio:#7B756A;
-    --arancio:#E8751A;--oliva:#7A8450;--allarme:#C0392B;}
-  *{box-sizing:border-box;margin:0;padding:0;}
-  body{background:var(--carta);color:var(--inchiostro);font:15px/1.5 Arial,Helvetica,sans-serif;}
-  .fascia{height:6px;background:linear-gradient(90deg,var(--acqua-scura),var(--acqua) 45%,#6FB1B8);}
-  header{background:#fff;border-bottom:1px solid var(--pietra);padding:14px 20px;
-    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
-  header .marchio{font-family:Georgia,serif;font-size:19px;letter-spacing:3px;}
-  header .chi{font-size:13px;color:var(--grigio);}
-  main{max-width:1340px;margin:0 auto;padding:20px 16px 60px;}
-  .due-col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,660px);gap:22px;align-items:start;}
-  @media (max-width:1100px){ .due-col{grid-template-columns:1fr;} .anteprima{position:static !important;} }
-  .anteprima{position:sticky;top:16px;}
-  .anteprima .etichetta{font-size:11px;letter-spacing:1.4px;text-transform:uppercase;
-    color:var(--grigio);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
-  .anteprima .telaio{background:#fff;border:1px solid var(--pietra);border-radius:8px;
-    padding:14px;overflow:auto;}
-  .anteprima .telaio > *{transform-origin:top left;}
-  .azioni-buono{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
-  .azioni-buono button{flex:1;min-width:150px;margin-top:0;}
-  .schede{display:flex;gap:8px;border-bottom:1px solid var(--pietra);margin-bottom:18px;}
-  .schede button{background:none;border:0;border-bottom:3px solid transparent;
-    padding:10px 14px;font:600 14px Arial;color:var(--grigio);cursor:pointer;}
-  .schede button.attiva{color:var(--acqua-scura);border-bottom-color:var(--acqua);}
-  .riquadro{background:#fff;border:1px solid var(--pietra);border-radius:8px;padding:18px;margin-bottom:16px;}
-  h2{font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:var(--acqua);margin-bottom:12px;}
-  label{display:block;font-size:12px;color:var(--grigio);margin:10px 0 4px;}
-  input,select,textarea{width:100%;padding:10px;border:1px solid #D8D2C4;border-radius:5px;
-    font:15px Arial;color:var(--inchiostro);background:#fff;}
-  textarea{min-height:64px;}
-  .due{display:flex;gap:12px;flex-wrap:wrap;}
-  .due>div{flex:1;min-width:180px;}
-  button.azione{background:var(--arancio);color:#fff;border:0;border-radius:6px;
-    padding:13px 20px;font:600 15px Arial;cursor:pointer;margin-top:14px;}
-  button.azione:disabled{background:#CFCABF;}
-  button.sec{background:#fff;color:var(--acqua-scura);border:1px solid var(--acqua);}
-  table{width:100%;border-collapse:collapse;font-size:14px;}
-  th{text-align:left;font-size:11px;letter-spacing:.8px;text-transform:uppercase;
-    color:var(--acqua-scura);padding:8px 10px;background:#F4F1EA;}
-  td{padding:9px 10px;border-top:1px solid #F0EBE1;vertical-align:top;}
-  .cod{font-family:monospace;font-weight:700;color:var(--acqua-scura);}
-  .stato{font-size:11px;padding:2px 8px;border-radius:10px;white-space:nowrap;}
-  .st-pagato{background:var(--acqua-chiara);color:var(--acqua-scura);}
-  .st-attesa{background:#FFF6E8;color:#B3541E;}
-  .st-riscosso{background:#EFF3E7;color:var(--oliva);}
-  .st-annullato{background:#F3F0EC;color:var(--grigio);}
-  .st-scaduto{background:#FDF0EE;color:var(--allarme);}
-  .esito{font-size:14px;color:var(--acqua-scura);min-height:20px;padding-top:10px;}
-  .errore{color:var(--allarme);}
-  .mini{font-size:12px;color:var(--grigio);}
-  .fatto{background:var(--acqua-chiara);border-left:4px solid var(--acqua);
-    border-radius:0 8px 8px 0;padding:14px 16px;margin-top:14px;}
-  .fatto .codice{font-family:monospace;font-size:26px;letter-spacing:2px;color:var(--acqua-scura);}
-  @media print{
-    body>*:not(#stampa){display:none !important;}
-    #stampa{display:block !important;}
-  }
-  #stampa{display:none;}
+:root{--acqua:#1E7F88;--acqua-scura:#0F5C64;--acqua-chiara:#E3F0F1;
+--pietra:#EDE7DC;--carta:#FAF8F4;--inchiostro:#2A2E2B;--grigio:#7B756A;
+--arancio:#E8751A;--oliva:#7A8450;--allarme:#C0392B;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--carta);color:var(--inchiostro);font:15px/1.5 Arial,Helvetica,sans-serif;}
+.fascia{height:6px;background:linear-gradient(90deg,var(--acqua-scura),var(--acqua) 45%,#6FB1B8);}
+header{background:#fff;border-bottom:1px solid var(--pietra);padding:14px 20px;
+display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+header .marchio{font-family:Georgia,serif;font-size:19px;letter-spacing:3px;}
+header .chi{font-size:13px;color:var(--grigio);}
+main{max-width:1340px;margin:0 auto;padding:20px 16px 60px;}
+.due-col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,660px);gap:22px;align-items:start;}
+@media (max-width:1100px){ .due-col{grid-template-columns:1fr;} .anteprima{position:static !important;} }
+.anteprima{position:sticky;top:16px;}
+.anteprima .etichetta{font-size:11px;letter-spacing:1.4px;text-transform:uppercase;
+color:var(--grigio);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.anteprima .telaio{background:#fff;border:1px solid var(--pietra);border-radius:8px;
+padding:14px;overflow:auto;}
+.anteprima .telaio > *{transform-origin:top left;}
+.azioni-buono{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+.azioni-buono button{flex:1;min-width:150px;margin-top:0;}
+.schede{display:flex;gap:8px;border-bottom:1px solid var(--pietra);margin-bottom:18px;}
+.schede button{background:none;border:0;border-bottom:3px solid transparent;
+padding:10px 14px;font:600 14px Arial;color:var(--grigio);cursor:pointer;}
+.schede button.attiva{color:var(--acqua-scura);border-bottom-color:var(--acqua);}
+.riquadro{background:#fff;border:1px solid var(--pietra);border-radius:8px;padding:18px;margin-bottom:16px;}
+h2{font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:var(--acqua);margin-bottom:12px;}
+label{display:block;font-size:12px;color:var(--grigio);margin:10px 0 4px;}
+input,select,textarea{width:100%;padding:10px;border:1px solid #D8D2C4;border-radius:5px;
+font:15px Arial;color:var(--inchiostro);background:#fff;}
+textarea{min-height:64px;}
+.due{display:flex;gap:12px;flex-wrap:wrap;}
+.due>div{flex:1;min-width:180px;}
+button.azione{background:var(--arancio);color:#fff;border:0;border-radius:6px;
+padding:13px 20px;font:600 15px Arial;cursor:pointer;margin-top:14px;}
+button.azione:disabled{background:#CFCABF;}
+button.sec{background:#fff;color:var(--acqua-scura);border:1px solid var(--acqua);}
+table{width:100%;border-collapse:collapse;font-size:14px;}
+th{text-align:left;font-size:11px;letter-spacing:.8px;text-transform:uppercase;
+color:var(--acqua-scura);padding:8px 10px;background:#F4F1EA;}
+td{padding:9px 10px;border-top:1px solid #F0EBE1;vertical-align:top;}
+.cod{font-family:monospace;font-weight:700;color:var(--acqua-scura);}
+.stato{font-size:11px;padding:2px 8px;border-radius:10px;white-space:nowrap;}
+.st-pagato{background:var(--acqua-chiara);color:var(--acqua-scura);}
+.st-attesa{background:#FFF6E8;color:#B3541E;}
+.st-riscosso{background:#EFF3E7;color:var(--oliva);}
+.st-annullato{background:#F3F0EC;color:var(--grigio);}
+.st-scaduto{background:#FDF0EE;color:var(--allarme);}
+.esito{font-size:14px;color:var(--acqua-scura);min-height:20px;padding-top:10px;}
+.errore{color:var(--allarme);}
+.mini{font-size:12px;color:var(--grigio);}
+.fatto{background:var(--acqua-chiara);border-left:4px solid var(--acqua);
+border-radius:0 8px 8px 0;padding:14px 16px;margin-top:14px;}
+.fatto .codice{font-family:monospace;font-size:26px;letter-spacing:2px;color:var(--acqua-scura);}
+@media print{
+html,body{margin:0;padding:0;background:#FFFFFF;}
+body>*:not(#stampa){display:none !important;}
+#stampa{display:block !important;}
+#stampa *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+}
+#stampa{display:none;}
+
+/* ---- stampa: un A4 verticale da piegare a metà (piegato = A5, come il depliant) ---- */
+@page{size:A4 portrait;margin:0;}
+#stampa .foglio{width:210mm;height:297mm;position:relative;box-sizing:border-box;
+background:#FFFFFF;color:#1B4D4A;font-family:Georgia,'Times New Roman',serif;}
+#stampa .meta{height:148.5mm;box-sizing:border-box;padding:14mm 20mm;overflow:hidden;}
+#stampa .copertina{background:#E4F0EA;display:flex;flex-direction:column;}
+#stampa .marchio-s{font:15px/1 Arial,Helvetica,sans-serif;letter-spacing:3px;color:#1B4D4A;}
+#stampa .stelle{font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:3px;color:#7A9490;margin-top:3mm;}
+#stampa .foto{display:block;width:100%;flex:1 1 auto;min-height:26mm;
+margin:7mm 0 6mm;object-fit:cover;}
+#stampa .foto.sfumata{background:linear-gradient(160deg,#BEDCD4,#8FC4BC 55%,#5FA8A0);}
+#stampa .occhiello{font:8.5px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#7A9490;}
+#stampa .titolo-oro{font:9.5px/1 Arial,Helvetica,sans-serif;letter-spacing:3px;color:#C9A961;margin-top:6mm;}
+#stampa .dedicatario{font-size:26px;line-height:1.3;margin-top:3mm;}
+#stampa .dedica{font-size:14px;font-style:italic;color:#5C736F;margin-top:4mm;line-height:1.5;}
+#stampa .da{font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#9AA9A6;margin-top:6mm;}
+#stampa .firma-s{font-size:15px;font-style:italic;margin-top:1.5mm;}
+#stampa .piega{position:absolute;top:148.5mm;left:0;right:0;height:0;border-top:1px dashed #C7C2B6;}
+#stampa .piega span{position:absolute;right:8mm;top:1.5mm;background:#FFFFFF;padding:0 2mm;
+font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
+#stampa .servizio{border-left:3px solid #C9A961;background:#FBFAF7;padding:6mm 7mm;}
+#stampa .servizio-nome{font-size:18px;}
+#stampa .servizio-sotto{font:9px/1.4 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#C9A961;margin-top:2mm;}
+#stampa .comprende{margin:4mm 0 0;padding:0;list-style:none;
+font:11px/1.7 Arial,Helvetica,sans-serif;color:#4A5C59;}
+#stampa .comprende li::before{content:'\00b7  ';color:#C9A961;}
+#stampa .nota-persone{font:9px/1.6 Arial,Helvetica,sans-serif;color:#8A938F;margin-top:4mm;border-top:1px solid #EFEBE0;padding-top:2.5mm;}
+#stampa .codice-riga{display:flex;justify-content:space-between;align-items:flex-start;
+border-top:1px solid #E6E2D8;margin-top:7mm;padding-top:5mm;}
+#stampa .etichetta-s{font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#9AA9A6;}
+#stampa .codice-s{font:20px/1 'Courier New',monospace;letter-spacing:2px;margin-top:2mm;}
+#stampa .scadenza{font:11px/1 Arial,Helvetica,sans-serif;color:#C9A961;margin-top:2mm;}
+#stampa .recapiti{font:10px/1.6 Arial,Helvetica,sans-serif;color:#5C736F;text-align:right;}
+#stampa .prenota{font:11px/1.6 Arial,Helvetica,sans-serif;color:#4A5C59;margin-top:2mm;}
+#stampa .cond-tit{margin-top:6mm;display:block;}
+#stampa .condizioni{font:7.5px/1.5 Arial,Helvetica,sans-serif;color:#8A938F;margin-top:2mm;text-align:justify;}
+#stampa .pieded{position:absolute;bottom:10mm;left:20mm;
+font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
 </style>
 </head>
 <body>
 <div class="fascia"></div>
 <header>
-  <div class="marchio">LEONARDO · buoni regalo</div>
-  <div class="chi"><span id="chiSono"></span> <a href="#" id="esci" style="color:var(--acqua);">esci</a></div>
+<div class="marchio">LEONARDO · buoni regalo</div>
+<div class="chi"><span id="chiSono"></span> <a href="#" id="esci" style="color:var(--acqua);">esci</a></div>
 </header>
 <main id="app"></main>
 <div id="stampa"></div>
@@ -133,14 +174,23 @@ const eur = (n) => Number(n || 0).toLocaleString('it-IT', { minimumFractionDigit
 const dataIT = (iso) => {
   if (!iso) return '';
   const M = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio',
-             'agosto','settembre','ottobre','novembre','dicembre'];
+    'agosto','settembre','ottobre','novembre','dicembre'];
   const d = new Date(String(iso).slice(0,10) + 'T12:00');
   return `${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}`;
 };
 
-let SB = null;          // client Supabase
-let TOKEN = '';         // token dell'utente autenticato
-let OPERATORE = '';     // nome dell'operatore, dal suo utente
+/* descrizione del buono monetario, nella lingua scelta sul buono */
+const TESTO_VALORE = {
+  it: (v) => `Buono valore di ${v} \u20ac, spendibile in hotel`,
+  de: (v) => `Wertgutschein \u00fcber ${v} \u20ac, im Hotel einl\u00f6sbar`,
+  en: (v) => `Gift voucher worth ${v} \u20ac, redeemable at the hotel`,
+  fr: (v) => `Bon d\u2019une valeur de ${v} \u20ac, utilisable \u00e0 l\u2019h\u00f4tel`
+};
+const descrizioneValore = (v, l) => (TESTO_VALORE[l] || TESTO_VALORE.it)(eur(v || 0));
+
+let SB = null;        // client Supabase
+let TOKEN = '';       // token dell'utente autenticato
+let OPERATORE = '';   // nome dell'operatore, dal suo utente
 let VISTA = 'emetti';
 
 async function chiama(qs, opz = {}) {
@@ -175,20 +225,20 @@ function chiediAccesso(messaggio) {
     <button class="azione" id="kEntra" style="width:100%;">Entra</button>
     <div class="esito" id="kEsito">${messaggio ? `<span class="errore">${esc(messaggio)}</span>` : ''}</div>
     <p class="mini" style="padding-top:10px;">Serve un indirizzo dell'hotel.
-      Password dimenticata? La reimposta l'amministratore da Supabase.</p></div>`;
+    Password dimenticata? La reimposta l'amministratore da Supabase.</p></div>`;
 
   const entra = async () => {
     const email = $('kMail').value.trim();
     const pwd = $('kPwd').value;
     if (!email || !pwd) { $('kEsito').innerHTML = '<span class="errore">Servono email e password.</span>'; return; }
     $('kEntra').disabled = true;
-    $('kEsito').textContent = 'Un momento…';
+    $('kEsito').textContent = 'Un momento\u2026';
     try {
       const { data, error } = await SB.auth.signInWithPassword({ email, password: pwd });
       if (error) throw new Error('Email o password non validi.');
       TOKEN = data.session.access_token;
       OPERATORE = data.user.user_metadata?.nome || email.split('@')[0];
-      await chiama('?a=elenco');       // prova: verifica anche dominio e IP
+      await chiama('?a=elenco'); // prova: verifica anche dominio e IP
       disegna();
     } catch (e) {
       await esci();
@@ -202,12 +252,12 @@ function chiediAccesso(messaggio) {
 
 /* ---------- struttura ---------- */
 function disegna() {
-  $('chiSono').textContent = OPERATORE ? OPERATORE + ' ·' : '';
+  $('chiSono').textContent = OPERATORE ? OPERATORE + ' \u00b7' : '';
   $('app').innerHTML = `<div class="schede">
-      <button data-v="emetti" class="${VISTA==='emetti'?'attiva':''}">Emetti un buono</button>
-      <button data-v="elenco" class="${VISTA==='elenco'?'attiva':''}">Buoni emessi</button>
-      <button data-v="verifica" class="${VISTA==='verifica'?'attiva':''}">Verifica / riscuoti</button>
-    </div><div id="vista"></div>`;
+    <button data-v="emetti" class="${VISTA==='emetti'?'attiva':''}">Emetti un buono</button>
+    <button data-v="elenco" class="${VISTA==='elenco'?'attiva':''}">Buoni emessi</button>
+    <button data-v="verifica" class="${VISTA==='verifica'?'attiva':''}">Verifica / riscuoti</button>
+  </div><div id="vista"></div>`;
   document.querySelectorAll('.schede button').forEach(b =>
     b.onclick = () => { VISTA = b.dataset.v; disegna(); });
   ({ emetti: vistaEmetti, elenco: vistaElenco, verifica: vistaVerifica })[VISTA]();
@@ -228,23 +278,36 @@ function vistaEmetti() {
     </select>
     <div id="boxServizio">
       <label>Voce del listino</label>
-      <select id="fVoce">${CATALOGO.map(gr =>
-        `<optgroup label="${esc(gr.g)}">` + gr.v.map(([id, nome, prezzo]) =>
-          `<option value="${id}" data-prezzo="${prezzo}" data-nome="${esc(nome)}">${esc(nome)} — ${eur(prezzo)} €</option>`
-        ).join('') + `</optgroup>`).join('')}
+      <div class="due" style="align-items:flex-end;">
+        <div style="flex:3;min-width:240px;"><select id="fVoce">${CATALOGO.map(gr =>
+          `<optgroup label="${esc(gr.g)}">` + gr.v.map(([id, nome, prezzo]) =>
+            `<option value="${id}" data-prezzo="${prezzo}" data-nome="${esc(nome)}">${esc(nome)} \u2014 ${eur(prezzo)} \u20ac</option>`
+          ).join('') + `</optgroup>`).join('')}
         <option value="__altro" data-prezzo="0" data-nome="">Altro (scrivo io)</option>
-      </select>
-      <div id="boxAltro" style="display:none;">
-        <label>Descrizione da stampare sul buono</label>
-        <input type="text" id="fAltro" placeholder="es. Massaggio a scelta da 50 minuti" />
+        </select></div>
+        <div style="flex:0 0 90px;min-width:90px;"><label>Quantit\u00e0</label>
+          <input type="number" id="fQta" min="1" step="1" value="1" /></div>
+        <div style="flex:0 0 auto;"><button class="azione sec" id="fAggiungi"
+          style="margin-top:0;" title="Aggiungi al buono">+ Aggiungi</button></div>
       </div>
+      <div id="boxAltro" style="display:none;">
+        <div class="due">
+          <div style="flex:3;"><label>Descrizione da stampare sul buono</label>
+          <input type="text" id="fAltro" placeholder="es. Massaggio a scelta da 50 minuti" /></div>
+          <div style="flex:0 0 120px;min-width:120px;"><label>Prezzo (\u20ac)</label>
+          <input type="number" id="fAltroPrezzo" min="0" step="1" /></div>
+        </div>
+      </div>
+      <div id="fRighe"></div>
+      <p class="mini" id="fRigheNota">Con \u00abAggiungi\u00bb componi un buono con pi\u00f9 voci
+      (es. un ingresso alle piscine e un massaggio). Senza aggiungere nulla, vale la voce selezionata qui sopra.</p>
     </div>
     <div class="due">
-      <div><label>Valore (€)</label><input type="number" id="fValore" min="1" step="1" /></div>
+      <div><label>Valore (\u20ac)</label><input type="number" id="fValore" min="1" step="1" /></div>
       <div><label>Valido fino al</label><input type="date" id="fScade" value="${iso(fra12)}" /></div>
     </div>
     <p class="mini">Dodici mesi come da regolamento. Ricordi che l'hotel chiude
-      da fine novembre a metà febbraio: se la scadenza cade lì, valuti di allungarla.</p>
+    da fine novembre a met\u00e0 febbraio: se la scadenza cade l\u00ec, valuti di allungarla.</p>
   </div>
 
   <div class="riquadro">
@@ -258,16 +321,16 @@ function vistaEmetti() {
       <div><label>Destinatario (sul buono)</label><input type="text" id="fDest" /></div>
       <div><label>Email del destinatario</label><input type="email" id="fDestMail" /></div>
       <div><label>Pagamento</label>
-        <select id="fPag">
-          <optgroup label="Incassato adesso in reception">
-            <option value="contanti">Contanti</option>
-            <option value="bancomat">Bancomat / carta</option>
-          </optgroup>
-          <optgroup label="Da pagare (il buono resta in attesa)">
-            <option value="bonifico">Bonifico</option>
-            <option value="stripe">Link di pagamento</option>
-          </optgroup>
-        </select></div>
+      <select id="fPag">
+        <optgroup label="Incassato adesso in reception">
+          <option value="contanti">Contanti</option>
+          <option value="bancomat">Bancomat / carta</option>
+        </optgroup>
+        <optgroup label="Da pagare (il buono resta in attesa)">
+          <option value="bonifico">Bonifico</option>
+          <option value="stripe">Link di pagamento</option>
+        </optgroup>
+      </select></div>
     </div>
     <label>Lingua del buono</label>
     <select id="fLingua">
@@ -275,9 +338,9 @@ function vistaEmetti() {
       <option value="en">English</option><option value="fr">Fran&ccedil;ais</option>
     </select>
     <label>Riga sotto il titolo (facoltativa, esce in oro sul buono)</label>
-    <input type="text" id="fSotto" placeholder="es. FERIALE · DAL LUNEDÌ AL VENERDÌ · PER 1 PERSONA" />
+    <input type="text" id="fSotto" placeholder="es. FERIALE \u00b7 DAL LUNED\u00cc AL VENERD\u00cc \u00b7 PER 1 PERSONA" />
     <label>Dedica (facoltativa, esce sul buono)</label>
-    <textarea id="fDedica" placeholder="Buon compleanno, con affetto…"></textarea>
+    <textarea id="fDedica" placeholder="Buon compleanno, con affetto\u2026"></textarea>
     <label>Note interne (non stampate)</label>
     <input type="text" id="fNote" />
     <div id="notaPag" class="mini" style="padding-top:8px;"></div>
@@ -288,9 +351,61 @@ function vistaEmetti() {
 
   <div class="anteprima">
     <div class="etichetta"><span>Anteprima del buono</span>
-      <span class="mini" id="antNota">si aggiorna mentre compili</span></div>
+    <span class="mini" id="antNota">si aggiorna mentre compili</span></div>
     <div class="telaio" id="antTelaio"></div>
   </div></div>`;
+
+  /* ---- paniere: pi\u00f9 voci con quantit\u00e0 ---- */
+  let CARRELLO = [];   // [{id, nome, prezzo, q}]
+
+  const vocePlurale = (nome, q) => {
+    if (q <= 1) return nome;
+    /* plurali garbati per le voci pi\u00f9 comuni; il resto resta invariato */
+    return nome
+      .replace(/^Massaggio\b/, 'Massaggi')
+      .replace(/^Trattamento\b/, 'Trattamenti')
+      .replace(/^Programma\b/, 'Programmi')
+      .replace(/^Day Spa\b/, 'ingressi Day Spa')
+      .replace(/^Pulizia viso\b/, 'Pulizie viso')
+      .replace(/^Scrub\b/, 'Scrub')
+      .replace(/^Linfodrenaggio\b/, 'Linfodrenaggi')
+      .replace(/^Riflessologia\b/, 'Riflessologie');
+  };
+  const rigaTesto = (r) => `n. ${r.q} \u00b7 ${vocePlurale(r.nome, r.q)}`;
+  const descrizioneCarrello = (righe) =>
+    righe.length === 1 && righe[0].q === 1
+      ? righe[0].nome
+      : righe.map(rigaTesto).join('\n');
+  const sommaCarrello = (righe) => righe.reduce((s, r) => s + r.prezzo * r.q, 0);
+
+  const righeCorrenti = () => {
+    if (CARRELLO.length) return CARRELLO;
+    /* nessuna riga aggiunta: vale la voce selezionata, come prima */
+    const o = $('fVoce').selectedOptions[0];
+    const q = Math.max(1, parseInt($('fQta').value) || 1);
+    if ($('fVoce').value === '__altro') {
+      const nome = $('fAltro').value.trim();
+      return nome ? [{ id: null, nome, prezzo: parseFloat($('fAltroPrezzo').value) || 0, q }] : [];
+    }
+    return [{ id: $('fVoce').value, nome: o.dataset.nome, prezzo: Number(o.dataset.prezzo), q }];
+  };
+
+  function disegnaRighe() {
+    if (!CARRELLO.length) { $('fRighe').innerHTML = ''; return; }
+    $('fRighe').innerHTML = `<table style="margin-top:10px;">` + CARRELLO.map((r, i) =>
+      `<tr><td style="width:70px;">n. ${r.q}</td><td>${esc(vocePlurale(r.nome, r.q))}</td>
+      <td style="width:90px;text-align:right;">${eur(r.prezzo * r.q)} \u20ac</td>
+      <td style="width:40px;text-align:right;"><a href="#" data-i="${i}" class="togliRiga"
+        style="color:var(--allarme);text-decoration:none;font-size:17px;" title="Togli">\u00d7</a></td></tr>`
+    ).join('') + `<tr><td></td><td style="color:var(--grigio);">Totale listino</td>
+      <td style="text-align:right;font-weight:700;">${eur(sommaCarrello(CARRELLO))} \u20ac</td><td></td></tr></table>`;
+    document.querySelectorAll('.togliRiga').forEach(a => a.onclick = (ev) => {
+      ev.preventDefault();
+      CARRELLO.splice(Number(a.dataset.i), 1);
+      $('fValore').value = CARRELLO.length ? sommaCarrello(CARRELLO) : '';
+      disegnaRighe(); aggiornaAnteprima();
+    });
+  }
 
   const agg = () => {
     const servizio = $('fTipo').value === 'servizio';
@@ -298,7 +413,10 @@ function vistaEmetti() {
     if (servizio) {
       const o = $('fVoce').selectedOptions[0];
       $('boxAltro').style.display = $('fVoce').value === '__altro' ? '' : 'none';
-      if ($('fVoce').value !== '__altro') $('fValore').value = o.dataset.prezzo;
+      if (!CARRELLO.length && $('fVoce').value !== '__altro') $('fValore').value = o.dataset.prezzo;
+    } else {
+      /* buono monetario: si parte da zero, niente residui del listino */
+      $('fValore').value = '';
     }
   };
   const aggPag = () => {
@@ -312,18 +430,16 @@ function vistaEmetti() {
   /* ---- anteprima dal vivo: quello che vede il cliente ---- */
   function buonoProvvisorio() {
     const tipo = $('fTipo').value;
-    let descrizione = '', voce_id = null;
+    let descrizione = '', voce_id = null, righe = [];
     if (tipo === 'servizio') {
-      const o = $('fVoce').selectedOptions[0];
-      voce_id = $('fVoce').value === '__altro' ? null : $('fVoce').value;
-      descrizione = $('fVoce').value === '__altro'
-        ? ($('fAltro').value.trim() || 'Trattamento a scelta')
-        : o.dataset.nome;
+      righe = righeCorrenti();
+      voce_id = righe.length ? righe[0].id : null;
+      descrizione = righe.length ? descrizioneCarrello(righe) : 'Trattamento a scelta';
     } else {
-      descrizione = 'Buono valore di ' + eur($('fValore').value || 0) + ' €, spendibile in hotel';
+      descrizione = descrizioneValore($('fValore').value, $('fLingua').value);
     }
     return {
-      numero: '—', codice: null, stato: 'attesa', tipo, voce_id, descrizione,
+      numero: '\u2014', codice: null, stato: 'attesa', tipo, voce_id, descrizione,
       valore: parseFloat($('fValore').value) || 0,
       lingua: $('fLingua').value, sottotitolo: $('fSotto').value,
       acquirente: $('fAcq').value, destinatario: $('fDest').value,
@@ -346,27 +462,45 @@ function vistaEmetti() {
   $('fTipo').onchange = conAnteprima(agg);
   $('fVoce').onchange = conAnteprima(agg);
   $('fPag').onchange = aggPag;
-  ['fValore','fScade','fLingua','fSotto','fAcq','fDest','fDedica','fAltro']
+  $('fAggiungi').onclick = () => {
+    const q = Math.max(1, parseInt($('fQta').value) || 1);
+    if ($('fVoce').value === '__altro') {
+      const nome = $('fAltro').value.trim();
+      if (!nome) { $('fEsito').innerHTML = '<span class="errore">Scrivi la descrizione della voce libera.</span>'; return; }
+      CARRELLO.push({ id: null, nome, prezzo: parseFloat($('fAltroPrezzo').value) || 0, q });
+      $('fAltro').value = ''; $('fAltroPrezzo').value = '';
+    } else {
+      const o = $('fVoce').selectedOptions[0];
+      const gia = CARRELLO.find(r => r.id === $('fVoce').value);
+      if (gia) gia.q += q;
+      else CARRELLO.push({ id: $('fVoce').value, nome: o.dataset.nome, prezzo: Number(o.dataset.prezzo), q });
+    }
+    $('fQta').value = 1;
+    $('fValore').value = sommaCarrello(CARRELLO);
+    $('fEsito').textContent = '';
+    disegnaRighe(); aggiornaAnteprima();
+  };
+  ['fValore','fScade','fLingua','fSotto','fAcq','fDest','fDedica','fAltro','fQta']
     .forEach(id => { const e = $(id); if (e) { e.oninput = aggiornaAnteprima; e.onchange = aggiornaAnteprima; } });
   window.addEventListener('resize', aggiornaAnteprima);
 
-  agg(); aggPag(); aggiornaAnteprima();
+  agg(); aggPag(); disegnaRighe(); aggiornaAnteprima();
 
   $('fCrea').onclick = async () => {
     const tipo = $('fTipo').value;
     let descrizione = '', voce_id = null;
     if (tipo === 'servizio') {
-      const o = $('fVoce').selectedOptions[0];
-      voce_id = $('fVoce').value === '__altro' ? null : $('fVoce').value;
-      descrizione = $('fVoce').value === '__altro' ? $('fAltro').value.trim() : o.dataset.nome;
+      const righe = righeCorrenti();
+      voce_id = righe.length ? righe[0].id : null;
+      descrizione = righe.length ? descrizioneCarrello(righe) : '';
     } else {
-      descrizione = 'Buono valore di ' + eur($('fValore').value) + ' €, spendibile in hotel';
+      descrizione = descrizioneValore($('fValore').value, $('fLingua').value);
     }
     const valore = parseFloat($('fValore').value);
     if (!descrizione || !(valore > 0)) {
       $('fEsito').innerHTML = '<span class="errore">Servono la voce e un valore.</span>'; return;
     }
-    $('fCrea').disabled = true; $('fEsito').textContent = 'Un momento…';
+    $('fCrea').disabled = true; $('fEsito').textContent = 'Un momento\u2026';
     try {
       const j = await chiama('?a=crea', { method:'POST', body: JSON.stringify({
         operatore: OPERATORE, tipo, voce_id, descrizione, valore,
@@ -395,37 +529,37 @@ function mostraFatto(b) {
     <div style="font-family:monospace;font-size:17px;color:#0F5C64;">${esc(b.numero)}</div>
     ${attesa
       ? `<div style="margin-top:12px;"><strong>In attesa di pagamento.</strong>
-           Il codice spendibile non esiste ancora: al cliente va l&apos;anteprima con le
-           istruzioni per pagare. Quando l&apos;incasso arriva, lo registri qui sotto.</div>
-         ${b.pagamento === 'stripe'
-            ? `<button class="azione" id="bLink">Crea il link di pagamento</button>` : ''}
-         <button class="azione ${b.pagamento === 'stripe' ? 'sec' : ''}" id="bRichiesta">Copia l&apos;email di richiesta pagamento</button>
-         <button class="azione sec" id="bPagato">Ho ricevuto il pagamento</button>`
+        Il codice spendibile non esiste ancora: al cliente va l&apos;anteprima con le
+        istruzioni per pagare. Quando l&apos;incasso arriva, lo registri qui sotto.</div>
+        ${b.pagamento === 'stripe'
+          ? `<button class="azione" id="bLink">Crea il link di pagamento</button>` : ''}
+        <button class="azione ${b.pagamento === 'stripe' ? 'sec' : ''}" id="bRichiesta">Copia l&apos;email di richiesta pagamento</button>
+        <button class="azione sec" id="bPagato">Ho ricevuto il pagamento</button>`
       : `<div class="mini" style="margin-top:12px;">Codice da consegnare</div>
-         <div class="codice">${esc(b.codice)}</div>
-         <div class="mini">${esc(b.descrizione)} · ${eur(b.valore)} € · valido fino al ${dataIT(b.scade_il)}</div>
-         <div class="mini" style="padding-top:12px;">Come lo consegna?</div>
-         <div class="azioni-buono">
-           <button class="azione" id="bStampa">&#128424; Stampa subito</button>
-           ${b.destinatario_email
-             ? `<button class="azione sec" id="bMailDest">&#9993; Email a ${esc(b.destinatario || 'chi lo riceve')}</button>` : ''}
-           ${b.acquirente_email
-             ? `<button class="azione sec" id="bMailAcq">&#9993; Email a ${esc(b.acquirente || 'chi compra')}</button>` : ''}
-           <button class="azione sec" id="bCopia">&#128203; Copia</button>
-         </div>`}
+        <div class="codice">${esc(b.codice)}</div>
+        <div class="mini">${esc(b.descrizione)} \u00b7 ${eur(b.valore)} \u20ac \u00b7 valido fino al ${dataIT(b.scade_il)}</div>
+        <div class="mini" style="padding-top:12px;">Come lo consegna?</div>
+        <div class="azioni-buono">
+          <button class="azione" id="bStampa">&#128424; Stampa subito</button>
+          ${b.destinatario_email
+            ? `<button class="azione sec" id="bMailDest">&#9993; Email a ${esc(b.destinatario || 'chi lo riceve')}</button>` : ''}
+          ${b.acquirente_email
+            ? `<button class="azione sec" id="bMailAcq">&#9993; Email a ${esc(b.acquirente || 'chi compra')}</button>` : ''}
+          <button class="azione sec" id="bCopia">&#128203; Copia</button>
+        </div>`}
     <div class="esito" id="bEsito"></div>
     <div style="margin-top:16px;overflow:auto;">${buonoHTML(b, attesa)}</div>
   </div>`;
 
   if (attesa) {
     if ($('bLink')) $('bLink').onclick = async () => {
-      $('bEsito').textContent = 'Chiedo il link a Stripe…';
+      $('bEsito').textContent = 'Chiedo il link a Stripe\u2026';
       try {
         const j = await chiama('?a=link', { method: 'POST', body: JSON.stringify({ numero: b.numero }) });
         LINK_PAGAMENTO = j.url;
         $('bEsito').innerHTML = `\u2713 Link pronto: <a href="${esc(j.url)}" target="_blank"
           style="color:#1E7F88;word-break:break-all;">${esc(j.url)}</a><br />
-          <span class="mini">Ora "Copia l\u2019email": il link è già dentro. Quando il cliente paga,
+          <span class="mini">Ora "Copia l\u2019email": il link \u00e8 gi\u00e0 dentro. Quando il cliente paga,
           il buono si sblocca da solo.</span>`;
       } catch (e) {
         $('bEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>
@@ -438,11 +572,11 @@ function mostraFatto(b) {
           'text/html': new Blob([emailRichiesta(b)], { type: 'text/html' }),
           'text/plain': new Blob([emailRichiestaTesto(b)], { type: 'text/plain' })
         })]);
-        $('bEsito').textContent = '✓ Copiata: incollala in Outlook e invia al cliente.';
+        $('bEsito').textContent = '\u2713 Copiata: incollala in Outlook e invia al cliente.';
       } catch (e) { $('bEsito').innerHTML = '<span class="errore">Copia non riuscita.</span>'; }
     };
     $('bPagato').onclick = async () => {
-      const rif = prompt('Riferimento del pagamento (CRO del bonifico, id della transazione…). Puoi lasciare vuoto:') ?? null;
+      const rif = prompt('Riferimento del pagamento (CRO del bonifico, id della transazione\u2026). Puoi lasciare vuoto:') ?? null;
       if (rif === null) return;
       try {
         const j = await chiama('?a=pagato', { method: 'POST', body: JSON.stringify({
@@ -451,16 +585,16 @@ function mostraFatto(b) {
       } catch (e) { $('bEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
     };
   } else {
-    $('bStampa').onclick = () => { $('stampa').innerHTML = buonoHTML(b); window.print(); };
+    $('bStampa').onclick = () => { $('stampa').innerHTML = buonoStampaHTML(b); window.print(); };
 
     /* email: copia il buono e apre Outlook già indirizzato, come fa l'estensione */
     const perEmail = async (dest, chi) => {
       const L = ['it','de','en','fr'].includes(b.lingua) ? b.lingua : 'it';
       const OGG = {
-        it:`Il suo Buono Regalo — Hotel Terme Leonardo`,
-        de:`Ihr Geschenkgutschein — Hotel Terme Leonardo`,
-        en:`Your Gift Voucher — Hotel Terme Leonardo`,
-        fr:`Votre Bon Cadeau — Hôtel Terme Leonardo`
+        it:`Il suo Buono Regalo \u2014 Hotel Terme Leonardo`,
+        de:`Ihr Geschenkgutschein \u2014 Hotel Terme Leonardo`,
+        en:`Your Gift Voucher \u2014 Hotel Terme Leonardo`,
+        fr:`Votre Bon Cadeau \u2014 H\u00f4tel Terme Leonardo`
       }[L];
       try {
         await navigator.clipboard.write([new ClipboardItem({
@@ -483,7 +617,7 @@ function mostraFatto(b) {
           'text/html': new Blob([buonoHTML(b)], { type: 'text/html' }),
           'text/plain': new Blob([buonoTesto(b)], { type: 'text/plain' })
         })]);
-        $('bEsito').textContent = '✓ Copiato: lo incolli nell\u2019email al cliente.';
+        $('bEsito').textContent = '\u2713 Copiato: lo incolli nell\u2019email al cliente.';
       } catch (e) { $('bEsito').innerHTML = '<span class="errore">Copia non riuscita.</span>'; }
     };
   }
@@ -495,39 +629,39 @@ let LINK_PAGAMENTO = '';
 function emailRichiesta(b) {
   const link = b.pagamento === 'stripe' && LINK_PAGAMENTO;
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#2A2E2B;max-width:600px;">
-    <p>Gentile ${esc(b.acquirente || 'Cliente')},</p>
-    <p>ecco il buono regalo che ci ha chiesto: qui sotto trova l&apos;anteprima.
-    Diventa valido appena registriamo il pagamento, e le inviamo subito il buono
-    definitivo con il codice da consegnare.</p>
-    <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:18px 0;">
-      <tr><td style="border-left:3px solid #1E7F88;background:#FAF8F4;padding:14px 18px;">
-        <strong>${esc(b.descrizione)}</strong><br />
-        Importo: <strong>${eur(b.valore)} &euro;</strong><br />
-        Riferimento: ${esc(b.numero)}
-      </td></tr></table>
-    <p><strong>Come pagare</strong><br />
-    ${link ? `<a href="${esc(LINK_PAGAMENTO)}" style="display:inline-block;background:#E8751A;color:#fff;
-        text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:600;margin:6px 0 14px;">
-        Paga con carta &mdash; ${eur(b.valore)} &euro;</a><br />oppure` : ''}
-    con bonifico bancario intestato a Tria S.r.l.:<br />
-    IBAN <strong>${IBAN}</strong><br />
-    Causale: <strong>${esc(b.numero)}</strong> &mdash; buono regalo</p>
-    <p>Appena ricevuto le mandiamo il buono, pronto da stampare o da inoltrare
-    a chi lo riceverà.</p>
-    <p>Un cordiale saluto,<br />${esc(OPERATORE)}<br />
-    <span style="color:#7B756A;font-size:13px;">Hotel Terme Leonardo &middot; +39 049 9939200</span></p>
+  <p>Gentile ${esc(b.acquirente || 'Cliente')},</p>
+  <p>ecco il buono regalo che ci ha chiesto: qui sotto trova l&apos;anteprima.
+  Diventa valido appena registriamo il pagamento, e le inviamo subito il buono
+  definitivo con il codice da consegnare.</p>
+  <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:18px 0;">
+    <tr><td style="border-left:3px solid #1E7F88;background:#FAF8F4;padding:14px 18px;">
+      <strong>${esc(b.descrizione)}</strong><br />
+      Importo: <strong>${eur(b.valore)} &euro;</strong><br />
+      Riferimento: ${esc(b.numero)}
+    </td></tr></table>
+  <p><strong>Come pagare</strong><br />
+  ${link ? `<a href="${esc(LINK_PAGAMENTO)}" style="display:inline-block;background:#E8751A;color:#fff;
+    text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:600;margin:6px 0 14px;">
+    Paga con carta &mdash; ${eur(b.valore)} &euro;</a><br />oppure` : ''}
+  con bonifico bancario intestato a Tria S.r.l.:<br />
+  IBAN <strong>${IBAN}</strong><br />
+  Causale: <strong>${esc(b.numero)}</strong> &mdash; buono regalo</p>
+  <p>Appena ricevuto le mandiamo il buono, pronto da stampare o da inoltrare
+  a chi lo ricever\u00e0.</p>
+  <p>Un cordiale saluto,<br />${esc(OPERATORE)}<br />
+  <span style="color:#7B756A;font-size:13px;">Hotel Terme Leonardo &middot; +39 049 9939200</span></p>
   </div>` + '<div style="margin-top:22px;">' + buonoHTML(b, true) + '</div>';
 }
 function emailRichiestaTesto(b) {
   return `Gentile ${b.acquirente || 'Cliente'},\n\necco il buono regalo che ci ha chiesto.\n` +
-    `Diventa valido appena registriamo il pagamento.\n\n` +
-    `${b.descrizione}\nImporto: ${eur(b.valore)} €\nRiferimento: ${b.numero}\n\n` +
-    `COME PAGARE\n` +
-    (LINK_PAGAMENTO && b.pagamento === 'stripe' ? `Con carta: ${LINK_PAGAMENTO}\noppure\n` : '') +
-    `Bonifico intestato a Tria S.r.l.\nIBAN ${IBAN}\n` +
-    `Causale: ${b.numero} — buono regalo\n\n` +
-    `Appena ricevuto le mandiamo il buono definitivo.\n\n${OPERATORE}\n` +
-    `Hotel Terme Leonardo · +39 049 9939200`;
+  `Diventa valido appena registriamo il pagamento.\n\n` +
+  `${b.descrizione}\nImporto: ${eur(b.valore)} \u20ac\nRiferimento: ${b.numero}\n\n` +
+  `COME PAGARE\n` +
+  (LINK_PAGAMENTO && b.pagamento === 'stripe' ? `Con carta: ${LINK_PAGAMENTO}\noppure\n` : '') +
+  `Bonifico intestato a Tria S.r.l.\nIBAN ${IBAN}\n` +
+  `Causale: ${b.numero} \u2014 buono regalo\n\n` +
+  `Appena ricevuto le mandiamo il buono definitivo.\n\n${OPERATORE}\n` +
+  `Hotel Terme Leonardo \u00b7 +39 049 9939200`;
 }
 
 /* ---------- il buono: due colonne, come la bozza ----------
@@ -537,94 +671,98 @@ function emailRichiestaTesto(b) {
 /* immagine di copertina per categoria — URL pubblici del sito.
    ⚠️ da riempire con le foto vere: senza, esce il fondo decorato. */
 const COPERTINE = {
-  dayspa:   '',
+  dayspa: '',
   massaggi: '',
-  viso:     '',
-  corpo:    '',
-  valore:   ''
+  viso: '',
+  corpo: '',
+  valore: ''
 };
 const NARRATIVA = {
   dayspa: {
-    it:{ occhiello:'PISCINE TERMALI · HOTEL LEONARDO', frase:'Un momento di pura quiete,<br />è il regalo più bello.',
+    it:{ occhiello:'PISCINE TERMALI \u00b7 HOTEL LEONARDO', frase:'Un momento di pura quiete,<br />\u00e8 il regalo pi\u00f9 bello.',
       testo:'Tra le acque termali dei Colli Euganei, un\u2019intera giornata pensata solo per te: per respirare piano, lasciarsi andare e ritrovare il proprio equilibrio.' },
-    de:{ occhiello:'THERMALBÄDER · HOTEL LEONARDO', frase:'Ein Moment der Stille<br />ist das schönste Geschenk.',
-      testo:'Im Thermalwasser der Euganeischen Hügel ein ganzer Tag nur für Sie: durchatmen, loslassen und wieder ins Gleichgewicht kommen.' },
-    en:{ occhiello:'THERMAL POOLS · HOTEL LEONARDO', frase:'A moment of pure quiet<br />is the finest gift.',
+    de:{ occhiello:'THERMALB\u00c4DER \u00b7 HOTEL LEONARDO', frase:'Ein Moment der Stille<br />ist das sch\u00f6nste Geschenk.',
+      testo:'Im Thermalwasser der Euganeischen H\u00fcgel ein ganzer Tag nur f\u00fcr Sie: durchatmen, loslassen und wieder ins Gleichgewicht kommen.' },
+    en:{ occhiello:'THERMAL POOLS \u00b7 HOTEL LEONARDO', frase:'A moment of pure quiet<br />is the finest gift.',
       testo:'In the thermal waters of the Euganean Hills, a whole day just for you: to breathe slowly, let go and find your balance again.' },
-    fr:{ occhiello:'PISCINES THERMALES · HÔTEL LEONARDO', frase:'Un moment de pur calme,<br />le plus beau des cadeaux.',
-      testo:'Dans les eaux thermales des collines euganéennes, une journée entière rien que pour vous : respirer, lâcher prise et retrouver son équilibre.' }
+    fr:{ occhiello:'PISCINES THERMALES \u00b7 H\u00d4TEL LEONARDO', frase:'Un moment de pur calme,<br />le plus beau des cadeaux.',
+      testo:'Dans les eaux thermales des collines eugan\u00e9ennes, une journ\u00e9e enti\u00e8re rien que pour vous : respirer, l\u00e2cher prise et retrouver son \u00e9quilibre.' }
   },
   massaggi: {
-    it:{ occhiello:'CENTRO BENESSERE · HOTEL LEONARDO', frase:'Un\u2019ora per sé,<br />è il regalo più raro.',
+    it:{ occhiello:'CENTRO BENESSERE \u00b7 HOTEL LEONARDO', frase:'Un\u2019ora per s\u00e9,<br />\u00e8 il regalo pi\u00f9 raro.',
       testo:'Mani esperte, oli caldi e il silenzio del centro benessere: il tempo rallenta e il corpo si scioglie.' },
-    de:{ occhiello:'WELLNESSBEREICH · HOTEL LEONARDO', frase:'Eine Stunde für sich<br />ist das seltenste Geschenk.',
-      testo:'Erfahrene Hände, warme Öle und die Ruhe des Wellnessbereichs: die Zeit wird langsamer, der Körper löst sich.' },
-    en:{ occhiello:'WELLNESS CENTRE · HOTEL LEONARDO', frase:'An hour to yourself<br />is the rarest gift.',
+    de:{ occhiello:'WELLNESSBEREICH \u00b7 HOTEL LEONARDO', frase:'Eine Stunde f\u00fcr sich<br />ist das seltenste Geschenk.',
+      testo:'Erfahrene H\u00e4nde, warme \u00d6le und die Ruhe des Wellnessbereichs: die Zeit wird langsamer, der K\u00f6rper l\u00f6st sich.' },
+    en:{ occhiello:'WELLNESS CENTRE \u00b7 HOTEL LEONARDO', frase:'An hour to yourself<br />is the rarest gift.',
       testo:'Skilled hands, warm oils and the quiet of the wellness centre: time slows down and the body lets go.' },
-    fr:{ occhiello:'CENTRE DE BIEN-ÊTRE · HÔTEL LEONARDO', frase:'Une heure pour soi,<br />le plus rare des cadeaux.',
-      testo:'Des mains expertes, des huiles chaudes et le silence du centre de bien-être : le temps ralentit et le corps se détend.' }
+    fr:{ occhiello:'CENTRE DE BIEN-\u00caTRE \u00b7 H\u00d4TEL LEONARDO', frase:'Une heure pour soi,<br />le plus rare des cadeaux.',
+      testo:'Des mains expertes, des huiles chaudes et le silence du centre de bien-\u00eatre : le temps ralentit et le corps se d\u00e9tend.' }
   },
   viso: {
-    it:{ occhiello:'TRATTAMENTI VISO · HOTEL LEONARDO', frase:'La cura di sé<br />comincia da uno sguardo.',
+    it:{ occhiello:'TRATTAMENTI VISO \u00b7 HOTEL LEONARDO', frase:'La cura di s\u00e9<br />comincia da uno sguardo.',
       testo:'Trattamenti su misura con i principi attivi dell\u2019acqua termale, per una pelle che ritrova luce e morbidezza.' },
-    de:{ occhiello:'GESICHTSBEHANDLUNGEN · HOTEL LEONARDO', frase:'Die Pflege beginnt<br />mit einem Blick.',
-      testo:'Maßgeschneiderte Behandlungen mit den Wirkstoffen des Thermalwassers, für eine Haut voller Licht und Weichheit.' },
-    en:{ occhiello:'FACIAL TREATMENTS · HOTEL LEONARDO', frase:'Caring for yourself<br />begins with a glance.',
+    de:{ occhiello:'GESICHTSBEHANDLUNGEN \u00b7 HOTEL LEONARDO', frase:'Die Pflege beginnt<br />mit einem Blick.',
+      testo:'Ma\u00dfgeschneiderte Behandlungen mit den Wirkstoffen des Thermalwassers, f\u00fcr eine Haut voller Licht und Weichheit.' },
+    en:{ occhiello:'FACIAL TREATMENTS \u00b7 HOTEL LEONARDO', frase:'Caring for yourself<br />begins with a glance.',
       testo:'Tailored treatments with the active ingredients of thermal water, for skin that regains its light and softness.' },
-    fr:{ occhiello:'SOINS DU VISAGE · HÔTEL LEONARDO', frase:'Prendre soin de soi<br />commence par un regard.',
-      testo:'Des soins sur mesure aux principes actifs de l\u2019eau thermale, pour une peau qui retrouve éclat et douceur.' }
+    fr:{ occhiello:'SOINS DU VISAGE \u00b7 H\u00d4TEL LEONARDO', frase:'Prendre soin de soi<br />commence par un regard.',
+      testo:'Des soins sur mesure aux principes actifs de l\u2019eau thermale, pour une peau qui retrouve \u00e9clat et douceur.' }
   },
   corpo: {
-    it:{ occhiello:'RITUALI CORPO · HOTEL LEONARDO', frase:'Il benessere si sente<br />prima ancora di vederlo.',
+    it:{ occhiello:'RITUALI CORPO \u00b7 HOTEL LEONARDO', frase:'Il benessere si sente<br />prima ancora di vederlo.',
       testo:'Scrub, fanghi e trattamenti che risvegliano il corpo, nel calore dell\u2019acqua termale dei Colli Euganei.' },
-    de:{ occhiello:'KÖRPERRITUALE · HOTEL LEONARDO', frase:'Wohlbefinden spürt man,<br />bevor man es sieht.',
-      testo:'Peelings, Fango und Behandlungen, die den Körper wecken — in der Wärme des Thermalwassers der Euganeischen Hügel.' },
-    en:{ occhiello:'BODY RITUALS · HOTEL LEONARDO', frase:'Wellbeing is felt<br />before it is seen.',
+    de:{ occhiello:'K\u00d6RPERRITUALE \u00b7 HOTEL LEONARDO', frase:'Wohlbefinden sp\u00fcrt man,<br />bevor man es sieht.',
+      testo:'Peelings, Fango und Behandlungen, die den K\u00f6rper wecken \u2014 in der W\u00e4rme des Thermalwassers der Euganeischen H\u00fcgel.' },
+    en:{ occhiello:'BODY RITUALS \u00b7 HOTEL LEONARDO', frase:'Wellbeing is felt<br />before it is seen.',
       testo:'Scrubs, mud and treatments that awaken the body, in the warmth of the thermal water of the Euganean Hills.' },
-    fr:{ occhiello:'RITUELS CORPS · HÔTEL LEONARDO', frase:'Le bien-être se ressent<br />avant même de se voir.',
-      testo:'Gommages, fangos et soins qui réveillent le corps, dans la chaleur de l\u2019eau thermale des collines euganéennes.' }
+    fr:{ occhiello:'RITUELS CORPS \u00b7 H\u00d4TEL LEONARDO', frase:'Le bien-\u00eatre se ressent<br />avant m\u00eame de se voir.',
+      testo:'Gommages, fangos et soins qui r\u00e9veillent le corps, dans la chaleur de l\u2019eau thermale des collines eugan\u00e9ennes.' }
   },
   valore: {
-    it:{ occhiello:'HOTEL TERME LEONARDO · ABANO TERME', frase:'Lascia che scelga<br />il suo momento.',
+    it:{ occhiello:'HOTEL TERME LEONARDO \u00b7 ABANO TERME', frase:'Lascia che scelga<br />il suo momento.',
       testo:'Un buono da usare come preferisce: una giornata alle terme, un trattamento, un soggiorno tra i Colli Euganei.' },
-    de:{ occhiello:'HOTEL TERME LEONARDO · ABANO TERME', frase:'Lassen Sie ihn<br />den Moment wählen.',
-      testo:'Ein Gutschein nach Wunsch einzulösen: ein Thermentag, eine Anwendung oder ein Aufenthalt in den Euganeischen Hügeln.' },
-    en:{ occhiello:'HOTEL TERME LEONARDO · ABANO TERME', frase:'Let them choose<br />their own moment.',
+    de:{ occhiello:'HOTEL TERME LEONARDO \u00b7 ABANO TERME', frase:'Lassen Sie ihn<br />den Moment w\u00e4hlen.',
+      testo:'Ein Gutschein nach Wunsch einzul\u00f6sen: ein Thermentag, eine Anwendung oder ein Aufenthalt in den Euganeischen H\u00fcgeln.' },
+    en:{ occhiello:'HOTEL TERME LEONARDO \u00b7 ABANO TERME', frase:'Let them choose<br />their own moment.',
       testo:'A voucher to use as they please: a day at the spa, a treatment, or a stay in the Euganean Hills.' },
-    fr:{ occhiello:'HOTEL TERME LEONARDO · ABANO TERME', frase:'Laissez-lui choisir<br />son moment.',
-      testo:'Un bon à utiliser à sa guise : une journée aux thermes, un soin, ou un séjour dans les collines euganéennes.' }
+    fr:{ occhiello:'HOTEL TERME LEONARDO \u00b7 ABANO TERME', frase:'Laissez-lui choisir<br />son moment.',
+      testo:'Un bon \u00e0 utiliser \u00e0 sa guise : une journ\u00e9e aux thermes, un soin, ou un s\u00e9jour dans les collines eugan\u00e9ennes.' }
   }
 };
 
 /* etichette del buono */
 const ETI = {
   it:{ titolo:'Buono Regalo', haRicevuto:(n)=>`${n}, hai ricevuto<br />un dono speciale`,
-       senzaNome:'Un dono speciale<br />per te', da:'CON AFFETTO, DA', codice:'CODICE BUONO',
-       valido:(d)=>`Valido fino al ${d}`, valore:(v)=>`valore ${v} &euro;`,
-       anteprima:'ANTEPRIMA — NON ANCORA VALIDO',
-       anteprimaNota:'Il codice viene assegnato al momento del pagamento.' },
+    senzaNome:'Un dono speciale<br />per te', da:'CON AFFETTO, DA', codice:'CODICE BUONO',
+    valido:(d)=>`Valido fino al ${d}`, valore:(v)=>`valore ${v} &euro;`,
+    anteprima:'ANTEPRIMA \u2014 NON ANCORA VALIDO',
+    anteprimaNota:'Il codice viene assegnato al momento del pagamento.',
+    nota:'Salvo diversa indicazione, ogni ingresso o trattamento vale per una persona. Ingressi e trattamenti su prenotazione: basta chiamarci o scriverci.' },
   de:{ titolo:'Geschenkgutschein', haRicevuto:(n)=>`${n}, Sie haben<br />ein besonderes Geschenk erhalten`,
-       senzaNome:'Ein besonderes<br />Geschenk für Sie', da:'HERZLICHST, VON', codice:'GUTSCHEINCODE',
-       valido:(d)=>`Gültig bis ${d}`, valore:(v)=>`Wert ${v} &euro;`,
-       anteprima:'VORSCHAU — NOCH NICHT GÜLTIG',
-       anteprimaNota:'Der Code wird bei Zahlungseingang vergeben.' },
+    senzaNome:'Ein besonderes<br />Geschenk f\u00fcr Sie', da:'HERZLICHST, VON', codice:'GUTSCHEINCODE',
+    valido:(d)=>`G\u00fcltig bis ${d}`, valore:(v)=>`Wert ${v} &euro;`,
+    anteprima:'VORSCHAU \u2014 NOCH NICHT G\u00dcLTIG',
+    anteprimaNota:'Der Code wird bei Zahlungseingang vergeben.',
+    nota:'Sofern nicht anders angegeben, gilt jeder Eintritt bzw. jede Anwendung f\u00fcr eine Person. Eintritte und Anwendungen nur mit Reservierung: rufen Sie uns einfach an oder schreiben Sie uns.' },
   en:{ titolo:'Gift Voucher', haRicevuto:(n)=>`${n}, you have received<br />a special gift`,
-       senzaNome:'A special gift<br />for you', da:'WITH LOVE, FROM', codice:'VOUCHER CODE',
-       valido:(d)=>`Valid until ${d}`, valore:(v)=>`value ${v} &euro;`,
-       anteprima:'PREVIEW — NOT YET VALID',
-       anteprimaNota:'The code is assigned once payment is received.' },
-  fr:{ titolo:'Bon Cadeau', haRicevuto:(n)=>`${n}, vous avez reçu<br />un cadeau très spécial`,
-       senzaNome:'Un cadeau spécial<br />pour vous', da:'AVEC AFFECTION, DE', codice:'CODE DU BON',
-       valido:(d)=>`Valable jusqu'au ${d}`, valore:(v)=>`valeur ${v} &euro;`,
-       anteprima:'APERÇU — PAS ENCORE VALABLE',
-       anteprimaNota:'Le code est attribué au moment du paiement.' }
+    senzaNome:'A special gift<br />for you', da:'WITH LOVE, FROM', codice:'VOUCHER CODE',
+    valido:(d)=>`Valid until ${d}`, valore:(v)=>`value ${v} &euro;`,
+    anteprima:'PREVIEW \u2014 NOT YET VALID',
+    anteprimaNota:'The code is assigned once payment is received.',
+    nota:'Unless stated otherwise, each entrance or treatment is for one person. Entrances and treatments require booking: just call or write to us.' },
+  fr:{ titolo:'Bon Cadeau', haRicevuto:(n)=>`${n}, vous avez re\u00e7u<br />un cadeau tr\u00e8s sp\u00e9cial`,
+    senzaNome:'Un cadeau sp\u00e9cial<br />pour vous', da:'AVEC AFFECTION, DE', codice:'CODE DU BON',
+    valido:(d)=>`Valable jusqu'au ${d}`, valore:(v)=>`valeur ${v} &euro;`,
+    anteprima:'APER\u00c7U \u2014 PAS ENCORE VALABLE',
+    anteprimaNota:'Le code est attribu\u00e9 au moment du paiement.',
+    nota:'Sauf indication contraire, chaque entr\u00e9e ou soin vaut pour une personne. Entr\u00e9es et soins sur r\u00e9servation : appelez-nous ou \u00e9crivez-nous.' }
 };
 
 const MESI_L = {
   it:['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'],
-  de:['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'],
+  de:['Januar','Februar','M\u00e4rz','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'],
   en:['January','February','March','April','May','June','July','August','September','October','November','December'],
-  fr:['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre']
+  fr:['janvier','f\u00e9vrier','mars','avril','mai','juin','juillet','ao\u00fbt','septembre','octobre','novembre','d\u00e9cembre']
 };
 function dataLingua(iso, l) {
   if (!iso) return '';
@@ -649,41 +787,41 @@ function categoriaBuono(b) {
 const COMPRENDE = {
   dayspa: {
     it:['Piscine termali interna ed esterna comunicanti, con idromassaggi e giochi d\u2019acqua',
-        'Zona Relax: Biogrotta, bagno turco, vasca idromassaggio, lettini massaggianti',
-        'Cascata di acqua termale, cascata di ghiaccio e docce emozionali con aromaterapia',
-        'Piscina scoperta estiva con acqua dolce a temperatura ambiente'],
-    de:['Thermal-Innen- und Außenpool, miteinander verbunden, mit Sprudelliegen und Wasserspielen',
-        'Relaxbereich: Biogrotte, Dampfbad, Whirlpool, Massageliegen',
-        'Thermalwasserfall, Eisbrunnen und Erlebnisduschen mit Aromatherapie',
-        'Sommer-Freibad mit Süßwasser bei Umgebungstemperatur'],
+      'Zona Relax: Biogrotta, bagno turco, vasca idromassaggio, lettini massaggianti',
+      'Cascata di acqua termale, cascata di ghiaccio e docce emozionali con aromaterapia',
+      'Piscina scoperta estiva con acqua dolce a temperatura ambiente'],
+    de:['Thermal-Innen- und Au\u00dfenpool, miteinander verbunden, mit Sprudelliegen und Wasserspielen',
+      'Relaxbereich: Biogrotte, Dampfbad, Whirlpool, Massageliegen',
+      'Thermalwasserfall, Eisbrunnen und Erlebnisduschen mit Aromatherapie',
+      'Sommer-Freibad mit S\u00fc\u00dfwasser bei Umgebungstemperatur'],
     en:['Connected indoor and outdoor thermal pools, with hydromassage and water features',
-        'Relax area: Bio-grotto, steam bath, whirlpool, massage loungers',
-        'Thermal waterfall, ice fountain and emotional showers with aromatherapy',
-        'Outdoor summer pool with fresh water at ambient temperature'],
-    fr:['Piscines thermales intérieure et extérieure communicantes, avec hydromassages et jeux d\u2019eau',
-        'Espace Relax : bio-grotte, bain turc, bain à remous, lits de massage',
-        'Cascade d\u2019eau thermale, cascade de glace et douches sensorielles à l\u2019aromathérapie',
-        'Piscine découverte estivale à l\u2019eau douce à température ambiante']
+      'Relax area: Bio-grotto, steam bath, whirlpool, massage loungers',
+      'Thermal waterfall, ice fountain and emotional showers with aromatherapy',
+      'Outdoor summer pool with fresh water at ambient temperature'],
+    fr:['Piscines thermales int\u00e9rieure et ext\u00e9rieure communicantes, avec hydromassages et jeux d\u2019eau',
+      'Espace Relax : bio-grotte, bain turc, bain \u00e0 remous, lits de massage',
+      'Cascade d\u2019eau thermale, cascade de glace et douches sensorielles \u00e0 l\u2019aromath\u00e9rapie',
+      'Piscine d\u00e9couverte estivale \u00e0 l\u2019eau douce \u00e0 temp\u00e9rature ambiante']
   }
 };
 
 const CONDIZIONI = {
-  it:'Apertura stagionale: l\u2019hotel chiude ogni anno da fine novembre a febbraio; il buono non è valido in questo periodo. ' +
-     'È richiesta la maggiore età per l\u2019accesso a piscine, hotel e spa; ingressi soggetti a disponibilità e prenotazione obbligatoria. ' +
-     'Il buono non è utilizzabile nelle prime 48 ore dall\u2019acquisto, non è rimborsabile né convertibile in denaro; ' +
-     'gli importi residui dopo il primo utilizzo non sono trasferibili. Validità 12 mesi dalla data di acquisto.',
-  de:'Saisonale Öffnung: das Hotel schließt jedes Jahr von Ende November bis Februar; in diesem Zeitraum ist der Gutschein nicht gültig. ' +
-     'Für den Zutritt zu Pools, Hotel und Spa ist Volljährigkeit erforderlich; Eintritte nach Verfügbarkeit, Reservierung erforderlich. ' +
-     'Der Gutschein ist in den ersten 48 Stunden nach dem Kauf nicht einlösbar, nicht erstattungsfähig und nicht in Bargeld umtauschbar; ' +
-     'Restbeträge nach der ersten Einlösung sind nicht übertragbar. Gültigkeit 12 Monate ab Kaufdatum.',
+  it:'Apertura stagionale: l\u2019hotel chiude ogni anno da fine novembre a febbraio; il buono non \u00e8 valido in questo periodo. ' +
+    '\u00c8 richiesta la maggiore et\u00e0 per l\u2019accesso a piscine, hotel e spa; ingressi soggetti a disponibilit\u00e0 e prenotazione obbligatoria. ' +
+    'Il buono non \u00e8 utilizzabile nelle prime 48 ore dall\u2019acquisto, non \u00e8 rimborsabile n\u00e9 convertibile in denaro; ' +
+    'gli importi residui dopo il primo utilizzo non sono trasferibili. Validit\u00e0 12 mesi dalla data di acquisto.',
+  de:'Saisonale \u00d6ffnung: das Hotel schlie\u00dft jedes Jahr von Ende November bis Februar; in diesem Zeitraum ist der Gutschein nicht g\u00fcltig. ' +
+    'F\u00fcr den Zutritt zu Pools, Hotel und Spa ist Vollj\u00e4hrigkeit erforderlich; Eintritte nach Verf\u00fcgbarkeit, Reservierung erforderlich. ' +
+    'Der Gutschein ist in den ersten 48 Stunden nach dem Kauf nicht einl\u00f6sbar, nicht erstattungsf\u00e4hig und nicht in Bargeld umtauschbar; ' +
+    'Restbetr\u00e4ge nach der ersten Einl\u00f6sung sind nicht \u00fcbertragbar. G\u00fcltigkeit 12 Monate ab Kaufdatum.',
   en:'Seasonal opening: the hotel closes every year from late November to February; the voucher is not valid in this period. ' +
-     'Guests must be of legal age to access pools, hotel and spa; admission subject to availability, booking required. ' +
-     'The voucher cannot be used within the first 48 hours of purchase, is not refundable and cannot be exchanged for cash; ' +
-     'any remaining amount after the first use is not transferable. Valid for 12 months from the date of purchase.',
-  fr:'Ouverture saisonnière : l\u2019hôtel ferme chaque année de fin novembre à février ; le bon n\u2019est pas valable durant cette période. ' +
-     'La majorité est requise pour accéder aux piscines, à l\u2019hôtel et au spa ; entrées soumises à disponibilité et réservation obligatoire. ' +
-     'Le bon n\u2019est pas utilisable dans les 48 heures suivant l\u2019achat, n\u2019est ni remboursable ni convertible en espèces ; ' +
-     'les montants restants après la première utilisation ne sont pas transférables. Validité 12 mois à compter de la date d\u2019achat.'
+    'Guests must be of legal age to access pools, hotel and spa; admission subject to availability, booking required. ' +
+    'The voucher cannot be used within the first 48 hours of purchase, is not refundable and cannot be exchanged for cash; ' +
+    'any remaining amount after the first use is not transferable. Valid for 12 months from the date of purchase.',
+  fr:'Ouverture saisonni\u00e8re : l\u2019h\u00f4tel ferme chaque ann\u00e9e de fin novembre \u00e0 f\u00e9vrier ; le bon n\u2019est pas valable durant cette p\u00e9riode. ' +
+    'La majorit\u00e9 est requise pour acc\u00e9der aux piscines, \u00e0 l\u2019h\u00f4tel et au spa ; entr\u00e9es soumises \u00e0 disponibilit\u00e9 et r\u00e9servation obligatoire. ' +
+    'Le bon n\u2019est pas utilisable dans les 48 heures suivant l\u2019achat, n\u2019est ni remboursable ni convertible en esp\u00e8ces ; ' +
+    'les montants restants apr\u00e8s la premi\u00e8re utilisation ne sont pas transf\u00e9rables. Validit\u00e9 12 mois \u00e0 compter de la date d\u2019achat.'
 };
 
 function buonoHTML(b, bozza) {
@@ -692,100 +830,172 @@ function buonoHTML(b, bozza) {
   const e = ETI[L];
   const n = (NARRATIVA[cat] || NARRATIVA.valore)[L] || (NARRATIVA[cat] || NARRATIVA.valore).it;
   const foto = COPERTINE[cat] || '';
-  const comprende = (COMPRENDE[cat] || {})[L] || (COMPRENDE[cat] || {}).it || [];
+  const catComprende = /day spa/i.test(String(b.descrizione || '')) ? 'dayspa' : cat;
+  const comprende = (COMPRENDE[catComprende] || {})[L] || (COMPRENDE[catComprende] || {}).it || [];
   const dest = b.destinatario ? esc(b.destinatario) : '';
   const sotto = b.sottotitolo ? esc(b.sottotitolo) : '';
+  const righeDescr = String(b.descrizione || '').split('\n').filter(Boolean);
 
   return `<table cellpadding="0" cellspacing="0" border="0" width="700" style="width:700px;max-width:100%;
-    border-collapse:collapse;font-family:Georgia,'Times New Roman',serif;background:#FFFFFF;">
-   <tr>
-    <!-- colonna sinistra -->
-    <td width="270" valign="top" style="width:270px;background:#E4F0EA;padding:34px 26px;">
-      <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;letter-spacing:2px;color:#1B4D4A;">
-        LE<strong>ONARDO</strong></div>
-      <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:3px;color:#7A9490;margin-top:4px;">
-        TERME HOTEL &nbsp;★★★★</div>
-      ${foto
-        ? `<img src="${esc(foto)}" width="218" style="width:218px;display:block;margin:26px 0 8px;border-radius:2px;" alt="" />`
-        : `<div style="height:150px;margin:26px 0 8px;border-radius:2px;
-             background:linear-gradient(160deg,#BEDCD4,#8FC4BC 55%,#5FA8A0);"></div>`}
-      <div style="font-family:Arial,Helvetica,sans-serif;font-size:8.5px;letter-spacing:2px;color:#7A9490;">
-        ${esc(n.occhiello)}</div>
-      <div style="font-size:19px;line-height:1.35;color:#1B4D4A;font-style:italic;margin:26px 0 12px;">
-        ${n.frase}</div>
-      <div style="font-family:Arial,Helvetica,sans-serif;font-size:11.5px;line-height:1.6;color:#5C736F;">
-        ${esc(n.testo)}</div>
-      <div style="font-family:Arial,Helvetica,sans-serif;font-size:8.5px;letter-spacing:2px;color:#7A9490;padding-top:34px;">
-        ABANO TERME · COLLI EUGANEI</div>
-    </td>
+  border-collapse:collapse;font-family:Georgia,'Times New Roman',serif;background:#FFFFFF;">
+<tr>
+  <!-- colonna sinistra -->
+  <td width="270" valign="top" style="width:270px;background:#E4F0EA;padding:34px 26px;">
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;letter-spacing:2px;color:#1B4D4A;">
+      LE<strong>ONARDO</strong></div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:3px;color:#7A9490;margin-top:4px;">
+      TERME HOTEL &nbsp;\u2605\u2605\u2605\u2605</div>
+    ${foto
+      ? `<img src="${esc(foto)}" width="218" style="width:218px;display:block;margin:26px 0 8px;border-radius:2px;" alt="" />`
+      : `<div style="height:150px;margin:26px 0 8px;border-radius:2px;
+        background:linear-gradient(160deg,#BEDCD4,#8FC4BC 55%,#5FA8A0);"></div>`}
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:8.5px;letter-spacing:2px;color:#7A9490;">
+      ${esc(n.occhiello)}</div>
+    <div style="font-size:19px;line-height:1.35;color:#1B4D4A;font-style:italic;margin:26px 0 12px;">
+      ${n.frase}</div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:11.5px;line-height:1.6;color:#5C736F;">
+      ${esc(n.testo)}</div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:8.5px;letter-spacing:2px;color:#7A9490;padding-top:34px;">
+      ABANO TERME \u00b7 COLLI EUGANEI</div>
+  </td>
 
-    <!-- colonna destra -->
-    <td valign="top" style="padding:34px 30px;">
-      <div style="width:34px;height:2px;background:#C9A961;margin-bottom:14px;"></div>
-      <div style="font-family:Arial,Helvetica,sans-serif;font-size:9.5px;letter-spacing:3px;color:#C9A961;">
-        ${e.titolo.toUpperCase()}</div>
-      <div style="font-size:25px;line-height:1.3;color:#1B4D4A;margin:12px 0 0;">
-        ${dest ? e.haRicevuto(esc(dest)) : e.senzaNome}</div>
-      ${b.dedica ? `<div style="font-size:13.5px;font-style:italic;color:#5C736F;margin-top:14px;line-height:1.5;">
-        ${esc(b.dedica)}</div>` : ''}
-      ${b.acquirente ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#9AA9A6;margin-top:20px;">
-          ${e.da}</div>
-        <div style="font-size:15px;font-style:italic;color:#1B4D4A;margin-top:4px;">${esc(b.acquirente)}</div>` : ''}
+  <!-- colonna destra -->
+  <td valign="top" style="padding:34px 30px;">
+    <div style="width:34px;height:2px;background:#C9A961;margin-bottom:14px;"></div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9.5px;letter-spacing:3px;color:#C9A961;">
+      ${e.titolo.toUpperCase()}</div>
+    <div style="font-size:25px;line-height:1.3;color:#1B4D4A;margin:12px 0 0;">
+      ${dest ? e.haRicevuto(esc(dest)) : e.senzaNome}</div>
+    ${b.dedica ? `<div style="font-size:13.5px;font-style:italic;color:#5C736F;margin-top:14px;line-height:1.5;">
+      ${esc(b.dedica)}</div>` : ''}
+    ${b.acquirente ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#9AA9A6;margin-top:20px;">
+      ${e.da}</div>
+    <div style="font-size:15px;font-style:italic;color:#1B4D4A;margin-top:4px;">${esc(b.acquirente)}</div>` : ''}
 
-      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:26px;border-collapse:collapse;">
-        <tr><td style="border-left:3px solid #C9A961;background:#FBFAF7;padding:18px 20px;">
-          <div style="font-size:17px;color:#1B4D4A;">${esc(b.descrizione)}</div>
-          ${sotto ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#C9A961;margin-top:7px;">
-            ${sotto}</div>` : ''}
-          ${comprende.length ? `<div style="margin-top:14px;">` + comprende.map(x =>
-            `<div style="font-family:Arial,Helvetica,sans-serif;font-size:11.5px;line-height:1.7;color:#4A5C59;">
-               <span style="color:#C9A961;">·</span> ${esc(x)}</div>`).join('') + `</div>` : ''}
-        </td></tr>
-      </table>
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:26px;border-collapse:collapse;">
+      <tr><td style="border-left:3px solid #C9A961;background:#FBFAF7;padding:18px 20px;">
+        ${righeDescr.map((r, i) => `<div style="font-size:17px;color:#1B4D4A;${i ? 'margin-top:6px;' : ''}">${esc(r)}</div>`).join('')}
+        ${sotto ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#C9A961;margin-top:7px;">
+          ${sotto}</div>` : ''}
+        ${comprende.length ? `<div style="margin-top:14px;">` + comprende.map(x =>
+          `<div style="font-family:Arial,Helvetica,sans-serif;font-size:11.5px;line-height:1.7;color:#4A5C59;">
+          <span style="color:#C9A961;">\u00b7</span> ${esc(x)}</div>`).join('') + `</div>` : ''}
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:1.6;color:#8A938F;margin-top:12px;border-top:1px solid #EFEBE0;padding-top:9px;">
+          ${esc(e.nota)}</div>
+      </td></tr>
+    </table>
 
-      ${bozza ? `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:26px;border-collapse:collapse;">
-        <tr><td style="background:#FFF6E8;border:1px dashed #E8751A;border-radius:4px;padding:14px 18px;
-          font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#6B4A22;text-align:center;">
-          <strong style="letter-spacing:2px;">${e.anteprima}</strong><br />
-          ${e.anteprimaNota}<br />
-          Riferimento ${esc(b.numero || '')}
-        </td></tr></table>` : ''}
-      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:34px;border-top:1px solid #E6E2D8;border-collapse:collapse;">
-        <tr>
-          <td valign="top" style="padding-top:14px;">
-            <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#9AA9A6;">
-              ${e.codice}</div>
-            <div style="font-family:'Courier New',monospace;font-size:17px;letter-spacing:2px;color:${bozza ? '#C7C2B6' : '#1B4D4A'};margin-top:6px;">
-              ${bozza ? '— — — — — — —' : esc(b.codice)}</div>
-            <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#C9A961;margin-top:6px;">
-              ${b.scade_il ? e.valido(dataLingua(b.scade_il, L)) : e.valido('—')}</div>
-          </td>
-          <td valign="top" align="right" style="padding-top:14px;font-family:Arial,Helvetica,sans-serif;
-            font-size:11px;line-height:1.6;color:#5C736F;">
-            <strong style="color:#1B4D4A;">+39 049 9939200</strong><br />
-            info@termeleonardo.com<br />www.termeleonardo.com
-          </td>
-        </tr>
-      </table>
+    ${bozza ? `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:26px;border-collapse:collapse;">
+      <tr><td style="background:#FFF6E8;border:1px dashed #E8751A;border-radius:4px;padding:14px 18px;
+        font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#6B4A22;text-align:center;">
+        <strong style="letter-spacing:2px;">${e.anteprima}</strong><br />
+        ${e.anteprimaNota}<br />
+        Riferimento ${esc(b.numero || '')}
+      </td></tr></table>` : ''}
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:34px;border-top:1px solid #E6E2D8;border-collapse:collapse;">
+      <tr>
+        <td valign="top" style="padding-top:14px;">
+          <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#9AA9A6;">
+            ${e.codice}</div>
+          <div style="font-family:'Courier New',monospace;font-size:17px;letter-spacing:2px;color:${bozza ? '#C7C2B6' : '#1B4D4A'};margin-top:6px;">
+            ${bozza ? '\u2014 \u2014 \u2014 \u2014 \u2014 \u2014 \u2014' : esc(b.codice)}</div>
+          <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#C9A961;margin-top:6px;">
+            ${b.scade_il ? e.valido(dataLingua(b.scade_il, L)) : e.valido('\u2014')}</div>
+        </td>
+        <td valign="top" align="right" style="padding-top:14px;font-family:Arial,Helvetica,sans-serif;
+          font-size:11px;line-height:1.6;color:#5C736F;">
+          <strong style="color:#1B4D4A;">+39 049 9939200</strong><br />
+          info@termeleonardo.com<br />www.termeleonardo.com
+        </td>
+      </tr>
+    </table>
 
-      <div style="font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:1.55;color:#B3ADA1;padding-top:22px;">
-        ${esc(CONDIZIONI[L] || CONDIZIONI.it)}</div>
-    </td>
-   </tr>
-  </table>`;
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:1.55;color:#B3ADA1;padding-top:22px;">
+      ${esc(CONDIZIONI[L] || CONDIZIONI.it)}</div>
+  </td>
+</tr>
+</table>`;
 }
 
 function buonoTesto(b) {
   const L = ['it','de','en','fr'].includes(b.lingua) ? b.lingua : 'it';
   const e = ETI[L];
-  return `${e.titolo.toUpperCase()} — Hotel Terme Leonardo\n` +
+  return `${e.titolo.toUpperCase()} \u2014 Hotel Terme Leonardo\n` +
     (b.destinatario ? e.haRicevuto(b.destinatario).replace(/<br \/>/g, ' ') + '\n' : '') +
     (b.dedica ? `"${b.dedica}"\n` : '') +
     (b.acquirente ? `${e.da.charAt(0) + e.da.slice(1).toLowerCase()} ${b.acquirente}\n` : '') +
     `\n${b.descrizione}${b.sottotitolo ? '\n' + b.sottotitolo : ''}\n` +
-    (((COMPRENDE[categoriaBuono(b)] || {})[L] || []).map(x => '· ' + x).join('\n') || '') +
-    `\n\n${e.codice}: ${b.codice || '—'}\n${e.valido(dataLingua(b.scade_il, L))}\n\n` +
-    `+39 049 9939200 · info@termeleonardo.com\n\n${CONDIZIONI[L] || CONDIZIONI.it}`;
+    (((COMPRENDE[categoriaBuono(b)] || {})[L] || []).map(x => '\u00b7 ' + x).join('\n') || '') +
+    `\n${e.nota}\n` +
+    `\n${e.codice}: ${b.codice || '\u2014'}\n${e.valido(dataLingua(b.scade_il, L))}\n\n` +
+    `+39 049 9939200 \u00b7 info@termeleonardo.com\n\n${CONDIZIONI[L] || CONDIZIONI.it}`;
+}
+
+/* ============================================================
+   Stampa: un A4 verticale da piegare a metà.
+   Sopra la copertina, sotto l'interno: piegato è un A5,
+   la stessa misura del depliant.
+   ============================================================ */
+const ETI_STAMPA = {
+  it:{ prenota:'COME PRENOTARE', condizioni:'CONDIZIONI', piega:'piega qui', rif:'Riferimento',
+    come:'Per prenotare ci chiami o ci scriva: fissiamo insieme il giorno e l\u2019ora.' },
+  de:{ prenota:'SO RESERVIEREN SIE', condizioni:'BEDINGUNGEN', piega:'hier falten', rif:'Referenz',
+    come:'Rufen Sie uns an oder schreiben Sie uns: wir vereinbaren gemeinsam Tag und Uhrzeit.' },
+  en:{ prenota:'HOW TO BOOK', condizioni:'TERMS', piega:'fold here', rif:'Reference',
+    come:'To book, call or write to us: we will arrange the day and time together.' },
+  fr:{ prenota:'COMMENT R\u00c9SERVER', condizioni:'CONDITIONS', piega:'plier ici', rif:'R\u00e9f\u00e9rence',
+    come:'Pour r\u00e9server, appelez-nous ou \u00e9crivez-nous : nous fixerons ensemble le jour et l\u2019heure.' }
+};
+
+function buonoStampaHTML(b, bozza) {
+  const cat = categoriaBuono(b);
+  const L = ['it','de','en','fr'].includes(b.lingua) ? b.lingua : 'it';
+  const e = ETI[L], s = ETI_STAMPA[L];
+  const n = (NARRATIVA[cat] || NARRATIVA.valore)[L] || (NARRATIVA[cat] || NARRATIVA.valore).it;
+  const foto = COPERTINE[cat] || '';
+  const catComprende = /day spa/i.test(String(b.descrizione || '')) ? 'dayspa' : cat;
+  const comprende = (COMPRENDE[catComprende] || {})[L] || (COMPRENDE[catComprende] || {}).it || [];
+  const dest = b.destinatario ? esc(b.destinatario) : '';
+  const righeDescr = String(b.descrizione || '').split('\n').filter(Boolean);
+
+  return `<div class="foglio">
+  <section class="meta copertina">
+    <div class="marchio-s">LE<strong>ONARDO</strong></div>
+    <div class="stelle">TERME HOTEL &nbsp;\u2605\u2605\u2605\u2605</div>
+    ${foto ? `<img class="foto" src="${esc(foto)}" alt="" />` : `<div class="foto sfumata"></div>`}
+    <div class="occhiello">${esc(n.occhiello)}</div>
+    <div class="titolo-oro">${e.titolo.toUpperCase()}</div>
+    <div class="dedicatario">${dest ? e.haRicevuto(esc(dest)) : e.senzaNome}</div>
+    ${b.dedica ? `<div class="dedica">${esc(b.dedica)}</div>` : ''}
+    ${b.acquirente ? `<div class="da">${e.da}</div>
+      <div class="firma-s">${esc(b.acquirente)}</div>` : ''}
+  </section>
+
+  <div class="piega"><span>${s.piega}</span></div>
+
+  <section class="meta interno">
+    <div class="servizio">
+      ${righeDescr.map(r => `<div class="servizio-nome">${esc(r)}</div>`).join('')}
+      ${b.sottotitolo ? `<div class="servizio-sotto">${esc(b.sottotitolo)}</div>` : ''}
+      ${comprende.length ? `<ul class="comprende">${comprende.map(x =>
+        `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      <div class="nota-persone">${esc(e.nota)}</div>
+    </div>
+    <div class="codice-riga">
+      <div>
+        <div class="etichetta-s">${e.codice}</div>
+        <div class="codice-s">${bozza ? '&mdash; &mdash; &mdash; &mdash; &mdash;' : esc(b.codice || '')}</div>
+        <div class="scadenza">${e.valido(dataLingua(b.scade_il, L))}</div>
+      </div>
+      <div class="recapiti">+39 049 9939200<br />info@termeleonardo.com<br />www.termeleonardo.com</div>
+    </div>
+    <span class="etichetta-s cond-tit">${s.prenota}</span>
+    <div class="prenota">${s.come}</div>
+    <span class="etichetta-s cond-tit">${s.condizioni}</span>
+    <div class="condizioni">${esc(CONDIZIONI[L] || CONDIZIONI.it)}</div>
+  </section>
+  <div class="pieded">TERME LEONARDO &middot; ${s.rif} ${esc(b.numero || '')}</div>
+</div>`;
 }
 
 /* ---------- 2. elenco ---------- */
@@ -799,10 +1009,10 @@ async function vistaElenco() {
         <option value="riscosso">Riscossi</option><option value="annullato">Annullati</option>
       </select></div>
     </div>
-    <div class="esito" id="eEsito">Carico…</div>
+    <div class="esito" id="eEsito">Carico\u2026</div>
     <div id="eTab"></div></div>`;
   const carica = async () => {
-    $('eEsito').textContent = 'Carico…';
+    $('eEsito').textContent = 'Carico\u2026';
     try {
       const j = await chiama(`?a=elenco&stato=${encodeURIComponent($('eStato').value)}&cerca=${encodeURIComponent($('eCerca').value)}`);
       const oggi = new Date().toISOString().slice(0, 10);
@@ -813,11 +1023,11 @@ async function vistaElenco() {
           const st = (b.stato === 'pagato' && b.scade_il && b.scade_il < oggi) ? 'scaduto' : b.stato;
           return `<tr><td class="cod">${esc(b.numero || '')}</td>
             <td class="cod">${b.codice ? esc(b.codice) : '<span class="mini">non ancora emesso</span>'}</td>
-            <td>${esc(b.descrizione)}${b.dedica ? `<div class="mini">&laquo;${esc(b.dedica)}&raquo;</div>` : ''}</td>
+            <td><div style="white-space:pre-line;">${esc(b.descrizione)}</div>${b.dedica ? `<div class="mini">&laquo;${esc(b.dedica)}&raquo;</div>` : ''}</td>
             <td>${eur(b.valore)} &euro;<div class="mini">${esc(b.pagamento || '')}</div></td>
             <td><span class="stato st-${st}">${st}</span>${b.scade_il ? `<div class="mini">${dataIT(b.scade_il)}</div>` : ''}</td>
-            <td class="mini">${esc(b.acquirente || '')}${b.destinatario ? ' → ' + esc(b.destinatario) : ''}
-              <div>${esc(b.creato_da || '?')}</div></td></tr>`;
+            <td class="mini">${esc(b.acquirente || '')}${b.destinatario ? ' \u2192 ' + esc(b.destinatario) : ''}
+            <div>${esc(b.creato_da || '?')}</div></td></tr>`;
         }).join('') + `</table>` : '';
     } catch (e) { $('eEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
   };
@@ -837,7 +1047,7 @@ function vistaVerifica() {
   $('vCerca').onclick = async () => {
     const cod = $('vCod').value.trim().toUpperCase();
     if (!cod) return;
-    $('vEsito').textContent = 'Controllo…'; $('vRis').innerHTML = '';
+    $('vEsito').textContent = 'Controllo\u2026'; $('vRis').innerHTML = '';
     try {
       const r = await fetch(`${FUNZIONE}?a=verifica&codice=${encodeURIComponent(cod)}`);
       const j = await r.json();
@@ -848,18 +1058,18 @@ function vistaVerifica() {
       }
       $('vEsito').textContent = '';
       $('vRis').innerHTML = `<div class="fatto">
-        <strong>Valido.</strong> ${esc(j.descrizione)} · ${eur(j.valore)} €
+        <strong>Valido.</strong> ${esc(j.descrizione)} \u00b7 ${eur(j.valore)} \u20ac
         <div class="mini">Scade il ${dataIT(j.scade_il)}</div>
         <label>Note (facoltative)</label><input type="text" id="vNote" />
         <button class="azione" id="vRiscuoti">Segna come riscosso</button>
         <button class="azione sec" id="vAnnulla">Annulla il buono</button>
         <div class="esito" id="vEsito2"></div></div>`;
       const agisci = async (azione) => {
-        if (azione === 'annulla' && !confirm('Annullare il buono ' + cod + '? Non sarà più utilizzabile.')) return;
+        if (azione === 'annulla' && !confirm('Annullare il buono ' + cod + '? Non sar\u00e0 pi\u00f9 utilizzabile.')) return;
         try {
           await chiama('?a=' + azione, { method:'POST', body: JSON.stringify({
             codice: cod, operatore: OPERATORE, note: $('vNote').value }) });
-          $('vEsito2').textContent = azione === 'riscuoti' ? '✓ Registrato come riscosso.' : '✓ Buono annullato.';
+          $('vEsito2').textContent = azione === 'riscuoti' ? '\u2713 Registrato come riscosso.' : '\u2713 Buono annullato.';
           $('vRiscuoti').disabled = true; $('vAnnulla').disabled = true;
         } catch (e) { $('vEsito2').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
       };
