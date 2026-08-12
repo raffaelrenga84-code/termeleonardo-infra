@@ -16,7 +16,17 @@
     display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
   header .marchio{font-family:Georgia,serif;font-size:19px;letter-spacing:3px;}
   header .chi{font-size:13px;color:var(--grigio);}
-  main{max-width:980px;margin:0 auto;padding:20px 16px 60px;}
+  main{max-width:1340px;margin:0 auto;padding:20px 16px 60px;}
+  .due-col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,660px);gap:22px;align-items:start;}
+  @media (max-width:1100px){ .due-col{grid-template-columns:1fr;} .anteprima{position:static !important;} }
+  .anteprima{position:sticky;top:16px;}
+  .anteprima .etichetta{font-size:11px;letter-spacing:1.4px;text-transform:uppercase;
+    color:var(--grigio);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+  .anteprima .telaio{background:#fff;border:1px solid var(--pietra);border-radius:8px;
+    padding:14px;overflow:auto;}
+  .anteprima .telaio > *{transform-origin:top left;}
+  .azioni-buono{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+  .azioni-buono button{flex:1;min-width:150px;margin-top:0;}
   .schede{display:flex;gap:8px;border-bottom:1px solid var(--pietra);margin-bottom:18px;}
   .schede button{background:none;border:0;border-bottom:3px solid transparent;
     padding:10px 14px;font:600 14px Arial;color:var(--grigio);cursor:pointer;}
@@ -66,8 +76,13 @@
 <main id="app"></main>
 <div id="stampa"></div>
 
+<script src="https://esm.sh/@supabase/supabase-js@2?bundle"></script>
 <script>
 'use strict';
+const SUPABASE_URL = 'https://mvuiuwakuseockotlcnp.supabase.co';
+/* chiave pubblica ("anon"): serve solo per l'accesso e non dà accesso ai dati,
+   che restano protetti dalle regole del database e dalla funzione */
+const SUPABASE_ANON = '__ANON_KEY__';
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
 
 /* ---------- catalogo: dal listino spa del sito ---------- */
@@ -118,43 +133,66 @@ const dataIT = (iso) => {
   return `${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}`;
 };
 
-let CHIAVE = localStorage.getItem('leo_hotel_key') || '';
-let OPERATORE = localStorage.getItem('leo_operatore') || '';
+let SB = null;          // client Supabase
+let TOKEN = '';         // token dell'utente autenticato
+let OPERATORE = '';     // nome dell'operatore, dal suo utente
 let VISTA = 'emetti';
 
 async function chiama(qs, opz = {}) {
   const r = await fetch(FUNZIONE + qs, {
     ...opz,
-    headers: { 'content-type': 'application/json', 'x-hotel-key': CHIAVE, ...(opz.headers || {}) }
+    headers: {
+      'content-type': 'application/json',
+      authorization: 'Bearer ' + TOKEN,
+      ...(opz.headers || {})
+    }
   });
   const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { await esci(); throw new Error(j.errore || 'sessione scaduta'); }
   if (!r.ok) throw new Error(j.errore || ('errore ' + r.status));
   return j;
 }
 
-/* ---------- accesso ---------- */
-function chiediChiave() {
+async function esci() {
+  try { if (SB) await SB.auth.signOut(); } catch (e) {}
+  TOKEN = ''; OPERATORE = '';
+}
+
+/* ---------- accesso con utente dell'hotel ---------- */
+function chiediAccesso(messaggio) {
+  $('chiSono').textContent = '';
   $('app').innerHTML = `<div class="riquadro" style="max-width:420px;margin:40px auto;">
     <h2>Accesso reception</h2>
-    <label>Chiave dell'hotel</label><input type="password" id="kChiave" />
-    <label>Il suo nome (finisce sui buoni che emette)</label><input type="text" id="kNome" />
+    <label>Email dell'hotel</label>
+    <input type="email" id="kMail" placeholder="nome@termeleonardo.com" autocomplete="username" />
+    <label>Password</label>
+    <input type="password" id="kPwd" autocomplete="current-password" />
     <button class="azione" id="kEntra" style="width:100%;">Entra</button>
-    <div class="esito" id="kEsito"></div>
-    <p class="mini" style="padding-top:10px;">La chiave è la stessa dell'estensione.
-      Resta memorizzata su questo computer.</p></div>`;
-  $('kEntra').onclick = async () => {
-    CHIAVE = $('kChiave').value.trim();
-    OPERATORE = $('kNome').value.trim();
-    if (!CHIAVE || !OPERATORE) { $('kEsito').textContent = 'Servono chiave e nome.'; return; }
+    <div class="esito" id="kEsito">${messaggio ? `<span class="errore">${esc(messaggio)}</span>` : ''}</div>
+    <p class="mini" style="padding-top:10px;">Serve un indirizzo dell'hotel.
+      Password dimenticata? La reimposta l'amministratore da Supabase.</p></div>`;
+
+  const entra = async () => {
+    const email = $('kMail').value.trim();
+    const pwd = $('kPwd').value;
+    if (!email || !pwd) { $('kEsito').innerHTML = '<span class="errore">Servono email e password.</span>'; return; }
+    $('kEntra').disabled = true;
+    $('kEsito').textContent = 'Un momento…';
     try {
-      await chiama('?a=elenco');
-      localStorage.setItem('leo_hotel_key', CHIAVE);
-      localStorage.setItem('leo_operatore', OPERATORE);
+      const { data, error } = await SB.auth.signInWithPassword({ email, password: pwd });
+      if (error) throw new Error('Email o password non validi.');
+      TOKEN = data.session.access_token;
+      OPERATORE = data.user.user_metadata?.nome || email.split('@')[0];
+      await chiama('?a=elenco');       // prova: verifica anche dominio e IP
       disegna();
     } catch (e) {
+      await esci();
       $('kEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
+      $('kEntra').disabled = false;
     }
   };
+  $('kEntra').onclick = entra;
+  $('kPwd').onkeydown = (ev) => { if (ev.key === 'Enter') entra(); };
 }
 
 /* ---------- struttura ---------- */
@@ -176,7 +214,7 @@ function vistaEmetti() {
   const fra12 = new Date(oggi); fra12.setFullYear(fra12.getFullYear() + 1);
   const iso = (d) => d.toISOString().slice(0, 10);
 
-  $('vista').innerHTML = `<div class="riquadro">
+  $('vista').innerHTML = `<div class="due-col"><div><div class="riquadro">
     <h2>Cosa regala</h2>
     <label>Tipo</label>
     <select id="fTipo">
@@ -226,6 +264,11 @@ function vistaEmetti() {
           </optgroup>
         </select></div>
     </div>
+    <label>Lingua del buono</label>
+    <select id="fLingua">
+      <option value="it">Italiano</option><option value="de">Deutsch</option>
+      <option value="en">English</option><option value="fr">Fran&ccedil;ais</option>
+    </select>
     <label>Riga sotto il titolo (facoltativa, esce in oro sul buono)</label>
     <input type="text" id="fSotto" placeholder="es. FERIALE · DAL LUNEDÌ AL VENERDÌ · PER 1 PERSONA" />
     <label>Dedica (facoltativa, esce sul buono)</label>
@@ -236,7 +279,13 @@ function vistaEmetti() {
     <button class="azione" id="fCrea">Emetti il buono</button>
     <div class="esito" id="fEsito"></div>
     <div id="fFatto"></div>
-  </div>`;
+  </div></div>
+
+  <div class="anteprima">
+    <div class="etichetta"><span>Anteprima del buono</span>
+      <span class="mini" id="antNota">si aggiorna mentre compili</span></div>
+    <div class="telaio" id="antTelaio"></div>
+  </div></div>`;
 
   const agg = () => {
     const servizio = $('fTipo').value === 'servizio';
@@ -255,8 +304,48 @@ function vistaEmetti() {
       : 'Incasso immediato: il buono viene <strong>emesso subito</strong>, pronto da stampare o inviare.';
     $('fCrea').textContent = daPagare ? 'Prepara il buono (in attesa)' : 'Emetti il buono';
   };
-  $('fTipo').onchange = agg; $('fVoce').onchange = agg; $('fPag').onchange = aggPag;
-  agg(); aggPag();
+  /* ---- anteprima dal vivo: quello che vede il cliente ---- */
+  function buonoProvvisorio() {
+    const tipo = $('fTipo').value;
+    let descrizione = '', voce_id = null;
+    if (tipo === 'servizio') {
+      const o = $('fVoce').selectedOptions[0];
+      voce_id = $('fVoce').value === '__altro' ? null : $('fVoce').value;
+      descrizione = $('fVoce').value === '__altro'
+        ? ($('fAltro').value.trim() || 'Trattamento a scelta')
+        : o.dataset.nome;
+    } else {
+      descrizione = 'Buono valore di ' + eur($('fValore').value || 0) + ' €, spendibile in hotel';
+    }
+    return {
+      numero: '—', codice: null, stato: 'attesa', tipo, voce_id, descrizione,
+      valore: parseFloat($('fValore').value) || 0,
+      lingua: $('fLingua').value, sottotitolo: $('fSotto').value,
+      acquirente: $('fAcq').value, destinatario: $('fDest').value,
+      dedica: $('fDedica').value, scade_il: $('fScade').value
+    };
+  }
+  function aggiornaAnteprima() {
+    const telaio = $('antTelaio');
+    if (!telaio) return;
+    telaio.innerHTML = buonoHTML(buonoProvvisorio(), true);
+    /* il buono è largo 700px: lo rimpiccioliamo per farlo stare nella colonna */
+    const dentro = telaio.firstElementChild;
+    if (dentro) {
+      const scala = Math.min(1, (telaio.clientWidth - 4) / 700);
+      dentro.style.transform = `scale(${scala})`;
+      telaio.style.height = (dentro.offsetHeight * scala + 8) + 'px';
+    }
+  }
+  const conAnteprima = (f) => () => { f(); aggiornaAnteprima(); };
+  $('fTipo').onchange = conAnteprima(agg);
+  $('fVoce').onchange = conAnteprima(agg);
+  $('fPag').onchange = aggPag;
+  ['fValore','fScade','fLingua','fSotto','fAcq','fDest','fDedica','fAltro']
+    .forEach(id => { const e = $(id); if (e) { e.oninput = aggiornaAnteprima; e.onchange = aggiornaAnteprima; } });
+  window.addEventListener('resize', aggiornaAnteprima);
+
+  agg(); aggPag(); aggiornaAnteprima();
 
   $('fCrea').onclick = async () => {
     const tipo = $('fTipo').value;
@@ -276,6 +365,7 @@ function vistaEmetti() {
     try {
       const j = await chiama('?a=crea', { method:'POST', body: JSON.stringify({
         operatore: OPERATORE, tipo, voce_id, descrizione, valore,
+        lingua: $('fLingua').value,
         acquirente: $('fAcq').value, acquirente_email: $('fAcqMail').value,
         acquirente_tel: $('fAcqTel').value, destinatario: $('fDest').value,
         destinatario_email: $('fDestMail').value,
@@ -309,8 +399,15 @@ function mostraFatto(b) {
       : `<div class="mini" style="margin-top:12px;">Codice da consegnare</div>
          <div class="codice">${esc(b.codice)}</div>
          <div class="mini">${esc(b.descrizione)} · ${eur(b.valore)} € · valido fino al ${dataIT(b.scade_il)}</div>
-         <button class="azione sec" id="bStampa">Stampa il buono</button>
-         <button class="azione sec" id="bCopia">Copia per l&apos;email</button>`}
+         <div class="mini" style="padding-top:12px;">Come lo consegna?</div>
+         <div class="azioni-buono">
+           <button class="azione" id="bStampa">&#128424; Stampa subito</button>
+           ${b.destinatario_email
+             ? `<button class="azione sec" id="bMailDest">&#9993; Email a ${esc(b.destinatario || 'chi lo riceve')}</button>` : ''}
+           ${b.acquirente_email
+             ? `<button class="azione sec" id="bMailAcq">&#9993; Email a ${esc(b.acquirente || 'chi compra')}</button>` : ''}
+           <button class="azione sec" id="bCopia">&#128203; Copia</button>
+         </div>`}
     <div class="esito" id="bEsito"></div>
     <div style="margin-top:16px;overflow:auto;">${buonoHTML(b, attesa)}</div>
   </div>`;
@@ -350,6 +447,31 @@ function mostraFatto(b) {
     };
   } else {
     $('bStampa').onclick = () => { $('stampa').innerHTML = buonoHTML(b); window.print(); };
+
+    /* email: copia il buono e apre Outlook già indirizzato, come fa l'estensione */
+    const perEmail = async (dest, chi) => {
+      const L = ['it','de','en','fr'].includes(b.lingua) ? b.lingua : 'it';
+      const OGG = {
+        it:`Il suo Buono Regalo — Hotel Terme Leonardo`,
+        de:`Ihr Geschenkgutschein — Hotel Terme Leonardo`,
+        en:`Your Gift Voucher — Hotel Terme Leonardo`,
+        fr:`Votre Bon Cadeau — Hôtel Terme Leonardo`
+      }[L];
+      try {
+        await navigator.clipboard.write([new ClipboardItem({
+          'text/html': new Blob([buonoHTML(b)], { type: 'text/html' }),
+          'text/plain': new Blob([buonoTesto(b)], { type: 'text/plain' })
+        })]);
+        window.open('https://outlook.office.com/mail/deeplink/compose?to=' +
+          encodeURIComponent(dest) + '&subject=' + encodeURIComponent(OGG), '_blank');
+        $('bEsito').innerHTML = `\u2713 Buono copiato e Outlook aperto verso <strong>${esc(dest)}</strong>:
+          premi <strong>Ctrl+V</strong> nel corpo del messaggio e invia.`;
+      } catch (e) {
+        $('bEsito').innerHTML = '<span class="errore">Copia non riuscita: usa il pulsante Copia.</span>';
+      }
+    };
+    if ($('bMailDest')) $('bMailDest').onclick = () => perEmail(b.destinatario_email, 'destinatario');
+    if ($('bMailAcq')) $('bMailAcq').onclick = () => perEmail(b.acquirente_email, 'acquirente');
     $('bCopia').onclick = async () => {
       try {
         await navigator.clipboard.write([new ClipboardItem({
@@ -417,22 +539,96 @@ const COPERTINE = {
   valore:   ''
 };
 const NARRATIVA = {
-  dayspa: { occhiello:'PISCINE TERMALI · HOTEL LEONARDO',
-    frase:'Un momento di pura quiete,<br />è il regalo più bello.',
-    testo:'Tra le acque termali dei Colli Euganei, un\u2019intera giornata pensata solo per te: per respirare piano, lasciarsi andare e ritrovare il proprio equilibrio.' },
-  massaggi: { occhiello:'CENTRO BENESSERE · HOTEL LEONARDO',
-    frase:'Un\u2019ora per sé,<br />è il regalo più raro.',
-    testo:'Mani esperte, oli caldi e il silenzio del centro benessere: il tempo rallenta e il corpo si scioglie.' },
-  viso: { occhiello:'TRATTAMENTI VISO · HOTEL LEONARDO',
-    frase:'La cura di sé<br />comincia da uno sguardo.',
-    testo:'Trattamenti su misura con i principi attivi dell\u2019acqua termale, per una pelle che ritrova luce e morbidezza.' },
-  corpo: { occhiello:'RITUALI CORPO · HOTEL LEONARDO',
-    frase:'Il benessere si sente<br />prima ancora di vederlo.',
-    testo:'Scrub, fanghi e trattamenti che risvegliano il corpo, nel calore dell\u2019acqua termale dei Colli Euganei.' },
-  valore: { occhiello:'HOTEL TERME LEONARDO · ABANO TERME',
-    frase:'Lascia che scelga<br />il suo momento.',
-    testo:'Un buono da usare come preferisce: una giornata alle terme, un trattamento, un soggiorno tra i Colli Euganei.' }
+  dayspa: {
+    it:{ occhiello:'PISCINE TERMALI · HOTEL LEONARDO', frase:'Un momento di pura quiete,<br />è il regalo più bello.',
+      testo:'Tra le acque termali dei Colli Euganei, un\u2019intera giornata pensata solo per te: per respirare piano, lasciarsi andare e ritrovare il proprio equilibrio.' },
+    de:{ occhiello:'THERMALBÄDER · HOTEL LEONARDO', frase:'Ein Moment der Stille<br />ist das schönste Geschenk.',
+      testo:'Im Thermalwasser der Euganeischen Hügel ein ganzer Tag nur für Sie: durchatmen, loslassen und wieder ins Gleichgewicht kommen.' },
+    en:{ occhiello:'THERMAL POOLS · HOTEL LEONARDO', frase:'A moment of pure quiet<br />is the finest gift.',
+      testo:'In the thermal waters of the Euganean Hills, a whole day just for you: to breathe slowly, let go and find your balance again.' },
+    fr:{ occhiello:'PISCINES THERMALES · HÔTEL LEONARDO', frase:'Un moment de pur calme,<br />le plus beau des cadeaux.',
+      testo:'Dans les eaux thermales des collines euganéennes, une journée entière rien que pour vous : respirer, lâcher prise et retrouver son équilibre.' }
+  },
+  massaggi: {
+    it:{ occhiello:'CENTRO BENESSERE · HOTEL LEONARDO', frase:'Un\u2019ora per sé,<br />è il regalo più raro.',
+      testo:'Mani esperte, oli caldi e il silenzio del centro benessere: il tempo rallenta e il corpo si scioglie.' },
+    de:{ occhiello:'WELLNESSBEREICH · HOTEL LEONARDO', frase:'Eine Stunde für sich<br />ist das seltenste Geschenk.',
+      testo:'Erfahrene Hände, warme Öle und die Ruhe des Wellnessbereichs: die Zeit wird langsamer, der Körper löst sich.' },
+    en:{ occhiello:'WELLNESS CENTRE · HOTEL LEONARDO', frase:'An hour to yourself<br />is the rarest gift.',
+      testo:'Skilled hands, warm oils and the quiet of the wellness centre: time slows down and the body lets go.' },
+    fr:{ occhiello:'CENTRE DE BIEN-ÊTRE · HÔTEL LEONARDO', frase:'Une heure pour soi,<br />le plus rare des cadeaux.',
+      testo:'Des mains expertes, des huiles chaudes et le silence du centre de bien-être : le temps ralentit et le corps se détend.' }
+  },
+  viso: {
+    it:{ occhiello:'TRATTAMENTI VISO · HOTEL LEONARDO', frase:'La cura di sé<br />comincia da uno sguardo.',
+      testo:'Trattamenti su misura con i principi attivi dell\u2019acqua termale, per una pelle che ritrova luce e morbidezza.' },
+    de:{ occhiello:'GESICHTSBEHANDLUNGEN · HOTEL LEONARDO', frase:'Die Pflege beginnt<br />mit einem Blick.',
+      testo:'Maßgeschneiderte Behandlungen mit den Wirkstoffen des Thermalwassers, für eine Haut voller Licht und Weichheit.' },
+    en:{ occhiello:'FACIAL TREATMENTS · HOTEL LEONARDO', frase:'Caring for yourself<br />begins with a glance.',
+      testo:'Tailored treatments with the active ingredients of thermal water, for skin that regains its light and softness.' },
+    fr:{ occhiello:'SOINS DU VISAGE · HÔTEL LEONARDO', frase:'Prendre soin de soi<br />commence par un regard.',
+      testo:'Des soins sur mesure aux principes actifs de l\u2019eau thermale, pour une peau qui retrouve éclat et douceur.' }
+  },
+  corpo: {
+    it:{ occhiello:'RITUALI CORPO · HOTEL LEONARDO', frase:'Il benessere si sente<br />prima ancora di vederlo.',
+      testo:'Scrub, fanghi e trattamenti che risvegliano il corpo, nel calore dell\u2019acqua termale dei Colli Euganei.' },
+    de:{ occhiello:'KÖRPERRITUALE · HOTEL LEONARDO', frase:'Wohlbefinden spürt man,<br />bevor man es sieht.',
+      testo:'Peelings, Fango und Behandlungen, die den Körper wecken — in der Wärme des Thermalwassers der Euganeischen Hügel.' },
+    en:{ occhiello:'BODY RITUALS · HOTEL LEONARDO', frase:'Wellbeing is felt<br />before it is seen.',
+      testo:'Scrubs, mud and treatments that awaken the body, in the warmth of the thermal water of the Euganean Hills.' },
+    fr:{ occhiello:'RITUELS CORPS · HÔTEL LEONARDO', frase:'Le bien-être se ressent<br />avant même de se voir.',
+      testo:'Gommages, fangos et soins qui réveillent le corps, dans la chaleur de l\u2019eau thermale des collines euganéennes.' }
+  },
+  valore: {
+    it:{ occhiello:'HOTEL TERME LEONARDO · ABANO TERME', frase:'Lascia che scelga<br />il suo momento.',
+      testo:'Un buono da usare come preferisce: una giornata alle terme, un trattamento, un soggiorno tra i Colli Euganei.' },
+    de:{ occhiello:'HOTEL TERME LEONARDO · ABANO TERME', frase:'Lassen Sie ihn<br />den Moment wählen.',
+      testo:'Ein Gutschein nach Wunsch einzulösen: ein Thermentag, eine Anwendung oder ein Aufenthalt in den Euganeischen Hügeln.' },
+    en:{ occhiello:'HOTEL TERME LEONARDO · ABANO TERME', frase:'Let them choose<br />their own moment.',
+      testo:'A voucher to use as they please: a day at the spa, a treatment, or a stay in the Euganean Hills.' },
+    fr:{ occhiello:'HOTEL TERME LEONARDO · ABANO TERME', frase:'Laissez-lui choisir<br />son moment.',
+      testo:'Un bon à utiliser à sa guise : une journée aux thermes, un soin, ou un séjour dans les collines euganéennes.' }
+  }
 };
+
+/* etichette del buono */
+const ETI = {
+  it:{ titolo:'Buono Regalo', haRicevuto:(n)=>`${n}, hai ricevuto<br />un dono speciale`,
+       senzaNome:'Un dono speciale<br />per te', da:'CON AFFETTO, DA', codice:'CODICE BUONO',
+       valido:(d)=>`Valido fino al ${d}`, valore:(v)=>`valore ${v} &euro;`,
+       anteprima:'ANTEPRIMA — NON ANCORA VALIDO',
+       anteprimaNota:'Il codice viene assegnato al momento del pagamento.' },
+  de:{ titolo:'Geschenkgutschein', haRicevuto:(n)=>`${n}, Sie haben<br />ein besonderes Geschenk erhalten`,
+       senzaNome:'Ein besonderes<br />Geschenk für Sie', da:'HERZLICHST, VON', codice:'GUTSCHEINCODE',
+       valido:(d)=>`Gültig bis ${d}`, valore:(v)=>`Wert ${v} &euro;`,
+       anteprima:'VORSCHAU — NOCH NICHT GÜLTIG',
+       anteprimaNota:'Der Code wird bei Zahlungseingang vergeben.' },
+  en:{ titolo:'Gift Voucher', haRicevuto:(n)=>`${n}, you have received<br />a special gift`,
+       senzaNome:'A special gift<br />for you', da:'WITH LOVE, FROM', codice:'VOUCHER CODE',
+       valido:(d)=>`Valid until ${d}`, valore:(v)=>`value ${v} &euro;`,
+       anteprima:'PREVIEW — NOT YET VALID',
+       anteprimaNota:'The code is assigned once payment is received.' },
+  fr:{ titolo:'Bon Cadeau', haRicevuto:(n)=>`${n}, vous avez reçu<br />un cadeau très spécial`,
+       senzaNome:'Un cadeau spécial<br />pour vous', da:'AVEC AFFECTION, DE', codice:'CODE DU BON',
+       valido:(d)=>`Valable jusqu'au ${d}`, valore:(v)=>`valeur ${v} &euro;`,
+       anteprima:'APERÇU — PAS ENCORE VALABLE',
+       anteprimaNota:'Le code est attribué au moment du paiement.' }
+};
+
+const MESI_L = {
+  it:['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'],
+  de:['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'],
+  en:['January','February','March','April','May','June','July','August','September','October','November','December'],
+  fr:['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre']
+};
+function dataLingua(iso, l) {
+  if (!iso) return '';
+  const d = new Date(String(iso).slice(0,10) + 'T12:00');
+  const m = (MESI_L[l] || MESI_L.it)[d.getMonth()];
+  if (l === 'de') return `${d.getDate()}. ${m} ${d.getFullYear()}`;
+  if (l === 'en') return `${d.getDate()} ${m} ${d.getFullYear()}`;
+  return `${d.getDate()} ${m} ${d.getFullYear()}`;
+}
 
 function categoriaBuono(b) {
   const id = String(b.voce_id || '');
@@ -446,25 +642,52 @@ function categoriaBuono(b) {
 
 /* dettaglio di cosa comprende: per il Day Spa l'elenco vero delle piscine */
 const COMPRENDE = {
-  dayspa: [
-    'Piscine termali interna ed esterna comunicanti, con idromassaggi e giochi d\u2019acqua',
-    'Zona Relax: Biogrotta, bagno turco, vasca idromassaggio, lettini massaggianti',
-    'Cascata di acqua termale, cascata di ghiaccio e docce emozionali con aromaterapia',
-    'Piscina scoperta estiva con acqua dolce a temperatura ambiente'
-  ]
+  dayspa: {
+    it:['Piscine termali interna ed esterna comunicanti, con idromassaggi e giochi d\u2019acqua',
+        'Zona Relax: Biogrotta, bagno turco, vasca idromassaggio, lettini massaggianti',
+        'Cascata di acqua termale, cascata di ghiaccio e docce emozionali con aromaterapia',
+        'Piscina scoperta estiva con acqua dolce a temperatura ambiente'],
+    de:['Thermal-Innen- und Außenpool, miteinander verbunden, mit Sprudelliegen und Wasserspielen',
+        'Relaxbereich: Biogrotte, Dampfbad, Whirlpool, Massageliegen',
+        'Thermalwasserfall, Eisbrunnen und Erlebnisduschen mit Aromatherapie',
+        'Sommer-Freibad mit Süßwasser bei Umgebungstemperatur'],
+    en:['Connected indoor and outdoor thermal pools, with hydromassage and water features',
+        'Relax area: Bio-grotto, steam bath, whirlpool, massage loungers',
+        'Thermal waterfall, ice fountain and emotional showers with aromatherapy',
+        'Outdoor summer pool with fresh water at ambient temperature'],
+    fr:['Piscines thermales intérieure et extérieure communicantes, avec hydromassages et jeux d\u2019eau',
+        'Espace Relax : bio-grotte, bain turc, bain à remous, lits de massage',
+        'Cascade d\u2019eau thermale, cascade de glace et douches sensorielles à l\u2019aromathérapie',
+        'Piscine découverte estivale à l\u2019eau douce à température ambiante']
+  }
 };
 
-const CONDIZIONI = 'Apertura stagionale: l\u2019hotel chiude ogni anno da fine novembre a febbraio; ' +
-  'il buono non è valido in questo periodo. È richiesta la maggiore età per l\u2019accesso a piscine, hotel e spa; ' +
-  'ingressi soggetti a disponibilità e prenotazione obbligatoria. Il buono non è utilizzabile nelle prime 48 ore ' +
-  'dall\u2019acquisto, non è rimborsabile né convertibile in denaro; gli importi residui dopo il primo utilizzo ' +
-  'non sono trasferibili. Validità 12 mesi dalla data di acquisto.';
+const CONDIZIONI = {
+  it:'Apertura stagionale: l\u2019hotel chiude ogni anno da fine novembre a febbraio; il buono non è valido in questo periodo. ' +
+     'È richiesta la maggiore età per l\u2019accesso a piscine, hotel e spa; ingressi soggetti a disponibilità e prenotazione obbligatoria. ' +
+     'Il buono non è utilizzabile nelle prime 48 ore dall\u2019acquisto, non è rimborsabile né convertibile in denaro; ' +
+     'gli importi residui dopo il primo utilizzo non sono trasferibili. Validità 12 mesi dalla data di acquisto.',
+  de:'Saisonale Öffnung: das Hotel schließt jedes Jahr von Ende November bis Februar; in diesem Zeitraum ist der Gutschein nicht gültig. ' +
+     'Für den Zutritt zu Pools, Hotel und Spa ist Volljährigkeit erforderlich; Eintritte nach Verfügbarkeit, Reservierung erforderlich. ' +
+     'Der Gutschein ist in den ersten 48 Stunden nach dem Kauf nicht einlösbar, nicht erstattungsfähig und nicht in Bargeld umtauschbar; ' +
+     'Restbeträge nach der ersten Einlösung sind nicht übertragbar. Gültigkeit 12 Monate ab Kaufdatum.',
+  en:'Seasonal opening: the hotel closes every year from late November to February; the voucher is not valid in this period. ' +
+     'Guests must be of legal age to access pools, hotel and spa; admission subject to availability, booking required. ' +
+     'The voucher cannot be used within the first 48 hours of purchase, is not refundable and cannot be exchanged for cash; ' +
+     'any remaining amount after the first use is not transferable. Valid for 12 months from the date of purchase.',
+  fr:'Ouverture saisonnière : l\u2019hôtel ferme chaque année de fin novembre à février ; le bon n\u2019est pas valable durant cette période. ' +
+     'La majorité est requise pour accéder aux piscines, à l\u2019hôtel et au spa ; entrées soumises à disponibilité et réservation obligatoire. ' +
+     'Le bon n\u2019est pas utilisable dans les 48 heures suivant l\u2019achat, n\u2019est ni remboursable ni convertible en espèces ; ' +
+     'les montants restants après la première utilisation ne sont pas transférables. Validité 12 mois à compter de la date d\u2019achat.'
+};
 
 function buonoHTML(b, bozza) {
   const cat = categoriaBuono(b);
-  const n = NARRATIVA[cat] || NARRATIVA.valore;
+  const L = ['it','de','en','fr'].includes(b.lingua) ? b.lingua : 'it';
+  const e = ETI[L];
+  const n = (NARRATIVA[cat] || NARRATIVA.valore)[L] || (NARRATIVA[cat] || NARRATIVA.valore).it;
   const foto = COPERTINE[cat] || '';
-  const comprende = COMPRENDE[cat] || [];
+  const comprende = (COMPRENDE[cat] || {})[L] || (COMPRENDE[cat] || {}).it || [];
   const dest = b.destinatario ? esc(b.destinatario) : '';
   const sotto = b.sottotitolo ? esc(b.sottotitolo) : '';
 
@@ -495,13 +718,13 @@ function buonoHTML(b, bozza) {
     <td valign="top" style="padding:34px 30px;">
       <div style="width:34px;height:2px;background:#C9A961;margin-bottom:14px;"></div>
       <div style="font-family:Arial,Helvetica,sans-serif;font-size:9.5px;letter-spacing:3px;color:#C9A961;">
-        BUONO REGALO</div>
+        ${e.titolo.toUpperCase()}</div>
       <div style="font-size:25px;line-height:1.3;color:#1B4D4A;margin:12px 0 0;">
-        ${dest ? esc(dest) + ', hai ricevuto<br />un dono speciale' : 'Un dono speciale<br />per te'}</div>
+        ${dest ? e.haRicevuto(esc(dest)) : e.senzaNome}</div>
       ${b.dedica ? `<div style="font-size:13.5px;font-style:italic;color:#5C736F;margin-top:14px;line-height:1.5;">
         ${esc(b.dedica)}</div>` : ''}
       ${b.acquirente ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#9AA9A6;margin-top:20px;">
-          CON AFFETTO, DA</div>
+          ${e.da}</div>
         <div style="font-size:15px;font-style:italic;color:#1B4D4A;margin-top:4px;">${esc(b.acquirente)}</div>` : ''}
 
       <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:26px;border-collapse:collapse;">
@@ -518,19 +741,19 @@ function buonoHTML(b, bozza) {
       ${bozza ? `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:26px;border-collapse:collapse;">
         <tr><td style="background:#FFF6E8;border:1px dashed #E8751A;border-radius:4px;padding:14px 18px;
           font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#6B4A22;text-align:center;">
-          <strong style="letter-spacing:2px;">ANTEPRIMA — NON ANCORA VALIDO</strong><br />
-          Il codice viene assegnato al momento del pagamento.<br />
+          <strong style="letter-spacing:2px;">${e.anteprima}</strong><br />
+          ${e.anteprimaNota}<br />
           Riferimento ${esc(b.numero || '')}
         </td></tr></table>` : ''}
       <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:34px;border-top:1px solid #E6E2D8;border-collapse:collapse;">
         <tr>
           <td valign="top" style="padding-top:14px;">
             <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#9AA9A6;">
-              CODICE BUONO</div>
+              ${e.codice}</div>
             <div style="font-family:'Courier New',monospace;font-size:17px;letter-spacing:2px;color:${bozza ? '#C7C2B6' : '#1B4D4A'};margin-top:6px;">
               ${bozza ? '— — — — — — —' : esc(b.codice)}</div>
             <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#C9A961;margin-top:6px;">
-              ${b.scade_il ? 'Valido fino al ' + dataIT(b.scade_il) : '12 mesi dal pagamento'}</div>
+              ${b.scade_il ? e.valido(dataLingua(b.scade_il, L)) : e.valido('—')}</div>
           </td>
           <td valign="top" align="right" style="padding-top:14px;font-family:Arial,Helvetica,sans-serif;
             font-size:11px;line-height:1.6;color:#5C736F;">
@@ -541,21 +764,23 @@ function buonoHTML(b, bozza) {
       </table>
 
       <div style="font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:1.55;color:#B3ADA1;padding-top:22px;">
-        ${esc(CONDIZIONI)}</div>
+        ${esc(CONDIZIONI[L] || CONDIZIONI.it)}</div>
     </td>
    </tr>
   </table>`;
 }
 
 function buonoTesto(b) {
-  return `BUONO REGALO — Hotel Terme Leonardo\n` +
-    (b.destinatario ? `${b.destinatario}, hai ricevuto un dono speciale\n` : '') +
+  const L = ['it','de','en','fr'].includes(b.lingua) ? b.lingua : 'it';
+  const e = ETI[L];
+  return `${e.titolo.toUpperCase()} — Hotel Terme Leonardo\n` +
+    (b.destinatario ? e.haRicevuto(b.destinatario).replace(/<br \/>/g, ' ') + '\n' : '') +
     (b.dedica ? `"${b.dedica}"\n` : '') +
-    (b.acquirente ? `Con affetto, da ${b.acquirente}\n` : '') +
+    (b.acquirente ? `${e.da.charAt(0) + e.da.slice(1).toLowerCase()} ${b.acquirente}\n` : '') +
     `\n${b.descrizione}${b.sottotitolo ? '\n' + b.sottotitolo : ''}\n` +
-    ((COMPRENDE[categoriaBuono(b)] || []).map(x => '· ' + x).join('\n') || '') +
-    `\n\nCodice buono: ${b.codice}\nValido fino al ${dataIT(b.scade_il)}\n\n` +
-    `Per prenotare: +39 049 9939200 · info@termeleonardo.com\n\n${CONDIZIONI}`;
+    (((COMPRENDE[categoriaBuono(b)] || {})[L] || []).map(x => '· ' + x).join('\n') || '') +
+    `\n\n${e.codice}: ${b.codice || '—'}\n${e.valido(dataLingua(b.scade_il, L))}\n\n` +
+    `+39 049 9939200 · info@termeleonardo.com\n\n${CONDIZIONI[L] || CONDIZIONI.it}`;
 }
 
 /* ---------- 2. elenco ---------- */
@@ -639,16 +864,28 @@ function vistaVerifica() {
   };
 }
 
-$('esci').onclick = (ev) => {
+$('esci').onclick = async (ev) => {
   ev.preventDefault();
-  localStorage.removeItem('leo_hotel_key');
-  CHIAVE = ''; chiediChiave();
+  await esci();
+  chiediAccesso('');
 };
 
 (async () => {
-  if (!CHIAVE || !OPERATORE) { chiediChiave(); return; }
-  try { await chiama('?a=elenco'); disegna(); }
-  catch (e) { chiediChiave(); }
+  try {
+    SB = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  } catch (e) {
+    $('app').innerHTML = '<div class="riquadro">Non riesco a caricare il sistema di accesso. Ricarichi la pagina.</div>';
+    return;
+  }
+  /* sessione già aperta su questo computer? */
+  const { data } = await SB.auth.getSession();
+  if (data?.session) {
+    TOKEN = data.session.access_token;
+    OPERATORE = data.session.user.user_metadata?.nome || data.session.user.email.split('@')[0];
+    try { await chiama('?a=elenco'); disegna(); return; }
+    catch (e) { await esci(); chiediAccesso(e.message); return; }
+  }
+  chiediAccesso('');
 })();
 </script>
 </body>
