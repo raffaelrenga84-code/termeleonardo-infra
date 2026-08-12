@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Buoni Regalo — Hotel Terme Leonardo</title>
+<meta name="description" content="Regala una giornata alle piscine termali, un massaggio o un buono valore all'Hotel Terme Leonardo di Abano Terme." />
+<style>
+:root{--verde:#1B4D4A;--verde-medio:#5C736F;--verde-chiaro:#E4F0EA;--salvia:#7A9490;
+--oro:#C9A961;--carta:#FBFAF7;--sabbia:#EDE7DC;--inchiostro:#2A2E2B;--arancio:#E8751A;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--carta);color:var(--inchiostro);
+font:16px/1.6 Arial,Helvetica,sans-serif;}
+.serif{font-family:Georgia,'Times New Roman',serif;}
+a{color:var(--verde);}
+
+/* ---- testata ---- */
+.testata{background:var(--verde-chiaro);padding:34px 20px 40px;text-align:center;}
+.marchio{font-family:Arial,Helvetica,sans-serif;font-size:17px;letter-spacing:3px;color:var(--verde);}
+.stelle{font-size:9px;letter-spacing:3px;color:var(--salvia);margin-top:5px;}
+.testata h1{font-family:Georgia,serif;font-weight:normal;font-size:32px;line-height:1.25;
+color:var(--verde);margin-top:26px;}
+.testata .sotto{color:var(--verde-medio);max-width:560px;margin:12px auto 0;font-size:15px;}
+.lingue{margin-top:20px;font-size:13px;letter-spacing:1px;}
+.lingue a{margin:0 7px;text-decoration:none;color:var(--salvia);}
+.lingue a.attiva{color:var(--verde);border-bottom:2px solid var(--oro);padding-bottom:2px;}
+
+/* ---- corpo ---- */
+main{max-width:1180px;margin:0 auto;padding:30px 16px 70px;}
+.colonne{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,560px);gap:26px;align-items:start;}
+@media (max-width:980px){ .colonne{grid-template-columns:1fr;} .fissa{position:static !important;} }
+.riquadro{background:#fff;border:1px solid var(--sabbia);border-radius:10px;padding:22px;margin-bottom:18px;}
+h2{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--oro);margin-bottom:6px;}
+h2 + .guida{font-size:14px;color:var(--verde-medio);margin-bottom:12px;}
+label{display:block;font-size:12px;letter-spacing:.5px;color:var(--verde-medio);margin:12px 0 5px;}
+input,select,textarea{width:100%;padding:12px;border:1px solid #D8D2C4;border-radius:6px;
+font:16px Arial;color:var(--inchiostro);background:#fff;}
+textarea{min-height:70px;}
+.due{display:flex;gap:14px;flex-wrap:wrap;}
+.due>div{flex:1;min-width:200px;}
+.scelta-tipo{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;}
+.scelta-tipo button{flex:1;min-width:180px;padding:14px;border:1.5px solid var(--sabbia);
+border-radius:8px;background:#fff;font:15px Arial;color:var(--verde-medio);cursor:pointer;text-align:left;}
+.scelta-tipo button strong{display:block;color:var(--verde);font-size:16px;margin-bottom:2px;}
+.scelta-tipo button.attivo{border-color:var(--oro);background:#FDFBF5;}
+button.paga{width:100%;background:var(--arancio);color:#fff;border:0;border-radius:8px;
+padding:16px 22px;font:600 17px Arial;cursor:pointer;margin-top:18px;}
+button.paga:disabled{background:#CFCABF;cursor:default;}
+.mini{font-size:12.5px;color:var(--verde-medio);}
+.esito{min-height:22px;padding-top:10px;font-size:14px;color:var(--verde);}
+.errore{color:#C0392B;}
+.fissa{position:sticky;top:14px;}
+.fissa .etichetta{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--verde-medio);margin-bottom:8px;}
+.telaio{background:#fff;border:1px solid var(--sabbia);border-radius:10px;padding:12px;overflow:hidden;}
+.telaio > *{transform-origin:top left;}
+.grazie{max-width:640px;margin:40px auto;text-align:center;}
+.grazie .segno{font-size:44px;color:var(--verde);}
+.grazie h2{font-family:Georgia,serif;font-size:26px;letter-spacing:0;text-transform:none;
+color:var(--verde);margin:14px 0 10px;}
+.piede{border-top:1px solid var(--sabbia);padding:26px 20px 34px;text-align:center;
+font-size:13px;color:var(--verde-medio);}
+.piede .nome{font-family:Georgia,serif;letter-spacing:4px;color:var(--inchiostro);font-size:15px;margin-bottom:8px;}
+</style>
+</head>
+<body>
+
+<div class="testata">
+  <div class="marchio">LE<strong>ONARDO</strong></div>
+  <div class="stelle">TERME HOTEL &nbsp;&#9733;&#9733;&#9733;&#9733;</div>
+  <h1 id="tTitolo"></h1>
+  <div class="sotto" id="tSotto"></div>
+  <nav class="lingue" id="lingue"></nav>
+</div>
+
+<main id="pagina"></main>
+
+<div class="piede">
+  <div class="nome">TERME LEONARDO</div>
+  Via Monteortone 46 &middot; 35037 Monteortone di Teolo (PD) &middot; +39 049 9939200 &middot; info@termeleonardo.com<br />
+  Tria S.r.l. &middot; P.IVA IT 02042330288
+</div>
+
+<script>
+'use strict';
+const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
+  c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const eur = (n) => Number(n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 });
+
+/* ---------- lingua della pagina ---------- */
+const qs = new URLSearchParams(location.search);
+let LNG = ['it','de','en','fr'].includes(qs.get('l')) ? qs.get('l')
+  : (['de','fr'].includes((navigator.language || '').slice(0,2)) ? (navigator.language || '').slice(0,2)
+  : ((navigator.language || '').slice(0,2) === 'it' ? 'it' : 'en'));
+
+/* ---------- catalogo: identico al back office (i prezzi veri li ricontrolla il server) ---------- */
+const CATALOGO = [
+  { g:{it:'Programmi benessere',de:'Wellnessprogramme',en:'Wellness programmes',fr:'Programmes bien-\u00eatre'}, v:[
+    ['progCoccola','Programma Coccola \u2014 pulizia viso completa + manicure',90],
+    ['progViso','Programma Viso Antirughe \u2014 pulizia completa + collagene',90],
+    ['progTermale','Programma Viso Termale \u2014 pulizia + trattamento termale',95],
+    ['progAntistress','Programma Antistress \u2014 scrub Mar Morto + massaggio + viso al fango',130],
+    ['progOriente','Programma Oriente \u2014 Ayurveda + viso alla vitamina C',130]
+  ]},
+  { g:{it:'Massaggi',de:'Massagen',en:'Massages',fr:'Massages'}, v:[
+    ['relax25','Massaggio relax con olio di cacao (25 min)',40],
+    ['plantare25','Riflessologia plantare (25 min)',40],
+    ['candle25','Massaggio Body Candle (25 min)',48],
+    ['antistress45','Massaggio antistress (45 min)',55],
+    ['californiano50','Massaggio californiano (50 min)',60],
+    ['ayurveda55','Massaggio Ayurveda (55 min)',65],
+    ['hotstone55','Massaggio Hot Stone (55 min)',65],
+    ['pindasweda55','Massaggio Pindasweda (55 min)',65],
+    ['linfo60','Linfodrenaggio completo (60 min)',65],
+    ['shiatzu50','Massaggio Shiatzu (50 min)',70]
+  ]},
+  { g:{it:'Viso e corpo',de:'Gesicht und K\u00f6rper',en:'Face and body',fr:'Visage et corps'}, v:[
+    ['visofango25','Trattamento viso al fango termale con massaggio (25 min)',44],
+    ['pulizia55','Pulizia viso completa con peeling e maschera (55 min)',60],
+    ['ialuronico55','Trattamento anti-age all\u2019acido ialuronico (55 min)',80],
+    ['collagene55','Trattamento anti-age collagene naturale (55 min)',80],
+    ['scrubmar40','Scrub corpo ai sali del Mar Morto (40 min)',55],
+    ['riducente55','Trattamento riducente-anticellulite al fango (55 min)',70]
+  ]},
+  { g:{it:'Day Spa',de:'Day Spa',en:'Day Spa',fr:'Day Spa'}, v:[
+    ['dayspa_fer','Day Spa infrasettimanale \u2014 piscine e grotte',35],
+    ['dayspa_wknd','Day Spa sabato e domenica \u2014 piscine e grotte',45],
+    ['dayspa_pom','Day Spa pomeridiano',29]
+  ]}
+];
+
+/* ---------- testi della pagina ---------- */
+const T = {
+  it:{ titolo:'Un regalo che profuma di terme', sotto:'Un massaggio, una giornata alle piscine termali o un valore a scelta: il buono arriva per email subito dopo il pagamento, pronto da stampare o inoltrare.',
+    cosa:'Cosa vuoi regalare', guidaCosa:'Scegli dal listino della spa oppure un importo libero.',
+    servizio:'Un trattamento o un ingresso', servizioSotto:'dal listino del centro benessere',
+    valore:'Un valore in euro', valoreSotto:'da spendere liberamente in hotel',
+    voce:'Voce del listino', importo:'Importo (\u20ac)', importoGuida:'da 25 a 1.000 \u20ac',
+    per:'Per chi \u00e8', guidaPer:'Il nome esce sul buono; la dedica \u00e8 facoltativa.',
+    dest:'Nome di chi lo riceve', dedica:'Dedica (facoltativa)', dedicaPh:'Buon compleanno, con affetto\u2026',
+    tu:'I tuoi dati', guidaTu:'Il buono e la ricevuta arrivano a questo indirizzo.',
+    acq:'Il tuo nome', mail:'La tua email', mailDest:'Email di chi lo riceve (facoltativa)',
+    mailDestNota:'Se la indichi, il buono arriva anche a lui/lei, gi\u00e0 pronto.',
+    linguaBuono:'Lingua del buono',
+    paga:(v)=>`Paga con carta \u2014 ${v} \u20ac`, pagoIn:'Pagamento sicuro con carta. Dopo il pagamento il buono \u00e8 emesso automaticamente e inviato per email.',
+    anteprima:'Anteprima del buono', manca:'Completa voce, importo e la tua email.',
+    attesa:'Un momento, prepariamo il pagamento\u2026',
+    erroreGen:'Non \u00e8 stato possibile avviare il pagamento. Riprova tra poco, oppure scrivici a info@termeleonardo.com o chiamaci al +39 049 9939200.',
+    grazieTit:'Grazie! Il pagamento \u00e8 andato a buon fine.',
+    grazieTxt:(rif)=>`Il buono ${rif ? '(' + rif + ') ' : ''}\u00e8 stato emesso ed \u00e8 in viaggio verso la tua email, con il codice e tutte le indicazioni. Se non lo vedi entro qualche minuto, controlla la posta indesiderata.`,
+    grazieAncora:'Regala un altro buono' },
+  de:{ titolo:'Ein Geschenk, das nach Thermen duftet', sotto:'Eine Massage, ein Tag in den Thermalb\u00e4dern oder ein Wertgutschein: der Gutschein kommt sofort nach der Zahlung per E-Mail \u2014 zum Ausdrucken oder Weiterleiten.',
+    cosa:'Was m\u00f6chten Sie schenken', guidaCosa:'W\u00e4hlen Sie aus der Spa-Preisliste oder einen freien Betrag.',
+    servizio:'Eine Anwendung oder ein Eintritt', servizioSotto:'aus der Preisliste des Wellnessbereichs',
+    valore:'Ein Wert in Euro', valoreSotto:'frei im Hotel einl\u00f6sbar',
+    voce:'Position der Preisliste', importo:'Betrag (\u20ac)', importoGuida:'von 25 bis 1.000 \u20ac',
+    per:'F\u00fcr wen ist es', guidaPer:'Der Name erscheint auf dem Gutschein; die Widmung ist optional.',
+    dest:'Name der beschenkten Person', dedica:'Widmung (optional)', dedicaPh:'Alles Gute zum Geburtstag\u2026',
+    tu:'Ihre Daten', guidaTu:'Gutschein und Beleg gehen an diese Adresse.',
+    acq:'Ihr Name', mail:'Ihre E-Mail', mailDest:'E-Mail der beschenkten Person (optional)',
+    mailDestNota:'Wenn angegeben, erh\u00e4lt auch sie den fertigen Gutschein.',
+    linguaBuono:'Sprache des Gutscheins',
+    paga:(v)=>`Mit Karte zahlen \u2014 ${v} \u20ac`, pagoIn:'Sichere Kartenzahlung. Nach der Zahlung wird der Gutschein automatisch ausgestellt und per E-Mail versandt.',
+    anteprima:'Vorschau des Gutscheins', manca:'Bitte Position, Betrag und Ihre E-Mail ausf\u00fcllen.',
+    attesa:'Einen Moment, wir bereiten die Zahlung vor\u2026',
+    erroreGen:'Die Zahlung konnte nicht gestartet werden. Bitte versuchen Sie es sp\u00e4ter erneut oder schreiben Sie an info@termeleonardo.com / rufen Sie +39 049 9939200 an.',
+    grazieTit:'Danke! Die Zahlung war erfolgreich.',
+    grazieTxt:(rif)=>`Der Gutschein ${rif ? '(' + rif + ') ' : ''}wurde ausgestellt und ist auf dem Weg in Ihr Postfach \u2014 mit Code und allen Hinweisen. Bitte pr\u00fcfen Sie ggf. auch den Spam-Ordner.`,
+    grazieAncora:'Noch einen Gutschein verschenken' },
+  en:{ titolo:'A gift that smells of thermal water', sotto:'A massage, a day at the thermal pools or a value of your choice: the voucher arrives by email right after payment, ready to print or forward.',
+    cosa:'What would you like to give', guidaCosa:'Choose from the spa price list or a free amount.',
+    servizio:'A treatment or an entrance', servizioSotto:'from the wellness centre price list',
+    valore:'A value in euro', valoreSotto:'to spend freely at the hotel',
+    voce:'Price list item', importo:'Amount (\u20ac)', importoGuida:'from 25 to 1,000 \u20ac',
+    per:'Who is it for', guidaPer:'The name appears on the voucher; the dedication is optional.',
+    dest:'Recipient\u2019s name', dedica:'Dedication (optional)', dedicaPh:'Happy birthday, with love\u2026',
+    tu:'Your details', guidaTu:'The voucher and receipt go to this address.',
+    acq:'Your name', mail:'Your email', mailDest:'Recipient\u2019s email (optional)',
+    mailDestNota:'If provided, they also receive the finished voucher.',
+    linguaBuono:'Voucher language',
+    paga:(v)=>`Pay by card \u2014 ${v} \u20ac`, pagoIn:'Secure card payment. After payment the voucher is issued automatically and sent by email.',
+    anteprima:'Voucher preview', manca:'Please fill in the item, the amount and your email.',
+    attesa:'One moment, preparing the payment\u2026',
+    erroreGen:'We could not start the payment. Please try again shortly, or write to info@termeleonardo.com or call +39 049 9939200.',
+    grazieTit:'Thank you! Your payment was successful.',
+    grazieTxt:(rif)=>`The voucher ${rif ? '(' + rif + ') ' : ''}has been issued and is on its way to your inbox, with the code and all details. If you don\u2019t see it within a few minutes, please check your spam folder.`,
+    grazieAncora:'Give another voucher' },
+  fr:{ titolo:'Un cadeau qui sent bon les thermes', sotto:'Un massage, une journ\u00e9e aux piscines thermales ou un montant libre : le bon arrive par e-mail juste apr\u00e8s le paiement, pr\u00eat \u00e0 imprimer ou \u00e0 transf\u00e9rer.',
+    cosa:'Que souhaitez-vous offrir', guidaCosa:'Choisissez dans la carte du spa ou un montant libre.',
+    servizio:'Un soin ou une entr\u00e9e', servizioSotto:'de la carte du centre de bien-\u00eatre',
+    valore:'Un montant en euros', valoreSotto:'\u00e0 utiliser librement \u00e0 l\u2019h\u00f4tel',
+    voce:'Article de la carte', importo:'Montant (\u20ac)', importoGuida:'de 25 \u00e0 1 000 \u20ac',
+    per:'Pour qui est-ce', guidaPer:'Le nom appara\u00eet sur le bon ; la d\u00e9dicace est facultative.',
+    dest:'Nom du destinataire', dedica:'D\u00e9dicace (facultative)', dedicaPh:'Joyeux anniversaire, avec affection\u2026',
+    tu:'Vos coordonn\u00e9es', guidaTu:'Le bon et le re\u00e7u arrivent \u00e0 cette adresse.',
+    acq:'Votre nom', mail:'Votre e-mail', mailDest:'E-mail du destinataire (facultatif)',
+    mailDestNota:'Si indiqu\u00e9, il/elle re\u00e7oit aussi le bon pr\u00eat \u00e0 l\u2019emploi.',
+    linguaBuono:'Langue du bon',
+    paga:(v)=>`Payer par carte \u2014 ${v} \u20ac`, pagoIn:'Paiement s\u00e9curis\u00e9 par carte. Apr\u00e8s le paiement, le bon est \u00e9mis automatiquement et envoy\u00e9 par e-mail.',
+    anteprima:'Aper\u00e7u du bon', manca:'Merci de renseigner l\u2019article, le montant et votre e-mail.',
+    attesa:'Un instant, nous pr\u00e9parons le paiement\u2026',
+    erroreGen:'Le paiement n\u2019a pas pu d\u00e9marrer. R\u00e9essayez dans un instant, ou \u00e9crivez \u00e0 info@termeleonardo.com ou appelez le +39 049 9939200.',
+    grazieTit:'Merci ! Votre paiement a bien \u00e9t\u00e9 re\u00e7u.',
+    grazieTxt:(rif)=>`Le bon ${rif ? '(' + rif + ') ' : ''}a \u00e9t\u00e9 \u00e9mis et arrive dans votre bo\u00eete mail, avec le code et toutes les indications. S\u2019il n\u2019appara\u00eet pas d\u2019ici quelques minutes, v\u00e9rifiez vos courriers ind\u00e9sirables.`,
+    grazieAncora:'Offrir un autre bon' }
+};
+
+/* ---------- anteprima: versione compatta del buono, stessa identit\u00e0 ---------- */
+const ETI = {
+  it:{ titolo:'Buono Regalo', haRicevuto:(n)=>`${n}, hai ricevuto<br />un dono speciale`,
+    senzaNome:'Un dono speciale<br />per te', da:'CON AFFETTO, DA', codice:'CODICE BUONO' },
+  de:{ titolo:'Geschenkgutschein', haRicevuto:(n)=>`${n}, Sie haben<br />ein besonderes Geschenk erhalten`,
+    senzaNome:'Ein besonderes<br />Geschenk f\u00fcr Sie', da:'HERZLICHST, VON', codice:'GUTSCHEINCODE' },
+  en:{ titolo:'Gift Voucher', haRicevuto:(n)=>`${n}, you have received<br />a special gift`,
+    senzaNome:'A special gift<br />for you', da:'WITH LOVE, FROM', codice:'VOUCHER CODE' },
+  fr:{ titolo:'Bon Cadeau', haRicevuto:(n)=>`${n}, vous avez re\u00e7u<br />un cadeau tr\u00e8s sp\u00e9cial`,
+    senzaNome:'Un cadeau sp\u00e9cial<br />pour vous', da:'AVEC AFFECTION, DE', codice:'CODE DU BON' }
+};
+const TESTO_VALORE = {
+  it:(v)=>`Buono valore di ${v} \u20ac, spendibile in hotel`,
+  de:(v)=>`Wertgutschein \u00fcber ${v} \u20ac, im Hotel einl\u00f6sbar`,
+  en:(v)=>`Gift voucher worth ${v} \u20ac, redeemable at the hotel`,
+  fr:(v)=>`Bon d\u2019une valeur de ${v} \u20ac, utilisable \u00e0 l\u2019h\u00f4tel`
+};
+
+function anteprimaHTML(b) {
+  const e = ETI[b.lingua] || ETI.it;
+  const dest = b.destinatario ? esc(b.destinatario) : '';
+  return `<table cellpadding="0" cellspacing="0" border="0" width="700" style="width:700px;max-width:100%;
+  border-collapse:collapse;font-family:Georgia,'Times New Roman',serif;background:#FFFFFF;">
+<tr>
+  <td width="240" valign="top" style="width:240px;background:#E4F0EA;padding:30px 24px;">
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;letter-spacing:2px;color:#1B4D4A;">
+      LE<strong>ONARDO</strong></div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:3px;color:#7A9490;margin-top:4px;">
+      TERME HOTEL &nbsp;\u2605\u2605\u2605\u2605</div>
+    <div style="height:130px;margin:24px 0 10px;border-radius:2px;
+      background:linear-gradient(160deg,#BEDCD4,#8FC4BC 55%,#5FA8A0);"></div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:8.5px;letter-spacing:2px;color:#7A9490;padding-top:20px;">
+      ABANO TERME \u00b7 COLLI EUGANEI</div>
+  </td>
+  <td valign="top" style="padding:30px 28px;">
+    <div style="width:34px;height:2px;background:#C9A961;margin-bottom:12px;"></div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9.5px;letter-spacing:3px;color:#C9A961;">
+      ${e.titolo.toUpperCase()}</div>
+    <div style="font-size:23px;line-height:1.3;color:#1B4D4A;margin:10px 0 0;">
+      ${dest ? e.haRicevuto(dest) : e.senzaNome}</div>
+    ${b.dedica ? `<div style="font-size:13px;font-style:italic;color:#5C736F;margin-top:12px;line-height:1.5;">
+      ${esc(b.dedica)}</div>` : ''}
+    ${b.acquirente ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#9AA9A6;margin-top:16px;">
+      ${e.da}</div>
+    <div style="font-size:14px;font-style:italic;color:#1B4D4A;margin-top:3px;">${esc(b.acquirente)}</div>` : ''}
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:22px;border-collapse:collapse;">
+      <tr><td style="border-left:3px solid #C9A961;background:#FBFAF7;padding:14px 16px;">
+        <div style="font-size:16px;color:#1B4D4A;">${esc(b.descrizione || '\u2026')}</div>
+      </td></tr>
+    </table>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#9AA9A6;margin-top:22px;">
+      ${e.codice}</div>
+    <div style="font-family:'Courier New',monospace;font-size:16px;letter-spacing:2px;color:#C7C2B6;margin-top:5px;">
+      \u2014 \u2014 \u2014 \u2014 \u2014 \u2014</div>
+  </td>
+</tr>
+</table>`;
+}
+
+/* ---------- la pagina ---------- */
+let TIPO = 'servizio';
+
+function testata() {
+  const t = T[LNG];
+  $('tTitolo').textContent = t.titolo;
+  $('tSotto').textContent = t.sotto;
+  $('lingue').innerHTML = [['it','Italiano'],['de','Deutsch'],['en','English'],['fr','Fran\u00e7ais']]
+    .map(([l,n]) => `<a href="?l=${l}" class="${l===LNG?'attiva':''}">${n}</a>`).join('');
+  document.documentElement.lang = LNG;
+}
+
+function grazie() {
+  const t = T[LNG];
+  const rif = qs.get('rif') || '';
+  $('pagina').innerHTML = `<div class="grazie">
+    <div class="segno">\u2713</div>
+    <h2>${esc(t.grazieTit)}</h2>
+    <p style="color:var(--verde-medio);">${t.grazieTxt(esc(rif))}</p>
+    <p style="margin-top:22px;"><a href="?l=${LNG}">${esc(t.grazieAncora)}</a></p>
+  </div>`;
+}
+
+function modulo() {
+  const t = T[LNG];
+  $('pagina').innerHTML = `<div class="colonne"><div>
+    <div class="riquadro">
+      <h2>${esc(t.cosa)}</h2><div class="guida">${esc(t.guidaCosa)}</div>
+      <div class="scelta-tipo">
+        <button type="button" id="btServizio" class="attivo"><strong>${esc(t.servizio)}</strong>${esc(t.servizioSotto)}</button>
+        <button type="button" id="btValore"><strong>${esc(t.valore)}</strong>${esc(t.valoreSotto)}</button>
+      </div>
+      <div id="boxServizio">
+        <label>${esc(t.voce)}</label>
+        <select id="fVoce">${CATALOGO.map(gr =>
+          `<optgroup label="${esc(gr.g[LNG] || gr.g.it)}">` + gr.v.map(([id, nome, prezzo]) =>
+            `<option value="${id}" data-prezzo="${prezzo}" data-nome="${esc(nome)}">${esc(nome)} \u2014 ${eur(prezzo)} \u20ac</option>`
+          ).join('') + `</optgroup>`).join('')}
+        </select>
+      </div>
+      <div id="boxValore" style="display:none;">
+        <label>${esc(t.importo)}</label>
+        <input type="number" id="fValore" min="25" max="1000" step="1" placeholder="100" />
+        <div class="mini" style="margin-top:5px;">${esc(t.importoGuida)}</div>
+      </div>
+    </div>
+
+    <div class="riquadro">
+      <h2>${esc(t.per)}</h2><div class="guida">${esc(t.guidaPer)}</div>
+      <label>${esc(t.dest)}</label><input type="text" id="fDest" />
+      <label>${esc(t.dedica)}</label><textarea id="fDedica" placeholder="${esc(t.dedicaPh)}"></textarea>
+      <label>${esc(t.linguaBuono)}</label>
+      <select id="fLingua">
+        <option value="it">Italiano</option><option value="de">Deutsch</option>
+        <option value="en">English</option><option value="fr">Fran\u00e7ais</option>
+      </select>
+    </div>
+
+    <div class="riquadro">
+      <h2>${esc(t.tu)}</h2><div class="guida">${esc(t.guidaTu)}</div>
+      <div class="due">
+        <div><label>${esc(t.acq)}</label><input type="text" id="fAcq" autocomplete="name" /></div>
+        <div><label>${esc(t.mail)} *</label><input type="email" id="fAcqMail" autocomplete="email" /></div>
+      </div>
+      <label>${esc(t.mailDest)}</label><input type="email" id="fDestMail" />
+      <div class="mini" style="margin-top:5px;">${esc(t.mailDestNota)}</div>
+      <button class="paga" id="fPaga"></button>
+      <div class="mini" style="margin-top:10px;">${esc(t.pagoIn)}</div>
+      <div class="esito" id="fEsito"></div>
+    </div>
+  </div>
+
+  <div class="fissa">
+    <div class="etichetta">${esc(t.anteprima)}</div>
+    <div class="telaio" id="telaio"></div>
+  </div></div>`;
+
+  $('fLingua').value = LNG;
+
+  const stato = () => {
+    const servizio = TIPO === 'servizio';
+    let descrizione = '', valore = 0, voce_id = null;
+    if (servizio) {
+      const o = $('fVoce').selectedOptions[0];
+      voce_id = $('fVoce').value; descrizione = o.dataset.nome; valore = Number(o.dataset.prezzo);
+    } else {
+      valore = parseFloat($('fValore').value) || 0;
+      descrizione = valore > 0 ? (TESTO_VALORE[$('fLingua').value] || TESTO_VALORE.it)(eur(valore)) : '';
+    }
+    return { tipo: TIPO, voce_id: servizio ? voce_id : null, descrizione, valore,
+      lingua: $('fLingua').value, destinatario: $('fDest').value.trim(),
+      dedica: $('fDedica').value.trim(), acquirente: $('fAcq').value.trim(),
+      acquirente_email: $('fAcqMail').value.trim(), destinatario_email: $('fDestMail').value.trim() };
+  };
+
+  const ridisegna = () => {
+    const b = stato();
+    $('fPaga').textContent = t.paga(eur(b.valore));
+    const tel = $('telaio');
+    tel.innerHTML = anteprimaHTML(b);
+    const dentro = tel.firstElementChild;
+    if (dentro) {
+      const scala = Math.min(1, (tel.clientWidth - 4) / 700);
+      dentro.style.transform = `scale(${scala})`;
+      tel.style.height = (dentro.offsetHeight * scala + 6) + 'px';
+    }
+  };
+
+  const scegli = (tipo) => {
+    TIPO = tipo;
+    $('btServizio').classList.toggle('attivo', tipo === 'servizio');
+    $('btValore').classList.toggle('attivo', tipo === 'valore');
+    $('boxServizio').style.display = tipo === 'servizio' ? '' : 'none';
+    $('boxValore').style.display = tipo === 'valore' ? '' : 'none';
+    ridisegna();
+  };
+  $('btServizio').onclick = () => scegli('servizio');
+  $('btValore').onclick = () => scegli('valore');
+  ['fVoce','fValore','fDest','fDedica','fLingua','fAcq'].forEach(id => {
+    const e = $(id); e.oninput = ridisegna; e.onchange = ridisegna;
+  });
+  window.addEventListener('resize', ridisegna);
+  ridisegna();
+
+  $('fPaga').onclick = async () => {
+    const b = stato();
+    const emailOk = /.+@.+\..+/.test(b.acquirente_email);
+    const valoreOk = b.tipo === 'valore' ? (b.valore >= 25 && b.valore <= 1000) : (b.valore > 0);
+    if (!b.descrizione || !valoreOk || !emailOk) {
+      $('fEsito').innerHTML = `<span class="errore">${esc(t.manca)}</span>`; return;
+    }
+    $('fPaga').disabled = true;
+    $('fEsito').textContent = t.attesa;
+    try {
+      const r = await fetch(FUNZIONE + '?a=acquista', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ...b, ritorno: location.origin + location.pathname + '?l=' + LNG })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.url) throw new Error(j.errore || 'errore');
+      location.href = j.url;
+    } catch (e) {
+      $('fEsito').innerHTML = `<span class="errore">${esc(t.erroreGen)}</span>`;
+      $('fPaga').disabled = false;
+    }
+  };
+}
+
+testata();
+if (qs.get('ok') === '1') grazie(); else modulo();
+</script>
+</body>
+</html>
