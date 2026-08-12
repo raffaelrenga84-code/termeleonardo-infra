@@ -76,9 +76,14 @@
 <main id="app"></main>
 <div id="stampa"></div>
 
-<script src="https://esm.sh/@supabase/supabase-js@2?bundle"></script>
-<script>
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const supabase = { createClient };
+window.supabase = supabase;
+
 'use strict';
+
 const SUPABASE_URL = 'https://mvuiuwakuseockotlcnp.supabase.co';
 /* chiave pubblica ("anon"): serve solo per l'accesso e non dà accesso ai dati,
    che restano protetti dalle regole del database e dalla funzione */
