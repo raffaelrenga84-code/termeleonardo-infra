@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Buoni regalo — back office</title>
+<style>
+  :root{--acqua:#1E7F88;--acqua-scura:#0F5C64;--acqua-chiara:#E3F0F1;
+    --pietra:#EDE7DC;--carta:#FAF8F4;--inchiostro:#2A2E2B;--grigio:#7B756A;
+    --arancio:#E8751A;--oliva:#7A8450;--allarme:#C0392B;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--carta);color:var(--inchiostro);font:15px/1.5 Arial,Helvetica,sans-serif;}
+  .fascia{height:6px;background:linear-gradient(90deg,var(--acqua-scura),var(--acqua) 45%,#6FB1B8);}
+  header{background:#fff;border-bottom:1px solid var(--pietra);padding:14px 20px;
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  header .marchio{font-family:Georgia,serif;font-size:19px;letter-spacing:3px;}
+  header .chi{font-size:13px;color:var(--grigio);}
+  main{max-width:980px;margin:0 auto;padding:20px 16px 60px;}
+  .schede{display:flex;gap:8px;border-bottom:1px solid var(--pietra);margin-bottom:18px;}
+  .schede button{background:none;border:0;border-bottom:3px solid transparent;
+    padding:10px 14px;font:600 14px Arial;color:var(--grigio);cursor:pointer;}
+  .schede button.attiva{color:var(--acqua-scura);border-bottom-color:var(--acqua);}
+  .riquadro{background:#fff;border:1px solid var(--pietra);border-radius:8px;padding:18px;margin-bottom:16px;}
+  h2{font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:var(--acqua);margin-bottom:12px;}
+  label{display:block;font-size:12px;color:var(--grigio);margin:10px 0 4px;}
+  input,select,textarea{width:100%;padding:10px;border:1px solid #D8D2C4;border-radius:5px;
+    font:15px Arial;color:var(--inchiostro);background:#fff;}
+  textarea{min-height:64px;}
+  .due{display:flex;gap:12px;flex-wrap:wrap;}
+  .due>div{flex:1;min-width:180px;}
+  button.azione{background:var(--arancio);color:#fff;border:0;border-radius:6px;
+    padding:13px 20px;font:600 15px Arial;cursor:pointer;margin-top:14px;}
+  button.azione:disabled{background:#CFCABF;}
+  button.sec{background:#fff;color:var(--acqua-scura);border:1px solid var(--acqua);}
+  table{width:100%;border-collapse:collapse;font-size:14px;}
+  th{text-align:left;font-size:11px;letter-spacing:.8px;text-transform:uppercase;
+    color:var(--acqua-scura);padding:8px 10px;background:#F4F1EA;}
+  td{padding:9px 10px;border-top:1px solid #F0EBE1;vertical-align:top;}
+  .cod{font-family:monospace;font-weight:700;color:var(--acqua-scura);}
+  .stato{font-size:11px;padding:2px 8px;border-radius:10px;white-space:nowrap;}
+  .st-pagato{background:var(--acqua-chiara);color:var(--acqua-scura);}
+  .st-attesa{background:#FFF6E8;color:#B3541E;}
+  .st-riscosso{background:#EFF3E7;color:var(--oliva);}
+  .st-annullato{background:#F3F0EC;color:var(--grigio);}
+  .st-scaduto{background:#FDF0EE;color:var(--allarme);}
+  .esito{font-size:14px;color:var(--acqua-scura);min-height:20px;padding-top:10px;}
+  .errore{color:var(--allarme);}
+  .mini{font-size:12px;color:var(--grigio);}
+  .fatto{background:var(--acqua-chiara);border-left:4px solid var(--acqua);
+    border-radius:0 8px 8px 0;padding:14px 16px;margin-top:14px;}
+  .fatto .codice{font-family:monospace;font-size:26px;letter-spacing:2px;color:var(--acqua-scura);}
+  @media print{
+    body>*:not(#stampa){display:none !important;}
+    #stampa{display:block !important;}
+  }
+  #stampa{display:none;}
+</style>
+</head>
+<body>
+<div class="fascia"></div>
+<header>
+  <div class="marchio">LEONARDO · buoni regalo</div>
+  <div class="chi"><span id="chiSono"></span> <a href="#" id="esci" style="color:var(--acqua);">esci</a></div>
+</header>
+<main id="app"></main>
+<div id="stampa"></div>
+
+<script>
+'use strict';
+const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
+
+/* ---------- catalogo: dal listino spa del sito ---------- */
+const CATALOGO = [
+  { g:'Programmi benessere', v:[
+    ['progCoccola','Programma Coccola — pulizia viso completa + manicure',90],
+    ['progViso','Programma Viso Antirughe — pulizia completa + collagene',90],
+    ['progTermale','Programma Viso Termale — pulizia + trattamento termale',95],
+    ['progAntistress','Programma Antistress — scrub Mar Morto + massaggio + viso al fango',130],
+    ['progOriente','Programma Oriente — Ayurveda + viso alla vitamina C',130]
+  ]},
+  { g:'Massaggi', v:[
+    ['relax25','Massaggio relax con olio di cacao (25 min)',40],
+    ['plantare25','Riflessologia plantare (25 min)',40],
+    ['candle25','Massaggio Body Candle (25 min)',48],
+    ['antistress45','Massaggio antistress (45 min)',55],
+    ['californiano50','Massaggio californiano (50 min)',60],
+    ['ayurveda55','Massaggio Ayurveda (55 min)',65],
+    ['hotstone55','Massaggio Hot Stone (55 min)',65],
+    ['pindasweda55','Massaggio Pindasweda (55 min)',65],
+    ['linfo60','Linfodrenaggio completo (60 min)',65],
+    ['shiatzu50','Massaggio Shiatzu (50 min)',70]
+  ]},
+  { g:'Viso e corpo', v:[
+    ['visofango25','Trattamento viso al fango termale con massaggio (25 min)',44],
+    ['pulizia55','Pulizia viso completa con peeling e maschera (55 min)',60],
+    ['ialuronico55','Trattamento anti-age all\u2019acido ialuronico (55 min)',80],
+    ['collagene55','Trattamento anti-age collagene naturale (55 min)',80],
+    ['scrubmar40','Scrub corpo ai sali del Mar Morto (40 min)',55],
+    ['riducente55','Trattamento riducente-anticellulite al fango (55 min)',70]
+  ]},
+  { g:'Day Spa', v:[
+    ['dayspa_fer','Day Spa infrasettimanale — piscine e grotte',35],
+    ['dayspa_wknd','Day Spa sabato e domenica — piscine e grotte',45],
+    ['dayspa_pom','Day Spa pomeridiano',29]
+  ]}
+];
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
+  c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const eur = (n) => Number(n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 });
+const dataIT = (iso) => {
+  if (!iso) return '';
+  const M = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio',
+             'agosto','settembre','ottobre','novembre','dicembre'];
+  const d = new Date(String(iso).slice(0,10) + 'T12:00');
+  return `${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}`;
+};
+
+let CHIAVE = localStorage.getItem('leo_hotel_key') || '';
+let OPERATORE = localStorage.getItem('leo_operatore') || '';
+let VISTA = 'emetti';
+
+async function chiama(qs, opz = {}) {
+  const r = await fetch(FUNZIONE + qs, {
+    ...opz,
+    headers: { 'content-type': 'application/json', 'x-hotel-key': CHIAVE, ...(opz.headers || {}) }
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.errore || ('errore ' + r.status));
+  return j;
+}
+
+/* ---------- accesso ---------- */
+function chiediChiave() {
+  $('app').innerHTML = `<div class="riquadro" style="max-width:420px;margin:40px auto;">
+    <h2>Accesso reception</h2>
+    <label>Chiave dell'hotel</label><input type="password" id="kChiave" />
+    <label>Il suo nome (finisce sui buoni che emette)</label><input type="text" id="kNome" />
+    <button class="azione" id="kEntra" style="width:100%;">Entra</button>
+    <div class="esito" id="kEsito"></div>
+    <p class="mini" style="padding-top:10px;">La chiave è la stessa dell'estensione.
+      Resta memorizzata su questo computer.</p></div>`;
+  $('kEntra').onclick = async () => {
+    CHIAVE = $('kChiave').value.trim();
+    OPERATORE = $('kNome').value.trim();
+    if (!CHIAVE || !OPERATORE) { $('kEsito').textContent = 'Servono chiave e nome.'; return; }
+    try {
+      await chiama('?a=elenco');
+      localStorage.setItem('leo_hotel_key', CHIAVE);
+      localStorage.setItem('leo_operatore', OPERATORE);
+      disegna();
+    } catch (e) {
+      $('kEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
+    }
+  };
+}
+
+/* ---------- struttura ---------- */
+function disegna() {
+  $('chiSono').textContent = OPERATORE ? OPERATORE + ' ·' : '';
+  $('app').innerHTML = `<div class="schede">
+      <button data-v="emetti" class="${VISTA==='emetti'?'attiva':''}">Emetti un buono</button>
+      <button data-v="elenco" class="${VISTA==='elenco'?'attiva':''}">Buoni emessi</button>
+      <button data-v="verifica" class="${VISTA==='verifica'?'attiva':''}">Verifica / riscuoti</button>
+    </div><div id="vista"></div>`;
+  document.querySelectorAll('.schede button').forEach(b =>
+    b.onclick = () => { VISTA = b.dataset.v; disegna(); });
+  ({ emetti: vistaEmetti, elenco: vistaElenco, verifica: vistaVerifica })[VISTA]();
+}
+
+/* ---------- 1. emissione ---------- */
+function vistaEmetti() {
+  const oggi = new Date();
+  const fra12 = new Date(oggi); fra12.setFullYear(fra12.getFullYear() + 1);
+  const iso = (d) => d.toISOString().slice(0, 10);
+
+  $('vista').innerHTML = `<div class="riquadro">
+    <h2>Cosa regala</h2>
+    <label>Tipo</label>
+    <select id="fTipo">
+      <option value="servizio">Un trattamento o un pacchetto</option>
+      <option value="valore">Un valore in euro</option>
+    </select>
+    <div id="boxServizio">
+      <label>Voce del listino</label>
+      <select id="fVoce">${CATALOGO.map(gr =>
+        `<optgroup label="${esc(gr.g)}">` + gr.v.map(([id, nome, prezzo]) =>
+          `<option value="${id}" data-prezzo="${prezzo}" data-nome="${esc(nome)}">${esc(nome)} — ${eur(prezzo)} €</option>`
+        ).join('') + `</optgroup>`).join('')}
+        <option value="__altro" data-prezzo="0" data-nome="">Altro (scrivo io)</option>
+      </select>
+      <div id="boxAltro" style="display:none;">
+        <label>Descrizione da stampare sul buono</label>
+        <input type="text" id="fAltro" placeholder="es. Massaggio a scelta da 50 minuti" />
+      </div>
+    </div>
+    <div class="due">
+      <div><label>Valore (€)</label><input type="number" id="fValore" min="1" step="1" /></div>
+      <div><label>Valido fino al</label><input type="date" id="fScade" value="${iso(fra12)}" /></div>
+    </div>
+    <p class="mini">Dodici mesi come da regolamento. Ricordi che l'hotel chiude
+      da fine novembre a metà febbraio: se la scadenza cade lì, valuti di allungarla.</p>
+  </div>
+
+  <div class="riquadro">
+    <h2>Chi compra e chi riceve</h2>
+    <div class="due">
+      <div><label>Acquirente</label><input type="text" id="fAcq" /></div>
+      <div><label>Email</label><input type="email" id="fAcqMail" /></div>
+      <div><label>Telefono</label><input type="tel" id="fAcqTel" /></div>
+    </div>
+    <div class="due">
+      <div><label>Destinatario (sul buono)</label><input type="text" id="fDest" /></div>
+      <div><label>Email del destinatario</label><input type="email" id="fDestMail" /></div>
+      <div><label>Pagamento</label>
+        <select id="fPag">
+          <optgroup label="Incassato adesso in reception">
+            <option value="contanti">Contanti</option>
+            <option value="bancomat">Bancomat / carta</option>
+          </optgroup>
+          <optgroup label="Da pagare (il buono resta in attesa)">
+            <option value="bonifico">Bonifico</option>
+            <option value="stripe">Link di pagamento</option>
+          </optgroup>
+        </select></div>
+    </div>
+    <label>Riga sotto il titolo (facoltativa, esce in oro sul buono)</label>
+    <input type="text" id="fSotto" placeholder="es. FERIALE · DAL LUNEDÌ AL VENERDÌ · PER 1 PERSONA" />
+    <label>Dedica (facoltativa, esce sul buono)</label>
+    <textarea id="fDedica" placeholder="Buon compleanno, con affetto…"></textarea>
+    <label>Note interne (non stampate)</label>
+    <input type="text" id="fNote" />
+    <div id="notaPag" class="mini" style="padding-top:8px;"></div>
+    <button class="azione" id="fCrea">Emetti il buono</button>
+    <div class="esito" id="fEsito"></div>
+    <div id="fFatto"></div>
+  </div>`;
+
+  const agg = () => {
+    const servizio = $('fTipo').value === 'servizio';
+    $('boxServizio').style.display = servizio ? '' : 'none';
+    if (servizio) {
+      const o = $('fVoce').selectedOptions[0];
+      $('boxAltro').style.display = $('fVoce').value === '__altro' ? '' : 'none';
+      if ($('fVoce').value !== '__altro') $('fValore').value = o.dataset.prezzo;
+    }
+  };
+  const aggPag = () => {
+    const daPagare = ['bonifico', 'stripe'].includes($('fPag').value);
+    $('notaPag').innerHTML = daPagare
+      ? 'Il buono nasce <strong>in attesa di pagamento</strong>: si genera l\u2019anteprima da mandare al cliente, ' +
+        'e il codice spendibile esce solo quando registri l\u2019incasso.'
+      : 'Incasso immediato: il buono viene <strong>emesso subito</strong>, pronto da stampare o inviare.';
+    $('fCrea').textContent = daPagare ? 'Prepara il buono (in attesa)' : 'Emetti il buono';
+  };
+  $('fTipo').onchange = agg; $('fVoce').onchange = agg; $('fPag').onchange = aggPag;
+  agg(); aggPag();
+
+  $('fCrea').onclick = async () => {
+    const tipo = $('fTipo').value;
+    let descrizione = '', voce_id = null;
+    if (tipo === 'servizio') {
+      const o = $('fVoce').selectedOptions[0];
+      voce_id = $('fVoce').value === '__altro' ? null : $('fVoce').value;
+      descrizione = $('fVoce').value === '__altro' ? $('fAltro').value.trim() : o.dataset.nome;
+    } else {
+      descrizione = 'Buono valore di ' + eur($('fValore').value) + ' €, spendibile in hotel';
+    }
+    const valore = parseFloat($('fValore').value);
+    if (!descrizione || !(valore > 0)) {
+      $('fEsito').innerHTML = '<span class="errore">Servono la voce e un valore.</span>'; return;
+    }
+    $('fCrea').disabled = true; $('fEsito').textContent = 'Un momento…';
+    try {
+      const j = await chiama('?a=crea', { method:'POST', body: JSON.stringify({
+        operatore: OPERATORE, tipo, voce_id, descrizione, valore,
+        acquirente: $('fAcq').value, acquirente_email: $('fAcqMail').value,
+        acquirente_tel: $('fAcqTel').value, destinatario: $('fDest').value,
+        destinatario_email: $('fDestMail').value,
+        dedica: $('fDedica').value, sottotitolo: $('fSotto').value, scade_il: $('fScade').value,
+        pagamento: $('fPag').value, note: $('fNote').value
+      })});
+      $('fEsito').textContent = '';
+      mostraFatto(j.buono);
+    } catch (e) {
+      $('fEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
+    } finally { $('fCrea').disabled = false; }
+  };
+}
+
+function mostraFatto(b) {
+  const attesa = b.stato === 'attesa';
+  /* il link vale per UN buono solo: azzerarlo qui evita che finisca
+     nell email del buono successivo (il cliente pagherebbe l altro) */
+  LINK_PAGAMENTO = '';
+  $('fFatto').innerHTML = `<div class="fatto">
+    <div class="mini">Numero per l&apos;amministrazione</div>
+    <div style="font-family:monospace;font-size:17px;color:#0F5C64;">${esc(b.numero)}</div>
+    ${attesa
+      ? `<div style="margin-top:12px;"><strong>In attesa di pagamento.</strong>
+           Il codice spendibile non esiste ancora: al cliente va l&apos;anteprima con le
+           istruzioni per pagare. Quando l&apos;incasso arriva, lo registri qui sotto.</div>
+         ${b.pagamento === 'stripe'
+            ? `<button class="azione" id="bLink">Crea il link di pagamento</button>` : ''}
+         <button class="azione ${b.pagamento === 'stripe' ? 'sec' : ''}" id="bRichiesta">Copia l&apos;email di richiesta pagamento</button>
+         <button class="azione sec" id="bPagato">Ho ricevuto il pagamento</button>`
+      : `<div class="mini" style="margin-top:12px;">Codice da consegnare</div>
+         <div class="codice">${esc(b.codice)}</div>
+         <div class="mini">${esc(b.descrizione)} · ${eur(b.valore)} € · valido fino al ${dataIT(b.scade_il)}</div>
+         <button class="azione sec" id="bStampa">Stampa il buono</button>
+         <button class="azione sec" id="bCopia">Copia per l&apos;email</button>`}
+    <div class="esito" id="bEsito"></div>
+    <div style="margin-top:16px;overflow:auto;">${buonoHTML(b, attesa)}</div>
+  </div>`;
+
+  if (attesa) {
+    if ($('bLink')) $('bLink').onclick = async () => {
+      $('bEsito').textContent = 'Chiedo il link a Stripe…';
+      try {
+        const j = await chiama('?a=link', { method: 'POST', body: JSON.stringify({ numero: b.numero }) });
+        LINK_PAGAMENTO = j.url;
+        $('bEsito').innerHTML = `\u2713 Link pronto: <a href="${esc(j.url)}" target="_blank"
+          style="color:#1E7F88;word-break:break-all;">${esc(j.url)}</a><br />
+          <span class="mini">Ora "Copia l\u2019email": il link è già dentro. Quando il cliente paga,
+          il buono si sblocca da solo.</span>`;
+      } catch (e) {
+        $('bEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>
+          <div class="mini">Puoi comunque procedere con il bonifico.</div>`;
+      }
+    };
+    $('bRichiesta').onclick = async () => {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({
+          'text/html': new Blob([emailRichiesta(b)], { type: 'text/html' }),
+          'text/plain': new Blob([emailRichiestaTesto(b)], { type: 'text/plain' })
+        })]);
+        $('bEsito').textContent = '✓ Copiata: incollala in Outlook e invia al cliente.';
+      } catch (e) { $('bEsito').innerHTML = '<span class="errore">Copia non riuscita.</span>'; }
+    };
+    $('bPagato').onclick = async () => {
+      const rif = prompt('Riferimento del pagamento (CRO del bonifico, id della transazione…). Puoi lasciare vuoto:') ?? null;
+      if (rif === null) return;
+      try {
+        const j = await chiama('?a=pagato', { method: 'POST', body: JSON.stringify({
+          numero: b.numero, operatore: OPERATORE, pagamento: b.pagamento, pagamento_rif: rif }) });
+        mostraFatto(j.buono);
+      } catch (e) { $('bEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+    };
+  } else {
+    $('bStampa').onclick = () => { $('stampa').innerHTML = buonoHTML(b); window.print(); };
+    $('bCopia').onclick = async () => {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({
+          'text/html': new Blob([buonoHTML(b)], { type: 'text/html' }),
+          'text/plain': new Blob([buonoTesto(b)], { type: 'text/plain' })
+        })]);
+        $('bEsito').textContent = '✓ Copiato: lo incolli nell\u2019email al cliente.';
+      } catch (e) { $('bEsito').innerHTML = '<span class="errore">Copia non riuscita.</span>'; }
+    };
+  }
+}
+
+/* email di richiesta pagamento: bonifico e/o link, come nelle offerte */
+const IBAN = 'IT11C0306962321100000006041';
+let LINK_PAGAMENTO = '';
+function emailRichiesta(b) {
+  const link = b.pagamento === 'stripe' && LINK_PAGAMENTO;
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#2A2E2B;max-width:600px;">
+    <p>Gentile ${esc(b.acquirente || 'Cliente')},</p>
+    <p>ecco il buono regalo che ci ha chiesto: qui sotto trova l&apos;anteprima.
+    Diventa valido appena registriamo il pagamento, e le inviamo subito il buono
+    definitivo con il codice da consegnare.</p>
+    <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:18px 0;">
+      <tr><td style="border-left:3px solid #1E7F88;background:#FAF8F4;padding:14px 18px;">
+        <strong>${esc(b.descrizione)}</strong><br />
+        Importo: <strong>${eur(b.valore)} &euro;</strong><br />
+        Riferimento: ${esc(b.numero)}
+      </td></tr></table>
+    <p><strong>Come pagare</strong><br />
+    ${link ? `<a href="${esc(LINK_PAGAMENTO)}" style="display:inline-block;background:#E8751A;color:#fff;
+        text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:600;margin:6px 0 14px;">
+        Paga con carta &mdash; ${eur(b.valore)} &euro;</a><br />oppure` : ''}
+    con bonifico bancario intestato a Tria S.r.l.:<br />
+    IBAN <strong>${IBAN}</strong><br />
+    Causale: <strong>${esc(b.numero)}</strong> &mdash; buono regalo</p>
+    <p>Appena ricevuto le mandiamo il buono, pronto da stampare o da inoltrare
+    a chi lo riceverà.</p>
+    <p>Un cordiale saluto,<br />${esc(OPERATORE)}<br />
+    <span style="color:#7B756A;font-size:13px;">Hotel Terme Leonardo &middot; +39 049 9939200</span></p>
+  </div>` + '<div style="margin-top:22px;">' + buonoHTML(b, true) + '</div>';
+}
+function emailRichiestaTesto(b) {
+  return `Gentile ${b.acquirente || 'Cliente'},\n\necco il buono regalo che ci ha chiesto.\n` +
+    `Diventa valido appena registriamo il pagamento.\n\n` +
+    `${b.descrizione}\nImporto: ${eur(b.valore)} €\nRiferimento: ${b.numero}\n\n` +
+    `COME PAGARE\n` +
+    (LINK_PAGAMENTO && b.pagamento === 'stripe' ? `Con carta: ${LINK_PAGAMENTO}\noppure\n` : '') +
+    `Bonifico intestato a Tria S.r.l.\nIBAN ${IBAN}\n` +
+    `Causale: ${b.numero} — buono regalo\n\n` +
+    `Appena ricevuto le mandiamo il buono definitivo.\n\n${OPERATORE}\n` +
+    `Hotel Terme Leonardo · +39 049 9939200`;
+}
+
+/* ---------- il buono: due colonne, come la bozza ----------
+   Tabelle e non flexbox: Outlook non regge i layout moderni e
+   spaccherebbe il buono in due tronconi. */
+
+/* immagine di copertina per categoria — URL pubblici del sito.
+   ⚠️ da riempire con le foto vere: senza, esce il fondo decorato. */
+const COPERTINE = {
+  dayspa:   '',
+  massaggi: '',
+  viso:     '',
+  corpo:    '',
+  valore:   ''
+};
+const NARRATIVA = {
+  dayspa: { occhiello:'PISCINE TERMALI · HOTEL LEONARDO',
+    frase:'Un momento di pura quiete,<br />è il regalo più bello.',
+    testo:'Tra le acque termali dei Colli Euganei, un\u2019intera giornata pensata solo per te: per respirare piano, lasciarsi andare e ritrovare il proprio equilibrio.' },
+  massaggi: { occhiello:'CENTRO BENESSERE · HOTEL LEONARDO',
+    frase:'Un\u2019ora per sé,<br />è il regalo più raro.',
+    testo:'Mani esperte, oli caldi e il silenzio del centro benessere: il tempo rallenta e il corpo si scioglie.' },
+  viso: { occhiello:'TRATTAMENTI VISO · HOTEL LEONARDO',
+    frase:'La cura di sé<br />comincia da uno sguardo.',
+    testo:'Trattamenti su misura con i principi attivi dell\u2019acqua termale, per una pelle che ritrova luce e morbidezza.' },
+  corpo: { occhiello:'RITUALI CORPO · HOTEL LEONARDO',
+    frase:'Il benessere si sente<br />prima ancora di vederlo.',
+    testo:'Scrub, fanghi e trattamenti che risvegliano il corpo, nel calore dell\u2019acqua termale dei Colli Euganei.' },
+  valore: { occhiello:'HOTEL TERME LEONARDO · ABANO TERME',
+    frase:'Lascia che scelga<br />il suo momento.',
+    testo:'Un buono da usare come preferisce: una giornata alle terme, un trattamento, un soggiorno tra i Colli Euganei.' }
+};
+
+function categoriaBuono(b) {
+  const id = String(b.voce_id || '');
+  if (b.tipo === 'valore') return 'valore';
+  if (id.startsWith('dayspa')) return 'dayspa';
+  if (/^(prog|relax|plantare|candle|antistress|californiano|ayurveda|hotstone|pindasweda|linfo|shiatzu)/.test(id)) return 'massaggi';
+  if (/^(visofango|pulizia|ialuronico|collagene|vitaminac)/.test(id)) return 'viso';
+  if (/^(scrub|riducente|seno|antiage|manicure|pedicure|epil)/.test(id)) return 'corpo';
+  return 'valore';
+}
+
+/* dettaglio di cosa comprende: per il Day Spa l'elenco vero delle piscine */
+const COMPRENDE = {
+  dayspa: [
+    'Piscine termali interna ed esterna comunicanti, con idromassaggi e giochi d\u2019acqua',
+    'Zona Relax: Biogrotta, bagno turco, vasca idromassaggio, lettini massaggianti',
+    'Cascata di acqua termale, cascata di ghiaccio e docce emozionali con aromaterapia',
+    'Piscina scoperta estiva con acqua dolce a temperatura ambiente'
+  ]
+};
+
+const CONDIZIONI = 'Apertura stagionale: l\u2019hotel chiude ogni anno da fine novembre a febbraio; ' +
+  'il buono non è valido in questo periodo. È richiesta la maggiore età per l\u2019accesso a piscine, hotel e spa; ' +
+  'ingressi soggetti a disponibilità e prenotazione obbligatoria. Il buono non è utilizzabile nelle prime 48 ore ' +
+  'dall\u2019acquisto, non è rimborsabile né convertibile in denaro; gli importi residui dopo il primo utilizzo ' +
+  'non sono trasferibili. Validità 12 mesi dalla data di acquisto.';
+
+function buonoHTML(b, bozza) {
+  const cat = categoriaBuono(b);
+  const n = NARRATIVA[cat] || NARRATIVA.valore;
+  const foto = COPERTINE[cat] || '';
+  const comprende = COMPRENDE[cat] || [];
+  const dest = b.destinatario ? esc(b.destinatario) : '';
+  const sotto = b.sottotitolo ? esc(b.sottotitolo) : '';
+
+  return `<table cellpadding="0" cellspacing="0" border="0" width="700" style="width:700px;max-width:100%;
+    border-collapse:collapse;font-family:Georgia,'Times New Roman',serif;background:#FFFFFF;">
+   <tr>
+    <!-- colonna sinistra -->
+    <td width="270" valign="top" style="width:270px;background:#E4F0EA;padding:34px 26px;">
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;letter-spacing:2px;color:#1B4D4A;">
+        LE<strong>ONARDO</strong></div>
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:3px;color:#7A9490;margin-top:4px;">
+        TERME HOTEL &nbsp;★★★★</div>
+      ${foto
+        ? `<img src="${esc(foto)}" width="218" style="width:218px;display:block;margin:26px 0 8px;border-radius:2px;" alt="" />`
+        : `<div style="height:150px;margin:26px 0 8px;border-radius:2px;
+             background:linear-gradient(160deg,#BEDCD4,#8FC4BC 55%,#5FA8A0);"></div>`}
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:8.5px;letter-spacing:2px;color:#7A9490;">
+        ${esc(n.occhiello)}</div>
+      <div style="font-size:19px;line-height:1.35;color:#1B4D4A;font-style:italic;margin:26px 0 12px;">
+        ${n.frase}</div>
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:11.5px;line-height:1.6;color:#5C736F;">
+        ${esc(n.testo)}</div>
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:8.5px;letter-spacing:2px;color:#7A9490;padding-top:34px;">
+        ABANO TERME · COLLI EUGANEI</div>
+    </td>
+
+    <!-- colonna destra -->
+    <td valign="top" style="padding:34px 30px;">
+      <div style="width:34px;height:2px;background:#C9A961;margin-bottom:14px;"></div>
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:9.5px;letter-spacing:3px;color:#C9A961;">
+        BUONO REGALO</div>
+      <div style="font-size:25px;line-height:1.3;color:#1B4D4A;margin:12px 0 0;">
+        ${dest ? esc(dest) + ', hai ricevuto<br />un dono speciale' : 'Un dono speciale<br />per te'}</div>
+      ${b.dedica ? `<div style="font-size:13.5px;font-style:italic;color:#5C736F;margin-top:14px;line-height:1.5;">
+        ${esc(b.dedica)}</div>` : ''}
+      ${b.acquirente ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#9AA9A6;margin-top:20px;">
+          CON AFFETTO, DA</div>
+        <div style="font-size:15px;font-style:italic;color:#1B4D4A;margin-top:4px;">${esc(b.acquirente)}</div>` : ''}
+
+      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:26px;border-collapse:collapse;">
+        <tr><td style="border-left:3px solid #C9A961;background:#FBFAF7;padding:18px 20px;">
+          <div style="font-size:17px;color:#1B4D4A;">${esc(b.descrizione)}</div>
+          ${sotto ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#C9A961;margin-top:7px;">
+            ${sotto}</div>` : ''}
+          ${comprende.length ? `<div style="margin-top:14px;">` + comprende.map(x =>
+            `<div style="font-family:Arial,Helvetica,sans-serif;font-size:11.5px;line-height:1.7;color:#4A5C59;">
+               <span style="color:#C9A961;">·</span> ${esc(x)}</div>`).join('') + `</div>` : ''}
+        </td></tr>
+      </table>
+
+      ${bozza ? `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:26px;border-collapse:collapse;">
+        <tr><td style="background:#FFF6E8;border:1px dashed #E8751A;border-radius:4px;padding:14px 18px;
+          font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#6B4A22;text-align:center;">
+          <strong style="letter-spacing:2px;">ANTEPRIMA — NON ANCORA VALIDO</strong><br />
+          Il codice viene assegnato al momento del pagamento.<br />
+          Riferimento ${esc(b.numero || '')}
+        </td></tr></table>` : ''}
+      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:34px;border-top:1px solid #E6E2D8;border-collapse:collapse;">
+        <tr>
+          <td valign="top" style="padding-top:14px;">
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#9AA9A6;">
+              CODICE BUONO</div>
+            <div style="font-family:'Courier New',monospace;font-size:17px;letter-spacing:2px;color:${bozza ? '#C7C2B6' : '#1B4D4A'};margin-top:6px;">
+              ${bozza ? '— — — — — — —' : esc(b.codice)}</div>
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#C9A961;margin-top:6px;">
+              ${b.scade_il ? 'Valido fino al ' + dataIT(b.scade_il) : '12 mesi dal pagamento'}</div>
+          </td>
+          <td valign="top" align="right" style="padding-top:14px;font-family:Arial,Helvetica,sans-serif;
+            font-size:11px;line-height:1.6;color:#5C736F;">
+            <strong style="color:#1B4D4A;">+39 049 9939200</strong><br />
+            info@termeleonardo.com<br />www.termeleonardo.com
+          </td>
+        </tr>
+      </table>
+
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:1.55;color:#B3ADA1;padding-top:22px;">
+        ${esc(CONDIZIONI)}</div>
+    </td>
+   </tr>
+  </table>`;
+}
+
+function buonoTesto(b) {
+  return `BUONO REGALO — Hotel Terme Leonardo\n` +
+    (b.destinatario ? `${b.destinatario}, hai ricevuto un dono speciale\n` : '') +
+    (b.dedica ? `"${b.dedica}"\n` : '') +
+    (b.acquirente ? `Con affetto, da ${b.acquirente}\n` : '') +
+    `\n${b.descrizione}${b.sottotitolo ? '\n' + b.sottotitolo : ''}\n` +
+    ((COMPRENDE[categoriaBuono(b)] || []).map(x => '· ' + x).join('\n') || '') +
+    `\n\nCodice buono: ${b.codice}\nValido fino al ${dataIT(b.scade_il)}\n\n` +
+    `Per prenotare: +39 049 9939200 · info@termeleonardo.com\n\n${CONDIZIONI}`;
+}
+
+/* ---------- 2. elenco ---------- */
+async function vistaElenco() {
+  $('vista').innerHTML = `<div class="riquadro">
+    <div class="due">
+      <div><label>Cerca (codice, acquirente, destinatario)</label><input type="text" id="eCerca" /></div>
+      <div><label>Stato</label><select id="eStato">
+        <option value="">Tutti</option><option value="attesa">In attesa di pagamento</option>
+        <option value="pagato">Pagati (spendibili)</option>
+        <option value="riscosso">Riscossi</option><option value="annullato">Annullati</option>
+      </select></div>
+    </div>
+    <div class="esito" id="eEsito">Carico…</div>
+    <div id="eTab"></div></div>`;
+  const carica = async () => {
+    $('eEsito').textContent = 'Carico…';
+    try {
+      const j = await chiama(`?a=elenco&stato=${encodeURIComponent($('eStato').value)}&cerca=${encodeURIComponent($('eCerca').value)}`);
+      const oggi = new Date().toISOString().slice(0, 10);
+      $('eEsito').textContent = j.buoni.length ? `${j.buoni.length} buoni` : 'Nessun buono.';
+      $('eTab').innerHTML = j.buoni.length ? `<table>
+        <tr><th>Numero</th><th>Codice</th><th>Cosa</th><th>Valore</th><th>Stato</th><th>Chi</th></tr>` +
+        j.buoni.map(b => {
+          const st = (b.stato === 'pagato' && b.scade_il && b.scade_il < oggi) ? 'scaduto' : b.stato;
+          return `<tr><td class="cod">${esc(b.numero || '')}</td>
+            <td class="cod">${b.codice ? esc(b.codice) : '<span class="mini">non ancora emesso</span>'}</td>
+            <td>${esc(b.descrizione)}${b.dedica ? `<div class="mini">&laquo;${esc(b.dedica)}&raquo;</div>` : ''}</td>
+            <td>${eur(b.valore)} &euro;<div class="mini">${esc(b.pagamento || '')}</div></td>
+            <td><span class="stato st-${st}">${st}</span>${b.scade_il ? `<div class="mini">${dataIT(b.scade_il)}</div>` : ''}</td>
+            <td class="mini">${esc(b.acquirente || '')}${b.destinatario ? ' → ' + esc(b.destinatario) : ''}
+              <div>${esc(b.creato_da || '?')}</div></td></tr>`;
+        }).join('') + `</table>` : '';
+    } catch (e) { $('eEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  };
+  $('eCerca').oninput = () => { clearTimeout(window.__t); window.__t = setTimeout(carica, 400); };
+  $('eStato').onchange = carica;
+  carica();
+}
+
+/* ---------- 3. verifica e riscossione ---------- */
+function vistaVerifica() {
+  $('vista').innerHTML = `<div class="riquadro">
+    <h2>Il cliente presenta un buono</h2>
+    <label>Codice</label><input type="text" id="vCod" placeholder="LEO-XXXX-XXXX" style="font-family:monospace;text-transform:uppercase;" />
+    <button class="azione" id="vCerca">Controlla</button>
+    <div class="esito" id="vEsito"></div>
+    <div id="vRis"></div></div>`;
+  $('vCerca').onclick = async () => {
+    const cod = $('vCod').value.trim().toUpperCase();
+    if (!cod) return;
+    $('vEsito').textContent = 'Controllo…'; $('vRis').innerHTML = '';
+    try {
+      const r = await fetch(`${FUNZIONE}?a=verifica&codice=${encodeURIComponent(cod)}`);
+      const j = await r.json();
+      if (!r.ok || j.valido === false) {
+        $('vEsito').innerHTML = `<span class="errore">Non utilizzabile: ${esc(j.stato || j.motivo || 'non trovato')}
+          ${j.riscosso_il ? ' il ' + dataIT(j.riscosso_il) : ''}</span>`;
+        return;
+      }
+      $('vEsito').textContent = '';
+      $('vRis').innerHTML = `<div class="fatto">
+        <strong>Valido.</strong> ${esc(j.descrizione)} · ${eur(j.valore)} €
+        <div class="mini">Scade il ${dataIT(j.scade_il)}</div>
+        <label>Note (facoltative)</label><input type="text" id="vNote" />
+        <button class="azione" id="vRiscuoti">Segna come riscosso</button>
+        <button class="azione sec" id="vAnnulla">Annulla il buono</button>
+        <div class="esito" id="vEsito2"></div></div>`;
+      const agisci = async (azione) => {
+        if (azione === 'annulla' && !confirm('Annullare il buono ' + cod + '? Non sarà più utilizzabile.')) return;
+        try {
+          await chiama('?a=' + azione, { method:'POST', body: JSON.stringify({
+            codice: cod, operatore: OPERATORE, note: $('vNote').value }) });
+          $('vEsito2').textContent = azione === 'riscuoti' ? '✓ Registrato come riscosso.' : '✓ Buono annullato.';
+          $('vRiscuoti').disabled = true; $('vAnnulla').disabled = true;
+        } catch (e) { $('vEsito2').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+      };
+      $('vRiscuoti').onclick = () => agisci('riscuoti');
+      $('vAnnulla').onclick = () => agisci('annulla');
+    } catch (e) { $('vEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  };
+}
+
+$('esci').onclick = (ev) => {
+  ev.preventDefault();
+  localStorage.removeItem('leo_hotel_key');
+  CHIAVE = ''; chiediChiave();
+};
+
+(async () => {
+  if (!CHIAVE || !OPERATORE) { chiediChiave(); return; }
+  try { await chiama('?a=elenco'); disegna(); }
+  catch (e) { chiediChiave(); }
+})();
+</script>
+</body>
+</html>
