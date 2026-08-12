@@ -68,6 +68,18 @@ const CONDIZIONI: Record<string, string> = {
   fr: 'Ouverture saisonnière : l’hôtel ferme chaque année de fin novembre à février ; le bon n’est pas valable durant cette période. La majorité est requise pour accéder aux piscines, à l’hôtel et au spa ; entrées soumises à disponibilité et réservation obligatoire. Le bon n’est pas utilisable dans les 48 heures suivant l’achat, n’est ni remboursable ni convertible en espèces ; les montants restants après la première utilisation ne sont pas transférables. Validité 12 mois à compter de la date d’achat.'
 };
 
+/* la foto del buono: una per tipo, servita dal sito delle pagine.
+   Le immagini sono già ritagliate nel formato del riquadro, così
+   restano giuste anche dove object-fit non viene applicato. */
+const BASE_IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
+export function fotoBuono(b: { tipo?: string; voce_id?: string | null }): string {
+  if (b.tipo === 'valore') return `${BASE_IMG}/valore.jpg`;
+  const voce = String(b.voce_id || '');
+  if (voce.startsWith('dayspa')) return `${BASE_IMG}/dayspa.jpg`;
+  if (!voce || voce.startsWith('altro')) return `${BASE_IMG}/valore.jpg`;
+  return `${BASE_IMG}/trattamenti.jpg`;
+}
+
 /* il buono in HTML — versione email, autosufficiente */
 export function buonoEmailHTML(b: any) {
   const L = ['it', 'de', 'en', 'fr'].includes(b.lingua) ? b.lingua : 'it';
@@ -78,7 +90,7 @@ export function buonoEmailHTML(b: any) {
   <td width="270" valign="top" style="width:270px;background:#E4F0EA;padding:34px 26px;">
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;letter-spacing:2px;color:#1B4D4A;">LE<strong>ONARDO</strong></div>
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:3px;color:#7A9490;margin-top:4px;">TERME HOTEL &nbsp;&#9733;&#9733;&#9733;&#9733;</div>
-    <div style="height:150px;margin:26px 0 8px;border-radius:2px;background:linear-gradient(160deg,#BEDCD4,#8FC4BC 55%,#5FA8A0);"></div>
+    <img src="${fotoBuono(b)}" width="218" height="150" alt="" style="display:block;width:218px;height:150px;object-fit:cover;border-radius:2px;margin:26px 0 8px;" />
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:8.5px;letter-spacing:2px;color:#7A9490;padding-top:34px;">ABANO TERME &middot; COLLI EUGANEI</div>
   </td>
   <td valign="top" style="padding:34px 30px;">

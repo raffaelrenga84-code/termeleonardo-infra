@@ -1,7 +1,9 @@
 /* Test del modulo email: il buono in HTML e le tre spedizioni
    (acquirente, destinatario, amministrazione) via Resend. */
 import { assertEquals, assertStringIncludes } from 'jsr:@std/assert';
-import { buonoEmailHTML, inviaBuonoEmesso } from './email-buono.ts';
+import { buonoEmailHTML, fotoBuono, inviaBuonoEmesso } from './email-buono.ts';
+
+const IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 
 const BUONO = {
   numero: 'BR-2026-0042', codice: 'LEO-ACDE-FGHJ',
@@ -73,4 +75,20 @@ Deno.test('se il destinatario ha la stessa email dell’acquirente, una copia so
     assertEquals(spedite.length, 1);
     assertEquals(esiti.destinatario, undefined);
   } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
+});
+
+Deno.test('la foto segue il tipo di buono', () => {
+  assertEquals(fotoBuono({ tipo: 'valore' }), `${IMG}/valore.jpg`);
+  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'dayspa_fer' }), `${IMG}/dayspa.jpg`);
+  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'dayspa_pom' }), `${IMG}/dayspa.jpg`);
+  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'relax25' }), `${IMG}/trattamenti.jpg`);
+  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: null }), `${IMG}/valore.jpg`);
+  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'altro' }), `${IMG}/valore.jpg`);
+});
+
+Deno.test('il buono HTML contiene la foto del suo tipo', () => {
+  const html = buonoEmailHTML({ ...BUONO, tipo: 'servizio', voce_id: 'dayspa_fer' });
+  assertStringIncludes(html, `${IMG}/dayspa.jpg`);
+  const html2 = buonoEmailHTML(BUONO);            // BUONO è tipo 'valore'
+  assertStringIncludes(html2, `${IMG}/valore.jpg`);
 });
