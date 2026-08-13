@@ -57,6 +57,8 @@ td{padding:9px 10px;border-top:1px solid #F0EBE1;vertical-align:top;}
 /* i promozionali non sono un incasso: si devono riconoscere a colpo d'occhio */
 .omaggio{display:inline-block;padding:1px 7px;border-radius:9px;background:#FBF3DF;
 color:#8A6D1F;border:1px solid #E4CE93;font-size:11px;letter-spacing:.3px;}
+tr.apribile{cursor:pointer;}
+tr.apribile:hover td{background:#F7F5EF;}
 .st-pagato{background:var(--acqua-chiara);color:var(--acqua-scura);}
 .st-attesa{background:#FFF6E8;color:#B3541E;}
 .st-riscosso{background:#EFF3E7;color:var(--oliva);}
@@ -550,12 +552,31 @@ function vistaEmetti() {
   };
 }
 
-function mostraFatto(b) {
+/* chi l'ha comprato, per chi, a che indirizzi: sono i dati che servono
+   quando il cliente telefona perche' il buono non gli e' arrivato */
+function dettagliBuono(b) {
+  const riga = (etichetta, valore) => valore
+    ? `<tr><td style="padding:3px 12px 3px 0;color:#8A938F;white-space:nowrap;">${etichetta}</td>
+       <td style="padding:3px 0;">${esc(valore)}</td></tr>` : '';
+  const corpo = riga('Acquirente', b.acquirente) + riga('Email acquirente', b.acquirente_email)
+    + riga('Telefono', b.acquirente_tel) + riga('Destinatario', b.destinatario)
+    + riga('Email destinatario', b.destinatario_email) + riga('Dedica', b.dedica)
+    + riga('Pagamento', [b.pagamento, b.pagamento_rif].filter(Boolean).join(' · '))
+    + riga('Emesso da', b.creato_da) + riga('Note', b.note);
+  if (!corpo) return '';
+  return `<div class="mini" style="margin-top:14px;padding-top:12px;border-top:1px solid #F0EBE1;">
+    <table style="font-size:13px;border-collapse:collapse;">${corpo}</table></div>`;
+}
+
+/* Il pannello del buono: numero, dati, anteprima e modi per consegnarlo.
+   Lo usa sia l'emissione sia l'elenco, dove serve a rimandare un buono
+   che il cliente non ha ricevuto o si e' trovato nella posta indesiderata. */
+function mostraFatto(b, contenitore = 'fFatto') {
   const attesa = b.stato === 'attesa';
   /* il link vale per UN buono solo: azzerarlo qui evita che finisca
      nell email del buono successivo (il cliente pagherebbe l altro) */
   LINK_PAGAMENTO = '';
-  $('fFatto').innerHTML = `<div class="fatto">
+  $(contenitore).innerHTML = `<div class="fatto">
     <div class="mini">Numero per l&apos;amministrazione</div>
     <div style="font-family:monospace;font-size:17px;color:#0F5C64;">${esc(b.numero)}</div>
     ${attesa
@@ -580,6 +601,7 @@ function mostraFatto(b) {
           <button class="azione sec" id="bCopia">&#128203; Copia</button>
         </div>`}
     <div class="esito" id="bEsito"></div>
+    ${dettagliBuono(b)}
     <div style="margin-top:16px;overflow:auto;">${buonoHTML(b, attesa)}</div>
   </div>`;
 
@@ -617,7 +639,7 @@ function mostraFatto(b) {
       try {
         const j = await chiama('?a=pagato', { method: 'POST', body: JSON.stringify({
           numero: b.numero, operatore: OPERATORE, pagamento: b.pagamento, pagamento_rif: rif }) });
-        mostraFatto(j.buono);
+        mostraFatto(j.buono, contenitore);
       } catch (e) { $('bEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
     };
   } else {
@@ -828,19 +850,19 @@ const COMPRENDE = {
     it:['Piscine termali interna ed esterna comunicanti, con idromassaggi e giochi d\u2019acqua',
       'Zona Relax: Biogrotta, bagno turco, vasca idromassaggio, lettini massaggianti',
       'Cascata di acqua termale, cascata di ghiaccio e docce emozionali con aromaterapia',
-      'Piscina scoperta estiva con acqua dolce a temperatura ambiente'],
+      'Vasca esterna di acqua termale più fresca, con bordo a sfioro e lettini prendisole'],
     de:['Thermal-Innen- und Au\u00dfenpool, miteinander verbunden, mit Sprudelliegen und Wasserspielen',
       'Relaxbereich: Biogrotte, Dampfbad, Whirlpool, Massageliegen',
       'Thermalwasserfall, Eisbrunnen und Erlebnisduschen mit Aromatherapie',
-      'Sommer-Freibad mit S\u00fc\u00dfwasser bei Umgebungstemperatur'],
+      'Au\u00dfenbecken mit k\u00fchlerem Thermalwasser, Infinity-Rand und Sonnenliegen'],
     en:['Connected indoor and outdoor thermal pools, with hydromassage and water features',
       'Relax area: Bio-grotto, steam bath, whirlpool, massage loungers',
       'Thermal waterfall, ice fountain and emotional showers with aromatherapy',
-      'Outdoor summer pool with fresh water at ambient temperature'],
+      'Outdoor pool with cooler thermal water, infinity edge and sun loungers'],
     fr:['Piscines thermales int\u00e9rieure et ext\u00e9rieure communicantes, avec hydromassages et jeux d\u2019eau',
       'Espace Relax : bio-grotte, bain turc, bain \u00e0 remous, lits de massage',
       'Cascade d\u2019eau thermale, cascade de glace et douches sensorielles \u00e0 l\u2019aromath\u00e9rapie',
-      'Piscine d\u00e9couverte estivale \u00e0 l\u2019eau douce \u00e0 temp\u00e9rature ambiante']
+      'Bassin ext\u00e9rieur d\u2019eau thermale plus fra\u00eeche, \u00e0 d\u00e9bordement, avec transats']
   }
 };
 
@@ -1050,18 +1072,24 @@ async function vistaElenco() {
       </select></div>
     </div>
     <div class="esito" id="eEsito">Carico\u2026</div>
-    <div id="eTab"></div></div>`;
+    <div class="mini" style="padding-bottom:6px;">Clicca un buono per vederne i dati,
+      l\u2019anteprima e rimandarlo a chi non l\u2019ha ricevuto.</div>
+    <div id="eTab"></div></div>
+    <div id="eDettaglio"></div>`;
+  let CARICATI = [];
   const carica = async () => {
     $('eEsito').textContent = 'Carico\u2026';
+    $('eDettaglio').innerHTML = '';
     try {
       const j = await chiama(`?a=elenco&stato=${encodeURIComponent($('eStato').value)}&cerca=${encodeURIComponent($('eCerca').value)}`);
       const oggi = new Date().toISOString().slice(0, 10);
+      CARICATI = j.buoni;
       $('eEsito').textContent = j.buoni.length ? `${j.buoni.length} buoni` : 'Nessun buono.';
       $('eTab').innerHTML = j.buoni.length ? `<table>
         <tr><th>Numero</th><th>Codice</th><th>Cosa</th><th>Valore</th><th>Stato</th><th>Chi</th></tr>` +
         j.buoni.map(b => {
           const st = (b.stato === 'pagato' && b.scade_il && b.scade_il < oggi) ? 'scaduto' : b.stato;
-          return `<tr><td class="cod">${esc(b.numero || '')}</td>
+          return `<tr class="apribile" data-numero="${esc(b.numero || '')}"><td class="cod">${esc(b.numero || '')}</td>
             <td class="cod">${b.codice ? esc(b.codice) : '<span class="mini">non ancora emesso</span>'}</td>
             <td><div style="white-space:pre-line;">${esc(b.descrizione)}</div>${b.dedica ? `<div class="mini">&laquo;${esc(b.dedica)}&raquo;</div>` : ''}</td>
             <td>${eur(b.valore)} &euro;<div class="mini">${b.pagamento === 'promozionale'
@@ -1070,6 +1098,16 @@ async function vistaElenco() {
             <td class="mini">${esc(b.acquirente || '')}${b.destinatario ? ' \u2192 ' + esc(b.destinatario) : ''}
             <div>${esc(b.creato_da || '?')}</div></td></tr>`;
         }).join('') + `</table>` : '';
+      /* aprire un buono serve soprattutto a rimandarlo: il cliente che
+         telefona perche' non l'ha ricevuto e' il caso piu' frequente */
+      for (const tr of $('eTab').querySelectorAll('tr.apribile')) {
+        tr.onclick = () => {
+          const b = CARICATI.find(x => x.numero === tr.dataset.numero);
+          if (!b) return;
+          mostraFatto(b, 'eDettaglio');
+          $('eDettaglio').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+      }
     } catch (e) { $('eEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
   };
   $('eCerca').oninput = () => { clearTimeout(window.__t); window.__t = setTimeout(carica, 400); };

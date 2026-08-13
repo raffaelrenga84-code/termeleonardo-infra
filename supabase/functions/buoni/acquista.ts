@@ -58,6 +58,7 @@ export interface DatiAcquisto {
   acquirente_email: string;
   destinatario: string;
   destinatario_email: string;
+  ricevuta_email: string;
   dedica: string;
   scade_il: string;
 }
@@ -96,6 +97,10 @@ export function validaAcquisto(b: Record<string, unknown>):
     acquirente_email: email.slice(0, 160),
     destinatario: String(b.destinatario || '').trim().slice(0, 120),
     destinatario_email: String(b.destinatario_email || '').trim().slice(0, 160),
+    /* riepilogo d'acquisto a un altro indirizzo, per chi compra
+       per l'azienda: si accetta solo se e' un indirizzo plausibile */
+    ricevuta_email: /.+@.+\..+/.test(String(b.ricevuta_email || '').trim())
+      ? String(b.ricevuta_email).trim().slice(0, 160) : '',
     dedica: String(b.dedica || '').trim().slice(0, 400),
     scade_il: scade.toISOString().slice(0, 10)
   } };

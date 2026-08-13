@@ -307,6 +307,7 @@ Deno.serve(async (req) => {
       acquirente_email: d.acquirente_email,
       destinatario: d.destinatario || null,
       destinatario_email: d.destinatario_email || null,
+      ricevuta_email: d.ricevuta_email || null,
       dedica: d.dedica || null,
       scade_il: d.scade_il,
       pagamento: 'stripe', creato_da: 'sito',

@@ -29,7 +29,7 @@ Deno.test('il buono esce nella lingua giusta, data compresa', () => {
 
 /* piccolo aiuto: intercetta fetch e raccoglie i destinatari */
 function conFetchFinto() {
-  const spedite: { to: string[]; subject: string }[] = [];
+  const spedite: { to: string[]; subject: string; html: string }[] = [];
   const orig = globalThis.fetch;
   globalThis.fetch = ((_url: unknown, init?: RequestInit) => {
     spedite.push(JSON.parse(String(init?.body)));
@@ -185,5 +185,35 @@ Deno.test('senza indirizzo di amministrazione non si spedisce nulla', async () =
   try {
     assertEquals(await avvisaAmministrazione(BUONO), false);
     assertEquals(spedite.length, 0);
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
+});
+
+/* Ricevuta a un altro indirizzo: serve a chi compra per l'azienda o per
+   il commercialista. Non e' una fattura: la knowledge base dice che la
+   ricevuta fiscale si chiede in reception. */
+Deno.test('con un indirizzo per la ricevuta parte anche il riepilogo', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    const esiti = await inviaBuonoEmesso({ ...BUONO, ricevuta_email: 'contabilita@ditta.it' });
+    assertEquals(esiti.ricevuta, true);
+    const ric = spedite.find(s => s.to[0] === 'contabilita@ditta.it')!;
+    assertEquals(!!ric, true);
+    assertStringIncludes(ric.subject, 'BR-2026-0042');
+    assertStringIncludes(ric.html, '100,00');
+    /* il riepilogo non e' il buono: niente codice spendibile dentro */
+    assertEquals(ric.html.includes('LEO-ACDE-FGHJ'), false);
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
+});
+
+Deno.test('senza indirizzo per la ricevuta non cambia nulla', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    const esiti = await inviaBuonoEmesso(BUONO);
+    assertEquals(esiti.ricevuta, undefined);
+    assertEquals(spedite.length, 2);   // acquirente e destinatario
   } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
 });

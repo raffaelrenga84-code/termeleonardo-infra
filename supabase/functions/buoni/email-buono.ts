@@ -93,19 +93,19 @@ const COMPRENDE: Record<string, Record<string, string[]>> = {
     it: ['Piscine termali interna ed esterna comunicanti, con idromassaggi e giochi d’acqua',
       'Zona Relax: Biogrotta, bagno turco, vasca idromassaggio, lettini massaggianti',
       'Cascata di acqua termale, cascata di ghiaccio e docce emozionali con aromaterapia',
-      'Piscina scoperta estiva con acqua dolce a temperatura ambiente'],
+      'Vasca esterna di acqua termale più fresca, con bordo a sfioro e lettini prendisole'],
     de: ['Thermal-Innen- und Außenpool, miteinander verbunden, mit Sprudelliegen und Wasserspielen',
       'Relaxbereich: Biogrotte, Dampfbad, Whirlpool, Massageliegen',
       'Thermalwasserfall, Eisbrunnen und Erlebnisduschen mit Aromatherapie',
-      'Sommer-Freibad mit Süßwasser bei Umgebungstemperatur'],
+      'Außenbecken mit kühlerem Thermalwasser, Infinity-Rand und Sonnenliegen'],
     en: ['Connected indoor and outdoor thermal pools, with hydromassage and water features',
       'Relax area: Bio-grotto, steam bath, whirlpool, massage loungers',
       'Thermal waterfall, ice fountain and emotional showers with aromatherapy',
-      'Outdoor summer pool with fresh water at ambient temperature'],
+      'Outdoor pool with cooler thermal water, infinity edge and sun loungers'],
     fr: ['Piscines thermales intérieure et extérieure communicantes, avec hydromassages et jeux d’eau',
       'Espace Relax : bio-grotte, bain turc, bain à remous, lits de massage',
       'Cascade d’eau thermale, cascade de glace et douches sensorielles à l’aromathérapie',
-      'Piscine découverte estivale à l’eau douce à température ambiante']
+      'Bassin extérieur d’eau thermale plus fraîche, à débordement, avec transats']
   }
 };
 
@@ -211,6 +211,43 @@ async function invia(a: string, oggetto: string, html: string) {
   return r.ok;
 }
 
+/* Riepilogo d'acquisto per un indirizzo diverso da quello di chi compra:
+   serve a chi paga per l'azienda o gira tutto al commercialista.
+   NON e' una ricevuta fiscale — quella si chiede in reception — e non
+   contiene il codice spendibile, che non deve girare in contabilita'. */
+const RICEVUTA: Record<string, any> = {
+  it: { ogg: (r: string) => `Riepilogo d'acquisto ${r} — Hotel Terme Leonardo`, tit: 'Riepilogo d’acquisto',
+    numero: 'Numero', cosa: 'Acquisto', importo: 'Importo', acq: 'Acquirente',
+    nota: 'Questo è un riepilogo dell’acquisto, non una ricevuta fiscale. Per la ricevuta fiscale ci contatti in reception.' },
+  de: { ogg: (r: string) => `Kaufübersicht ${r} — Hotel Terme Leonardo`, tit: 'Kaufübersicht',
+    numero: 'Nummer', cosa: 'Kauf', importo: 'Betrag', acq: 'Käufer',
+    nota: 'Dies ist eine Kaufübersicht, keine steuerliche Quittung. Für die steuerliche Quittung wenden Sie sich bitte an die Rezeption.' },
+  en: { ogg: (r: string) => `Purchase summary ${r} — Hotel Terme Leonardo`, tit: 'Purchase summary',
+    numero: 'Number', cosa: 'Purchase', importo: 'Amount', acq: 'Buyer',
+    nota: 'This is a purchase summary, not a fiscal receipt. For a fiscal receipt please contact our reception.' },
+  fr: { ogg: (r: string) => `Récapitulatif d’achat ${r} — Hôtel Terme Leonardo`, tit: 'Récapitulatif d’achat',
+    numero: 'Numéro', cosa: 'Achat', importo: 'Montant', acq: 'Acheteur',
+    nota: 'Ceci est un récapitulatif d’achat, pas un reçu fiscal. Pour le reçu fiscal, contactez notre réception.' }
+};
+
+export function ricevutaEmailHTML(b: any): string {
+  const L = ['it', 'de', 'en', 'fr'].includes(b.lingua) ? b.lingua : 'it';
+  const r = RICEVUTA[L];
+  const riga = (k: string, v: string) =>
+    `<tr><td style="padding:5px 16px 5px 0;color:#8A938F;">${k}</td><td style="padding:5px 0;">${v}</td></tr>`;
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#2A2E2B;max-width:620px;">
+    <div style="font-size:11px;letter-spacing:2px;color:#C9A961;text-transform:uppercase;">${r.tit}</div>
+    <table style="border-collapse:collapse;margin-top:12px;font-size:14px;">
+      ${riga(r.numero, esc(b.numero))}
+      ${riga(r.cosa, esc(String(b.descrizione || '').split('\n').join(' · ')))}
+      ${riga(r.importo, eur(b.valore) + ' €')}
+      ${b.acquirente ? riga(r.acq, esc(b.acquirente)) : ''}
+    </table>
+    <p style="color:#7B756A;font-size:12.5px;line-height:1.6;margin-top:16px;">${esc(r.nota)}</p>
+    <p style="color:#7B756A;font-size:12.5px;">+39 049 9939200 &middot; info@termeleonardo.com</p>
+  </div>`;
+}
+
 /* il solo avviso interno: serve anche per i buoni emessi in reception,
    che non passano dal webhook e altrimenti non lascerebbero traccia —
    il promozionale, che non ha un incasso da riconciliare, in testa */
@@ -239,6 +276,11 @@ export async function inviaBuonoEmesso(b: any) {
   if (b.destinatario_email && b.destinatario_email !== b.acquirente_email)
     esiti.destinatario = await invia(b.destinatario_email, e.oggetto,
       avvolgi(e.caro(esc(b.destinatario)), e.corpoDest, e.saluto, buono));
+
+  /* riepilogo d'acquisto a un indirizzo diverso, se richiesto */
+  if (b.ricevuta_email)
+    esiti.ricevuta = await invia(b.ricevuta_email,
+      (RICEVUTA[L] || RICEVUTA.it).ogg(b.numero), ricevutaEmailHTML(b));
 
   if (Deno.env.get('EMAIL_AMMINISTRAZIONE'))
     esiti.amministrazione = await avvisaAmministrazione(b);
