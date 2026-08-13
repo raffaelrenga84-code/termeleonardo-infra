@@ -79,6 +79,95 @@ Deno.test('arrivo o partenza, non altro', () => {
     'indicare arrivo o partenza');
 });
 
+/* ---------------- green fee ---------------- */
+const green = {
+  circolo: 'montecchia', data: '2026-09-10', ora: '09:30', giocatori: 2,
+  percorso: 'Rosso', golfcar: true, carrello: false, carrello_elettrico: false,
+  sacca: true, tessera: 'FIG 12345', note: 'Prima volta qui.',
+  taxi: true, taxi_ora: '08:45', taxi_ritorno: true,
+};
+
+Deno.test('un green fee completo passa', () => {
+  const { errore, dati } = validaDati('greenfee', green, OGGI);
+  assertEquals(errore, undefined);
+  assertEquals(dati!.circolo, 'montecchia');
+  assertEquals(dati!.giocatori, 2);
+  assertEquals(dati!.golfcar, true);
+  /* il luogo del taxi lo deduce il sistema dal circolo: chiederlo due volte
+     sarebbe un modo per farli divergere */
+  assertEquals(dati!.taxi_luogo, 'Golf Montecchia\u{1F3CC}');
+});
+
+Deno.test('il circolo deve essere uno dei tre convenzionati', () => {
+  assertEquals(validaDati('greenfee', { ...green, circolo: 'augusta' }, OGGI).errore,
+    'circolo sconosciuto');
+  assertEquals(validaDati('greenfee', { ...green, circolo: '' }, OGGI).errore,
+    'circolo sconosciuto');
+  for (const c of ['padova', 'montecchia', 'frassanelle']) {
+    assertEquals(validaDati('greenfee', { ...green, circolo: c }, OGGI).errore, undefined);
+  }
+});
+
+Deno.test('una partenza regge al massimo quattro giocatori', () => {
+  assertEquals(validaDati('greenfee', { ...green, giocatori: 0 }, OGGI).errore, 'giocatori non validi');
+  assertEquals(validaDati('greenfee', { ...green, giocatori: 5 }, OGGI).errore, 'giocatori non validi');
+  assertEquals(validaDati('greenfee', { ...green, giocatori: 4 }, OGGI).errore, undefined);
+});
+
+Deno.test('chiedendo il taxi serve dire a che ora', () => {
+  assertEquals(validaDati('greenfee', { ...green, taxi_ora: '' }, OGGI).errore, 'ora del taxi mancante');
+  /* senza taxi l'ora non serve: non si blocca una richiesta per un campo
+     che non c'entra */
+  const senza = validaDati('greenfee', { ...green, taxi: false, taxi_ora: '' }, OGGI);
+  assertEquals(senza.errore, undefined);
+  assertEquals(senza.dati!.taxi_luogo, '');
+});
+
+/* ---------------- maestro ---------------- */
+const lezione = { data: '2026-09-10', ora: '10:00', persone: 2, livello: 'principiante', note: '' };
+
+Deno.test('una lezione col maestro passa', () => {
+  const { errore, dati } = validaDati('maestro', lezione, OGGI);
+  assertEquals(errore, undefined);
+  assertEquals(dati!.persone, 2);
+  assertEquals(dati!.livello, 'principiante');
+});
+
+Deno.test('il maestro segue al massimo quattro persone e un livello noto', () => {
+  assertEquals(validaDati('maestro', { ...lezione, persone: 5 }, OGGI).errore, 'persone non valide');
+  assertEquals(validaDati('maestro', { ...lezione, livello: 'campione' }, OGGI).errore,
+    'livello sconosciuto');
+  assertEquals(validaDati('maestro', { ...lezione, livello: '' }, OGGI).dati!.livello, 'non so');
+});
+
+/* ---------------- trattamenti ---------------- */
+const spa = { voci: ['Massaggio antistress 50 min', 'Viso al fango termale'],
+  giorno: '2026-09-11', fascia: 'pomeriggio', note: 'Preferirei tardi.' };
+
+Deno.test('una richiesta di trattamenti passa', () => {
+  const { errore, dati } = validaDati('trattamenti', spa, OGGI);
+  assertEquals(errore, undefined);
+  assertEquals((dati!.voci as string[]).length, 2);
+  assertEquals(dati!.fascia, 'pomeriggio');
+});
+
+Deno.test('senza aver scelto niente non e una richiesta', () => {
+  assertEquals(validaDati('trattamenti', { ...spa, voci: [] }, OGGI).errore, 'nessun trattamento scelto');
+  assertEquals(validaDati('trattamenti', { ...spa, voci: 'massaggio' }, OGGI).errore,
+    'nessun trattamento scelto');
+});
+
+Deno.test('non si prenotano venti trattamenti in un colpo', () => {
+  const tanti = Array.from({ length: 9 }, (_, i) => 'Trattamento ' + i);
+  assertEquals(validaDati('trattamenti', { ...spa, voci: tanti }, OGGI).errore,
+    'troppi trattamenti in una richiesta');
+});
+
+Deno.test('la fascia sconosciuta diventa indifferente', () => {
+  assertEquals(validaDati('trattamenti', { ...spa, fascia: 'alba' }, OGGI).dati!.fascia, 'indifferente');
+  assertEquals(validaDati('trattamenti', { ...spa, fascia: '' }, OGGI).dati!.fascia, 'indifferente');
+});
+
 Deno.test('volo e note sono facoltativi ma non sconfinati', () => {
   const senza = validaDati('transfer', { ...transfer, volo: '', note: '' }, OGGI);
   assertEquals(senza.errore, undefined);

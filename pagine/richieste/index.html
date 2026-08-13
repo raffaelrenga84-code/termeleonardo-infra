@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#1A3626" />
+<title>Richieste — Hotel Terme Leonardo</title>
+<link rel="icon" href="/buoni/img/logo-quadrato.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&display=swap" rel="stylesheet" />
+<style>
+:root{--verde:#1A3626;--verde-medio:#3C5346;--acqua:#8FC4BC;--acqua-chiara:#E4F0EA;
+  --oro:#C9A961;--crema:#F9F6F0;--grigio:#7B756A;--allarme:#C0392B;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--crema);color:#2A2E2B;
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;}
+.testata{background:var(--acqua-chiara);padding:34px 20px 30px;text-align:center;}
+.testata img{width:210px;max-width:60%;height:auto;display:block;margin:0 auto;}
+h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:34px;
+  line-height:1.2;color:var(--verde);margin:20px 0 8px;}
+.occhiello{font-size:11px;letter-spacing:3px;color:var(--oro);text-transform:uppercase;}
+.sotto{color:var(--verde-medio);max-width:560px;margin:0 auto;}
+.lingue{margin-top:18px;}
+.lingue a{color:var(--verde-medio);text-decoration:none;font-size:14px;padding:4px 9px;}
+.lingue a.attiva{color:var(--verde);border-bottom:2px solid var(--oro);font-weight:600;}
+main{max-width:640px;margin:0 auto;padding:26px 18px 60px;}
+.riquadro{background:#fff;border:1px solid #E5E0D8;border-radius:14px;padding:22px;margin-bottom:18px;}
+h2{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:23px;
+  color:var(--verde);margin:0 0 4px;}
+.guida{color:var(--grigio);font-size:13.5px;margin-bottom:16px;}
+label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--verde-medio);font-weight:600;margin-top:14px;}
+input,select,textarea{width:100%;margin-top:6px;padding:12px 13px;font:15px inherit;
+  border:1px solid #DCD6CB;border-radius:9px;background:#FCFBF8;color:#2A2E2B;}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--acqua);border-color:transparent;}
+textarea{min-height:80px;resize:vertical;}
+.due{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:560px){.due{grid-template-columns:1fr;}}
+.spunta{display:flex;align-items:flex-start;gap:10px;margin-top:12px;font-size:14.5px;
+  color:var(--verde-medio);cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;}
+.spunta input{width:18px;height:18px;margin:2px 0 0;flex:0 0 auto;}
+.avviso{background:#FFF6E8;border-left:4px solid var(--oro);padding:13px 15px;border-radius:6px;
+  font-size:13.5px;color:#6B4A22;margin-bottom:18px;line-height:1.6;}
+.noto{background:var(--acqua-chiara);border-left:4px solid var(--acqua);padding:13px 15px;
+  border-radius:6px;font-size:13.5px;color:var(--verde-medio);margin-bottom:16px;}
+.invia{width:100%;margin-top:22px;padding:16px;border:0;border-radius:999px;
+  background:var(--verde);color:var(--crema);font:600 16px inherit;cursor:pointer;}
+.invia:disabled{background:#B9BDB6;cursor:default;}
+.errore{margin-top:14px;background:#FDF0EE;border-left:4px solid var(--allarme);padding:13px 15px;
+  border-radius:6px;color:#7A2E24;font-size:14px;line-height:1.6;}
+.fatta{text-align:center;padding:40px 22px;}
+.fatta .rif{font-family:"Courier New",monospace;font-size:20px;color:var(--verde);
+  letter-spacing:1px;margin-top:10px;}
+.pie{text-align:center;color:var(--grigio);font-size:12.5px;padding:0 18px 40px;}
+.pie a{color:var(--verde-medio);}
+</style>
+</head>
+<body>
+<div class="testata">
+  <img src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" />
+  <div class="occhiello" style="margin-top:22px;" id="tOcchiello"></div>
+  <h1 id="tTitolo"></h1>
+  <p class="sotto" id="tSotto"></p>
+  <div class="lingue" id="tLingue"></div>
+</div>
+<main id="app"></main>
+<div class="pie" id="tPie"></div>
+
+<script type="module">
+'use strict';
+/* Una pagina sola per green fee, maestro e trattamenti: tre file quasi
+   identici divergerebbero come e' gia' successo con l'anteprima del buono.
+   Il tipo arriva dall'indirizzo. */
+const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
+  c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+const qs = new URLSearchParams(location.search);
+const TOKEN = qs.get('t') || '';
+const TIPI = ['greenfee','maestro','trattamenti'];
+const TIPO = TIPI.includes(qs.get('tipo')) ? qs.get('tipo') : 'greenfee';
+let LNG = ['it','de','en','fr'].includes(qs.get('l')) ? qs.get('l')
+  : (['de','fr','it'].includes((navigator.language || '').slice(0,2))
+     ? (navigator.language || '').slice(0,2) : 'en');
+
+const CIRCOLI = [
+  ['montecchia', 'Golf della Montecchia — Selvazzano Dentro · 27 buche, par 72'],
+  ['padova', 'Golf Club Padova — Valsanzibio di Galzignano · 27 buche'],
+  ['frassanelle', 'Golf Club Frassanelle — Rovolon · 18 buche'],
+];
+
+/* i trattamenti piu' richiesti, come sul sito: non e' il listino completo e
+   non si promettono prezzi — quelli li conferma la reception */
+const TRATTAMENTI = [
+  'Relax con olio di cacao (25 min)', 'Antistress (45–55 min)',
+  'Californiano (50 min)', 'Ayurveda (55 min)',
+  'Hot Stone (55 min)', 'Linfodrenaggio completo (60 min)',
+  'Viso al fango termale (25 min)', 'Anti-age acido ialuronico (55 min)',
+];
+
+const T = {
+  it:{ lingua:'Italiano',
+    greenfee:{ occhiello:'GOLF NEI DINTORNI', titolo:'Una partenza sui Colli Euganei',
+      sotto:'Siamo convenzionati con tre circoli a pochi minuti dall’hotel. Ci dica quando vuole giocare: prenotiamo noi la partenza, e se vuole anche il taxi per arrivarci.' },
+    maestro:{ occhiello:'LEZIONE DI GOLF', titolo:'Una lezione col nostro maestro',
+      sotto:'Sul campo pratica dell’hotel, da soli o in piccolo gruppo. Anche se non ha mai tenuto un ferro in mano.' },
+    trattamenti:{ occhiello:'MASSAGGI E TRATTAMENTI', titolo:'Prenoti prima di arrivare',
+      sotto:'I trattamenti più richiesti si esauriscono presto: chiedendoli ora troverà l’ora che preferisce già libera.' },
+    avviso:'<strong>Questa è una richiesta, non una prenotazione.</strong> Le confermiamo giorno, ora e prezzo per email o telefono, di solito entro poche ore.',
+    noto:(n)=>`Bentornato, ${n}. Abbiamo già i suoi dati: compili solo il resto.`,
+    circolo:'Circolo', giocatori:'Giocatori', percorso:'Percorso (se lo sa)',
+    percorsoPh:'es. Rosso, Blu…', noleggi:'Serve qualcosa a noleggio?',
+    golfcar:'Golf car', carrello:'Carrello', carrelloE:'Carrello elettrico', sacca:'Sacca',
+    tessera:'Tessera federale / handicap (se ce l’ha)', tesseraPh:'es. FIG 12345',
+    taxi:'Mi serve anche il taxi per arrivare al campo',
+    taxiOra:'Ora di partenza dall’hotel', taxiRitorno:'Anche il ritorno',
+    persone:'Quante persone', livello:'A che punto è',
+    liv0:'Non so / mai giocato', liv1:'Principiante', liv2:'Intermedio', liv3:'Esperto',
+    quali:'Quali trattamenti', qualiGuida:'Ne scelga uno o più; il prezzo glielo confermiamo noi.',
+    giorno:'Giorno', fascia:'Preferenza di orario',
+    mattina:'Mattina', pomeriggio:'Pomeriggio', indifferente:'Indifferente',
+    quando:'Giorno', ora:'Ora preferita',
+    chi:'I suoi dati', guidaChi:'Ci servono per confermarle la prenotazione.',
+    nome:'Nome e cognome', email:'Email', tel:'Telefono',
+    note:'Note (facoltative)', notePh:'Qualsiasi cosa ci aiuti a organizzare…',
+    invia:'Invia la richiesta', invio:'Invio…',
+    manca:'Compili i campi obbligatori.',
+    ripiego:'Non siamo riusciti a registrare la richiesta. Ci chiami allo +39 049 9939200 o scriva a info@termeleonardo.com: rispondiamo subito.',
+    grazieTit:'Richiesta ricevuta', grazieTxt:'Le confermiamo tutto al più presto.',
+    rif:'Riferimento', ancora:'Fai un’altra richiesta' },
+  de:{ lingua:'Deutsch',
+    greenfee:{ occhiello:'GOLF IN DER UMGEBUNG', titolo:'Eine Startzeit in den Euganeischen Hügeln',
+      sotto:'Wir arbeiten mit drei Golfclubs wenige Minuten vom Hotel zusammen. Sagen Sie uns, wann Sie spielen möchten: wir buchen die Startzeit, auf Wunsch auch das Taxi.' },
+    maestro:{ occhiello:'GOLFSTUNDE', titolo:'Eine Stunde mit unserem Pro',
+      sotto:'Auf der hoteleigenen Driving Range, allein oder in kleiner Gruppe. Auch wenn Sie noch nie einen Schläger in der Hand hatten.' },
+    trattamenti:{ occhiello:'MASSAGEN & ANWENDUNGEN', titolo:'Vor der Anreise reservieren',
+      sotto:'Die beliebtesten Anwendungen sind schnell ausgebucht: wer jetzt anfragt, bekommt die gewünschte Uhrzeit.' },
+    avviso:'<strong>Dies ist eine Anfrage, keine Buchung.</strong> Wir bestätigen Ihnen Tag, Uhrzeit und Preis per E-Mail oder Telefon, meist innerhalb weniger Stunden.',
+    noto:(n)=>`Willkommen zurück, ${n}. Ihre Daten haben wir bereits.`,
+    circolo:'Golfclub', giocatori:'Spieler', percorso:'Platz (falls bekannt)',
+    percorsoPh:'z. B. Rosso, Blu…', noleggi:'Brauchen Sie einen Verleih?',
+    golfcar:'Golf Car', carrello:'Trolley', carrelloE:'E-Trolley', sacca:'Schlägersatz',
+    tessera:'Mitgliedsausweis / Handicap (falls vorhanden)', tesseraPh:'z. B. DGV 12345',
+    taxi:'Ich brauche auch ein Taxi zum Platz',
+    taxiOra:'Abfahrt am Hotel', taxiRitorno:'Auch die Rückfahrt',
+    persone:'Wie viele Personen', livello:'Ihr Niveau',
+    liv0:'Weiß nicht / noch nie', liv1:'Anfänger', liv2:'Fortgeschritten', liv3:'Erfahren',
+    quali:'Welche Anwendungen', qualiGuida:'Wählen Sie eine oder mehrere; den Preis bestätigen wir.',
+    giorno:'Tag', fascia:'Bevorzugte Zeit',
+    mattina:'Vormittag', pomeriggio:'Nachmittag', indifferente:'Egal',
+    quando:'Tag', ora:'Wunschzeit',
+    chi:'Ihre Daten', guidaChi:'Wir brauchen sie für die Bestätigung.',
+    nome:'Vor- und Nachname', email:'E-Mail', tel:'Telefon',
+    note:'Anmerkungen (optional)', notePh:'Alles, was uns bei der Organisation hilft…',
+    invia:'Anfrage senden', invio:'Senden…',
+    manca:'Bitte Pflichtfelder ausfüllen.',
+    ripiego:'Wir konnten die Anfrage nicht speichern. Rufen Sie uns unter +39 049 9939200 an oder schreiben Sie an info@termeleonardo.com: wir antworten sofort.',
+    grazieTit:'Anfrage erhalten', grazieTxt:'Wir bestätigen Ihnen alles so bald wie möglich.',
+    rif:'Referenz', ancora:'Weitere Anfrage' },
+  en:{ lingua:'English',
+    greenfee:{ occhiello:'GOLF NEARBY', titolo:'A tee time in the Euganean Hills',
+      sotto:'We have agreements with three clubs a few minutes from the hotel. Tell us when you would like to play: we book the tee time, and the taxi too if you want.' },
+    maestro:{ occhiello:'GOLF LESSON', titolo:'A lesson with our pro',
+      sotto:'On the hotel driving range, alone or in a small group. Even if you have never held a club.' },
+    trattamenti:{ occhiello:'MASSAGES & TREATMENTS', titolo:'Book before you arrive',
+      sotto:'The most popular treatments fill up quickly: asking now means getting the time you want.' },
+    avviso:'<strong>This is a request, not a booking.</strong> We confirm day, time and price by email or phone, usually within a few hours.',
+    noto:(n)=>`Welcome back, ${n}. We already have your details.`,
+    circolo:'Club', giocatori:'Players', percorso:'Course (if you know it)',
+    percorsoPh:'e.g. Rosso, Blu…', noleggi:'Do you need any rentals?',
+    golfcar:'Golf car', carrello:'Trolley', carrelloE:'Electric trolley', sacca:'Club set',
+    tessera:'Federation card / handicap (if you have one)', tesseraPh:'e.g. 12345',
+    taxi:'I also need a taxi to the course',
+    taxiOra:'Pick-up time at the hotel', taxiRitorno:'Return trip too',
+    persone:'How many people', livello:'Your level',
+    liv0:'Not sure / never played', liv1:'Beginner', liv2:'Intermediate', liv3:'Experienced',
+    quali:'Which treatments', qualiGuida:'Choose one or more; we will confirm the price.',
+    giorno:'Day', fascia:'Preferred time',
+    mattina:'Morning', pomeriggio:'Afternoon', indifferente:'No preference',
+    quando:'Day', ora:'Preferred time',
+    chi:'Your details', guidaChi:'We need them to confirm the booking.',
+    nome:'Full name', email:'Email', tel:'Phone',
+    note:'Notes (optional)', notePh:'Anything that helps us organise…',
+    invia:'Send request', invio:'Sending…',
+    manca:'Please fill in the required fields.',
+    ripiego:'We could not register your request. Please call +39 049 9939200 or write to info@termeleonardo.com: we will reply right away.',
+    grazieTit:'Request received', grazieTxt:'We will confirm everything as soon as possible.',
+    rif:'Reference', ancora:'Make another request' },
+  fr:{ lingua:'Français',
+    greenfee:{ occhiello:'GOLF AUX ALENTOURS', titolo:'Un départ dans les collines euganéennes',
+      sotto:'Nous sommes partenaires de trois clubs à quelques minutes de l’hôtel. Dites-nous quand vous souhaitez jouer : nous réservons le départ, et le taxi si vous le voulez.' },
+    maestro:{ occhiello:'COURS DE GOLF', titolo:'Un cours avec notre professeur',
+      sotto:'Sur le practice de l’hôtel, seul ou en petit groupe. Même si vous n’avez jamais tenu un club.' },
+    trattamenti:{ occhiello:'MASSAGES & SOINS', titolo:'Réservez avant d’arriver',
+      sotto:'Les soins les plus demandés partent vite : en demandant maintenant, vous aurez l’heure que vous préférez.' },
+    avviso:'<strong>Ceci est une demande, pas une réservation.</strong> Nous vous confirmons jour, heure et prix par e-mail ou téléphone, en général sous quelques heures.',
+    noto:(n)=>`Bon retour, ${n}. Nous avons déjà vos coordonnées.`,
+    circolo:'Club', giocatori:'Joueurs', percorso:'Parcours (si vous le savez)',
+    percorsoPh:'ex. Rosso, Blu…', noleggi:'Besoin de location ?',
+    golfcar:'Voiturette', carrello:'Chariot', carrelloE:'Chariot électrique', sacca:'Série de clubs',
+    tessera:'Licence / handicap (si vous en avez)', tesseraPh:'ex. 12345',
+    taxi:'J’ai aussi besoin d’un taxi pour le parcours',
+    taxiOra:'Heure de départ de l’hôtel', taxiRitorno:'Le retour aussi',
+    persone:'Combien de personnes', livello:'Votre niveau',
+    liv0:'Je ne sais pas / jamais joué', liv1:'Débutant', liv2:'Intermédiaire', liv3:'Confirmé',
+    quali:'Quels soins', qualiGuida:'Choisissez-en un ou plusieurs ; nous confirmons le prix.',
+    giorno:'Jour', fascia:'Horaire préféré',
+    mattina:'Matin', pomeriggio:'Après-midi', indifferente:'Peu importe',
+    quando:'Jour', ora:'Heure souhaitée',
+    chi:'Vos coordonnées', guidaChi:'Elles nous servent pour la confirmation.',
+    nome:'Nom et prénom', email:'E-mail', tel:'Téléphone',
+    note:'Remarques (facultatif)', notePh:'Tout ce qui nous aide à organiser…',
+    invia:'Envoyer la demande', invio:'Envoi…',
+    manca:'Veuillez remplir les champs obligatoires.',
+    ripiego:'Nous n’avons pas pu enregistrer la demande. Appelez-nous au +39 049 9939200 ou écrivez à info@termeleonardo.com : nous répondons tout de suite.',
+    grazieTit:'Demande reçue', grazieTxt:'Nous vous confirmons tout au plus vite.',
+    rif:'Référence', ancora:'Faire une autre demande' },
+};
+
+const oggiISO = () => new Date().toISOString().slice(0,10);
+let OSPITE = null;
+let INVIANDO = false;
+
+function testata() {
+  const t = T[LNG], s = t[TIPO];
+  document.documentElement.lang = LNG;
+  document.title = `${s.titolo} — Hotel Terme Leonardo`;
+  $('tOcchiello').textContent = s.occhiello;
+  $('tTitolo').textContent = s.titolo;
+  $('tSotto').textContent = s.sotto;
+  $('tLingue').innerHTML = ['it','de','en','fr'].map(l =>
+    `<a href="?tipo=${TIPO}&l=${l}${TOKEN ? '&t=' + encodeURIComponent(TOKEN) : ''}"
+      class="${l === LNG ? 'attiva' : ''}">${T[l].lingua}</a>`).join('');
+  $('tPie').innerHTML = `Hotel Terme Leonardo &middot; Via Monteortone 46, Abano Terme &middot;
+    <a href="tel:+390499939200">+39 049 9939200</a> &middot;
+    <a href="mailto:info@termeleonardo.com">info@termeleonardo.com</a>`;
+}
+
+function campiTipo(t) {
+  if (TIPO === 'greenfee') return `
+    <label for="fCircolo">${esc(t.circolo)}</label>
+    <select id="fCircolo">${CIRCOLI.map(([v,n]) =>
+      `<option value="${v}">${esc(n)}</option>`).join('')}</select>
+    <div class="due">
+      <div><label for="fData">${esc(t.quando)}</label>
+        <input type="date" id="fData" min="${oggiISO()}" /></div>
+      <div><label for="fOra">${esc(t.ora)}</label><input type="time" id="fOra" /></div>
+    </div>
+    <div class="due">
+      <div><label for="fGiocatori">${esc(t.giocatori)}</label>
+        <input type="number" id="fGiocatori" min="1" max="4" value="2" /></div>
+      <div><label for="fPercorso">${esc(t.percorso)}</label>
+        <input type="text" id="fPercorso" placeholder="${esc(t.percorsoPh)}" /></div>
+    </div>
+    <label>${esc(t.noleggi)}</label>
+    <label class="spunta"><input type="checkbox" id="fGolfcar" /><span>${esc(t.golfcar)}</span></label>
+    <label class="spunta"><input type="checkbox" id="fCarrello" /><span>${esc(t.carrello)}</span></label>
+    <label class="spunta"><input type="checkbox" id="fCarrelloE" /><span>${esc(t.carrelloE)}</span></label>
+    <label class="spunta"><input type="checkbox" id="fSacca" /><span>${esc(t.sacca)}</span></label>
+    <label for="fTessera">${esc(t.tessera)}</label>
+    <input type="text" id="fTessera" placeholder="${esc(t.tesseraPh)}" />
+    <label class="spunta" style="margin-top:18px;"><input type="checkbox" id="fTaxi" />
+      <span>${esc(t.taxi)}</span></label>
+    <div id="boxTaxi" style="display:none;">
+      <div class="due">
+        <div><label for="fTaxiOra">${esc(t.taxiOra)}</label><input type="time" id="fTaxiOra" /></div>
+        <div><label class="spunta" style="margin-top:26px;">
+          <input type="checkbox" id="fTaxiRitorno" /><span>${esc(t.taxiRitorno)}</span></label></div>
+      </div>
+    </div>`;
+
+  if (TIPO === 'maestro') return `
+    <div class="due">
+      <div><label for="fData">${esc(t.quando)}</label>
+        <input type="date" id="fData" min="${oggiISO()}" /></div>
+      <div><label for="fOra">${esc(t.ora)}</label><input type="time" id="fOra" /></div>
+    </div>
+    <div class="due">
+      <div><label for="fPersone">${esc(t.persone)}</label>
+        <input type="number" id="fPersone" min="1" max="4" value="1" /></div>
+      <div><label for="fLivello">${esc(t.livello)}</label>
+        <select id="fLivello">
+          <option value="">${esc(t.liv0)}</option>
+          <option value="principiante">${esc(t.liv1)}</option>
+          <option value="intermedio">${esc(t.liv2)}</option>
+          <option value="esperto">${esc(t.liv3)}</option>
+        </select></div>
+    </div>`;
+
+  return `
+    <label>${esc(t.quali)}</label>
+    <div class="guida" style="margin-top:4px;">${esc(t.qualiGuida)}</div>
+    ${TRATTAMENTI.map((v,i) => `<label class="spunta">
+      <input type="checkbox" class="voce" value="${esc(v)}" id="v${i}" /><span>${esc(v)}</span></label>`).join('')}
+    <div class="due" style="margin-top:16px;">
+      <div><label for="fGiorno">${esc(t.giorno)}</label>
+        <input type="date" id="fGiorno" min="${oggiISO()}" /></div>
+      <div><label for="fFascia">${esc(t.fascia)}</label>
+        <select id="fFascia">
+          <option value="indifferente">${esc(t.indifferente)}</option>
+          <option value="mattina">${esc(t.mattina)}</option>
+          <option value="pomeriggio">${esc(t.pomeriggio)}</option>
+        </select></div>
+    </div>`;
+}
+
+function modulo() {
+  const t = T[LNG];
+  $('app').innerHTML = `
+    <div class="avviso">${t.avviso}</div>
+    ${OSPITE ? `<div class="noto">${esc(t.noto(OSPITE.nome || ''))}</div>` : ''}
+    <div class="riquadro">${campiTipo(t)}</div>
+    <div class="riquadro">
+      <h2>${esc(t.chi)}</h2><div class="guida">${esc(t.guidaChi)}</div>
+      <label for="fNome">${esc(t.nome)}</label>
+      <input type="text" id="fNome" autocomplete="name" value="${esc(OSPITE?.nome || '')}" />
+      <div class="due">
+        <div><label for="fEmail">${esc(t.email)}</label>
+          <input type="email" id="fEmail" autocomplete="email" value="${esc(OSPITE?.email || '')}" /></div>
+        <div><label for="fTel">${esc(t.tel)}</label>
+          <input type="tel" id="fTel" autocomplete="tel" /></div>
+      </div>
+      <label for="fNote">${esc(t.note)}</label>
+      <textarea id="fNote" placeholder="${esc(t.notePh)}"></textarea>
+    </div>
+    <button class="invia" id="bInvia">${esc(t.invia)}</button>
+    <div id="esito"></div>`;
+
+  const taxi = $('fTaxi');
+  if (taxi) taxi.onchange = () => {
+    $('boxTaxi').style.display = taxi.checked ? 'block' : 'none';
+  };
+  $('bInvia').onclick = invia;
+}
+
+function raccogli() {
+  const v = (id) => ($(id) ? $(id).value.trim() : '');
+  const c = (id) => ($(id) ? $(id).checked : false);
+  if (TIPO === 'greenfee') return {
+    circolo: v('fCircolo'), data: v('fData'), ora: v('fOra'),
+    giocatori: Number(v('fGiocatori') || 1), percorso: v('fPercorso'),
+    golfcar: c('fGolfcar'), carrello: c('fCarrello'),
+    carrello_elettrico: c('fCarrelloE'), sacca: c('fSacca'),
+    tessera: v('fTessera'), note: v('fNote'),
+    taxi: c('fTaxi'), taxi_ora: v('fTaxiOra'), taxi_ritorno: c('fTaxiRitorno'),
+  };
+  if (TIPO === 'maestro') return {
+    data: v('fData'), ora: v('fOra'),
+    persone: Number(v('fPersone') || 1), livello: v('fLivello'), note: v('fNote'),
+  };
+  return {
+    voci: [...document.querySelectorAll('.voce:checked')].map(e => e.value),
+    giorno: v('fGiorno'), fascia: v('fFascia'), note: v('fNote'),
+  };
+}
+
+/* il controllo qui serve solo a dare un messaggio gentile: quello vero lo
+   fa il server, perche' il browser si aggira */
+function completo() {
+  const v = (id) => ($(id) ? $(id).value.trim() : '');
+  if (!v('fNome') || !v('fEmail')) return false;
+  if (TIPO === 'trattamenti') return !!v('fGiorno') && document.querySelectorAll('.voce:checked').length > 0;
+  return !!v('fData') && !!v('fOra');
+}
+
+async function invia() {
+  const t = T[LNG];
+  if (INVIANDO) return;
+  if (!completo()) {
+    $('esito').innerHTML = `<div class="errore">${esc(t.manca)}</div>`;
+    return;
+  }
+  INVIANDO = true;
+  $('bInvia').disabled = true;
+  $('bInvia').textContent = t.invio;
+  $('esito').innerHTML = '';
+  try {
+    const r = await fetch(FUNZIONE, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tipo: TIPO,
+        nome: $('fNome').value.trim(), email: $('fEmail').value.trim(),
+        telefono: $('fTel').value.trim(),
+        lingua: LNG, token: TOKEN, origine: location.href,
+        dati: raccogli(),
+      }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.ok) { console.error('non registrata:', r.status, d); throw new Error('ko'); }
+    grazie(d.numero || '');
+  } catch (e) {
+    console.error(e);
+    INVIANDO = false;
+    $('bInvia').disabled = false;
+    $('bInvia').textContent = t.invia;
+    $('esito').innerHTML = `<div class="errore">${esc(t.ripiego)}</div>`;
+  }
+}
+
+function grazie(numero) {
+  const t = T[LNG];
+  $('app').innerHTML = `<div class="riquadro fatta">
+    <h2>${esc(t.grazieTit)}</h2>
+    <p style="color:var(--verde-medio);">${esc(t.grazieTxt)}</p>
+    ${numero ? `<div class="rif">${esc(numero)}</div>
+      <div class="guida" style="margin-top:4px;">${esc(t.rif)}</div>` : ''}
+    <p style="margin-top:22px;"><a href="?tipo=${TIPO}&l=${LNG}">${esc(t.ancora)}</a></p>
+  </div>`;
+}
+
+async function precompila() {
+  if (!TOKEN) return;
+  try {
+    const r = await fetch(`${FUNZIONE}?a=precompila&t=${encodeURIComponent(TOKEN)}`);
+    const d = await r.json();
+    if (d && d.noto && d.ospite) {
+      OSPITE = d.ospite;
+      if (['it','de','en','fr'].includes(OSPITE.lingua) && !qs.get('l')) LNG = OSPITE.lingua;
+    }
+  } catch (e) { console.error('precompilazione non riuscita', e); }
+}
+
+await precompila();
+testata();
+modulo();
+</script>
+</body>
+</html>

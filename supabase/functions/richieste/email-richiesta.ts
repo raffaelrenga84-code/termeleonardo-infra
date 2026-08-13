@@ -65,6 +65,44 @@ function righeTransfer(r: Record<string, unknown>, riga: (e: string, v: string, 
   ].join('');
 }
 
+function righeGreenfee(r: Record<string, unknown>, riga: (e: string, v: string, f?: boolean) => string): string {
+  const noleggi = [
+    r.golfcar === true ? 'golf car' : '',
+    r.carrello === true ? 'carrello' : '',
+    r.carrello_elettrico === true ? 'carrello elettrico' : '',
+    r.sacca === true ? 'sacca' : '',
+  ].filter(Boolean).join(' · ');
+  return [
+    riga('Circolo', String(r.circolo_nome ?? r.circolo ?? ''), true),
+    riga('Quando', `${data(String(r.data))} alle ${String(r.ora ?? '')}`),
+    riga('Giocatori', String(r.giocatori ?? '')),
+    riga('Percorso', String(r.percorso ?? '')),
+    riga('Noleggi', noleggi),
+    riga('Tessera', String(r.tessera ?? '')),
+    /* il taxi e' parte della stessa richiesta: la reception deve vederlo
+       qui, non scoprirlo dopo aver prenotato solo il campo */
+    r.taxi === true
+      ? riga('Taxi', `dall’hotel alle ${String(r.taxi_ora ?? '')}${r.taxi_ritorno === true ? ' · con ritorno' : ''} → ${String(r.taxi_luogo ?? '')}`)
+      : '',
+  ].join('');
+}
+
+function righeMaestro(r: Record<string, unknown>, riga: (e: string, v: string, f?: boolean) => string): string {
+  return [
+    riga('Quando', `${data(String(r.data))} alle ${String(r.ora ?? '')}`, true),
+    riga('Persone', String(r.persone ?? '')),
+    riga('Livello', String(r.livello ?? '')),
+  ].join('');
+}
+
+function righeTrattamenti(r: Record<string, unknown>, riga: (e: string, v: string, f?: boolean) => string): string {
+  const voci = Array.isArray(r.voci) ? (r.voci as string[]) : [];
+  return [
+    riga('Giorno', `${data(String(r.giorno))} · ${String(r.fascia ?? '')}`, true),
+    riga('Trattamenti', voci.join(' · ')),
+  ].join('');
+}
+
 export function richiestaHTML(r: ConNumero): string {
   /* i campi del soggiorno sono facoltativi da quando l'avviso serve anche
      agli altri tipi: si leggono sempre passando da qui, cosi' un campo
@@ -86,9 +124,14 @@ export function richiestaHTML(r: ConNumero): string {
 
   <table cellpadding="0" cellspacing="0" border="0" width="100%"
     style="margin-top:20px;border-collapse:collapse;border-top:1px solid #E6E2D8;">
-    ${tipo === 'transfer'
-      ? righeTransfer(r as unknown as Record<string, unknown>, riga)
-      : riga('Periodo', periodo, true) + riga('Soggiorno', soggiorno)}
+    ${(() => {
+      const d = r as unknown as Record<string, unknown>;
+      if (tipo === 'transfer') return righeTransfer(d, riga);
+      if (tipo === 'greenfee') return righeGreenfee(d, riga);
+      if (tipo === 'maestro') return righeMaestro(d, riga);
+      if (tipo === 'trattamenti') return righeTrattamenti(d, riga);
+      return riga('Periodo', periodo, true) + riga('Soggiorno', soggiorno);
+    })()}
     ${riga('Email', s(r.email))}
     ${riga('Telefono', s(r.telefono))}
     ${riga('Camera', s(r.tipo_camera))}

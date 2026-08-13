@@ -34,6 +34,7 @@ const T: Record<string, Record<string, string>> = {
     dettagli: 'Il dettaglio', saluto: 'A presto,<br />Hotel Terme Leonardo',
     quando: 'Quando', dove: 'Dove', persone: 'Persone', volo: 'Volo / treno',
     ritorno: 'Ritorno incluso', rif: 'Riferimento',
+        noleggi: 'Noleggi', taxi: 'Taxi dall’hotel', trattamenti: 'Trattamenti',
     oggetto: 'confermata',
   },
   de: {
@@ -42,6 +43,7 @@ const T: Record<string, Record<string, string>> = {
     dettagli: 'Die Einzelheiten', saluto: 'Bis bald,<br />Hotel Terme Leonardo',
     quando: 'Wann', dove: 'Wo', persone: 'Personen', volo: 'Flug / Zug',
     ritorno: 'Rückfahrt inbegriffen', rif: 'Referenz',
+        noleggi: 'Verleih', taxi: 'Taxi ab Hotel', trattamenti: 'Anwendungen',
     oggetto: 'bestätigt',
   },
   en: {
@@ -50,6 +52,7 @@ const T: Record<string, Record<string, string>> = {
     dettagli: 'The details', saluto: 'See you soon,<br />Hotel Terme Leonardo',
     quando: 'When', dove: 'Where', persone: 'People', volo: 'Flight / train',
     ritorno: 'Return trip included', rif: 'Reference',
+        noleggi: 'Rentals', taxi: 'Taxi from the hotel', trattamenti: 'Treatments',
     oggetto: 'confirmed',
   },
   fr: {
@@ -58,6 +61,7 @@ const T: Record<string, Record<string, string>> = {
     dettagli: 'Le détail', saluto: 'À bientôt,<br />Hotel Terme Leonardo',
     quando: 'Quand', dove: 'Où', persone: 'Personnes', volo: 'Vol / train',
     ritorno: 'Retour inclus', rif: 'Référence',
+        noleggi: 'Locations', taxi: 'Taxi depuis l’hôtel', trattamenti: 'Soins',
     oggetto: 'confirmée',
   },
 };
@@ -87,6 +91,32 @@ function dettagli(tipo: string, d: Record<string, unknown>, t: Record<string, st
       riga(t.persone, String(d.pax ?? '')),
       riga(t.volo, String(d.volo ?? '')),
       d.ritorno === true ? riga(t.ritorno, '✓') : '',
+    ].join('');
+  }
+  if (tipo === 'greenfee') {
+    const noleggi = [
+      d.golfcar === true ? 'golf car' : '', d.carrello === true ? 'trolley' : '',
+      d.carrello_elettrico === true ? 'e-trolley' : '', d.sacca === true ? 'set' : '',
+    ].filter(Boolean).join(' · ');
+    return [
+      riga(t.dove, String(d.circolo_nome ?? '')),
+      riga(t.quando, `${data(d.data)}${d.ora ? ' · ' + String(d.ora) : ''}`),
+      riga(t.persone, String(d.giocatori ?? '')),
+      riga(t.noleggi, noleggi),
+      d.taxi === true ? riga(t.taxi, `${String(d.taxi_ora ?? '')}${d.taxi_ritorno === true ? ' · ' + t.ritorno : ''}`) : '',
+    ].join('');
+  }
+  if (tipo === 'maestro') {
+    return [
+      riga(t.quando, `${data(d.data)}${d.ora ? ' · ' + String(d.ora) : ''}`),
+      riga(t.persone, String(d.persone ?? '')),
+    ].join('');
+  }
+  if (tipo === 'trattamenti') {
+    const voci = Array.isArray(d.voci) ? (d.voci as string[]) : [];
+    return [
+      riga(t.quando, `${data(d.giorno)}${d.fascia ? ' · ' + String(d.fascia) : ''}`),
+      riga(t.trattamenti, voci.join(' · ')),
     ].join('');
   }
   return '';

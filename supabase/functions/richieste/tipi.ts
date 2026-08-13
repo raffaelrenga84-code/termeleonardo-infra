@@ -8,9 +8,9 @@
    jsonb, quindi un tipo nuovo non richiede una migrazione.
    ============================================================ */
 
-import { luogoValido } from './luoghi.ts';
+import { CIRCOLI_GOLF, luogoValido } from './luoghi.ts';
 
-export const TIPI_ATTIVI = ['soggiorno', 'transfer'] as const;
+export const TIPI_ATTIVI = ['soggiorno', 'transfer', 'greenfee', 'maestro', 'trattamenti'] as const;
 
 type Esito = { errore?: string; dati?: Record<string, unknown> };
 
@@ -93,6 +93,105 @@ function validaTransfer(d: Record<string, unknown>, oggi: Date): Esito {
   };
 }
 
+/* ---------------- green fee ---------------- */
+/* La partenza la prende la reception su OpenGolf o Chronogolf, e il taxi al
+   campo su ATAM: e' una richiesta sola perche' chi va a giocare deve anche
+   arrivarci. Il luogo del taxi NON si chiede: si deduce dal circolo, che e'
+   gia' una destinazione del loro elenco. Chiederlo due volte sarebbe un
+   modo per farli divergere. */
+function validaGreenfee(d: Record<string, unknown>, oggi: Date): Esito {
+  const circolo = testo(d.circolo);
+  const c = CIRCOLI_GOLF[circolo];
+  if (!c) return { errore: 'circolo sconosciuto' };
+
+  const data = dataServizio(d.data, oggi);
+  if (data.errore) return { errore: data.errore };
+  const o = ora(d.ora);
+  if (o.errore) return { errore: o.errore };
+
+  const giocatori = intero(d.giocatori, 1, 4);
+  if (giocatori === null) return { errore: 'giocatori non validi' };
+
+  const percorso = testo(d.percorso);
+  if (percorso.length > 40) return { errore: 'percorso troppo lungo' };
+  const tessera = testo(d.tessera);
+  if (tessera.length > 40) return { errore: 'tessera troppo lunga' };
+  const note = testo(d.note);
+  if (note.length > 2000) return { errore: 'note troppo lunghe' };
+
+  const taxi = d.taxi === true;
+  let taxi_ora = '';
+  if (taxi) {
+    const t = ora(d.taxi_ora);
+    if (t.errore) return { errore: 'ora del taxi mancante' };
+    taxi_ora = t.valore!;
+  }
+
+  return {
+    dati: {
+      circolo, circolo_nome: c.nome,
+      data: data.valore, ora: o.valore, giocatori, percorso,
+      golfcar: d.golfcar === true, carrello: d.carrello === true,
+      carrello_elettrico: d.carrello_elettrico === true, sacca: d.sacca === true,
+      tessera, note,
+      taxi, taxi_ora, taxi_ritorno: taxi && d.taxi_ritorno === true,
+      /* gia' scritto come nell'elenco ATAM, pronto da incollare */
+      taxi_luogo: taxi ? c.luogo : '',
+    },
+  };
+}
+
+/* ---------------- lezione col maestro ---------------- */
+const LIVELLI = ['principiante', 'intermedio', 'esperto'];
+
+function validaMaestro(d: Record<string, unknown>, oggi: Date): Esito {
+  const data = dataServizio(d.data, oggi);
+  if (data.errore) return { errore: data.errore };
+  const o = ora(d.ora);
+  if (o.errore) return { errore: o.errore };
+
+  const persone = intero(d.persone, 1, 4);
+  if (persone === null) return { errore: 'persone non valide' };
+
+  /* "non so" e' una risposta legittima: chi non ha mai giocato non sa
+     collocarsi, e rifiutarlo perderebbe proprio il principiante */
+  const l = testo(d.livello);
+  if (l && !LIVELLI.includes(l)) return { errore: 'livello sconosciuto' };
+  const livello = l || 'non so';
+
+  const note = testo(d.note);
+  if (note.length > 2000) return { errore: 'note troppo lunghe' };
+
+  return { dati: { data: data.valore, ora: o.valore, persone, livello, note } };
+}
+
+/* ---------------- trattamenti ---------------- */
+/* Le voci arrivano come testo e non come codici di listino: il listino vero
+   vive nella funzione dei buoni, e duplicarlo qui vorrebbe dire tenerne due
+   allineati. Nessun prezzo viene promesso — lo conferma la reception —
+   quindi il testo basta. */
+const VOCI_MAX = 8;
+const FASCE = ['mattina', 'pomeriggio', 'indifferente'];
+
+function validaTrattamenti(d: Record<string, unknown>, oggi: Date): Esito {
+  const voci = Array.isArray(d.voci)
+    ? d.voci.map((v) => testo(v)).filter(Boolean).map((v) => v.slice(0, 80))
+    : [];
+  if (!voci.length) return { errore: 'nessun trattamento scelto' };
+  if (voci.length > VOCI_MAX) return { errore: 'troppi trattamenti in una richiesta' };
+
+  const data = dataServizio(d.giorno, oggi);
+  if (data.errore) return { errore: data.errore };
+
+  const f = testo(d.fascia);
+  const fascia = FASCE.includes(f) ? f : 'indifferente';
+
+  const note = testo(d.note);
+  if (note.length > 2000) return { errore: 'note troppo lunghe' };
+
+  return { dati: { voci, giorno: data.valore, fascia, note } };
+}
+
 /* ---------------- soggiorno ---------------- */
 /* Il tipo storico: i suoi campi stanno nelle colonne della tabella, non in
    jsonb, e li controlla valida.ts. Qui non c'e' nulla da validare. */
@@ -108,6 +207,9 @@ export function validaDati(
   switch (tipo) {
     case 'soggiorno': return validaSoggiorno();
     case 'transfer': return validaTransfer(d || {}, oggi);
+    case 'greenfee': return validaGreenfee(d || {}, oggi);
+    case 'maestro': return validaMaestro(d || {}, oggi);
+    case 'trattamenti': return validaTrattamenti(d || {}, oggi);
     default: return { errore: 'tipo di richiesta sconosciuto' };
   }
 }
