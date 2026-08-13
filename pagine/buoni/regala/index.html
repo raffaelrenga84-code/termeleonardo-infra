@@ -16,8 +16,7 @@ a{color:var(--verde);}
 
 /* ---- testata ---- */
 .testata{background:var(--verde-chiaro);padding:34px 20px 40px;text-align:center;}
-.marchio{font-family:Arial,Helvetica,sans-serif;font-size:17px;letter-spacing:3px;color:var(--verde);}
-.stelle{font-size:9px;letter-spacing:3px;color:var(--salvia);margin-top:5px;}
+.marchio{display:block;width:200px;max-width:60%;height:auto;margin:0 auto;}
 .testata h1{font-family:Georgia,serif;font-weight:normal;font-size:32px;line-height:1.25;
 color:var(--verde);margin-top:26px;}
 .testata .sotto{color:var(--verde-medio);max-width:560px;margin:12px auto 0;font-size:15px;}
@@ -65,8 +64,7 @@ font-size:13px;color:var(--verde-medio);}
 <body>
 
 <div class="testata">
-  <div class="marchio">LE<strong>ONARDO</strong></div>
-  <div class="stelle">TERME HOTEL &nbsp;&#9733;&#9733;&#9733;&#9733;</div>
+  <img class="marchio" src="../img/logo.svg" alt="Hotel Terme Leonardo" />
   <h1 id="tTitolo"></h1>
   <div class="sotto" id="tSotto"></div>
   <nav class="lingue" id="lingue"></nav>
@@ -246,10 +244,8 @@ function anteprimaHTML(b) {
   border-collapse:collapse;font-family:Georgia,'Times New Roman',serif;background:#FFFFFF;">
 <tr>
   <td width="240" valign="top" style="width:240px;background:#E4F0EA;padding:30px 24px;">
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;letter-spacing:2px;color:#1B4D4A;">
-      LE<strong>ONARDO</strong></div>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:3px;color:#7A9490;margin-top:4px;">
-      TERME HOTEL &nbsp;\u2605\u2605\u2605\u2605</div>
+    <img src="${BASE_IMG}/logo.png" width="140" alt="Hotel Terme Leonardo"
+      style="display:block;width:140px;height:auto;border:0;" />
     <img src="${fotoBuono(b)}" alt="" style="display:block;width:192px;height:130px;
       object-fit:cover;border-radius:2px;margin:24px 0 10px;" />
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:8.5px;letter-spacing:2px;color:#7A9490;padding-top:20px;">

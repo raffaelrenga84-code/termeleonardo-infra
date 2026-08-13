@@ -14,7 +14,9 @@ body{background:var(--carta);color:var(--inchiostro);font:15px/1.5 Arial,Helveti
 .fascia{height:6px;background:linear-gradient(90deg,var(--acqua-scura),var(--acqua) 45%,#6FB1B8);}
 header{background:#fff;border-bottom:1px solid var(--pietra);padding:14px 20px;
 display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
-header .marchio{font-family:Georgia,serif;font-size:19px;letter-spacing:3px;}
+header .marchio{display:flex;align-items:center;gap:12px;}
+header .marchio img{display:block;width:132px;height:auto;}
+header .marchio span{font-family:Georgia,serif;font-size:15px;letter-spacing:2px;color:var(--fumo,#5C736F);}
 header .chi{font-size:13px;color:var(--grigio);}
 main{max-width:1340px;margin:0 auto;padding:20px 16px 60px;}
 .due-col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,660px);gap:22px;align-items:start;}
@@ -74,7 +76,7 @@ body>*:not(#stampa){display:none !important;}
 background:#FFFFFF;color:#1B4D4A;font-family:Georgia,'Times New Roman',serif;}
 #stampa .meta{height:148.5mm;box-sizing:border-box;padding:14mm 20mm;overflow:hidden;}
 #stampa .copertina{background:#E4F0EA;display:flex;flex-direction:column;}
-#stampa .marchio-s{font:15px/1 Arial,Helvetica,sans-serif;letter-spacing:3px;color:#1B4D4A;}
+#stampa .marchio-s{display:block;width:46mm;height:auto;}
 #stampa .stelle{font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:3px;color:#7A9490;margin-top:3mm;}
 #stampa .foto{display:block;width:100%;flex:1 1 auto;min-height:26mm;
 margin:7mm 0 6mm;object-fit:cover;}
@@ -111,7 +113,7 @@ font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
 <body>
 <div class="fascia"></div>
 <header>
-<div class="marchio">LEONARDO · buoni regalo</div>
+<div class="marchio"><img src="img/logo.svg" alt="Hotel Terme Leonardo" /><span>buoni regalo</span></div>
 <div class="chi"><span id="chiSono"></span> <a href="#" id="esci" style="color:var(--acqua);">esci</a></div>
 </header>
 <main id="app"></main>
@@ -844,10 +846,8 @@ function buonoHTML(b, bozza) {
 <tr>
   <!-- colonna sinistra -->
   <td width="270" valign="top" style="width:270px;background:#E4F0EA;padding:34px 26px;">
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;letter-spacing:2px;color:#1B4D4A;">
-      LE<strong>ONARDO</strong></div>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:3px;color:#7A9490;margin-top:4px;">
-      TERME HOTEL &nbsp;\u2605\u2605\u2605\u2605</div>
+    <img src="${BASE_IMG}/logo.png" width="150" alt="Hotel Terme Leonardo"
+      style="display:block;width:150px;height:auto;border:0;" />
     ${foto
       ? `<img src="${esc(foto)}" width="218" style="width:218px;display:block;margin:26px 0 8px;border-radius:2px;" alt="" />`
       : `<div style="height:150px;margin:26px 0 8px;border-radius:2px;
@@ -963,8 +963,7 @@ function buonoStampaHTML(b, bozza) {
 
   return `<div class="foglio">
   <section class="meta copertina">
-    <div class="marchio-s">LE<strong>ONARDO</strong></div>
-    <div class="stelle">TERME HOTEL &nbsp;\u2605\u2605\u2605\u2605</div>
+    <img class="marchio-s" src="img/logo.svg" alt="Hotel Terme Leonardo" />
     ${foto ? `<img class="foto" src="${esc(foto)}" alt="" />` : `<div class="foto sfumata"></div>`}
     <div class="occhiello">${esc(n.occhiello)}</div>
     <div class="titolo-oro">${e.titolo.toUpperCase()}</div>

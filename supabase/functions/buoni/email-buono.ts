@@ -93,8 +93,7 @@ export function buonoEmailHTML(b: any) {
   return `<table cellpadding="0" cellspacing="0" border="0" width="700" style="width:700px;max-width:100%;border-collapse:collapse;font-family:Georgia,'Times New Roman',serif;background:#FFFFFF;">
 <tr>
   <td width="270" valign="top" style="width:270px;background:#E4F0EA;padding:34px 26px;">
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;letter-spacing:2px;color:#1B4D4A;">LE<strong>ONARDO</strong></div>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:3px;color:#7A9490;margin-top:4px;">TERME HOTEL &nbsp;&#9733;&#9733;&#9733;&#9733;</div>
+    <img src="${BASE_IMG}/logo.png" width="150" alt="Hotel Terme Leonardo" style="display:block;width:150px;height:auto;border:0;" />
     <img src="${fotoBuono(b)}" width="218" height="150" alt="" style="display:block;width:218px;height:150px;object-fit:cover;border-radius:2px;margin:26px 0 8px;" />
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:8.5px;letter-spacing:2px;color:#7A9490;padding-top:34px;">ABANO TERME &middot; COLLI EUGANEI</div>
   </td>

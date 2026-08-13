@@ -101,3 +101,11 @@ Deno.test('viso e corpo sono trattamenti; una voce sconosciuta ricade sul panora
   assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'progCoccola' }), `${IMG}/trattamenti.jpg`);
   assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'xyz123' }), `${IMG}/valore.jpg`);
 });
+
+/* Gmail e Outlook scartano l'SVG: nel buono spedito il logo dev'essere
+   un'immagine raster, altrimenti al cliente arriva un buco bianco */
+Deno.test('nell’email il logo è un PNG, mai un SVG', () => {
+  const html = buonoEmailHTML(BUONO);
+  assertStringIncludes(html, `${IMG}/logo.png`);
+  assertEquals(html.includes('logo.svg'), false);
+});
