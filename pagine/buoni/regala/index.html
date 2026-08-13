@@ -140,7 +140,14 @@ let LNG = ['it','de','en','fr'].includes(qs.get('l')) ? qs.get('l')
   : ((navigator.language || '').slice(0,2) === 'it' ? 'it' : 'en'));
 
 /* ---------- catalogo: identico al back office (i prezzi veri li ricontrolla il server) ---------- */
+/* il Day Spa sta in cima perch\u00e9 \u00e8 quello che chiedono di pi\u00f9: la prima
+   voce \u00e8 anche quella preselezionata quando la pagina si apre */
 const CATALOGO = [
+  { g:{it:'Day Spa',de:'Day Spa',en:'Day Spa',fr:'Day Spa'}, v:[
+    ['dayspa_fer','Day Spa infrasettimanale \u2014 piscine e grotte',35],
+    ['dayspa_wknd','Day Spa sabato e domenica \u2014 piscine e grotte',45],
+    ['dayspa_pom','Day Spa pomeridiano',29]
+  ]},
   { g:{it:'Programmi benessere',de:'Wellnessprogramme',en:'Wellness programmes',fr:'Programmes bien-\u00eatre'}, v:[
     ['progCoccola','Programma Coccola \u2014 pulizia viso completa + manicure',90],
     ['progViso','Programma Viso Antirughe \u2014 pulizia completa + collagene',90],
@@ -167,11 +174,6 @@ const CATALOGO = [
     ['collagene55','Trattamento anti-age collagene naturale (55 min)',80],
     ['scrubmar40','Scrub corpo ai sali del Mar Morto (40 min)',55],
     ['riducente55','Trattamento riducente-anticellulite al fango (55 min)',70]
-  ]},
-  { g:{it:'Day Spa',de:'Day Spa',en:'Day Spa',fr:'Day Spa'}, v:[
-    ['dayspa_fer','Day Spa infrasettimanale \u2014 piscine e grotte',35],
-    ['dayspa_wknd','Day Spa sabato e domenica \u2014 piscine e grotte',45],
-    ['dayspa_pom','Day Spa pomeridiano',29]
   ]}
 ];
 

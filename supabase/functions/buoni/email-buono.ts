@@ -76,6 +76,48 @@ const CONDIZIONI: Record<string, string> = {
   fr: 'Ouverture saisonnière : l’hôtel ferme chaque année de fin novembre à février ; le bon n’est pas valable durant cette période. La majorité est requise pour accéder aux piscines, à l’hôtel et au spa ; entrées soumises à disponibilité et réservation obligatoire. Le bon n’est pas utilisable dans les 48 heures suivant l’achat, n’est ni remboursable ni convertible en espèces ; les montants restants après la première utilisation ne sont pas transférables. Validité 12 mois à compter de la date d’achat.'
 };
 
+/* come si prenota: sul foglio stampato ha un titolo tutto suo, e anche
+   qui deve averlo. Chi compra dal sito non passa dalla reception: questa
+   è l'unica volta in cui gli viene detto. (Stessi testi del back office.) */
+const PRENOTA: Record<string, { titolo: string; come: string }> = {
+  it: { titolo: 'COME PRENOTARE', come: 'Per prenotare ci chiami o ci scriva: fissiamo insieme il giorno e l’ora.' },
+  de: { titolo: 'SO RESERVIEREN SIE', come: 'Rufen Sie uns an oder schreiben Sie uns: wir vereinbaren gemeinsam Tag und Uhrzeit.' },
+  en: { titolo: 'HOW TO BOOK', come: 'To book, call or write to us: we will arrange the day and time together.' },
+  fr: { titolo: 'COMMENT RÉSERVER', come: 'Pour réserver, appelez-nous ou écrivez-nous : nous fixerons ensemble le jour et l’heure.' }
+};
+
+/* cosa comprende il Day Spa: è la voce più richiesta, e sul foglio
+   stampato l'elenco c'è. Anche qui, o l'email dice meno della stampa. */
+const COMPRENDE: Record<string, Record<string, string[]>> = {
+  dayspa: {
+    it: ['Piscine termali interna ed esterna comunicanti, con idromassaggi e giochi d’acqua',
+      'Zona Relax: Biogrotta, bagno turco, vasca idromassaggio, lettini massaggianti',
+      'Cascata di acqua termale, cascata di ghiaccio e docce emozionali con aromaterapia',
+      'Piscina scoperta estiva con acqua dolce a temperatura ambiente'],
+    de: ['Thermal-Innen- und Außenpool, miteinander verbunden, mit Sprudelliegen und Wasserspielen',
+      'Relaxbereich: Biogrotte, Dampfbad, Whirlpool, Massageliegen',
+      'Thermalwasserfall, Eisbrunnen und Erlebnisduschen mit Aromatherapie',
+      'Sommer-Freibad mit Süßwasser bei Umgebungstemperatur'],
+    en: ['Connected indoor and outdoor thermal pools, with hydromassage and water features',
+      'Relax area: Bio-grotto, steam bath, whirlpool, massage loungers',
+      'Thermal waterfall, ice fountain and emotional showers with aromatherapy',
+      'Outdoor summer pool with fresh water at ambient temperature'],
+    fr: ['Piscines thermales intérieure et extérieure communicantes, avec hydromassages et jeux d’eau',
+      'Espace Relax : bio-grotte, bain turc, bain à remous, lits de massage',
+      'Cascade d’eau thermale, cascade de glace et douches sensorielles à l’aromathérapie',
+      'Piscine découverte estivale à l’eau douce à température ambiante']
+  }
+};
+
+/* l'elenco esce se il buono contiene un Day Spa, anche quando non è la
+   prima voce: nei buoni con più righe può stare in mezzo */
+function comprende(b: { voce_id?: string | null; descrizione?: string }, lingua: string): string[] {
+  const daySpa = String(b.voce_id || '').startsWith('dayspa') ||
+    /day spa/i.test(String(b.descrizione || ''));
+  if (!daySpa) return [];
+  return COMPRENDE.dayspa[lingua] || COMPRENDE.dayspa.it;
+}
+
 /* la foto del buono: una per tipo, servita dal sito delle pagine.
    Le immagini sono già ritagliate nel formato del riquadro, così
    restano giuste anche dove object-fit non viene applicato. */
@@ -101,6 +143,8 @@ export function buonoEmailHTML(b: any) {
   /* i buoni con più voci arrivano con le righe separate da a capo: vanno
      rese come righe anche qui, o l'email dice una cosa e la stampa un'altra */
   const righeDescr = String(b.descrizione || '').split('\n').filter(Boolean);
+  const incluso = comprende(b, L);
+  const p = PRENOTA[L] || PRENOTA.it;
   return `<table cellpadding="0" cellspacing="0" border="0" width="700" style="width:700px;max-width:100%;border-collapse:collapse;font-family:Georgia,'Times New Roman',serif;background:#FFFFFF;">
 <tr>
   <td width="270" valign="top" style="width:270px;background:#E4F0EA;padding:34px 26px;">
@@ -119,6 +163,8 @@ export function buonoEmailHTML(b: any) {
       <tr><td style="border-left:3px solid #C9A961;background:#FBFAF7;padding:18px 20px;">
         ${righeDescr.map((r, i) => `<div style="font-size:17px;color:#1B4D4A;${i ? 'margin-top:6px;' : ''}">${esc(r)}</div>`).join('')}
         ${b.sottotitolo ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#C9A961;margin-top:7px;">${esc(b.sottotitolo)}</div>` : ''}
+        ${incluso.length ? `<div style="margin-top:14px;">` + incluso.map((x) =>
+          `<div style="font-family:Arial,Helvetica,sans-serif;font-size:11.5px;line-height:1.7;color:#4A5C59;"><span style="color:#C9A961;">&middot;</span> ${esc(x)}</div>`).join('') + `</div>` : ''}
         <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:1.6;color:#8A938F;margin-top:12px;border-top:1px solid #EFEBE0;padding-top:9px;">${esc(e.nota)}</div>
       </td></tr>
     </table>
@@ -134,7 +180,9 @@ export function buonoEmailHTML(b: any) {
         </td>
       </tr>
     </table>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:1.55;color:#B3ADA1;padding-top:22px;">${esc(CONDIZIONI[L] || CONDIZIONI.it)}</div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#C9A961;padding-top:20px;">${p.titolo}</div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#4A5C59;padding-top:5px;">${esc(p.come)}</div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:1.55;color:#B3ADA1;padding-top:18px;">${esc(CONDIZIONI[L] || CONDIZIONI.it)}</div>
   </td>
 </tr>
 </table>`;
@@ -163,6 +211,20 @@ async function invia(a: string, oggetto: string, html: string) {
   return r.ok;
 }
 
+/* il solo avviso interno: serve anche per i buoni emessi in reception,
+   che non passano dal webhook e altrimenti non lascerebbero traccia —
+   il promozionale, che non ha un incasso da riconciliare, in testa */
+export async function avvisaAmministrazione(b: any): Promise<boolean> {
+  const amm = Deno.env.get('EMAIL_AMMINISTRAZIONE');
+  if (!amm) return false;
+  return await invia(amm,
+    `Buono ${b.numero} ${b.pagamento === 'promozionale' ? 'promozionale' : 'pagato'} — ${eur(b.valore)} € (${b.pagamento || ''})`,
+    `<p style="font-family:Arial;font-size:14px;">Buono <strong>${esc(b.numero)}</strong> · codice <strong>${esc(b.codice)}</strong><br />
+    ${esc(b.descrizione)} · ${eur(b.valore)} € · ${esc(b.pagamento || '')} ${esc(b.pagamento_rif || '')}<br />
+    Acquirente: ${esc(b.acquirente || '')} &lt;${esc(b.acquirente_email || '')}&gt;<br />
+    Origine: ${esc(b.creato_da || '')}</p>`);
+}
+
 /* da chiamare quando il buono passa a "pagato" (webhook E a=pagato) */
 export async function inviaBuonoEmesso(b: any) {
   const L = ['it', 'de', 'en', 'fr'].includes(b.lingua) ? b.lingua : 'it';
@@ -178,13 +240,8 @@ export async function inviaBuonoEmesso(b: any) {
     esiti.destinatario = await invia(b.destinatario_email, e.oggetto,
       avvolgi(e.caro(esc(b.destinatario)), e.corpoDest, e.saluto, buono));
 
-  const amm = Deno.env.get('EMAIL_AMMINISTRAZIONE');
-  if (amm)
-    esiti.amministrazione = await invia(amm, `Buono ${b.numero} pagato — ${eur(b.valore)} € (${b.pagamento || ''})`,
-      `<p style="font-family:Arial;font-size:14px;">Buono <strong>${esc(b.numero)}</strong> · codice <strong>${esc(b.codice)}</strong><br />
-      ${esc(b.descrizione)} · ${eur(b.valore)} € · ${esc(b.pagamento || '')} ${esc(b.pagamento_rif || '')}<br />
-      Acquirente: ${esc(b.acquirente || '')} &lt;${esc(b.acquirente_email || '')}&gt;<br />
-      Origine: ${esc(b.creato_da || '')}</p>`);
+  if (Deno.env.get('EMAIL_AMMINISTRAZIONE'))
+    esiti.amministrazione = await avvisaAmministrazione(b);
 
   return esiti;
 }

@@ -26,7 +26,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { validaAcquisto } from './acquista.ts';
 import { nasceGiaPagato } from './pagamenti.ts';
-import { inviaBuonoEmesso } from './email-buono.ts';
+import { entroIlLimite } from './limite.ts';
+import { avvisaAmministrazione, inviaBuonoEmesso } from './email-buono.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -280,6 +281,10 @@ Deno.serve(async (req) => {
 
   /* ---------- pubblico: acquisto dal sito, si paga con carta ---------- */
   if (azione === 'acquista' && req.method === 'POST') {
+    if (!entroIlLimite(ipRichiesta(req))) {
+      console.warn('troppi acquisti da', ipRichiesta(req));
+      return risposta({ errore: 'troppe richieste, riprovi tra qualche minuto' }, 429);
+    }
     let b: Record<string, unknown>;
     try { b = await req.json(); } catch { b = {}; }
 
@@ -324,6 +329,11 @@ Deno.serve(async (req) => {
       return risposta({ numero: ins.numero, url: urlPag });
     } catch (e) {
       console.error('link di pagamento non creato:', (e as Error).message);
+      /* senza link il cliente non potrà mai pagare: il buono appena
+         inserito resterebbe in elenco come un'attesa che non arriva mai,
+         e la reception starebbe dietro a un fantasma. Si toglie. */
+      await db.from('buono_regalo').delete()
+        .eq('numero', ins.numero).eq('stato', 'attesa');
       return risposta({ errore: 'pagamento non disponibile al momento' }, 502);
     }
   }
@@ -406,6 +416,14 @@ Deno.serve(async (req) => {
       if (!String(error.message).includes('duplicate')) break;
     }
     if (!creato) return risposta({ errore: errore?.message || 'creazione fallita' }, 500);
+    /* i buoni emessi subito in reception non passano dal webhook: l'avviso
+       interno parte da qui, o un omaggio non lascerebbe alcuna traccia.
+       Al cliente non si spedisce nulla: il buono glielo consegna la
+       reception con i pulsanti di stampa ed email. */
+    if (subito) {
+      try { await avvisaAmministrazione(creato); }
+      catch (e) { console.error('avviso amministrazione', e); }
+    }
     return risposta({ ok: true, buono: creato });
   }
 

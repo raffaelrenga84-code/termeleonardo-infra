@@ -145,7 +145,13 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
 
 /* ---------- catalogo: dal listino spa del sito ---------- */
+/* il Day Spa sta in cima perché è quello che chiedono di più */
 const CATALOGO = [
+  { g:'Day Spa', v:[
+    ['dayspa_fer','Day Spa infrasettimanale — piscine e grotte',35],
+    ['dayspa_wknd','Day Spa sabato e domenica — piscine e grotte',45],
+    ['dayspa_pom','Day Spa pomeridiano',29]
+  ]},
   { g:'Programmi benessere', v:[
     ['progCoccola','Programma Coccola — pulizia viso completa + manicure',90],
     ['progViso','Programma Viso Antirughe — pulizia completa + collagene',90],
@@ -172,11 +178,6 @@ const CATALOGO = [
     ['collagene55','Trattamento anti-age collagene naturale (55 min)',80],
     ['scrubmar40','Scrub corpo ai sali del Mar Morto (40 min)',55],
     ['riducente55','Trattamento riducente-anticellulite al fango (55 min)',70]
-  ]},
-  { g:'Day Spa', v:[
-    ['dayspa_fer','Day Spa infrasettimanale — piscine e grotte',35],
-    ['dayspa_wknd','Day Spa sabato e domenica — piscine e grotte',45],
-    ['dayspa_pom','Day Spa pomeridiano',29]
   ]}
 ];
 

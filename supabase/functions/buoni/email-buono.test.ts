@@ -1,7 +1,7 @@
 /* Test del modulo email: il buono in HTML e le tre spedizioni
    (acquirente, destinatario, amministrazione) via Resend. */
 import { assertEquals, assertStringIncludes } from 'jsr:@std/assert';
-import { buonoEmailHTML, fotoBuono, inviaBuonoEmesso } from './email-buono.ts';
+import { avvisaAmministrazione, buonoEmailHTML, fotoBuono, inviaBuonoEmesso } from './email-buono.ts';
 
 const IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 
@@ -130,4 +130,60 @@ Deno.test('un buono con più voci resta su più righe anche nell’email', () =>
   assertEquals(html.includes('Day Spa\nn. 1'), false);   // niente riga unica
   assertStringIncludes(html, 'ingressi Day Spa</div>');
   assertStringIncludes(html, 'Massaggio antistress (45 min)</div>');
+});
+
+/* Chi compra online riceve solo l'email: se lì non c'è scritto come si
+   prenota, non lo saprà mai da nessun'altra parte. */
+Deno.test('l’email spiega come prenotare, nella lingua del buono', () => {
+  assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'it' }), 'COME PRENOTARE');
+  assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'it' }), 'Per prenotare ci chiami o ci scriva');
+  assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'de' }), 'SO RESERVIEREN SIE');
+  assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'en' }), 'HOW TO BOOK');
+  assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'fr' }), 'COMMENT RÉSERVER');
+});
+
+/* Il Day Spa è la voce più venduta: sul foglio stampato l'elenco di
+   piscine e grotte c'è, nell'email mancava. */
+Deno.test('per un Day Spa l’email elenca piscine e grotte', () => {
+  const html = buonoEmailHTML({ ...BUONO, tipo: 'servizio', voce_id: 'dayspa_wknd', lingua: 'it' });
+  assertStringIncludes(html, 'Biogrotta');
+  assertStringIncludes(html, 'Cascata di acqua termale');
+  const de = buonoEmailHTML({ ...BUONO, tipo: 'servizio', voce_id: 'dayspa_fer', lingua: 'de' });
+  assertStringIncludes(de, 'Biogrotte');
+});
+
+Deno.test('per un massaggio l’elenco delle piscine non compare', () => {
+  const html = buonoEmailHTML({ ...BUONO, tipo: 'servizio', voce_id: 'relax25', lingua: 'it' });
+  assertEquals(html.includes('Biogrotta'), false);
+});
+
+/* I buoni emessi in reception (contanti, bancomat, promozionali) non
+   passano dal webhook: senza un avviso, un omaggio non lascia traccia
+   verso l'amministrazione, ed è proprio quello senza incasso da
+   riconciliare. Al cliente però non si spedisce nulla: il buono glielo
+   consegna la reception con i suoi pulsanti. */
+Deno.test('l’avviso all’amministrazione parte da solo, senza toccare il cliente', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.set('EMAIL_AMMINISTRAZIONE', 'amministrazione@termeleonardo.com');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    const esito = await avvisaAmministrazione({ ...BUONO, pagamento: 'promozionale' });
+    assertEquals(esito, true);
+    assertEquals(spedite.length, 1);
+    assertEquals(spedite[0].to[0], 'amministrazione@termeleonardo.com');
+    assertStringIncludes(spedite[0].subject, 'promozionale');
+  } finally {
+    ripristina();
+    Deno.env.delete('RESEND_API_KEY'); Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  }
+});
+
+Deno.test('senza indirizzo di amministrazione non si spedisce nulla', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    assertEquals(await avvisaAmministrazione(BUONO), false);
+    assertEquals(spedite.length, 0);
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
 });
