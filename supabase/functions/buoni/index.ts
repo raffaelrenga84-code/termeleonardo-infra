@@ -246,23 +246,27 @@ Deno.serve(async (req) => {
        dal numero messo nei metadati: due strade, la seconda di scorta */
     const link = sessione.payment_link;
     const numero = sessione.metadata?.numero || null;
-    let q = db.from('buono_regalo').select('numero, stato');
+    let q = db.from('buono_regalo').select('numero, stato, pagamento_rif');
     q = numero ? q.eq('numero', numero) : q.eq('stripe_sessione', link);
     const { data: buono } = await q.maybeSingle();
 
     if (!buono) { console.error('pagamento senza buono:', link, numero); return risposta({ ricevuto: true }); }
-    /* Stripe rimanda gli eventi: il rinvio si ignora ed è normale. Ma se
-       arriva un pagamento NUOVO su un buono già chiuso, è un incasso che
-       resterebbe senza buono: va scritto nei log, non ingoiato. */
+    /* Stripe rimanda lo stesso evento quando rispondiamo piano: quello è
+       normale e si ignora in silenzio. Un pagamento con un payment_intent
+       DIVERSO su un buono già chiuso è un'altra cosa: sono soldi arrivati
+       senza un buono dietro. Distinguere i due casi è ciò che rende il
+       log credibile invece di un allarme che grida sempre. */
+    const rifPagamento = sessione.payment_intent || sessione.id;
     if (buono.stato !== 'attesa') {
-      console.error('pagamento su buono già', buono.stato, '-', buono.numero,
-        'payment_intent', sessione.payment_intent || sessione.id);
+      if (rifPagamento !== buono.pagamento_rif)
+        console.error('SECONDO pagamento su buono già', buono.stato, '-',
+          buono.numero, 'payment_intent', rifPagamento);
       return risposta({ ricevuto: true });
     }
 
     const esito = await emettiCodice(buono.numero, {
       pagamento: 'stripe',
-      pagamento_rif: sessione.payment_intent || sessione.id,
+      pagamento_rif: rifPagamento,
       pagato_da: 'Stripe (automatico)'
     });
     if (esito.errore) console.error('emissione fallita:', esito.errore);
@@ -300,8 +304,11 @@ Deno.serve(async (req) => {
       scade_il: d.scade_il,
       pagamento: 'stripe', creato_da: 'sito',
       /* l'ora la mette il server, non il browser: è la traccia che le
-         condizioni sono state accettate prima del pagamento */
-      note: `acquisto dal sito · condizioni accettate il ${
+         condizioni sono state accettate prima del pagamento. La versione
+         serve a sapere QUALE testo è stato accettato: alzarla ogni volta
+         che le CONDIZIONI cambiano, o la traccia indica un testo che non
+         esiste più. */
+      note: `acquisto dal sito · condizioni v1 accettate il ${
         new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`
     }).select().single();
     if (error || !ins) return risposta({ errore: 'salvataggio non riuscito' }, 500);

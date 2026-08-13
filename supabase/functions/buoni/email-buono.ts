@@ -65,6 +65,10 @@ function dataLingua(iso: string, l: string) {
     : `${d.getUTCDate()} ${m} ${d.getUTCFullYear()}`;
 }
 
+/* ⚠ questo testo esiste in TRE copie: qui, nel back office (pagine/buoni/
+   index.html, che lo usa per anteprima e stampa) e nella pagina pubblica
+   di acquisto (pagine/buoni/regala/). Cambiandolo qui, cambiarlo anche lì:
+   sulla pagina pubblica è il testo che il cliente dichiara di aver letto. */
 const CONDIZIONI: Record<string, string> = {
   it: 'Apertura stagionale: l’hotel chiude ogni anno da fine novembre a febbraio; il buono non è valido in questo periodo. È richiesta la maggiore età per l’accesso a piscine, hotel e spa; ingressi soggetti a disponibilità e prenotazione obbligatoria. Il buono non è utilizzabile nelle prime 48 ore dall’acquisto, non è rimborsabile né convertibile in denaro; gli importi residui dopo il primo utilizzo non sono trasferibili. Validità 12 mesi dalla data di acquisto.',
   de: 'Saisonale Öffnung: das Hotel schließt jedes Jahr von Ende November bis Februar; in diesem Zeitraum ist der Gutschein nicht gültig. Für den Zutritt zu Pools, Hotel und Spa ist Volljährigkeit erforderlich; Eintritte nach Verfügbarkeit, Reservierung erforderlich. Der Gutschein ist in den ersten 48 Stunden nach dem Kauf nicht einlösbar, nicht erstattungsfähig und nicht in Bargeld umtauschbar; Restbeträge nach der ersten Einlösung sind nicht übertragbar. Gültigkeit 12 Monate ab Kaufdatum.',
