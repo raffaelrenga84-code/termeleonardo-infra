@@ -96,3 +96,38 @@ Deno.test('con le condizioni accettate l’acquisto procede', () => {
   assertEquals(r.errore, undefined);
   assertEquals(r.dati!.valore, 100);
 });
+
+/* Il listino si verifica qui e non contro la produzione: una chiamata
+   valida a ?a=acquista crea un buono vero e un link di pagamento vero. */
+Deno.test('il Day Spa serale sostituisce il pomeridiano, che non esiste', () => {
+  const r = validaAcquisto({
+    tipo: 'servizio', voce_id: 'dayspa_sera',
+    acquirente_email: 'a@b.it', condizioni_accettate: true
+  });
+  assertEquals(r.errore, undefined);
+  assertEquals(r.dati!.valore, 29);
+  assertMatch(r.dati!.descrizione, /serale.*venerdì e sabato.*18\.00–22\.30/);
+});
+
+Deno.test('il vecchio identificativo porta comunque al prodotto vero', () => {
+  const vecchio = validaAcquisto({
+    tipo: 'servizio', voce_id: 'dayspa_pom',
+    acquirente_email: 'a@b.it', condizioni_accettate: true
+  });
+  const nuovo = validaAcquisto({
+    tipo: 'servizio', voce_id: 'dayspa_sera',
+    acquirente_email: 'a@b.it', condizioni_accettate: true
+  });
+  assertEquals(vecchio.errore, undefined);
+  assertEquals(vecchio.dati!.descrizione, nuovo.dati!.descrizione);
+  assertEquals(vecchio.dati!.valore, 29);
+});
+
+Deno.test('giornaliero e festivo portano giorni e orari sul buono', () => {
+  const fer = validaAcquisto({ tipo:'servizio', voce_id:'dayspa_fer', acquirente_email:'a@b.it', condizioni_accettate:true });
+  const fes = validaAcquisto({ tipo:'servizio', voce_id:'dayspa_wknd', acquirente_email:'a@b.it', condizioni_accettate:true });
+  assertEquals(fer.dati!.valore, 35);
+  assertMatch(fer.dati!.descrizione, /luned.*vener.*9\.00–18\.30/);
+  assertEquals(fes.dati!.valore, 45);
+  assertMatch(fes.dati!.descrizione, /sabato, domenica e festivi.*9\.00–18\.30/);
+});
