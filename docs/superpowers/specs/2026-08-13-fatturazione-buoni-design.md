@@ -251,40 +251,57 @@ fattura» dell'Agenzia delle Entrate.
 
 ## Punti aperti
 
-**Aliquote IVA — ricevute il 13 agosto 2026, e cambiano una domanda.**
+**Aliquote IVA — due versioni in conflitto, ricevute lo stesso giorno.**
+
+Il 13 agosto 2026 sono arrivate due indicazioni che non possono essere
+entrambe vere. Sono registrate tutte e due perché il conflitto va risolto,
+non nascosto scegliendo la più recente.
+
+*Prima versione (tabella riassuntiva):*
 
 | Servizio | Ospite alloggiato | Cliente esterno |
 |---|---|---|
 | Pernottamento e prima colazione | 10% | non applicabile |
-| Ingresso Day Spa / massaggi estetici | **10%** (accessorio) | **22%** (ordinario) |
+| Ingresso Day Spa / massaggi estetici | 10% (accessorio) | 22% (ordinario) |
 | Cure termali mediche / fanghi | esente art. 10 (se certificate) | esente art. 10 (se certificate) |
 
-Le aliquote non sono più il punto aperto. Il punto aperto è diventato un
-altro, e più importante.
+*Seconda versione (indicazione successiva):*
 
-**L'aliquota di un ingresso Day Spa dipende da CHI lo usa**, e alla vendita
-di un buono regalo non si sa: chi lo riceverà potrebbe presentarsi come
-ospite dell'hotel (10%) o come esterno (22%). Un buono è monouso solo se il
-trattamento IVA è determinabile **all'emissione**. Se dipende da un fatto
-che si conoscerà solo al riscatto, il buono è **multiuso**, e allora l'IVA
-non si assolve alla vendita — cioè non si emette la fattura al momento
-dell'acquisto, che è l'impianto su cui è costruita tutta questa specifica.
+| Servizio | Aliquota |
+|---|---|
+| Ingresso Day Spa | **esente** |
+| Trattamenti curativi | **esente** |
+| Trattamenti estetici e altro | **22%** |
 
-Contro questa lettura gioca la prassi attuale dell'hotel: in Fidra i buoni
-Day Spa portano già un numero di documento fiscale emesso alla vendita,
-quindi di fatto vengono trattati come determinabili — presumibilmente al
-22%, perché chi compra un regalo per un esterno.
+**Dove si contraddicono:** sull'ingresso Day Spa. Nella prima è imponibile
+(10% o 22% secondo il cliente), nella seconda è esente. Sui massaggi
+estetici la seconda toglie il 10% per l'ospite alloggiato e lascia 22%
+sempre.
 
-**Domanda precisa per il commercialista:** un buono regalo per un ingresso
-Day Spa, venduto a un cliente esterno, è monouso al 22% — e quindi si
-fattura alla vendita come previsto qui — oppure il fatto che il portatore
-possa risultare ospite dell'hotel (10%) lo rende multiuso, e va trattato
-come i buoni monetari?
+**Perché la differenza conta più di quanto sembri.** Se il Day Spa è esente
+e i trattamenti estetici sono al 22% *indipendentemente da chi li usa*,
+allora il trattamento IVA è **determinabile all'emissione**: i buoni
+tornano a essere monouso, si fatturano alla vendita, e l'impianto di questa
+specifica regge. Se invece vale la prima versione, l'aliquota dipende da chi
+riscuote il buono, non è nota alla vendita, e i buoni Day Spa sarebbero
+**multiuso** come quelli monetari — cioè niente fattura all'acquisto.
 
-Fino alla risposta il listino porta le aliquote della tabella sopra e il
-test di presidio resta rosso: sono i **buoni per cure termali** il caso
-ancora più delicato, perché l'esenzione art. 10 vale solo "se certificate",
-e la certificazione non esiste al momento della vendita del buono.
+**Una perplessità che vale la pena dire.** L'esenzione dell'articolo 10
+riguarda le prestazioni sanitarie di diagnosi, cura e riabilitazione. Sulle
+cure termali con prescrizione è pacifica; su un ingresso alle piscine
+comprato per svago lo è molto meno. Non sono io a doverlo stabilire, ma
+"Day Spa esente" è un'affermazione forte e conviene averla confermata per
+iscritto prima di emettere fatture.
+
+**Come si chiude in trenta secondi:** uno scontrino di ingresso Day Spa
+stampato dalla *Portineria - Fiscale* riporta l'aliquota applicata. Quel
+foglio vale più di qualunque ricostruzione: è ciò che l'hotel dichiara già
+oggi al fisco.
+
+Fino ad allora il test di presidio resta rosso e non si emette nessuna
+fattura. Resta comunque aperto il caso dei **buoni per cure termali**:
+l'esenzione vale "se certificate", e la certificazione non esiste al
+momento in cui il buono viene venduto.
 
 **Regime fiscale del cedente.** `RF01` (ordinario) è l'ipotesi. Da
 confermare: si legge su qualsiasi fattura già emessa dall'hotel.
