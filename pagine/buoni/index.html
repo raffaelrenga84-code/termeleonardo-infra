@@ -41,8 +41,11 @@ font:15px Arial;color:var(--inchiostro);background:#fff;}
 textarea{min-height:64px;}
 .due{display:flex;gap:12px;flex-wrap:wrap;}
 .due>div{flex:1;min-width:180px;}
-button.azione{background:var(--arancio);color:#fff;border:0;border-radius:6px;
-padding:13px 20px;font:600 15px Arial;cursor:pointer;margin-top:14px;}
+/* anche a.azione: "Rispondi all'ospite" apre il programma di posta, quindi
+   e' un link e non un pulsante, ma deve avere lo stesso aspetto */
+button.azione,a.azione{background:var(--arancio);color:#fff;border:0;border-radius:6px;
+padding:13px 20px;font:600 15px Arial;cursor:pointer;margin-top:14px;
+display:inline-block;text-decoration:none;box-sizing:border-box;}
 button.azione:disabled{background:#CFCABF;}
 button.sec{background:#fff;color:var(--acqua-scura);border:1px solid var(--acqua);}
 button.mini-azione{background:#fff;color:var(--acqua-scura);border:1px solid var(--acqua);
@@ -64,6 +67,12 @@ tr.apribile:hover td{background:#F7F5EF;}
 .st-riscosso{background:#EFF3E7;color:var(--oliva);}
 .st-annullato{background:#F3F0EC;color:var(--grigio);}
 .st-scaduto{background:#FDF0EE;color:var(--allarme);}
+/* stati delle richieste dal sito: la "nuova" deve saltare all'occhio,
+   e' una persona che aspetta una risposta */
+.st-nuova{background:#FFF0E4;color:#B3541E;font-weight:bold;}
+.st-vista{background:#FFF6E8;color:#B3541E;}
+.st-risposta{background:var(--acqua-chiara);color:var(--acqua-scura);}
+.st-chiusa{background:#F3F0EC;color:var(--grigio);}
 .esito{font-size:14px;color:var(--acqua-scura);min-height:20px;padding-top:10px;}
 .errore{color:var(--allarme);}
 .mini{font-size:12px;color:var(--grigio);}
@@ -150,6 +159,9 @@ const SUPABASE_URL = 'https://mvuiuwakuseockotlcnp.supabase.co';
    che restano protetti dalle regole del database e dalla funzione */
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12dWl1d2FrdXNlb2Nrb3RsY25wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNzUwMzYsImV4cCI6MjA5OTk1MTAzNn0.CtYh0IMhsfvvL19i_v6ZiQXaBOxF27yKlKz9m36kaHk';
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
+/* le richieste di preventivo dal sito nuovo stanno in una funzione a parte,
+   ma si guardano da qui: la reception ha gia' un posto dove va a guardare */
+const FUNZIONE_RICHIESTE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 
 /* ---------- catalogo: dal listino spa del sito ---------- */
 /* il Day Spa sta in cima perché è quello che chiedono di più */
@@ -215,8 +227,8 @@ let TOKEN = '';       // token dell'utente autenticato
 let OPERATORE = '';   // nome dell'operatore, dal suo utente
 let VISTA = 'emetti';
 
-async function chiama(qs, opz = {}) {
-  const r = await fetch(FUNZIONE + qs, {
+async function chiama(qs, opz = {}, base = FUNZIONE) {
+  const r = await fetch(base + qs, {
     ...opz,
     headers: {
       'content-type': 'application/json',
@@ -279,10 +291,12 @@ function disegna() {
     <button data-v="emetti" class="${VISTA==='emetti'?'attiva':''}">Emetti un buono</button>
     <button data-v="elenco" class="${VISTA==='elenco'?'attiva':''}">Buoni emessi</button>
     <button data-v="verifica" class="${VISTA==='verifica'?'attiva':''}">Verifica / riscuoti</button>
+    <button data-v="richieste" class="${VISTA==='richieste'?'attiva':''}">Richieste dal sito</button>
   </div><div id="vista"></div>`;
   document.querySelectorAll('.schede button').forEach(b =>
     b.onclick = () => { VISTA = b.dataset.v; disegna(); });
-  ({ emetti: vistaEmetti, elenco: vistaElenco, verifica: vistaVerifica })[VISTA]();
+  ({ emetti: vistaEmetti, elenco: vistaElenco, verifica: vistaVerifica,
+     richieste: vistaRichieste })[VISTA]();
 }
 
 /* ---------- 1. emissione ---------- */
@@ -867,6 +881,123 @@ async function vistaElenco() {
   };
   $('eCerca').oninput = () => { clearTimeout(window.__t); window.__t = setTimeout(carica, 400); };
   $('eStato').onchange = carica;
+  carica();
+}
+
+/* ---------- 4. richieste di preventivo dal sito ----------
+   Finche' Resend non e' configurato queste richieste non arrivano per
+   email: questo elenco e' l'unico posto dove si vedono. Per questo si apre
+   sulle "da guardare" invece che su tutte. */
+const STATI_RICHIESTA = {
+  nuova: 'da guardare', vista: 'vista', risposta: 'risposta data', chiusa: 'chiusa',
+};
+
+function quandoIT(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const due = (n) => String(n).padStart(2, '0');
+  return `${due(d.getDate())}/${due(d.getMonth() + 1)} ${due(d.getHours())}:${due(d.getMinutes())}`;
+}
+
+const LINGUA_NOME = { it: 'Italiano', de: 'Tedesco', en: 'Inglese', fr: 'Francese' };
+
+function dettaglioRichiesta(r) {
+  const riga = (e, v) => v ? `<tr><td class="mini" style="padding-right:14px;white-space:nowrap;">${esc(e)}</td>
+    <td>${v}</td></tr>` : '';
+  /* la risposta si scrive dal programma di posta della reception, che qui
+     e' configurato: il taglia e incolla dell'indirizzo e' il passaggio in
+     cui si sbaglia una lettera e la risposta non arriva */
+  const oggetto = encodeURIComponent(`Hotel Terme Leonardo — la sua richiesta ${r.numero}`);
+  return `<div class="riquadro" style="margin-top:14px;">
+    <h2>${esc(r.nome)} <span class="stato st-${esc(r.stato)}">${esc(STATI_RICHIESTA[r.stato] || r.stato)}</span></h2>
+    <div class="mini">${esc(r.numero)} · arrivata il ${quandoIT(r.creato_il)}</div>
+    <table style="margin-top:12px;">
+      ${riga('Periodo', `<strong>${dataIT(r.check_in)} → ${dataIT(r.check_out)}</strong>
+        <span class="mini">${r.notti} notti · ${r.ospiti} ospiti</span>`)}
+      ${riga('Email', `<a href="mailto:${esc(r.email)}?subject=${oggetto}">${esc(r.email)}</a>`)}
+      ${riga('Telefono', r.telefono ? `<a href="tel:${esc(r.telefono)}">${esc(r.telefono)}</a>` : '')}
+      ${riga('Lingua', esc(LINGUA_NOME[r.lingua] || r.lingua))}
+      ${riga('Camera', esc(r.tipo_camera || ''))}
+      ${riga('Pacchetto', esc(r.pacchetto || ''))}
+      ${riga('Gestita da', r.gestita_da ? esc(r.gestita_da) + ' · ' + quandoIT(r.gestita_il) : '')}
+    </table>
+    ${r.messaggio ? `<div style="border-left:3px solid var(--oro);background:#FBFAF7;padding:12px 14px;
+      margin-top:14px;white-space:pre-line;">${esc(r.messaggio)}</div>` : ''}
+    <div class="due" style="margin-top:16px;">
+      <a class="azione" style="text-align:center;text-decoration:none;"
+        href="mailto:${esc(r.email)}?subject=${oggetto}">Rispondi all’ospite</a>
+      <div>
+        <button class="azione sec" data-stato="vista">Segna vista</button>
+        <button class="azione sec" data-stato="risposta">Ho risposto</button>
+        <button class="azione sec" data-stato="chiusa">Chiudi</button>
+      </div>
+    </div>
+    <div class="esito" id="rAzione"></div></div>`;
+}
+
+async function vistaRichieste() {
+  $('vista').innerHTML = `<div class="riquadro">
+    <div class="due">
+      <div><label>Stato</label><select id="rStato">
+        <option value="nuova">Da guardare</option>
+        <option value="">Tutte</option>
+        <option value="vista">Viste</option>
+        <option value="risposta">Con risposta data</option>
+        <option value="chiusa">Chiuse</option>
+      </select></div>
+    </div>
+    <div class="esito" id="rEsito">Carico…</div>
+    <div class="mini" style="padding-bottom:6px;">Clicca una richiesta per vedere tutto,
+      rispondere e segnarla gestita.</div>
+    <div id="rTab"></div></div>
+    <div id="rDettaglio"></div>`;
+
+  let CARICATE = [];
+  const carica = async () => {
+    $('rEsito').textContent = 'Carico…';
+    $('rDettaglio').innerHTML = '';
+    try {
+      const j = await chiama(`?a=elenco&stato=${encodeURIComponent($('rStato').value)}`,
+        {}, FUNZIONE_RICHIESTE);
+      CARICATE = j.richieste || [];
+      $('rEsito').textContent = CARICATE.length
+        ? `${CARICATE.length} richieste` : 'Nessuna richiesta.';
+      $('rTab').innerHTML = CARICATE.length ? `<table>
+        <tr><th>Numero</th><th>Arrivata</th><th>Ospite</th><th>Periodo</th><th>Stato</th></tr>` +
+        CARICATE.map(r => `<tr class="apribile" data-numero="${esc(r.numero)}">
+          <td class="cod">${esc(r.numero)}</td>
+          <td class="mini">${quandoIT(r.creato_il)}</td>
+          <td>${esc(r.nome)}<div class="mini">${esc(r.email)}${r.telefono ? ' · ' + esc(r.telefono) : ''}</div></td>
+          <td>${dataIT(r.check_in)} → ${dataIT(r.check_out)}
+            <div class="mini">${r.notti} notti · ${r.ospiti} ospiti · ${esc(LINGUA_NOME[r.lingua] || r.lingua)}</div></td>
+          <td><span class="stato st-${esc(r.stato)}">${esc(STATI_RICHIESTA[r.stato] || r.stato)}</span></td>
+        </tr>`).join('') + `</table>` : '';
+
+      for (const tr of $('rTab').querySelectorAll('tr.apribile')) {
+        tr.onclick = () => {
+          const r = CARICATE.find(x => x.numero === tr.dataset.numero);
+          if (!r) return;
+          $('rDettaglio').innerHTML = dettaglioRichiesta(r);
+          for (const b of $('rDettaglio').querySelectorAll('button[data-stato]')) {
+            b.onclick = async () => {
+              $('rAzione').textContent = 'Salvo…';
+              try {
+                await chiama('?a=stato', {
+                  method: 'POST',
+                  body: JSON.stringify({ numero: r.numero, stato: b.dataset.stato, utente: OPERATORE }),
+                }, FUNZIONE_RICHIESTE);
+                await carica();
+              } catch (e) {
+                $('rAzione').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
+              }
+            };
+          }
+          $('rDettaglio').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+      }
+    } catch (e) { $('rEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  };
+  $('rStato').onchange = carica;
   carica();
 }
 
