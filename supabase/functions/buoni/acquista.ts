@@ -74,6 +74,11 @@ export function validaAcquisto(b: Record<string, unknown>):
     descrizione = (TESTO_VALORE[lingua] || TESTO_VALORE.it)(eurS(valore));
   }
 
+  /* chiusura stagionale, niente rimborso, 12 mesi: chi compra deve averle
+     accettate prima di pagare. Il controllo sta anche qui e non solo nella
+     pagina, altrimenti basterebbe una chiamata diretta per saltarlo. */
+  if (b.condizioni_accettate !== true) return { errore: 'condizioni non accettate' };
+
   /* scadenza: 12 mesi da oggi, come da regolamento */
   const scade = new Date(); scade.setFullYear(scade.getFullYear() + 1);
 

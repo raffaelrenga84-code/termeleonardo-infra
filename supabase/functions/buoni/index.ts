@@ -85,6 +85,9 @@ async function creaLinkStripe(
   const linkPag = await stripe('/payment_links', {
     'line_items[0][price]': prezzo.id,
     'line_items[0][quantity]': '1',
+    /* un link, un pagamento: senza questo Stripe lo lascia riutilizzabile e
+       chi lo inoltra o ricarica la pagina paga due volte lo stesso buono */
+    'restrictions[completed_sessions][limit]': '1',
     'metadata[numero]': buono.numero,
     'payment_intent_data[metadata][numero]': buono.numero,
     'payment_intent_data[description]': `Buono regalo ${buono.numero}`,
@@ -248,7 +251,14 @@ Deno.serve(async (req) => {
     const { data: buono } = await q.maybeSingle();
 
     if (!buono) { console.error('pagamento senza buono:', link, numero); return risposta({ ricevuto: true }); }
-    if (buono.stato !== 'attesa') return risposta({ ricevuto: true });   // già registrato
+    /* Stripe rimanda gli eventi: il rinvio si ignora ed è normale. Ma se
+       arriva un pagamento NUOVO su un buono già chiuso, è un incasso che
+       resterebbe senza buono: va scritto nei log, non ingoiato. */
+    if (buono.stato !== 'attesa') {
+      console.error('pagamento su buono già', buono.stato, '-', buono.numero,
+        'payment_intent', sessione.payment_intent || sessione.id);
+      return risposta({ ricevuto: true });
+    }
 
     const esito = await emettiCodice(buono.numero, {
       pagamento: 'stripe',
@@ -289,7 +299,10 @@ Deno.serve(async (req) => {
       dedica: d.dedica || null,
       scade_il: d.scade_il,
       pagamento: 'stripe', creato_da: 'sito',
-      note: 'acquisto dal sito'
+      /* l'ora la mette il server, non il browser: è la traccia che le
+         condizioni sono state accettate prima del pagamento */
+      note: `acquisto dal sito · condizioni accettate il ${
+        new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`
     }).select().single();
     if (error || !ins) return risposta({ errore: 'salvataggio non riuscito' }, 500);
 

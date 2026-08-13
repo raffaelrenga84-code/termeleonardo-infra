@@ -109,3 +109,25 @@ Deno.test('nell’email il logo è un PNG, mai un SVG', () => {
   assertStringIncludes(html, `${IMG}/logo.png`);
   assertEquals(html.includes('logo.svg'), false);
 });
+
+/* Il buono spedito e il foglio stampato devono dire le stesse cose:
+   chi compra online non parla con la reception, ed è l'unico che non
+   verrebbe mai a sapere che un ingresso vale per una persona. */
+Deno.test('l’email porta la nota su persone e prenotazione, nella sua lingua', () => {
+  assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'it' }),
+    'ogni ingresso o trattamento vale per una persona');
+  assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'de' }),
+    'gilt jeder Eintritt bzw. jede Anwendung für eine Person');
+  assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'en' }),
+    'each entrance or treatment is for one person');
+  assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'fr' }),
+    'chaque entrée ou soin vaut pour une personne');
+});
+
+Deno.test('un buono con più voci resta su più righe anche nell’email', () => {
+  const html = buonoEmailHTML({ ...BUONO,
+    descrizione: 'n. 2 · ingressi Day Spa\nn. 1 · Massaggio antistress (45 min)' });
+  assertEquals(html.includes('Day Spa\nn. 1'), false);   // niente riga unica
+  assertStringIncludes(html, 'ingressi Day Spa</div>');
+  assertStringIncludes(html, 'Massaggio antistress (45 min)</div>');
+});

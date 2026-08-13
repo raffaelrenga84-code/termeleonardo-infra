@@ -47,6 +47,15 @@ padding:16px 22px;font:600 17px Arial;cursor:pointer;margin-top:18px;}
 button.paga:disabled{background:#CFCABF;cursor:default;}
 .mini{font-size:12.5px;color:var(--verde-medio);}
 .esito{min-height:22px;padding-top:10px;font-size:14px;color:var(--verde);}
+/* le condizioni si leggono prima di pagare, non quando arriva l'email */
+.condizioni{margin-top:18px;border:1px solid var(--sabbia);border-radius:8px;background:#FBFAF7;padding:14px 16px;}
+.cond-tit{font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:var(--oro);margin-bottom:8px;}
+.cond-testo{font-size:12.5px;line-height:1.55;color:var(--verde-medio);max-height:150px;overflow:auto;}
+.cond-spunta{display:flex;gap:9px;align-items:flex-start;margin-top:12px;
+padding-top:12px;border-top:1px solid var(--sabbia);font-size:13.5px;color:var(--inchiostro);cursor:pointer;}
+.cond-spunta input{width:auto;flex:0 0 auto;margin-top:2px;}
+.chiusura{margin-top:12px;border-left:3px solid var(--oro);background:#FDFBF5;
+padding:9px 12px;font-size:12.5px;line-height:1.5;color:var(--verde-medio);}
 .errore{color:#C0392B;}
 .fissa{position:sticky;top:14px;}
 .fissa .etichetta{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--verde-medio);margin-bottom:8px;}
@@ -216,6 +225,31 @@ const ETI = {
   fr:{ titolo:'Bon Cadeau', haRicevuto:(n)=>`${n}, vous avez re\u00e7u<br />un cadeau tr\u00e8s sp\u00e9cial`,
     senzaNome:'Un cadeau sp\u00e9cial<br />pour vous', da:'AVEC AFFECTION, DE', codice:'CODE DU BON' }
 };
+/* ---------- condizioni di acquisto: le stesse che escono sul buono ----------
+   Vanno lette PRIMA di pagare, non scoperte quando arriva l'email: la
+   chiusura stagionale e il "non rimborsabile" cambiano la decisione. */
+const CONDIZIONI = {
+  it:'Apertura stagionale: l’hotel chiude ogni anno da fine novembre a febbraio; il buono non è valido in questo periodo. È richiesta la maggiore età per l’accesso a piscine, hotel e spa; ingressi soggetti a disponibilità e prenotazione obbligatoria. Il buono non è utilizzabile nelle prime 48 ore dall’acquisto, non è rimborsabile né convertibile in denaro; gli importi residui dopo il primo utilizzo non sono trasferibili. Validità 12 mesi dalla data di acquisto.',
+  de:'Saisonale Öffnung: das Hotel schließt jedes Jahr von Ende November bis Februar; in diesem Zeitraum ist der Gutschein nicht gültig. Für den Zutritt zu Pools, Hotel und Spa ist Volljhährigkeit erforderlich; Eintritte nach Verfügbarkeit, Reservierung erforderlich. Der Gutschein ist in den ersten 48 Stunden nach dem Kauf nicht einlösbar, nicht erstattungsfähig und nicht in Bargeld umtauschbar; Restbeträge nach der ersten Einlösung sind nicht übertragbar. Gültigkeit 12 Monate ab Kaufdatum.',
+  en:'Seasonal opening: the hotel closes every year from late November to February; the voucher is not valid in this period. Guests must be of legal age to access pools, hotel and spa; admission subject to availability, booking required. The voucher cannot be used within the first 48 hours of purchase, is not refundable and cannot be exchanged for cash; any remaining amount after the first use is not transferable. Valid for 12 months from the date of purchase.',
+  fr:'Ouverture saisonnière : l’hôtel ferme chaque année de fin novembre à février ; le bon n’est pas valable durant cette période. La majorité est requise pour accéder aux piscines, à l’hôtel et au spa ; entrées soumises à disponibilité et réservation obligatoire. Le bon n’est pas utilisable dans les 48 heures suivant l’achat, n’est ni remboursable ni convertible en espèces ; les montants restants après la première utilisation ne sont pas transférables. Validité 12 mois à compter de la date d’achat.'
+};
+
+const LEGALE = {
+  it:{ titolo:'Condizioni di acquisto', accetto:'Ho letto e accetto le condizioni di acquisto',
+    manca:'Per procedere devi accettare le condizioni di acquisto.',
+    chiusura:'L’hotel chiude da fine novembre a febbraio: in quel periodo il buono non è utilizzabile.' },
+  de:{ titolo:'Kaufbedingungen', accetto:'Ich habe die Kaufbedingungen gelesen und akzeptiere sie',
+    manca:'Bitte akzeptieren Sie die Kaufbedingungen, um fortzufahren.',
+    chiusura:'Das Hotel ist von Ende November bis Februar geschlossen: in diesem Zeitraum ist der Gutschein nicht einlösbar.' },
+  en:{ titolo:'Purchase conditions', accetto:'I have read and accept the purchase conditions',
+    manca:'Please accept the purchase conditions to continue.',
+    chiusura:'The hotel closes from late November to February: the voucher cannot be used in that period.' },
+  fr:{ titolo:'Conditions d’achat', accetto:'J’ai lu et j’accepte les conditions d’achat',
+    manca:'Veuillez accepter les conditions d’achat pour continuer.',
+    chiusura:'L’hôtel ferme de fin novembre à février : le bon n’est pas utilisable durant cette période.' }
+};
+
 const TESTO_VALORE = {
   it:(v)=>`Buono valore di ${v} \u20ac, spendibile in hotel`,
   de:(v)=>`Wertgutschein \u00fcber ${v} \u20ac, im Hotel einl\u00f6sbar`,
@@ -301,6 +335,7 @@ function grazie() {
 
 function modulo() {
   const t = T[LNG];
+  const g = LEGALE[LNG] || LEGALE.it;
   $('pagina').innerHTML = `<div class="colonne"><div>
     <div class="riquadro">
       <h2>${esc(t.cosa)}</h2><div class="guida">${esc(t.guidaCosa)}</div>
@@ -321,6 +356,7 @@ function modulo() {
         <input type="number" id="fValore" min="25" max="1000" step="1" placeholder="100" />
         <div class="mini" style="margin-top:5px;">${esc(t.importoGuida)}</div>
       </div>
+      <div class="chiusura">${esc(g.chiusura)}</div>
     </div>
 
     <div class="riquadro">
@@ -342,7 +378,14 @@ function modulo() {
       </div>
       <label>${esc(t.mailDest)}</label><input type="email" id="fDestMail" />
       <div class="mini" style="margin-top:5px;">${esc(t.mailDestNota)}</div>
-      <button class="paga" id="fPaga"></button>
+      <div class="condizioni">
+        <div class="cond-tit">${esc(g.titolo)}</div>
+        <div class="cond-testo">${esc(CONDIZIONI[LNG] || CONDIZIONI.it)}</div>
+        <label class="cond-spunta">
+          <input type="checkbox" id="fCond" /><span>${esc(g.accetto)}</span>
+        </label>
+      </div>
+      <button class="paga" id="fPaga" disabled></button>
       <div class="mini" style="margin-top:10px;">${esc(t.pagoIn)}</div>
       <div class="esito" id="fEsito"></div>
     </div>
@@ -400,6 +443,13 @@ function modulo() {
   window.addEventListener('resize', ridisegna);
   ridisegna();
 
+  /* si paga solo dopo aver accettato le condizioni */
+  const condOk = () => $('fCond').checked;
+  $('fCond').onchange = () => {
+    $('fPaga').disabled = !condOk();
+    if (condOk()) $('fEsito').textContent = '';
+  };
+
   $('fPaga').onclick = async () => {
     const b = stato();
     const emailOk = /.+@.+\..+/.test(b.acquirente_email);
@@ -407,20 +457,24 @@ function modulo() {
     if (!b.descrizione || !valoreOk || !emailOk) {
       $('fEsito').innerHTML = `<span class="errore">${esc(t.manca)}</span>`; return;
     }
+    if (!condOk()) {
+      $('fEsito').innerHTML = `<span class="errore">${esc(g.manca)}</span>`; return;
+    }
     $('fPaga').disabled = true;
     $('fEsito').textContent = t.attesa;
     try {
       const r = await fetch(FUNZIONE + '?a=acquista', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...b, ritorno: location.origin + location.pathname + '?l=' + LNG })
+        body: JSON.stringify({ ...b, condizioni_accettate: true,
+          ritorno: location.origin + location.pathname + '?l=' + LNG })
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.url) throw new Error(j.errore || 'errore');
       location.href = j.url;
     } catch (e) {
       $('fEsito').innerHTML = `<span class="errore">${esc(t.erroreGen)}</span>`;
-      $('fPaga').disabled = false;
+      $('fPaga').disabled = !condOk();
     }
   };
 }

@@ -17,7 +17,8 @@ const ETI: Record<string, any> = {
     caro: (n: string) => `Gentile ${n || 'Cliente'},`,
     corpoAcq: 'grazie del suo acquisto: il pagamento è stato ricevuto e il buono è stato emesso. Lo trova qui sotto, pronto da stampare o da inoltrare a chi lo riceverà.',
     corpoDest: 'qualcuno ha pensato a lei: ecco il suo buono regalo per l’Hotel Terme Leonardo. Per usarlo basta chiamarci o scriverci indicando il codice.',
-    saluto: 'Un cordiale saluto,<br />Hotel Terme Leonardo' },
+    saluto: 'Un cordiale saluto,<br />Hotel Terme Leonardo',
+    nota: 'Salvo diversa indicazione, ogni ingresso o trattamento vale per una persona. Ingressi e trattamenti su prenotazione: basta chiamarci o scriverci.' },
   de: { titolo: 'Geschenkgutschein', haRicevuto: (n: string) => `${n}, Sie haben<br />ein besonderes Geschenk erhalten`,
     senzaNome: 'Ein besonderes<br />Geschenk für Sie', da: 'HERZLICHST, VON', codice: 'GUTSCHEINCODE',
     valido: (d: string) => `Gültig bis ${d}`,
@@ -26,7 +27,8 @@ const ETI: Record<string, any> = {
     caro: (n: string) => `Sehr geehrte(r) ${n || 'Kundin/Kunde'},`,
     corpoAcq: 'vielen Dank für Ihren Einkauf: die Zahlung ist eingegangen und der Gutschein wurde ausgestellt. Sie finden ihn unten — zum Ausdrucken oder Weiterleiten.',
     corpoDest: 'jemand hat an Sie gedacht: hier ist Ihr Geschenkgutschein für das Hotel Terme Leonardo. Zur Einlösung genügt ein Anruf oder eine E-Mail mit dem Code.',
-    saluto: 'Mit freundlichen Grüßen,<br />Hotel Terme Leonardo' },
+    saluto: 'Mit freundlichen Grüßen,<br />Hotel Terme Leonardo',
+    nota: 'Sofern nicht anders angegeben, gilt jeder Eintritt bzw. jede Anwendung für eine Person. Eintritte und Anwendungen nur mit Reservierung: rufen Sie uns einfach an oder schreiben Sie uns.' },
   en: { titolo: 'Gift Voucher', haRicevuto: (n: string) => `${n}, you have received<br />a special gift`,
     senzaNome: 'A special gift<br />for you', da: 'WITH LOVE, FROM', codice: 'VOUCHER CODE',
     valido: (d: string) => `Valid until ${d}`,
@@ -35,7 +37,8 @@ const ETI: Record<string, any> = {
     caro: (n: string) => `Dear ${n || 'Guest'},`,
     corpoAcq: 'thank you for your purchase: the payment has been received and the voucher has been issued. You will find it below, ready to print or forward.',
     corpoDest: 'someone was thinking of you: here is your gift voucher for Hotel Terme Leonardo. To use it, just call or write to us with the code.',
-    saluto: 'Kind regards,<br />Hotel Terme Leonardo' },
+    saluto: 'Kind regards,<br />Hotel Terme Leonardo',
+    nota: 'Unless stated otherwise, each entrance or treatment is for one person. Entrances and treatments require booking: just call or write to us.' },
   fr: { titolo: 'Bon Cadeau', haRicevuto: (n: string) => `${n}, vous avez reçu<br />un cadeau très spécial`,
     senzaNome: 'Un cadeau spécial<br />pour vous', da: 'AVEC AFFECTION, DE', codice: 'CODE DU BON',
     valido: (d: string) => `Valable jusqu'au ${d}`,
@@ -44,7 +47,8 @@ const ETI: Record<string, any> = {
     caro: (n: string) => `Cher/Chère ${n || 'Client(e)'},`,
     corpoAcq: 'merci pour votre achat : le paiement a été reçu et le bon a été émis. Vous le trouverez ci-dessous, prêt à imprimer ou à transférer.',
     corpoDest: 'quelqu’un a pensé à vous : voici votre bon cadeau pour l’Hôtel Terme Leonardo. Pour l’utiliser, appelez-nous ou écrivez-nous avec le code.',
-    saluto: 'Cordialement,<br />Hôtel Terme Leonardo' }
+    saluto: 'Cordialement,<br />Hôtel Terme Leonardo',
+    nota: 'Sauf indication contraire, chaque entrée ou soin vaut pour une personne. Entrées et soins sur réservation : appelez-nous ou écrivez-nous.' }
 };
 
 const MESI: Record<string, string[]> = {
@@ -90,6 +94,9 @@ export function buonoEmailHTML(b: any) {
   const L = ['it', 'de', 'en', 'fr'].includes(b.lingua) ? b.lingua : 'it';
   const e = ETI[L];
   const dest = b.destinatario ? esc(b.destinatario) : '';
+  /* i buoni con più voci arrivano con le righe separate da a capo: vanno
+     rese come righe anche qui, o l'email dice una cosa e la stampa un'altra */
+  const righeDescr = String(b.descrizione || '').split('\n').filter(Boolean);
   return `<table cellpadding="0" cellspacing="0" border="0" width="700" style="width:700px;max-width:100%;border-collapse:collapse;font-family:Georgia,'Times New Roman',serif;background:#FFFFFF;">
 <tr>
   <td width="270" valign="top" style="width:270px;background:#E4F0EA;padding:34px 26px;">
@@ -106,8 +113,9 @@ export function buonoEmailHTML(b: any) {
     <div style="font-size:15px;font-style:italic;color:#1B4D4A;margin-top:4px;">${esc(b.acquirente)}</div>` : ''}
     <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:26px;border-collapse:collapse;">
       <tr><td style="border-left:3px solid #C9A961;background:#FBFAF7;padding:18px 20px;">
-        <div style="font-size:17px;color:#1B4D4A;">${esc(b.descrizione)}</div>
+        ${righeDescr.map((r, i) => `<div style="font-size:17px;color:#1B4D4A;${i ? 'margin-top:6px;' : ''}">${esc(r)}</div>`).join('')}
         ${b.sottotitolo ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#C9A961;margin-top:7px;">${esc(b.sottotitolo)}</div>` : ''}
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:1.6;color:#8A938F;margin-top:12px;border-top:1px solid #EFEBE0;padding-top:9px;">${esc(e.nota)}</div>
       </td></tr>
     </table>
     <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:34px;border-top:1px solid #E6E2D8;border-collapse:collapse;">
