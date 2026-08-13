@@ -251,6 +251,58 @@ fattura» dell'Agenzia delle Entrate.
 
 ## Punti aperti
 
+**Aliquote IVA — RISOLTE il 13 agosto 2026.**
+
+| Servizio | Ospite alloggiato | Cliente esterno |
+|---|---|---|
+| Pernottamento e prima colazione | 10% | non applicabile |
+| **Ingresso Day Spa** | **esente art. 10** | **esente art. 10** |
+| **Massaggi estetici** | **22%** | **22%** |
+| Cure termali e trattamenti curativi (massaggio di reazione, massaggio speciale, inalazioni, aerosol, fanghi medici) | esente art. 10 (se certificate) | esente art. 10 (se certificate) |
+
+**Nessuna riga dipende da chi riscuote il buono.** È il punto che sblocca
+tutto: il trattamento IVA è determinabile all'emissione, quindi i buoni per
+Day Spa e per trattamenti restano **monouso** e si fatturano alla vendita,
+come previsto da questa specifica. Il dubbio sul multiuso è chiuso.
+
+*Come si legge sul listino della funzione (`LISTINO` in `acquista.ts`):*
+
+| Voci | Trattamento |
+|---|---|
+| le 4 `dayspa_*` | esente art. 10 |
+| le altre 16 (massaggi, viso, corpo) | 22% |
+
+**Tre voci stanno sul confine e vanno confermate**, perché sono a listino
+estetico ma nominano il fango o il linfodrenaggio, e la Knowledge Base
+distingue il linfodrenaggio Vodder *curativo* da quello estetico:
+`linfo60` (Linfodrenaggio completo), `visofango25` (viso al fango termale),
+`riducente55` (riducente-anticellulite al fango). Se una di queste è una
+prestazione curativa certificata, va spostata fra le esenti.
+
+**Due conseguenze tecniche che nessuna delle due tabelle nomina, e che fanno
+scartare la fattura o costano una sanzione:**
+
+1. **Le righe esenti non hanno un'aliquota, hanno una natura.** In FatturaPA
+   una riga esente porta `AliquotaIVA` 0.00, `Imposta` 0.00, `Natura` **N4**
+   e un `RiferimentoNormativo` — "art. 10 DPR 633/72". Senza la natura lo
+   SdI scarta il file: un'aliquota a zero senza spiegazione non è ammessa.
+
+2. **L'imposta di bollo.** Su una fattura senza IVA, quando l'importo esente
+   supera **77,47 €**, serve il bollo da 2 €. In FatturaPA è
+   `DatiBollo` con `BolloVirtuale: SI` e `ImportoBollo: 2.00`. Un singolo
+   ingresso Day Spa da 35 o 45 € sta sotto la soglia; **due ingressi, o un
+   paniere, la superano**. La soglia si calcola sulla somma delle sole righe
+   esenti, non sul totale del documento.
+
+Il test di presidio può passare al verde per le aliquote, ma ne servono due
+nuovi: uno che verifichi la natura N4 sulle righe esenti, e uno che
+verifichi il bollo sopra i 77,47 €.
+
+---
+
+*Quello che segue è la cronaca di come ci si è arrivati: le due versioni
+arrivate prima, e perché non bastavano. Si tiene perché spiega le scelte.*
+
 **Aliquote IVA — due versioni in conflitto, ricevute lo stesso giorno.**
 
 Il 13 agosto 2026 sono arrivate due indicazioni che non possono essere
