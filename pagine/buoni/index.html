@@ -148,9 +148,12 @@ const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
 /* il Day Spa sta in cima perché è quello che chiedono di più */
 const CATALOGO = [
   { g:'Day Spa', v:[
-    ['dayspa_fer','Day Spa infrasettimanale — piscine e grotte',35],
-    ['dayspa_wknd','Day Spa sabato e domenica — piscine e grotte',45],
-    ['dayspa_pom','Day Spa pomeridiano',29]
+    /* gli orari stanno nella descrizione perche' finiscono sul buono: il
+       serale vale solo venerdi' e sabato. Il "pomeridiano" non esiste, il
+       pomeriggio e' gia' compreso nel giornaliero */
+    ['dayspa_fer','Day Spa infrasettimanale — piscine e grotte, dal lunedì al venerdì, 9.00–18.30',35],
+    ['dayspa_wknd','Day Spa festivo — piscine e grotte, sabato, domenica e festivi, 9.00–18.30',45],
+    ['dayspa_sera','Day Spa serale — piscine e grotte, venerdì e sabato, 18.00–22.30',29]
   ]},
   { g:'Programmi benessere', v:[
     ['progCoccola','Programma Coccola — pulizia viso completa + manicure',90],

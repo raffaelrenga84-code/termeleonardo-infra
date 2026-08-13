@@ -27,9 +27,17 @@ export const LISTINO: Record<string, [string, number]> = {
   collagene55: ['Trattamento anti-age collagene naturale (55 min)', 80],
   scrubmar40: ['Scrub corpo ai sali del Mar Morto (40 min)', 55],
   riducente55: ['Trattamento riducente-anticellulite al fango (55 min)', 70],
-  dayspa_fer: ['Day Spa infrasettimanale — piscine e grotte', 35],
-  dayspa_wknd: ['Day Spa sabato e domenica — piscine e grotte', 45],
-  dayspa_pom: ['Day Spa pomeridiano', 29]
+  /* gli orari fanno parte della descrizione: il serale vale solo venerdì e
+     sabato, e chi riceve il buono deve poterlo leggere sul buono stesso.
+     Il "Day Spa pomeridiano" non esiste: il pomeriggio è già compreso nel
+     giornaliero, e i 29 € sono l'ingresso serale. */
+  dayspa_fer: ['Day Spa infrasettimanale — piscine e grotte, dal lunedì al venerdì, 9.00–18.30', 35],
+  dayspa_wknd: ['Day Spa festivo — piscine e grotte, sabato, domenica e festivi, 9.00–18.30', 45],
+  dayspa_sera: ['Day Spa serale — piscine e grotte, venerdì e sabato, 18.00–22.30', 29],
+  /* il vecchio identificativo resta accettato finché tutte le pagine in
+     cache non sono state sostituite; punta al prodotto vero, non a quello
+     inesistente. Si può togliere fra qualche giorno. */
+  dayspa_pom: ['Day Spa serale — piscine e grotte, venerdì e sabato, 18.00–22.30', 29]
 };
 
 const TESTO_VALORE: Record<string, (v: string) => string> = {

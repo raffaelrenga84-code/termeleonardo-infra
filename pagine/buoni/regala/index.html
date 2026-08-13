@@ -144,9 +144,12 @@ let LNG = ['it','de','en','fr'].includes(qs.get('l')) ? qs.get('l')
    voce \u00e8 anche quella preselezionata quando la pagina si apre */
 const CATALOGO = [
   { g:{it:'Day Spa',de:'Day Spa',en:'Day Spa',fr:'Day Spa'}, v:[
-    ['dayspa_fer','Day Spa infrasettimanale \u2014 piscine e grotte',35],
-    ['dayspa_wknd','Day Spa sabato e domenica \u2014 piscine e grotte',45],
-    ['dayspa_pom','Day Spa pomeridiano',29]
+    /* gli orari stanno nella descrizione perche' finiscono sul buono: il
+       serale vale solo venerdi' e sabato. Il "pomeridiano" non esiste, il
+       pomeriggio e' gia' compreso nel giornaliero */
+    ['dayspa_fer','Day Spa infrasettimanale \u2014 piscine e grotte, dal luned\u00ec al venerd\u00ec, 9.00\u201318.30',35],
+    ['dayspa_wknd','Day Spa festivo \u2014 piscine e grotte, sabato, domenica e festivi, 9.00\u201318.30',45],
+    ['dayspa_sera','Day Spa serale \u2014 piscine e grotte, venerd\u00ec e sabato, 18.00\u201322.30',29]
   ]},
   { g:{it:'Programmi benessere',de:'Wellnessprogramme',en:'Wellness programmes',fr:'Programmes bien-\u00eatre'}, v:[
     ['progCoccola','Programma Coccola \u2014 pulizia viso completa + manicure',90],
