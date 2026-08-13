@@ -12,8 +12,11 @@
    ============================================================ */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { validaRichiesta } from './valida.ts';
+import { validaContatti, validaRichiesta } from './valida.ts';
+import { validaDati } from './tipi.ts';
 import { avvisaHotel } from './email-richiesta.ts';
+
+const testo = (v: unknown) => String(v ?? '').trim();
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -85,11 +88,31 @@ Deno.serve(async (req) => {
     try { corpo = await req.json(); }
     catch { return risposta({ errore: 'richiesta illeggibile' }, 400); }
 
-    const { errore, dati } = validaRichiesta(corpo);
-    if (errore || !dati) return risposta({ errore }, 400);
+    /* Il tipo decide cosa si valida. Il soggiorno tiene i suoi campi nelle
+       colonne della tabella, gli altri tipi nel jsonb `dati`: cosi' un tipo
+       nuovo non richiede una migrazione. */
+    const tipo = testo(corpo.tipo) || 'soggiorno';
+    let contatti: { nome: string; email: string; telefono: string; lingua: string };
+    let colonne: Record<string, unknown> = {};
+    let propri: Record<string, unknown> | null = null;
+
+    if (tipo === 'soggiorno') {
+      const { errore, dati } = validaRichiesta(corpo);
+      if (errore || !dati) return risposta({ errore }, 400);
+      contatti = { nome: dati.nome, email: dati.email, telefono: dati.telefono, lingua: dati.lingua };
+      colonne = dati;
+    } else {
+      const c = validaContatti(corpo);
+      if (c.errore || !c.dati) return risposta({ errore: c.errore }, 400);
+      const d = validaDati(tipo, (corpo.dati || {}) as Record<string, unknown>);
+      if (d.errore || !d.dati) return risposta({ errore: d.errore }, 400);
+      contatti = c.dati;
+      colonne = { ...c.dati };
+      propri = d.dati;
+    }
 
     const ip = indirizzo(req);
-    if (await troppeRichieste(dati.email, ip)) {
+    if (await troppeRichieste(contatti.email, ip)) {
       return risposta({ errore: 'troppe richieste ravvicinate' }, 429);
     }
 
@@ -104,7 +127,10 @@ Deno.serve(async (req) => {
        si dice che non ha funzionato, e non il contrario come prima */
     const { error: eIns } = await db.from('richiesta_sito').insert({
       anno: n.anno, progressivo: n.progressivo, numero: n.numero,
-      ...dati,
+      tipo,
+      ...colonne,
+      dati: propri,
+      arrivo_token: testo(corpo.token).slice(0, 120) || null,
       origine: String(corpo.origine || '').slice(0, 200) || null,
       ip,
     });
@@ -115,8 +141,37 @@ Deno.serve(async (req) => {
 
     /* l'avviso e' un di piu': se non parte, la richiesta e' comunque
        salvata e si ritrova nell'elenco del back office */
-    const avvisato = await avvisaHotel({ ...dati, numero: n.numero });
+    const avvisato = await avvisaHotel({ ...contatti, ...colonne, ...(propri || {}), tipo, numero: n.numero });
     return risposta({ ok: true, numero: n.numero, avviso: avvisato });
+  }
+
+  /* ---------- pubblico: precompilazione da un link della nostra email ----------
+     L'ospite che arriva da una nostra email porta un token: nome, contatti e
+     periodo di soggiorno li sappiamo gia' e non ha senso richiederglieli.
+     Un token inventato o scaduto NON blocca niente: si ricade sul modulo
+     vuoto, che e' il caso normale di chi arriva dal sito. */
+  if (azione === 'precompila') {
+    const t = testo(url.searchParams.get('t'));
+    if (!t) return risposta({ ok: true, noto: false });
+    const { data, error } = await db.from('arrivo_link')
+      .select('intestatario, email, lingua, data_arrivo, data_partenza, adulti, bambini, numero_pratica, scade_il')
+      .eq('token', t).maybeSingle();
+    if (error) {
+      console.error('lettura token fallita:', error);
+      return risposta({ ok: true, noto: false });
+    }
+    if (!data) return risposta({ ok: true, noto: false });
+    if (data.scade_il && new Date(data.scade_il).getTime() < Date.now()) {
+      return risposta({ ok: true, noto: false, scaduto: true });
+    }
+    return risposta({
+      ok: true, noto: true,
+      ospite: {
+        nome: data.intestatario, email: data.email, lingua: data.lingua,
+        arrivo: data.data_arrivo, partenza: data.data_partenza,
+        adulti: data.adulti, bambini: data.bambini, pratica: data.numero_pratica,
+      },
+    });
   }
 
   /* ---------- riservati al back office ---------- */

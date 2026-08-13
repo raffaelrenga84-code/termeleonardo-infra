@@ -37,6 +37,31 @@ Deno.test('l avviso riporta tutto quello che serve per richiamare l ospite', () 
   }
 });
 
+const trasferimento = {
+  numero: 'RS-2026-0009', tipo: 'transfer',
+  nome: 'Klaus Müller', email: 'klaus@example.de', telefono: '+49 170 1234567',
+  lingua: 'de',
+  quando: '2026-09-10', ora: '14:30', pax: 3, verso: 'arrivo',
+  luogo: 'Venezia  aeroporto', volo: 'FR1234', ritorno: true, note: 'Tre valigie grandi.',
+};
+
+Deno.test('l avviso di un transfer racconta il transfer, non un soggiorno', () => {
+  const h = richiestaHTML(trasferimento as never);
+  assertStringIncludes(h, '10/09/2026');
+  assertStringIncludes(h, '14:30');
+  assertStringIncludes(h, 'Venezia  aeroporto');
+  assertStringIncludes(h, 'FR1234');
+  assertStringIncludes(h, 'Tre valigie grandi');
+  /* niente righe da soggiorno: qui non ci sono notti da contare */
+  assert(!h.includes('notti'), 'un transfer non ha notti');
+});
+
+Deno.test('il transfer dice se serve anche il ritorno', () => {
+  assertStringIncludes(richiestaHTML(trasferimento as never), 'con ritorno');
+  const senza = richiestaHTML({ ...trasferimento, ritorno: false } as never);
+  assert(!senza.includes('con ritorno'));
+});
+
 Deno.test('l avviso porta il marchio dell hotel', () => {
   /* PNG e non SVG: nelle email l'SVG non si vede */
   assertStringIncludes(richiestaHTML(r),

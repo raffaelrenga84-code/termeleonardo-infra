@@ -51,10 +51,17 @@ function giorno(s: string): number | null {
 
 const GIORNO_MS = 86400000;
 
-export function validaRichiesta(
-  b: Record<string, unknown>,
-  oggi: Date = new Date(),
-): { errore?: string; dati?: Richiesta } {
+export type Contatti = {
+  nome: string;
+  email: string;
+  telefono: string;
+  lingua: string;
+};
+
+/* Chi chiede e come lo si richiama: uguale per tutti i tipi di richiesta.
+   Un transfer o un green fee non hanno un periodo di soggiorno, ma hanno
+   sempre una persona dietro. */
+export function validaContatti(b: Record<string, unknown>): { errore?: string; dati?: Contatti } {
   const nome = testo(b.nome);
   if (!nome) return { errore: 'nome mancante' };
   if (nome.length > LIMITI.nome) return { errore: 'nome troppo lungo' };
@@ -62,6 +69,21 @@ export function validaRichiesta(
   const email = testo(b.email);
   if (email.length > LIMITI.email) return { errore: 'email troppo lunga' };
   if (!/.+@.+\..+/.test(email)) return { errore: 'email non valida' };
+
+  const telefono = testo(b.telefono);
+  if (telefono.length > LIMITI.telefono) return { errore: 'telefono troppo lungo' };
+
+  const lingua = ['it', 'de', 'en', 'fr'].includes(testo(b.lingua)) ? testo(b.lingua) : 'it';
+  return { dati: { nome, email, telefono, lingua } };
+}
+
+export function validaRichiesta(
+  b: Record<string, unknown>,
+  oggi: Date = new Date(),
+): { errore?: string; dati?: Richiesta } {
+  const c = validaContatti(b);
+  if (c.errore || !c.dati) return { errore: c.errore };
+  const { nome, email, telefono, lingua } = c.dati;
 
   const ci = testo(b.check_in), co = testo(b.check_out);
   if (!ci || !co) return { errore: 'date mancanti' };
@@ -88,16 +110,12 @@ export function validaRichiesta(
     }
   }
 
-  const telefono = testo(b.telefono);
-  if (telefono.length > LIMITI.telefono) return { errore: 'telefono troppo lungo' };
   const tipo_camera = testo(b.tipo_camera);
   if (tipo_camera.length > LIMITI.tipo_camera) return { errore: 'camera troppo lunga' };
   const pacchetto = testo(b.pacchetto);
   if (pacchetto.length > LIMITI.pacchetto) return { errore: 'pacchetto troppo lungo' };
   const messaggio = testo(b.messaggio);
   if (messaggio.length > LIMITI.messaggio) return { errore: 'messaggio troppo lungo' };
-
-  const lingua = ['it', 'de', 'en', 'fr'].includes(testo(b.lingua)) ? testo(b.lingua) : 'it';
 
   return {
     dati: {
