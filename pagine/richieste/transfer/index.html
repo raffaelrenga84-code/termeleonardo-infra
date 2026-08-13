@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#1A3626" />
+<meta name="robots" content="index,follow" />
+<title>Transfer e taxi — Hotel Terme Leonardo</title>
+<link rel="icon" href="/buoni/img/logo-quadrato.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --verde:#1A3626; --verde-medio:#3C5346; --acqua:#8FC4BC; --acqua-chiara:#E4F0EA;
+  --oro:#C9A961; --crema:#F9F6F0; --grigio:#7B756A; --allarme:#C0392B;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--crema);color:#2A2E2B;
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;}
+.testata{background:var(--acqua-chiara);padding:34px 20px 30px;text-align:center;}
+.testata img{width:210px;max-width:60%;height:auto;display:block;margin:0 auto;}
+h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;
+  font-size:34px;line-height:1.2;color:var(--verde);margin:20px 0 8px;}
+.occhiello{font-size:11px;letter-spacing:3px;color:var(--oro);text-transform:uppercase;}
+.sotto{color:var(--verde-medio);max-width:560px;margin:0 auto;}
+.lingue{margin-top:18px;}
+.lingue a{color:var(--verde-medio);text-decoration:none;font-size:14px;padding:4px 9px;}
+.lingue a.attiva{color:var(--verde);border-bottom:2px solid var(--oro);font-weight:600;}
+main{max-width:640px;margin:0 auto;padding:26px 18px 60px;}
+.riquadro{background:#fff;border:1px solid #E5E0D8;border-radius:14px;
+  padding:22px;margin-bottom:18px;}
+h2{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:23px;
+  color:var(--verde);margin:0 0 4px;}
+.guida{color:var(--grigio);font-size:13.5px;margin-bottom:16px;}
+label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--verde-medio);font-weight:600;margin-top:14px;}
+input,select,textarea{width:100%;margin-top:6px;padding:12px 13px;font:15px inherit;
+  border:1px solid #DCD6CB;border-radius:9px;background:#FCFBF8;color:#2A2E2B;}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--acqua);border-color:transparent;}
+textarea{min-height:84px;resize:vertical;}
+.due{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:560px){.due{grid-template-columns:1fr;}}
+.scelte{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;}
+.scelte button{padding:13px;border:1.5px solid #DCD6CB;background:#fff;border-radius:10px;
+  cursor:pointer;font:600 14px inherit;color:var(--verde-medio);}
+.scelte button.attivo{border-color:var(--verde);color:var(--verde);background:var(--acqua-chiara);}
+.spunta{display:flex;align-items:flex-start;gap:10px;margin-top:16px;font-size:14px;
+  color:var(--verde-medio);cursor:pointer;}
+.spunta input{width:18px;height:18px;margin:2px 0 0;flex:0 0 auto;}
+.avviso{background:#FFF6E8;border-left:4px solid var(--oro);padding:13px 15px;
+  border-radius:6px;font-size:13.5px;color:#6B4A22;margin-bottom:18px;line-height:1.6;}
+.noto{background:var(--acqua-chiara);border-left:4px solid var(--acqua);padding:13px 15px;
+  border-radius:6px;font-size:13.5px;color:var(--verde-medio);margin-bottom:16px;}
+.invia{width:100%;margin-top:22px;padding:16px;border:0;border-radius:999px;
+  background:var(--verde);color:var(--crema);font:600 16px inherit;cursor:pointer;}
+.invia:disabled{background:#B9BDB6;cursor:default;}
+.errore{margin-top:14px;background:#FDF0EE;border-left:4px solid var(--allarme);
+  padding:13px 15px;border-radius:6px;color:#7A2E24;font-size:14px;line-height:1.6;}
+.fatta{text-align:center;padding:40px 22px;}
+.fatta .rif{font-family:"Courier New",monospace;font-size:20px;color:var(--verde);
+  letter-spacing:1px;margin-top:10px;}
+.pie{text-align:center;color:var(--grigio);font-size:12.5px;padding:0 18px 40px;}
+.pie a{color:var(--verde-medio);}
+</style>
+</head>
+<body>
+
+<div class="testata">
+  <img src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" />
+  <div class="occhiello" style="margin-top:22px;" id="tOcchiello"></div>
+  <h1 id="tTitolo"></h1>
+  <p class="sotto" id="tSotto"></p>
+  <div class="lingue" id="tLingue"></div>
+</div>
+
+<main id="app"></main>
+
+<div class="pie" id="tPie"></div>
+
+<script type="module">
+'use strict';
+const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
+  c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+const qs = new URLSearchParams(location.search);
+const TOKEN = qs.get('t') || '';
+let LNG = ['it','de','en','fr'].includes(qs.get('l')) ? qs.get('l')
+  : (['de','fr','it'].includes((navigator.language || '').slice(0,2))
+     ? (navigator.language || '').slice(0,2) : 'en');
+
+const T = {
+  it:{ occhiello:'TRANSFER E TAXI', titolo:'Arriva in tutta comodità',
+    sotto:'Ci dica dove e quando: pensiamo noi a organizzare la corsa con la ditta di autonoleggio con cui lavoriamo.',
+    avviso:'<strong>Questa è una richiesta, non una prenotazione.</strong> La corsa la fissiamo noi e le confermiamo orario e prezzo per email o telefono, di solito entro poche ore.',
+    noto:(n)=>`Bentornato, ${n}. Abbiamo già i suoi dati: compili solo il viaggio.`,
+    viaggio:'Il viaggio', guidaViaggio:'Negli arrivi indichi l’orario a cui atterra o arriva il treno; nelle partenze l’ora a cui vuole essere preso in hotel.',
+    verso:'Arrivo o partenza', arrivo:'Arrivo', arrivoSotto:'vengo verso l’hotel',
+    partenza:'Partenza', partenzaSotto:'parto dall’hotel',
+    luogo:'Da dove / verso dove', comuni:'I più richiesti', tutte:'Tutte le destinazioni',
+    quando:'Giorno', ora:'Ora', pax:'Passeggeri',
+    volo:'Volo o treno (facoltativo)', voloPh:'es. FR1234',
+    ritorno:'Mi serve anche il ritorno',
+    chi:'I suoi dati', guidaChi:'Ci servono per confermarle la corsa.',
+    nome:'Nome e cognome', email:'Email', tel:'Telefono',
+    note:'Note (facoltative)', notePh:'Bagagli ingombranti, seggiolino per bambini, altro…',
+    invia:'Invia la richiesta', invio:'Invio…',
+    manca:'Compili i campi obbligatori: destinazione, giorno, ora, nome ed email.',
+    ripiego:'Non siamo riusciti a registrare la richiesta. Ci chiami allo +39 049 9939200 o scriva a info@termeleonardo.com: rispondiamo subito.',
+    grazieTit:'Richiesta ricevuta', grazieTxt:'Le confermiamo orario e prezzo al più presto.',
+    rif:'Riferimento', ancora:'Fai un’altra richiesta' },
+  de:{ occhiello:'TRANSFER & TAXI', titolo:'Bequem ankommen',
+    sotto:'Sagen Sie uns wohin und wann: die Fahrt organisieren wir mit unserem Mietwagenunternehmen.',
+    avviso:'<strong>Dies ist eine Anfrage, keine Buchung.</strong> Wir organisieren die Fahrt und bestätigen Ihnen Uhrzeit und Preis per E-Mail oder Telefon, meist innerhalb weniger Stunden.',
+    noto:(n)=>`Willkommen zurück, ${n}. Ihre Daten haben wir bereits: bitte nur die Fahrt ausfüllen.`,
+    viaggio:'Die Fahrt', guidaViaggio:'Bei Ankunft geben Sie die Landezeit bzw. Ankunft des Zuges an; bei Abfahrt die Uhrzeit der Abholung am Hotel.',
+    verso:'Ankunft oder Abfahrt', arrivo:'Ankunft', arrivoSotto:'zum Hotel',
+    partenza:'Abfahrt', partenzaSotto:'vom Hotel',
+    luogo:'Von wo / wohin', comuni:'Am häufigsten', tutte:'Alle Ziele',
+    quando:'Tag', ora:'Uhrzeit', pax:'Personen',
+    volo:'Flug oder Zug (optional)', voloPh:'z. B. FR1234',
+    ritorno:'Ich brauche auch die Rückfahrt',
+    chi:'Ihre Daten', guidaChi:'Wir brauchen sie für die Bestätigung.',
+    nome:'Vor- und Nachname', email:'E-Mail', tel:'Telefon',
+    note:'Anmerkungen (optional)', notePh:'Sperriges Gepäck, Kindersitz, Sonstiges…',
+    invia:'Anfrage senden', invio:'Senden…',
+    manca:'Bitte Pflichtfelder ausfüllen: Ziel, Tag, Uhrzeit, Name und E-Mail.',
+    ripiego:'Wir konnten die Anfrage nicht speichern. Rufen Sie uns unter +39 049 9939200 an oder schreiben Sie an info@termeleonardo.com: wir antworten sofort.',
+    grazieTit:'Anfrage erhalten', grazieTxt:'Wir bestätigen Ihnen Uhrzeit und Preis so bald wie möglich.',
+    rif:'Referenz', ancora:'Weitere Anfrage' },
+  en:{ occhiello:'TRANSFER & TAXI', titolo:'Arrive in comfort',
+    sotto:'Tell us where and when: we will arrange the ride with the car service we work with.',
+    avviso:'<strong>This is a request, not a booking.</strong> We arrange the ride and confirm time and price by email or phone, usually within a few hours.',
+    noto:(n)=>`Welcome back, ${n}. We already have your details: just fill in the journey.`,
+    viaggio:'The journey', guidaViaggio:'For arrivals give the landing or train arrival time; for departures the pick-up time at the hotel.',
+    verso:'Arrival or departure', arrivo:'Arrival', arrivoSotto:'coming to the hotel',
+    partenza:'Departure', partenzaSotto:'leaving the hotel',
+    luogo:'From / to', comuni:'Most requested', tutte:'All destinations',
+    quando:'Day', ora:'Time', pax:'Passengers',
+    volo:'Flight or train (optional)', voloPh:'e.g. FR1234',
+    ritorno:'I also need the return trip',
+    chi:'Your details', guidaChi:'We need them to confirm the ride.',
+    nome:'Full name', email:'Email', tel:'Phone',
+    note:'Notes (optional)', notePh:'Bulky luggage, child seat, anything else…',
+    invia:'Send request', invio:'Sending…',
+    manca:'Please fill in the required fields: destination, day, time, name and email.',
+    ripiego:'We could not register your request. Please call +39 049 9939200 or write to info@termeleonardo.com: we will reply right away.',
+    grazieTit:'Request received', grazieTxt:'We will confirm time and price as soon as possible.',
+    rif:'Reference', ancora:'Make another request' },
+  fr:{ occhiello:'TRANSFERT & TAXI', titolo:'Arrivez en toute tranquillité',
+    sotto:'Dites-nous où et quand : nous organisons le trajet avec la société de voitures avec laquelle nous travaillons.',
+    avviso:'<strong>Ceci est une demande, pas une réservation.</strong> Nous organisons le trajet et vous confirmons l’horaire et le prix par e-mail ou téléphone, en général sous quelques heures.',
+    noto:(n)=>`Bon retour, ${n}. Nous avons déjà vos coordonnées : remplissez seulement le trajet.`,
+    viaggio:'Le trajet', guidaViaggio:'Pour les arrivées, indiquez l’heure d’atterrissage ou d’arrivée du train ; pour les départs, l’heure de prise en charge à l’hôtel.',
+    verso:'Arrivée ou départ', arrivo:'Arrivée', arrivoSotto:'vers l’hôtel',
+    partenza:'Départ', partenzaSotto:'depuis l’hôtel',
+    luogo:'D’où / vers où', comuni:'Les plus demandés', tutte:'Toutes les destinations',
+    quando:'Jour', ora:'Heure', pax:'Passagers',
+    volo:'Vol ou train (facultatif)', voloPh:'ex. FR1234',
+    ritorno:'J’ai aussi besoin du retour',
+    chi:'Vos coordonnées', guidaChi:'Elles nous servent pour la confirmation.',
+    nome:'Nom et prénom', email:'E-mail', tel:'Téléphone',
+    note:'Remarques (facultatif)', notePh:'Bagages encombrants, siège enfant, autre…',
+    invia:'Envoyer la demande', invio:'Envoi…',
+    manca:'Veuillez remplir les champs obligatoires : destination, jour, heure, nom et e-mail.',
+    ripiego:'Nous n’avons pas pu enregistrer la demande. Appelez-nous au +39 049 9939200 ou écrivez à info@termeleonardo.com : nous répondons tout de suite.',
+    grazieTit:'Demande reçue', grazieTxt:'Nous vous confirmons l’horaire et le prix au plus vite.',
+    rif:'Référence', ancora:'Faire une autre demande' },
+};
+
+const oggiISO = () => new Date().toISOString().slice(0,10);
+let VERSO = 'arrivo';
+let OSPITE = null;      /* dati dal token, se c'e' */
+let INVIANDO = false;
+
+function testata() {
+  const t = T[LNG];
+  document.documentElement.lang = LNG;
+  $('tOcchiello').textContent = t.occhiello;
+  $('tTitolo').textContent = t.titolo;
+  $('tSotto').textContent = t.sotto;
+  $('tLingue').innerHTML = ['it','de','en','fr'].map(l =>
+    `<a href="?l=${l}${TOKEN ? '&t=' + encodeURIComponent(TOKEN) : ''}"
+      class="${l === LNG ? 'attiva' : ''}">${({it:'Italiano',de:'Deutsch',en:'English',fr:'Français'})[l]}</a>`
+  ).join('');
+  $('tPie').innerHTML = `Hotel Terme Leonardo &middot; Via Monteortone 46, Abano Terme &middot;
+    <a href="tel:+390499939200">+39 049 9939200</a> &middot;
+    <a href="mailto:info@termeleonardo.com">info@termeleonardo.com</a>`;
+}
+
+function modulo() {
+  const t = T[LNG];
+  $('app').innerHTML = `
+    <div class="avviso">${t.avviso}</div>
+    ${OSPITE ? `<div class="noto">${esc(t.noto(OSPITE.nome || ''))}</div>` : ''}
+
+    <div class="riquadro">
+      <h2>${esc(t.viaggio)}</h2><div class="guida">${esc(t.guidaViaggio)}</div>
+
+      <label>${esc(t.verso)}</label>
+      <div class="scelte">
+        <button type="button" id="bArrivo" class="attivo">
+          <strong>${esc(t.arrivo)}</strong><div style="font-weight:400;font-size:12.5px;">${esc(t.arrivoSotto)}</div></button>
+        <button type="button" id="bPartenza">
+          <strong>${esc(t.partenza)}</strong><div style="font-weight:400;font-size:12.5px;">${esc(t.partenzaSotto)}</div></button>
+      </div>
+
+      <label for="fLuogo">${esc(t.luogo)}</label>
+      <select id="fLuogo">
+        <option value="">—</option>
+      <optgroup label="__COMUNI__">
+        <option value="Venezia  aeroporto">Venezia  aeroporto</option>
+        <option value="Treviso Aeroporto">Treviso Aeroporto</option>
+        <option value="Verona Aeroporto✈️">Verona Aeroporto✈️</option>
+        <option value="Bologna Aeroporto">Bologna Aeroporto</option>
+        <option value="Venezia P.le Roma">Venezia P.le Roma</option>
+        <option value="Venezia porto">Venezia porto</option>
+        <option value="Padova FS">Padova FS</option>
+        <option value="Terme  Euganee FS">Terme  Euganee FS</option>
+        <option value="Mestre fs">Mestre fs</option>
+        <option value="Golf Valsanzibio 🏌">Golf Valsanzibio 🏌</option>
+        <option value="Golf Montecchia🏌">Golf Montecchia🏌</option>
+        <option value="Golf Frassanelle 🏌">Golf Frassanelle 🏌</option>
+      </optgroup>
+      <optgroup label="__TUTTE__">
+        <option value="Montegrotto">Montegrotto</option>
+        <option value="Padova città">Padova città</option>
+        <option value="Abano">Abano</option>
+        <option value="Abano - Montegrotto">Abano - Montegrotto</option>
+        <option value="Abano F.S">Abano F.S</option>
+        <option value="Aeroporto Roma fiumicino">Aeroporto Roma fiumicino</option>
+        <option value="Agugliaro">Agugliaro</option>
+        <option value="Albignasego">Albignasego</option>
+        <option value="Anguillara">Anguillara</option>
+        <option value="Ariano ferrarese">Ariano ferrarese</option>
+        <option value="Arquà Petrarca">Arquà Petrarca</option>
+        <option value="Arzergrande">Arzergrande</option>
+        <option value="Ascona">Ascona</option>
+        <option value="Asiago">Asiago</option>
+        <option value="Asolo">Asolo</option>
+        <option value="Assenza corte">Assenza corte</option>
+        <option value="Assenza lunghe">Assenza lunghe</option>
+        <option value="Bad KleinKircheim">Bad KleinKircheim</option>
+        <option value="Badia Polesine">Badia Polesine</option>
+        <option value="Bagnoli di Sopra">Bagnoli di Sopra</option>
+        <option value="Baone">Baone</option>
+        <option value="Bassano del Grappa">Bassano del Grappa</option>
+        <option value="Bastia">Bastia</option>
+        <option value="Battaglia Terme">Battaglia Terme</option>
+        <option value="Belluno">Belluno</option>
+        <option value="Bergamo aeroporto✈️">Bergamo aeroporto✈️</option>
+        <option value="Bologna città🎯">Bologna città🎯</option>
+        <option value="Bolzano">Bolzano</option>
+        <option value="Bovolenta">Bovolenta</option>
+        <option value="Brendola (VI)">Brendola (VI)</option>
+        <option value="Brescia">Brescia</option>
+        <option value="Brindisi">Brindisi</option>
+        <option value="Cadoneghe">Cadoneghe</option>
+        <option value="Cagliari">Cagliari</option>
+        <option value="Campodarsego">Campodarsego</option>
+        <option value="Camposampiero">Camposampiero</option>
+        <option value="Cartura">Cartura</option>
+        <option value="Casalserugo">Casalserugo</option>
+        <option value="Caselle di Selvazzano">Caselle di Selvazzano</option>
+        <option value="Castelfranco">Castelfranco</option>
+        <option value="Castello del Catajo">Castello del Catajo</option>
+        <option value="Cervarese Santa Croce">Cervarese Santa Croce</option>
+        <option value="Cesena">Cesena</option>
+        <option value="Chiasso">Chiasso</option>
+        <option value="Chiasso (ch)">Chiasso (ch)</option>
+        <option value="Chioggia-Sottomarina">Chioggia-Sottomarina</option>
+        <option value="Cinto Euganeo">Cinto Euganeo</option>
+        <option value="Cittadella">Cittadella</option>
+        <option value="Como">Como</option>
+        <option value="Conegliano">Conegliano</option>
+        <option value="Conselve">Conselve</option>
+        <option value="Cortina D'ampezzo">Cortina D'ampezzo</option>
+        <option value="Courmayeur">Courmayeur</option>
+        <option value="Cremona">Cremona</option>
+        <option value="Due Carrare">Due Carrare</option>
+        <option value="Este">Este</option>
+        <option value="Ferrara">Ferrara</option>
+        <option value="Firenze">Firenze</option>
+        <option value="Folgaria">Folgaria</option>
+        <option value="Formigine">Formigine</option>
+        <option value="Galzignano">Galzignano</option>
+        <option value="Galzignano e Galz Hotels">Galzignano e Galz Hotels</option>
+        <option value="Gardone Riviera">Gardone Riviera</option>
+        <option value="Genova">Genova</option>
+        <option value="Giro Colli 2 ore🖼">Giro Colli 2 ore🖼</option>
+        <option value="Giro Colli 3 ore🖼">Giro Colli 3 ore🖼</option>
+        <option value="Giro Colli 4 ore🖼">Giro Colli 4 ore🖼</option>
+        <option value="Gorizia">Gorizia</option>
+        <option value="Grado">Grado</option>
+        <option value="Grisignano">Grisignano</option>
+        <option value="Imola">Imola</option>
+        <option value="Imperia">Imperia</option>
+        <option value="Innsbruck">Innsbruck</option>
+        <option value="Ipercity-Albignasego">Ipercity-Albignasego</option>
+        <option value="Jesolo⛱">Jesolo⛱</option>
+        <option value="La Spezia">La Spezia</option>
+        <option value="Legnaro">Legnaro</option>
+        <option value="Lignano Sabbiadoro⛱">Lignano Sabbiadoro⛱</option>
+        <option value="Limena">Limena</option>
+        <option value="Luvigliano">Luvigliano</option>
+        <option value="Mandria opera immacolata">Mandria opera immacolata</option>
+        <option value="Mantova">Mantova</option>
+        <option value="Marchirolo">Marchirolo</option>
+        <option value="Marostica">Marostica</option>
+        <option value="Maserà">Maserà</option>
+        <option value="Mentone">Mentone</option>
+        <option value="Merano">Merano</option>
+        <option value="Mercato Abano">Mercato Abano</option>
+        <option value="Mercato Montegrotto">Mercato Montegrotto</option>
+        <option value="Mestrino">Mestrino</option>
+        <option value="Milano Città🎯">Milano Città🎯</option>
+        <option value="Milano Malpensa✈️">Milano Malpensa✈️</option>
+        <option value="Milano Marittima">Milano Marittima</option>
+        <option value="Milano-Linate">Milano-Linate</option>
+        <option value="Mira-Dolo">Mira-Dolo</option>
+        <option value="Modena">Modena</option>
+        <option value="Monselice">Monselice</option>
+        <option value="Montagnana">Montagnana</option>
+        <option value="Montegaldella">Montegaldella</option>
+        <option value="Montemerlo">Montemerlo</option>
+        <option value="Noventa Padovana">Noventa Padovana</option>
+        <option value="Noventa di Piave👔">Noventa di Piave👔</option>
+        <option value="Noventa vicentina">Noventa vicentina</option>
+        <option value="Occhiobello">Occhiobello</option>
+        <option value="Ortisei">Ortisei</option>
+        <option value="Outlet Noventa 3 ore">Outlet Noventa 3 ore</option>
+        <option value="Outlet Noventa 4 ore">Outlet Noventa 4 ore</option>
+        <option value="Palmanova">Palmanova</option>
+        <option value="Parco dei Tigli">Parco dei Tigli</option>
+        <option value="Parma">Parma</option>
+        <option value="Pavia">Pavia</option>
+        <option value="Pernumia">Pernumia</option>
+        <option value="Perugia">Perugia</option>
+        <option value="Pesaro - Urbino">Pesaro - Urbino</option>
+        <option value="Pescara">Pescara</option>
+        <option value="Peschiera del Garda">Peschiera del Garda</option>
+        <option value="Piacenza">Piacenza</option>
+        <option value="Piazzola sul Brenta">Piazzola sul Brenta</option>
+        <option value="Piove di Sacco">Piove di Sacco</option>
+        <option value="Pisa">Pisa</option>
+        <option value="Pordenone">Pordenone</option>
+        <option value="Porto Sant' Elpidio">Porto Sant' Elpidio</option>
+        <option value="Pozzonovo">Pozzonovo</option>
+        <option value="Praglia⛪️">Praglia⛪️</option>
+        <option value="Prato">Prato</option>
+        <option value="Princ. di Monaco">Princ. di Monaco</option>
+        <option value="Ravenna">Ravenna</option>
+        <option value="Reggio Emilia">Reggio Emilia</option>
+        <option value="Rimini">Rimini</option>
+        <option value="Riva del Garda">Riva del Garda</option>
+        <option value="Roma">Roma</option>
+        <option value="Rovigo">Rovigo</option>
+        <option value="Rovolon">Rovolon</option>
+        <option value="Rubano">Rubano</option>
+        <option value="Saccolongo">Saccolongo</option>
+        <option value="Sacile">Sacile</option>
+        <option value="San Daniele ⛪️">San Daniele ⛪️</option>
+        <option value="San Pietro viminario">San Pietro viminario</option>
+        <option value="Santa Giustina in Colle">Santa Giustina in Colle</option>
+        <option value="Saonara">Saonara</option>
+        <option value="Sarmeola di Rubano">Sarmeola di Rubano</option>
+        <option value="Sassuolo">Sassuolo</option>
+        <option value="Schiavonia">Schiavonia</option>
+        <option value="Schio">Schio</option>
+        <option value="Selvazzano">Selvazzano</option>
+        <option value="Sermide">Sermide</option>
+        <option value="Siena">Siena</option>
+        <option value="Sirmione">Sirmione</option>
+        <option value="Solesino">Solesino</option>
+        <option value="Stanghella">Stanghella</option>
+        <option value="Stra">Stra</option>
+        <option value="Tencarola">Tencarola</option>
+        <option value="Teolo">Teolo</option>
+        <option value="Terassa padovana">Terassa padovana</option>
+        <option value="Terradura">Terradura</option>
+        <option value="Torino">Torino</option>
+        <option value="Torre di Quartesolo">Torre di Quartesolo</option>
+        <option value="Torreglia">Torreglia</option>
+        <option value="Tortona">Tortona</option>
+        <option value="Trento">Trento</option>
+        <option value="Tribano">Tribano</option>
+        <option value="Trieste">Trieste</option>
+        <option value="Udine">Udine</option>
+        <option value="Val Badia">Val Badia</option>
+        <option value="Valsanzibio">Valsanzibio</option>
+        <option value="Varese">Varese</option>
+        <option value="Verona Arena🌛">Verona Arena🌛</option>
+        <option value="Verona città🎯">Verona città🎯</option>
+        <option value="Vicenza Fiera">Vicenza Fiera</option>
+        <option value="Vicenza città🎯">Vicenza città🎯</option>
+        <option value="Vienna">Vienna</option>
+        <option value="Vigonovo">Vigonovo</option>
+        <option value="Vigonza">Vigonza</option>
+        <option value="Villafranca Padovana">Villafranca Padovana</option>
+        <option value="Vo">Vo</option>
+        <option value="Zurigo">Zurigo</option>
+        <option value="civitavecchia">civitavecchia</option>
+      </optgroup>
+      </select>
+
+      <div class="due">
+        <div><label for="fQuando">${esc(t.quando)}</label>
+          <input type="date" id="fQuando" min="${oggiISO()}" /></div>
+        <div><label for="fOra">${esc(t.ora)}</label>
+          <input type="time" id="fOra" /></div>
+      </div>
+      <div class="due">
+        <div><label for="fPax">${esc(t.pax)}</label>
+          <input type="number" id="fPax" min="1" max="8" value="2" /></div>
+        <div><label for="fVolo">${esc(t.volo)}</label>
+          <input type="text" id="fVolo" placeholder="${esc(t.voloPh)}" /></div>
+      </div>
+
+      <label class="spunta"><input type="checkbox" id="fRitorno" />
+        <span>${esc(t.ritorno)}</span></label>
+    </div>
+
+    <div class="riquadro">
+      <h2>${esc(t.chi)}</h2><div class="guida">${esc(t.guidaChi)}</div>
+      <label for="fNome">${esc(t.nome)}</label>
+      <input type="text" id="fNome" autocomplete="name" value="${esc(OSPITE?.nome || '')}" />
+      <div class="due">
+        <div><label for="fEmail">${esc(t.email)}</label>
+          <input type="email" id="fEmail" autocomplete="email" value="${esc(OSPITE?.email || '')}" /></div>
+        <div><label for="fTel">${esc(t.tel)}</label>
+          <input type="tel" id="fTel" autocomplete="tel" /></div>
+      </div>
+      <!-- niente numero di camera: chi prenota il transfer per l'arrivo non
+           ce l'ha ancora. Su ATAM lo mette la reception, che a quel punto
+           lo sa. Il nome basta a riconoscere la richiesta. -->
+      <label for="fNote">${esc(t.note)}</label>
+      <textarea id="fNote" placeholder="${esc(t.notePh)}"></textarea>
+    </div>
+
+    <button class="invia" id="bInvia">${esc(t.invia)}</button>
+    <div id="esito"></div>`;
+
+  /* le etichette dei gruppi si traducono qui: nel modello sono segnaposto */
+  for (const g of $('fLuogo').querySelectorAll('optgroup')) {
+    if (g.label === '__COMUNI__') g.label = t.comuni;
+    if (g.label === '__TUTTE__') g.label = t.tutte;
+  }
+
+  const scegli = (v) => {
+    VERSO = v;
+    $('bArrivo').classList.toggle('attivo', v === 'arrivo');
+    $('bPartenza').classList.toggle('attivo', v === 'partenza');
+  };
+  $('bArrivo').onclick = () => scegli('arrivo');
+  $('bPartenza').onclick = () => scegli('partenza');
+  $('bInvia').onclick = invia;
+}
+
+async function invia() {
+  const t = T[LNG];
+  if (INVIANDO) return;
+  const v = (id) => $(id).value.trim();
+  if (!v('fLuogo') || !v('fQuando') || !v('fOra') || !v('fNome') || !v('fEmail')) {
+    $('esito').innerHTML = `<div class="errore">${esc(t.manca)}</div>`;
+    return;
+  }
+  INVIANDO = true;
+  $('bInvia').disabled = true;
+  $('bInvia').textContent = t.invio;
+  $('esito').innerHTML = '';
+  try {
+    const r = await fetch(FUNZIONE, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tipo: 'transfer',
+        nome: v('fNome'), email: v('fEmail'), telefono: v('fTel'),
+        lingua: LNG, token: TOKEN, origine: location.href,
+        dati: {
+          quando: v('fQuando'), ora: v('fOra'), pax: Number(v('fPax') || 2),
+          verso: VERSO, luogo: v('fLuogo'), volo: v('fVolo'),
+          ritorno: $('fRitorno').checked, note: v('fNote'),
+        },
+      }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.ok) {
+      /* qualunque intoppo lascia un modo di arrivare a noi: mai un falso
+         "inviata", che e' il difetto che aveva il vecchio form del sito */
+      console.error('richiesta non registrata:', r.status, d);
+      throw new Error('non registrata');
+    }
+    grazie(d.numero || '');
+  } catch (e) {
+    console.error(e);
+    INVIANDO = false;
+    $('bInvia').disabled = false;
+    $('bInvia').textContent = t.invia;
+    $('esito').innerHTML = `<div class="errore">${esc(t.ripiego)}</div>`;
+  }
+}
+
+function grazie(numero) {
+  const t = T[LNG];
+  $('app').innerHTML = `<div class="riquadro fatta">
+    <h2>${esc(t.grazieTit)}</h2>
+    <p style="color:var(--verde-medio);">${esc(t.grazieTxt)}</p>
+    ${numero ? `<div class="rif">${esc(numero)}</div>
+      <div class="guida" style="margin-top:4px;">${esc(t.rif)}</div>` : ''}
+    <p style="margin-top:22px;"><a href="?l=${LNG}">${esc(t.ancora)}</a></p>
+  </div>`;
+}
+
+/* Se l'ospite arriva da una nostra email porta un token: nome, contatti e
+   soggiorno li sappiamo gia'. Un token scaduto o inventato non blocca
+   niente, si ricade sul modulo vuoto. */
+async function precompila() {
+  if (!TOKEN) return;
+  try {
+    const r = await fetch(`${FUNZIONE}?a=precompila&t=${encodeURIComponent(TOKEN)}`);
+    const d = await r.json();
+    if (d && d.noto && d.ospite) {
+      OSPITE = d.ospite;
+      if (['it','de','en','fr'].includes(OSPITE.lingua) && !qs.get('l')) LNG = OSPITE.lingua;
+    }
+  } catch (e) { console.error('precompilazione non riuscita', e); }
+}
+
+await precompila();
+testata();
+modulo();
+</script>
+</body>
+</html>
