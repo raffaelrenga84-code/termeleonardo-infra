@@ -73,11 +73,16 @@ const CONDIZIONI: Record<string, string> = {
    restano giuste anche dove object-fit non viene applicato. */
 const BASE_IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 export function fotoBuono(b: { tipo?: string; voce_id?: string | null }): string {
+  const id = String(b.voce_id || '');
   if (b.tipo === 'valore') return `${BASE_IMG}/valore.jpg`;
-  const voce = String(b.voce_id || '');
-  if (voce.startsWith('dayspa')) return `${BASE_IMG}/dayspa.jpg`;
-  if (!voce || voce.startsWith('altro')) return `${BASE_IMG}/valore.jpg`;
-  return `${BASE_IMG}/trattamenti.jpg`;
+  if (id.startsWith('dayspa')) return `${BASE_IMG}/dayspa.jpg`;
+  /* stesse categorie di categoriaBuono() nel back office: se cambiano
+     lì, vanno cambiate anche qui, o email e stampa si smentiscono */
+  if (/^(prog|relax|plantare|candle|antistress|californiano|ayurveda|hotstone|pindasweda|linfo|shiatzu)/.test(id) ||
+      /^(visofango|pulizia|ialuronico|collagene|vitaminac)/.test(id) ||
+      /^(scrub|riducente|seno|antiage|manicure|pedicure|epil)/.test(id))
+    return `${BASE_IMG}/trattamenti.jpg`;
+  return `${BASE_IMG}/valore.jpg`;
 }
 
 /* il buono in HTML — versione email, autosufficiente */

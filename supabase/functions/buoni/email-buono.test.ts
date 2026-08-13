@@ -92,3 +92,12 @@ Deno.test('il buono HTML contiene la foto del suo tipo', () => {
   const html2 = buonoEmailHTML(BUONO);            // BUONO è tipo 'valore'
   assertStringIncludes(html2, `${IMG}/valore.jpg`);
 });
+
+/* le categorie sono quelle del back office (categoriaBuono): l'email e
+   la stampa devono mostrare la stessa foto per lo stesso buono */
+Deno.test('viso e corpo sono trattamenti; una voce sconosciuta ricade sul panorama', () => {
+  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'visofango25' }), `${IMG}/trattamenti.jpg`);
+  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'scrubmar40' }), `${IMG}/trattamenti.jpg`);
+  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'progCoccola' }), `${IMG}/trattamenti.jpg`);
+  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'xyz123' }), `${IMG}/valore.jpg`);
+});
