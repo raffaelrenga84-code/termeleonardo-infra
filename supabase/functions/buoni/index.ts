@@ -27,7 +27,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { validaAcquisto } from './acquista.ts';
 import { nasceGiaPagato } from './pagamenti.ts';
 import { entroIlLimite, troppiDalSito } from './limite.ts';
-import { avvisaAmministrazione, inviaBuonoEmesso } from './email-buono.ts';
+import { avvisaAmministrazione, inviaBuonoEmesso, statoConsegna } from './email-buono.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -195,6 +195,38 @@ async function autorizzato(req: Request) {
   return { ok: false, motivo: 'non autorizzato' };
 }
 
+/* Manda il buono e registra com'e' andata.
+
+   Un buono puo' risultare "pagato" senza essere mai arrivato: succede
+   davvero, perche' finche' il dominio non e' verificato Resend rifiuta ogni
+   indirizzo che non sia quello del titolare dell'account. Senza questa
+   registrazione il cliente paga, non riceve niente, e in reception nessuno
+   ha modo di accorgersene.
+
+   L'emissione non si blocca mai per un'email non partita: il buono e'
+   valido comunque, e si rimanda dal back office. */
+async function consegnaERegistra(buono: any): Promise<string> {
+  let esiti: Record<string, boolean> = {};
+  try {
+    esiti = await inviaBuonoEmesso(buono);
+  } catch (e) {
+    console.error('invio email buono', e);
+    /* un'eccezione non e' "nessun indirizzo": e' un invio fallito */
+    esiti = { acquirente: false };
+  }
+  const stato = statoConsegna(esiti);
+  try {
+    await db.from('buono_regalo').update({
+      consegna: stato,
+      consegna_il: new Date().toISOString(),
+      consegna_esiti: esiti,
+    }).eq('numero', buono.numero);
+  } catch (e) {
+    console.error('registrazione della consegna fallita', e);
+  }
+  return stato;
+}
+
 /* codice leggibile al telefono: niente 0/O, 1/I/L che si confondono */
 const ALFABETO = 'ACDEFGHJKMNPQRTUVWXY2346789';
 function nuovoCodice() {
@@ -271,11 +303,7 @@ Deno.serve(async (req) => {
       pagato_da: 'Stripe (automatico)'
     });
     if (esito.errore) console.error('emissione fallita:', esito.errore);
-    else {
-      /* mai bloccare l'emissione per un'email non partita */
-      try { await inviaBuonoEmesso(esito.buono); }
-      catch (e) { console.error('invio email buono', e); }
-    }
+    else await consegnaERegistra(esito.buono);
     return risposta({ ricevuto: true });
   }
 
@@ -446,10 +474,8 @@ Deno.serve(async (req) => {
       pagamento_rif: testo(b.pagamento_rif, 80)
     });
     if (esito.errore) return risposta({ errore: esito.errore }, 500);
-    /* mai bloccare l'emissione per un'email non partita */
-    try { await inviaBuonoEmesso(esito.buono); }
-    catch (e) { console.error('invio email buono', e); }
-    return risposta({ ok: true, buono: esito.buono });
+    const consegna = await consegnaERegistra(esito.buono);
+    return risposta({ ok: true, buono: { ...esito.buono, consegna }, consegna });
   }
 
   /* ---------- prepara il link di pagamento per un buono in attesa ---------- */

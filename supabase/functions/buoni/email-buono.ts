@@ -283,6 +283,21 @@ export async function avvisaAmministrazione(b: any): Promise<boolean> {
     Origine: ${esc(b.creato_da || '')}</p>`);
 }
 
+export type EsitoConsegna = 'inviato' | 'fallito' | 'senza-indirizzo';
+
+/* Un buono puo' risultare "pagato" senza essere mai arrivato al cliente: e'
+   successo davvero, perche' senza dominio verificato Resend rifiuta ogni
+   indirizzo che non sia quello del titolare dell'account. Registrare
+   l'esito e' l'unico modo perche' la reception se ne accorga.
+
+   L'avviso all'amministrazione non conta: e' posta interna, e se arriva
+   solo quello il cliente e' comunque rimasto senza niente. */
+export function statoConsegna(esiti: Record<string, boolean>): EsitoConsegna {
+  const alCliente = Object.entries(esiti).filter(([chi]) => chi !== 'amministrazione');
+  if (!alCliente.length) return 'senza-indirizzo';
+  return alCliente.every(([, andato]) => andato) ? 'inviato' : 'fallito';
+}
+
 /* da chiamare quando il buono passa a "pagato" (webhook E a=pagato) */
 export async function inviaBuonoEmesso(b: any) {
   const L = ['it', 'de', 'en', 'fr'].includes(b.lingua) ? b.lingua : 'it';

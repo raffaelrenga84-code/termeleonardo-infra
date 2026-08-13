@@ -1,7 +1,7 @@
 /* Test del modulo email: il buono in HTML e le tre spedizioni
    (acquirente, destinatario, amministrazione) via Resend. */
 import { assertEquals, assertStringIncludes } from 'jsr:@std/assert';
-import { avvisaAmministrazione, buonoEmailHTML, fotoBuono, inviaBuonoEmesso, ricevutaEmailHTML } from './email-buono.ts';
+import { avvisaAmministrazione, buonoEmailHTML, fotoBuono, inviaBuonoEmesso, ricevutaEmailHTML, statoConsegna } from './email-buono.ts';
 
 const IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 
@@ -234,4 +234,27 @@ Deno.test('anche l avviso all amministrazione porta il marchio', async () => {
     assertEquals(spedite.length, 1);
     assertStringIncludes(spedite[0].html, IMG + '/logo-nero.png');
   } finally { ripristina(); Deno.env.delete('EMAIL_AMMINISTRAZIONE'); }
+});
+
+/* Un buono puo' risultare "pagato" e non essere mai arrivato al cliente:
+   e' successo davvero, perche' senza dominio verificato Resend rifiuta
+   ogni indirizzo che non sia quello del titolare dell'account. Da qui in
+   avanti l'esito si registra, cosi' la reception lo vede. */
+Deno.test('la consegna e riuscita solo se tutti gli invii al cliente sono andati', () => {
+  assertEquals(statoConsegna({ acquirente: true }), 'inviato');
+  assertEquals(statoConsegna({ acquirente: true, destinatario: true }), 'inviato');
+  assertEquals(statoConsegna({ acquirente: true, destinatario: false }), 'fallito');
+  assertEquals(statoConsegna({ acquirente: false }), 'fallito');
+});
+
+Deno.test('l avviso all amministrazione non conta come consegna al cliente', () => {
+  /* e' posta interna: se arriva solo quello, il cliente e' rimasto senza */
+  assertEquals(statoConsegna({ amministrazione: true }), 'senza-indirizzo');
+  assertEquals(statoConsegna({}), 'senza-indirizzo');
+  assertEquals(statoConsegna({ acquirente: false, amministrazione: true }), 'fallito');
+});
+
+Deno.test('il riepilogo a un terzo indirizzo conta come consegna', () => {
+  /* chi lo ha chiesto lo aspetta: se non arriva, va saputo */
+  assertEquals(statoConsegna({ acquirente: true, ricevuta: false }), 'fallito');
 });

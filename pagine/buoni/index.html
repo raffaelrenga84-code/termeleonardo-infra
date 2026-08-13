@@ -67,6 +67,14 @@ tr.apribile:hover td{background:#F7F5EF;}
 .st-riscosso{background:#EFF3E7;color:var(--oliva);}
 .st-annullato{background:#F3F0EC;color:var(--grigio);}
 .st-scaduto{background:#FDF0EE;color:var(--allarme);}
+/* un buono pagato che non e' arrivato al cliente: deve dare fastidio,
+   perche' qualcuno ha pagato e sta aspettando qualcosa che non ha */
+.nonconsegnato{margin-top:4px;font-size:10px;font-weight:bold;letter-spacing:1px;
+  background:var(--allarme,#C0392B);color:#fff;padding:2px 7px;border-radius:3px;
+  display:inline-block;}
+.avviso-consegna{margin-top:12px;padding:12px 14px;border-radius:5px;
+  background:#FDF0EE;border-left:4px solid var(--allarme,#C0392B);
+  font-size:13.5px;line-height:1.6;color:#7A2E24;}
 /* stati delle richieste dal sito: la "nuova" deve saltare all'occhio,
    e' una persona che aspetta una risposta */
 .st-nuova{background:#FFF0E4;color:#B3541E;font-weight:bold;}
@@ -596,6 +604,12 @@ function mostraFatto(b, contenitore = 'fFatto') {
   $(contenitore).innerHTML = `<div class="fatto">
     <div class="mini">Numero per l&apos;amministrazione</div>
     <div style="font-family:monospace;font-size:17px;color:#0F5C64;">${esc(b.numero)}</div>
+    ${nonConsegnato(b) ? `<div class="avviso-consegna">
+      <strong>Il cliente non ha ricevuto questo buono.</strong>
+      L&apos;invio per email non &egrave; riuscito${b.consegna === 'senza-indirizzo'
+        ? ': non c&apos;era nessun indirizzo a cui mandarlo' : ''}.
+      Il buono &egrave; valido: va consegnato a mano, stampandolo o inoltrandolo
+      da un altro indirizzo.</div>` : ''}
     ${attesa
       ? `<div style="margin-top:12px;"><strong>In attesa di pagamento.</strong>
         Il codice spendibile non esiste ancora: al cliente va l&apos;anteprima con le
@@ -830,6 +844,19 @@ function buonoStampaHTML(b, bozza) {
 }
 
 /* ---------- 2. elenco ---------- */
+/* Un buono pagato che non e' mai arrivato al cliente. `consegna` vale
+   'inviato', 'fallito' o 'senza-indirizzo'; i buoni emessi prima di questa
+   modifica non ce l'hanno, e per quelli si tace invece di allarmare a
+   vuoto — non sappiamo com'e' andata. */
+function nonConsegnato(b) {
+  if (b.stato !== 'pagato') return false;
+  /* invio tentato e fallito: sempre un problema */
+  if (b.consegna === 'fallito') return true;
+  /* nessun indirizzo e' normale per un buono emesso al banco e stampato,
+     ma non per uno comprato online: quello un indirizzo ce l'aveva */
+  return b.consegna === 'senza-indirizzo' && b.creato_da === 'sito';
+}
+
 async function vistaElenco() {
   $('vista').innerHTML = `<div class="riquadro">
     <div class="due">
@@ -863,7 +890,8 @@ async function vistaElenco() {
             <td><div style="white-space:pre-line;">${esc(b.descrizione)}</div>${b.dedica ? `<div class="mini">&laquo;${esc(b.dedica)}&raquo;</div>` : ''}</td>
             <td>${eur(b.valore)} &euro;<div class="mini">${b.pagamento === 'promozionale'
               ? '<span class="omaggio">promozionale</span>' : esc(b.pagamento || '')}</div></td>
-            <td><span class="stato st-${st}">${st}</span>${b.scade_il ? `<div class="mini">${dataIT(b.scade_il)}</div>` : ''}</td>
+            <td><span class="stato st-${st}">${st}</span>${b.scade_il ? `<div class="mini">${dataIT(b.scade_il)}</div>` : ''}
+              ${nonConsegnato(b) ? '<div class="nonconsegnato">NON CONSEGNATO</div>' : ''}</td>
             <td class="mini">${esc(b.acquirente || '')}${b.destinatario ? ' \u2192 ' + esc(b.destinatario) : ''}
             <div>${esc(b.creato_da || '?')}</div></td></tr>`;
         }).join('') + `</table>` : '';
