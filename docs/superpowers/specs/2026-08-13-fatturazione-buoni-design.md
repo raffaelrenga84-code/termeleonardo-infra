@@ -251,14 +251,40 @@ fattura» dell'Agenzia delle Entrate.
 
 ## Punti aperti
 
-**Aliquote IVA per voce di listino.** Non sono deducibili da Fidra. La fonte
-più diretta è uno scontrino di buono regalo stampato dalla *Portineria -
-Fiscale*: è lo stesso documento che stiamo sostituendo con la fattura,
-quindi porta già l'aliquota giusta. In alternativa la chiusura giornaliera,
-che riporta i totali divisi per aliquota. Da verificare se i buoni per
-trattamento e quelli Day Spa finiscano sullo stesso reparto o su reparti
-diversi: se diversi, le aliquote possono essere due. Fino alla conferma il
-listino porta 22% e il test di presidio fallisce.
+**Aliquote IVA — ricevute il 13 agosto 2026, e cambiano una domanda.**
+
+| Servizio | Ospite alloggiato | Cliente esterno |
+|---|---|---|
+| Pernottamento e prima colazione | 10% | non applicabile |
+| Ingresso Day Spa / massaggi estetici | **10%** (accessorio) | **22%** (ordinario) |
+| Cure termali mediche / fanghi | esente art. 10 (se certificate) | esente art. 10 (se certificate) |
+
+Le aliquote non sono più il punto aperto. Il punto aperto è diventato un
+altro, e più importante.
+
+**L'aliquota di un ingresso Day Spa dipende da CHI lo usa**, e alla vendita
+di un buono regalo non si sa: chi lo riceverà potrebbe presentarsi come
+ospite dell'hotel (10%) o come esterno (22%). Un buono è monouso solo se il
+trattamento IVA è determinabile **all'emissione**. Se dipende da un fatto
+che si conoscerà solo al riscatto, il buono è **multiuso**, e allora l'IVA
+non si assolve alla vendita — cioè non si emette la fattura al momento
+dell'acquisto, che è l'impianto su cui è costruita tutta questa specifica.
+
+Contro questa lettura gioca la prassi attuale dell'hotel: in Fidra i buoni
+Day Spa portano già un numero di documento fiscale emesso alla vendita,
+quindi di fatto vengono trattati come determinabili — presumibilmente al
+22%, perché chi compra un regalo per un esterno.
+
+**Domanda precisa per il commercialista:** un buono regalo per un ingresso
+Day Spa, venduto a un cliente esterno, è monouso al 22% — e quindi si
+fattura alla vendita come previsto qui — oppure il fatto che il portatore
+possa risultare ospite dell'hotel (10%) lo rende multiuso, e va trattato
+come i buoni monetari?
+
+Fino alla risposta il listino porta le aliquote della tabella sopra e il
+test di presidio resta rosso: sono i **buoni per cure termali** il caso
+ancora più delicato, perché l'esenzione art. 10 vale solo "se certificate",
+e la certificazione non esiste al momento della vendita del buono.
 
 **Regime fiscale del cedente.** `RF01` (ordinario) è l'ipotesi. Da
 confermare: si legge su qualsiasi fattura già emessa dall'hotel.
