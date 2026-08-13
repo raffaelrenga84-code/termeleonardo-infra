@@ -1,7 +1,7 @@
 /* Test del modulo email: il buono in HTML e le tre spedizioni
    (acquirente, destinatario, amministrazione) via Resend. */
 import { assertEquals, assertStringIncludes } from 'jsr:@std/assert';
-import { avvisaAmministrazione, buonoEmailHTML, fotoBuono, inviaBuonoEmesso } from './email-buono.ts';
+import { avvisaAmministrazione, buonoEmailHTML, fotoBuono, inviaBuonoEmesso, ricevutaEmailHTML } from './email-buono.ts';
 
 const IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 
@@ -216,4 +216,22 @@ Deno.test('senza indirizzo per la ricevuta non cambia nulla', async () => {
     assertEquals(esiti.ricevuta, undefined);
     assertEquals(spedite.length, 2);   // acquirente e destinatario
   } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
+});
+
+/* Il marchio stava in un posto solo, dentro il buono: il riepilogo
+   d'acquisto e l'avviso all'amministrazione uscivano anonimi, e un'email
+   anonima che parla di soldi somiglia parecchio a una truffa. */
+Deno.test('il riepilogo d acquisto porta il marchio', () => {
+  assertStringIncludes(ricevutaEmailHTML(BUONO), IMG + '/logo.png');
+});
+
+Deno.test('anche l avviso all amministrazione porta il marchio', async () => {
+  Deno.env.set('RESEND_API_KEY', 'finta');
+  Deno.env.set('EMAIL_AMMINISTRAZIONE', 'amministrazione@termeleonardo.com');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    await avvisaAmministrazione(BUONO);
+    assertEquals(spedite.length, 1);
+    assertStringIncludes(spedite[0].html, IMG + '/logo.png');
+  } finally { ripristina(); Deno.env.delete('EMAIL_AMMINISTRAZIONE'); }
 });

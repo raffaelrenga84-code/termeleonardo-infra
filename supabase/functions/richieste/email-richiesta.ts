@@ -34,13 +34,20 @@ function riga(etichetta: string, valore: string, forte = false): string {
   </tr>`;
 }
 
+/* il marchio va in PNG: nelle email l'SVG non si vede. Stesso file usato
+   dal buono, cosi' l'ospite riconosce chi gli scrive */
+const BASE_IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
+
 export function richiestaHTML(r: ConNumero): string {
   const periodo = `${data(r.check_in)} → ${data(r.check_out)}`;
   const soggiorno = `${r.notti} notti · ${r.ospiti} ospiti`;
   return `<table cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:100%;
   border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;background:#FFFFFF;">
 <tr><td style="padding:26px 28px;">
-  <div style="font-size:10px;letter-spacing:2px;color:#C9A961;">RICHIESTA DAL SITO</div>
+  <img src="${BASE_IMG}/logo.png" width="150" alt="Hotel Terme Leonardo"
+    style="display:block;width:150px;height:auto;border:0;padding-bottom:16px;
+    border-bottom:1px solid #E6E2D8;" />
+  <div style="font-size:10px;letter-spacing:2px;color:#C9A961;padding-top:18px;">RICHIESTA DAL SITO</div>
   <div style="font-size:22px;color:#1B4D4A;margin-top:6px;font-family:Georgia,serif;">${esc(r.nome)}</div>
   <div style="font-size:12px;color:#9AA9A6;margin-top:3px;">${esc(r.numero)}</div>
 

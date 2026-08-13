@@ -232,13 +232,26 @@ const RICEVUTA: Record<string, any> = {
     nota: 'Ceci est un récapitulatif d’achat, pas un reçu fiscal. Pour le reçu fiscal, contactez notre réception.' }
 };
 
+/* Intestazione per le email che NON contengono il buono: senza, uscivano
+   anonime, e un'email anonima che parla di soldi somiglia a una truffa.
+   Il marchio va in PNG: l'SVG nelle email non si vede. */
+export function intestazione(): string {
+  return `<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+    <tr><td style="padding-bottom:16px;border-bottom:1px solid #E6E2D8;">
+      <img src="${BASE_IMG}/logo.png" width="150" alt="Hotel Terme Leonardo"
+        style="display:block;width:150px;height:auto;border:0;" />
+    </td></tr>
+  </table>`;
+}
+
 export function ricevutaEmailHTML(b: any): string {
   const L = ['it', 'de', 'en', 'fr'].includes(b.lingua) ? b.lingua : 'it';
   const r = RICEVUTA[L];
   const riga = (k: string, v: string) =>
     `<tr><td style="padding:5px 16px 5px 0;color:#8A938F;">${k}</td><td style="padding:5px 0;">${v}</td></tr>`;
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#2A2E2B;max-width:620px;">
-    <div style="font-size:11px;letter-spacing:2px;color:#C9A961;text-transform:uppercase;">${r.tit}</div>
+    ${intestazione()}
+    <div style="font-size:11px;letter-spacing:2px;color:#C9A961;text-transform:uppercase;padding-top:18px;">${r.tit}</div>
     <table style="border-collapse:collapse;margin-top:12px;font-size:14px;">
       ${riga(r.numero, esc(b.numero))}
       ${riga(r.cosa, esc(String(b.descrizione || '').split('\n').join(' · ')))}
@@ -258,7 +271,8 @@ export async function avvisaAmministrazione(b: any): Promise<boolean> {
   if (!amm) return false;
   return await invia(amm,
     `Buono ${b.numero} ${b.pagamento === 'promozionale' ? 'promozionale' : 'pagato'} — ${eur(b.valore)} € (${b.pagamento || ''})`,
-    `<p style="font-family:Arial;font-size:14px;">Buono <strong>${esc(b.numero)}</strong> · codice <strong>${esc(b.codice)}</strong><br />
+    `<div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;">${intestazione()}</div>
+    <p style="font-family:Arial;font-size:14px;">Buono <strong>${esc(b.numero)}</strong> · codice <strong>${esc(b.codice)}</strong><br />
     ${esc(b.descrizione)} · ${eur(b.valore)} € · ${esc(b.pagamento || '')} ${esc(b.pagamento_rif || '')}<br />
     Acquirente: ${esc(b.acquirente || '')} &lt;${esc(b.acquirente_email || '')}&gt;<br />
     Origine: ${esc(b.creato_da || '')}</p>`);
