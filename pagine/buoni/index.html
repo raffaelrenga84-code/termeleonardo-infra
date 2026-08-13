@@ -45,12 +45,18 @@ button.azione{background:var(--arancio);color:#fff;border:0;border-radius:6px;
 padding:13px 20px;font:600 15px Arial;cursor:pointer;margin-top:14px;}
 button.azione:disabled{background:#CFCABF;}
 button.sec{background:#fff;color:var(--acqua-scura);border:1px solid var(--acqua);}
+button.mini-azione{background:#fff;color:var(--acqua-scura);border:1px solid var(--acqua);
+border-radius:6px;padding:5px 11px;font:11px/1 Arial;letter-spacing:.6px;
+text-transform:uppercase;cursor:pointer;}
 table{width:100%;border-collapse:collapse;font-size:14px;}
 th{text-align:left;font-size:11px;letter-spacing:.8px;text-transform:uppercase;
 color:var(--acqua-scura);padding:8px 10px;background:#F4F1EA;}
 td{padding:9px 10px;border-top:1px solid #F0EBE1;vertical-align:top;}
 .cod{font-family:monospace;font-weight:700;color:var(--acqua-scura);}
 .stato{font-size:11px;padding:2px 8px;border-radius:10px;white-space:nowrap;}
+/* i promozionali non sono un incasso: si devono riconoscere a colpo d'occhio */
+.omaggio{display:inline-block;padding:1px 7px;border-radius:9px;background:#FBF3DF;
+color:#8A6D1F;border:1px solid #E4CE93;font-size:11px;letter-spacing:.3px;}
 .st-pagato{background:var(--acqua-chiara);color:var(--acqua-scura);}
 .st-attesa{background:#FFF6E8;color:#B3541E;}
 .st-riscosso{background:#EFF3E7;color:var(--oliva);}
@@ -87,6 +93,11 @@ margin:7mm 0 6mm;object-fit:cover;}
 #stampa .dedica{font-size:14px;font-style:italic;color:#5C736F;margin-top:4mm;line-height:1.5;}
 #stampa .da{font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#9AA9A6;margin-top:6mm;}
 #stampa .firma-s{font-size:15px;font-style:italic;margin-top:1.5mm;}
+/* la bozza si stampa per farla vedere al cliente: deve essere impossibile
+   scambiarla per un buono spendibile */
+#stampa .bozza-avviso{position:absolute;top:0;left:0;right:0;z-index:2;
+background:#8A6D1F;color:#FFFFFF;text-align:center;
+font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:3px;padding:3mm 0;}
 #stampa .piega{position:absolute;top:148.5mm;left:0;right:0;height:0;border-top:1px dashed #C7C2B6;}
 #stampa .piega span{position:absolute;right:8mm;top:1.5mm;background:#FFFFFF;padding:0 2mm;
 font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
@@ -328,6 +339,9 @@ function vistaEmetti() {
           <option value="contanti">Contanti</option>
           <option value="bancomat">Bancomat / carta</option>
         </optgroup>
+        <optgroup label="Omaggio (nessun incasso)">
+          <option value="promozionale">Promozionale</option>
+        </optgroup>
         <optgroup label="Da pagare (il buono resta in attesa)">
           <option value="bonifico">Bonifico</option>
           <option value="stripe">Link di pagamento</option>
@@ -353,7 +367,8 @@ function vistaEmetti() {
 
   <div class="anteprima">
     <div class="etichetta"><span>Anteprima del buono</span>
-    <span class="mini" id="antNota">si aggiorna mentre compili</span></div>
+    <button type="button" class="mini-azione" id="antStampa">Stampa anteprima</button></div>
+    <div class="mini" id="antNota" style="padding-bottom:8px;">si aggiorna mentre compili &middot; la stampa esce marcata BOZZA</div>
     <div class="telaio" id="antTelaio"></div>
   </div></div>`;
 
@@ -422,11 +437,15 @@ function vistaEmetti() {
     }
   };
   const aggPag = () => {
-    const daPagare = ['bonifico', 'stripe'].includes($('fPag').value);
+    const v = $('fPag').value;
+    const daPagare = ['bonifico', 'stripe'].includes(v);
     $('notaPag').innerHTML = daPagare
       ? 'Il buono nasce <strong>in attesa di pagamento</strong>: si genera l\u2019anteprima da mandare al cliente, ' +
         'e il codice spendibile esce solo quando registri l\u2019incasso.'
-      : 'Incasso immediato: il buono viene <strong>emesso subito</strong>, pronto da stampare o inviare.';
+      : v === 'promozionale'
+        ? 'Omaggio: <strong>nessun incasso</strong>. Il buono viene emesso subito ed \u00e8 spendibile come tutti gli altri; ' +
+          'nell\u2019elenco resta segnato come promozionale.'
+        : 'Incasso immediato: il buono viene <strong>emesso subito</strong>, pronto da stampare o inviare.';
     $('fCrea').textContent = daPagare ? 'Prepara il buono (in attesa)' : 'Emetti il buono';
   };
   /* ---- anteprima dal vivo: quello che vede il cliente ---- */
@@ -460,6 +479,12 @@ function vistaEmetti() {
       telaio.style.height = (dentro.offsetHeight * scala + 8) + 'px';
     }
   }
+  /* stampa di quello che si sta componendo: serve a farlo vedere al cliente
+     prima che paghi, quindi esce marcata BOZZA e senza codice */
+  $('antStampa').onclick = () => {
+    $('stampa').innerHTML = buonoStampaHTML(buonoProvvisorio(), true);
+    window.print();
+  };
   const conAnteprima = (f) => () => { f(); aggiornaAnteprima(); };
   $('fTipo').onchange = conAnteprima(agg);
   $('fVoce').onchange = conAnteprima(agg);
@@ -536,6 +561,7 @@ function mostraFatto(b) {
         ${b.pagamento === 'stripe'
           ? `<button class="azione" id="bLink">Crea il link di pagamento</button>` : ''}
         <button class="azione ${b.pagamento === 'stripe' ? 'sec' : ''}" id="bRichiesta">Copia l&apos;email di richiesta pagamento</button>
+        <button class="azione sec" id="bStampaBozza">&#128424; Stampa l&apos;anteprima (BOZZA)</button>
         <button class="azione sec" id="bPagato">Ho ricevuto il pagamento</button>`
       : `<div class="mini" style="margin-top:12px;">Codice da consegnare</div>
         <div class="codice">${esc(b.codice)}</div>
@@ -576,6 +602,10 @@ function mostraFatto(b) {
         })]);
         $('bEsito').textContent = '\u2713 Copiata: incollala in Outlook e invia al cliente.';
       } catch (e) { $('bEsito').innerHTML = '<span class="errore">Copia non riuscita.</span>'; }
+    };
+    $('bStampaBozza').onclick = () => {
+      $('stampa').innerHTML = buonoStampaHTML(b, true);
+      window.print();
     };
     $('bPagato').onclick = async () => {
       const rif = prompt('Riferimento del pagamento (CRO del bonifico, id della transazione\u2026). Puoi lasciare vuoto:') ?? null;
@@ -962,6 +992,7 @@ function buonoStampaHTML(b, bozza) {
   const righeDescr = String(b.descrizione || '').split('\n').filter(Boolean);
 
   return `<div class="foglio">
+  ${bozza ? `<div class="bozza-avviso">BOZZA &middot; NON VALIDO &middot; il codice viene assegnato al pagamento</div>` : ''}
   <section class="meta copertina">
     <img class="marchio-s" src="img/logo.svg" alt="Hotel Terme Leonardo" />
     ${foto ? `<img class="foto" src="${esc(foto)}" alt="" />` : `<div class="foto sfumata"></div>`}
@@ -1026,7 +1057,8 @@ async function vistaElenco() {
           return `<tr><td class="cod">${esc(b.numero || '')}</td>
             <td class="cod">${b.codice ? esc(b.codice) : '<span class="mini">non ancora emesso</span>'}</td>
             <td><div style="white-space:pre-line;">${esc(b.descrizione)}</div>${b.dedica ? `<div class="mini">&laquo;${esc(b.dedica)}&raquo;</div>` : ''}</td>
-            <td>${eur(b.valore)} &euro;<div class="mini">${esc(b.pagamento || '')}</div></td>
+            <td>${eur(b.valore)} &euro;<div class="mini">${b.pagamento === 'promozionale'
+              ? '<span class="omaggio">promozionale</span>' : esc(b.pagamento || '')}</div></td>
             <td><span class="stato st-${st}">${st}</span>${b.scade_il ? `<div class="mini">${dataIT(b.scade_il)}</div>` : ''}</td>
             <td class="mini">${esc(b.acquirente || '')}${b.destinatario ? ' \u2192 ' + esc(b.destinatario) : ''}
             <div>${esc(b.creato_da || '?')}</div></td></tr>`;
