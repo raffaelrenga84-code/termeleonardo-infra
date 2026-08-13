@@ -62,6 +62,11 @@ export type Contatti = {
    Un transfer o un green fee non hanno un periodo di soggiorno, ma hanno
    sempre una persona dietro. */
 export function validaContatti(b: Record<string, unknown>): { errore?: string; dati?: Contatti } {
+  /* Anche una richiesta raccoglie nome, email e telefono. Il consenso e' un
+     campo a se' e non si deduce dal fatto che qualcuno abbia premuto invia:
+     dedurlo vorrebbe dire non averlo. */
+  if (b.privacy_presa_atto !== true) return { errore: 'informativa privacy non accettata' };
+
   const nome = testo(b.nome);
   if (!nome) return { errore: 'nome mancante' };
   if (nome.length > LIMITI.nome) return { errore: 'nome troppo lungo' };

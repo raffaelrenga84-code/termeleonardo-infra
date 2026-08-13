@@ -25,7 +25,7 @@ Deno.test('rifiuta importi fuori dai limiti 25–1000', () => {
 Deno.test('accetta un buono valore e lo descrive nella lingua del buono', () => {
   const r = validaAcquisto({
     tipo: 'valore', valore: 100, lingua: 'de', acquirente_email: 'a@b.it',
-    condizioni_accettate: true
+    condizioni_accettate: true, privacy_presa_atto: true
   });
   assertEquals(r.errore, undefined);
   assertEquals(r.dati!.valore, 100);
@@ -37,7 +37,7 @@ Deno.test('accetta un buono valore e lo descrive nella lingua del buono', () => 
 Deno.test('per un servizio il prezzo viene dal listino, non dal browser', () => {
   const r = validaAcquisto({
     tipo: 'servizio', voce_id: 'relax25', valore: 1,   // il client mente sul prezzo
-    acquirente_email: 'a@b.it', condizioni_accettate: true
+    acquirente_email: 'a@b.it', condizioni_accettate: true, privacy_presa_atto: true
   });
   assertEquals(r.errore, undefined);
   assertEquals(r.dati!.valore, 40);                     // prezzo del listino server
@@ -48,7 +48,7 @@ Deno.test('per un servizio il prezzo viene dal listino, non dal browser', () => 
 Deno.test('lingua sconosciuta ricade su italiano', () => {
   const r = validaAcquisto({
     tipo: 'valore', valore: 50, lingua: 'xx', acquirente_email: 'a@b.it',
-    condizioni_accettate: true
+    condizioni_accettate: true, privacy_presa_atto: true
   });
   assertEquals(r.dati!.lingua, 'it');
   assertMatch(r.dati!.descrizione, /Buono valore di 50,00 €/);
@@ -56,7 +56,7 @@ Deno.test('lingua sconosciuta ricade su italiano', () => {
 
 Deno.test('scadenza a 12 mesi da oggi', () => {
   const r = validaAcquisto({
-    tipo: 'valore', valore: 100, acquirente_email: 'a@b.it', condizioni_accettate: true
+    tipo: 'valore', valore: 100, acquirente_email: 'a@b.it', condizioni_accettate: true, privacy_presa_atto: true
   });
   const attesa = new Date();
   attesa.setFullYear(attesa.getFullYear() + 1);
@@ -68,7 +68,7 @@ Deno.test('campi liberi accorciati e ripuliti', () => {
     tipo: 'valore', valore: 100, acquirente_email: '  a@b.it  ',
     acquirente: 'x'.repeat(300), dedica: 'y'.repeat(500),
     destinatario: '  Anna  ', destinatario_email: 'z'.repeat(300) + '@c.it',
-    condizioni_accettate: true
+    condizioni_accettate: true, privacy_presa_atto: true
   });
   assertEquals(r.dati!.acquirente_email, 'a@b.it');
   assertEquals(r.dati!.acquirente.length, 120);
@@ -91,7 +91,7 @@ Deno.test('senza accettazione delle condizioni l’acquisto non parte', () => {
 
 Deno.test('con le condizioni accettate l’acquisto procede', () => {
   const r = validaAcquisto({
-    tipo: 'valore', valore: 100, acquirente_email: 'a@b.it', condizioni_accettate: true
+    tipo: 'valore', valore: 100, acquirente_email: 'a@b.it', condizioni_accettate: true, privacy_presa_atto: true
   });
   assertEquals(r.errore, undefined);
   assertEquals(r.dati!.valore, 100);
@@ -102,7 +102,7 @@ Deno.test('con le condizioni accettate l’acquisto procede', () => {
 Deno.test('il Day Spa serale sostituisce il pomeridiano, che non esiste', () => {
   const r = validaAcquisto({
     tipo: 'servizio', voce_id: 'dayspa_sera',
-    acquirente_email: 'a@b.it', condizioni_accettate: true
+    acquirente_email: 'a@b.it', condizioni_accettate: true, privacy_presa_atto: true
   });
   assertEquals(r.errore, undefined);
   assertEquals(r.dati!.valore, 29);
@@ -112,11 +112,11 @@ Deno.test('il Day Spa serale sostituisce il pomeridiano, che non esiste', () => 
 Deno.test('il vecchio identificativo porta comunque al prodotto vero', () => {
   const vecchio = validaAcquisto({
     tipo: 'servizio', voce_id: 'dayspa_pom',
-    acquirente_email: 'a@b.it', condizioni_accettate: true
+    acquirente_email: 'a@b.it', condizioni_accettate: true, privacy_presa_atto: true
   });
   const nuovo = validaAcquisto({
     tipo: 'servizio', voce_id: 'dayspa_sera',
-    acquirente_email: 'a@b.it', condizioni_accettate: true
+    acquirente_email: 'a@b.it', condizioni_accettate: true, privacy_presa_atto: true
   });
   assertEquals(vecchio.errore, undefined);
   assertEquals(vecchio.dati!.descrizione, nuovo.dati!.descrizione);
@@ -124,10 +124,31 @@ Deno.test('il vecchio identificativo porta comunque al prodotto vero', () => {
 });
 
 Deno.test('giornaliero e festivo portano giorni e orari sul buono', () => {
-  const fer = validaAcquisto({ tipo:'servizio', voce_id:'dayspa_fer', acquirente_email:'a@b.it', condizioni_accettate:true });
-  const fes = validaAcquisto({ tipo:'servizio', voce_id:'dayspa_wknd', acquirente_email:'a@b.it', condizioni_accettate:true });
+  const fer = validaAcquisto({ tipo:'servizio', voce_id:'dayspa_fer', acquirente_email:'a@b.it', condizioni_accettate:true, privacy_presa_atto:true });
+  const fes = validaAcquisto({ tipo:'servizio', voce_id:'dayspa_wknd', acquirente_email:'a@b.it', condizioni_accettate:true, privacy_presa_atto:true });
   assertEquals(fer.dati!.valore, 35);
   assertMatch(fer.dati!.descrizione, /luned.*vener.*9\.00–18\.30/);
   assertEquals(fes.dati!.valore, 45);
   assertMatch(fes.dati!.descrizione, /sabato, domenica e festivi.*9\.00–18\.30/);
+});
+
+
+/* La privacy e' un consenso distinto da quello sulle condizioni: le
+   condizioni si accettano, dell'informativa si prende atto. Tenerli in un
+   campo solo li renderebbe indistinguibili se qualcuno chiedesse conto di
+   quale dei due e' stato dato. */
+Deno.test('senza presa d atto della privacy non si compra', () => {
+  const r = validaAcquisto({
+    tipo: 'valore', valore: 100, acquirente_email: 'a@b.it',
+    condizioni_accettate: true, privacy_presa_atto: false,
+  });
+  assertEquals(r.errore, 'informativa privacy non accettata');
+});
+
+Deno.test('le condizioni da sole non bastano: sono due consensi', () => {
+  const r = validaAcquisto({
+    tipo: 'valore', valore: 100, acquirente_email: 'a@b.it',
+    condizioni_accettate: true,
+  });
+  assertEquals(r.errore, 'informativa privacy non accettata');
 });

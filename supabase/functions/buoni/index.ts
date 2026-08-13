@@ -344,7 +344,10 @@ Deno.serve(async (req) => {
          serve a sapere QUALE testo è stato accettato: alzarla ogni volta
          che le CONDIZIONI cambiano, o la traccia indica un testo che non
          esiste più. */
-      note: `acquisto dal sito · condizioni v1 accettate il ${
+      /* i due consensi si registrano separati: se qualcuno chiede conto di
+         quale e' stato dato, "condizioni + privacy" e' una risposta, un
+         "accettato" generico no */
+      note: `acquisto dal sito · condizioni v1 e informativa privacy accettate il ${
         new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`
     }).select().single();
     if (error || !ins) return risposta({ errore: 'salvataggio non riuscito' }, 500);

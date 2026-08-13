@@ -15,15 +15,20 @@
 *{box-sizing:border-box;}
 body{margin:0;background:var(--crema);color:#2A2E2B;
   font:15px/1.6 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;}
-.testata{background:var(--acqua-chiara);padding:34px 20px 30px;text-align:center;}
+.testata{background:var(--acqua-chiara);padding:34px 20px 30px;text-align:center;position:relative;}
+/* la lingua e' una scelta che si fa una volta: sta in un angolo, non in
+   mezzo al percorso. Una select vera e non un menu finto: sui telefoni
+   apre il selettore di sistema, che si usa meglio di qualunque tendina
+   disegnata a mano */
+.sceltaLingua{position:absolute;top:12px;right:12px;}
+.sceltaLingua select{width:auto;margin:0;padding:6px 26px 6px 9px;font-size:14px;
+  border-radius:8px;border:1px solid rgba(26,54,38,.15);background:rgba(255,255,255,.8);
+  color:var(--verde-medio);cursor:pointer;}
 .testata img{width:210px;max-width:60%;height:auto;display:block;margin:0 auto;}
 h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:34px;
   line-height:1.2;color:var(--verde);margin:20px 0 8px;}
 .occhiello{font-size:11px;letter-spacing:3px;color:var(--oro);text-transform:uppercase;}
 .sotto{color:var(--verde-medio);max-width:560px;margin:0 auto;}
-.lingue{margin-top:18px;}
-.lingue a{color:var(--verde-medio);text-decoration:none;font-size:14px;padding:4px 9px;}
-.lingue a.attiva{color:var(--verde);border-bottom:2px solid var(--oro);font-weight:600;}
 main{max-width:640px;margin:0 auto;padding:26px 18px 60px;}
 .riquadro{background:#fff;border:1px solid #E5E0D8;border-radius:14px;padding:22px;margin-bottom:18px;}
 h2{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:23px;
@@ -58,11 +63,12 @@ textarea{min-height:80px;resize:vertical;}
 </head>
 <body>
 <div class="testata">
+  <div class="sceltaLingua" id="tLingue"></div>
   <img src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" />
   <div class="occhiello" style="margin-top:22px;" id="tOcchiello"></div>
   <h1 id="tTitolo"></h1>
   <p class="sotto" id="tSotto"></p>
-  <div class="lingue" id="tLingue"></div>
+  
 </div>
 <main id="app"></main>
 <div class="pie" id="tPie"></div>
@@ -126,7 +132,8 @@ const T = {
     chi:'I suoi dati', guidaChi:'Ci servono per confermarle la prenotazione.',
     nome:'Nome e cognome', email:'Email', tel:'Telefono',
     note:'Note (facoltative)', notePh:'Qualsiasi cosa ci aiuti a organizzare…',
-    invia:'Invia la richiesta', invio:'Invio…',
+    privacy:"Ho preso atto dell’informativa sul trattamento dei dati personali", privacyLink:"Leggi l’informativa",
+    privacyManca:"Per procedere deve prendere atto dell’informativa privacy.", invia:'Invia la richiesta', invio:'Invio…',
     manca:'Compili i campi obbligatori.',
     ripiego:'Non siamo riusciti a registrare la richiesta. Ci chiami allo +39 049 9939200 o scriva a info@termeleonardo.com: rispondiamo subito.',
     grazieTit:'Richiesta ricevuta', grazieTxt:'Le confermiamo tutto al più presto.',
@@ -155,7 +162,8 @@ const T = {
     chi:'Ihre Daten', guidaChi:'Wir brauchen sie für die Bestätigung.',
     nome:'Vor- und Nachname', email:'E-Mail', tel:'Telefon',
     note:'Anmerkungen (optional)', notePh:'Alles, was uns bei der Organisation hilft…',
-    invia:'Anfrage senden', invio:'Senden…',
+    privacy:"Ich habe die Datenschutzerklärung zur Kenntnis genommen", privacyLink:"Datenschutzerklärung lesen",
+    privacyManca:"Bitte nehmen Sie die Datenschutzerklärung zur Kenntnis.", invia:'Anfrage senden', invio:'Senden…',
     manca:'Bitte Pflichtfelder ausfüllen.',
     ripiego:'Wir konnten die Anfrage nicht speichern. Rufen Sie uns unter +39 049 9939200 an oder schreiben Sie an info@termeleonardo.com: wir antworten sofort.',
     grazieTit:'Anfrage erhalten', grazieTxt:'Wir bestätigen Ihnen alles so bald wie möglich.',
@@ -184,7 +192,8 @@ const T = {
     chi:'Your details', guidaChi:'We need them to confirm the booking.',
     nome:'Full name', email:'Email', tel:'Phone',
     note:'Notes (optional)', notePh:'Anything that helps us organise…',
-    invia:'Send request', invio:'Sending…',
+    privacy:"I have read the privacy notice", privacyLink:"Read the privacy notice",
+    privacyManca:"Please acknowledge the privacy notice to continue.", invia:'Send request', invio:'Sending…',
     manca:'Please fill in the required fields.',
     ripiego:'We could not register your request. Please call +39 049 9939200 or write to info@termeleonardo.com: we will reply right away.',
     grazieTit:'Request received', grazieTxt:'We will confirm everything as soon as possible.',
@@ -213,12 +222,15 @@ const T = {
     chi:'Vos coordonnées', guidaChi:'Elles nous servent pour la confirmation.',
     nome:'Nom et prénom', email:'E-mail', tel:'Téléphone',
     note:'Remarques (facultatif)', notePh:'Tout ce qui nous aide à organiser…',
-    invia:'Envoyer la demande', invio:'Envoi…',
+    privacy:"J’ai pris connaissance de la politique de confidentialité", privacyLink:"Lire la politique de confidentialité",
+    privacyManca:"Veuillez prendre connaissance de la politique de confidentialité.", invia:'Envoyer la demande', invio:'Envoi…',
     manca:'Veuillez remplir les champs obligatoires.',
     ripiego:'Nous n’avons pas pu enregistrer la demande. Appelez-nous au +39 049 9939200 ou écrivez à info@termeleonardo.com : nous répondons tout de suite.',
     grazieTit:'Demande reçue', grazieTxt:'Nous vous confirmons tout au plus vite.',
     rif:'Référence', ancora:'Faire une autre demande' },
 };
+
+const BANDIERE = { it:'🇮🇹', de:'🇩🇪', en:'🇬🇧', fr:'🇫🇷' };
 
 const oggiISO = () => new Date().toISOString().slice(0,10);
 let OSPITE = null;
@@ -231,9 +243,14 @@ function testata() {
   $('tOcchiello').textContent = s.occhiello;
   $('tTitolo').textContent = s.titolo;
   $('tSotto').textContent = s.sotto;
-  $('tLingue').innerHTML = ['it','de','en','fr'].map(l =>
-    `<a href="?tipo=${TIPO}&l=${l}${TOKEN ? '&t=' + encodeURIComponent(TOKEN) : ''}"
-      class="${l === LNG ? 'attiva' : ''}">${T[l].lingua}</a>`).join('');
+  $('tLingue').innerHTML = '<select id="selLingua" aria-label="Lingua">' +
+    ['it','de','en','fr'].map(l =>
+      '<option value="' + l + '"' + (l === LNG ? ' selected' : '') + '>' +
+        BANDIERE[l] + ' ' + l.toUpperCase() + '</option>').join('') + '</select>';
+  $('selLingua').onchange = (e) => {
+    location.search = '?tipo=' + TIPO + '&l=' + e.target.value +
+      (TOKEN ? '&t=' + encodeURIComponent(TOKEN) : '');
+  };
   $('tPie').innerHTML = `Hotel Terme Leonardo &middot; Via Monteortone 46, Abano Terme &middot;
     <a href="tel:+390499939200">+39 049 9939200</a> &middot;
     <a href="mailto:info@termeleonardo.com">info@termeleonardo.com</a>`;
@@ -325,6 +342,11 @@ function modulo() {
       </div>
       <label for="fNote">${esc(t.note)}</label>
       <textarea id="fNote" placeholder="${esc(t.notePh)}"></textarea>
+
+      <label class="spunta"><input type="checkbox" id="fPrivacy" />
+        <span>${esc(t.privacy)} &mdash;
+          <a href="https://www.termeleonardo.com/${LNG}/privacy" target="_blank"
+            rel="noopener noreferrer">${esc(t.privacyLink)}</a></span></label>
     </div>
     <button class="invia" id="bInvia">${esc(t.invia)}</button>
     <div id="esito"></div>`;
@@ -373,6 +395,10 @@ async function invia() {
     $('esito').innerHTML = `<div class="errore">${esc(t.manca)}</div>`;
     return;
   }
+  if (!$('fPrivacy').checked) {
+    $('esito').innerHTML = `<div class="errore">${esc(t.privacyManca)}</div>`;
+    return;
+  }
   INVIANDO = true;
   $('bInvia').disabled = true;
   $('bInvia').textContent = t.invio;
@@ -385,6 +411,7 @@ async function invia() {
         tipo: TIPO,
         nome: $('fNome').value.trim(), email: $('fEmail').value.trim(),
         telefono: $('fTel').value.trim(),
+        privacy_presa_atto: $('fPrivacy').checked,
         lingua: LNG, token: TOKEN, origine: location.href,
         dati: raccogli(),
       }),

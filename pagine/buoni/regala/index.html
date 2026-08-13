@@ -20,10 +20,10 @@ a{color:var(--verde);}
 .testata h1{font-family:Georgia,serif;font-weight:normal;font-size:32px;line-height:1.25;
 color:var(--verde);margin-top:26px;}
 .testata .sotto{color:var(--verde-medio);max-width:560px;margin:12px auto 0;font-size:15px;}
-.lingue{margin-top:16px;font-size:13px;letter-spacing:1px;}
+.lingue{position:absolute;top:12px;right:12px;margin:0;}
+.lingue select{width:auto;margin:0;padding:6px 26px 6px 9px;font-size:14px;border-radius:8px;
+  border:1px solid rgba(26,54,38,.15);background:rgba(255,255,255,.8);color:var(--salvia);cursor:pointer;}
 /* bersagli comodi da toccare col pollice, non solo da cliccare col mouse */
-.lingue a{display:inline-block;padding:10px 12px;text-decoration:none;color:var(--salvia);}
-.lingue a.attiva{color:var(--verde);box-shadow:inset 0 -2px 0 var(--oro);}
 
 /* ---- corpo ---- */
 main{max-width:1180px;margin:0 auto;padding:30px 16px 70px;}
@@ -268,24 +268,32 @@ const T = {
 
 const LEGALE = {
   it:{ titolo:'Condizioni di acquisto', accetto:'Ho letto e accetto le condizioni di acquisto',
+    privacy:"Ho preso atto dell’informativa sul trattamento dei dati personali", privacyLink:"Leggi l’informativa privacy",
+    privacyManca:"Per procedere deve prendere atto dell’informativa privacy.",
     manca:'Per procedere devi accettare le condizioni di acquisto.',
     chiusura:'L’hotel chiude da fine novembre a febbraio: in quel periodo il buono non è utilizzabile.',
     altraRicevuta:'Mando il riepilogo d’acquisto a un altro indirizzo',
     altraRicevutaPh:'indirizzo per il riepilogo',
     altraRicevutaNota:'Utile se paghi per l’azienda o giri tutto al commercialista. Non è una ricevuta fiscale: per quella ci contatti in reception.' },
   de:{ titolo:'Kaufbedingungen', accetto:'Ich habe die Kaufbedingungen gelesen und akzeptiere sie',
+    privacy:"Ich habe die Datenschutzerklärung zur Kenntnis genommen", privacyLink:"Datenschutzerklärung lesen",
+    privacyManca:"Bitte nehmen Sie die Datenschutzerklärung zur Kenntnis.",
     manca:'Bitte akzeptieren Sie die Kaufbedingungen, um fortzufahren.',
     chiusura:'Das Hotel ist von Ende November bis Februar geschlossen: in diesem Zeitraum ist der Gutschein nicht einlösbar.',
     altraRicevuta:'Kaufübersicht an eine andere Adresse senden',
     altraRicevutaPh:'Adresse für die Übersicht',
     altraRicevutaNota:'Nützlich, wenn Sie für die Firma zahlen. Es ist keine steuerliche Quittung: dafür wenden Sie sich bitte an die Rezeption.' },
   en:{ titolo:'Purchase conditions', accetto:'I have read and accept the purchase conditions',
+    privacy:"I have read the privacy notice", privacyLink:"Read the privacy notice",
+    privacyManca:"Please acknowledge the privacy notice to continue.",
     manca:'Please accept the purchase conditions to continue.',
     chiusura:'The hotel closes from late November to February: the voucher cannot be used in that period.',
     altraRicevuta:'Send the purchase summary to another address',
     altraRicevutaPh:'address for the summary',
     altraRicevutaNota:'Useful if you are paying for a company. It is not a fiscal receipt: for that, please contact our reception.' },
   fr:{ titolo:'Conditions d’achat', accetto:'J’ai lu et j’accepte les conditions d’achat',
+    privacy:"J’ai pris connaissance de la politique de confidentialité", privacyLink:"Lire la politique de confidentialité",
+    privacyManca:"Veuillez prendre connaissance de la politique de confidentialité.",
     manca:'Veuillez accepter les conditions d’achat pour continuer.',
     chiusura:'L’hôtel ferme de fin novembre à février : le bon n’est pas utilisable durant cette période.',
     altraRicevuta:'Envoyer le récapitulatif d’achat à une autre adresse',
@@ -308,8 +316,11 @@ function testata() {
   const t = T[LNG];
   $('tTitolo').textContent = t.titolo;
   $('tSotto').textContent = t.sotto;
-  $('lingue').innerHTML = [['it','Italiano'],['de','Deutsch'],['en','English'],['fr','Fran\u00e7ais']]
-    .map(([l,n]) => `<a href="?l=${l}" class="${l===LNG?'attiva':''}">${n}</a>`).join('');
+  $('lingue').innerHTML = '<select id="selLingua" aria-label="Lingua">' +
+    [['it','🇮🇹 IT'],['de','🇩🇪 DE'],['en','🇬🇧 EN'],['fr','🇫🇷 FR']]
+      .map(([c, n]) => '<option value="' + c + '"' + (c === LNG ? ' selected' : '') + '>' + n + '</option>')
+      .join('') + '</select>';
+  $('selLingua').onchange = (e) => { location.search = '?l=' + e.target.value; };
   document.documentElement.lang = LNG;
 }
 
@@ -382,6 +393,11 @@ function modulo() {
         <label class="cond-spunta">
           <input type="checkbox" id="fCond" /><span>${esc(g.accetto)}</span>
         </label>
+        <label class="cond-spunta">
+          <input type="checkbox" id="fPrivacy" /><span>${esc(g.privacy)} &mdash;
+            <a href="https://www.termeleonardo.com/${LNG}/privacy" target="_blank"
+              rel="noopener noreferrer">${esc(g.privacyLink)}</a></span>
+        </label>
       </div>
       <button class="paga" id="fPaga" disabled></button>
       <div class="mini" style="margin-top:10px;">${esc(t.pagoIn)}</div>
@@ -451,10 +467,15 @@ function modulo() {
      che non si sblocca con nessuna azione dell'utente. */
   let inviando = false;
   const condOk = () => $('fCond').checked;
-  const aggiornaPaga = () => { $('fPaga').disabled = inviando || !condOk(); };
-  $('fCond').onchange = () => {
+  /* due consensi distinti: le condizioni si accettano, dell'informativa si
+     prende atto. Il pulsante si sblocca solo con tutti e due, e il server
+     li pretende separati anche se qualcuno aggirasse la pagina. */
+  const privacyOk = () => $('fPrivacy').checked;
+  const tuttoOk = () => condOk() && privacyOk();
+  const aggiornaPaga = () => { $('fPaga').disabled = inviando || !tuttoOk(); };
+  $('fCond').onchange = $('fPrivacy').onchange = () => {
     aggiornaPaga();
-    if (condOk() && !inviando) $('fEsito').textContent = '';
+    if (tuttoOk() && !inviando) $('fEsito').textContent = '';
   };
   /* tornando indietro da Stripe il browser ripristina la pagina com'era,
      con il pulsante spento e "un momento…" ancora scritto: va riarmata */
@@ -482,6 +503,11 @@ function modulo() {
     if (!condOk()) {
       $('fEsito').innerHTML = `<span class="errore">${esc(g.manca)}</span>`; return;
     }
+    /* messaggio suo: "accetta le condizioni" non spiegherebbe che manca
+       l'altra spunta, e chi legge continuerebbe a guardare quella giusta */
+    if (!privacyOk()) {
+      $('fEsito').innerHTML = `<span class="errore">${esc(g.privacyManca)}</span>`; return;
+    }
     inviando = true; aggiornaPaga();
     $('fEsito').textContent = t.attesa;
     try {
@@ -489,6 +515,7 @@ function modulo() {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ ...b, condizioni_accettate: condOk(),
+          privacy_presa_atto: !!($('fPrivacy') && $('fPrivacy').checked),
           ricevuta_email: $('fAltraRic').checked ? $('fRicMail').value.trim() : '',
           ritorno: location.origin + location.pathname + '?l=' + LNG })
       });

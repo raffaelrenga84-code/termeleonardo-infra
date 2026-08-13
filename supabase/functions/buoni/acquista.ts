@@ -87,6 +87,11 @@ export function validaAcquisto(b: Record<string, unknown>):
      accettate prima di pagare. Il controllo sta anche qui e non solo nella
      pagina, altrimenti basterebbe una chiamata diretta per saltarlo. */
   if (b.condizioni_accettate !== true) return { errore: 'condizioni non accettate' };
+  /* Consenso distinto da quello sulle condizioni: le condizioni si
+     accettano, dell'informativa privacy si prende atto. In un campo solo
+     sarebbero indistinguibili se qualcuno chiedesse conto di quale dei due
+     e' stato dato — ed e' il genere di domanda che arriva mesi dopo. */
+  if (b.privacy_presa_atto !== true) return { errore: 'informativa privacy non accettata' };
 
   /* scadenza: 12 mesi da oggi, come da regolamento */
   const scade = new Date(); scade.setFullYear(scade.getFullYear() + 1);

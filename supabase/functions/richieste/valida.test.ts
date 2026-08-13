@@ -2,11 +2,12 @@
    La data di riferimento si passa da fuori: legandola a new Date() questi
    test comincerebbero a fallire da soli col passare del tempo. */
 import { assertEquals } from 'jsr:@std/assert';
-import { validaRichiesta } from './valida.ts';
+import { validaContatti, validaRichiesta } from './valida.ts';
 
 const OGGI = new Date('2026-08-13T10:00:00Z');
 
 const buona = {
+  privacy_presa_atto: true,
   nome: '  Mario Rossi  ',
   email: 'mario@email.it',
   telefono: '+39 049 1234567',
@@ -90,6 +91,7 @@ Deno.test('una lingua sconosciuta diventa italiano', () => {
 
 Deno.test('i campi facoltativi possono mancare', () => {
   const { errore, dati } = validaRichiesta({
+    privacy_presa_atto: true,
     nome: 'Anna', email: 'anna@email.it',
     check_in: '2026-09-10', check_out: '2026-09-12',
   }, OGGI);
@@ -97,4 +99,16 @@ Deno.test('i campi facoltativi possono mancare', () => {
   assertEquals(dati!.telefono, '');
   assertEquals(dati!.tipo_camera, '');
   assertEquals(dati!.ospiti, 2);
+});
+
+/* Anche una richiesta raccoglie nome, email e telefono: l'informativa va
+   presa d'atto qui come sulla pagina dei buoni. Consenso a se stante e non
+   dedotto dal fatto che qualcuno abbia premuto invia. */
+Deno.test('senza presa d atto della privacy la richiesta non parte', () => {
+  assertEquals(validaContatti({ nome: 'Anna', email: 'a@b.it' }).errore,
+    'informativa privacy non accettata');
+  assertEquals(validaContatti({ nome: 'Anna', email: 'a@b.it', privacy_presa_atto: false }).errore,
+    'informativa privacy non accettata');
+  assertEquals(validaContatti({ nome: 'Anna', email: 'a@b.it', privacy_presa_atto: true }).errore,
+    undefined);
 });
