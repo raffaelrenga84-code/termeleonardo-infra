@@ -26,7 +26,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { validaAcquisto } from './acquista.ts';
 import { nasceGiaPagato } from './pagamenti.ts';
-import { entroIlLimite } from './limite.ts';
+import { entroIlLimite, troppiDalSito } from './limite.ts';
 import { avvisaAmministrazione, inviaBuonoEmesso } from './email-buono.ts';
 
 const CORS = {
@@ -281,8 +281,10 @@ Deno.serve(async (req) => {
 
   /* ---------- pubblico: acquisto dal sito, si paga con carta ---------- */
   if (azione === 'acquista' && req.method === 'POST') {
-    if (!entroIlLimite(ipRichiesta(req))) {
-      console.warn('troppi acquisti da', ipRichiesta(req));
+    /* due freni: quello in memoria costa nulla e prende il caso facile,
+       quello sul database regge anche fra istanze diverse */
+    if (!entroIlLimite(ipRichiesta(req)) || await troppiDalSito(db)) {
+      console.warn('acquisto respinto per troppe richieste, ip', ipRichiesta(req));
       return risposta({ errore: 'troppe richieste, riprovi tra qualche minuto' }, 429);
     }
     let b: Record<string, unknown>;
