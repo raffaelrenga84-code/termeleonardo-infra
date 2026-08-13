@@ -25,6 +25,7 @@
    ============================================================ */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { validaAcquisto } from './acquista.ts';
+import { nasceGiaPagato } from './pagamenti.ts';
 import { inviaBuonoEmesso } from './email-buono.ts';
 
 const CORS = {
@@ -340,8 +341,8 @@ Deno.serve(async (req) => {
     if (!b.descrizione || !isFinite(valore) || valore <= 0)
       return risposta({ errore: 'servono descrizione e valore' }, 400);
 
-    /* pagato subito (reception) oppure in attesa (richiesta via email) */
-    const subito = ['contanti', 'bancomat', 'pos'].includes(String(b.pagamento || ''));
+    /* pagato subito (reception od omaggio) oppure in attesa (richiesta via email) */
+    const subito = nasceGiaPagato(b.pagamento);
 
     const { data: num, error: eNum } = await db.rpc('prossimo_numero_buono');
     const riga0 = Array.isArray(num) ? num[0] : num;
