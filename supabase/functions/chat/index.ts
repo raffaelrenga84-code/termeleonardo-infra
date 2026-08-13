@@ -130,7 +130,18 @@ async function verificaCamere(a: Record<string, unknown>) {
          il modello deve poterle distinguere: dirlo esplicitamente */
       return { esito: 'errore_tecnico', dettaglio: j?.error || r.status };
     }
-    return { esito: 'ok', dati: j };
+    /* L'unita' va dichiarata qui e non lasciata al prompt. Il proxy
+       restituisce la risposta del sito cosi' com'e', e quella e' in
+       CENTESIMI: le regole di canale dicono il contrario ("tornano gia' in
+       euro"), e su una tariffa la differenza e' di cento volte. Dirlo nel
+       risultato dello strumento vince su qualunque riga del prompt, perche'
+       arriva insieme ai numeri. */
+    return {
+      esito: 'ok',
+      valuta: 'centesimi',
+      istruzione: 'Tutti gli importi sono in CENTESIMI di euro: dividere per 100 prima di comunicarli. 44000 significa 440 euro.',
+      dati: j,
+    };
   } catch (e) {
     return { esito: 'errore_tecnico', dettaglio: e instanceof Error ? e.message : String(e) };
   }
