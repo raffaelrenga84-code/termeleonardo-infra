@@ -234,12 +234,17 @@ const RICEVUTA: Record<string, any> = {
 
 /* Intestazione per le email che NON contengono il buono: senza, uscivano
    anonime, e un'email anonima che parla di soldi somiglia a una truffa.
-   Il marchio va in PNG: l'SVG nelle email non si vede. */
+
+   Marchio nero su bianco e non logo.png: quello ha il fondo verde acqua
+   incorporato perche' sul buono sta su una colonna dello stesso colore, ma
+   da solo si vede il rettangolo. PNG e non SVG: nelle email l'SVG non si
+   vede. Bianco e non trasparente: un nero su trasparente sparirebbe nei
+   programmi di posta che invertono i colori. */
 export function intestazione(): string {
   return `<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
-    <tr><td style="padding-bottom:16px;border-bottom:1px solid #E6E2D8;">
-      <img src="${BASE_IMG}/logo.png" width="150" alt="Hotel Terme Leonardo"
-        style="display:block;width:150px;height:auto;border:0;" />
+    <tr><td style="padding-bottom:18px;border-bottom:1px solid #E6E2D8;">
+      <img src="${BASE_IMG}/logo-nero.png" width="220" alt="Hotel Terme Leonardo"
+        style="display:block;width:220px;height:auto;border:0;" />
     </td></tr>
   </table>`;
 }

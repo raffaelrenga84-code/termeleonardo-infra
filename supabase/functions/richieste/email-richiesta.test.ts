@@ -40,7 +40,7 @@ Deno.test('l avviso riporta tutto quello che serve per richiamare l ospite', () 
 Deno.test('l avviso porta il marchio dell hotel', () => {
   /* PNG e non SVG: nelle email l'SVG non si vede */
   assertStringIncludes(richiestaHTML(r),
-    'https://arrivo-terme-leonardo.vercel.app/buoni/img/logo.png');
+    'https://arrivo-terme-leonardo.vercel.app/buoni/img/logo-nero.png');
 });
 
 Deno.test('quattro notti per due persone si leggono a colpo d occhio', () => {

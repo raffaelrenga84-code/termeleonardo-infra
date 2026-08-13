@@ -222,7 +222,7 @@ Deno.test('senza indirizzo per la ricevuta non cambia nulla', async () => {
    d'acquisto e l'avviso all'amministrazione uscivano anonimi, e un'email
    anonima che parla di soldi somiglia parecchio a una truffa. */
 Deno.test('il riepilogo d acquisto porta il marchio', () => {
-  assertStringIncludes(ricevutaEmailHTML(BUONO), IMG + '/logo.png');
+  assertStringIncludes(ricevutaEmailHTML(BUONO), IMG + '/logo-nero.png');
 });
 
 Deno.test('anche l avviso all amministrazione porta il marchio', async () => {
@@ -232,6 +232,6 @@ Deno.test('anche l avviso all amministrazione porta il marchio', async () => {
   try {
     await avvisaAmministrazione(BUONO);
     assertEquals(spedite.length, 1);
-    assertStringIncludes(spedite[0].html, IMG + '/logo.png');
+    assertStringIncludes(spedite[0].html, IMG + '/logo-nero.png');
   } finally { ripristina(); Deno.env.delete('EMAIL_AMMINISTRAZIONE'); }
 });

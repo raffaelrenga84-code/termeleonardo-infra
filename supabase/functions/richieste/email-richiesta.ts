@@ -34,8 +34,10 @@ function riga(etichetta: string, valore: string, forte = false): string {
   </tr>`;
 }
 
-/* il marchio va in PNG: nelle email l'SVG non si vede. Stesso file usato
-   dal buono, cosi' l'ospite riconosce chi gli scrive */
+/* Marchio nero su bianco: il logo.png del buono ha il fondo verde acqua
+   incorporato e da solo mostra il rettangolo. PNG e non SVG perche' nelle
+   email l'SVG non si vede; bianco e non trasparente perche' un nero su
+   trasparente sparisce nei programmi che invertono i colori. */
 const BASE_IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 
 export function richiestaHTML(r: ConNumero): string {
@@ -44,8 +46,8 @@ export function richiestaHTML(r: ConNumero): string {
   return `<table cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:100%;
   border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;background:#FFFFFF;">
 <tr><td style="padding:26px 28px;">
-  <img src="${BASE_IMG}/logo.png" width="150" alt="Hotel Terme Leonardo"
-    style="display:block;width:150px;height:auto;border:0;padding-bottom:16px;
+  <img src="${BASE_IMG}/logo-nero.png" width="220" alt="Hotel Terme Leonardo"
+    style="display:block;width:220px;height:auto;border:0;padding-bottom:18px;
     border-bottom:1px solid #E6E2D8;" />
   <div style="font-size:10px;letter-spacing:2px;color:#C9A961;padding-top:18px;">RICHIESTA DAL SITO</div>
   <div style="font-size:22px;color:#1B4D4A;margin-top:6px;font-family:Georgia,serif;">${esc(r.nome)}</div>
