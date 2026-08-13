@@ -225,6 +225,20 @@ const TESTO_VALORE = {
   fr:(v)=>`Bon d\u2019une valeur de ${v} \u20ac, utilisable \u00e0 l\u2019h\u00f4tel`
 };
 
+/* la foto segue quello che il cliente sta scegliendo; stesse categorie
+   di fotoBuono() nella funzione `buoni` e di COPERTINE nel back office */
+const BASE_IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
+function fotoBuono(b) {
+  const id = String(b.voce_id || '');
+  if (b.tipo === 'valore') return `${BASE_IMG}/valore.jpg`;
+  if (id.startsWith('dayspa')) return `${BASE_IMG}/dayspa.jpg`;
+  if (/^(prog|relax|plantare|candle|antistress|californiano|ayurveda|hotstone|pindasweda|linfo|shiatzu)/.test(id) ||
+      /^(visofango|pulizia|ialuronico|collagene|vitaminac)/.test(id) ||
+      /^(scrub|riducente|seno|antiage|manicure|pedicure|epil)/.test(id))
+    return `${BASE_IMG}/trattamenti.jpg`;
+  return `${BASE_IMG}/valore.jpg`;
+}
+
 function anteprimaHTML(b) {
   const e = ETI[b.lingua] || ETI.it;
   const dest = b.destinatario ? esc(b.destinatario) : '';
@@ -236,8 +250,8 @@ function anteprimaHTML(b) {
       LE<strong>ONARDO</strong></div>
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:3px;color:#7A9490;margin-top:4px;">
       TERME HOTEL &nbsp;\u2605\u2605\u2605\u2605</div>
-    <div style="height:130px;margin:24px 0 10px;border-radius:2px;
-      background:linear-gradient(160deg,#BEDCD4,#8FC4BC 55%,#5FA8A0);"></div>
+    <img src="${fotoBuono(b)}" alt="" style="display:block;width:192px;height:130px;
+      object-fit:cover;border-radius:2px;margin:24px 0 10px;" />
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:8.5px;letter-spacing:2px;color:#7A9490;padding-top:20px;">
       ABANO TERME \u00b7 COLLI EUGANEI</div>
   </td>

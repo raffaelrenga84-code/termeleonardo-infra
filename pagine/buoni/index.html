@@ -668,14 +668,17 @@ function emailRichiestaTesto(b) {
    Tabelle e non flexbox: Outlook non regge i layout moderni e
    spaccherebbe il buono in due tronconi. */
 
-/* immagine di copertina per categoria — URL pubblici del sito.
-   ⚠️ da riempire con le foto vere: senza, esce il fondo decorato. */
+/* immagine di copertina per categoria — foto dell'hotel servite da questo
+   stesso sito: le email durano un anno, e un link al sito vecchio potrebbe
+   non reggere tanto. Le stesse tre foto stanno in fotoBuono() della
+   funzione `buoni`: cambiando qui, cambiare anche lì. */
+const BASE_IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 const COPERTINE = {
-  dayspa: '',
-  massaggi: '',
-  viso: '',
-  corpo: '',
-  valore: ''
+  dayspa:   `${BASE_IMG}/dayspa.jpg`,
+  massaggi: `${BASE_IMG}/trattamenti.jpg`,
+  viso:     `${BASE_IMG}/trattamenti.jpg`,
+  corpo:    `${BASE_IMG}/trattamenti.jpg`,
+  valore:   `${BASE_IMG}/valore.jpg`
 };
 const NARRATIVA = {
   dayspa: {
