@@ -929,6 +929,43 @@ function quandoIT(ts) {
 
 const LINGUA_NOME = { it: 'Italiano', de: 'Tedesco', en: 'Inglese', fr: 'Francese' };
 
+/* Il riepilogo nella forma esatta che vuole il modulo dei tassisti: si
+   incolla senza tradurre niente, e il luogo combacia parola per parola con
+   il loro elenco perche' e' da li' che l'abbiamo preso. */
+function riepilogoATAM(r) {
+  const d = r.dati || {};
+  return [
+    `Data: ${dataIT(d.quando)}`,
+    `Ora: ${d.ora || ''}`,
+    `Pax: ${d.pax || ''}`,
+    `${d.verso === 'partenza' ? 'Partenza per' : 'Arrivo da'}: ${d.luogo || ''}`,
+    `Nome del cliente: ${r.nome || ''}`,
+    d.volo ? `Dettagli arrivo: ${d.volo}` : '',
+    d.ritorno ? 'Nota: serve anche il ritorno' : '',
+    d.note ? `Note: ${d.note}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+/* I campi che la reception cambia davvero: un orario spostato, un
+   passeggero in piu'. Il LUOGO non si modifica qui di proposito — deve
+   combaciare parola per parola con l'elenco ATAM, e un campo libero
+   inviterebbe a digitarlo a mano e a sbagliarlo. */
+function campiModificabili(r) {
+  const d = r.dati || {};
+  if (r.tipo !== 'transfer') return '';
+  return `<div class="due">
+      <div><label>Giorno</label><input type="date" id="cQuando" value="${esc(d.quando || '')}" /></div>
+      <div><label>Ora</label><input type="time" id="cOra" value="${esc(d.ora || '')}" /></div>
+    </div>
+    <div class="due">
+      <div><label>Passeggeri</label><input type="number" id="cPax" min="1" max="8" value="${esc(d.pax || 2)}" /></div>
+      <div><label>Volo / treno</label><input type="text" id="cVolo" value="${esc(d.volo || '')}" /></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:400;">
+      <input type="checkbox" id="cRitorno" ${d.ritorno ? 'checked' : ''}
+        style="width:auto;margin:0;" /> serve anche il ritorno</label>`;
+}
+
 function dettaglioRichiesta(r) {
   const riga = (e, v) => v ? `<tr><td class="mini" style="padding-right:14px;white-space:nowrap;">${esc(e)}</td>
     <td>${v}</td></tr>` : '';
@@ -951,12 +988,36 @@ function dettaglioRichiesta(r) {
     </table>
     ${r.messaggio ? `<div style="border-left:3px solid var(--oro);background:#FBFAF7;padding:12px 14px;
       margin-top:14px;white-space:pre-line;">${esc(r.messaggio)}</div>` : ''}
+    ${r.conferma_il ? `<div class="mini" style="margin-top:14px;">
+      Confermata il ${quandoIT(r.conferma_il)}${r.conferma_da ? ' da ' + esc(r.conferma_da) : ''}
+      ${r.conferma_esito === 'fallita'
+        ? '<span class="nonconsegnato">EMAIL NON PARTITA</span>' : ''}</div>` : ''}
+
+    ${r.tipo !== 'soggiorno' ? `<div style="margin-top:18px;padding-top:16px;border-top:1px solid #E6E2D8;">
+      <h2 style="font-size:18px;">Conferma all’ospite</h2>
+      <div class="mini" style="padding-bottom:6px;">Correggi qui se hai spostato qualcosa:
+        l’ospite riceve questi dati, non quelli che aveva chiesto.</div>
+      ${campiModificabili(r)}
+      <label>Messaggio per l’ospite (facoltativo)</label>
+      <textarea id="cMessaggio" rows="3"
+        placeholder="es. Il prezzo è di 85 € a tratta, pagamento diretto all’autista."></textarea>
+      <button class="azione" id="bConferma">Conferma e avvisa l’ospite</button>
+    </div>` : ''}
+
+    ${r.tipo === 'transfer' ? `<div style="margin-top:18px;padding-top:16px;border-top:1px solid #E6E2D8;">
+      <h2 style="font-size:18px;">Per il modulo dei tassisti</h2>
+      <div class="mini" style="padding-bottom:6px;">Da incollare su atam.biz: il luogo è
+        già scritto come nel loro elenco.</div>
+      <textarea id="cAtam" rows="6" readonly
+        style="font-family:monospace;font-size:12.5px;">${esc(riepilogoATAM(r))}</textarea>
+      <button class="azione sec" id="bCopiaAtam">Copia per ATAM</button>
+    </div>` : ''}
+
     <div class="due" style="margin-top:16px;">
-      <a class="azione" style="text-align:center;text-decoration:none;"
-        href="mailto:${esc(r.email)}?subject=${oggetto}">Rispondi all’ospite</a>
+      <a class="azione sec" style="text-align:center;text-decoration:none;"
+        href="mailto:${esc(r.email)}?subject=${oggetto}">Scrivi a mano</a>
       <div>
         <button class="azione sec" data-stato="vista">Segna vista</button>
-        <button class="azione sec" data-stato="risposta">Ho risposto</button>
         <button class="azione sec" data-stato="chiusa">Chiudi</button>
       </div>
     </div>
@@ -1006,6 +1067,51 @@ async function vistaRichieste() {
           const r = CARICATE.find(x => x.numero === tr.dataset.numero);
           if (!r) return;
           $('rDettaglio').innerHTML = dettaglioRichiesta(r);
+
+          const bCopia = $('bCopiaAtam');
+          if (bCopia) bCopia.onclick = async () => {
+            try {
+              await navigator.clipboard.writeText($('cAtam').value);
+              bCopia.textContent = 'Copiato';
+              setTimeout(() => { bCopia.textContent = 'Copia per ATAM'; }, 1800);
+            } catch (e) {
+              /* se la copia non passa, il testo e' comunque li' da selezionare */
+              $('cAtam').select();
+              bCopia.textContent = 'Selezionato: premi Ctrl+C';
+            }
+          };
+
+          const bConf = $('bConferma');
+          if (bConf) bConf.onclick = async () => {
+            bConf.disabled = true;
+            $('rAzione').textContent = 'Invio la conferma…';
+            /* si mandano solo i campi che esistono davvero per questo tipo:
+               il server li rivalida comunque */
+            const dati = r.tipo === 'transfer' ? {
+              ...(r.dati || {}),
+              quando: $('cQuando').value, ora: $('cOra').value,
+              pax: Number($('cPax').value || 1), volo: $('cVolo').value,
+              ritorno: $('cRitorno').checked,
+            } : undefined;
+            try {
+              const j = await chiama('?a=conferma', {
+                method: 'POST',
+                body: JSON.stringify({ numero: r.numero, dati,
+                  messaggio: $('cMessaggio').value, utente: OPERATORE }),
+              }, FUNZIONE_RICHIESTE);
+              /* la conferma vale solo se l'email e' partita: dirlo, invece di
+                 lasciar credere che l'ospite sappia */
+              $('rAzione').innerHTML = j.inviata
+                ? '<span style="color:var(--oliva);">Conferma inviata all’ospite.</span>'
+                : '<span class="errore">Salvata, ma l’email NON è partita: '
+                  + 'avvisa l’ospite in un altro modo.</span>';
+              await carica();
+            } catch (e) {
+              bConf.disabled = false;
+              $('rAzione').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
+            }
+          };
+
           for (const b of $('rDettaglio').querySelectorAll('button[data-stato]')) {
             b.onclick = async () => {
               $('rAzione').textContent = 'Salvo…';

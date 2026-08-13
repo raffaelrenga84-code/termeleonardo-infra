@@ -15,6 +15,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { validaContatti, validaRichiesta } from './valida.ts';
 import { validaDati } from './tipi.ts';
 import { avvisaHotel } from './email-richiesta.ts';
+import { inviaConferma } from './conferma.ts';
 
 const testo = (v: unknown) => String(v ?? '').trim();
 
@@ -184,6 +185,52 @@ Deno.serve(async (req) => {
     const { data, error } = await q;
     if (error) return risposta({ errore: error.message }, 500);
     return risposta({ ok: true, richieste: data });
+  }
+
+  /* ---------- conferma all'ospite ----------
+     La reception puo' correggere prima di confermare — un orario spostato,
+     un luogo diverso — e l'ospite riceve i dati DEFINITIVI, non quelli che
+     aveva chiesto. Le correzioni passano dalla stessa validazione della
+     richiesta: non ha senso essere severi col cliente e permissivi con noi. */
+  if (azione === 'conferma') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const b = await req.json().catch(() => ({})) as Record<string, unknown>;
+    const numero = testo(b.numero);
+    if (!numero) return risposta({ errore: 'numero mancante' }, 400);
+
+    const { data: r, error: eSel } = await db.from('richiesta_sito')
+      .select('*').eq('numero', numero).maybeSingle();
+    if (eSel) return risposta({ errore: eSel.message }, 500);
+    if (!r) return risposta({ errore: 'richiesta non trovata' }, 404);
+
+    /* se arrivano correzioni si rivalidano; se non arrivano si conferma
+       quello che c'e' gia' */
+    let dati = r.dati;
+    if (b.dati && typeof b.dati === 'object') {
+      const v = validaDati(r.tipo, b.dati as Record<string, unknown>);
+      if (v.errore || !v.dati) return risposta({ errore: v.errore }, 400);
+      dati = v.dati;
+    }
+
+    const messaggio = testo(b.messaggio).slice(0, 2000);
+    const esito = await inviaConferma({
+      numero: r.numero, tipo: r.tipo, nome: r.nome, email: r.email,
+      lingua: r.lingua, dati, messaggio,
+    });
+
+    const { error: eUp } = await db.from('richiesta_sito').update({
+      dati,
+      stato: 'risposta',
+      conferma_il: new Date().toISOString(),
+      conferma_da: testo(b.utente).slice(0, 120) || null,
+      conferma_testo: messaggio || null,
+      /* se l'email non e' partita deve restare scritto: altrimenti la
+         richiesta risulta "risposta" e l'ospite non sa niente */
+      conferma_esito: esito ? 'inviata' : 'fallita',
+    }).eq('numero', numero);
+    if (eUp) return risposta({ errore: eUp.message }, 500);
+
+    return risposta({ ok: true, inviata: esito, dati });
   }
 
   if (azione === 'stato') {
