@@ -75,7 +75,13 @@ async function creaLinkStripe(
   const prezzo = await stripe('/prices', {
     currency: 'eur',
     unit_amount: String(Math.round(Number(buono.valore) * 100)),
-    'product_data[name]': `Buono regalo — ${buono.descrizione}`.slice(0, 250)
+    /* con due voci la descrizione arriva su due righe, e il nome di un
+       prodotto Stripe e' una riga sola: il ritorno a capo si perderebbe e
+       le voci si leggerebbero attaccate sulla pagina di pagamento. Qui
+       l'HTML non c'e', quindi si uniscono con ' · ' come gia' fa
+       ricevutaEmailHTML. */
+    'product_data[name]':
+      `Buono regalo — ${String(buono.descrizione ?? '').split('\n').join(' · ')}`.slice(0, 250)
   });
   const dopo: Record<string, string> = opzioni.redirect
     ? { 'after_completion[type]': 'redirect',

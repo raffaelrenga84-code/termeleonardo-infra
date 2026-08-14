@@ -243,14 +243,18 @@ Deno.test('un elenco vuoto viene rifiutato', () => {
   assertEquals(validaAcquisto({ ...base, voci: [] }).errore, 'voce di listino sconosciuta');
 });
 
-/* 'toString', 'constructor', '__proto__' esistono su LISTINO per
-   ereditarieta' da Object.prototype, non come voci di listino: un accesso
-   diretto LISTINO[id] le troverebbe truthy (una funzione, o per
-   '__proto__' l'oggetto prototipo stesso) e lascerebbe passare una voce
-   fasulla fino al calcolo del prezzo, con NaN al posto di un rifiuto —
-   esattamente il precedente di condizioni.ts con la lingua. */
+/* 'toString', 'constructor', '__proto__', 'hasOwnProperty' e 'valueOf'
+   esistono su LISTINO per ereditarieta' da Object.prototype, non come voci
+   di listino: un accesso diretto LISTINO[id] le troverebbe truthy (una
+   funzione, o per '__proto__' l'oggetto prototipo stesso) e lascerebbe
+   passare una voce fasulla fino al calcolo del prezzo, con NaN al posto di
+   un rifiuto — esattamente il precedente di condizioni.ts con la lingua.
+   L'elenco e' quello intero, non un campione: il test gemello in
+   richieste/condizioni.test.ts prova 'hasOwnProperty', qui mancava, e una
+   guardia che copre tre nomi su cinque lascia aperta la domanda su cosa
+   succeda con gli altri due. Costano una riga e la chiudono per sempre. */
 Deno.test('le proprieta ereditate da Object.prototype non sono voci di listino', () => {
-  for (const finta of ['toString', 'constructor', '__proto__']) {
+  for (const finta of ['toString', 'constructor', '__proto__', 'hasOwnProperty', 'valueOf']) {
     const r = validaAcquisto({ ...base, voci: [{ voce_id: finta, quantita: 1 }] });
     assertEquals(r.errore, 'voce di listino sconosciuta', finta);
   }

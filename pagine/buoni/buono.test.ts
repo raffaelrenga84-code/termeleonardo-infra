@@ -266,6 +266,23 @@ Deno.test('voci che non combaciano col numero di righe: si tace invece di invent
   assertEquals(righeDescrizione(descrizione, voci), [{ testo: 'Trattamento a scelta', quantita: null }]);
 });
 
+/* Il giro completo, in un test solo: componiDescrizione compone, e
+   righeDescrizione riscompone quello che ha composto — non una stringa
+   scritta a mano leggendo acquista.ts. Finora le due meta' erano provate
+   separatamente e coincidevano per fortuna: se domani componiDescrizione
+   cambiasse il separatore (una "x" al posto del "×", o "n. 2 ·" come il
+   carrello della reception), il taglio `^\d+\s*×\s*` di righeDescrizione
+   non morderebbe piu' e il back office mostrerebbe il numero due volte —
+   una nel testo e una nella colonna — senza che nessun test se ne accorga.
+   E' la stessa disciplina gia' applicata a riepilogoVoci qui sopra. */
+Deno.test('andata e ritorno: quello che componiDescrizione compone, righeDescrizione lo riscompone giusto', () => {
+  const voci = [{ voce_id: 'dayspa_wknd', quantita: 4 }, { voce_id: 'antistress45', quantita: 1 }];
+  assertEquals(righeDescrizione(componiDescrizione(voci), voci), [
+    { testo: LISTINO.dayspa_wknd[0], quantita: 4 },
+    { testo: LISTINO.antistress45[0], quantita: null },
+  ]);
+});
+
 Deno.test('buono creato a mano con più righe ma voci null: le righe si vedono, senza quantità', () => {
   const descrizione = 'n. 2 · Massaggio relax\nDay Spa festivo';
   assertEquals(righeDescrizione(descrizione, null), [

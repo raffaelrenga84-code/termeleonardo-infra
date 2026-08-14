@@ -433,11 +433,15 @@ function vistaEmetti() {
       .replace(/^Linfodrenaggio\b/, 'Linfodrenaggi')
       .replace(/^Riflessologia\b/, 'Riflessologie');
   };
-  const rigaTesto = (r) => `n. ${r.q} \u00b7 ${vocePlurale(r.nome, r.q)}`;
-  const descrizioneCarrello = (righe) =>
-    righe.length === 1 && righe[0].q === 1
-      ? righe[0].nome
-      : righe.map(rigaTesto).join('\n');
+  /* il numero si scrive solo quando supera uno: "n. 1 \u00b7 Massaggio antistress"
+     e' il modo in cui un modulo dice a un essere umano che l'ha compilato una
+     macchina, ed e' la stessa soglia di componiDescrizione sul server e di
+     riepilogoVoci sul sito. Prima la soglia valeva solo per il buono a riga
+     unica: con due righe ricompariva "n. 1 \u00b7" su quella da un pezzo, e nello
+     stesso elenco della reception due buoni identici si leggevano in due modi
+     a seconda che fossero nati qui o online. */
+  const rigaTesto = (r) => r.q > 1 ? `n. ${r.q} \u00b7 ${vocePlurale(r.nome, r.q)}` : r.nome;
+  const descrizioneCarrello = (righe) => righe.map(rigaTesto).join('\n');
   const sommaCarrello = (righe) => righe.reduce((s, r) => s + r.prezzo * r.q, 0);
 
   const righeCorrenti = () => {
@@ -734,6 +738,12 @@ function mostraFatto(b, contenitore = 'fFatto') {
 /* email di richiesta pagamento: bonifico e/o link, come nelle offerte */
 const IBAN = 'IT11C0306962321100000006041';
 let LINK_PAGAMENTO = '';
+/* Un buono a due voci ha la descrizione su due righe. In HTML il ritorno a
+   capo non si vede: senza <br /> il cliente si legge le due voci di fila su
+   una riga sola. Si escapa riga per riga, perche' il <br /> e' markup nostro
+   e non va escapato insieme al testo. La versione in testo semplice qui
+   sotto non ne ha bisogno: li' il ritorno a capo e' gia' un ritorno a capo. */
+const righeHTML = (s) => String(s || '').split('\n').map(r => esc(r)).join('<br />');
 function emailRichiesta(b) {
   const link = b.pagamento === 'stripe' && LINK_PAGAMENTO;
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#2A2E2B;max-width:600px;">
@@ -743,7 +753,7 @@ function emailRichiesta(b) {
   definitivo con il codice da consegnare.</p>
   <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:18px 0;">
     <tr><td style="border-left:3px solid #1E7F88;background:#FAF8F4;padding:14px 18px;">
-      <strong>${esc(b.descrizione)}</strong><br />
+      <strong>${righeHTML(b.descrizione)}</strong><br />
       Importo: <strong>${eur(b.valore)} &euro;</strong><br />
       Riferimento: ${esc(b.numero)}
     </td></tr></table>
@@ -784,12 +794,18 @@ function emailRichiestaTesto(b) {
 function buonoTesto(b) {
   const L = ['it','de','en','fr'].includes(b.lingua) ? b.lingua : 'it';
   const e = ETI[L];
+  /* la stessa scelta di buonoHTML e buonoStampaHTML: categoriaBuono guarda
+     solo la prima voce, e con due voci il Day Spa puo' essere la seconda.
+     Prima qui c'era COMPRENDE[categoriaBuono(b)] e la copia in testo
+     semplice \u2014 quella dei pulsanti "Copia" ed "Email a..." \u2014 ometteva
+     l'elenco delle piscine che la versione HTML mostrava. */
+  const catComprende = /day spa/i.test(String(b.descrizione || '')) ? 'dayspa' : categoriaBuono(b);
   return `${e.titolo.toUpperCase()} \u2014 Hotel Terme Leonardo\n` +
     (b.destinatario ? e.haRicevuto(b.destinatario).replace(/<br \/>/g, ' ') + '\n' : '') +
     (b.dedica ? `"${b.dedica}"\n` : '') +
     (b.acquirente ? `${e.da.charAt(0) + e.da.slice(1).toLowerCase()} ${b.acquirente}\n` : '') +
     `\n${b.descrizione}${b.sottotitolo ? '\n' + b.sottotitolo : ''}\n` +
-    (((COMPRENDE[categoriaBuono(b)] || {})[L] || []).map(x => '\u00b7 ' + x).join('\n') || '') +
+    (((COMPRENDE[catComprende] || {})[L] || []).map(x => '\u00b7 ' + x).join('\n') || '') +
     `\n${e.nota}\n` +
     `\n${e.codice}: ${b.codice || '\u2014'}\n${e.valido(dataLingua(b.scade_il, L))}\n\n` +
     `+39 049 9939200 \u00b7 info@termeleonardo.com\n\n${CONDIZIONI[L] || CONDIZIONI.it}`;

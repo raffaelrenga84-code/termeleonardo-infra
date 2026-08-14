@@ -178,6 +178,28 @@ Deno.test('l’avviso all’amministrazione parte da solo, senza toccare il clie
   }
 });
 
+/* Un buono a due voci porta la descrizione su due righe. In HTML un
+   ritorno a capo non si vede: senza <br /> le due voci si leggono di fila
+   su una riga sola, e questo avviso e' la sola traccia che l'amministrazione
+   ha di cosa e' stato venduto quando il buono non passa dal webhook.
+   Stesso difetto gia' visto e gia' risolto in ricevutaEmailHTML. */
+Deno.test('l’avviso all’amministrazione tiene le due voci su righe distinte', async () => {
+  Deno.env.set('RESEND_API_KEY', 'finta');
+  Deno.env.set('EMAIL_AMMINISTRAZIONE', 'amministrazione@termeleonardo.com');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    await avvisaAmministrazione({ ...BUONO,
+      descrizione: '2 × Day Spa festivo\nMassaggio antistress (45 min)' });
+    assertEquals(spedite.length, 1);
+    /* il ritorno a capo del dato non arriva mai tale e quale nell'HTML */
+    assertEquals(spedite[0].html.includes('Day Spa festivo\nMassaggio'), false);
+    assertStringIncludes(spedite[0].html, 'Day Spa festivo<br />Massaggio antistress (45 min)');
+  } finally {
+    ripristina();
+    Deno.env.delete('RESEND_API_KEY'); Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  }
+});
+
 Deno.test('senza indirizzo di amministrazione non si spedisce nulla', async () => {
   Deno.env.set('RESEND_API_KEY', 'test');
   Deno.env.delete('EMAIL_AMMINISTRAZIONE');

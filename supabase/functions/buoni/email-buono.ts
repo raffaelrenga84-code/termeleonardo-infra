@@ -279,11 +279,17 @@ export function ricevutaEmailHTML(b: any): string {
 export async function avvisaAmministrazione(b: any): Promise<boolean> {
   const amm = Deno.env.get('EMAIL_AMMINISTRAZIONE');
   if (!amm) return false;
+  /* la descrizione di un buono a due voci arriva su due righe: in HTML un
+     ritorno a capo non si vede, e senza <br /> le voci si leggerebbero di
+     fila su una riga sola. Si escapa riga per riga, perche' il <br /> e'
+     markup nostro e non va escapato con il testo. Dove l'HTML non c'e'
+     (ricevutaEmailHTML in tabella, il nome prodotto su Stripe) le righe si
+     uniscono invece con ' · '. */
   return await invia(amm,
     `Buono ${b.numero} ${b.pagamento === 'promozionale' ? 'promozionale' : 'pagato'} — ${eur(b.valore)} € (${b.pagamento || ''})`,
     `<div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;">${intestazione()}</div>
     <p style="font-family:Arial;font-size:14px;">Buono <strong>${esc(b.numero)}</strong> · codice <strong>${esc(b.codice)}</strong><br />
-    ${esc(b.descrizione)} · ${eur(b.valore)} € · ${esc(b.pagamento || '')} ${esc(b.pagamento_rif || '')}<br />
+    ${String(b.descrizione ?? '').split('\n').map((r: string) => esc(r)).join('<br />')} · ${eur(b.valore)} € · ${esc(b.pagamento || '')} ${esc(b.pagamento_rif || '')}<br />
     Acquirente: ${esc(b.acquirente || '')} &lt;${esc(b.acquirente_email || '')}&gt;<br />
     Origine: ${esc(b.creato_da || '')}</p>`);
 }
