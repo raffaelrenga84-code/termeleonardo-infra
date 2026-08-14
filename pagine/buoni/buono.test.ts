@@ -6,6 +6,10 @@
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
 import { buonoHTML, categoriaBuono, CONDIZIONI, ETI, riepilogoVoci } from './buono.js';
 import { CONDIZIONI as CONDIZIONI_EMAIL, ETI as ETI_EMAIL } from '../../supabase/functions/buoni/email-buono.ts';
+/* lo stesso schema del confronto qui sopra fra sito ed email: riepilogoVoci
+   non si confronta con stringhe scritte a mano leggendo acquista.ts, si
+   confronta con le funzioni vere del server, importate da qui */
+import { componiDescrizione, sommaVoci, validaAcquisto, LISTINO } from '../../supabase/functions/buoni/acquista.ts';
 
 /* as const: senza, le lingue sono string[] e TypeScript non le accetta come
    chiavi delle condizioni */
@@ -146,46 +150,63 @@ Deno.test('la categoria decide la fotografia', () => {
 
 /* ============================================================
    riepilogoVoci — l'anteprima nella pagina di acquisto deve dire la
-   stessa cosa che comporrà il server (componiDescrizione e sommaVoci
-   in supabase/functions/buoni/acquista.ts): stessa regola sul numero
-   davanti, stessa fusione delle voci ripetute. */
+   stessa cosa che comporrà il server. Non un valore atteso scritto a mano
+   leggendo acquista.ts (coinciderebbe oggi ma nessun test se ne
+   accorgerebbe se domani componiDescrizione cambiasse separatore, ordine
+   di fusione o arrotondamento): il confronto è con l'output vero di
+   componiDescrizione e sommaVoci, chiamate sugli stessi voce_id e la
+   stessa quantità, con nome e prezzo presi dal LISTINO del server — non
+   dal catalogo (distinto) della pagina. */
 
-Deno.test('una sola voce con quantita 1 non porta il numero davanti', () => {
-  const r = riepilogoVoci([{ voce_id: 'relax25', nome: 'Massaggio relax', prezzo: 40, quantita: 1 }]);
-  assertEquals(r.descrizione, 'Massaggio relax');
-  assertEquals(r.valore, 40);
-  assertEquals(r.voci, [{ voce_id: 'relax25', quantita: 1 }]);
+/* costruisce l'ingresso di riepilogoVoci a partire dal listino vero */
+const daListino = (voce_id: string, quantita: number) =>
+  ({ voce_id, nome: LISTINO[voce_id][0], prezzo: LISTINO[voce_id][1], quantita });
+
+Deno.test('una sola voce con quantita 1 non porta il numero davanti, come componiDescrizione', () => {
+  const grezze = [{ voce_id: 'relax25', quantita: 1 }];
+  const r = riepilogoVoci([daListino('relax25', 1)]);
+  assertEquals(r.descrizione, componiDescrizione(grezze));
+  assertEquals(r.valore, sommaVoci(grezze));
+  assertEquals(r.voci, grezze);
 });
 
-Deno.test('la quantita sopra a uno porta il numero davanti, come "4 x Day Spa festivo"', () => {
-  const r = riepilogoVoci([{ voce_id: 'dayspa_wknd', nome: 'Day Spa festivo', prezzo: 45, quantita: 4 }]);
-  assertEquals(r.descrizione, '4 × Day Spa festivo');
-  assertEquals(r.valore, 180);
+Deno.test('la quantita sopra a uno porta il numero davanti, come componiDescrizione', () => {
+  const grezze = [{ voce_id: 'dayspa_wknd', quantita: 4 }];
+  const r = riepilogoVoci([daListino('dayspa_wknd', 4)]);
+  assertEquals(r.descrizione, componiDescrizione(grezze));
+  assertEquals(r.valore, sommaVoci(grezze));
 });
 
-Deno.test('due voci diverse stanno su due righe, la seconda sotto la prima', () => {
-  const r = riepilogoVoci([
-    { voce_id: 'dayspa_wknd', nome: 'Day Spa festivo', prezzo: 45, quantita: 1 },
-    { voce_id: 'relax25', nome: 'Massaggio relax', prezzo: 40, quantita: 2 },
-  ]);
-  assertEquals(r.descrizione, 'Day Spa festivo\n2 × Massaggio relax');
-  assertEquals(r.valore, 45 + 40 * 2);
-  assertEquals(r.voci, [{ voce_id: 'dayspa_wknd', quantita: 1 }, { voce_id: 'relax25', quantita: 2 }]);
+Deno.test('due voci diverse stanno su due righe nello stesso ordine di componiDescrizione', () => {
+  const grezze = [{ voce_id: 'dayspa_wknd', quantita: 1 }, { voce_id: 'relax25', quantita: 2 }];
+  const r = riepilogoVoci([daListino('dayspa_wknd', 1), daListino('relax25', 2)]);
+  assertEquals(r.descrizione, componiDescrizione(grezze));
+  assertEquals(r.valore, sommaVoci(grezze));
+  assertEquals(r.voci, grezze);
 });
 
-Deno.test('la stessa voce scelta due volte si fonde in una riga sola, come fa il server', () => {
-  const r = riepilogoVoci([
-    { voce_id: 'relax25', nome: 'Massaggio relax', prezzo: 40, quantita: 2 },
-    { voce_id: 'relax25', nome: 'Massaggio relax', prezzo: 40, quantita: 2 },
-  ]);
-  assertEquals(r.descrizione, '4 × Massaggio relax');
-  assertEquals(r.valore, 160);
-  assertEquals(r.voci, [{ voce_id: 'relax25', quantita: 4 }]);
+/* qui il confronto passa da validaAcquisto: componiDescrizione e sommaVoci
+   da sole non fondono le voci ripetute, lo fa normalizzaVoci dentro
+   validaAcquisto (non esportata, e giustamente: e' un dettaglio interno).
+   validaAcquisto e' il punto dove il server esegue davvero, sulle due voci
+   grezze cosi' come le manderebbe la pagina, l'intera catena — fusione,
+   composizione e totale — quindi il confronto resta vero dalla richiesta
+   fino al risultato, non solo sull'ultimo pezzo. */
+const BASE_ACQUISTO = { tipo: 'servizio', acquirente_email: 'a@b.it',
+  condizioni_accettate: true, privacy_presa_atto: true, lingua: 'it' };
+
+Deno.test('la stessa voce scelta due volte si fonde in una riga sola, come fa validaAcquisto sul server', () => {
+  const voci = [{ voce_id: 'relax25', quantita: 2 }, { voce_id: 'relax25', quantita: 2 }];
+  const r = riepilogoVoci([daListino('relax25', 2), daListino('relax25', 2)]);
+  const { dati } = validaAcquisto({ ...BASE_ACQUISTO, voci });
+  assertEquals(r.descrizione, dati!.descrizione);
+  assertEquals(r.valore, dati!.valore);
+  assertEquals(r.voci, dati!.voci);
 });
 
-Deno.test('un elenco vuoto compone un buono senza righe e senza valore', () => {
+Deno.test('un elenco vuoto compone un buono senza righe e senza valore, come componiDescrizione', () => {
   const r = riepilogoVoci([]);
-  assertEquals(r.descrizione, '');
-  assertEquals(r.valore, 0);
+  assertEquals(r.descrizione, componiDescrizione([]));
+  assertEquals(r.valore, sommaVoci([]));
   assertEquals(r.voci, []);
 });
