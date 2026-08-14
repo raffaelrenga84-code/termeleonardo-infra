@@ -4,7 +4,7 @@
    sorgente unica delle due copie web: se il buono perde un pezzo, si vede
    qui invece che in produzione. */
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
-import { buonoHTML, categoriaBuono, CONDIZIONI, ETI } from './buono.js';
+import { buonoHTML, categoriaBuono, CONDIZIONI, ETI, riepilogoVoci } from './buono.js';
 import { CONDIZIONI as CONDIZIONI_EMAIL, ETI as ETI_EMAIL } from '../../supabase/functions/buoni/email-buono.ts';
 
 /* as const: senza, le lingue sono string[] e TypeScript non le accetta come
@@ -142,4 +142,50 @@ Deno.test('la categoria decide la fotografia', () => {
   assert(categoriaBuono({ tipo: 'voce', voce_id: 'antistress' }) === 'massaggi');
   assert(categoriaBuono({ tipo: 'voce', voce_id: 'collagene' }) === 'viso');
   assert(categoriaBuono({ tipo: 'voce', voce_id: 'scrub' }) === 'corpo');
+});
+
+/* ============================================================
+   riepilogoVoci — l'anteprima nella pagina di acquisto deve dire la
+   stessa cosa che comporrà il server (componiDescrizione e sommaVoci
+   in supabase/functions/buoni/acquista.ts): stessa regola sul numero
+   davanti, stessa fusione delle voci ripetute. */
+
+Deno.test('una sola voce con quantita 1 non porta il numero davanti', () => {
+  const r = riepilogoVoci([{ voce_id: 'relax25', nome: 'Massaggio relax', prezzo: 40, quantita: 1 }]);
+  assertEquals(r.descrizione, 'Massaggio relax');
+  assertEquals(r.valore, 40);
+  assertEquals(r.voci, [{ voce_id: 'relax25', quantita: 1 }]);
+});
+
+Deno.test('la quantita sopra a uno porta il numero davanti, come "4 x Day Spa festivo"', () => {
+  const r = riepilogoVoci([{ voce_id: 'dayspa_wknd', nome: 'Day Spa festivo', prezzo: 45, quantita: 4 }]);
+  assertEquals(r.descrizione, '4 × Day Spa festivo');
+  assertEquals(r.valore, 180);
+});
+
+Deno.test('due voci diverse stanno su due righe, la seconda sotto la prima', () => {
+  const r = riepilogoVoci([
+    { voce_id: 'dayspa_wknd', nome: 'Day Spa festivo', prezzo: 45, quantita: 1 },
+    { voce_id: 'relax25', nome: 'Massaggio relax', prezzo: 40, quantita: 2 },
+  ]);
+  assertEquals(r.descrizione, 'Day Spa festivo\n2 × Massaggio relax');
+  assertEquals(r.valore, 45 + 40 * 2);
+  assertEquals(r.voci, [{ voce_id: 'dayspa_wknd', quantita: 1 }, { voce_id: 'relax25', quantita: 2 }]);
+});
+
+Deno.test('la stessa voce scelta due volte si fonde in una riga sola, come fa il server', () => {
+  const r = riepilogoVoci([
+    { voce_id: 'relax25', nome: 'Massaggio relax', prezzo: 40, quantita: 2 },
+    { voce_id: 'relax25', nome: 'Massaggio relax', prezzo: 40, quantita: 2 },
+  ]);
+  assertEquals(r.descrizione, '4 × Massaggio relax');
+  assertEquals(r.valore, 160);
+  assertEquals(r.voci, [{ voce_id: 'relax25', quantita: 4 }]);
+});
+
+Deno.test('un elenco vuoto compone un buono senza righe e senza valore', () => {
+  const r = riepilogoVoci([]);
+  assertEquals(r.descrizione, '');
+  assertEquals(r.valore, 0);
+  assertEquals(r.voci, []);
 });

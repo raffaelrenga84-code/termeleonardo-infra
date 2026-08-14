@@ -161,6 +161,30 @@ export const CONDIZIONI = {
   fr: "Ouverture saisonnière : l’hôtel ferme chaque année de fin novembre à février ; le bon n’est pas valable durant cette période. La majorité est requise pour accéder aux piscines, à l’hôtel et au spa ; entrées soumises à disponibilité et réservation obligatoire. Le bon n’est pas utilisable dans les 48 heures suivant l’achat, n’est ni remboursable ni convertible en espèces ; les montants restants après la première utilisation ne sont pas transférables. En cas d’annulation, de modification ou de non-présentation (no-show), le bon n’est pas remboursable. Validité un an à compter de la date d’émission."
 };
 
+/* dalle voci scelte nel modulo di acquisto alla stessa descrizione, allo
+   stesso totale e allo stesso elenco che comporrà il server (componiDescrizione
+   e sommaVoci in supabase/functions/buoni/acquista.ts): prima fonde per
+   voce_id le voci ripetute — scegliere due volte la stessa voce non è un
+   errore, è una quantità, e il server le somma in una riga — poi compone
+   "N × nome" quando la quantità supera uno, il nome soltanto quando è uno
+   solo: "1 × Massaggio" è il modo in cui un modulo dice a un essere umano
+   che l'ha compilato una macchina. Così l'anteprima nella pagina di acquisto
+   dice esattamente quello che dirà il buono vero. Presidiato da buono.test.ts. */
+export function riepilogoVoci(voci) {
+  const mappa = new Map();
+  for (const v of voci) {
+    const precedente = mappa.get(v.voce_id);
+    if (precedente) precedente.quantita += v.quantita;
+    else mappa.set(v.voce_id, { ...v });
+  }
+  const raggruppate = [...mappa.values()];
+  return {
+    descrizione: raggruppate.map(v => v.quantita > 1 ? `${v.quantita} × ${v.nome}` : v.nome).join('\n'),
+    valore: raggruppate.reduce((tot, v) => tot + v.prezzo * v.quantita, 0),
+    voci: raggruppate.map(({ voce_id, quantita }) => ({ voce_id, quantita }))
+  };
+}
+
 export function buonoHTML(b, bozza) {
   const cat = categoriaBuono(b);
   const L = ['it','de','en','fr'].includes(b.lingua) ? b.lingua : 'it';
