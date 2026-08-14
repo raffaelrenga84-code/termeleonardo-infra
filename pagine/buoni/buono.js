@@ -77,25 +77,28 @@ export const ETI = {
     valido:(d)=>`Valido fino al ${d}`, valore:(v)=>`valore ${v} &euro;`,
     anteprima:'ANTEPRIMA \u2014 NON ANCORA VALIDO',
     anteprimaNota:'Il codice viene assegnato al momento del pagamento.',
-    nota:'Salvo diversa indicazione, ogni ingresso o trattamento vale per una persona. Ingressi e trattamenti su prenotazione: basta chiamarci o scriverci.' },
+    /* la frase risponde alla domanda di chi riceve un buono con pi\u00f9 voci
+       (es. "4 \u00d7 Day Spa festivo"): quattro persone insieme o una persona
+       in quattro momenti diversi? "come preferite" lascia scegliere. */
+    nota:'Ogni ingresso o trattamento vale per una persona: potete venire insieme o in momenti diversi, come preferite. Su prenotazione: basta chiamarci o scriverci.' },
   de:{ titolo:'Geschenkgutschein', haRicevuto:(n)=>`${n}, Sie haben<br />ein besonderes Geschenk erhalten`,
     senzaNome:'Ein besonderes<br />Geschenk f\u00fcr Sie', da:'HERZLICHST, VON', codice:'GUTSCHEINCODE',
     valido:(d)=>`G\u00fcltig bis ${d}`, valore:(v)=>`Wert ${v} &euro;`,
     anteprima:'VORSCHAU \u2014 NOCH NICHT G\u00dcLTIG',
     anteprimaNota:'Der Code wird bei Zahlungseingang vergeben.',
-    nota:'Sofern nicht anders angegeben, gilt jeder Eintritt bzw. jede Anwendung f\u00fcr eine Person. Eintritte und Anwendungen nur mit Reservierung: rufen Sie uns einfach an oder schreiben Sie uns.' },
+    nota:'Jeder Eintritt und jede Anwendung gilt f\u00fcr eine Person: Sie k\u00f6nnen gemeinsam kommen oder zu verschiedenen Zeiten, ganz wie Sie m\u00f6chten. Auf Reservierung: rufen Sie uns an oder schreiben Sie uns.' },
   en:{ titolo:'Gift Voucher', haRicevuto:(n)=>`${n}, you have received<br />a special gift`,
     senzaNome:'A special gift<br />for you', da:'WITH LOVE, FROM', codice:'VOUCHER CODE',
     valido:(d)=>`Valid until ${d}`, valore:(v)=>`value ${v} &euro;`,
     anteprima:'PREVIEW \u2014 NOT YET VALID',
     anteprimaNota:'The code is assigned once payment is received.',
-    nota:'Unless stated otherwise, each entrance or treatment is for one person. Entrances and treatments require booking: just call or write to us.' },
+    nota:'Each admission or treatment is for one person: you can come together or at different times, as you prefer. By reservation: just call or write to us.' },
   fr:{ titolo:'Bon Cadeau', haRicevuto:(n)=>`${n}, vous avez re\u00e7u<br />un cadeau tr\u00e8s sp\u00e9cial`,
     senzaNome:'Un cadeau sp\u00e9cial<br />pour vous', da:'AVEC AFFECTION, DE', codice:'CODE DU BON',
     valido:(d)=>`Valable jusqu'au ${d}`, valore:(v)=>`valeur ${v} &euro;`,
     anteprima:'APER\u00c7U \u2014 PAS ENCORE VALABLE',
     anteprimaNota:'Le code est attribu\u00e9 au moment du paiement.',
-    nota:'Sauf indication contraire, chaque entr\u00e9e ou soin vaut pour une personne. Entr\u00e9es et soins sur r\u00e9servation : appelez-nous ou \u00e9crivez-nous.' }
+    nota:'Chaque entr\u00e9e ou soin vaut pour une personne : vous pouvez venir ensemble ou \u00e0 des moments diff\u00e9rents, comme vous pr\u00e9f\u00e9rez. Sur r\u00e9servation : appelez-nous ou \u00e9crivez-nous.' }
 };
 
 export const MESI_L = {

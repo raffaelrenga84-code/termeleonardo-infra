@@ -115,13 +115,13 @@ Deno.test('nell’email il logo è un PNG, mai un SVG', () => {
    verrebbe mai a sapere che un ingresso vale per una persona. */
 Deno.test('l’email porta la nota su persone e prenotazione, nella sua lingua', () => {
   assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'it' }),
-    'ogni ingresso o trattamento vale per una persona');
+    'Ogni ingresso o trattamento vale per una persona: potete venire insieme o in momenti diversi, come preferite');
   assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'de' }),
-    'gilt jeder Eintritt bzw. jede Anwendung für eine Person');
+    'Jeder Eintritt und jede Anwendung gilt für eine Person: Sie können gemeinsam kommen oder zu verschiedenen Zeiten, ganz wie Sie möchten');
   assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'en' }),
-    'each entrance or treatment is for one person');
+    'Each admission or treatment is for one person: you can come together or at different times, as you prefer');
   assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'fr' }),
-    'chaque entrée ou soin vaut pour une personne');
+    'Chaque entrée ou soin vaut pour une personne : vous pouvez venir ensemble ou à des moments différents, comme vous préférez');
 });
 
 Deno.test('un buono con più voci resta su più righe anche nell’email', () => {

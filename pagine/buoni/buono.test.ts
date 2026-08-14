@@ -51,7 +51,7 @@ Deno.test('il buono porta contatti, scadenza e condizioni', () => {
   assertStringIncludes(h, 'www.termeleonardo.com');
   assertStringIncludes(h, '+39 049 9939200');
   assertStringIncludes(h, '13 agosto 2027');
-  assertStringIncludes(h, 'su prenotazione');
+  assertStringIncludes(h, 'Su prenotazione');
   assertStringIncludes(h, 'da fine novembre a febbraio');
 });
 
