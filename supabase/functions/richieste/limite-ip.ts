@@ -50,14 +50,21 @@ export function creaFrenoIp(tetto: number, finestraMs: number, maxIndirizzi = MA
       return false;
     }
 
-    /* Un indirizzo nuovo che arriva quando la mappa e' gia' al tetto passa
-       comunque, senza essere tracciato: questo e' un freno contro un
-       abuso a raffica sul sito dell'hotel, non un sistema antifrode. Fra
-       rifiutare un ospite vero e lasciar passare qualche chiamata di
-       troppo quando la memoria e' sotto pressione, l'errore giusto e' il
-       secondo. */
+    /* Un indirizzo nuovo che arriva quando la mappa e' gia' al tetto sfratta
+       la voce piu' vecchia (la prima nell'ordine di inserimento della Map),
+       invece di passare senza essere tracciato. Non tracciarlo sembrava la
+       scelta piu' gentile, ma non lo e': un indirizzo mai inserito scavalca
+       il freno non una volta sola, ma su OGNI chiamata successiva finche' la
+       mappa resta satura — e tenerla satura costa poco a chi la vuole
+       sfruttare, quindi equivale a spegnere il freno del tutto. Sfrattando
+       si evitano ENTRAMBI i problemi: la mappa non supera mai il tetto, e
+       ogni indirizzo — nuovo compreso — resta comunque tracciato e soggetto
+       al proprio tetto di chiamate dalla prossima volta. Nessun ospite vero
+       viene rifiutato: nel peggiore dei casi la voce sfrattata (magari
+       ancora attiva) riparte semplicemente da zero. */
     if (!chiamate.has(ip) && chiamate.size >= maxIndirizzi) {
-      return true;
+      const piuVecchio = chiamate.keys().next().value;
+      if (piuVecchio !== undefined) chiamate.delete(piuVecchio);
     }
 
     recenti.push(adesso);

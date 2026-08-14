@@ -60,3 +60,27 @@ Deno.test('la mappa non supera il tetto di dimensione anche con molti indirizzi 
   }
   assertEquals(permesso.dimensione() <= 100, true);
 });
+
+/* A mappa satura, un indirizzo nuovo non deve scavalcare il freno per
+   sempre: deve restare tracciato come tutti gli altri, e quindi frenato
+   dopo il SUO tetto di chiamate. Se invece un indirizzo nuovo passasse
+   senza mai essere aggiunto alla mappa (come faceva la versione precedente
+   quando la mappa era piena), scavalcherebbe il freno su ogni chiamata
+   successiva finche' la mappa resta satura — e tenerla satura costa poco:
+   e' un modo per disattivare il freno del tutto, non solo un'eccezione. */
+Deno.test('anche a mappa satura, un indirizzo nuovo resta soggetto al proprio tetto', () => {
+  const permesso = creaFrenoIp(2, 60_000, 3);
+  /* satura la mappa con 3 indirizzi diversi dal tetto */
+  permesso('10.0.0.1', 0);
+  permesso('10.0.0.2', 0);
+  permesso('10.0.0.3', 0);
+  assertEquals(permesso.dimensione(), 3);
+
+  /* un indirizzo nuovo arriva mentre la mappa e' gia' al tetto */
+  const nuovo = '10.0.0.4';
+  assertEquals(permesso(nuovo, 1), true);
+  assertEquals(permesso(nuovo, 2), true);
+  /* la terza chiamata dello stesso nuovo indirizzo supera il suo tetto di
+     2: deve essere frenata, non passare ancora perche' "nuovo" */
+  assertEquals(permesso(nuovo, 3), false);
+});
