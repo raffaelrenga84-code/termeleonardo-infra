@@ -152,6 +152,17 @@ const fraDodiciMesi = () => {
   return d.toISOString().slice(0, 10);
 };
 const eur = (n) => Number(n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 });
+/* Lo stesso arrotondamento del server: Math.round(Number(b.valore) || 0)
+   dentro validaAcquisto, in supabase/functions/buoni/acquista.ts. Il
+   valore di un campo numerico e' sempre una stringa, e parseFloat la
+   accetterebbe con i decimali anche se lo step del campo e' 1 — chi
+   scriveva "100.6" vedeva "100,60 €" nell'anteprima e nel pulsante, e la
+   carta veniva addebitata di 101. Non importata dal server per lo stesso
+   motivo di QUANTITA_MAX piu' sotto: pagina statica ed edge function
+   vivono in due ambienti diversi. Presidiato da regala/importo.test.ts,
+   che confronta questa stessa espressione con l'arrotondamento vero di
+   validaAcquisto. */
+const arrotondaValore = (v) => Math.round(Number(v) || 0);
 
 /* ---------- lingua della pagina ---------- */
 const qs = new URLSearchParams(location.search);
@@ -396,7 +407,7 @@ function modulo() {
       <div id="boxValore" style="display:none;">
         <label>${esc(t.importo)}</label>
         <input type="number" id="fValore" min="25" max="1000" step="1" placeholder="100" />
-        <div class="mini" style="margin-top:5px;">${esc(t.importoGuida)}</div>
+        <div class="mini" id="importoGuida" style="margin-top:5px;">${esc(t.importoGuida)}</div>
       </div>
       <div class="chiusura">${esc(g.chiusura)}</div>
     </div>
@@ -480,6 +491,18 @@ function modulo() {
     return (Number($('fQta1').value) || 0) + (Number($('fQta2').value) || 0) > QUANTITA_MAX;
   };
 
+  /* stesso principio di vociFuseTroppo qui sopra: il limite vero resta sul
+     server (25-1.000 €, in acquista.ts), ma se la cifra digitata lo supera
+     l'ospite deve saperlo subito — non al momento di pagare, quando
+     l'anteprima avrebbe gia' mostrato un buono che non puo' esistere. Zero
+     (campo vuoto, o non ancora un numero) non conta come fuori limite: e'
+     semplicemente un campo non ancora compilato. */
+  const importoFuoriLimiti = () => {
+    if (TIPO !== 'valore') return false;
+    const v = arrotondaValore($('fValore').value);
+    return v !== 0 && (v < 25 || v > 1000);
+  };
+
   const stato = () => {
     const servizio = TIPO === 'servizio';
     let descrizione = '', valore = 0, voce_id = null, voci = [];
@@ -492,8 +515,14 @@ function modulo() {
       descrizione = r.descrizione; valore = r.valore; voci = r.voci;
       voce_id = voci[0] ? voci[0].voce_id : null;
     } else {
-      valore = parseFloat($('fValore').value) || 0;
-      descrizione = valore > 0 ? (TESTO_VALORE[$('fLingua').value] || TESTO_VALORE.it)(eur(valore)) : '';
+      /* stesso arrotondamento del server: vedi il commento su
+         arrotondaValore piu' sopra. Fuori dai limiti (25-1.000 €)
+         l'anteprima non disegna nessuna cifra — mostrare "Buono valore di
+         1.000.000,00 €" prometterebbe un buono che il server rifiuterebbe
+         comunque al momento di pagare */
+      valore = arrotondaValore($('fValore').value);
+      const entroLimiti = valore >= 25 && valore <= 1000;
+      descrizione = entroLimiti ? (TESTO_VALORE[$('fLingua').value] || TESTO_VALORE.it)(eur(valore)) : '';
     }
     return { tipo: TIPO, voce_id: servizio ? voce_id : null, voci: servizio ? voci : [],
       descrizione, valore,
@@ -520,6 +549,11 @@ function modulo() {
     const erroreVoci = $('erroreVoci');
     if (vociFuseTroppo()) { erroreVoci.textContent = t.stessaVoceTroppo; erroreVoci.style.display = ''; }
     else erroreVoci.style.display = 'none';
+    /* stesso schema, per l'importo libero: il testo di aiuto gia' dice il
+       limite ("da 25 a 1.000 €"), colorarlo di avviso quando lo si supera
+       basta a farlo notare mentre si scrive, senza inventare un secondo
+       messaggio che dovrebbe restare tradotto in ogni lingua */
+    $('importoGuida').classList.toggle('errore', importoFuoriLimiti());
     aggiornaPaga();
   };
 
@@ -571,7 +605,10 @@ function modulo() {
      prende atto. Il pulsante si sblocca solo con tutti e due, e il server
      li pretende separati anche se qualcuno aggirasse la pagina. */
   const privacyOk = () => $('fPrivacy').checked;
-  const tuttoOk = () => condOk() && privacyOk() && !vociFuseTroppo();
+  /* !importoFuoriLimiti(): stesso trattamento di !vociFuseTroppo() qui
+     accanto — l'ospite non deve poter premere "paga" mentre l'importo
+     digitato e' fuori dai limiti, scoprendolo solo dal rifiuto del server */
+  const tuttoOk = () => condOk() && privacyOk() && !vociFuseTroppo() && !importoFuoriLimiti();
   const aggiornaPaga = () => { $('fPaga').disabled = inviando || !tuttoOk(); };
   $('fCond').onchange = $('fPrivacy').onchange = () => {
     aggiornaPaga();
