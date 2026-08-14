@@ -84,6 +84,11 @@ textarea{min-height:80px;resize:vertical;}
    del file, e sotto un indirizzo tradotto la pagina resta bianca — vedi il
    commento in prenota/index.html e in date.js per il dettaglio. */
 import { oggiISO, attivaDate } from '/comune/date.js';
+/* Tipo e lingua vanno letti anche dal PERCORSO, non solo dalla query: sotto
+   un indirizzo tradotto come /it/trattamenti la query della riscrittura non
+   arriva alla pagina, e leggendo solo location.search questa pagina apriva
+   il modulo dei green fee a chi aveva chiesto i trattamenti. */
+import { indirizzoPerLingua, linguaScelta, tipoScelto } from '/comune/percorso.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 
@@ -94,10 +99,8 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
 const qs = new URLSearchParams(location.search);
 const TOKEN = qs.get('t') || '';
 const TIPI = ['greenfee','maestro','trattamenti'];
-const TIPO = TIPI.includes(qs.get('tipo')) ? qs.get('tipo') : 'greenfee';
-let LNG = ['it','de','en','fr'].includes(qs.get('l')) ? qs.get('l')
-  : (['de','fr','it'].includes((navigator.language || '').slice(0,2))
-     ? (navigator.language || '').slice(0,2) : 'en');
+const TIPO = tipoScelto(location.search, location.pathname, TIPI, 'greenfee');
+let LNG = linguaScelta(location.search, location.pathname, navigator.language);
 
 const CIRCOLI = [
   ['montecchia', 'Golf della Montecchia — Selvazzano Dentro · 27 buche, par 72'],
@@ -254,8 +257,11 @@ function testata() {
       '<option value="' + l + '"' + (l === LNG ? ' selected' : '') + '>' +
         BANDIERE[l] + ' ' + l.toUpperCase() + '</option>').join('') + '</select>';
   $('selLingua').onchange = (e) => {
-    location.search = '?tipo=' + TIPO + '&l=' + e.target.value +
-      (TOKEN ? '&t=' + encodeURIComponent(TOKEN) : '');
+    /* su un indirizzo tradotto si resta tradotti: cambiando lingua l'ospite
+       non deve vedere la barra tornare a un indirizzo tecnico */
+    let dove = indirizzoPerLingua(location.pathname, location.search, TIPO, e.target.value);
+    if (TOKEN) dove += (dove.includes('?') ? '&' : '?') + 't=' + encodeURIComponent(TOKEN);
+    location.href = dove;
   };
   $('tPie').innerHTML = `Hotel Terme Leonardo &middot; Via Monteortone 46, Abano Terme &middot;
     <a href="tel:+390499939200">+39 049 9939200</a> &middot;
