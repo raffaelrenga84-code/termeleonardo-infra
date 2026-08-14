@@ -12,8 +12,9 @@
    ============================================================ */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { validaContatti, validaParametriDisponibilita, validaRichiesta } from './valida.ts';
+import { validaParametriDisponibilita } from './valida.ts';
 import { validaDati } from './tipi.ts';
+import { componiRichiesta, type Contatti } from './componi-richiesta.ts';
 import { avvisaHotel } from './email-richiesta.ts';
 import { inviaConferma } from './conferma.ts';
 import { componiRisposta } from './disponibilita.ts';
@@ -112,28 +113,17 @@ Deno.serve(async (req) => {
     try { corpo = await req.json(); }
     catch { return risposta({ errore: 'richiesta illeggibile' }, 400); }
 
-    /* Il tipo decide cosa si valida. Il soggiorno tiene i suoi campi nelle
-       colonne della tabella, gli altri tipi nel jsonb `dati`: cosi' un tipo
-       nuovo non richiede una migrazione. */
-    const tipo = testo(corpo.tipo) || 'soggiorno';
-    let contatti: { nome: string; email: string; telefono: string; lingua: string };
-    let colonne: Record<string, unknown> = {};
-    let propri: Record<string, unknown> | null = null;
-
-    if (tipo === 'soggiorno') {
-      const { errore, dati } = validaRichiesta(corpo);
-      if (errore || !dati) return risposta({ errore }, 400);
-      contatti = { nome: dati.nome, email: dati.email, telefono: dati.telefono, lingua: dati.lingua };
-      colonne = dati;
-    } else {
-      const c = validaContatti(corpo);
-      if (c.errore || !c.dati) return risposta({ errore: c.errore }, 400);
-      const d = validaDati(tipo, (corpo.dati || {}) as Record<string, unknown>);
-      if (d.errore || !d.dati) return risposta({ errore: d.errore }, 400);
-      contatti = c.dati;
-      colonne = { ...c.dati };
-      propri = d.dati;
+    /* Cosa si valida e cosa finisce dove vive in componi-richiesta.ts, non
+       qui: e' un modulo puro, collaudato da solo, che Deno.serve non puo'
+       far scavalcare in silenzio come e' gia' successo una volta. */
+    const composta = componiRichiesta(corpo);
+    if (composta.errore || !composta.contatti || !composta.colonne) {
+      return risposta({ errore: composta.errore }, 400);
     }
+    const tipo = composta.tipo!;
+    const contatti: Contatti = composta.contatti;
+    const colonne = composta.colonne;
+    const propri = composta.dati ?? null;
 
     const ip = indirizzo(req);
     if (await troppeRichieste(contatti.email, ip)) {
