@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            from: 'Prepara arrivo <noreply@termeleonardo.com>',
+            from: Deno.env.get('MITTENTE_EMAIL') || 'Prepara arrivo <noreply@hoteltermeleonardo.com>',
             to: [DESTINATARIO],
             subject: `PREPARA ARRIVO — ${link.intestatario} — ${link.data_arrivo}`,
             html: righe.join('<br>')

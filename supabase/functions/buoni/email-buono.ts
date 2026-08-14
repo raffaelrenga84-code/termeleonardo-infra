@@ -205,7 +205,7 @@ async function invia(a: string, oggetto: string, html: string) {
     method: 'POST',
     headers: { authorization: `Bearer ${chiave}`, 'content-type': 'application/json' },
     body: JSON.stringify({
-      from: Deno.env.get('MITTENTE_EMAIL') || 'Hotel Terme Leonardo <onboarding@resend.dev>',
+      from: Deno.env.get('MITTENTE_EMAIL') || 'Hotel Terme Leonardo <noreply@hoteltermeleonardo.com>',
       to: [a], subject: oggetto, html
     })
   });

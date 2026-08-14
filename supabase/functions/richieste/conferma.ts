@@ -178,7 +178,7 @@ export async function inviaConferma(r: Richiesta): Promise<boolean> {
       method: 'POST',
       headers: { authorization: `Bearer ${chiave}`, 'content-type': 'application/json' },
       body: JSON.stringify({
-        from: Deno.env.get('MITTENTE_EMAIL') || 'Hotel Terme Leonardo <onboarding@resend.dev>',
+        from: Deno.env.get('MITTENTE_EMAIL') || 'Hotel Terme Leonardo <noreply@hoteltermeleonardo.com>',
         to: r.email,
         /* rispondendo, l'ospite scrive all'hotel: e' la sua via per
            correggere qualcosa senza cercare l'indirizzo */

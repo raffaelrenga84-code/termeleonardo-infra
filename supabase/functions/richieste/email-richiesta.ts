@@ -173,7 +173,7 @@ export async function avvisaHotel(r: ConNumero): Promise<boolean> {
       method: 'POST',
       headers: { authorization: `Bearer ${chiave}`, 'content-type': 'application/json' },
       body: JSON.stringify({
-        from: Deno.env.get('MITTENTE_EMAIL') || 'Hotel Terme Leonardo <onboarding@resend.dev>',
+        from: Deno.env.get('MITTENTE_EMAIL') || 'Hotel Terme Leonardo <noreply@hoteltermeleonardo.com>',
         to: a,
         reply_to: r.email,
         subject: `${r.numero} · richiesta dal sito · ${r.nome}`,
