@@ -3,6 +3,7 @@
    comincerebbero a fallire da soli col passare del tempo. */
 import { assertEquals } from 'jsr:@std/assert';
 import { validaDati } from './tipi.ts';
+import { CAMERE } from './camere.ts';
 
 const OGGI = new Date('2026-08-13T10:00:00Z');
 
@@ -174,4 +175,36 @@ Deno.test('volo e note sono facoltativi ma non sconfinati', () => {
   assertEquals(senza.dati!.volo, '');
   assertEquals(validaDati('transfer', { ...transfer, note: 'a'.repeat(3000) }, OGGI).errore,
     'note troppo lunghe');
+});
+
+/* ---------------- soggiorno ---------------- */
+Deno.test('un soggiorno senza camera scelta resta valido come prima', () => {
+  const { errore, dati } = validaDati('soggiorno', {}, OGGI);
+  assertEquals(errore, undefined);
+  assertEquals(dati, {});
+});
+
+Deno.test('la camera scelta viene registrata', () => {
+  const { errore, dati } = validaDati('soggiorno', {
+    camera_id: 5, variante_id: 1, tariffa: 'Soggiorno breve',
+    trattamento: 'Mezza Pensione', prezzo_cent: 31000,
+  }, OGGI);
+  assertEquals(errore, undefined);
+  assertEquals(dati!.camera_id, 5);
+  assertEquals(dati!.prezzo_cent, 31000);
+  assertEquals(dati!.nome_camera, CAMERE[5].nome);
+});
+
+Deno.test('una camera inesistente viene rifiutata', () => {
+  assertEquals(validaDati('soggiorno', { camera_id: 999 }, OGGI).errore,
+    'camera sconosciuta');
+});
+
+/* il prezzo arriva dal cliente e non ci si fida: serve solo a mostrare cosa
+   ha visto l'ospite, e un numero assurdo va fermato prima di finire in email */
+Deno.test('un prezzo assurdo viene rifiutato', () => {
+  assertEquals(validaDati('soggiorno', { camera_id: 5, prezzo_cent: -1 }, OGGI).errore,
+    'prezzo non valido');
+  assertEquals(validaDati('soggiorno', { camera_id: 5, prezzo_cent: 99999999 }, OGGI).errore,
+    'prezzo non valido');
 });

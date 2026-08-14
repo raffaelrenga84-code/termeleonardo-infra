@@ -9,6 +9,7 @@
    ============================================================ */
 
 import { CIRCOLI_GOLF, luogoValido } from './luoghi.ts';
+import { CAMERE } from './camere.ts';
 
 export const TIPI_ATTIVI = ['soggiorno', 'transfer', 'greenfee', 'maestro', 'trattamenti'] as const;
 
@@ -193,10 +194,37 @@ function validaTrattamenti(d: Record<string, unknown>, oggi: Date): Esito {
 }
 
 /* ---------------- soggiorno ---------------- */
-/* Il tipo storico: i suoi campi stanno nelle colonne della tabella, non in
-   jsonb, e li controlla valida.ts. Qui non c'e' nulla da validare. */
-function validaSoggiorno(): Esito {
-  return { dati: {} };
+/* I campi del soggiorno stanno nelle colonne della tabella e li controlla
+   valida.ts. La camera scelta sulla pagina di prenotazione e' invece nuova e
+   va in `dati` jsonb, che esiste gia': nessuna migrazione.
+
+   Il prezzo arriva dal cliente e non fa testo: serve solo a mostrare in email
+   e in back office quello che l'ospite aveva davanti quando ha scelto. Si
+   ferma comunque un numero assurdo, che in una email farebbe brutta figura. */
+const PREZZO_MAX_CENT = 5_000_000;   // 50.000 euro
+
+function validaSoggiorno(d: Record<string, unknown>): Esito {
+  const id = d?.camera_id;
+  if (id === undefined || id === null || id === '') return { dati: {} };
+
+  const n = Number(id);
+  if (!Number.isInteger(n) || !CAMERE[n]) return { errore: 'camera sconosciuta' };
+
+  const p = d?.prezzo_cent === undefined ? null : Number(d.prezzo_cent);
+  if (p !== null && (!Number.isFinite(p) || p < 0 || p > PREZZO_MAX_CENT)) {
+    return { errore: 'prezzo non valido' };
+  }
+
+  return {
+    dati: {
+      camera_id: n,
+      nome_camera: CAMERE[n].nome,
+      variante_id: Number(d?.variante_id) || 0,
+      tariffa: String(d?.tariffa ?? '').trim().slice(0, 60),
+      trattamento: String(d?.trattamento ?? '').trim().slice(0, 60),
+      ...(p !== null ? { prezzo_cent: p, valuta: 'centesimi' } : {}),
+    },
+  };
 }
 
 export function validaDati(
@@ -205,7 +233,7 @@ export function validaDati(
   oggi: Date = new Date(),
 ): Esito {
   switch (tipo) {
-    case 'soggiorno': return validaSoggiorno();
+    case 'soggiorno': return validaSoggiorno(d || {});
     case 'transfer': return validaTransfer(d || {}, oggi);
     case 'greenfee': return validaGreenfee(d || {}, oggi);
     case 'maestro': return validaMaestro(d || {}, oggi);
