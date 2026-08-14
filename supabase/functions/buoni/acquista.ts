@@ -137,6 +137,14 @@ export function sommaVoci(voci: Voce[]): number {
   return voci.reduce((t, v) => t + LISTINO[v.voce_id][1] * v.quantita, 0);
 }
 
+/* Cosa finisce nella colonna jsonb voci al salvataggio. null e [] sono due
+   cose diverse per chi legge i dati — il back office le distingue — e un
+   buono monetario non ha scelto niente da un elenco: la colonna resta
+   null, non un array vuoto. */
+export function colonnaVoci(voci: Voce[]): Voce[] | null {
+  return voci.length ? voci : null;
+}
+
 export function validaAcquisto(b: Record<string, unknown>):
   { errore?: string; dati?: DatiAcquisto } {
   const lingua = ['it', 'de', 'en', 'fr'].includes(String(b.lingua)) ? String(b.lingua) : 'it';

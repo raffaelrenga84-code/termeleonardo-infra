@@ -1,7 +1,7 @@
 /* Test del ramo pubblico a=acquista: la validazione è l'unica
    fonte dei prezzi — quello che arriva dal browser non conta. */
 import { assertEquals, assertMatch } from 'jsr:@std/assert';
-import { LISTINO, validaAcquisto } from './acquista.ts';
+import { LISTINO, validaAcquisto, colonnaVoci } from './acquista.ts';
 
 Deno.test('rifiuta email mancante o malformata', () => {
   const r1 = validaAcquisto({ tipo: 'valore', valore: 100 });
@@ -262,4 +262,25 @@ Deno.test('il buono monetario resta com era', () => {
   assertEquals(errore, undefined);
   assertEquals(dati!.valore, 100);
   assertEquals(dati!.voci.length, 0);
+});
+
+/* ============================================================
+   colonnaVoci: cosa finisce nella colonna jsonb al salvataggio.
+   null e [] sono due cose diverse per chi legge i dati (il back
+   office le distingue): un buono monetario non ha scelto niente
+   da un elenco, quindi la colonna resta null, non un array vuoto.
+   ============================================================ */
+
+Deno.test('colonnaVoci: un elenco vuoto (buono monetario) diventa null', () => {
+  assertEquals(colonnaVoci([]), null);
+});
+
+Deno.test('colonnaVoci: le voci scelte passano invariate', () => {
+  const voci = [{ voce_id: 'dayspa_wknd', quantita: 4 }, { voce_id: 'antistress45', quantita: 4 }];
+  assertEquals(colonnaVoci(voci), voci);
+});
+
+Deno.test('colonnaVoci: una voce sola passa invariata', () => {
+  const voci = [{ voce_id: 'relax25', quantita: 1 }];
+  assertEquals(colonnaVoci(voci), voci);
 });

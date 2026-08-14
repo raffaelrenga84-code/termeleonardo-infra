@@ -24,7 +24,7 @@
      POST ?a=webhook    → incasso confermato: emette il codice da sé
    ============================================================ */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { validaAcquisto } from './acquista.ts';
+import { validaAcquisto, colonnaVoci } from './acquista.ts';
 import { nasceGiaPagato } from './pagamenti.ts';
 import { entroIlLimite, troppiDalSito } from './limite.ts';
 import { avvisaAmministrazione, inviaBuonoEmesso, statoConsegna } from './email-buono.ts';
@@ -330,6 +330,9 @@ Deno.serve(async (req) => {
     const { data: ins, error } = await db.from('buono_regalo').insert({
       anno: riga0.anno, progressivo: riga0.progressivo, numero: riga0.numero,
       stato: 'attesa', tipo: d.tipo, voce_id: d.voce_id,
+      /* la scelta in forma leggibile da una macchina: null per i buoni
+         monetari, non un array vuoto — vedi colonnaVoci in acquista.ts */
+      voci: colonnaVoci(d.voci),
       descrizione: d.descrizione, valore: d.valore, lingua: d.lingua,
       acquirente: d.acquirente || null,
       acquirente_email: d.acquirente_email,
