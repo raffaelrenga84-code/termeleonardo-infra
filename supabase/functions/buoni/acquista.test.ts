@@ -1,7 +1,7 @@
 /* Test del ramo pubblico a=acquista: la validazione è l'unica
    fonte dei prezzi — quello che arriva dal browser non conta. */
 import { assertEquals, assertMatch } from 'jsr:@std/assert';
-import { validaAcquisto } from './acquista.ts';
+import { LISTINO, validaAcquisto } from './acquista.ts';
 
 Deno.test('rifiuta email mancante o malformata', () => {
   const r1 = validaAcquisto({ tipo: 'valore', valore: 100 });
@@ -151,4 +151,102 @@ Deno.test('le condizioni da sole non bastano: sono due consensi', () => {
     condizioni_accettate: true,
   });
   assertEquals(r.errore, 'informativa privacy non accettata');
+});
+
+/* ============================================================
+   Voci multiple con quantita': fino a due voci diverse, quantita'
+   da 1 a 4, prezzo sempre somma secca del listino server.
+   ============================================================ */
+
+const base = {
+  tipo: 'servizio', lingua: 'it', destinatario: 'Anna',
+  acquirente: 'Mario', acquirente_email: 'mario@email.it',
+  condizioni_accettate: true, privacy_presa_atto: true,
+};
+
+Deno.test('due voci con quantita fanno la somma secca del listino', () => {
+  const { errore, dati } = validaAcquisto({ ...base, voci: [
+    { voce_id: 'dayspa_wknd', quantita: 4 },
+    { voce_id: 'antistress45', quantita: 4 },
+  ]});
+  assertEquals(errore, undefined);
+  const atteso = LISTINO['dayspa_wknd'][1] * 4 + LISTINO['antistress45'][1] * 4;
+  assertEquals(dati!.valore, atteso);
+  assertEquals(dati!.voci.length, 2);
+});
+
+/* il prezzo arriva dal cliente e non fa testo: vale il listino del server */
+Deno.test('un prezzo mandato dal cliente viene ignorato', () => {
+  const { dati } = validaAcquisto({ ...base, valore: 1,
+    voci: [{ voce_id: 'dayspa_wknd', quantita: 1 }] });
+  assertEquals(dati!.valore, LISTINO['dayspa_wknd'][1]);
+});
+
+Deno.test('una voce sola senza quantita continua a funzionare come prima', () => {
+  const { errore, dati } = validaAcquisto({ ...base, voce_id: 'dayspa_wknd' });
+  assertEquals(errore, undefined);
+  assertEquals(dati!.valore, LISTINO['dayspa_wknd'][1]);
+  assertEquals(dati!.voci.length, 1);
+  assertEquals(dati!.voci[0].quantita, 1);
+});
+
+Deno.test('tre voci vengono rifiutate', () => {
+  assertEquals(validaAcquisto({ ...base, voci: [
+    { voce_id: 'dayspa_wknd', quantita: 1 },
+    { voce_id: 'antistress45', quantita: 1 },
+    { voce_id: 'relax25', quantita: 1 },
+  ]}).errore, 'al massimo due voci');
+});
+
+/* chi sceglie due volte la stessa voce sta dicendo una quantita', non due
+   voci: si sommano, altrimenti il tetto di quattro si aggira scegliendo la
+   stessa voce due volte */
+Deno.test('la stessa voce due volte si somma in una riga', () => {
+  const { errore, dati } = validaAcquisto({ ...base, voci: [
+    { voce_id: 'relax25', quantita: 2 },
+    { voce_id: 'relax25', quantita: 2 },
+  ]});
+  assertEquals(errore, undefined);
+  assertEquals(dati!.voci.length, 1);
+  assertEquals(dati!.voci[0].quantita, 4);
+  assertEquals(dati!.valore, LISTINO['relax25'][1] * 4);
+});
+
+Deno.test('la stessa voce due volte non aggira il tetto di quattro', () => {
+  assertEquals(validaAcquisto({ ...base, voci: [
+    { voce_id: 'relax25', quantita: 3 },
+    { voce_id: 'relax25', quantita: 3 },
+  ]}).errore, 'quantita fuori dai limiti (1-4)');
+});
+
+Deno.test('quantita fuori dai limiti o non intere vengono rifiutate', () => {
+  for (const q of [0, -1, 5, 2.5, NaN]) {
+    assertEquals(validaAcquisto({ ...base,
+      voci: [{ voce_id: 'relax25', quantita: q }] }).errore,
+      'quantita fuori dai limiti (1-4)', `quantita ${q}`);
+  }
+});
+
+Deno.test('una quantita scritta come testo viene letta, non rifiutata a caso', () => {
+  const { errore, dati } = validaAcquisto({ ...base,
+    voci: [{ voce_id: 'relax25', quantita: '3' }] });
+  assertEquals(errore, undefined);
+  assertEquals(dati!.voci[0].quantita, 3);
+});
+
+Deno.test('una voce inesistente viene rifiutata', () => {
+  assertEquals(validaAcquisto({ ...base,
+    voci: [{ voce_id: 'inventata', quantita: 1 }] }).errore, 'voce di listino sconosciuta');
+});
+
+Deno.test('un elenco vuoto viene rifiutato', () => {
+  assertEquals(validaAcquisto({ ...base, voci: [] }).errore, 'voce di listino sconosciuta');
+});
+
+/* il buono monetario non deve cambiare in niente */
+Deno.test('il buono monetario resta com era', () => {
+  const { errore, dati } = validaAcquisto({ ...base, tipo: 'valore', valore: 100 });
+  assertEquals(errore, undefined);
+  assertEquals(dati!.valore, 100);
+  assertEquals(dati!.voci.length, 0);
 });

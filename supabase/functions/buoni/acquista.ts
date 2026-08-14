@@ -51,6 +51,7 @@ const eurS = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2
 export interface DatiAcquisto {
   tipo: 'servizio' | 'valore';
   voce_id: string | null;
+  voci: Voce[];
   descrizione: string;
   valore: number;
   lingua: string;
@@ -63,6 +64,61 @@ export interface DatiAcquisto {
   scade_il: string;
 }
 
+export type Voce = { voce_id: string; quantita: number };
+
+/* Due voci al massimo: sotto le voci, sul foglio del buono, c'e' la
+   descrizione di cosa comprendono, e con tre quel testo non ci sta piu'.
+   Quattro come quantita' copre la famiglia o il gruppo di amici senza
+   trasformare un regalo in un ordine all'ingrosso. */
+const VOCI_MAX = 2;
+const QUANTITA_MAX = 4;
+
+/* Le voci arrivano dal cliente: si normalizzano prima di toccare il listino.
+   Chi sceglie due volte la stessa voce sta dicendo una quantita', non due
+   voci — e se non si sommassero, il tetto di quattro si aggirerebbe
+   scegliendo la stessa voce due volte. */
+function normalizzaVoci(grezze: unknown, voceSingola: unknown):
+  { errore?: string; voci?: Voce[] } {
+  let elenco: Array<Record<string, unknown>> = [];
+  if (Array.isArray(grezze) && grezze.length) {
+    elenco = grezze as Array<Record<string, unknown>>;
+  } else if (voceSingola) {
+    elenco = [{ voce_id: voceSingola, quantita: 1 }];
+  }
+  if (!elenco.length) return { errore: 'voce di listino sconosciuta' };
+
+  const somma = new Map<string, number>();
+  for (const v of elenco) {
+    const id = String(v?.voce_id ?? '');
+    if (!LISTINO[id]) return { errore: 'voce di listino sconosciuta' };
+    const q = Number(v?.quantita ?? 1);
+    if (!Number.isInteger(q) || q < 1 || q > QUANTITA_MAX) {
+      return { errore: `quantita fuori dai limiti (1-${QUANTITA_MAX})` };
+    }
+    somma.set(id, (somma.get(id) ?? 0) + q);
+  }
+  if (somma.size > VOCI_MAX) return { errore: `al massimo ${VOCI_MAX === 2 ? 'due' : VOCI_MAX} voci` };
+  for (const [, q] of somma) {
+    if (q > QUANTITA_MAX) return { errore: `quantita fuori dai limiti (1-${QUANTITA_MAX})` };
+  }
+  return { voci: [...somma].map(([voce_id, quantita]) => ({ voce_id, quantita })) };
+}
+
+/* "4 x Day Spa festivo", e senza numero quando e' uno: "1 x Massaggio" e' il
+   modo in cui un modulo dice a un essere umano che l'ha compilato una
+   macchina. Una riga per voce: email e stampa spezzano gia' la descrizione
+   sui ritorni a capo. */
+export function componiDescrizione(voci: Voce[]): string {
+  return voci.map((v) => {
+    const nome = LISTINO[v.voce_id][0];
+    return v.quantita > 1 ? `${v.quantita} × ${nome}` : nome;
+  }).join('\n');
+}
+
+export function sommaVoci(voci: Voce[]): number {
+  return voci.reduce((t, v) => t + LISTINO[v.voce_id][1] * v.quantita, 0);
+}
+
 export function validaAcquisto(b: Record<string, unknown>):
   { errore?: string; dati?: DatiAcquisto } {
   const lingua = ['it', 'de', 'en', 'fr'].includes(String(b.lingua)) ? String(b.lingua) : 'it';
@@ -72,10 +128,17 @@ export function validaAcquisto(b: Record<string, unknown>):
   /* prezzo e descrizione: SOLO dal listino server o dal valore validato */
   const tipo = b.tipo === 'valore' ? 'valore' : 'servizio';
   let voce_id: string | null = null, descrizione = '', valore = 0;
+  let voci: Voce[] = [];
   if (tipo === 'servizio') {
-    const voce = LISTINO[String(b.voce_id || '')];
-    if (!voce) return { errore: 'voce di listino sconosciuta' };
-    voce_id = String(b.voce_id); descrizione = voce[0]; valore = voce[1];
+    const n = normalizzaVoci(b.voci, b.voce_id);
+    if (n.errore || !n.voci) return { errore: n.errore };
+    voci = n.voci;
+    /* voce_id resta valorizzato con la prima voce: la fotografia del buono
+       la sceglie fotoBuono() da li', e con due voci si prende quella della
+       prima — che e' la prima che l'ospite ha scelto e la prima che legge */
+    voce_id = voci[0].voce_id;
+    descrizione = componiDescrizione(voci);
+    valore = sommaVoci(voci);
   } else {
     valore = Math.round(Number(b.valore) || 0);
     if (!(valore >= 25 && valore <= 1000))
@@ -97,7 +160,7 @@ export function validaAcquisto(b: Record<string, unknown>):
   const scade = new Date(); scade.setFullYear(scade.getFullYear() + 1);
 
   return { dati: {
-    tipo, voce_id, descrizione, valore, lingua,
+    tipo, voce_id, voci, descrizione, valore, lingua,
     acquirente: String(b.acquirente || '').trim().slice(0, 120),
     acquirente_email: email.slice(0, 160),
     destinatario: String(b.destinatario || '').trim().slice(0, 120),
