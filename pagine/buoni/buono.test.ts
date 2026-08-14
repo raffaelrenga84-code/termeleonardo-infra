@@ -214,10 +214,12 @@ Deno.test('un elenco vuoto compone un buono senza righe e senza valore, come com
 /* ============================================================
    righeDescrizione — nel dettaglio del back office la descrizione si legge
    su più righe, come la compone il server, e dove la colonna `voci`
-   combacia riga per riga con quelle righe la quantità si vede sempre —
-   anche quando il testo la tace perché è una sola (vedi riepilogoVoci qui
-   sopra: "1 × Massaggio" non si scrive sul buono del cliente, ma in
-   reception l'ambiguità del "senza numero" non serve). Per i buoni
+   combacia riga per riga con quelle righe la quantità si vede in chiaro
+   quando supera uno — la STESSA soglia di riepilogoVoci/componiDescrizione,
+   che sul buono del cliente non scrivono "1 × Massaggio". Le due viste
+   stanno fianco a fianco sulla stessa schermata (dettaglio del back office
+   sopra, anteprima del buono sotto): se qui scrivessimo "1 ×" e lì no,
+   sarebbero in disaccordo proprio dove serve certezza. Per i buoni
    monetari e per quelli creati a mano dal back office `voci` è null — non
    un array vuoto, vedi colonnaVoci in acquista.ts — e lì non si inventa
    nessun numero: si torna esattamente al comportamento di oggi. */
@@ -233,12 +235,20 @@ Deno.test('descrizione vuota o assente non produce righe fantasma', () => {
   assertEquals(righeDescrizione(undefined, null), []);
 });
 
-Deno.test('due voci: la quantità si vede in chiaro anche quando il testo la tace (quantità 1)', () => {
+Deno.test('due voci: la quantità si vede in chiaro solo quando supera uno', () => {
   const descrizione = '4 × Day Spa festivo\nMassaggio antistress';
   const voci = [{ voce_id: 'dayspa_wknd', quantita: 4 }, { voce_id: 'antistress45', quantita: 1 }];
   assertEquals(righeDescrizione(descrizione, voci), [
     { testo: 'Day Spa festivo', quantita: 4 },
-    { testo: 'Massaggio antistress', quantita: 1 },
+    { testo: 'Massaggio antistress', quantita: null },
+  ]);
+});
+
+Deno.test('quantità 1 non si mostra: stessa soglia del buono del cliente, le due viste affiancate non devono contraddirsi', () => {
+  const descrizione = 'Massaggio relax con olio di cacao (25 min)';
+  const voci = [{ voce_id: 'relax25', quantita: 1 }];
+  assertEquals(righeDescrizione(descrizione, voci), [
+    { testo: 'Massaggio relax con olio di cacao (25 min)', quantita: null },
   ]);
 });
 

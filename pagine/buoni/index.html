@@ -1217,7 +1217,10 @@ function vistaVerifica() {
       }
       $('vEsito').textContent = '';
       $('vRis').innerHTML = `<div class="fatto">
-        <strong>Valido.</strong> ${esc(j.descrizione)} \u00b7 ${eur(j.valore)} \u20ac
+        <strong>Valido.</strong>
+        <div class="mini" style="margin-top:4px;">${righeDescrizione(j.descrizione, j.voci).map(r =>
+          `<div>${r.quantita != null ? `${r.quantita} \u00d7 ` : ''}${esc(r.testo)}</div>`).join('')}
+          ${eur(j.valore)} \u20ac</div>
         <div class="mini">Scade il ${dataIT(j.scade_il)}</div>
         <label>Note (facoltative)</label><input type="text" id="vNote" />
         <button class="azione" id="vRiscuoti">Segna come riscosso</button>

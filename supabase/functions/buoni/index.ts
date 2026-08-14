@@ -249,14 +249,14 @@ Deno.serve(async (req) => {
     const codice = (url.searchParams.get('codice') || '').toUpperCase().trim();
     if (!codice) return risposta({ errore: 'codice mancante' }, 400);
     const { data } = await db.from('buono_regalo')
-      .select('codice, descrizione, valore, scade_il, stato, riscosso_il')
+      .select('codice, descrizione, valore, scade_il, stato, riscosso_il, voci')
       .eq('codice', codice).maybeSingle();
     if (!data) return risposta({ valido: false, motivo: 'non trovato' }, 404);
     const scaduto = new Date(data.scade_il + 'T23:59:59') < new Date();
     return risposta({
       valido: data.stato === 'pagato' && !scaduto,
       stato: scaduto && data.stato === 'pagato' ? 'scaduto' : data.stato,
-      descrizione: data.descrizione, valore: data.valore,
+      descrizione: data.descrizione, valore: data.valore, voci: data.voci,
       scade_il: data.scade_il, riscosso_il: data.riscosso_il
     });
   }
