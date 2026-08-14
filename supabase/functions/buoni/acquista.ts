@@ -122,14 +122,20 @@ function normalizzaVoci(grezze: unknown, voceSingola: unknown):
   return { voci: [...somma].map(([voce_id, quantita]) => ({ voce_id, quantita })) };
 }
 
-/* "4 x Day Spa festivo", e senza numero quando e' uno: "1 x Massaggio" e' il
-   modo in cui un modulo dice a un essere umano che l'ha compilato una
-   macchina. Una riga per voce: email e stampa spezzano gia' la descrizione
-   sui ritorni a capo. */
+/* "4 x Day Spa festivo", senza numero quando la voce e' una sola e la
+   quantita' e' uno: "1 x Massaggio" e' il modo in cui un modulo dice a un
+   essere umano che l'ha compilato una macchina. Ma con piu' di una voce il
+   numero si scrive su TUTTE, anche dove vale uno: sul buono vero la
+   proprieta' ha visto "2 × Day Spa" sopra e "Scrub" sotto, senza numero — e
+   quella riga senza numero sembrava una quantita' non specificata, non una
+   quantita' di uno. L'asimmetria fra una riga col numero e una senza fa
+   dubitare, la stessa forma su tutte le righe no. Una riga per voce: email
+   e stampa spezzano gia' la descrizione sui ritorni a capo. */
 export function componiDescrizione(voci: Voce[]): string {
+  const mostraNumero = voci.length > 1;
   return voci.map((v) => {
     const nome = LISTINO[v.voce_id][0];
-    return v.quantita > 1 ? `${v.quantita} × ${nome}` : nome;
+    return (mostraNumero || v.quantita > 1) ? `${v.quantita} × ${nome}` : nome;
   }).join('\n');
 }
 

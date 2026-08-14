@@ -1,7 +1,7 @@
 /* Test del ramo pubblico a=acquista: la validazione è l'unica
    fonte dei prezzi — quello che arriva dal browser non conta. */
 import { assertEquals, assertMatch } from 'jsr:@std/assert';
-import { LISTINO, validaAcquisto, colonnaVoci } from './acquista.ts';
+import { LISTINO, validaAcquisto, colonnaVoci, componiDescrizione } from './acquista.ts';
 
 Deno.test('rifiuta email mancante o malformata', () => {
   const r1 = validaAcquisto({ tipo: 'valore', valore: 100 });
@@ -173,6 +173,49 @@ Deno.test('due voci con quantita fanno la somma secca del listino', () => {
   const atteso = LISTINO['dayspa_wknd'][1] * 4 + LISTINO['antistress45'][1] * 4;
   assertEquals(dati!.valore, atteso);
   assertEquals(dati!.voci.length, 2);
+});
+
+/* ============================================================
+   componiDescrizione — la regola nuova chiesta dalla proprietà: quando le
+   voci sono più di una il numero si scrive su tutte, anche dove vale uno.
+   Con una voce sola resta come prima: "1 × Massaggio" non si scrive, è il
+   modo in cui un modulo dice a un essere umano che l'ha compilato una
+   macchina. Vive anche in riepilogoVoci (pagine/buoni/buono.js), presidiato
+   da buono.test.ts perché il confronto è con questa funzione vera, non con
+   una copia scritta a mano.
+   ============================================================ */
+
+Deno.test('componiDescrizione: una voce sola a quantita 1 non porta il numero', () => {
+  assertEquals(componiDescrizione([{ voce_id: 'relax25', quantita: 1 }]), LISTINO.relax25[0]);
+});
+
+Deno.test('componiDescrizione: una voce sola a quantita sopra 1 porta il numero', () => {
+  assertEquals(componiDescrizione([{ voce_id: 'relax25', quantita: 3 }]), `3 × ${LISTINO.relax25[0]}`);
+});
+
+Deno.test('componiDescrizione: con due voci il numero si scrive su entrambe, anche a quantita 1', () => {
+  const r = componiDescrizione([
+    { voce_id: 'dayspa_wknd', quantita: 2 },
+    { voce_id: 'antistress45', quantita: 1 },
+  ]);
+  assertEquals(r, `2 × ${LISTINO.dayspa_wknd[0]}\n1 × ${LISTINO.antistress45[0]}`);
+});
+
+/* lo stesso controllo passando da validaAcquisto: e' li' che il server
+   esegue davvero, sulle voci grezze cosi' come le manderebbe la pagina */
+Deno.test('validaAcquisto: due voci di cui una a quantita 1 mostrano il numero su entrambe sul buono vero', () => {
+  const { errore, dati } = validaAcquisto({ ...base, voci: [
+    { voce_id: 'dayspa_wknd', quantita: 2 },
+    { voce_id: 'antistress45', quantita: 1 },
+  ]});
+  assertEquals(errore, undefined);
+  assertEquals(dati!.descrizione, `2 × ${LISTINO.dayspa_wknd[0]}\n1 × ${LISTINO.antistress45[0]}`);
+});
+
+Deno.test('validaAcquisto: una voce sola a quantita 1 non mostra il numero, come oggi', () => {
+  const { errore, dati } = validaAcquisto({ ...base, voce_id: 'dayspa_wknd' });
+  assertEquals(errore, undefined);
+  assertEquals(dati!.descrizione, LISTINO.dayspa_wknd[0]);
 });
 
 /* il prezzo arriva dal cliente e non fa testo: vale il listino del server */

@@ -433,15 +433,18 @@ function vistaEmetti() {
       .replace(/^Linfodrenaggio\b/, 'Linfodrenaggi')
       .replace(/^Riflessologia\b/, 'Riflessologie');
   };
-  /* il numero si scrive solo quando supera uno: "n. 1 \u00b7 Massaggio antistress"
-     e' il modo in cui un modulo dice a un essere umano che l'ha compilato una
-     macchina, ed e' la stessa soglia di componiDescrizione sul server e di
-     riepilogoVoci sul sito. Prima la soglia valeva solo per il buono a riga
-     unica: con due righe ricompariva "n. 1 \u00b7" su quella da un pezzo, e nello
-     stesso elenco della reception due buoni identici si leggevano in due modi
-     a seconda che fossero nati qui o online. */
-  const rigaTesto = (r) => r.q > 1 ? `n. ${r.q} \u00b7 ${vocePlurale(r.nome, r.q)}` : r.nome;
-  const descrizioneCarrello = (righe) => righe.map(rigaTesto).join('\n');
+  /* il numero si scrive solo quando la voce e' una sola e supera uno: "n. 1
+     \u00b7 Massaggio antistress" e' il modo in cui un modulo dice a un essere
+     umano che l'ha compilato una macchina, ed e' la stessa soglia di
+     componiDescrizione sul server e di riepilogoVoci sul sito. Ma quando le
+     righe sono piu' di una il numero si scrive su tutte, anche dove vale
+     uno: due righe di cui una col numero e una senza si leggono come se la
+     seconda avesse una quantita' non specificata, non pari a uno \u2014 ed e'
+     proprio quello che la proprieta' ha visto su un buono vero a due voci.
+     Nello stesso elenco della reception due buoni identici devono leggersi
+     nello stesso modo, sia che siano nati qui o online. */
+  const rigaTesto = (r, mostraNumero) => (mostraNumero || r.q > 1) ? `n. ${r.q} \u00b7 ${vocePlurale(r.nome, r.q)}` : r.nome;
+  const descrizioneCarrello = (righe) => righe.map(r => rigaTesto(r, righe.length > 1)).join('\n');
   const sommaCarrello = (righe) => righe.reduce((s, r) => s + r.prezzo * r.q, 0);
 
   const righeCorrenti = () => {

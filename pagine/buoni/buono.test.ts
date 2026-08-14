@@ -55,7 +55,7 @@ Deno.test('il buono porta contatti, scadenza e condizioni', () => {
   assertStringIncludes(h, 'www.termeleonardo.com');
   assertStringIncludes(h, '+39 049 9939200');
   assertStringIncludes(h, '13 agosto 2027');
-  assertStringIncludes(h, 'Su prenotazione');
+  assertStringIncludes(h, 'Per prenotare basta chiamarci o scriverci');
   assertStringIncludes(h, 'da fine novembre a febbraio');
 });
 
@@ -185,6 +185,26 @@ Deno.test('due voci diverse stanno su due righe nello stesso ordine di componiDe
   assertEquals(r.voci, grezze);
 });
 
+/* la regola nuova, chiesta dalla proprietà dopo aver visto in un buono vero
+   "2 × Day Spa" sopra e "Scrub" sotto: con più di una voce il numero si
+   scrive su TUTTE, anche dove vale uno — un'asimmetria fra righe fa
+   dubitare se la seconda voce sia una sola o non specificata, la stessa
+   forma su tutte le righe no. Letterale e non solo per formula, per non
+   fidarsi che componiDescrizione e riepilogoVoci sbaglino nello stesso modo. */
+Deno.test('due voci di cui una con quantità uno: il numero si vede su entrambe', () => {
+  const grezze = [{ voce_id: 'dayspa_wknd', quantita: 2 }, { voce_id: 'relax25', quantita: 1 }];
+  const r = riepilogoVoci([daListino('dayspa_wknd', 2), daListino('relax25', 1)]);
+  assertEquals(r.descrizione, `2 × ${LISTINO.dayspa_wknd[0]}\n1 × ${LISTINO.relax25[0]}`);
+  assertEquals(r.descrizione, componiDescrizione(grezze));
+});
+
+Deno.test('una voce sola con quantità uno: nessun numero, letteralmente', () => {
+  const grezze = [{ voce_id: 'relax25', quantita: 1 }];
+  const r = riepilogoVoci([daListino('relax25', 1)]);
+  assertEquals(r.descrizione, LISTINO.relax25[0]);
+  assertEquals(r.descrizione, componiDescrizione(grezze));
+});
+
 /* qui il confronto passa da validaAcquisto: componiDescrizione e sommaVoci
    da sole non fondono le voci ripetute, lo fa normalizzaVoci dentro
    validaAcquisto (non esportata, e giustamente: e' un dettaglio interno).
@@ -215,14 +235,17 @@ Deno.test('un elenco vuoto compone un buono senza righe e senza valore, come com
    righeDescrizione — nel dettaglio del back office la descrizione si legge
    su più righe, come la compone il server, e dove la colonna `voci`
    combacia riga per riga con quelle righe la quantità si vede in chiaro
-   quando supera uno — la STESSA soglia di riepilogoVoci/componiDescrizione,
-   che sul buono del cliente non scrivono "1 × Massaggio". Le due viste
-   stanno fianco a fianco sulla stessa schermata (dettaglio del back office
-   sopra, anteprima del buono sotto): se qui scrivessimo "1 ×" e lì no,
-   sarebbero in disaccordo proprio dove serve certezza. Per i buoni
-   monetari e per quelli creati a mano dal back office `voci` è null — non
-   un array vuoto, vedi colonnaVoci in acquista.ts — e lì non si inventa
-   nessun numero: si torna esattamente al comportamento di oggi. */
+   quando la voce è una sola e supera uno, oppure sempre quando le righe
+   sono più di una — la STESSA soglia di riepilogoVoci/componiDescrizione,
+   che sul buono del cliente non scrivono "1 × Massaggio" quando è l'unica
+   voce, ma scrivono il numero su tutte le righe appena ce n'è più di una.
+   Le due viste stanno fianco a fianco sulla stessa schermata (dettaglio del
+   back office sopra, anteprima del buono sotto): se qui scrivessimo "1 ×"
+   e lì no (o viceversa) sarebbero in disaccordo proprio dove serve
+   certezza. Per i buoni monetari e per quelli creati a mano dal back office
+   `voci` è null — non un array vuoto, vedi colonnaVoci in acquista.ts — e
+   lì non si inventa nessun numero: si torna esattamente al comportamento
+   di oggi. */
 
 Deno.test('buono monetario (voci null): una riga sola, nessuna quantità inventata', () => {
   const r = righeDescrizione('Buono di 100 €', null);
@@ -235,16 +258,20 @@ Deno.test('descrizione vuota o assente non produce righe fantasma', () => {
   assertEquals(righeDescrizione(undefined, null), []);
 });
 
-Deno.test('due voci: la quantità si vede in chiaro solo quando supera uno', () => {
-  const descrizione = '4 × Day Spa festivo\nMassaggio antistress';
+/* con più di una voce il numero si scrive su TUTTE, anche dove vale uno: la
+   proprietà ha visto in un buono vero "2 × Day Spa" sopra e "Scrub" sotto,
+   senza numero — la riga senza numero sembrava una quantità non
+   specificata, non una quantità di uno. */
+Deno.test('due voci: quando sono più di una il numero si vede su tutte, anche a quantità uno', () => {
+  const descrizione = '4 × Day Spa festivo\n1 × Massaggio antistress';
   const voci = [{ voce_id: 'dayspa_wknd', quantita: 4 }, { voce_id: 'antistress45', quantita: 1 }];
   assertEquals(righeDescrizione(descrizione, voci), [
     { testo: 'Day Spa festivo', quantita: 4 },
-    { testo: 'Massaggio antistress', quantita: null },
+    { testo: 'Massaggio antistress', quantita: 1 },
   ]);
 });
 
-Deno.test('quantità 1 non si mostra: stessa soglia del buono del cliente, le due viste affiancate non devono contraddirsi', () => {
+Deno.test('voce sola a quantità uno: il numero non si mostra, stessa soglia del buono del cliente', () => {
   const descrizione = 'Massaggio relax con olio di cacao (25 min)';
   const voci = [{ voce_id: 'relax25', quantita: 1 }];
   assertEquals(righeDescrizione(descrizione, voci), [
@@ -279,7 +306,7 @@ Deno.test('andata e ritorno: quello che componiDescrizione compone, righeDescriz
   const voci = [{ voce_id: 'dayspa_wknd', quantita: 4 }, { voce_id: 'antistress45', quantita: 1 }];
   assertEquals(righeDescrizione(componiDescrizione(voci), voci), [
     { testo: LISTINO.dayspa_wknd[0], quantita: 4 },
-    { testo: LISTINO.antistress45[0], quantita: null },
+    { testo: LISTINO.antistress45[0], quantita: 1 },
   ]);
 });
 

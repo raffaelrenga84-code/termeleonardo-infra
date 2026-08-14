@@ -71,36 +71,40 @@ export const NARRATIVA = {
 };
 
 /* etichette del buono */
-/* nota, in tutte e quattro le lingue qui sotto: la frase risponde alla
-   domanda di chi riceve un buono con pi\u00f9 voci (es. "4 \u00d7 Day Spa festivo") \u2014
-   quattro persone insieme o una persona in quattro momenti diversi?
-   "come preferite" lascia scegliere. Vale per ogni lingua, non solo per
-   quella che si sta modificando. */
+/* nota, in tutte e quattro le lingue qui sotto: dice che ogni ingresso o
+   trattamento vale per una persona e come si prenota. Diceva anche che si
+   poteva venire insieme o in momenti diversi "come preferite" \u2014 una
+   promessa comoda da leggere ma scomoda da gestire in reception (riscossioni
+   parziali, tenere il conto di quante volte un buono a pi\u00f9 voci \u00e8 gi\u00e0 stato
+   usato): tolta su richiesta della propriet\u00e0. Vale per ogni lingua, non solo
+   per quella che si sta modificando. Presidiata da buono.test.ts, che la
+   confronta con la stessa nota in supabase/functions/buoni/email-buono.ts:
+   deve restare identica l\u00ec e qui. */
 export const ETI = {
   it:{ titolo:'Buono Regalo', haRicevuto:(n)=>`${n}, hai ricevuto<br />un dono speciale`,
     senzaNome:'Un dono speciale<br />per te', da:'CON AFFETTO, DA', codice:'CODICE BUONO',
     valido:(d)=>`Valido fino al ${d}`, valore:(v)=>`valore ${v} &euro;`,
     anteprima:'ANTEPRIMA \u2014 NON ANCORA VALIDO',
     anteprimaNota:'Il codice viene assegnato al momento del pagamento.',
-    nota:'Ogni ingresso o trattamento vale per una persona: potete venire insieme o in momenti diversi, come preferite. Su prenotazione: basta chiamarci o scriverci.' },
+    nota:'Ogni ingresso o trattamento vale per una persona. Per prenotare basta chiamarci o scriverci: ci organizziamo insieme.' },
   de:{ titolo:'Geschenkgutschein', haRicevuto:(n)=>`${n}, Sie haben<br />ein besonderes Geschenk erhalten`,
     senzaNome:'Ein besonderes<br />Geschenk f\u00fcr Sie', da:'HERZLICHST, VON', codice:'GUTSCHEINCODE',
     valido:(d)=>`G\u00fcltig bis ${d}`, valore:(v)=>`Wert ${v} &euro;`,
     anteprima:'VORSCHAU \u2014 NOCH NICHT G\u00dcLTIG',
     anteprimaNota:'Der Code wird bei Zahlungseingang vergeben.',
-    nota:'Jeder Eintritt und jede Anwendung gilt f\u00fcr eine Person: Sie k\u00f6nnen gemeinsam kommen oder zu verschiedenen Zeiten, ganz wie Sie m\u00f6chten. Auf Reservierung: rufen Sie uns an oder schreiben Sie uns.' },
+    nota:'Jeder Eintritt und jede Anwendung gilt f\u00fcr eine Person. F\u00fcr die Reservierung rufen Sie uns an oder schreiben Sie uns: wir organisieren alles gemeinsam.' },
   en:{ titolo:'Gift Voucher', haRicevuto:(n)=>`${n}, you have received<br />a special gift`,
     senzaNome:'A special gift<br />for you', da:'WITH LOVE, FROM', codice:'VOUCHER CODE',
     valido:(d)=>`Valid until ${d}`, valore:(v)=>`value ${v} &euro;`,
     anteprima:'PREVIEW \u2014 NOT YET VALID',
     anteprimaNota:'The code is assigned once payment is received.',
-    nota:'Each admission or treatment is for one person: you can come together or at different times, as you prefer. By reservation: just call or write to us.' },
+    nota:'Each admission or treatment is for one person. To book, just call or write to us: we will arrange everything together.' },
   fr:{ titolo:'Bon Cadeau', haRicevuto:(n)=>`${n}, vous avez re\u00e7u<br />un cadeau tr\u00e8s sp\u00e9cial`,
     senzaNome:'Un cadeau sp\u00e9cial<br />pour vous', da:'AVEC AFFECTION, DE', codice:'CODE DU BON',
     valido:(d)=>`Valable jusqu'au ${d}`, valore:(v)=>`valeur ${v} &euro;`,
     anteprima:'APER\u00c7U \u2014 PAS ENCORE VALABLE',
     anteprimaNota:'Le code est attribu\u00e9 au moment du paiement.',
-    nota:'Chaque entr\u00e9e ou soin vaut pour une personne : vous pouvez venir ensemble ou \u00e0 des moments diff\u00e9rents, comme vous pr\u00e9f\u00e9rez. Sur r\u00e9servation : appelez-nous ou \u00e9crivez-nous.' }
+    nota:'Chaque entr\u00e9e ou soin vaut pour une personne. Pour r\u00e9server, appelez-nous ou \u00e9crivez-nous : nous organisons tout ensemble.' }
 };
 
 export const MESI_L = {
@@ -166,10 +170,14 @@ export const CONDIZIONI = {
    e sommaVoci in supabase/functions/buoni/acquista.ts): prima fonde per
    voce_id le voci ripetute — scegliere due volte la stessa voce non è un
    errore, è una quantità, e il server le somma in una riga — poi compone
-   "N × nome" quando la quantità supera uno, il nome soltanto quando è uno
-   solo: "1 × Massaggio" è il modo in cui un modulo dice a un essere umano
-   che l'ha compilato una macchina. Così l'anteprima nella pagina di acquisto
-   dice esattamente quello che dirà il buono vero. Presidiato da buono.test.ts. */
+   "N × nome". Il numero si tace solo quando la voce è una sola e la
+   quantità è uno: "1 × Massaggio" è il modo in cui un modulo dice a un
+   essere umano che l'ha compilato una macchina. Con più di una voce il
+   numero si scrive su tutte, anche dove vale uno, o due righe — una col
+   numero e una senza — si leggono come se la seconda avesse una quantità
+   non specificata invece che pari a uno. Così l'anteprima nella pagina di
+   acquisto dice esattamente quello che dirà il buono vero. Presidiato da
+   buono.test.ts. */
 export function riepilogoVoci(voci) {
   const mappa = new Map();
   for (const v of voci) {
@@ -178,32 +186,37 @@ export function riepilogoVoci(voci) {
     else mappa.set(v.voce_id, { ...v });
   }
   const raggruppate = [...mappa.values()];
+  const mostraNumero = raggruppate.length > 1;
   return {
-    descrizione: raggruppate.map(v => v.quantita > 1 ? `${v.quantita} × ${v.nome}` : v.nome).join('\n'),
+    descrizione: raggruppate.map(v => (mostraNumero || v.quantita > 1) ? `${v.quantita} × ${v.nome}` : v.nome).join('\n'),
     valore: raggruppate.reduce((tot, v) => tot + v.prezzo * v.quantita, 0),
     voci: raggruppate.map(({ voce_id, quantita }) => ({ voce_id, quantita }))
   };
 }
 
 /* Le righe da mostrare nel dettaglio di un buono in back office: una per
-   voce, con la quantità in chiaro quando supera uno. La descrizione arriva
-   già composta con la stessa regola di riepilogoVoci qui sopra — "N × nome",
-   ma senza il numero quando è uno solo. Qui usiamo la STESSA soglia, non
-   una diversa: il dettaglio del back office e l'anteprima del buono per il
-   cliente stanno fianco a fianco sulla stessa schermata, e se scrivessimo
-   "1 × Massaggio" sopra e "Massaggio" sotto le due viste si contraddirebbero
-   proprio dove serve certezza. Se `voci` combacia riga per riga con la
-   descrizione (stesso numero di elementi), il numero (quando > 1) si mostra
-   sempre, tolto quello eventualmente già scritto nel testo per non vederlo
-   due volte. Se `voci` manca, è vuoto o non combacia — buono monetario,
-   buono creato a mano dal back office (voci è null, non [], vedi
-   colonnaVoci in acquista.ts) o qualunque disallineamento imprevisto — si
-   mostra la riga così com'è, senza inventare una quantità. */
+   voce, con la quantità in chiaro quando la voce è una sola e supera uno,
+   oppure sempre quando le voci sono più di una. La descrizione arriva già
+   composta con la stessa regola di riepilogoVoci qui sopra — "N × nome",
+   col numero taciuto solo per una voce sola a quantità uno. Qui usiamo la
+   STESSA soglia, non una diversa: il dettaglio del back office e
+   l'anteprima del buono per il cliente stanno fianco a fianco sulla stessa
+   schermata, e se scrivessimo "1 × Massaggio" sopra e "Massaggio" sotto (o
+   viceversa fra due righe di uno stesso buono a più voci) le due viste si
+   contraddirebbero proprio dove serve certezza. Se `voci` combacia riga per
+   riga con la descrizione (stesso numero di elementi), il numero si mostra
+   sempre quando le righe sono più di una, tolto quello eventualmente già
+   scritto nel testo per non vederlo due volte. Se `voci` manca, è vuoto o
+   non combacia — buono monetario, buono creato a mano dal back office
+   (voci è null, non [], vedi colonnaVoci in acquista.ts) o qualunque
+   disallineamento imprevisto — si mostra la riga così com'è, senza
+   inventare una quantità. */
 export function righeDescrizione(descrizione, voci) {
   const righe = String(descrizione || '').split('\n').filter(Boolean);
   const combaciano = Array.isArray(voci) && voci.length === righe.length;
+  const mostraNumero = combaciano && righe.length > 1;
   return righe.map((testo, i) => combaciano
-    ? { testo: testo.replace(/^\d+\s*×\s*/, ''), quantita: voci[i].quantita > 1 ? voci[i].quantita : null }
+    ? { testo: testo.replace(/^\d+\s*×\s*/, ''), quantita: (mostraNumero || voci[i].quantita > 1) ? voci[i].quantita : null }
     : { testo, quantita: null });
 }
 

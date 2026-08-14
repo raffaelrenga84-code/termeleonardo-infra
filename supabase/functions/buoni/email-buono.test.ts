@@ -112,16 +112,21 @@ Deno.test('nell’email il logo è un PNG, mai un SVG', () => {
 
 /* Il buono spedito e il foglio stampato devono dire le stesse cose:
    chi compra online non parla con la reception, ed è l'unico che non
-   verrebbe mai a sapere che un ingresso vale per una persona. */
+   verrebbe mai a sapere che un ingresso vale per una persona.
+
+   La nota non promette più "in momenti diversi, come preferite": la
+   proprietà l'ha tolta perché complicava il lavoro alla reception
+   (riscossioni parziali, tenere il conto di quante volte un buono a più
+   voci è già stato usato). */
 Deno.test('l’email porta la nota su persone e prenotazione, nella sua lingua', () => {
   assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'it' }),
-    'Ogni ingresso o trattamento vale per una persona: potete venire insieme o in momenti diversi, come preferite');
+    'Ogni ingresso o trattamento vale per una persona. Per prenotare basta chiamarci o scriverci: ci organizziamo insieme.');
   assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'de' }),
-    'Jeder Eintritt und jede Anwendung gilt für eine Person: Sie können gemeinsam kommen oder zu verschiedenen Zeiten, ganz wie Sie möchten');
+    'Jeder Eintritt und jede Anwendung gilt für eine Person. Für die Reservierung rufen Sie uns an oder schreiben Sie uns: wir organisieren alles gemeinsam.');
   assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'en' }),
-    'Each admission or treatment is for one person: you can come together or at different times, as you prefer');
+    'Each admission or treatment is for one person. To book, just call or write to us: we will arrange everything together.');
   assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'fr' }),
-    'Chaque entrée ou soin vaut pour une personne : vous pouvez venir ensemble ou à des moments différents, comme vous préférez');
+    'Chaque entrée ou soin vaut pour une personne. Pour réserver, appelez-nous ou écrivez-nous : nous organisons tout ensemble.');
 });
 
 Deno.test('un buono con più voci resta su più righe anche nell’email', () => {
