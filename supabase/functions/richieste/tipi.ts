@@ -200,8 +200,31 @@ function validaTrattamenti(d: Record<string, unknown>, oggi: Date): Esito {
 
    Il prezzo arriva dal cliente e non fa testo: serve solo a mostrare in email
    e in back office quello che l'ospite aveva davanti quando ha scelto. Si
-   ferma comunque un numero assurdo, che in una email farebbe brutta figura. */
-const PREZZO_MAX_CENT = 5_000_000;   // 50.000 euro
+   ferma comunque un numero assurdo, che in una email farebbe brutta figura.
+   Esportato perche' disponibilita.ts filtra con lo stesso tetto: non ha senso
+   mostrare all'ospite una proposta che poi l'invio rifiuta. */
+export const PREZZO_MAX_CENT = 5_000_000;   // 50.000 euro
+
+/* Gli stessi limiti che valida.ts usa per una ricerca: qui non si ricalcola
+   niente, si registra quello che l'ospite aveva davanti. */
+const ADULTI_MAX = 10;
+const BAMBINI_MAX = 6;
+
+/* Come prezzo_cent: null esplicito equivale ad assenza, mai un numero
+   inventato. `undefined` come esito vuol dire "il campo non c'era". */
+function centesimi(v: unknown, etichetta: string): { errore?: string; valore?: number } {
+  if (v === undefined || v === null) return {};
+  const p = Number(v);
+  if (!Number.isInteger(p) || p < 0 || p > PREZZO_MAX_CENT) return { errore: etichetta };
+  return { valore: p };
+}
+
+function persone(v: unknown, min: number, max: number, etichetta: string): { errore?: string; valore?: number } {
+  if (v === undefined || v === null || String(v).trim() === '') return {};
+  const p = Number(v);
+  if (!Number.isInteger(p) || p < min || p > max) return { errore: etichetta };
+  return { valore: p };
+}
 
 function validaSoggiorno(d: Record<string, unknown>): Esito {
   const id = d?.camera_id;
@@ -222,11 +245,24 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
   /* null esplicito equivale ad assenza, come camera_id: mai un prezzo
      inventato. I centesimi sono interi per definizione: isInteger scarta
      anche NaN e i valori non finiti, non serve isFinite a parte. */
-  const pRaw = d?.prezzo_cent;
-  const p = (pRaw === undefined || pRaw === null) ? null : Number(pRaw);
-  if (p !== null && (!Number.isInteger(p) || p < 0 || p > PREZZO_MAX_CENT)) {
-    return { errore: 'prezzo non valido' };
-  }
+  const prezzo = centesimi(d?.prezzo_cent, 'prezzo non valido');
+  if (prezzo.errore) return { errore: prezzo.errore };
+
+  /* La caparra che l'ospite ha letto sulla pagina. Si registra invece di
+     ricalcolarla perche' e' una PROMESSA gia' fatta: se domani cambia la
+     regola dei 75 euro a persona, chi guarda una richiesta vecchia deve
+     vedere la cifra che era stata promessa, non quella di oggi. */
+  const caparra = centesimi(d?.caparra_cent, 'caparra non valida');
+  if (caparra.errore) return { errore: caparra.errore };
+
+  /* La colonna `ospiti` porta adulti + bambini e li impasta: su 2 adulti e 2
+     bambini dice "4 ospiti", e la reception che calcola la caparra sugli
+     ospiti chiede 300 euro dove la pagina ne aveva promessi 150. Il modo di
+     rimettere insieme i due numeri e' registrarli. */
+  const adulti = persone(d?.adulti, 1, ADULTI_MAX, 'adulti non validi');
+  if (adulti.errore) return { errore: adulti.errore };
+  const bambini = persone(d?.bambini, 0, BAMBINI_MAX, 'bambini non validi');
+  if (bambini.errore) return { errore: bambini.errore };
 
   return {
     dati: {
@@ -235,7 +271,10 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
       variante_id,
       tariffa: testo(d?.tariffa).slice(0, 60),
       trattamento: testo(d?.trattamento).slice(0, 60),
-      ...(p !== null ? { prezzo_cent: p, valuta: 'centesimi' } : {}),
+      ...(prezzo.valore !== undefined ? { prezzo_cent: prezzo.valore, valuta: 'centesimi' } : {}),
+      ...(caparra.valore !== undefined ? { caparra_cent: caparra.valore } : {}),
+      ...(adulti.valore !== undefined ? { adulti: adulti.valore } : {}),
+      ...(bambini.valore !== undefined ? { bambini: bambini.valore } : {}),
     },
   };
 }

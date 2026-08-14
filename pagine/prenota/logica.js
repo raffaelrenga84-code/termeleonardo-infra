@@ -31,18 +31,32 @@ export function euroDaCentesimi(cent) {
 /** Compone il corpo di POST /richieste per una richiesta di soggiorno,
     esattamente come descritto nel brief del passo 1: le colonne che
     legge la reception (tipo_camera, pacchetto) e il jsonb `dati` con i
-    fatti per la macchina (camera_id, variante_id, prezzo_cent...). */
+    fatti per la macchina (camera_id, variante_id, prezzo_cent...).
+
+    ADULTI, BAMBINI E CAPARRA stanno in `dati` e non solo in `ospiti`: la
+    colonna `ospiti` porta la somma, e la somma non si sa piu' rompere.
+    La caparra mostrata all'ospite e' 7500 x ADULTI, quindi su 2 adulti +
+    2 bambini la pagina promette 150,00 € mentre "4 ospiti" ne farebbero
+    chiedere 300,00 €. La caparra si manda come cifra invece di lasciarla
+    ricalcolare: e' una promessa gia' fatta all'ospite, e chi guardera'
+    quella richiesta dovra' vedere quella cifra anche se un domani la
+    regola dei 75 € a persona cambia. */
 export function componiCorpo({
   scelta, nome, email, telefono, checkIn, checkOut,
-  adulti, bambini, note, lingua,
+  adulti, bambini, caparraCent = 0, note, lingua,
 }) {
+  const nAdulti = Number(adulti) || 0;
+  const nBambini = Number(bambini) || 0;
+  /* una caparra a zero non si manda: sarebbe una promessa di "0,00 €"
+     stampata in email e in back office, che e' peggio di nessuna riga */
+  const nCaparra = Number(caparraCent) || 0;
   return {
     tipo: 'soggiorno',
     privacy_presa_atto: true,
     nome, email, telefono,
     check_in: checkIn,
     check_out: checkOut,
-    ospiti: (Number(adulti) || 0) + (Number(bambini) || 0),
+    ospiti: nAdulti + nBambini,
     tipo_camera: scelta.nome,
     pacchetto: scelta.tariffa,
     messaggio: note,
@@ -53,6 +67,42 @@ export function componiCorpo({
       tariffa: scelta.tariffa,
       trattamento: scelta.trattamento,
       prezzo_cent: scelta.prezzo_cent,
+      adulti: nAdulti,
+      bambini: nBambini,
+      ...(nCaparra > 0 ? { caparra_cent: nCaparra } : {}),
     },
   };
+}
+
+export const LINGUE = ['it', 'de', 'en', 'fr'];
+
+/** Quale lingua mostrare, in ordine di precedenza:
+
+    1. `?l=` nell'indirizzo — e' la scelta esplicita dell'ospite, quella
+       che scrive il selettore di lingua in alto a destra. Se per qualche
+       motivo ne arrivassero due, vince l'ULTIMA: quella appena espressa,
+       non un valore di partenza rimasto attaccato all'indirizzo.
+    2. il primo pezzo del percorso, quando e' una lingua: /de/buchen,
+       /fr/reserver, /it/prenota. Sono gli indirizzi tradotti sul dominio
+       dell'hotel, e prima non venivano guardati affatto — la pagina
+       leggeva solo `?l=`, che li' non c'e', e finiva a decidere il
+       browser. Un ospite con browser inglese che apriva l'indirizzo
+       tedesco leggeva le CONDIZIONI DI CANCELLAZIONE in inglese: qui la
+       lingua non e' un fatto estetico.
+    3. la lingua del browser, e in ultimo l'inglese.
+
+    Il percorso NON vince sul `?l=`: chi e' su /it/prenota e sceglie il
+    tedesco nel selettore deve ottenere il tedesco. Resta che l'indirizzo
+    dira' ancora /it/prenota?l=de — brutto ma onesto; portare il selettore
+    sull'indirizzo tradotto giusto vorrebbe dire ricopiare qui la tabella
+    dei percorsi di vercel.json e tenerne due allineate. */
+export function linguaScelta(percorso, ricerca, linguaBrowser) {
+  const chieste = new URLSearchParams(ricerca || '').getAll('l').filter((l) => LINGUE.includes(l));
+  if (chieste.length) return chieste[chieste.length - 1];
+
+  const primo = String(percorso || '').split('/').filter(Boolean)[0];
+  if (LINGUE.includes(primo)) return primo;
+
+  const b = String(linguaBrowser || '').slice(0, 2);
+  return ['de', 'fr', 'it'].includes(b) ? b : 'en';
 }

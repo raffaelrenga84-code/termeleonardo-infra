@@ -17,7 +17,7 @@ import { validaDati } from './tipi.ts';
 import { componiRichiesta, type Contatti } from './componi-richiesta.ts';
 import { avvisaHotel } from './email-richiesta.ts';
 import { inviaConferma } from './conferma.ts';
-import { componiRisposta } from './disponibilita.ts';
+import { componiRisposta, corpoDisponibilita } from './disponibilita.ts';
 import { LINGUE } from './condizioni.ts';
 import { creaFrenoIp } from './limite-ip.ts';
 
@@ -61,7 +61,20 @@ async function autorizzato(req: Request): Promise<boolean> {
    dove il numero e' uno solo. In caso di errore si lascia passare: meglio
    una richiesta di troppo che una richiesta persa. */
 const TETTO_PERSONA = 3;
-const TETTO_TOTALE = 20;
+/* Il tetto per persona resta stretto: e' li' che si ferma chi insiste.
+   Quello TOTALE conta invece tutte le righe di richiesta_sito nella mezz'ora,
+   di chiunque: a 20 ci passavano transfer e green fee, che sono pochi al
+   giorno, ma da adesso ci passa ogni richiesta di soggiorno generata dai
+   pulsanti sulla home. Lo scenario che ho in mente e' una giornata da
+   vetrina: la newsletter di primavera o un post che gira, qualche centinaio
+   di persone sul sito nella stessa mezz'ora e magari cinquanta che arrivano
+   fino all'invio. A 20 la ventunesima — un ospite vero, con le date scelte e
+   il modulo compilato — leggeva 429. Vale qui lo stesso criterio scritto per
+   il freno della disponibilita': fra rifiutare un ospite vero e lasciarne
+   passare uno di troppo, l'errore giusto e' il secondo. Questo resta un
+   freno contro uno script che riempie la tabella, non un antifrode: chi
+   insiste da solo lo ferma comunque TETTO_PERSONA a 3. */
+const TETTO_TOTALE = 300;
 
 async function troppeRichieste(email: string, ip: string): Promise<boolean> {
   const da = new Date(Date.now() - 30 * 60 * 1000).toISOString();
@@ -204,7 +217,7 @@ Deno.serve(async (req) => {
        in meno verso il sito reale dell'hotel */
     const v = validaParametriDisponibilita(b);
     if (v.errore || !v.dati) return risposta({ errore: v.errore }, 400);
-    const { check_in, check_out, adulti } = v.dati;
+    const { adulti } = v.dati;
 
     const lingua = LINGUE.includes(String(b?.lingua)) ? String(b.lingua) : 'it';
     const r = await fetch(
@@ -215,12 +228,10 @@ Deno.serve(async (req) => {
           'content-type': 'application/json',
           'x-proxy-key': Deno.env.get('PROXY_KEY') ?? '',
         },
-        body: JSON.stringify({
-          from_date: check_in, to_date: check_out,
-          adults: adulti,
-          ...(b?.bambini ? { children: Number(b.bambini) } : {}),
-          ...(Array.isArray(b?.eta_bambini) ? { children_ages: b.eta_bambini } : {}),
-        }),
+        /* i nomi e i formati dell'API a monte stanno in disponibilita.ts, un
+           modulo puro: `children_ages` e' una stringa "4,9" come la manda gia'
+           la chat, non un array */
+        body: JSON.stringify(corpoDisponibilita(v.dati)),
       },
     );
     if (!r.ok) {
@@ -228,7 +239,17 @@ Deno.serve(async (req) => {
       console.error('check-availability ha risposto', r.status, await r.text().catch(() => ''));
       return risposta({ esito: 'errore', errore: 'disponibilita non raggiungibile' }, 502);
     }
-    return risposta(componiRisposta(await r.json(), adulti, lingua));
+    /* Un 200 con dentro qualcosa che non e' JSON faceva uscire l'eccezione da
+       Deno.serve: la risposta perdeva le intestazioni CORS e sulla pagina
+       l'errore diventava incomprensibile. Un guasto a monte e' un guasto
+       nostro da raccontare, non un'eccezione da lasciar scappare. */
+    let grezzo: unknown;
+    try { grezzo = await r.json(); }
+    catch (e) {
+      console.error('check-availability ha risposto 200 con qualcosa che non e JSON:', e);
+      return risposta({ esito: 'errore', errore: 'disponibilita non raggiungibile' }, 502);
+    }
+    return risposta(componiRisposta(grezzo, adulti, lingua));
   }
 
   /* ---------- riservati al back office ---------- */

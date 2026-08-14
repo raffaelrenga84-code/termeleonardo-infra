@@ -110,7 +110,7 @@ font-size:13px;color:var(--verde-medio);}
 <body>
 
 <div class="testata">
-  <img class="marchio" src="../img/logo.svg" alt="Hotel Terme Leonardo" />
+  <img class="marchio" src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" />
   <h1 id="tTitolo"></h1>
   <div class="sotto" id="tSotto"></div>
   <nav class="lingue" id="lingue"></nav>
@@ -129,7 +129,13 @@ font-size:13px;color:var(--verde-medio);}
 /* il buono lo disegna il modulo condiviso col back office. Prima questa
    pagina aveva una copia ridotta del modello e il cliente vedeva meno di
    quello che avrebbe poi ricevuto per email. */
-import { buonoHTML, CONDIZIONI, esc } from '../buono.js';
+/* percorso assoluto e non '../buono.js': questa pagina si apre anche su
+   www.hoteltermeleonardo.com/it/buoni-regalo (riscrittura di vercel.json,
+   la barra resta /it/buoni-regalo), e li' '../buono.js' diventa /buono.js
+   — nessuna riscrittura lo copre, il modulo non carica e la pagina dei
+   buoni regalo resta bianca. '/buoni/buono.js' vale uguale sui due domini
+   e comunque sia scritto l'indirizzo. Vedi percorsi-web.test.ts. */
+import { buonoHTML, CONDIZIONI, esc } from '/buoni/buono.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
 

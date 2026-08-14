@@ -171,3 +171,74 @@ Deno.test('senza indicare gli adulti si assume una coppia', () => {
   assertEquals(r.dati!.check_in, '2026-09-10');
   assertEquals(r.dati!.check_out, '2026-09-12');
 });
+
+/* ================= I9 e I11: bambini ed eta passano dal presidio =================
+   L'azione a=disponibilita e' pubblica ed e' l'unico argomento che scavalcava
+   il presidio costruito apposta: Number('due') da NaN, e eta_bambini poteva
+   essere un array di diecimila elementi qualsiasi, inoltrato al sito vero
+   dell'hotel. */
+const ricerca = { check_in: '2026-09-10', check_out: '2026-09-12', adulti: 2 };
+
+Deno.test('i bambini della ricerca sono un intero dentro limiti sensati', () => {
+  assertEquals(validaParametriDisponibilita({ ...ricerca, bambini: 'due' }, OGGI).errore,
+    'numero di bambini non valido');
+  assertEquals(validaParametriDisponibilita({ ...ricerca, bambini: -1 }, OGGI).errore,
+    'numero di bambini non valido');
+  assertEquals(validaParametriDisponibilita({ ...ricerca, bambini: 1.5 }, OGGI).errore,
+    'numero di bambini non valido');
+  assertEquals(validaParametriDisponibilita({ ...ricerca, bambini: 7 }, OGGI).errore,
+    'numero di bambini non valido');
+});
+
+Deno.test('senza bambini la ricerca vale come prima, con zero bambini', () => {
+  const r = validaParametriDisponibilita(ricerca, OGGI);
+  assertEquals(r.errore, undefined);
+  assertEquals(r.dati!.bambini, 0);
+  assertEquals(r.dati!.eta_bambini, []);
+});
+
+Deno.test('serve un eta per ogni bambino, e deve essere un eta da bambino', () => {
+  assertEquals(validaParametriDisponibilita({ ...ricerca, bambini: 2, eta_bambini: [4] }, OGGI).errore,
+    'eta dei bambini non valide');
+  assertEquals(validaParametriDisponibilita({ ...ricerca, bambini: 1, eta_bambini: [4, 9] }, OGGI).errore,
+    'eta dei bambini non valide');
+  assertEquals(validaParametriDisponibilita({ ...ricerca, bambini: 1, eta_bambini: ['quattro'] }, OGGI).errore,
+    'eta dei bambini non valide');
+  assertEquals(validaParametriDisponibilita({ ...ricerca, bambini: 1, eta_bambini: [-1] }, OGGI).errore,
+    'eta dei bambini non valide');
+  assertEquals(validaParametriDisponibilita({ ...ricerca, bambini: 1, eta_bambini: [40] }, OGGI).errore,
+    'eta dei bambini non valide');
+  assertEquals(validaParametriDisponibilita({ ...ricerca, bambini: 1, eta_bambini: 'quattro' }, OGGI).errore,
+    'eta dei bambini non valide');
+});
+
+/* un array di diecimila elementi non deve nemmeno essere guardato voce per
+   voce: il numero di bambini lo limita gia' a sei */
+Deno.test('un array di eta sterminato non arriva al sito dell hotel', () => {
+  const enorme = Array.from({ length: 10000 }, () => 5);
+  assertEquals(validaParametriDisponibilita({ ...ricerca, bambini: 2, eta_bambini: enorme }, OGGI).errore,
+    'eta dei bambini non valide');
+});
+
+Deno.test('due bambini con la loro eta passano e arrivano puliti', () => {
+  const r = validaParametriDisponibilita({ ...ricerca, bambini: 2, eta_bambini: [4, 9] }, OGGI);
+  assertEquals(r.errore, undefined);
+  assertEquals(r.dati!.bambini, 2);
+  assertEquals(r.dati!.eta_bambini, [4, 9]);
+});
+
+/* 8 adulti e 3 bambini cercavano, sceglievano, compilavano — e venivano
+   respinti all'invio, perche' li' il tetto e' adulti + bambini <= 10 */
+Deno.test('la ricerca e l invio ammettono lo stesso numero di persone', () => {
+  assertEquals(
+    validaParametriDisponibilita({ ...ricerca, adulti: 8, bambini: 3, eta_bambini: [4, 6, 8] }, OGGI).errore,
+    'troppe persone in una richiesta',
+  );
+  /* e la richiesta vera, con gli stessi undici, era gia' respinta */
+  assertEquals(validaRichiesta({ ...buona, ospiti: 11 }, OGGI).errore, 'numero di ospiti non valido');
+
+  const dieci = validaParametriDisponibilita(
+    { ...ricerca, adulti: 8, bambini: 2, eta_bambini: [4, 6] }, OGGI);
+  assertEquals(dieci.errore, undefined);
+  assertEquals(dieci.dati!.adulti, 8);
+});

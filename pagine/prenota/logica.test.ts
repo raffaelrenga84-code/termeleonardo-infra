@@ -2,7 +2,7 @@
    prenotazione, senza rete e senza browser: la conversione centesimi/euro
    e la composizione del corpo per POST /richieste. Vedi logica.js. */
 import { assertEquals, assertFalse } from 'jsr:@std/assert';
-import { componiCorpo, euroDaCentesimi } from './logica.js';
+import { componiCorpo, euroDaCentesimi, linguaScelta } from './logica.js';
 
 Deno.test('31000 centesimi sono 310,00 euro, non 310 e non 31000', () => {
   assertEquals(euroDaCentesimi(31000), '310,00');
@@ -94,4 +94,77 @@ Deno.test('nessun campo del corpo contiene un numero di camera: regola della cas
   assertFalse('numero_camera' in corpo);
   assertFalse('numero_camera' in corpo.dati);
   assertFalse('stanza' in corpo.dati);
+});
+
+/* ================= C1: quello che l'ospite ha visto non si perde =================
+   La caparra mostrata e' 7500 x ADULTI, ma non veniva salvata e il numero di
+   adulti non era ricostruibile: su 2 adulti + 2 bambini la pagina promette
+   150 EUR e la reception, leggendo "4 ospiti", ne chiede 300. */
+Deno.test('il jsonb porta adulti, bambini e la caparra promessa all ospite', () => {
+  const corpo = componiCorpo({
+    scelta: SCELTA, nome: 'Anna Bianchi', email: 'anna@example.com', telefono: '',
+    checkIn: '2026-09-16', checkOut: '2026-09-17', adulti: 2, bambini: 2,
+    caparraCent: 15000, note: '', lingua: 'it',
+  });
+  assertEquals(corpo.ospiti, 4);
+  assertEquals(corpo.dati.adulti, 2);
+  assertEquals(corpo.dati.bambini, 2);
+  assertEquals(corpo.dati.caparra_cent, 15000);
+});
+
+Deno.test('la caparra salvata e quella mostrata, non una ricalcolata sugli ospiti', () => {
+  const corpo = componiCorpo({
+    scelta: SCELTA, nome: 'Anna Bianchi', email: 'anna@example.com', telefono: '',
+    checkIn: '2026-09-16', checkOut: '2026-09-17', adulti: 2, bambini: 2,
+    caparraCent: 15000, note: '', lingua: 'it',
+  });
+  /* 4 ospiti x 7500 farebbero 30000: e' proprio l'errore da evitare */
+  assertEquals(corpo.dati.caparra_cent, 15000);
+});
+
+Deno.test('senza bambini il jsonb resta coerente', () => {
+  const corpo = componiCorpo({
+    scelta: SCELTA, nome: 'Anna Bianchi', email: 'anna@example.com', telefono: '',
+    checkIn: '2026-09-16', checkOut: '2026-09-17', adulti: 2, bambini: 0,
+    caparraCent: 15000, note: '', lingua: 'it',
+  });
+  assertEquals(corpo.dati.adulti, 2);
+  assertEquals(corpo.dati.bambini, 0);
+  assertEquals(corpo.ospiti, 2);
+});
+
+/* ================= C2: la lingua =================
+   La lingua decide QUALI CONDIZIONI DI CANCELLAZIONE l'ospite legge, quindi
+   non e' un dettaglio estetico. Su un indirizzo tradotto (/de/buchen) la
+   pagina leggeva solo `?l=`, che li' non c'e': decideva il browser. Un ospite
+   con browser inglese che apriva l'indirizzo tedesco leggeva le condizioni in
+   inglese. */
+Deno.test('l indirizzo tradotto decide la lingua, non il browser', () => {
+  assertEquals(linguaScelta('/de/buchen', '', 'en-US'), 'de');
+  assertEquals(linguaScelta('/it/prenota', '', 'en-US'), 'it');
+  assertEquals(linguaScelta('/fr/reserver', '', 'en-US'), 'fr');
+  assertEquals(linguaScelta('/en/book', '', 'it-IT'), 'en');
+});
+
+Deno.test('il selettore vince sull indirizzo: chi chiede il tedesco lo ottiene', () => {
+  assertEquals(linguaScelta('/it/prenota', '?l=de', 'it-IT'), 'de');
+  assertEquals(linguaScelta('/de/buchen', '?l=it', 'de-DE'), 'it');
+});
+
+/* se mai due `l` arrivassero insieme nell'indirizzo, vince l'ultima: quella
+   che l'ospite ha appena espresso, non un valore di partenza */
+Deno.test('una l ripetuta non riporta la pagina alla lingua di partenza', () => {
+  assertEquals(linguaScelta('/it/prenota', '?l=it&l=de', 'it-IT'), 'de');
+});
+
+Deno.test('senza lingua nell indirizzo decide il browser, e in ultimo l inglese', () => {
+  assertEquals(linguaScelta('/prenota/', '', 'de-DE'), 'de');
+  assertEquals(linguaScelta('/prenota/', '', 'it-IT'), 'it');
+  assertEquals(linguaScelta('/prenota/', '', 'es-ES'), 'en');
+  assertEquals(linguaScelta('/prenota/', '', ''), 'en');
+});
+
+Deno.test('una lingua inventata non passa', () => {
+  assertEquals(linguaScelta('/prenota/', '?l=xx', 'it-IT'), 'it');
+  assertEquals(linguaScelta('/xx/prenota', '', 'it-IT'), 'it');
 });

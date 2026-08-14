@@ -135,7 +135,16 @@ export type ParametriDisponibilita = {
   check_in: string;
   check_out: string;
   adulti: number;
+  bambini: number;
+  eta_bambini: number[];
 };
+
+/* Quanti bambini si possono mettere in una ricerca, e che eta' e' un'eta' da
+   bambino. Il tetto sui bambini serve prima ancora della plausibilita': senza,
+   `eta_bambini` poteva essere un array di diecimila elementi qualsiasi,
+   inoltrato cosi' com'era al sito vero dell'hotel. */
+const BAMBINI_MAX = 6;
+const ETA_BAMBINO_MAX = 17;
 
 /* Convalida gli argomenti dell'azione a=disponibilita con gli STESSI limiti
    della casa gia' usati sopra per una richiesta di soggiorno vera (date che
@@ -174,5 +183,39 @@ export function validaParametriDisponibilita(
     }
   }
 
-  return { dati: { check_in: ci, check_out: co, adulti } };
+  /* Gli adulti erano validati con rigore, i bambini per niente: Number('due')
+     dava NaN e finiva a null, e le eta' passavano cosi' com'erano. L'azione e'
+     pubblica — era l'unico argomento che scavalcava il presidio. */
+  let bambini = 0;
+  if (b.bambini !== undefined && b.bambini !== null && testo(b.bambini) !== '') {
+    bambini = Number(b.bambini);
+    if (!Number.isInteger(bambini) || bambini < 0 || bambini > BAMBINI_MAX) {
+      return { errore: 'numero di bambini non valido' };
+    }
+  }
+
+  /* Un'eta' per ogni bambino, ne' una in piu' ne' una in meno: il motore
+     tariffa i bambini per fascia d'eta', e un elenco che non combacia col
+     numero di bambini produce un prezzo che poi viene mostrato e archiviato. */
+  const grezze = b.eta_bambini;
+  if (bambini > 0 || (grezze !== undefined && grezze !== null)) {
+    if (!Array.isArray(grezze) || grezze.length !== bambini) {
+      return { errore: 'eta dei bambini non valide' };
+    }
+  }
+  const eta_bambini: number[] = [];
+  for (const v of (Array.isArray(grezze) ? grezze : [])) {
+    const e = Number(v);
+    if (!Number.isInteger(e) || e < 0 || e > ETA_BAMBINO_MAX) {
+      return { errore: 'eta dei bambini non valide' };
+    }
+    eta_bambini.push(e);
+  }
+
+  /* Lo stesso tetto dell'invio, che conta adulti + bambini: prima la ricerca
+     ammetteva 10 adulti PIU' i bambini, cosi' 8 adulti e 3 bambini cercavano,
+     sceglievano, compilavano tutto e venivano respinti alla fine. */
+  if (adulti + bambini > OSPITI_MAX) return { errore: 'troppe persone in una richiesta' };
+
+  return { dati: { check_in: ci, check_out: co, adulti, bambini, eta_bambini } };
 }

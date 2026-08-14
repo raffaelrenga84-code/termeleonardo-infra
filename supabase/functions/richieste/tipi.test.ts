@@ -230,3 +230,62 @@ Deno.test('una variante negativa o frazionaria viene rifiutata', () => {
   assertEquals(validaDati('soggiorno', { camera_id: 5, variante_id: 1.5 }, OGGI).errore,
     'variante non valida');
 });
+
+/* ---------------- C1: quello che l'ospite ha visto sullo schermo ----------------
+   La camera da sola non basta: due proposte della stessa camera differiscono
+   solo per trattamento e prezzo, e la caparra promessa dipende dagli ADULTI,
+   non dagli ospiti. Se questi campi non sopravvivono alla validazione, la
+   reception non ha modo di sapere cosa ha scelto l'ospite ne' a che cifra. */
+Deno.test('adulti, bambini e caparra restano attaccati alla camera scelta', () => {
+  const { errore, dati } = validaDati('soggiorno', {
+    camera_id: 5, variante_id: 1, tariffa: 'Soggiorno breve',
+    trattamento: 'Mezza Pensione', prezzo_cent: 31000,
+    adulti: 2, bambini: 2, caparra_cent: 15000,
+  }, OGGI);
+  assertEquals(errore, undefined);
+  assertEquals(dati!.adulti, 2);
+  assertEquals(dati!.bambini, 2);
+  assertEquals(dati!.caparra_cent, 15000);
+});
+
+/* 2 adulti + 2 bambini: la pagina promette 150 EUR di caparra, la colonna
+   `ospiti` dice 4. Senza gli adulti la reception ne chiederebbe 300. */
+Deno.test('la caparra registrata e quella degli adulti, non quella degli ospiti', () => {
+  const { dati } = validaDati('soggiorno', {
+    camera_id: 5, adulti: 2, bambini: 2, caparra_cent: 15000,
+  }, OGGI);
+  assertEquals(dati!.caparra_cent, 15000);
+  assertEquals(dati!.adulti, 2);
+});
+
+Deno.test('adulti e bambini assurdi non entrano in dati', () => {
+  assertEquals(validaDati('soggiorno', { camera_id: 5, adulti: 0 }, OGGI).errore,
+    'adulti non validi');
+  assertEquals(validaDati('soggiorno', { camera_id: 5, adulti: 'due' }, OGGI).errore,
+    'adulti non validi');
+  assertEquals(validaDati('soggiorno', { camera_id: 5, adulti: 99 }, OGGI).errore,
+    'adulti non validi');
+  assertEquals(validaDati('soggiorno', { camera_id: 5, bambini: -1 }, OGGI).errore,
+    'bambini non validi');
+  assertEquals(validaDati('soggiorno', { camera_id: 5, bambini: 1.5 }, OGGI).errore,
+    'bambini non validi');
+});
+
+Deno.test('una caparra assurda viene rifiutata come il prezzo', () => {
+  assertEquals(validaDati('soggiorno', { camera_id: 5, caparra_cent: -1 }, OGGI).errore,
+    'caparra non valida');
+  assertEquals(validaDati('soggiorno', { camera_id: 5, caparra_cent: 99999999 }, OGGI).errore,
+    'caparra non valida');
+  assertEquals(validaDati('soggiorno', { camera_id: 5, caparra_cent: 150.5 }, OGGI).errore,
+    'caparra non valida');
+});
+
+/* la chat manda tipo:'soggiorno' senza niente di tutto questo: deve
+   continuare a passare esattamente come prima */
+Deno.test('senza adulti, bambini e caparra la camera resta valida come prima', () => {
+  const { errore, dati } = validaDati('soggiorno', { camera_id: 5 }, OGGI);
+  assertEquals(errore, undefined);
+  assertEquals(dati!.adulti, undefined);
+  assertEquals(dati!.bambini, undefined);
+  assertEquals(dati!.caparra_cent, undefined);
+});

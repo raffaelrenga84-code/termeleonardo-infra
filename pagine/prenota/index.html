@@ -134,9 +134,26 @@ textarea{min-height:80px;resize:vertical;}
 /* Tre schermate in un unico file — date e ospiti, le camere, i dati — come
    indicato nel brief: una pagina sola e' piu' facile da tenere sorella
    delle altre che una cascata di file quasi identici. La logica pura
-   (centesimi->euro, corpo della richiesta) sta in logica.js, cosi' si
-   prova anche senza aprire un browser: vedi logica.test.ts. */
-import { componiCorpo, euroDaCentesimi } from './logica.js';
+   (centesimi->euro, corpo della richiesta, scelta della lingua) sta in
+   logica.js, cosi' si prova anche senza aprire un browser: vedi
+   logica.test.ts. */
+
+/* PERCORSO ASSOLUTO, NON './logica.js'. Un modulo si risolve contro
+   l'indirizzo che si vede nella barra, non contro il file servito. Questa
+   pagina vive in due posti: arrivo-terme-leonardo.vercel.app/prenota/ e
+   www.hoteltermeleonardo.com/it/prenota — quest'ultimo e' una riscrittura
+   di vercel.json e nella barra resta /it/prenota, senza barra finale.
+   Li' './logica.js' diventa /it/logica.js, che nessuna riscrittura copre:
+   404, oppure l'index.html della SPA servito come text/html, che un modulo
+   rifiuta. In entrambi i casi testata() e disegna() non partono mai e
+   l'ospite vede il logo e una pagina bianca.
+   '/prenota/logica.js' invece e' lo stesso su tutti e due i domini: sul
+   primo e' il file vero, sul secondo lo copre la riscrittura
+   /prenota/:percorso*. Vale comunque sia scritto l'indirizzo nella barra,
+   ed e' la regola per ogni risorsa di queste pagine — la presidia
+   percorsi-web.test.ts, cosi' non torna con la prossima pagina che
+   qualcuno divide in due file. */
+import { componiCorpo, euroDaCentesimi, linguaScelta } from '/prenota/logica.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 
@@ -144,10 +161,10 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
   c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
-const qs = new URLSearchParams(location.search);
-let LNG = ['it','de','en','fr'].includes(qs.get('l')) ? qs.get('l')
-  : (['de','fr','it'].includes((navigator.language || '').slice(0,2))
-     ? (navigator.language || '').slice(0,2) : 'en');
+/* la lingua guarda anche il PERCORSO, non solo `?l=`: sul dominio
+   dell'hotel gli indirizzi sono /it/prenota, /de/buchen, /en/book,
+   /fr/reserver e li' `?l=` non c'e'. Regole e precedenze in logica.js. */
+let LNG = linguaScelta(location.pathname, location.search, navigator.language);
 
 const BANDIERE = { it:'🇮🇹', de:'🇩🇪', en:'🇬🇧', fr:'🇫🇷' };
 const oggiISO = () => new Date().toISOString().slice(0,10);
@@ -164,6 +181,7 @@ const T = {
     mancaRicerca:'Indichi arrivo, partenza e il numero di adulti.',
     partenzaPrimaArrivo:'La partenza deve essere dopo l’arrivo.',
     mancaEta:'Indichi l’età di ogni bambino.',
+    troppePersone:'Per più di 10 persone ci scriva a info@termeleonardo.com o ci chiami allo +39 049 9939200: le prepariamo un preventivo su misura.',
     nessunaCamera:'Non risultano camere libere per queste date. Provi con altre date, oppure ci scriva a info@termeleonardo.com o chiami il +39 049 9939200.',
     erroreRicerca:'Non siamo riusciti a controllare la disponibilità. Riprovi tra poco, oppure ci chiami allo +39 049 9939200.',
     // passo 2
@@ -200,6 +218,7 @@ const T = {
     mancaRicerca:'Bitte geben Sie Anreise, Abreise und die Anzahl der Erwachsenen an.',
     partenzaPrimaArrivo:'Die Abreise muss nach der Anreise liegen.',
     mancaEta:'Bitte geben Sie das Alter jedes Kindes an.',
+    troppePersone:'Für mehr als 10 Personen schreiben Sie bitte an info@termeleonardo.com oder rufen Sie +39 049 9939200 an: wir erstellen Ihnen ein individuelles Angebot.',
     nessunaCamera:'Für diese Daten sind keine Zimmer frei. Versuchen Sie andere Daten, oder schreiben Sie an info@termeleonardo.com bzw. rufen Sie +39 049 9939200 an.',
     erroreRicerca:'Wir konnten die Verfügbarkeit nicht prüfen. Bitte versuchen Sie es später erneut, oder rufen Sie uns unter +39 049 9939200 an.',
     cameraTit:'Freie Zimmer', cameraGuida:'Wählen Sie Zimmer und Verpflegung: der Preis gilt für den gesamten Aufenthalt.',
@@ -233,6 +252,7 @@ const T = {
     mancaRicerca:'Please fill in arrival, departure and the number of adults.',
     partenzaPrimaArrivo:'Departure must be after arrival.',
     mancaEta:'Please give the age of every child.',
+    troppePersone:'For more than 10 people please write to info@termeleonardo.com or call +39 049 9939200: we will prepare a tailored quote.',
     nessunaCamera:'No rooms are available for these dates. Please try other dates, or write to info@termeleonardo.com or call +39 049 9939200.',
     erroreRicerca:'We could not check availability. Please try again shortly, or call us at +39 049 9939200.',
     cameraTit:'Available rooms', cameraGuida:'Choose the room and rate you prefer: the price is for the whole stay.',
@@ -266,6 +286,7 @@ const T = {
     mancaRicerca:'Veuillez indiquer l’arrivée, le départ et le nombre d’adultes.',
     partenzaPrimaArrivo:'Le départ doit être après l’arrivée.',
     mancaEta:'Veuillez indiquer l’âge de chaque enfant.',
+    troppePersone:'Pour plus de 10 personnes, écrivez à info@termeleonardo.com ou appelez le +39 049 9939200 : nous vous préparons un devis sur mesure.',
     nessunaCamera:'Aucune chambre disponible pour ces dates. Essayez d’autres dates, ou écrivez à info@termeleonardo.com ou appelez le +39 049 9939200.',
     erroreRicerca:'Nous n’avons pas pu vérifier la disponibilité. Réessayez dans un instant, ou appelez-nous au +39 049 9939200.',
     cameraTit:'Chambres disponibles', cameraGuida:'Choisissez la chambre et le tarif que vous préférez : le prix est pour tout le séjour.',
@@ -380,6 +401,14 @@ async function cercaDisponibilita() {
   }
   if (partenza <= arrivo) {
     $('esitoRicerca').innerHTML = `<div class="errore">${esc(t.partenzaPrimaArrivo)}</div>`;
+    return;
+  }
+  /* stesso tetto della ricerca e dell'invio: adulti PIU' bambini, non
+     adulti e basta. Prima 8 adulti e 3 bambini cercavano, sceglievano,
+     compilavano tutto e venivano respinti solo alla fine; e il messaggio
+     che leggevano non parlava di quante persone fossero. */
+  if (adulti + nBambini > 10) {
+    $('esitoRicerca').innerHTML = `<div class="errore">${esc(t.troppePersone)}</div>`;
     return;
   }
   const eta_bambini = [];
@@ -562,10 +591,13 @@ async function inviaRichiesta() {
   $('bInvia').textContent = t.invio;
   $('esitoDati').innerHTML = '';
 
+  /* la caparra si manda com'e' stata MOSTRATA all'ospite poche righe piu'
+     su: e' una promessa gia' fatta, non un numero da ricalcolare a valle */
   const corpo = componiCorpo({
     scelta: SCELTA, nome, email, telefono,
     checkIn: RICERCA.arrivo, checkOut: RICERCA.partenza,
     adulti: RICERCA.adulti, bambini: RICERCA.bambini,
+    caparraCent: CAPARRA_CENT,
     note, lingua: LNG,
   });
 
