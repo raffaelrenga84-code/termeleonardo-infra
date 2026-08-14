@@ -2,6 +2,10 @@
    limite.ts — freno sulle richieste pubbliche.
    ?a=acquista è aperto a chiunque e ogni chiamata consuma un numero
    di buono: un ciclo automatico bucherebbe la numerazione.
+   entroIlLimite() frena anche ?a=stampa, che è pubblica per lo stesso
+   motivo di ?a=acquista (nessuna autenticazione) e ha lo stesso rischio in
+   più: senza un freno, si potrebbero provare codici a raffica finché non
+   se ne indovina uno valido. Stesso freno, non uno nuovo — vedi index.ts.
 
    Due freni, perché quello in memoria da solo non basta: provato in
    produzione, quattordici richieste di fila non lo fanno mai scattare,

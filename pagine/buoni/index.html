@@ -91,58 +91,18 @@ tr.apribile:hover td{background:#F7F5EF;}
 .fatto{background:var(--acqua-chiara);border-left:4px solid var(--acqua);
 border-radius:0 8px 8px 0;padding:14px 16px;margin-top:14px;}
 .fatto .codice{font-family:monospace;font-size:26px;letter-spacing:2px;color:var(--acqua-scura);}
-@media print{
-html,body{margin:0;padding:0;background:#FFFFFF;}
-body>*:not(#stampa){display:none !important;}
-#stampa{display:block !important;}
-#stampa *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-}
+/* il foglio A4 di stampa (#stampa e tutto il resto di questa regola) vive in
+   stampa.css, caricato qui sotto con <link>: lo stesso foglio serve anche a
+   pagine/buoni/stampa/index.html, la pagina pubblica che il cliente apre dal
+   pulsante «Stampa il tuo buono» nell'email. Una sola resa dell'aspetto,
+   come buonoStampaHTML() in buono.js è l'unica resa del markup — cambiare
+   qui l'aspetto stampato cambia entrambe le pagine, non serve ricordarsi
+   della seconda. Qui in più: nascosto finché non si stampa, perché il back
+   office ha anche altro da mostrare (la pagina pubblica invece no, e lo
+   tiene visibile — vedi il commento in cima a stampa.css). */
 #stampa{display:none;}
-
-/* ---- stampa: un A4 verticale da piegare a metà (piegato = A5, come il depliant) ---- */
-@page{size:A4 portrait;margin:0;}
-#stampa .foglio{width:210mm;height:297mm;position:relative;box-sizing:border-box;
-background:#FFFFFF;color:#1B4D4A;font-family:Georgia,'Times New Roman',serif;}
-#stampa .meta{height:148.5mm;box-sizing:border-box;padding:14mm 20mm;overflow:hidden;}
-#stampa .copertina{background:#E4F0EA;display:flex;flex-direction:column;}
-#stampa .marchio-s{display:block;width:46mm;height:auto;}
-#stampa .stelle{font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:3px;color:#7A9490;margin-top:3mm;}
-#stampa .foto{display:block;width:100%;flex:1 1 auto;min-height:26mm;
-margin:7mm 0 6mm;object-fit:cover;}
-#stampa .foto.sfumata{background:linear-gradient(160deg,#BEDCD4,#8FC4BC 55%,#5FA8A0);}
-#stampa .occhiello{font:8.5px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#7A9490;}
-#stampa .titolo-oro{font:9.5px/1 Arial,Helvetica,sans-serif;letter-spacing:3px;color:#C9A961;margin-top:6mm;}
-#stampa .dedicatario{font-size:26px;line-height:1.3;margin-top:3mm;}
-#stampa .dedica{font-size:14px;font-style:italic;color:#5C736F;margin-top:4mm;line-height:1.5;}
-#stampa .da{font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#9AA9A6;margin-top:6mm;}
-#stampa .firma-s{font-size:15px;font-style:italic;margin-top:1.5mm;}
-/* la bozza si stampa per farla vedere al cliente: deve essere impossibile
-   scambiarla per un buono spendibile */
-#stampa .bozza-avviso{position:absolute;top:0;left:0;right:0;z-index:2;
-background:#8A6D1F;color:#FFFFFF;text-align:center;
-font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:3px;padding:3mm 0;}
-#stampa .piega{position:absolute;top:148.5mm;left:0;right:0;height:0;border-top:1px dashed #C7C2B6;}
-#stampa .piega span{position:absolute;right:8mm;top:1.5mm;background:#FFFFFF;padding:0 2mm;
-font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
-#stampa .servizio{border-left:3px solid #C9A961;background:#FBFAF7;padding:6mm 7mm;}
-#stampa .servizio-nome{font-size:18px;}
-#stampa .servizio-sotto{font:9px/1.4 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#C9A961;margin-top:2mm;}
-#stampa .comprende{margin:4mm 0 0;padding:0;list-style:none;
-font:11px/1.7 Arial,Helvetica,sans-serif;color:#4A5C59;}
-#stampa .comprende li::before{content:'\00b7  ';color:#C9A961;}
-#stampa .nota-persone{font:9px/1.6 Arial,Helvetica,sans-serif;color:#8A938F;margin-top:4mm;border-top:1px solid #EFEBE0;padding-top:2.5mm;}
-#stampa .codice-riga{display:flex;justify-content:space-between;align-items:flex-start;
-border-top:1px solid #E6E2D8;margin-top:7mm;padding-top:5mm;}
-#stampa .etichetta-s{font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#9AA9A6;}
-#stampa .codice-s{font:20px/1 'Courier New',monospace;letter-spacing:2px;margin-top:2mm;}
-#stampa .scadenza{font:11px/1 Arial,Helvetica,sans-serif;color:#C9A961;margin-top:2mm;}
-#stampa .recapiti{font:10px/1.6 Arial,Helvetica,sans-serif;color:#5C736F;text-align:right;}
-#stampa .prenota{font:11px/1.6 Arial,Helvetica,sans-serif;color:#4A5C59;margin-top:2mm;}
-#stampa .cond-tit{margin-top:6mm;display:block;}
-#stampa .condizioni{font:7.5px/1.5 Arial,Helvetica,sans-serif;color:#8A938F;margin-top:2mm;text-align:justify;}
-#stampa .pieded{position:absolute;bottom:10mm;left:20mm;
-font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
 </style>
+<link rel="stylesheet" href="/buoni/stampa.css" />
 </head>
 <body>
 <div class="fascia"></div>
@@ -163,7 +123,7 @@ font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
    di vercel.json copre; sarebbe bastato aprirlo su /buoni (senza barra
    finale) per cercare /buono.js e trovare la SPA. '/buoni/buono.js' vale
    uguale sui due domini. Vedi percorsi-web.test.ts. */
-import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, categoriaBuono, buonoHTML, righeDescrizione } from '/buoni/buono.js';
+import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, categoriaBuono, buonoHTML, buonoStampaHTML, righeDescrizione } from '/buoni/buono.js';
 
 /* stessa regola di sopra: percorso assoluto, non relativo — `/comune/date.js`,
    mai `./date.js` o `../comune/date.js`. Vedi il commento in date.js. */
@@ -814,72 +774,8 @@ function buonoTesto(b) {
     `+39 049 9939200 \u00b7 info@termeleonardo.com\n\n${CONDIZIONI[L] || CONDIZIONI.it}`;
 }
 
-/* ============================================================
-   Stampa: un A4 verticale da piegare a metà.
-   Sopra la copertina, sotto l'interno: piegato è un A5,
-   la stessa misura del depliant.
-   ============================================================ */
-const ETI_STAMPA = {
-  it:{ prenota:'COME PRENOTARE', condizioni:'CONDIZIONI', piega:'piega qui', rif:'Riferimento',
-    come:'Per prenotare ci chiami o ci scriva: fissiamo insieme il giorno e l\u2019ora.' },
-  de:{ prenota:'SO RESERVIEREN SIE', condizioni:'BEDINGUNGEN', piega:'hier falten', rif:'Referenz',
-    come:'Rufen Sie uns an oder schreiben Sie uns: wir vereinbaren gemeinsam Tag und Uhrzeit.' },
-  en:{ prenota:'HOW TO BOOK', condizioni:'TERMS', piega:'fold here', rif:'Reference',
-    come:'To book, call or write to us: we will arrange the day and time together.' },
-  fr:{ prenota:'COMMENT R\u00c9SERVER', condizioni:'CONDITIONS', piega:'plier ici', rif:'R\u00e9f\u00e9rence',
-    come:'Pour r\u00e9server, appelez-nous ou \u00e9crivez-nous : nous fixerons ensemble le jour et l\u2019heure.' }
-};
-
-function buonoStampaHTML(b, bozza) {
-  const cat = categoriaBuono(b);
-  const L = ['it','de','en','fr'].includes(b.lingua) ? b.lingua : 'it';
-  const e = ETI[L], s = ETI_STAMPA[L];
-  const n = (NARRATIVA[cat] || NARRATIVA.valore)[L] || (NARRATIVA[cat] || NARRATIVA.valore).it;
-  const foto = COPERTINE[cat] || '';
-  const catComprende = /day spa/i.test(String(b.descrizione || '')) ? 'dayspa' : cat;
-  const comprende = (COMPRENDE[catComprende] || {})[L] || (COMPRENDE[catComprende] || {}).it || [];
-  const dest = b.destinatario ? esc(b.destinatario) : '';
-  const righeDescr = String(b.descrizione || '').split('\n').filter(Boolean);
-
-  return `<div class="foglio">
-  ${bozza ? `<div class="bozza-avviso">BOZZA &middot; NON VALIDO &middot; il codice viene assegnato al pagamento</div>` : ''}
-  <section class="meta copertina">
-    <img class="marchio-s" src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" />
-    ${foto ? `<img class="foto" src="${esc(foto)}" alt="" />` : `<div class="foto sfumata"></div>`}
-    <div class="occhiello">${esc(n.occhiello)}</div>
-    <div class="titolo-oro">${e.titolo.toUpperCase()}</div>
-    <div class="dedicatario">${dest ? e.haRicevuto(dest) : e.senzaNome}</div>
-    ${b.dedica ? `<div class="dedica">${esc(b.dedica)}</div>` : ''}
-    ${b.acquirente ? `<div class="da">${e.da}</div>
-      <div class="firma-s">${esc(b.acquirente)}</div>` : ''}
-  </section>
-
-  <div class="piega"><span>${s.piega}</span></div>
-
-  <section class="meta interno">
-    <div class="servizio">
-      ${righeDescr.map(r => `<div class="servizio-nome">${esc(r)}</div>`).join('')}
-      ${b.sottotitolo ? `<div class="servizio-sotto">${esc(b.sottotitolo)}</div>` : ''}
-      ${comprende.length ? `<ul class="comprende">${comprende.map(x =>
-        `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-      <div class="nota-persone">${esc(e.nota)}</div>
-    </div>
-    <div class="codice-riga">
-      <div>
-        <div class="etichetta-s">${e.codice}</div>
-        <div class="codice-s">${bozza ? '&mdash; &mdash; &mdash; &mdash; &mdash;' : esc(b.codice || '')}</div>
-        <div class="scadenza">${e.valido(dataLingua(b.scade_il, L))}</div>
-      </div>
-      <div class="recapiti">+39 049 9939200<br />info@termeleonardo.com<br />www.termeleonardo.com</div>
-    </div>
-    <span class="etichetta-s cond-tit">${s.prenota}</span>
-    <div class="prenota">${s.come}</div>
-    <span class="etichetta-s cond-tit">${s.condizioni}</span>
-    <div class="condizioni">${esc(CONDIZIONI[L] || CONDIZIONI.it)}</div>
-  </section>
-  <div class="pieded">TERME LEONARDO &middot; ${s.rif} ${esc(b.numero || '')}</div>
-</div>`;
-}
+/* buonoStampaHTML (il foglio A4) e ETI_STAMPA vivono ora in buono.js:
+   vedi il commento li' sopra la funzione per il perche'. */
 
 /* ---------- 2. elenco ---------- */
 /* Un buono pagato che non e' mai arrivato al cliente. `consegna` vale

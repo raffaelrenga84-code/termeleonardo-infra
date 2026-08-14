@@ -1,7 +1,7 @@
 /* Test del modulo email: il buono in HTML e le tre spedizioni
    (acquirente, destinatario, amministrazione) via Resend. */
 import { assertEquals, assertStringIncludes } from 'jsr:@std/assert';
-import { avvisaAmministrazione, buonoEmailHTML, fotoBuono, inviaBuonoEmesso, ricevutaEmailHTML, statoConsegna } from './email-buono.ts';
+import { avvisaAmministrazione, buonoEmailHTML, fotoBuono, inviaBuonoEmesso, linkStampa, ricevutaEmailHTML, statoConsegna } from './email-buono.ts';
 
 const IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 
@@ -284,4 +284,77 @@ Deno.test('l avviso all amministrazione non conta come consegna al cliente', () 
 Deno.test('il riepilogo a un terzo indirizzo conta come consegna', () => {
   /* chi lo ha chiesto lo aspetta: se non arriva, va saputo */
   assertEquals(statoConsegna({ acquirente: true, ricevuta: false }), 'fallito');
+});
+
+/* ============================================================
+   Il pulsante «Stampa il tuo buono»: la pagina che stampa il solo foglio A4
+   invece di tutta l'email, intestazioni comprese. Deve arrivare a chi
+   riceve il buono vero (acquirente e destinatario), non al riepilogo
+   d'acquisto né all'avviso interno — quelli non sono "il buono che il
+   cliente ha ricevuto" nel senso di stampa.ts, e il codice lì non compare
+   nemmeno (ricevutaEmailHTML non lo stampa mai). */
+Deno.test('il link punta al dominio dell’hotel, con codice e lingua del buono', () => {
+  assertEquals(linkStampa({ codice: 'LEO-ACDE-FGHJ', lingua: 'de' }),
+    'https://www.hoteltermeleonardo.com/buoni/stampa/?codice=LEO-ACDE-FGHJ&l=de');
+});
+
+Deno.test('una lingua non riconosciuta ricade sull’italiano, come ovunque nel progetto', () => {
+  assertStringIncludes(linkStampa({ codice: 'LEO-ACDE-FGHJ', lingua: 'xx' }), '&l=it');
+});
+
+Deno.test('il pulsante arriva sia all’acquirente sia al destinatario, con lo stesso link', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    await inviaBuonoEmesso(BUONO);
+    assertEquals(spedite.length, 2);
+    // l'href esce con l'HTML escapato da esc(): '&' diventa '&amp;'
+    const linkEscapato = linkStampa(BUONO).replace(/&/g, '&amp;');
+    for (const s of spedite) assertStringIncludes(s.html, `href="${linkEscapato}"`);
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
+});
+
+Deno.test('il pulsante è nella lingua del buono, lingua per lingua, dentro l’email vera', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  const TESTI: Record<string, string> = {
+    it: 'Stampa il tuo buono', de: 'Gutschein ausdrucken',
+    en: 'Print your voucher', fr: 'Imprimer votre bon',
+  };
+  const ALTRI: Record<string, string[]> = {
+    it: ['Gutschein ausdrucken', 'Print your voucher', 'Imprimer votre bon'],
+    de: ['Stampa il tuo buono', 'Print your voucher', 'Imprimer votre bon'],
+    en: ['Stampa il tuo buono', 'Gutschein ausdrucken', 'Imprimer votre bon'],
+    fr: ['Stampa il tuo buono', 'Gutschein ausdrucken', 'Print your voucher'],
+  };
+  for (const lingua of ['it', 'de', 'en', 'fr']) {
+    const { spedite, ripristina } = conFetchFinto();
+    try {
+      await inviaBuonoEmesso({ ...BUONO, lingua, destinatario_email: 'anna@example.com' });
+      assertStringIncludes(spedite[0].html, TESTI[lingua]);
+      for (const estraneo of ALTRI[lingua]) {
+        assertEquals(spedite[0].html.includes(estraneo), false,
+          `l’email in ${lingua} non deve contenere il testo del pulsante in un’altra lingua ("${estraneo}")`);
+      }
+    } finally { ripristina(); }
+  }
+  Deno.env.delete('RESEND_API_KEY');
+});
+
+Deno.test('il riepilogo d’acquisto non porta il pulsante di stampa: non è il buono, e non ha il codice', () => {
+  const html = ricevutaEmailHTML(BUONO);
+  assertEquals(html.includes(linkStampa(BUONO)), false);
+  assertEquals(html.includes('/buoni/stampa/'), false);
+});
+
+Deno.test('l’avviso all’amministrazione non porta il pulsante di stampa', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.set('EMAIL_AMMINISTRAZIONE', 'amministrazione@termeleonardo.com');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    await avvisaAmministrazione(BUONO);
+    assertEquals(spedite.length, 1);
+    assertEquals(spedite[0].html.includes(linkStampa(BUONO)), false);
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); Deno.env.delete('EMAIL_AMMINISTRAZIONE'); }
 });

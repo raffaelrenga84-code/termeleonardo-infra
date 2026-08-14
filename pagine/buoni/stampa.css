@@ -1,0 +1,82 @@
+/* ============================================================
+   stampa.css — il foglio A4 del buono, condiviso.
+
+   Lo stile del buono stampato viveva solo dentro il <style> di
+   pagine/buoni/index.html (il back office, "Stampa subito"). Ora lo usa
+   anche pagine/buoni/stampa/index.html, la pagina pubblica che il cliente
+   apre dal pulsante «Stampa il tuo buono» nell'email: la stessa cosa che
+   buonoStampaHTML() è per il markup, questo file lo è per l'aspetto — un
+   foglio, non due copie che una revisione grafica fatta in un solo posto
+   farebbe divergere.
+
+   Le due pagine si accordano su un contratto minimo: un elemento con
+   id="stampa" che contiene il markup di buonoStampaHTML() (una .foglio),
+   figlio diretto di <body> — non annidato in un contenitore, o la regola
+   qui sotto che nasconde "tutto tranne #stampa" in stampa nasconderebbe
+   anche lui. Ogni pagina decide da sé se mostrarlo normalmente (la pagina
+   pubblica: è l'unica cosa che il cliente è venuto a vedere) o tenerlo
+   nascosto finché non si stampa (il back office, che ha anche altro).
+   ============================================================ */
+
+@media print{
+  html,body{margin:0;padding:0;background:#FFFFFF;}
+  body>*:not(#stampa){display:none !important;}
+  #stampa{display:block !important;}
+  #stampa *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  /* la pagina pubblica scala il foglio per farlo stare nello schermo (anche
+     un telefono): in stampa quella scala andrebbe tolta, o il foglio uscirebbe
+     rimpicciolito invece che a piena pagina A4. Il back office non scala mai
+     #stampa (lo riempie solo un istante prima di stampare), quindi qui non
+     cambia niente per lui: le due regole non si pestano i piedi.
+     Stesso discorso per il margin: la pagina pubblica lo usa per staccare il
+     foglio dal resto sullo schermo (#stampa{margin:20px auto 40px} nel suo
+     <style>). Lasciato in stampa, quei pixel si sommano ai 297mm del foglio
+     e lo fanno traboccare su una SECONDA pagina, quasi vuota — visto coi
+     miei occhi in un PDF di prova prima di aggiungere questa riga. */
+  #stampa{height:auto !important;overflow:visible !important;margin:0 !important;}
+  #stampa .foglio{transform:none !important;}
+}
+
+/* ---- il foglio: un A4 verticale da piegare a metà (piegato = A5, come il depliant) ---- */
+@page{size:A4 portrait;margin:0;}
+#stampa .foglio{width:210mm;height:297mm;position:relative;box-sizing:border-box;
+background:#FFFFFF;color:#1B4D4A;font-family:Georgia,'Times New Roman',serif;}
+#stampa .meta{height:148.5mm;box-sizing:border-box;padding:14mm 20mm;overflow:hidden;}
+#stampa .copertina{background:#E4F0EA;display:flex;flex-direction:column;}
+#stampa .marchio-s{display:block;width:46mm;height:auto;}
+#stampa .stelle{font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:3px;color:#7A9490;margin-top:3mm;}
+#stampa .foto{display:block;width:100%;flex:1 1 auto;min-height:26mm;
+margin:7mm 0 6mm;object-fit:cover;}
+#stampa .foto.sfumata{background:linear-gradient(160deg,#BEDCD4,#8FC4BC 55%,#5FA8A0);}
+#stampa .occhiello{font:8.5px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#7A9490;}
+#stampa .titolo-oro{font:9.5px/1 Arial,Helvetica,sans-serif;letter-spacing:3px;color:#C9A961;margin-top:6mm;}
+#stampa .dedicatario{font-size:26px;line-height:1.3;margin-top:3mm;}
+#stampa .dedica{font-size:14px;font-style:italic;color:#5C736F;margin-top:4mm;line-height:1.5;}
+#stampa .da{font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#9AA9A6;margin-top:6mm;}
+#stampa .firma-s{font-size:15px;font-style:italic;margin-top:1.5mm;}
+/* la bozza si stampa per farla vedere al cliente: deve essere impossibile
+   scambiarla per un buono spendibile */
+#stampa .bozza-avviso{position:absolute;top:0;left:0;right:0;z-index:2;
+background:#8A6D1F;color:#FFFFFF;text-align:center;
+font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:3px;padding:3mm 0;}
+#stampa .piega{position:absolute;top:148.5mm;left:0;right:0;height:0;border-top:1px dashed #C7C2B6;}
+#stampa .piega span{position:absolute;right:8mm;top:1.5mm;background:#FFFFFF;padding:0 2mm;
+font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
+#stampa .servizio{border-left:3px solid #C9A961;background:#FBFAF7;padding:6mm 7mm;}
+#stampa .servizio-nome{font-size:18px;}
+#stampa .servizio-sotto{font:9px/1.4 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#C9A961;margin-top:2mm;}
+#stampa .comprende{margin:4mm 0 0;padding:0;list-style:none;
+font:11px/1.7 Arial,Helvetica,sans-serif;color:#4A5C59;}
+#stampa .comprende li::before{content:'\00b7  ';color:#C9A961;}
+#stampa .nota-persone{font:9px/1.6 Arial,Helvetica,sans-serif;color:#8A938F;margin-top:4mm;border-top:1px solid #EFEBE0;padding-top:2.5mm;}
+#stampa .codice-riga{display:flex;justify-content:space-between;align-items:flex-start;
+border-top:1px solid #E6E2D8;margin-top:7mm;padding-top:5mm;}
+#stampa .etichetta-s{font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#9AA9A6;}
+#stampa .codice-s{font:20px/1 'Courier New',monospace;letter-spacing:2px;margin-top:2mm;}
+#stampa .scadenza{font:11px/1 Arial,Helvetica,sans-serif;color:#C9A961;margin-top:2mm;}
+#stampa .recapiti{font:10px/1.6 Arial,Helvetica,sans-serif;color:#5C736F;text-align:right;}
+#stampa .prenota{font:11px/1.6 Arial,Helvetica,sans-serif;color:#4A5C59;margin-top:2mm;}
+#stampa .cond-tit{margin-top:6mm;display:block;}
+#stampa .condizioni{font:7.5px/1.5 Arial,Helvetica,sans-serif;color:#8A938F;margin-top:2mm;text-align:justify;}
+#stampa .pieded{position:absolute;bottom:10mm;left:20mm;
+font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}

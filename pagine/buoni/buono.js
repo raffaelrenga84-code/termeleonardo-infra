@@ -310,3 +310,81 @@ export function buonoHTML(b, bozza) {
 </tr>
 </table>`;
 }
+
+/* ============================================================
+   Stampa: il foglio A4 da piegare a metà (piegato = A5, come il depliant).
+   Sopra la copertina, sotto l'interno.
+
+   Viveva solo dentro pagine/buoni/index.html, la pagina del back office:
+   "Stampa subito" la riempiva e chiamava window.print(). Ora la usa anche
+   pagine/buoni/stampa/index.html, la pagina pubblica che il cliente apre dal
+   pulsante «Stampa il tuo buono» nell'email — e tenerne due copie avrebbe
+   rifatto lo stesso errore già pagato con buonoHTML più sopra: due rese
+   dello stesso buono, una delle due prima o poi rimasta indietro. Una sola
+   funzione, per entrambe le pagine.
+
+   Lo stile del foglio (#stampa .foglio e tutto quel che c'è dentro, più
+   @page) vive invece in stampa.css, caricato da entrambe le pagine con
+   <link>: un foglio di stile si condivide con un <link>, un modulo con un
+   import — stessa ragione, due strumenti diversi. */
+const ETI_STAMPA = {
+  it:{ prenota:'COME PRENOTARE', condizioni:'CONDIZIONI', piega:'piega qui', rif:'Riferimento',
+    come:'Per prenotare ci chiami o ci scriva: fissiamo insieme il giorno e l’ora.' },
+  de:{ prenota:'SO RESERVIEREN SIE', condizioni:'BEDINGUNGEN', piega:'hier falten', rif:'Referenz',
+    come:'Rufen Sie uns an oder schreiben Sie uns: wir vereinbaren gemeinsam Tag und Uhrzeit.' },
+  en:{ prenota:'HOW TO BOOK', condizioni:'TERMS', piega:'fold here', rif:'Reference',
+    come:'To book, call or write to us: we will arrange the day and time together.' },
+  fr:{ prenota:'COMMENT RÉSERVER', condizioni:'CONDITIONS', piega:'plier ici', rif:'Référence',
+    come:'Pour réserver, appelez-nous ou écrivez-nous : nous fixerons ensemble le jour et l’heure.' }
+};
+
+export function buonoStampaHTML(b, bozza) {
+  const cat = categoriaBuono(b);
+  const L = ['it','de','en','fr'].includes(b.lingua) ? b.lingua : 'it';
+  const e = ETI[L], s = ETI_STAMPA[L];
+  const n = (NARRATIVA[cat] || NARRATIVA.valore)[L] || (NARRATIVA[cat] || NARRATIVA.valore).it;
+  const foto = COPERTINE[cat] || '';
+  const catComprende = /day spa/i.test(String(b.descrizione || '')) ? 'dayspa' : cat;
+  const comprende = (COMPRENDE[catComprende] || {})[L] || (COMPRENDE[catComprende] || {}).it || [];
+  const dest = b.destinatario ? esc(b.destinatario) : '';
+  const righeDescr = String(b.descrizione || '').split('\n').filter(Boolean);
+
+  return `<div class="foglio">
+  ${bozza ? `<div class="bozza-avviso">BOZZA &middot; NON VALIDO &middot; il codice viene assegnato al pagamento</div>` : ''}
+  <section class="meta copertina">
+    <img class="marchio-s" src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" />
+    ${foto ? `<img class="foto" src="${esc(foto)}" alt="" />` : `<div class="foto sfumata"></div>`}
+    <div class="occhiello">${esc(n.occhiello)}</div>
+    <div class="titolo-oro">${e.titolo.toUpperCase()}</div>
+    <div class="dedicatario">${dest ? e.haRicevuto(dest) : e.senzaNome}</div>
+    ${b.dedica ? `<div class="dedica">${esc(b.dedica)}</div>` : ''}
+    ${b.acquirente ? `<div class="da">${e.da}</div>
+      <div class="firma-s">${esc(b.acquirente)}</div>` : ''}
+  </section>
+
+  <div class="piega"><span>${s.piega}</span></div>
+
+  <section class="meta interno">
+    <div class="servizio">
+      ${righeDescr.map(r => `<div class="servizio-nome">${esc(r)}</div>`).join('')}
+      ${b.sottotitolo ? `<div class="servizio-sotto">${esc(b.sottotitolo)}</div>` : ''}
+      ${comprende.length ? `<ul class="comprende">${comprende.map(x =>
+        `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      <div class="nota-persone">${esc(e.nota)}</div>
+    </div>
+    <div class="codice-riga">
+      <div>
+        <div class="etichetta-s">${e.codice}</div>
+        <div class="codice-s">${bozza ? '&mdash; &mdash; &mdash; &mdash; &mdash;' : esc(b.codice || '')}</div>
+        <div class="scadenza">${e.valido(dataLingua(b.scade_il, L))}</div>
+      </div>
+      <div class="recapiti">+39 049 9939200<br />info@termeleonardo.com<br />www.termeleonardo.com</div>
+    </div>
+    <span class="etichetta-s cond-tit">${s.prenota}</span>
+    <div class="prenota">${s.come}</div>
+    <span class="etichetta-s cond-tit">${s.condizioni}</span>
+    <div class="condizioni">${esc(CONDIZIONI[L] || CONDIZIONI.it)}</div>
+  </section>
+  <div class="pieded">TERME LEONARDO &middot; ${s.rif} ${esc(b.numero || '')}</div>
+</div>`;
+}

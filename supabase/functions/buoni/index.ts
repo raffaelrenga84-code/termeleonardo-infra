@@ -17,8 +17,12 @@
      POST ?a=annulla    → annulla
      GET  ?a=elenco     → ultimi buoni, con filtri
    Pubblico:
-     GET  ?a=verifica&codice=…  → validità, senza dati personali
-     GET  ?a=mostra&id=…&f=…    → il buono da aprire e stampare
+     GET  ?a=verifica&codice=…  → validità, senza dati personali (la usa la
+                                  reception per controllare un codice)
+     GET  ?a=stampa&codice=…    → il buono pronto per il foglio A4 (la usa
+                                  pagine/buoni/stampa/, dal pulsante «Stampa
+                                  il tuo buono» nell'email — vedi stampa.ts
+                                  per cosa esce e perché è un'azione a parte)
      POST ?a=acquista   → acquisto dal sito: buono in attesa + link carta
    Stripe:
      POST ?a=webhook    → incasso confermato: emette il codice da sé
@@ -28,6 +32,7 @@ import { validaAcquisto, colonnaVoci } from './acquista.ts';
 import { nasceGiaPagato } from './pagamenti.ts';
 import { entroIlLimite, troppiDalSito } from './limite.ts';
 import { avvisaAmministrazione, inviaBuonoEmesso, statoConsegna } from './email-buono.ts';
+import { datiStampa } from './stampa.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -265,6 +270,33 @@ Deno.serve(async (req) => {
       descrizione: data.descrizione, valore: data.valore, voci: data.voci,
       scade_il: data.scade_il, riscosso_il: data.riscosso_il
     });
+  }
+
+  /* ---------- pubblico: il buono pronto per il foglio A4 ----------
+     Azione SEPARATA da `verifica` qui sopra, di proposito: il ragionamento
+     completo — perché non si allarga verifica, cosa può vedere chi chiama
+     questa azione e perché, cosa invece non esce mai — sta in stampa.ts,
+     accanto a datiStampa() che decide la risposta. Qui restano solo le due
+     cose che riguardano il TRASPORTO, non la privacy dei dati:
+     - il freno: lo stesso limite in memoria di ?a=acquista (entroIlLimite,
+       limite.ts). Senza, chiunque potrebbe provare codici a raffica finché
+       non ne indovina uno valido — lo stesso rischio, la stessa soluzione
+       già scritta, non se ne inventa una seconda;
+     - la select(): elenca ESATTAMENTE i campi che datiStampa può lasciar
+       uscire. Anche qui un allow-list, non un blocklist: se domani la
+       tabella cresce di una colonna, quella colonna non arriva nemmeno
+       fino a datiStampa finché qualcuno non la aggiunge qui apposta. */
+  if (azione === 'stampa') {
+    const codice = (url.searchParams.get('codice') || '').toUpperCase().trim();
+    if (!codice) return risposta({ errore: 'codice mancante' }, 400);
+    if (!entroIlLimite(ipRichiesta(req))) {
+      console.warn('stampa respinta per troppe richieste, ip', ipRichiesta(req));
+      return risposta({ errore: 'troppe richieste, riprovi tra qualche minuto' }, 429);
+    }
+    const { data } = await db.from('buono_regalo')
+      .select('codice, tipo, voce_id, descrizione, lingua, sottotitolo, destinatario, dedica, acquirente, numero, scade_il, stato')
+      .eq('codice', codice).maybeSingle();
+    return risposta(datiStampa(data), data ? 200 : 404);
   }
 
   /* ---------- Stripe ha incassato: il buono si sblocca da solo ---------- */

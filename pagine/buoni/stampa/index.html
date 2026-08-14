@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- la pagina porta la dedica e il nome di chi riceve: niente indicizzazione,
+     per lo stesso motivo per cui il back office non si indicizza -->
+<meta name="robots" content="noindex, nofollow" />
+<title>Buono Regalo — Hotel Terme Leonardo</title>
+<style>
+:root{--verde:#1B4D4A;--verde-medio:#5C736F;--verde-chiaro:#E4F0EA;--oro:#C9A961;
+--carta:#FBFAF7;--sabbia:#EDE7DC;--inchiostro:#2A2E2B;--arancio:#E8751A;--allarme:#C0392B;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--carta);color:var(--inchiostro);font:16px/1.6 Arial,Helvetica,sans-serif;}
+header{background:var(--verde-chiaro);padding:22px 16px;text-align:center;}
+header img{display:block;width:170px;max-width:60%;height:auto;margin:0 auto;}
+main{max-width:900px;margin:0 auto;padding:26px 16px 10px;text-align:center;}
+.messaggio{max-width:520px;margin:34px auto;font-size:16px;line-height:1.6;color:var(--verde-medio);}
+.messaggio.errore{color:var(--allarme);}
+.azione{display:inline-block;background:var(--arancio);color:#fff;border:0;border-radius:8px;
+padding:16px 30px;font:600 17px Arial;cursor:pointer;margin:10px 0 6px;text-decoration:none;}
+.istruzioni{font-size:13px;color:var(--verde-medio);margin-bottom:10px;}
+/* #stampa e' figlio diretto di <body>, non di <main>: lo vuole stampa.css,
+   che in stampa nasconde "tutto tranne #stampa" — annidarlo dentro main lo
+   nasconderebbe insieme al resto. Vedi il commento in cima a stampa.css. */
+#stampa{margin:20px auto 40px;overflow:auto;max-width:100%;}
+#stampa .foglio{transform-origin:top left;margin:0 auto;box-shadow:0 3px 16px rgba(0,0,0,.12);}
+.piede{border-top:1px solid var(--sabbia);padding:22px 16px 30px;text-align:center;
+font-size:12.5px;color:var(--verde-medio);}
+@media (max-width:640px){
+  main{padding:18px 12px 4px;}
+  .azione{width:100%;padding:16px 18px;}
+}
+</style>
+<!-- il foglio A4 vero e proprio (dentro #stampa) prende il suo aspetto da
+     qui: la stessa pagina di stile che usa il back office, vedi stampa.css -->
+<link rel="stylesheet" href="/buoni/stampa.css" />
+</head>
+<body>
+
+<header><img src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" /></header>
+
+<main id="pagina"></main>
+<div id="stampa"></div>
+
+<div class="piede">
+  Hotel Terme Leonardo &middot; +39 049 9939200 &middot; info@termeleonardo.com
+</div>
+
+<script type="module">
+'use strict';
+/* il buono lo disegna il modulo condiviso col back office: la stessa
+   funzione che "Stampa subito" usa in reception. Due rese dello stesso
+   foglio, una delle due prima o poi rimasta indietro, e' esattamente il
+   difetto che questo progetto ha gia' pagato piu' volte (vedi il commento
+   sopra buonoStampaHTML in buono.js) — qui non se ne fa un secondo. */
+/* percorso assoluto e non relativo: questa pagina vive sotto /buoni/stampa/,
+   ma un link nell'email potrebbe anche arrivarci con parametri o barre
+   diverse — /buoni/buono.js vale uguale comunque sia scritto l'indirizzo.
+   Vedi pagine/README.md e percorsi-web.test.ts. */
+import { buonoStampaHTML, esc } from '/buoni/buono.js';
+
+const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
+const $ = (id) => document.getElementById(id);
+
+const qs = new URLSearchParams(location.search);
+const CODICE = (qs.get('codice') || '').trim();
+
+/* La lingua arriva dal link che l'email ha già scelto per il cliente — la
+   stessa lingua in cui il buono è stato emesso — così il messaggio di
+   caricamento e gli eventuali errori sono nella lingua giusta ancora prima
+   che il server risponda (vedi linkStampa in email-buono.ts). Il fallback
+   sulla lingua del browser serve solo a chi arriva senza quel parametro,
+   ad esempio un codice digitato a mano nella barra degli indirizzi. */
+const LNG = ['it','de','en','fr'].includes(qs.get('l')) ? qs.get('l')
+  : (['de','fr'].includes((navigator.language || '').slice(0,2)) ? (navigator.language || '').slice(0,2)
+  : ((navigator.language || '').slice(0,2) === 'it' ? 'it' : 'en'));
+document.documentElement.lang = LNG;
+
+const T = {
+  it:{ titolo:'Il tuo Buono Regalo', carico:'Carichiamo il tuo buono…',
+    bottone:'Stampa il tuo buono',
+    istruzioni:'Un clic ed è pronto per la stampante. Da telefono puoi anche salvarlo come PDF.',
+    erroreRete:'Non siamo riusciti a caricare il buono. Riprova tra poco, oppure scrivici a info@termeleonardo.com o chiamaci al +39 049 9939200.',
+    nonTrovato:'Non troviamo un buono con questo codice. Controlla di averlo copiato per intero.',
+    attesa:'Questo buono risulta ancora in attesa di pagamento: non è ancora stato emesso.',
+    annullato:'Questo buono è stato annullato e non è più valido.',
+    riscosso:'Questo buono è già stato riscosso e non è più valido.',
+    scaduto:'Questo buono è scaduto e non è più valido.',
+    genericoNonValido:'Questo buono non è valido.' },
+  de:{ titolo:'Ihr Geschenkgutschein', carico:'Ihr Gutschein wird geladen…',
+    bottone:'Gutschein ausdrucken',
+    istruzioni:'Ein Klick, und er ist druckfertig. Vom Smartphone aus können Sie ihn auch als PDF speichern.',
+    erroreRete:'Der Gutschein konnte nicht geladen werden. Bitte versuchen Sie es später erneut, oder schreiben Sie an info@termeleonardo.com bzw. rufen Sie +39 049 9939200 an.',
+    nonTrovato:'Wir finden keinen Gutschein mit diesem Code. Bitte prüfen Sie, ob Sie ihn vollständig kopiert haben.',
+    attesa:'Dieser Gutschein wartet noch auf die Zahlung und wurde noch nicht ausgestellt.',
+    annullato:'Dieser Gutschein wurde storniert und ist nicht mehr gültig.',
+    riscosso:'Dieser Gutschein wurde bereits eingelöst und ist nicht mehr gültig.',
+    scaduto:'Dieser Gutschein ist abgelaufen und nicht mehr gültig.',
+    genericoNonValido:'Dieser Gutschein ist nicht gültig.' },
+  en:{ titolo:'Your Gift Voucher', carico:'Loading your voucher…',
+    bottone:'Print your voucher',
+    istruzioni:'One click and it is ready for the printer. On a phone, you can also save it as a PDF.',
+    erroreRete:'We could not load the voucher. Please try again shortly, or write to info@termeleonardo.com or call +39 049 9939200.',
+    nonTrovato:'We cannot find a voucher with this code. Please check that you copied it in full.',
+    attesa:'This voucher is still awaiting payment and has not been issued yet.',
+    annullato:'This voucher has been cancelled and is no longer valid.',
+    riscosso:'This voucher has already been redeemed and is no longer valid.',
+    scaduto:'This voucher has expired and is no longer valid.',
+    genericoNonValido:'This voucher is not valid.' },
+  fr:{ titolo:'Votre Bon Cadeau', carico:'Chargement de votre bon…',
+    bottone:'Imprimer votre bon',
+    istruzioni:'Un clic et il est prêt pour l’impression. Depuis un téléphone, vous pouvez aussi l’enregistrer en PDF.',
+    erroreRete:'Nous n’avons pas pu charger le bon. Réessayez dans un instant, ou écrivez à info@termeleonardo.com ou appelez le +39 049 9939200.',
+    nonTrovato:'Nous ne trouvons aucun bon avec ce code. Vérifiez que vous l’avez copié en entier.',
+    attesa:'Ce bon est encore en attente de paiement et n’a pas encore été émis.',
+    annullato:'Ce bon a été annulé et n’est plus valable.',
+    riscosso:'Ce bon a déjà été utilisé et n’est plus valable.',
+    scaduto:'Ce bon est expiré et n’est plus valable.',
+    genericoNonValido:'Ce bon n’est pas valable.' }
+};
+const t = T[LNG];
+document.title = t.titolo + ' — Hotel Terme Leonardo';
+
+function messaggio(testo, errore) {
+  $('pagina').innerHTML = `<div class="messaggio${errore ? ' errore' : ''}">${esc(testo)}</div>`;
+}
+
+/* riscala il foglio (210mm sono troppi per uno schermo, tantopiu' un
+   telefono) per farlo stare nel contenitore, mantenendo le proporzioni:
+   stessa tecnica gia' usata per le anteprime nel back office e in
+   regala/index.html. In stampa la scala si toglie (vedi stampa.css), cosi'
+   il foglio esce a piena pagina A4 comunque sia stato ridotto a schermo. */
+function adattaScala() {
+  const foglio = document.querySelector('#stampa .foglio');
+  const cont = $('stampa');
+  if (!foglio || !cont) return;
+  const largh = cont.clientWidth || window.innerWidth;
+  const scala = Math.min(1, (largh - 8) / foglio.offsetWidth);
+  foglio.style.transform = `scale(${scala})`;
+  cont.style.height = (foglio.offsetHeight * scala) + 'px';
+}
+window.addEventListener('resize', adattaScala);
+
+async function carica() {
+  if (!CODICE) { messaggio(t.nonTrovato, true); return; }
+  messaggio(t.carico, false);
+  let j;
+  try {
+    const r = await fetch(FUNZIONE + '?a=stampa&codice=' + encodeURIComponent(CODICE));
+    j = await r.json().catch(() => ({}));
+    /* 404 (codice non trovato) e' una risposta valida quanto un 200: la si
+       legge lo stesso, non e' un errore di rete */
+    if (!r.ok && r.status !== 404) throw new Error('errore ' + r.status);
+  } catch (e) {
+    messaggio(t.erroreRete, true);
+    return;
+  }
+  if (!j || !j.valido) {
+    /* j.stato vale 'attesa' | 'annullato' | 'riscosso' | 'scaduto': sono
+       proprio le chiavi che T porta gia' tradotte, quindi si usa il valore
+       cosi' com'e' per scegliere il messaggio, senza una mappa a parte che
+       potrebbe restare indietro se domani il server aggiunge uno stato. */
+    const testo = (j && j.stato && t[j.stato]) ? t[j.stato] : t.nonTrovato;
+    messaggio(testo, true);
+    return;
+  }
+  $('stampa').innerHTML = buonoStampaHTML(j.buono, false);
+  $('pagina').innerHTML = `<button type="button" class="azione" id="bStampa">${esc(t.bottone)}</button>
+    <div class="istruzioni">${esc(t.istruzioni)}</div>`;
+  $('bStampa').onclick = () => window.print();
+  adattaScala();
+}
+
+carica();
+</script>
+</body>
+</html>

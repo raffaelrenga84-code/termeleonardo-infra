@@ -4,7 +4,7 @@
    sorgente unica delle due copie web: se il buono perde un pezzo, si vede
    qui invece che in produzione. */
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
-import { buonoHTML, categoriaBuono, CONDIZIONI, ETI, riepilogoVoci, righeDescrizione } from './buono.js';
+import { buonoHTML, buonoStampaHTML, categoriaBuono, CONDIZIONI, ETI, riepilogoVoci, righeDescrizione } from './buono.js';
 import { CONDIZIONI as CONDIZIONI_EMAIL, ETI as ETI_EMAIL } from '../../supabase/functions/buoni/email-buono.ts';
 /* lo stesso schema del confronto qui sopra fra sito ed email: riepilogoVoci
    non si confronta con stringhe scritte a mano leggendo acquista.ts, si
@@ -316,4 +316,55 @@ Deno.test('buono creato a mano con più righe ma voci null: le righe si vedono, 
     { testo: 'n. 2 · Massaggio relax', quantita: null },
     { testo: 'Day Spa festivo', quantita: null },
   ]);
+});
+
+/* ============================================================
+   buonoStampaHTML — il foglio A4. Fino a qui viveva solo dentro
+   pagine/buoni/index.html e non aveva un test tutto suo: lo prendeva solo
+   di striscio la lettura del sorgente. Ora che la usa anche
+   pagine/buoni/stampa/index.html, un difetto qui stampa un foglio sbagliato
+   in DUE posti, non uno — merita un presidio diretto. */
+Deno.test('il foglio di stampa porta il racconto, il codice e la scadenza', () => {
+  const f = buonoStampaHTML(dayspa, false);
+  assertStringIncludes(f, 'PISCINE TERMALI');
+  assertStringIncludes(f, 'ABCD-1234');
+  assertStringIncludes(f, '13 agosto 2027');
+  assertStringIncludes(f, 'Anna');   // haRicevuto(destinatario)
+});
+
+Deno.test('il foglio di stampa elenca cosa comprende, come buonoHTML', () => {
+  const f = buonoStampaHTML(dayspa, false);
+  assertStringIncludes(f, 'Biogrotta');
+  assertStringIncludes(f, 'Cascata di acqua termale');
+});
+
+Deno.test('in bozza il foglio di stampa copre il codice e si marca BOZZA', () => {
+  const f = buonoStampaHTML(dayspa, true);
+  assertStringIncludes(f, 'BOZZA');
+  assertEquals(f.includes('ABCD-1234'), false);
+});
+
+Deno.test('senza bozza il foglio di stampa non porta nessun avviso di anteprima', () => {
+  const f = buonoStampaHTML(dayspa, false);
+  assertEquals(f.includes('BOZZA'), false);
+});
+
+Deno.test('il foglio di stampa cambia lingua, date e istruzioni per prenotare comprese', () => {
+  const de = buonoStampaHTML({ ...dayspa, lingua: 'de' }, false);
+  assertStringIncludes(de, 'THERMALB');
+  assertStringIncludes(de, '13. August 2027');
+  assertStringIncludes(de, 'SO RESERVIEREN SIE');
+  const fr = buonoStampaHTML({ ...dayspa, lingua: 'fr' }, false);
+  assertStringIncludes(fr, 'PISCINES THERMALES');
+  assertStringIncludes(fr, 'COMMENT RÉSERVER');
+});
+
+Deno.test('il foglio di stampa neutralizza i tag nei campi liberi', () => {
+  const f = buonoStampaHTML({ ...dayspa, dedica: '<script>alert(1)</script>' }, false);
+  assertEquals(f.includes('<script>'), false);
+  assertStringIncludes(f, '&lt;script&gt;');
+});
+
+Deno.test('il foglio di stampa porta il riferimento per l’amministrazione', () => {
+  assertStringIncludes(buonoStampaHTML(dayspa, false), 'BR-2026-0007');
 });

@@ -27,7 +27,9 @@ export const ETI: Record<string, any> = {
     corpoAcq: 'grazie del suo acquisto: il pagamento è stato ricevuto e il buono è stato emesso. Lo trova qui sotto, pronto da stampare o da inoltrare a chi lo riceverà.',
     corpoDest: 'qualcuno ha pensato a lei: ecco il suo buono regalo per l’Hotel Terme Leonardo. Per usarlo basta chiamarci o scriverci indicando il codice.',
     saluto: 'Un cordiale saluto,<br />Hotel Terme Leonardo',
-    nota: 'Ogni ingresso o trattamento vale per una persona. Per prenotare basta chiamarci o scriverci: ci organizziamo insieme.' },
+    nota: 'Ogni ingresso o trattamento vale per una persona. Per prenotare basta chiamarci o scriverci: ci organizziamo insieme.',
+    stampaBtn: 'Stampa il tuo buono',
+    stampaNota: 'Un foglio pronto da stampare, con il solo buono — utile se preferisce portarlo con sé su carta.' },
   de: { titolo: 'Geschenkgutschein', haRicevuto: (n: string) => `${n}, Sie haben<br />ein besonderes Geschenk erhalten`,
     senzaNome: 'Ein besonderes<br />Geschenk für Sie', da: 'HERZLICHST, VON', codice: 'GUTSCHEINCODE',
     valido: (d: string) => `Gültig bis ${d}`,
@@ -37,7 +39,9 @@ export const ETI: Record<string, any> = {
     corpoAcq: 'vielen Dank für Ihren Einkauf: die Zahlung ist eingegangen und der Gutschein wurde ausgestellt. Sie finden ihn unten — zum Ausdrucken oder Weiterleiten.',
     corpoDest: 'jemand hat an Sie gedacht: hier ist Ihr Geschenkgutschein für das Hotel Terme Leonardo. Zur Einlösung genügt ein Anruf oder eine E-Mail mit dem Code.',
     saluto: 'Mit freundlichen Grüßen,<br />Hotel Terme Leonardo',
-    nota: 'Jeder Eintritt und jede Anwendung gilt für eine Person. Für die Reservierung rufen Sie uns an oder schreiben Sie uns: wir organisieren alles gemeinsam.' },
+    nota: 'Jeder Eintritt und jede Anwendung gilt für eine Person. Für die Reservierung rufen Sie uns an oder schreiben Sie uns: wir organisieren alles gemeinsam.',
+    stampaBtn: 'Gutschein ausdrucken',
+    stampaNota: 'Ein druckfertiges Blatt mit nur dem Gutschein — praktisch, wenn Sie ihn lieber auf Papier dabeihaben.' },
   en: { titolo: 'Gift Voucher', haRicevuto: (n: string) => `${n}, you have received<br />a special gift`,
     senzaNome: 'A special gift<br />for you', da: 'WITH LOVE, FROM', codice: 'VOUCHER CODE',
     valido: (d: string) => `Valid until ${d}`,
@@ -47,7 +51,9 @@ export const ETI: Record<string, any> = {
     corpoAcq: 'thank you for your purchase: the payment has been received and the voucher has been issued. You will find it below, ready to print or forward.',
     corpoDest: 'someone was thinking of you: here is your gift voucher for Hotel Terme Leonardo. To use it, just call or write to us with the code.',
     saluto: 'Kind regards,<br />Hotel Terme Leonardo',
-    nota: 'Each admission or treatment is for one person. To book, just call or write to us: we will arrange everything together.' },
+    nota: 'Each admission or treatment is for one person. To book, just call or write to us: we will arrange everything together.',
+    stampaBtn: 'Print your voucher',
+    stampaNota: 'A ready-to-print page with just the voucher — handy if you would rather bring it along on paper.' },
   fr: { titolo: 'Bon Cadeau', haRicevuto: (n: string) => `${n}, vous avez reçu<br />un cadeau très spécial`,
     senzaNome: 'Un cadeau spécial<br />pour vous', da: 'AVEC AFFECTION, DE', codice: 'CODE DU BON',
     valido: (d: string) => `Valable jusqu'au ${d}`,
@@ -57,7 +63,9 @@ export const ETI: Record<string, any> = {
     corpoAcq: 'merci pour votre achat : le paiement a été reçu et le bon a été émis. Vous le trouverez ci-dessous, prêt à imprimer ou à transférer.',
     corpoDest: 'quelqu’un a pensé à vous : voici votre bon cadeau pour l’Hôtel Terme Leonardo. Pour l’utiliser, appelez-nous ou écrivez-nous avec le code.',
     saluto: 'Cordialement,<br />Hôtel Terme Leonardo',
-    nota: 'Chaque entrée ou soin vaut pour une personne. Pour réserver, appelez-nous ou écrivez-nous : nous organisons tout ensemble.' }
+    nota: 'Chaque entrée ou soin vaut pour une personne. Pour réserver, appelez-nous ou écrivez-nous : nous organisons tout ensemble.',
+    stampaBtn: 'Imprimer votre bon',
+    stampaNota: 'Une page prête à imprimer, avec le seul bon — pratique si vous préférez l’avoir sur papier.' }
 };
 
 const MESI: Record<string, string[]> = {
@@ -199,10 +207,48 @@ export function buonoEmailHTML(b: any) {
 </table>`;
 }
 
-function avvolgi(caro: string, corpo: string, saluto: string, buono: string) {
+/* Dominio dell'hotel — non arrivo-terme-leonardo.vercel.app, che è il
+   progetto Vercel che serve i file ma non è l'indirizzo che l'ospite deve
+   vedere in un anno. La riscrittura /buoni/:percorso* di
+   termeleonardo/frontend/vercel.json (nell'altro repository) copre
+   qualunque pagina nuova sotto /buoni/, /buoni/stampa/ compresa: nessuna
+   regola nuova serve là per questo pulsante. */
+const BASE_HOTEL = 'https://www.hoteltermeleonardo.com';
+
+/** L'indirizzo della pagina pubblica pagine/buoni/stampa/: il codice è
+ * quello che la rende sua (vedi il ragionamento in stampa.ts), la lingua è
+ * quella del buono — la stessa in cui è scritta questa email — così la
+ * pagina non deve indovinarla. Esportata per il test: la pagina deve
+ * arrivare esattamente a questo indirizzo, non a uno scritto a mano nel
+ * test e che potrebbe divergere in silenzio. */
+export function linkStampa(b: { codice?: string | null; lingua?: string }): string {
+  const L = ['it', 'de', 'en', 'fr'].includes(String(b.lingua)) ? b.lingua : 'it';
+  return `${BASE_HOTEL}/buoni/stampa/?codice=${encodeURIComponent(String(b.codice ?? ''))}&l=${L}`;
+}
+
+/** Il pulsante «Stampa il tuo buono»: stesso colore e stessa forma dei
+ * pulsanti d'azione del resto del progetto (button.azione in back office e
+ * .paga in regala/index.html sono sempre arancio) — un cliente che ha già
+ * visto quel colore su "Paga con carta" lo riconosce qui come un'azione
+ * comoda, non come pubblicità. Tabella e non un <a> nudo: nelle email è la
+ * stessa tecnica di emailRichiesta() nel back office, perché Outlook non
+ * rende bene padding e border-radius su un elemento inline. */
+function bottoneStampa(b: { codice?: string | null; lingua?: string }, e: typeof ETI['it']): string {
+  return `<table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;">
+    <tr><td align="center" style="background:#E8751A;border-radius:6px;">
+      <a href="${esc(linkStampa(b))}" target="_blank" rel="noopener noreferrer"
+        style="display:inline-block;padding:13px 26px;font-family:Arial,Helvetica,sans-serif;
+        font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">${esc(e.stampaBtn)}</a>
+    </td></tr>
+  </table>
+  <div style="font-family:Arial,Helvetica,sans-serif;font-size:12.5px;color:#7B756A;margin:-10px 0 22px;">${esc(e.stampaNota)}</div>`;
+}
+
+function avvolgi(caro: string, corpo: string, saluto: string, buono: string, bottone: string) {
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#2A2E2B;max-width:700px;">
   <p>${caro}</p><p>${corpo}</p></div>
   <div style="margin:22px 0;">${buono}</div>
+  ${bottone}
   <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#2A2E2B;">
   <p>${saluto}<br /><span style="color:#7B756A;font-size:13px;">+39 049 9939200 &middot; info@termeleonardo.com</span></p></div>`;
 }
@@ -318,15 +364,20 @@ export async function inviaBuonoEmesso(b: any) {
   const L = ['it', 'de', 'en', 'fr'].includes(b.lingua) ? b.lingua : 'it';
   const e = ETI[L];
   const buono = buonoEmailHTML(b);
+  /* il pulsante serve solo nelle due email che portano il buono vero (con
+     un codice da stampare): il riepilogo d'acquisto e l'avviso interno più
+     sotto non lo ricevono, apposta — non sono il buono, sono posta a
+     margine, e uno di più non è "chi lo riceve" nel senso di stampa.ts */
+  const bottone = b.codice ? bottoneStampa(b, e) : '';
   const esiti: Record<string, boolean> = {};
 
   if (b.acquirente_email)
     esiti.acquirente = await invia(b.acquirente_email, e.oggettoAcq(b.numero),
-      avvolgi(e.caro(esc(b.acquirente)), e.corpoAcq, e.saluto, buono));
+      avvolgi(e.caro(esc(b.acquirente)), e.corpoAcq, e.saluto, buono, bottone));
 
   if (b.destinatario_email && b.destinatario_email !== b.acquirente_email)
     esiti.destinatario = await invia(b.destinatario_email, e.oggetto,
-      avvolgi(e.caro(esc(b.destinatario)), e.corpoDest, e.saluto, buono));
+      avvolgi(e.caro(esc(b.destinatario)), e.corpoDest, e.saluto, buono, bottone));
 
   /* riepilogo d'acquisto a un indirizzo diverso, se richiesto */
   if (b.ricevuta_email)
