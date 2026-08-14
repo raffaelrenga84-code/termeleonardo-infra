@@ -60,6 +60,10 @@ td{padding:9px 10px;border-top:1px solid #F0EBE1;vertical-align:top;}
 /* i promozionali non sono un incasso: si devono riconoscere a colpo d'occhio */
 .omaggio{display:inline-block;padding:1px 7px;border-radius:9px;background:#FBF3DF;
 color:#8A6D1F;border:1px solid #E4CE93;font-size:11px;letter-spacing:.3px;}
+/* un buono con più voci va riconosciuto senza doverlo aprire */
+.piu-voci{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:9px;
+background:var(--acqua-chiara);color:var(--acqua-scura);border:1px solid var(--acqua);
+font-size:11px;letter-spacing:.3px;}
 tr.apribile{cursor:pointer;}
 tr.apribile:hover td{background:#F7F5EF;}
 .st-pagato{background:var(--acqua-chiara);color:var(--acqua-scura);}
@@ -159,7 +163,7 @@ font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
    di vercel.json copre; sarebbe bastato aprirlo su /buoni (senza barra
    finale) per cercare /buono.js e trovare la SPA. '/buoni/buono.js' vale
    uguale sui due domini. Vedi percorsi-web.test.ts. */
-import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, categoriaBuono, buonoHTML } from '/buoni/buono.js';
+import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, categoriaBuono, buonoHTML, righeDescrizione } from '/buoni/buono.js';
 
 /* stessa regola di sopra: percorso assoluto, non relativo — `/comune/date.js`,
    mai `./date.js` o `../comune/date.js`. Vedi il commento in date.js. */
@@ -429,11 +433,15 @@ function vistaEmetti() {
       .replace(/^Linfodrenaggio\b/, 'Linfodrenaggi')
       .replace(/^Riflessologia\b/, 'Riflessologie');
   };
-  const rigaTesto = (r) => `n. ${r.q} \u00b7 ${vocePlurale(r.nome, r.q)}`;
-  const descrizioneCarrello = (righe) =>
-    righe.length === 1 && righe[0].q === 1
-      ? righe[0].nome
-      : righe.map(rigaTesto).join('\n');
+  /* il numero si scrive solo quando supera uno: "n. 1 \u00b7 Massaggio antistress"
+     e' il modo in cui un modulo dice a un essere umano che l'ha compilato una
+     macchina, ed e' la stessa soglia di componiDescrizione sul server e di
+     riepilogoVoci sul sito. Prima la soglia valeva solo per il buono a riga
+     unica: con due righe ricompariva "n. 1 \u00b7" su quella da un pezzo, e nello
+     stesso elenco della reception due buoni identici si leggevano in due modi
+     a seconda che fossero nati qui o online. */
+  const rigaTesto = (r) => r.q > 1 ? `n. ${r.q} \u00b7 ${vocePlurale(r.nome, r.q)}` : r.nome;
+  const descrizioneCarrello = (righe) => righe.map(rigaTesto).join('\n');
   const sommaCarrello = (righe) => righe.reduce((s, r) => s + r.prezzo * r.q, 0);
 
   const righeCorrenti = () => {
@@ -634,7 +642,9 @@ function mostraFatto(b, contenitore = 'fFatto') {
         <button class="azione sec" id="bPagato">Ho ricevuto il pagamento</button>`
       : `<div class="mini" style="margin-top:12px;">Codice da consegnare</div>
         <div class="codice">${esc(b.codice)}</div>
-        <div class="mini">${esc(b.descrizione)} \u00b7 ${eur(b.valore)} \u20ac \u00b7 valido fino al ${dataIT(b.scade_il)}</div>
+        <div class="mini">${righeDescrizione(b.descrizione, b.voci).map(r =>
+          `<div>${r.quantita != null ? `${r.quantita} \u00d7 ` : ''}${esc(r.testo)}</div>`).join('')}
+          ${eur(b.valore)} \u20ac \u00b7 valido fino al ${dataIT(b.scade_il)}</div>
         <div class="mini" style="padding-top:12px;">Come lo consegna?</div>
         <div class="azioni-buono">
           <button class="azione" id="bStampa">&#128424; Stampa subito</button>
@@ -728,6 +738,12 @@ function mostraFatto(b, contenitore = 'fFatto') {
 /* email di richiesta pagamento: bonifico e/o link, come nelle offerte */
 const IBAN = 'IT11C0306962321100000006041';
 let LINK_PAGAMENTO = '';
+/* Un buono a due voci ha la descrizione su due righe. In HTML il ritorno a
+   capo non si vede: senza <br /> il cliente si legge le due voci di fila su
+   una riga sola. Si escapa riga per riga, perche' il <br /> e' markup nostro
+   e non va escapato insieme al testo. La versione in testo semplice qui
+   sotto non ne ha bisogno: li' il ritorno a capo e' gia' un ritorno a capo. */
+const righeHTML = (s) => String(s || '').split('\n').map(r => esc(r)).join('<br />');
 function emailRichiesta(b) {
   const link = b.pagamento === 'stripe' && LINK_PAGAMENTO;
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#2A2E2B;max-width:600px;">
@@ -737,7 +753,7 @@ function emailRichiesta(b) {
   definitivo con il codice da consegnare.</p>
   <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:18px 0;">
     <tr><td style="border-left:3px solid #1E7F88;background:#FAF8F4;padding:14px 18px;">
-      <strong>${esc(b.descrizione)}</strong><br />
+      <strong>${righeHTML(b.descrizione)}</strong><br />
       Importo: <strong>${eur(b.valore)} &euro;</strong><br />
       Riferimento: ${esc(b.numero)}
     </td></tr></table>
@@ -778,12 +794,18 @@ function emailRichiestaTesto(b) {
 function buonoTesto(b) {
   const L = ['it','de','en','fr'].includes(b.lingua) ? b.lingua : 'it';
   const e = ETI[L];
+  /* la stessa scelta di buonoHTML e buonoStampaHTML: categoriaBuono guarda
+     solo la prima voce, e con due voci il Day Spa puo' essere la seconda.
+     Prima qui c'era COMPRENDE[categoriaBuono(b)] e la copia in testo
+     semplice \u2014 quella dei pulsanti "Copia" ed "Email a..." \u2014 ometteva
+     l'elenco delle piscine che la versione HTML mostrava. */
+  const catComprende = /day spa/i.test(String(b.descrizione || '')) ? 'dayspa' : categoriaBuono(b);
   return `${e.titolo.toUpperCase()} \u2014 Hotel Terme Leonardo\n` +
     (b.destinatario ? e.haRicevuto(b.destinatario).replace(/<br \/>/g, ' ') + '\n' : '') +
     (b.dedica ? `"${b.dedica}"\n` : '') +
     (b.acquirente ? `${e.da.charAt(0) + e.da.slice(1).toLowerCase()} ${b.acquirente}\n` : '') +
     `\n${b.descrizione}${b.sottotitolo ? '\n' + b.sottotitolo : ''}\n` +
-    (((COMPRENDE[categoriaBuono(b)] || {})[L] || []).map(x => '\u00b7 ' + x).join('\n') || '') +
+    (((COMPRENDE[catComprende] || {})[L] || []).map(x => '\u00b7 ' + x).join('\n') || '') +
     `\n${e.nota}\n` +
     `\n${e.codice}: ${b.codice || '\u2014'}\n${e.valido(dataLingua(b.scade_il, L))}\n\n` +
     `+39 049 9939200 \u00b7 info@termeleonardo.com\n\n${CONDIZIONI[L] || CONDIZIONI.it}`;
@@ -900,7 +922,9 @@ async function vistaElenco() {
           const st = (b.stato === 'pagato' && b.scade_il && b.scade_il < oggi) ? 'scaduto' : b.stato;
           return `<tr class="apribile" data-numero="${esc(b.numero || '')}"><td class="cod">${esc(b.numero || '')}</td>
             <td class="cod">${b.codice ? esc(b.codice) : '<span class="mini">non ancora emesso</span>'}</td>
-            <td><div style="white-space:pre-line;">${esc(b.descrizione)}</div>${b.dedica ? `<div class="mini">&laquo;${esc(b.dedica)}&raquo;</div>` : ''}</td>
+            <td><div style="white-space:pre-line;">${esc(b.descrizione)}</div>
+              ${Array.isArray(b.voci) && b.voci.length > 1 ? `<span class="piu-voci">${b.voci.length} voci</span>` : ''}
+              ${b.dedica ? `<div class="mini">&laquo;${esc(b.dedica)}&raquo;</div>` : ''}</td>
             <td>${eur(b.valore)} &euro;<div class="mini">${b.pagamento === 'promozionale'
               ? '<span class="omaggio">promozionale</span>' : esc(b.pagamento || '')}</div></td>
             <td><span class="stato st-${st}">${st}</span>${b.scade_il ? `<div class="mini">${dataIT(b.scade_il)}</div>` : ''}
@@ -1209,7 +1233,10 @@ function vistaVerifica() {
       }
       $('vEsito').textContent = '';
       $('vRis').innerHTML = `<div class="fatto">
-        <strong>Valido.</strong> ${esc(j.descrizione)} \u00b7 ${eur(j.valore)} \u20ac
+        <strong>Valido.</strong>
+        <div class="mini" style="margin-top:4px;">${righeDescrizione(j.descrizione, j.voci).map(r =>
+          `<div>${r.quantita != null ? `${r.quantita} \u00d7 ` : ''}${esc(r.testo)}</div>`).join('')}
+          ${eur(j.valore)} \u20ac</div>
         <div class="mini">Scade il ${dataIT(j.scade_il)}</div>
         <label>Note (facoltative)</label><input type="text" id="vNote" />
         <button class="azione" id="vRiscuoti">Segna come riscosso</button>

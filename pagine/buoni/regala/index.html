@@ -51,6 +51,11 @@ textarea{min-height:70px;}
 border-radius:8px;background:#fff;font:15px Arial;color:var(--verde-medio);cursor:pointer;text-align:left;}
 .scelta-tipo button strong{display:block;color:var(--verde);font-size:16px;margin-bottom:2px;}
 .scelta-tipo button.attivo{border-color:var(--oro);background:#FDFBF5;}
+/* «aggiungi/togli la seconda voce»: un collegamento, non un pulsante — non è
+   un'azione allo stesso livello di "paga", è un dettaglio del modulo */
+.link-voce{display:inline-block;margin-top:10px;background:none;border:0;padding:0;
+color:var(--verde);font:14px Arial;text-decoration:underline;cursor:pointer;}
+.link-voce:hover{color:var(--oro);}
 button.paga{width:100%;background:var(--arancio);color:#fff;border:0;border-radius:8px;
 padding:16px 22px;font:600 17px Arial;cursor:pointer;margin-top:18px;}
 button.paga:disabled{background:#CFCABF;cursor:default;}
@@ -135,7 +140,7 @@ font-size:13px;color:var(--verde-medio);}
    — nessuna riscrittura lo copre, il modulo non carica e la pagina dei
    buoni regalo resta bianca. '/buoni/buono.js' vale uguale sui due domini
    e comunque sia scritto l'indirizzo. Vedi percorsi-web.test.ts. */
-import { buonoHTML, CONDIZIONI, esc } from '/buoni/buono.js';
+import { buonoHTML, CONDIZIONI, esc, riepilogoVoci } from '/buoni/buono.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
 
@@ -201,7 +206,10 @@ const T = {
     cosa:'Cosa vuoi regalare', guidaCosa:'Scegli dal listino della spa oppure un importo libero.',
     servizio:'Un trattamento o un ingresso', servizioSotto:'dal listino del centro benessere',
     valore:'Un valore in euro', valoreSotto:'da spendere liberamente in hotel',
-    voce:'Voce del listino', importo:'Importo (\u20ac)', importoGuida:'da 25 a 1.000 \u20ac',
+    voce:'Voce del listino', quantita:'Quantit\u00e0',
+    aggiungiVoce:'Aggiungi una seconda voce', rimuoviVoce:'Togli la seconda voce',
+    stessaVoceTroppo:'Hai scelto la stessa voce due volte: insieme la quantit\u00e0 non pu\u00f2 superare 4. Cambia una delle due o riduci la quantit\u00e0.',
+    importo:'Importo (\u20ac)', importoGuida:'da 25 a 1.000 \u20ac',
     per:'Per chi \u00e8', guidaPer:'Il nome esce sul buono; la dedica \u00e8 facoltativa.',
     dest:'Nome di chi lo riceve', dedica:'Dedica (facoltativa)', dedicaPh:'Buon compleanno, con affetto\u2026',
     tu:'I tuoi dati', guidaTu:'Il buono e la ricevuta arrivano a questo indirizzo.',
@@ -219,7 +227,10 @@ const T = {
     cosa:'Was m\u00f6chten Sie schenken', guidaCosa:'W\u00e4hlen Sie aus der Spa-Preisliste oder einen freien Betrag.',
     servizio:'Eine Anwendung oder ein Eintritt', servizioSotto:'aus der Preisliste des Wellnessbereichs',
     valore:'Ein Wert in Euro', valoreSotto:'frei im Hotel einl\u00f6sbar',
-    voce:'Position der Preisliste', importo:'Betrag (\u20ac)', importoGuida:'von 25 bis 1.000 \u20ac',
+    voce:'Position der Preisliste', quantita:'Menge',
+    aggiungiVoce:'Zweite Position hinzuf\u00fcgen', rimuoviVoce:'Zweite Position entfernen',
+    stessaVoceTroppo:'Sie haben zweimal dieselbe Position gew\u00e4hlt: die Gesamtmenge darf 4 nicht \u00fcberschreiten. \u00c4ndern Sie eine der beiden oder verringern Sie die Menge.',
+    importo:'Betrag (\u20ac)', importoGuida:'von 25 bis 1.000 \u20ac',
     per:'F\u00fcr wen ist es', guidaPer:'Der Name erscheint auf dem Gutschein; die Widmung ist optional.',
     dest:'Name der beschenkten Person', dedica:'Widmung (optional)', dedicaPh:'Alles Gute zum Geburtstag\u2026',
     tu:'Ihre Daten', guidaTu:'Gutschein und Beleg gehen an diese Adresse.',
@@ -237,7 +248,10 @@ const T = {
     cosa:'What would you like to give', guidaCosa:'Choose from the spa price list or a free amount.',
     servizio:'A treatment or an entrance', servizioSotto:'from the wellness centre price list',
     valore:'A value in euro', valoreSotto:'to spend freely at the hotel',
-    voce:'Price list item', importo:'Amount (\u20ac)', importoGuida:'from 25 to 1,000 \u20ac',
+    voce:'Price list item', quantita:'Quantity',
+    aggiungiVoce:'Add a second item', rimuoviVoce:'Remove the second item',
+    stessaVoceTroppo:'You picked the same item twice: the combined quantity cannot exceed 4. Change one of the two or lower the quantity.',
+    importo:'Amount (\u20ac)', importoGuida:'from 25 to 1,000 \u20ac',
     per:'Who is it for', guidaPer:'The name appears on the voucher; the dedication is optional.',
     dest:'Recipient\u2019s name', dedica:'Dedication (optional)', dedicaPh:'Happy birthday, with love\u2026',
     tu:'Your details', guidaTu:'The voucher and receipt go to this address.',
@@ -255,7 +269,10 @@ const T = {
     cosa:'Que souhaitez-vous offrir', guidaCosa:'Choisissez dans la carte du spa ou un montant libre.',
     servizio:'Un soin ou une entr\u00e9e', servizioSotto:'de la carte du centre de bien-\u00eatre',
     valore:'Un montant en euros', valoreSotto:'\u00e0 utiliser librement \u00e0 l\u2019h\u00f4tel',
-    voce:'Article de la carte', importo:'Montant (\u20ac)', importoGuida:'de 25 \u00e0 1 000 \u20ac',
+    voce:'Article de la carte', quantita:'Quantit\u00e9',
+    aggiungiVoce:'Ajouter un second article', rimuoviVoce:'Retirer le second article',
+    stessaVoceTroppo:'Vous avez choisi le m\u00eame article deux fois : la quantit\u00e9 totale ne peut pas d\u00e9passer 4. Changez l\u2019un des deux ou r\u00e9duisez la quantit\u00e9.',
+    importo:'Montant (\u20ac)', importoGuida:'de 25 \u00e0 1 000 \u20ac',
     per:'Pour qui est-ce', guidaPer:'Le nom appara\u00eet sur le bon ; la d\u00e9dicace est facultative.',
     dest:'Nom du destinataire', dedica:'D\u00e9dicace (facultative)', dedicaPh:'Joyeux anniversaire, avec affection\u2026',
     tu:'Vos coordonn\u00e9es', guidaTu:'Le bon et le re\u00e7u arrivent \u00e0 cette adresse.',
@@ -344,6 +361,16 @@ function grazie() {
 function modulo() {
   const t = T[LNG];
   const g = LEGALE[LNG] || LEGALE.it;
+  /* la stessa lista di opzioni serve due volte, per la prima e per la
+     seconda voce: una funzione sola, cosi' le due tendine non possono
+     divergere fra loro */
+  const opzioniCatalogo = () => CATALOGO.map(gr =>
+    `<optgroup label="${esc(gr.g[LNG] || gr.g.it)}">` + gr.v.map(([id, nome, prezzo]) =>
+      `<option value="${id}" data-prezzo="${prezzo}" data-nome="${esc(nome)}">${esc(nome)} \u2014 ${eur(prezzo)} \u20ac</option>`
+    ).join('') + `</optgroup>`).join('');
+  /* da 1 a 4: lo stesso limite che il server applica per ciascuna voce,
+     qui e' semplicemente l'unica scelta possibile nella tendina */
+  const opzioniQuantita = () => [1, 2, 3, 4].map(n => `<option value="${n}">${n}</option>`).join('');
   $('pagina').innerHTML = `<div class="colonne"><div>
     <div class="riquadro">
       <h2>${esc(t.cosa)}</h2><div class="guida">${esc(t.guidaCosa)}</div>
@@ -352,12 +379,19 @@ function modulo() {
         <button type="button" id="btValore"><strong>${esc(t.valore)}</strong>${esc(t.valoreSotto)}</button>
       </div>
       <div id="boxServizio">
-        <label>${esc(t.voce)}</label>
-        <select id="fVoce">${CATALOGO.map(gr =>
-          `<optgroup label="${esc(gr.g[LNG] || gr.g.it)}">` + gr.v.map(([id, nome, prezzo]) =>
-            `<option value="${id}" data-prezzo="${prezzo}" data-nome="${esc(nome)}">${esc(nome)} \u2014 ${eur(prezzo)} \u20ac</option>`
-          ).join('') + `</optgroup>`).join('')}
-        </select>
+        <div class="due">
+          <div><label>${esc(t.voce)}</label><select id="fVoce">${opzioniCatalogo()}</select></div>
+          <div><label>${esc(t.quantita)}</label><select id="fQta1">${opzioniQuantita()}</select></div>
+        </div>
+        <div id="rigaVoce2" style="display:none;">
+          <div class="due">
+            <div><label>${esc(t.voce)}</label><select id="fVoce2">${opzioniCatalogo()}</select></div>
+            <div><label>${esc(t.quantita)}</label><select id="fQta2">${opzioniQuantita()}</select></div>
+          </div>
+          <button type="button" id="btRimuoviVoce2" class="link-voce">${esc(t.rimuoviVoce)}</button>
+        </div>
+        <button type="button" id="btAggiungiVoce" class="link-voce">${esc(t.aggiungiVoce)}</button>
+        <div class="mini errore" id="erroreVoci" style="display:none;margin-top:8px;"></div>
       </div>
       <div id="boxValore" style="display:none;">
         <label>${esc(t.importo)}</label>
@@ -418,17 +452,51 @@ function modulo() {
 
   $('fLingua').value = LNG;
 
+  /* legge una tendina voce + la sua quantita': quello che riepilogoVoci()
+     si aspetta in ingresso per comporre la stessa descrizione e lo stesso
+     totale che comporra' il server */
+  const leggiVoce = (idVoce, idQta) => {
+    const o = $(idVoce).selectedOptions[0];
+    return { voce_id: $(idVoce).value, nome: o.dataset.nome,
+      prezzo: Number(o.dataset.prezzo), quantita: Number($(idQta).value) || 1 };
+  };
+
+  /* lo stesso tetto per singola voce che il server applica in acquista.ts
+     (normalizzaVoci): scritto qui a mano e non importato, perche' pagina
+     statica ed edge function vivono in due ambienti diversi. Cambia cosi'
+     di rado — e' legato allo spazio sul foglio del buono, si veda il
+     commento su VOCI_MAX in acquista.ts — che tenerlo in due punti costa
+     meno di condividerlo. */
+  const QUANTITA_MAX = 4;
+
+  /* scegliere la stessa voce in entrambe le tendine e' lecito, il server la
+     fonde in una riga sola — ma se le quantita' sommate superano il tetto
+     il server rifiuta l'intero acquisto. Meglio che l'ospite lo scopra qui,
+     accanto alle tendine dove l'ha causato, che dopo aver compilato nome,
+     email, dedica e le due spunte, con in mano solo un errore generico. */
+  const vociFuseTroppo = () => {
+    if (TIPO !== 'servizio' || $('rigaVoce2').style.display === 'none') return false;
+    if ($('fVoce').value !== $('fVoce2').value) return false;
+    return (Number($('fQta1').value) || 0) + (Number($('fQta2').value) || 0) > QUANTITA_MAX;
+  };
+
   const stato = () => {
     const servizio = TIPO === 'servizio';
-    let descrizione = '', valore = 0, voce_id = null;
+    let descrizione = '', valore = 0, voce_id = null, voci = [];
     if (servizio) {
-      const o = $('fVoce').selectedOptions[0];
-      voce_id = $('fVoce').value; descrizione = o.dataset.nome; valore = Number(o.dataset.prezzo);
+      const scelte = [leggiVoce('fVoce', 'fQta1')];
+      /* la seconda voce conta solo quando il suo riquadro e' aperto: chiusa,
+         resta una tendina qualunque ferma sulla prima opzione */
+      if ($('rigaVoce2').style.display !== 'none') scelte.push(leggiVoce('fVoce2', 'fQta2'));
+      const r = riepilogoVoci(scelte);
+      descrizione = r.descrizione; valore = r.valore; voci = r.voci;
+      voce_id = voci[0] ? voci[0].voce_id : null;
     } else {
       valore = parseFloat($('fValore').value) || 0;
       descrizione = valore > 0 ? (TESTO_VALORE[$('fLingua').value] || TESTO_VALORE.it)(eur(valore)) : '';
     }
-    return { tipo: TIPO, voce_id: servizio ? voce_id : null, descrizione, valore,
+    return { tipo: TIPO, voce_id: servizio ? voce_id : null, voci: servizio ? voci : [],
+      descrizione, valore,
       lingua: $('fLingua').value, destinatario: $('fDest').value.trim(),
       dedica: $('fDedica').value.trim(), acquirente: $('fAcq').value.trim(),
       acquirente_email: $('fAcqMail').value.trim(), destinatario_email: $('fDestMail').value.trim(),
@@ -446,6 +514,13 @@ function modulo() {
       dentro.style.transform = `scale(${scala})`;
       tel.style.height = (dentro.offsetHeight * scala + 6) + 'px';
     }
+    /* l'avviso compare accanto alle tendine appena la scelta lo causa, non
+       solo al momento di pagare; aggiornaPaga() spegne anche il pulsante,
+       cosi' il messaggio e lo stato del modulo dicono la stessa cosa */
+    const erroreVoci = $('erroreVoci');
+    if (vociFuseTroppo()) { erroreVoci.textContent = t.stessaVoceTroppo; erroreVoci.style.display = ''; }
+    else erroreVoci.style.display = 'none';
+    aggiornaPaga();
   };
 
   const scegli = (tipo) => {
@@ -458,9 +533,28 @@ function modulo() {
   };
   $('btServizio').onclick = () => scegli('servizio');
   $('btValore').onclick = () => scegli('valore');
-  ['fVoce','fValore','fDest','fDedica','fLingua','fAcq'].forEach(id => {
+  ['fVoce','fQta1','fVoce2','fQta2','fValore','fDest','fDedica','fLingua','fAcq'].forEach(id => {
     const e = $(id); e.oninput = ridisegna; e.onchange = ridisegna;
   });
+  /* la seconda voce si apre e si chiude: mai una terza, non esiste una
+     terza tendina da poter aprire */
+  $('btAggiungiVoce').onclick = () => {
+    $('rigaVoce2').style.display = '';
+    $('btAggiungiVoce').style.display = 'none';
+    /* la seconda tendina si apre su un articolo diverso dal primo: ferma
+       com'era sul primo elemento del catalogo, l'anteprima si fonderebbe
+       subito in una riga con un numero davanti senza che l'ospite abbia
+       scelto niente */
+    $('fVoce2').selectedIndex = (Number($('fVoce').selectedIndex) + 1) % $('fVoce2').options.length;
+    ridisegna();
+    $('fVoce2').focus();
+  };
+  $('btRimuoviVoce2').onclick = () => {
+    $('rigaVoce2').style.display = 'none';
+    $('btAggiungiVoce').style.display = '';
+    $('fVoce2').selectedIndex = 0; $('fQta2').value = '1';
+    ridisegna();
+  };
   /* il campo per il riepilogo compare solo se serve davvero */
   $('fAltraRic').onchange = () => {
     $('boxRicevuta').style.display = $('fAltraRic').checked ? '' : 'none';
@@ -477,7 +571,7 @@ function modulo() {
      prende atto. Il pulsante si sblocca solo con tutti e due, e il server
      li pretende separati anche se qualcuno aggirasse la pagina. */
   const privacyOk = () => $('fPrivacy').checked;
-  const tuttoOk = () => condOk() && privacyOk();
+  const tuttoOk = () => condOk() && privacyOk() && !vociFuseTroppo();
   const aggiornaPaga = () => { $('fPaga').disabled = inviando || !tuttoOk(); };
   $('fCond').onchange = $('fPrivacy').onchange = () => {
     aggiornaPaga();
@@ -505,6 +599,14 @@ function modulo() {
     const valoreOk = b.tipo === 'valore' ? (b.valore >= 25 && b.valore <= 1000) : (b.valore > 0);
     if (!b.descrizione || !valoreOk || !emailOk) {
       $('fEsito').innerHTML = `<span class="errore">${esc(t.manca)}</span>`; return;
+    }
+    /* il pulsante e' gia' spento in questo caso (tuttoOk() lo controlla): il
+       controllo qui e' solo la stessa cautela degli altri, non la prima
+       barriera — se qualcosa riabilitasse il pulsante senza passare da
+       aggiornaPaga(), l'ospite avrebbe comunque una spiegazione e non
+       l'errore generico del server. */
+    if (vociFuseTroppo()) {
+      $('fEsito').innerHTML = `<span class="errore">${esc(t.stessaVoceTroppo)}</span>`; return;
     }
     if (!condOk()) {
       $('fEsito').innerHTML = `<span class="errore">${esc(g.manca)}</span>`; return;

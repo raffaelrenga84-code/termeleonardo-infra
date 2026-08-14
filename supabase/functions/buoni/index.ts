@@ -24,7 +24,7 @@
      POST ?a=webhook    → incasso confermato: emette il codice da sé
    ============================================================ */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { validaAcquisto } from './acquista.ts';
+import { validaAcquisto, colonnaVoci } from './acquista.ts';
 import { nasceGiaPagato } from './pagamenti.ts';
 import { entroIlLimite, troppiDalSito } from './limite.ts';
 import { avvisaAmministrazione, inviaBuonoEmesso, statoConsegna } from './email-buono.ts';
@@ -75,7 +75,13 @@ async function creaLinkStripe(
   const prezzo = await stripe('/prices', {
     currency: 'eur',
     unit_amount: String(Math.round(Number(buono.valore) * 100)),
-    'product_data[name]': `Buono regalo — ${buono.descrizione}`.slice(0, 250)
+    /* con due voci la descrizione arriva su due righe, e il nome di un
+       prodotto Stripe e' una riga sola: il ritorno a capo si perderebbe e
+       le voci si leggerebbero attaccate sulla pagina di pagamento. Qui
+       l'HTML non c'e', quindi si uniscono con ' · ' come gia' fa
+       ricevutaEmailHTML. */
+    'product_data[name]':
+      `Buono regalo — ${String(buono.descrizione ?? '').split('\n').join(' · ')}`.slice(0, 250)
   });
   const dopo: Record<string, string> = opzioni.redirect
     ? { 'after_completion[type]': 'redirect',
@@ -249,14 +255,14 @@ Deno.serve(async (req) => {
     const codice = (url.searchParams.get('codice') || '').toUpperCase().trim();
     if (!codice) return risposta({ errore: 'codice mancante' }, 400);
     const { data } = await db.from('buono_regalo')
-      .select('codice, descrizione, valore, scade_il, stato, riscosso_il')
+      .select('codice, descrizione, valore, scade_il, stato, riscosso_il, voci')
       .eq('codice', codice).maybeSingle();
     if (!data) return risposta({ valido: false, motivo: 'non trovato' }, 404);
     const scaduto = new Date(data.scade_il + 'T23:59:59') < new Date();
     return risposta({
       valido: data.stato === 'pagato' && !scaduto,
       stato: scaduto && data.stato === 'pagato' ? 'scaduto' : data.stato,
-      descrizione: data.descrizione, valore: data.valore,
+      descrizione: data.descrizione, valore: data.valore, voci: data.voci,
       scade_il: data.scade_il, riscosso_il: data.riscosso_il
     });
   }
@@ -330,6 +336,9 @@ Deno.serve(async (req) => {
     const { data: ins, error } = await db.from('buono_regalo').insert({
       anno: riga0.anno, progressivo: riga0.progressivo, numero: riga0.numero,
       stato: 'attesa', tipo: d.tipo, voce_id: d.voce_id,
+      /* la scelta in forma leggibile da una macchina: null per i buoni
+         monetari, non un array vuoto — vedi colonnaVoci in acquista.ts */
+      voci: colonnaVoci(d.voci),
       descrizione: d.descrizione, valore: d.valore, lingua: d.lingua,
       acquirente: d.acquirente || null,
       acquirente_email: d.acquirente_email,

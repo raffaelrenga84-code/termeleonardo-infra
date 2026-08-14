@@ -71,31 +71,36 @@ export const NARRATIVA = {
 };
 
 /* etichette del buono */
+/* nota, in tutte e quattro le lingue qui sotto: la frase risponde alla
+   domanda di chi riceve un buono con pi\u00f9 voci (es. "4 \u00d7 Day Spa festivo") \u2014
+   quattro persone insieme o una persona in quattro momenti diversi?
+   "come preferite" lascia scegliere. Vale per ogni lingua, non solo per
+   quella che si sta modificando. */
 export const ETI = {
   it:{ titolo:'Buono Regalo', haRicevuto:(n)=>`${n}, hai ricevuto<br />un dono speciale`,
     senzaNome:'Un dono speciale<br />per te', da:'CON AFFETTO, DA', codice:'CODICE BUONO',
     valido:(d)=>`Valido fino al ${d}`, valore:(v)=>`valore ${v} &euro;`,
     anteprima:'ANTEPRIMA \u2014 NON ANCORA VALIDO',
     anteprimaNota:'Il codice viene assegnato al momento del pagamento.',
-    nota:'Salvo diversa indicazione, ogni ingresso o trattamento vale per una persona. Ingressi e trattamenti su prenotazione: basta chiamarci o scriverci.' },
+    nota:'Ogni ingresso o trattamento vale per una persona: potete venire insieme o in momenti diversi, come preferite. Su prenotazione: basta chiamarci o scriverci.' },
   de:{ titolo:'Geschenkgutschein', haRicevuto:(n)=>`${n}, Sie haben<br />ein besonderes Geschenk erhalten`,
     senzaNome:'Ein besonderes<br />Geschenk f\u00fcr Sie', da:'HERZLICHST, VON', codice:'GUTSCHEINCODE',
     valido:(d)=>`G\u00fcltig bis ${d}`, valore:(v)=>`Wert ${v} &euro;`,
     anteprima:'VORSCHAU \u2014 NOCH NICHT G\u00dcLTIG',
     anteprimaNota:'Der Code wird bei Zahlungseingang vergeben.',
-    nota:'Sofern nicht anders angegeben, gilt jeder Eintritt bzw. jede Anwendung f\u00fcr eine Person. Eintritte und Anwendungen nur mit Reservierung: rufen Sie uns einfach an oder schreiben Sie uns.' },
+    nota:'Jeder Eintritt und jede Anwendung gilt f\u00fcr eine Person: Sie k\u00f6nnen gemeinsam kommen oder zu verschiedenen Zeiten, ganz wie Sie m\u00f6chten. Auf Reservierung: rufen Sie uns an oder schreiben Sie uns.' },
   en:{ titolo:'Gift Voucher', haRicevuto:(n)=>`${n}, you have received<br />a special gift`,
     senzaNome:'A special gift<br />for you', da:'WITH LOVE, FROM', codice:'VOUCHER CODE',
     valido:(d)=>`Valid until ${d}`, valore:(v)=>`value ${v} &euro;`,
     anteprima:'PREVIEW \u2014 NOT YET VALID',
     anteprimaNota:'The code is assigned once payment is received.',
-    nota:'Unless stated otherwise, each entrance or treatment is for one person. Entrances and treatments require booking: just call or write to us.' },
+    nota:'Each admission or treatment is for one person: you can come together or at different times, as you prefer. By reservation: just call or write to us.' },
   fr:{ titolo:'Bon Cadeau', haRicevuto:(n)=>`${n}, vous avez re\u00e7u<br />un cadeau tr\u00e8s sp\u00e9cial`,
     senzaNome:'Un cadeau sp\u00e9cial<br />pour vous', da:'AVEC AFFECTION, DE', codice:'CODE DU BON',
     valido:(d)=>`Valable jusqu'au ${d}`, valore:(v)=>`valeur ${v} &euro;`,
     anteprima:'APER\u00c7U \u2014 PAS ENCORE VALABLE',
     anteprimaNota:'Le code est attribu\u00e9 au moment du paiement.',
-    nota:'Sauf indication contraire, chaque entr\u00e9e ou soin vaut pour une personne. Entr\u00e9es et soins sur r\u00e9servation : appelez-nous ou \u00e9crivez-nous.' }
+    nota:'Chaque entr\u00e9e ou soin vaut pour une personne : vous pouvez venir ensemble ou \u00e0 des moments diff\u00e9rents, comme vous pr\u00e9f\u00e9rez. Sur r\u00e9servation : appelez-nous ou \u00e9crivez-nous.' }
 };
 
 export const MESI_L = {
@@ -155,6 +160,52 @@ export const CONDIZIONI = {
   en: "Seasonal opening: the hotel closes every year from late November to February; the voucher is not valid in this period. Guests must be of legal age to access pools, hotel and spa; admission subject to availability, booking required. The voucher cannot be used within the first 48 hours of purchase, is not refundable and cannot be exchanged for cash; any remaining amount after the first use is not transferable. In case of cancellation, modification or no-show, the voucher is not refundable. Valid for one year from the date of issue.",
   fr: "Ouverture saisonnière : l’hôtel ferme chaque année de fin novembre à février ; le bon n’est pas valable durant cette période. La majorité est requise pour accéder aux piscines, à l’hôtel et au spa ; entrées soumises à disponibilité et réservation obligatoire. Le bon n’est pas utilisable dans les 48 heures suivant l’achat, n’est ni remboursable ni convertible en espèces ; les montants restants après la première utilisation ne sont pas transférables. En cas d’annulation, de modification ou de non-présentation (no-show), le bon n’est pas remboursable. Validité un an à compter de la date d’émission."
 };
+
+/* dalle voci scelte nel modulo di acquisto alla stessa descrizione, allo
+   stesso totale e allo stesso elenco che comporrà il server (componiDescrizione
+   e sommaVoci in supabase/functions/buoni/acquista.ts): prima fonde per
+   voce_id le voci ripetute — scegliere due volte la stessa voce non è un
+   errore, è una quantità, e il server le somma in una riga — poi compone
+   "N × nome" quando la quantità supera uno, il nome soltanto quando è uno
+   solo: "1 × Massaggio" è il modo in cui un modulo dice a un essere umano
+   che l'ha compilato una macchina. Così l'anteprima nella pagina di acquisto
+   dice esattamente quello che dirà il buono vero. Presidiato da buono.test.ts. */
+export function riepilogoVoci(voci) {
+  const mappa = new Map();
+  for (const v of voci) {
+    const precedente = mappa.get(v.voce_id);
+    if (precedente) precedente.quantita += v.quantita;
+    else mappa.set(v.voce_id, { ...v });
+  }
+  const raggruppate = [...mappa.values()];
+  return {
+    descrizione: raggruppate.map(v => v.quantita > 1 ? `${v.quantita} × ${v.nome}` : v.nome).join('\n'),
+    valore: raggruppate.reduce((tot, v) => tot + v.prezzo * v.quantita, 0),
+    voci: raggruppate.map(({ voce_id, quantita }) => ({ voce_id, quantita }))
+  };
+}
+
+/* Le righe da mostrare nel dettaglio di un buono in back office: una per
+   voce, con la quantità in chiaro quando supera uno. La descrizione arriva
+   già composta con la stessa regola di riepilogoVoci qui sopra — "N × nome",
+   ma senza il numero quando è uno solo. Qui usiamo la STESSA soglia, non
+   una diversa: il dettaglio del back office e l'anteprima del buono per il
+   cliente stanno fianco a fianco sulla stessa schermata, e se scrivessimo
+   "1 × Massaggio" sopra e "Massaggio" sotto le due viste si contraddirebbero
+   proprio dove serve certezza. Se `voci` combacia riga per riga con la
+   descrizione (stesso numero di elementi), il numero (quando > 1) si mostra
+   sempre, tolto quello eventualmente già scritto nel testo per non vederlo
+   due volte. Se `voci` manca, è vuoto o non combacia — buono monetario,
+   buono creato a mano dal back office (voci è null, non [], vedi
+   colonnaVoci in acquista.ts) o qualunque disallineamento imprevisto — si
+   mostra la riga così com'è, senza inventare una quantità. */
+export function righeDescrizione(descrizione, voci) {
+  const righe = String(descrizione || '').split('\n').filter(Boolean);
+  const combaciano = Array.isArray(voci) && voci.length === righe.length;
+  return righe.map((testo, i) => combaciano
+    ? { testo: testo.replace(/^\d+\s*×\s*/, ''), quantita: voci[i].quantita > 1 ? voci[i].quantita : null }
+    : { testo, quantita: null });
+}
 
 export function buonoHTML(b, bozza) {
   const cat = categoriaBuono(b);

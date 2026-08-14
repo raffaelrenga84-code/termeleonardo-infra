@@ -115,13 +115,13 @@ Deno.test('nell’email il logo è un PNG, mai un SVG', () => {
    verrebbe mai a sapere che un ingresso vale per una persona. */
 Deno.test('l’email porta la nota su persone e prenotazione, nella sua lingua', () => {
   assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'it' }),
-    'ogni ingresso o trattamento vale per una persona');
+    'Ogni ingresso o trattamento vale per una persona: potete venire insieme o in momenti diversi, come preferite');
   assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'de' }),
-    'gilt jeder Eintritt bzw. jede Anwendung für eine Person');
+    'Jeder Eintritt und jede Anwendung gilt für eine Person: Sie können gemeinsam kommen oder zu verschiedenen Zeiten, ganz wie Sie möchten');
   assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'en' }),
-    'each entrance or treatment is for one person');
+    'Each admission or treatment is for one person: you can come together or at different times, as you prefer');
   assertStringIncludes(buonoEmailHTML({ ...BUONO, lingua: 'fr' }),
-    'chaque entrée ou soin vaut pour une personne');
+    'Chaque entrée ou soin vaut pour une personne : vous pouvez venir ensemble ou à des moments différents, comme vous préférez');
 });
 
 Deno.test('un buono con più voci resta su più righe anche nell’email', () => {
@@ -172,6 +172,28 @@ Deno.test('l’avviso all’amministrazione parte da solo, senza toccare il clie
     assertEquals(spedite.length, 1);
     assertEquals(spedite[0].to[0], 'amministrazione@termeleonardo.com');
     assertStringIncludes(spedite[0].subject, 'promozionale');
+  } finally {
+    ripristina();
+    Deno.env.delete('RESEND_API_KEY'); Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  }
+});
+
+/* Un buono a due voci porta la descrizione su due righe. In HTML un
+   ritorno a capo non si vede: senza <br /> le due voci si leggono di fila
+   su una riga sola, e questo avviso e' la sola traccia che l'amministrazione
+   ha di cosa e' stato venduto quando il buono non passa dal webhook.
+   Stesso difetto gia' visto e gia' risolto in ricevutaEmailHTML. */
+Deno.test('l’avviso all’amministrazione tiene le due voci su righe distinte', async () => {
+  Deno.env.set('RESEND_API_KEY', 'finta');
+  Deno.env.set('EMAIL_AMMINISTRAZIONE', 'amministrazione@termeleonardo.com');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    await avvisaAmministrazione({ ...BUONO,
+      descrizione: '2 × Day Spa festivo\nMassaggio antistress (45 min)' });
+    assertEquals(spedite.length, 1);
+    /* il ritorno a capo del dato non arriva mai tale e quale nell'HTML */
+    assertEquals(spedite[0].html.includes('Day Spa festivo\nMassaggio'), false);
+    assertStringIncludes(spedite[0].html, 'Day Spa festivo<br />Massaggio antistress (45 min)');
   } finally {
     ripristina();
     Deno.env.delete('RESEND_API_KEY'); Deno.env.delete('EMAIL_AMMINISTRAZIONE');

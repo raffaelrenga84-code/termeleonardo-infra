@@ -8,7 +8,12 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
 const eur = (n: number) => Number(n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 });
 
-const ETI: Record<string, any> = {
+/* nota, in tutte e quattro le lingue qui sotto: la frase risponde alla
+   domanda di chi riceve un buono con più voci (es. "4 × Day Spa festivo") —
+   quattro persone insieme o una persona in quattro momenti diversi?
+   "come preferite" lascia scegliere. Vale per ogni lingua, non solo per
+   quella che si sta modificando. */
+export const ETI: Record<string, any> = {
   it: { titolo: 'Buono Regalo', haRicevuto: (n: string) => `${n}, hai ricevuto<br />un dono speciale`,
     senzaNome: 'Un dono speciale<br />per te', da: 'CON AFFETTO, DA', codice: 'CODICE BUONO',
     valido: (d: string) => `Valido fino al ${d}`,
@@ -18,7 +23,7 @@ const ETI: Record<string, any> = {
     corpoAcq: 'grazie del suo acquisto: il pagamento è stato ricevuto e il buono è stato emesso. Lo trova qui sotto, pronto da stampare o da inoltrare a chi lo riceverà.',
     corpoDest: 'qualcuno ha pensato a lei: ecco il suo buono regalo per l’Hotel Terme Leonardo. Per usarlo basta chiamarci o scriverci indicando il codice.',
     saluto: 'Un cordiale saluto,<br />Hotel Terme Leonardo',
-    nota: 'Salvo diversa indicazione, ogni ingresso o trattamento vale per una persona. Ingressi e trattamenti su prenotazione: basta chiamarci o scriverci.' },
+    nota: 'Ogni ingresso o trattamento vale per una persona: potete venire insieme o in momenti diversi, come preferite. Su prenotazione: basta chiamarci o scriverci.' },
   de: { titolo: 'Geschenkgutschein', haRicevuto: (n: string) => `${n}, Sie haben<br />ein besonderes Geschenk erhalten`,
     senzaNome: 'Ein besonderes<br />Geschenk für Sie', da: 'HERZLICHST, VON', codice: 'GUTSCHEINCODE',
     valido: (d: string) => `Gültig bis ${d}`,
@@ -28,7 +33,7 @@ const ETI: Record<string, any> = {
     corpoAcq: 'vielen Dank für Ihren Einkauf: die Zahlung ist eingegangen und der Gutschein wurde ausgestellt. Sie finden ihn unten — zum Ausdrucken oder Weiterleiten.',
     corpoDest: 'jemand hat an Sie gedacht: hier ist Ihr Geschenkgutschein für das Hotel Terme Leonardo. Zur Einlösung genügt ein Anruf oder eine E-Mail mit dem Code.',
     saluto: 'Mit freundlichen Grüßen,<br />Hotel Terme Leonardo',
-    nota: 'Sofern nicht anders angegeben, gilt jeder Eintritt bzw. jede Anwendung für eine Person. Eintritte und Anwendungen nur mit Reservierung: rufen Sie uns einfach an oder schreiben Sie uns.' },
+    nota: 'Jeder Eintritt und jede Anwendung gilt für eine Person: Sie können gemeinsam kommen oder zu verschiedenen Zeiten, ganz wie Sie möchten. Auf Reservierung: rufen Sie uns an oder schreiben Sie uns.' },
   en: { titolo: 'Gift Voucher', haRicevuto: (n: string) => `${n}, you have received<br />a special gift`,
     senzaNome: 'A special gift<br />for you', da: 'WITH LOVE, FROM', codice: 'VOUCHER CODE',
     valido: (d: string) => `Valid until ${d}`,
@@ -38,7 +43,7 @@ const ETI: Record<string, any> = {
     corpoAcq: 'thank you for your purchase: the payment has been received and the voucher has been issued. You will find it below, ready to print or forward.',
     corpoDest: 'someone was thinking of you: here is your gift voucher for Hotel Terme Leonardo. To use it, just call or write to us with the code.',
     saluto: 'Kind regards,<br />Hotel Terme Leonardo',
-    nota: 'Unless stated otherwise, each entrance or treatment is for one person. Entrances and treatments require booking: just call or write to us.' },
+    nota: 'Each admission or treatment is for one person: you can come together or at different times, as you prefer. By reservation: just call or write to us.' },
   fr: { titolo: 'Bon Cadeau', haRicevuto: (n: string) => `${n}, vous avez reçu<br />un cadeau très spécial`,
     senzaNome: 'Un cadeau spécial<br />pour vous', da: 'AVEC AFFECTION, DE', codice: 'CODE DU BON',
     valido: (d: string) => `Valable jusqu'au ${d}`,
@@ -48,7 +53,7 @@ const ETI: Record<string, any> = {
     corpoAcq: 'merci pour votre achat : le paiement a été reçu et le bon a été émis. Vous le trouverez ci-dessous, prêt à imprimer ou à transférer.',
     corpoDest: 'quelqu’un a pensé à vous : voici votre bon cadeau pour l’Hôtel Terme Leonardo. Pour l’utiliser, appelez-nous ou écrivez-nous avec le code.',
     saluto: 'Cordialement,<br />Hôtel Terme Leonardo',
-    nota: 'Sauf indication contraire, chaque entrée ou soin vaut pour une personne. Entrées et soins sur réservation : appelez-nous ou écrivez-nous.' }
+    nota: 'Chaque entrée ou soin vaut pour une personne : vous pouvez venir ensemble ou à des moments différents, comme vous préférez. Sur réservation : appelez-nous ou écrivez-nous.' }
 };
 
 const MESI: Record<string, string[]> = {
@@ -274,11 +279,17 @@ export function ricevutaEmailHTML(b: any): string {
 export async function avvisaAmministrazione(b: any): Promise<boolean> {
   const amm = Deno.env.get('EMAIL_AMMINISTRAZIONE');
   if (!amm) return false;
+  /* la descrizione di un buono a due voci arriva su due righe: in HTML un
+     ritorno a capo non si vede, e senza <br /> le voci si leggerebbero di
+     fila su una riga sola. Si escapa riga per riga, perche' il <br /> e'
+     markup nostro e non va escapato con il testo. Dove l'HTML non c'e'
+     (ricevutaEmailHTML in tabella, il nome prodotto su Stripe) le righe si
+     uniscono invece con ' · '. */
   return await invia(amm,
     `Buono ${b.numero} ${b.pagamento === 'promozionale' ? 'promozionale' : 'pagato'} — ${eur(b.valore)} € (${b.pagamento || ''})`,
     `<div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;">${intestazione()}</div>
     <p style="font-family:Arial;font-size:14px;">Buono <strong>${esc(b.numero)}</strong> · codice <strong>${esc(b.codice)}</strong><br />
-    ${esc(b.descrizione)} · ${eur(b.valore)} € · ${esc(b.pagamento || '')} ${esc(b.pagamento_rif || '')}<br />
+    ${String(b.descrizione ?? '').split('\n').map((r: string) => esc(r)).join('<br />')} · ${eur(b.valore)} € · ${esc(b.pagamento || '')} ${esc(b.pagamento_rif || '')}<br />
     Acquirente: ${esc(b.acquirente || '')} &lt;${esc(b.acquirente_email || '')}&gt;<br />
     Origine: ${esc(b.creato_da || '')}</p>`);
 }
