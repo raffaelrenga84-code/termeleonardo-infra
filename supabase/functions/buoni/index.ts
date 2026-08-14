@@ -23,6 +23,10 @@
                                   pagine/buoni/stampa/, dal pulsante «Stampa
                                   il tuo buono» nell'email — vedi stampa.ts
                                   per cosa esce e perché è un'azione a parte)
+     GET  ?a=qr&codice=…        → il codice come immagine PNG, per il <img>
+                                  dentro l'email (vedi il commento sopra
+                                  l'azione più sotto: disegna qualunque
+                                  testo le si passi, non guarda il database)
      POST ?a=acquista   → acquisto dal sito: buono in attesa + link carta
    Stripe:
      POST ?a=webhook    → incasso confermato: emette il codice da sé
@@ -33,6 +37,7 @@ import { nasceGiaPagato } from './pagamenti.ts';
 import { entroIlLimiteAcquista, entroIlLimiteStampa, troppiDalSito } from './limite.ts';
 import { avvisaAmministrazione, inviaBuonoEmesso, statoConsegna } from './email-buono.ts';
 import { datiStampa } from './stampa.ts';
+import { generaPngQR } from './qr.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -299,6 +304,67 @@ Deno.serve(async (req) => {
       .select('codice, tipo, voce_id, descrizione, lingua, sottotitolo, destinatario, dedica, acquirente, numero, scade_il, stato')
       .eq('codice', codice).maybeSingle();
     return risposta(datiStampa(data), data ? 200 : 404);
+  }
+
+  /* ---------- pubblico: il QR del codice, come immagine, per l'email ----------
+     Il perché di un'azione a parte, che genera un'immagine invece di JSON, sta
+     nel vincolo che ha deciso tutto il resto: Gmail e Outlook scartano l'SVG
+     nelle email (stesso motivo per cui il logo nell'email è logo.png, non
+     logo.svg — vedi il test dedicato in email-buono.test.ts), quindi il QR
+     dentro buonoEmailHTML non può essere lo stesso SVG del foglio stampato:
+     serve un'immagine raster richiamabile da un indirizzo, come già il logo e
+     la foto del buono. generaPngQR (qr.js, copia server-side di
+     pagine/comune/qr.js — vedi il commento in cima a quel file per il perché
+     di una copia) fa esattamente questo.
+
+     NON È UN ORACOLO, DI PROPOSITO. A differenza di ?a=verifica e ?a=stampa
+     qui sopra, questa azione NON legge il database: disegna il QR di
+     QUALUNQUE testo le venga passato in `codice`, senza chiedersi se
+     corrisponde a un buono vero. È voluto — se controllasse l'esistenza del
+     codice, chiamarla a raffica con codici a caso e guardare quali rispondono
+     "trovato" invece di "non trovato" la trasformerebbe in un modo per
+     scoprire quali buoni esistono, esattamente il rischio che stampa.ts
+     spiega per ?a=stampa. Così com'è, chi la chiama non impara nulla che non
+     sapesse già: ha scelto lui il testo. Per lo stesso motivo non serve un
+     freno per indirizzo IP (non protegge nulla che non sia già protetto dal
+     non essere un oracolo, e i proxy immagine dei client di posta — Gmail in
+     testa — caricano le immagini da un pool di IP condivisi fra utenti
+     diversi: un freno per IP rischierebbe di bloccare email legittime di
+     persone diverse) né una query al database (velocità: genera l'immagine e
+     basta, come vuole stare "dentro il caricamento di un'email"). L'unico
+     limite è sulla LUNGHEZZA del testo, non sul suo contenuto o sulla sua
+     validità: un freno contro l'abuso (un input molto lungo produce un QR di
+     versione più alta, più lento da generare), non un controllo di validità
+     del codice — la cache lunga sotto ne assorbe comunque la ripetizione. */
+  if (azione === 'qr') {
+    const testo = url.searchParams.get('codice') || '';
+    if (!testo) return risposta({ errore: 'codice mancante' }, 400);
+    if (testo.length > 128) return risposta({ errore: 'codice troppo lungo' }, 400);
+    let corpo: ArrayBuffer;
+    try {
+      /* generaPngQR vive in qr.js, un modulo .js senza annotazioni di tipo:
+         deno check infra il suo Uint8Array come Uint8Array<ArrayBufferLike>
+         (potenzialmente un SharedArrayBuffer), che Response non accetta più
+         come corpo con le definizioni di tipo più recenti. new Uint8Array(...)
+         qui copia in una vista fresca, di sicuro su un ArrayBuffer vero. */
+      corpo = new Uint8Array(generaPngQR(testo, { livello: 'Q', margine: 4, scala: 8 })).buffer;
+    } catch (e) {
+      console.error('generazione QR fallita', (e as Error).message);
+      return risposta({ errore: 'generazione non riuscita' }, 500);
+    }
+    return new Response(corpo, {
+      status: 200,
+      headers: {
+        ...CORS,
+        'content-type': 'image/png',
+        /* il codice di un buono non cambia mai dopo l'emissione: la stessa
+           chiamata produce sempre lo stesso PNG, un anno dopo compreso —
+           si può mettere in cache per sempre, alleggerendo sia il client di
+           posta (Gmail e simili tengono comunque una cache propria) sia
+           questa funzione sulle riaperture ripetute della stessa email */
+        'cache-control': 'public, max-age=31536000, immutable',
+      },
+    });
   }
 
   /* ---------- Stripe ha incassato: il buono si sblocca da solo ---------- */

@@ -29,7 +29,8 @@ export const ETI: Record<string, any> = {
     saluto: 'Un cordiale saluto,<br />Hotel Terme Leonardo',
     nota: 'Ogni ingresso o trattamento vale per una persona. Per prenotare basta chiamarci o scriverci: ci organizziamo insieme.',
     stampaBtn: 'Stampa il tuo buono',
-    stampaNota: 'Un foglio pronto da stampare, con il solo buono — utile se preferisce portarlo con sé su carta.' },
+    stampaNota: 'Un foglio pronto da stampare, con il solo buono — utile se preferisce portarlo con sé su carta.',
+    qrNota: 'Mostri questo codice in reception.' },
   de: { titolo: 'Geschenkgutschein', haRicevuto: (n: string) => `${n}, Sie haben<br />ein besonderes Geschenk erhalten`,
     senzaNome: 'Ein besonderes<br />Geschenk für Sie', da: 'HERZLICHST, VON', codice: 'GUTSCHEINCODE',
     valido: (d: string) => `Gültig bis ${d}`,
@@ -41,7 +42,8 @@ export const ETI: Record<string, any> = {
     saluto: 'Mit freundlichen Grüßen,<br />Hotel Terme Leonardo',
     nota: 'Jeder Eintritt und jede Anwendung gilt für eine Person. Für die Reservierung rufen Sie uns an oder schreiben Sie uns: wir organisieren alles gemeinsam.',
     stampaBtn: 'Gutschein ausdrucken',
-    stampaNota: 'Ein druckfertiges Blatt mit nur dem Gutschein — praktisch, wenn Sie ihn lieber auf Papier dabeihaben.' },
+    stampaNota: 'Ein druckfertiges Blatt mit nur dem Gutschein — praktisch, wenn Sie ihn lieber auf Papier dabeihaben.',
+    qrNota: 'Zeigen Sie diesen Code an der Rezeption.' },
   en: { titolo: 'Gift Voucher', haRicevuto: (n: string) => `${n}, you have received<br />a special gift`,
     senzaNome: 'A special gift<br />for you', da: 'WITH LOVE, FROM', codice: 'VOUCHER CODE',
     valido: (d: string) => `Valid until ${d}`,
@@ -53,7 +55,8 @@ export const ETI: Record<string, any> = {
     saluto: 'Kind regards,<br />Hotel Terme Leonardo',
     nota: 'Each admission or treatment is for one person. To book, just call or write to us: we will arrange everything together.',
     stampaBtn: 'Print your voucher',
-    stampaNota: 'A ready-to-print page with just the voucher — handy if you would rather bring it along on paper.' },
+    stampaNota: 'A ready-to-print page with just the voucher — handy if you would rather bring it along on paper.',
+    qrNota: 'Show this code at reception.' },
   fr: { titolo: 'Bon Cadeau', haRicevuto: (n: string) => `${n}, vous avez reçu<br />un cadeau très spécial`,
     senzaNome: 'Un cadeau spécial<br />pour vous', da: 'AVEC AFFECTION, DE', codice: 'CODE DU BON',
     valido: (d: string) => `Valable jusqu'au ${d}`,
@@ -65,7 +68,8 @@ export const ETI: Record<string, any> = {
     saluto: 'Cordialement,<br />Hôtel Terme Leonardo',
     nota: 'Chaque entrée ou soin vaut pour une personne. Pour réserver, appelez-nous ou écrivez-nous : nous organisons tout ensemble.',
     stampaBtn: 'Imprimer votre bon',
-    stampaNota: 'Une page prête à imprimer, avec le seul bon — pratique si vous préférez l’avoir sur papier.' }
+    stampaNota: 'Une page prête à imprimer, avec le seul bon — pratique si vous préférez l’avoir sur papier.',
+    qrNota: 'Présentez ce code à la réception.' }
 };
 
 const MESI: Record<string, string[]> = {
@@ -154,7 +158,38 @@ export function fotoBuono(b: { tipo?: string; voce_id?: string | null }): string
   return `${BASE_IMG}/valore.jpg`;
 }
 
-/* il buono in HTML — versione email, autosufficiente */
+/* Dove vive la funzione `buoni` stessa — non il dominio dell'hotel (quello
+   è BASE_HOTEL più sotto, per linkStampa). Qui non si tratta di un
+   indirizzo che l'ospite legge o clicca: è un <img src> che il suo
+   programma di posta carica da solo, e le pagine pubbliche del progetto
+   (pagine/buoni/stampa/index.html, pagine/buoni/index.html) chiamano già
+   questa funzione a questo stesso indirizzo direttamente, mai attraverso
+   il dominio dell'hotel. */
+const BASE_FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
+
+/** L'indirizzo dell'immagine QR del codice — generata al volo da ?a=qr
+ * (supabase/functions/buoni/qr.js + il commento sopra quell'azione in
+ * index.ts spiegano perché non controlla se il codice esiste davvero: non
+ * dev'essere un modo per scoprire quali buoni sono validi). Esportata per
+ * il test, stessa ragione di linkStampa più sotto: l'email deve arrivare
+ * esattamente a questo indirizzo, non a uno scritto a mano nel test e che
+ * potrebbe divergere in silenzio. */
+export function linkQr(codice: string | null | undefined): string {
+  return `${BASE_FUNZIONE}?a=qr&codice=${encodeURIComponent(String(codice ?? ''))}`;
+}
+
+/* il buono in HTML — versione email, autosufficiente.
+
+   IL QR ACCANTO AL CODICE. In portineria c'è un lettore di codici QR, ma
+   chi si presenta al banco tipicamente non ha il foglio stampato — ha il
+   telefono, con l'email — e senza un QR nell'email la reception finisce
+   comunque a digitare il codice a mano, proprio quello che il lettore
+   doveva evitare. L'immagine (linkQr, ?a=qr in index.ts) affianca il
+   codice, non lo sostituisce: il codice in chiaro resta leggibile per chi
+   legge da un programma che blocca le immagini, e per chi lo detta al
+   telefono. Niente QR su una bozza (`b.codice` falsy): senza un codice
+   vero non c'è niente da far leggere in reception — stesso freno che
+   generaSvgQR ha già in buonoStampaHTML (pagine/buoni/buono.js). */
 export function buonoEmailHTML(b: any) {
   const L = ['it', 'de', 'en', 'fr'].includes(b.lingua) ? b.lingua : 'it';
   const e = ETI[L];
@@ -194,6 +229,10 @@ export function buonoEmailHTML(b: any) {
           <div style="font-family:'Courier New',monospace;font-size:17px;letter-spacing:2px;color:#1B4D4A;margin-top:6px;">${esc(b.codice)}</div>
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#C9A961;margin-top:6px;">${e.valido(dataLingua(b.scade_il, L))}</div>
         </td>
+        ${b.codice ? `<td valign="top" align="center" style="padding-top:14px;padding-left:16px;padding-right:16px;">
+          <img src="${esc(linkQr(b.codice))}" width="92" height="92" alt="QR" style="display:block;width:92px;height:92px;border:0;" />
+          <div style="font-family:Arial,Helvetica,sans-serif;font-size:8.5px;line-height:1.4;color:#8A938F;text-align:center;margin-top:5px;max-width:100px;">${esc(e.qrNota)}</div>
+        </td>` : ''}
         <td valign="top" align="right" style="padding-top:14px;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.6;color:#5C736F;">
           <strong style="color:#1B4D4A;">+39 049 9939200</strong><br />info@termeleonardo.com<br />www.termeleonardo.com
         </td>

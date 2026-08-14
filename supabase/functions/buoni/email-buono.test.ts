@@ -1,9 +1,10 @@
 /* Test del modulo email: il buono in HTML e le tre spedizioni
    (acquirente, destinatario, amministrazione) via Resend. */
 import { assertEquals, assertStringIncludes } from 'jsr:@std/assert';
-import { avvisaAmministrazione, buonoEmailHTML, fotoBuono, inviaBuonoEmesso, linkStampa, ricevutaEmailHTML, statoConsegna } from './email-buono.ts';
+import { avvisaAmministrazione, buonoEmailHTML, fotoBuono, inviaBuonoEmesso, linkQr, linkStampa, ricevutaEmailHTML, statoConsegna } from './email-buono.ts';
 
 const IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
+const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
 
 const BUONO = {
   numero: 'BR-2026-0042', codice: 'LEO-ACDE-FGHJ',
@@ -356,5 +357,88 @@ Deno.test('l’avviso all’amministrazione non porta il pulsante di stampa', as
     await avvisaAmministrazione(BUONO);
     assertEquals(spedite.length, 1);
     assertEquals(spedite[0].html.includes(linkStampa(BUONO)), false);
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); Deno.env.delete('EMAIL_AMMINISTRAZIONE'); }
+});
+
+/* ============================================================
+   Il QR accanto al codice. In portineria c'è un lettore di codici QR, ma
+   chi si presenta al banco tipicamente ha solo il telefono con l'email,
+   non il foglio stampato — senza un QR anche nell'email la reception
+   finisce comunque a digitare il codice a mano. L'immagine viene da
+   ?a=qr (vedi index.ts e qr.js): qui si presidia solo che l'email la
+   richiami all'indirizzo giusto, accanto al codice in chiaro (che resta,
+   non lo sostituisce), con una riga che spiega a cosa serve — e MAI su
+   una bozza, che non ha ancora un codice da far leggere. */
+
+Deno.test('linkQr costruisce l’indirizzo dell’immagine QR con il codice codificato nell’URL', () => {
+  assertEquals(linkQr('LEO-ACDE-FGHJ'), `${FUNZIONE}?a=qr&codice=LEO-ACDE-FGHJ`);
+});
+
+Deno.test('linkQr con un codice assente non esplode: produce comunque un indirizzo valido, con codice vuoto', () => {
+  assertEquals(linkQr(null), `${FUNZIONE}?a=qr&codice=`);
+  assertEquals(linkQr(undefined), `${FUNZIONE}?a=qr&codice=`);
+});
+
+Deno.test('il buono HTML porta il QR accanto al codice, con l’indirizzo giusto (escapato come attributo HTML)', () => {
+  const html = buonoEmailHTML(BUONO);
+  // l'href/src esce con l'HTML escapato da esc(): '&' diventa '&amp;', come già per linkStampa
+  const linkEscapato = linkQr(BUONO.codice).replace(/&/g, '&amp;');
+  assertStringIncludes(html, `<img src="${linkEscapato}"`);
+  // il codice in chiaro resta, il QR si aggiunge e non lo sostituisce
+  assertStringIncludes(html, 'LEO-ACDE-FGHJ');
+});
+
+Deno.test('senza codice (bozza) il buono HTML non porta nessun QR: non c’è ancora niente da far leggere', () => {
+  const html = buonoEmailHTML({ ...BUONO, codice: null });
+  assertEquals(html.includes('a=qr'), false);
+  assertEquals(html.includes('<img src="' + FUNZIONE), false);
+});
+
+Deno.test('la riga che spiega il QR è nella lingua del buono, lingua per lingua, e non in un’altra', () => {
+  const TESTI: Record<string, string> = {
+    it: 'Mostri questo codice in reception.', de: 'Zeigen Sie diesen Code an der Rezeption.',
+    en: 'Show this code at reception.', fr: 'Présentez ce code à la réception.',
+  };
+  const ALTRI: Record<string, string[]> = {
+    it: ['Zeigen Sie diesen Code', 'Show this code', 'Présentez ce code'],
+    de: ['Mostri questo codice', 'Show this code', 'Présentez ce code'],
+    en: ['Mostri questo codice', 'Zeigen Sie diesen Code', 'Présentez ce code'],
+    fr: ['Mostri questo codice', 'Zeigen Sie diesen Code', 'Show this code'],
+  };
+  for (const lingua of ['it', 'de', 'en', 'fr']) {
+    const html = buonoEmailHTML({ ...BUONO, lingua });
+    assertStringIncludes(html, TESTI[lingua]);
+    for (const estraneo of ALTRI[lingua]) {
+      assertEquals(html.includes(estraneo), false,
+        `l’email in ${lingua} non deve contenere la riga del QR di un’altra lingua ("${estraneo}")`);
+    }
+  }
+});
+
+Deno.test('il QR arriva sia all’acquirente sia al destinatario, con lo stesso indirizzo, dentro l’email vera', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    await inviaBuonoEmesso(BUONO);
+    assertEquals(spedite.length, 2);
+    const linkEscapato = linkQr(BUONO.codice).replace(/&/g, '&amp;');
+    for (const s of spedite) assertStringIncludes(s.html, `<img src="${linkEscapato}"`);
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
+});
+
+Deno.test('il riepilogo d’acquisto non porta il QR: non è il buono, e non ha il codice spendibile', () => {
+  const html = ricevutaEmailHTML(BUONO);
+  assertEquals(html.includes('a=qr'), false);
+});
+
+Deno.test('l’avviso all’amministrazione non porta il QR: e-mail interna, non quella che riceve il cliente', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.set('EMAIL_AMMINISTRAZIONE', 'amministrazione@termeleonardo.com');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    await avvisaAmministrazione(BUONO);
+    assertEquals(spedite.length, 1);
+    assertEquals(spedite[0].html.includes('a=qr'), false);
   } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); Deno.env.delete('EMAIL_AMMINISTRAZIONE'); }
 });
