@@ -60,6 +60,10 @@ td{padding:9px 10px;border-top:1px solid #F0EBE1;vertical-align:top;}
 /* i promozionali non sono un incasso: si devono riconoscere a colpo d'occhio */
 .omaggio{display:inline-block;padding:1px 7px;border-radius:9px;background:#FBF3DF;
 color:#8A6D1F;border:1px solid #E4CE93;font-size:11px;letter-spacing:.3px;}
+/* un buono con più voci va riconosciuto senza doverlo aprire */
+.piu-voci{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:9px;
+background:var(--acqua-chiara);color:var(--acqua-scura);border:1px solid var(--acqua);
+font-size:11px;letter-spacing:.3px;}
 tr.apribile{cursor:pointer;}
 tr.apribile:hover td{background:#F7F5EF;}
 .st-pagato{background:var(--acqua-chiara);color:var(--acqua-scura);}
@@ -159,7 +163,7 @@ font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
    di vercel.json copre; sarebbe bastato aprirlo su /buoni (senza barra
    finale) per cercare /buono.js e trovare la SPA. '/buoni/buono.js' vale
    uguale sui due domini. Vedi percorsi-web.test.ts. */
-import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, categoriaBuono, buonoHTML } from '/buoni/buono.js';
+import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, categoriaBuono, buonoHTML, righeDescrizione } from '/buoni/buono.js';
 
 /* stessa regola di sopra: percorso assoluto, non relativo — `/comune/date.js`,
    mai `./date.js` o `../comune/date.js`. Vedi il commento in date.js. */
@@ -634,7 +638,9 @@ function mostraFatto(b, contenitore = 'fFatto') {
         <button class="azione sec" id="bPagato">Ho ricevuto il pagamento</button>`
       : `<div class="mini" style="margin-top:12px;">Codice da consegnare</div>
         <div class="codice">${esc(b.codice)}</div>
-        <div class="mini">${esc(b.descrizione)} \u00b7 ${eur(b.valore)} \u20ac \u00b7 valido fino al ${dataIT(b.scade_il)}</div>
+        <div class="mini">${righeDescrizione(b.descrizione, b.voci).map(r =>
+          `<div>${r.quantita != null ? `${r.quantita} \u00d7 ` : ''}${esc(r.testo)}</div>`).join('')}
+          ${eur(b.valore)} \u20ac \u00b7 valido fino al ${dataIT(b.scade_il)}</div>
         <div class="mini" style="padding-top:12px;">Come lo consegna?</div>
         <div class="azioni-buono">
           <button class="azione" id="bStampa">&#128424; Stampa subito</button>
@@ -900,7 +906,9 @@ async function vistaElenco() {
           const st = (b.stato === 'pagato' && b.scade_il && b.scade_il < oggi) ? 'scaduto' : b.stato;
           return `<tr class="apribile" data-numero="${esc(b.numero || '')}"><td class="cod">${esc(b.numero || '')}</td>
             <td class="cod">${b.codice ? esc(b.codice) : '<span class="mini">non ancora emesso</span>'}</td>
-            <td><div style="white-space:pre-line;">${esc(b.descrizione)}</div>${b.dedica ? `<div class="mini">&laquo;${esc(b.dedica)}&raquo;</div>` : ''}</td>
+            <td><div style="white-space:pre-line;">${esc(b.descrizione)}</div>
+              ${Array.isArray(b.voci) && b.voci.length > 1 ? `<span class="piu-voci">${b.voci.length} voci</span>` : ''}
+              ${b.dedica ? `<div class="mini">&laquo;${esc(b.dedica)}&raquo;</div>` : ''}</td>
             <td>${eur(b.valore)} &euro;<div class="mini">${b.pagamento === 'promozionale'
               ? '<span class="omaggio">promozionale</span>' : esc(b.pagamento || '')}</div></td>
             <td><span class="stato st-${st}">${st}</span>${b.scade_il ? `<div class="mini">${dataIT(b.scade_il)}</div>` : ''}

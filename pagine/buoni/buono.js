@@ -185,6 +185,26 @@ export function riepilogoVoci(voci) {
   };
 }
 
+/* Le righe da mostrare nel dettaglio di un buono in back office: una per
+   voce, con la quantità sempre in chiaro quando la sappiamo. La descrizione
+   arriva già composta con la stessa regola di riepilogoVoci qui sopra —
+   "N × nome", ma senza il numero quando è uno solo, perché sul buono che
+   vede il cliente "1 × Massaggio" suonerebbe scritto da una macchina. In
+   reception quell'ambiguità non serve: se `voci` combacia riga per riga con
+   la descrizione (stesso numero di elementi), il numero si mostra sempre,
+   tolto quello eventualmente già scritto nel testo per non vederlo due
+   volte. Se `voci` manca, è vuoto o non combacia — buono monetario, buono
+   creato a mano dal back office (voci è null, non [], vedi colonnaVoci in
+   acquista.ts) o qualunque disallineamento imprevisto — si mostra la riga
+   così com'è, senza inventare una quantità. */
+export function righeDescrizione(descrizione, voci) {
+  const righe = String(descrizione || '').split('\n').filter(Boolean);
+  const combaciano = Array.isArray(voci) && voci.length === righe.length;
+  return righe.map((testo, i) => combaciano
+    ? { testo: testo.replace(/^\d+\s*×\s*/, ''), quantita: voci[i].quantita }
+    : { testo, quantita: null });
+}
+
 export function buonoHTML(b, bozza) {
   const cat = categoriaBuono(b);
   const L = ['it','de','en','fr'].includes(b.lingua) ? b.lingua : 'it';

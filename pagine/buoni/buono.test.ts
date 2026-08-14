@@ -4,7 +4,7 @@
    sorgente unica delle due copie web: se il buono perde un pezzo, si vede
    qui invece che in produzione. */
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
-import { buonoHTML, categoriaBuono, CONDIZIONI, ETI, riepilogoVoci } from './buono.js';
+import { buonoHTML, categoriaBuono, CONDIZIONI, ETI, riepilogoVoci, righeDescrizione } from './buono.js';
 import { CONDIZIONI as CONDIZIONI_EMAIL, ETI as ETI_EMAIL } from '../../supabase/functions/buoni/email-buono.ts';
 /* lo stesso schema del confronto qui sopra fra sito ed email: riepilogoVoci
    non si confronta con stringhe scritte a mano leggendo acquista.ts, si
@@ -209,4 +209,57 @@ Deno.test('un elenco vuoto compone un buono senza righe e senza valore, come com
   assertEquals(r.descrizione, componiDescrizione([]));
   assertEquals(r.valore, sommaVoci([]));
   assertEquals(r.voci, []);
+});
+
+/* ============================================================
+   righeDescrizione — nel dettaglio del back office la descrizione si legge
+   su più righe, come la compone il server, e dove la colonna `voci`
+   combacia riga per riga con quelle righe la quantità si vede sempre —
+   anche quando il testo la tace perché è una sola (vedi riepilogoVoci qui
+   sopra: "1 × Massaggio" non si scrive sul buono del cliente, ma in
+   reception l'ambiguità del "senza numero" non serve). Per i buoni
+   monetari e per quelli creati a mano dal back office `voci` è null — non
+   un array vuoto, vedi colonnaVoci in acquista.ts — e lì non si inventa
+   nessun numero: si torna esattamente al comportamento di oggi. */
+
+Deno.test('buono monetario (voci null): una riga sola, nessuna quantità inventata', () => {
+  const r = righeDescrizione('Buono di 100 €', null);
+  assertEquals(r, [{ testo: 'Buono di 100 €', quantita: null }]);
+});
+
+Deno.test('descrizione vuota o assente non produce righe fantasma', () => {
+  assertEquals(righeDescrizione('', null), []);
+  assertEquals(righeDescrizione(null, null), []);
+  assertEquals(righeDescrizione(undefined, null), []);
+});
+
+Deno.test('due voci: la quantità si vede in chiaro anche quando il testo la tace (quantità 1)', () => {
+  const descrizione = '4 × Day Spa festivo\nMassaggio antistress';
+  const voci = [{ voce_id: 'dayspa_wknd', quantita: 4 }, { voce_id: 'antistress45', quantita: 1 }];
+  assertEquals(righeDescrizione(descrizione, voci), [
+    { testo: 'Day Spa festivo', quantita: 4 },
+    { testo: 'Massaggio antistress', quantita: 1 },
+  ]);
+});
+
+Deno.test('il numero già scritto nel testo non si ripete: si toglie e si rimette dai dati', () => {
+  const descrizione = '2 × Massaggio relax\n3 × Riflessologia plantare';
+  const voci = [{ voce_id: 'relax25', quantita: 2 }, { voce_id: 'plantare25', quantita: 3 }];
+  const r = righeDescrizione(descrizione, voci);
+  assertEquals(r[0].testo, 'Massaggio relax');
+  assertEquals(r[1].testo, 'Riflessologia plantare');
+});
+
+Deno.test('voci che non combaciano col numero di righe: si tace invece di inventare', () => {
+  const descrizione = 'Trattamento a scelta';
+  const voci = [{ voce_id: 'a', quantita: 1 }, { voce_id: 'b', quantita: 2 }];
+  assertEquals(righeDescrizione(descrizione, voci), [{ testo: 'Trattamento a scelta', quantita: null }]);
+});
+
+Deno.test('buono creato a mano con più righe ma voci null: le righe si vedono, senza quantità', () => {
+  const descrizione = 'n. 2 · Massaggio relax\nDay Spa festivo';
+  assertEquals(righeDescrizione(descrizione, null), [
+    { testo: 'n. 2 · Massaggio relax', quantita: null },
+    { testo: 'Day Spa festivo', quantita: null },
+  ]);
 });
