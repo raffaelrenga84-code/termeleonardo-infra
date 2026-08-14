@@ -84,6 +84,13 @@ textarea{min-height:84px;resize:vertical;}
 
 <script type="module">
 'use strict';
+
+/* PERCORSO ASSOLUTO, non relativo: `/comune/date.js`. Un percorso relativo
+   si risolve contro l'indirizzo che vede l'ospite, non contro la cartella
+   del file, e sotto un indirizzo tradotto la pagina resta bianca — vedi il
+   commento in prenota/index.html e in date.js per il dettaglio. */
+import { oggiISO, attivaDate } from '/comune/date.js';
+
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 
 const $ = (id) => document.getElementById(id);
@@ -181,7 +188,6 @@ const T = {
 
 const BANDIERE = { it:'🇮🇹', de:'🇩🇪', en:'🇬🇧', fr:'🇫🇷' };
 
-const oggiISO = () => new Date().toISOString().slice(0,10);
 let VERSO = 'arrivo';
 let OSPITE = null;      /* dati dal token, se c'e' */
 let INVIANDO = false;
@@ -475,6 +481,10 @@ function modulo() {
   $('bArrivo').onclick = () => scegli('arrivo');
   $('bPartenza').onclick = () => scegli('partenza');
   $('bInvia').onclick = invia;
+
+  /* #fQuando e' ricreato qui a ogni disegno di modulo(): riattivarlo in
+     questo punto, non solo al primo caricamento. */
+  attivaDate();
 }
 
 async function invia() {

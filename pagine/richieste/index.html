@@ -78,6 +78,13 @@ textarea{min-height:80px;resize:vertical;}
 /* Una pagina sola per green fee, maestro e trattamenti: tre file quasi
    identici divergerebbero come e' gia' successo con l'anteprima del buono.
    Il tipo arriva dall'indirizzo. */
+
+/* PERCORSO ASSOLUTO, non relativo: `/comune/date.js`. Un percorso relativo
+   si risolve contro l'indirizzo che vede l'ospite, non contro la cartella
+   del file, e sotto un indirizzo tradotto la pagina resta bianca — vedi il
+   commento in prenota/index.html e in date.js per il dettaglio. */
+import { oggiISO, attivaDate } from '/comune/date.js';
+
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 
 const $ = (id) => document.getElementById(id);
@@ -232,7 +239,6 @@ const T = {
 
 const BANDIERE = { it:'🇮🇹', de:'🇩🇪', en:'🇬🇧', fr:'🇫🇷' };
 
-const oggiISO = () => new Date().toISOString().slice(0,10);
 let OSPITE = null;
 let INVIANDO = false;
 
@@ -356,6 +362,11 @@ function modulo() {
     $('boxTaxi').style.display = taxi.checked ? 'block' : 'none';
   };
   $('bInvia').onclick = invia;
+
+  /* i campi data (#fData o #fGiorno, secondo il tipo) sono ricreati qui a
+     ogni disegno di modulo(): riattivarli in questo punto, non solo al
+     primo caricamento. */
+  attivaDate();
 }
 
 function raccogli() {

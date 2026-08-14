@@ -161,6 +161,10 @@ font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
    uguale sui due domini. Vedi percorsi-web.test.ts. */
 import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, categoriaBuono, buonoHTML } from '/buoni/buono.js';
 
+/* stessa regola di sopra: percorso assoluto, non relativo — `/comune/date.js`,
+   mai `./date.js` o `../comune/date.js`. Vedi il commento in date.js. */
+import { attivaDate } from '/comune/date.js';
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const supabase = { createClient };
@@ -549,6 +553,9 @@ function vistaEmetti() {
   window.addEventListener('resize', aggiornaAnteprima);
 
   agg(); aggPag(); disegnaRighe(); aggiornaAnteprima();
+  /* #fScade e' ricreato a ogni disegno di vistaEmetti(): riattivarlo qui,
+     non solo al primo caricamento. */
+  attivaDate();
 
   $('fCrea').onclick = async () => {
     const tipo = $('fTipo').value;
@@ -1108,6 +1115,10 @@ async function vistaRichieste() {
           const r = CARICATE.find(x => x.numero === tr.dataset.numero);
           if (!r) return;
           $('rDettaglio').innerHTML = dettaglioRichiesta(r);
+          /* #cQuando (solo per i transfer) e' ricreato qui a ogni richiesta
+             aperta: riattivarlo in questo punto, non solo al primo
+             caricamento della pagina. */
+          attivaDate($('rDettaglio'));
 
           const bCopia = $('bCopiaAtam');
           if (bCopia) bCopia.onclick = async () => {

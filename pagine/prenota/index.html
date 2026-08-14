@@ -155,6 +155,10 @@ textarea{min-height:80px;resize:vertical;}
    qualcuno divide in due file. */
 import { componiCorpo, euroDaCentesimi, linguaScelta } from '/prenota/logica.js';
 
+/* Stessa regola di sopra, stesso motivo: PERCORSO ASSOLUTO. `/comune/date.js`,
+   mai un percorso relativo — vedi il commento di date.js per il dettaglio. */
+import { oggiISO, attivaDate } from '/comune/date.js';
+
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 
 const $ = (id) => document.getElementById(id);
@@ -167,7 +171,6 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
 let LNG = linguaScelta(location.pathname, location.search, navigator.language);
 
 const BANDIERE = { it:'🇮🇹', de:'🇩🇪', en:'🇬🇧', fr:'🇫🇷' };
-const oggiISO = () => new Date().toISOString().slice(0,10);
 
 const T = {
   it:{
@@ -645,6 +648,11 @@ function disegna(numeroFatta) {
   else if (STATO === 'camere') schermaCamere();
   else if (STATO === 'dati') schermaDati();
   else schermaFatta(numeroFatta);
+  /* i campi arrivo/partenza sono ridisegnati a ogni passo (schermaRicerca
+     li ricrea da zero): riattivarli qui, non solo al primo caricamento,
+     altrimenti dopo "← Cambi le date" il calendario al tocco e il
+     collegamento arrivo/partenza sono spariti insieme ai vecchi input. */
+  attivaDate();
 }
 
 testata();
