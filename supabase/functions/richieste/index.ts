@@ -12,10 +12,14 @@
    ============================================================ */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { validaContatti, validaRichiesta } from './valida.ts';
+import { validaParametriDisponibilita } from './valida.ts';
 import { validaDati } from './tipi.ts';
+import { componiRichiesta, type Contatti } from './componi-richiesta.ts';
 import { avvisaHotel } from './email-richiesta.ts';
 import { inviaConferma } from './conferma.ts';
+import { componiRisposta, corpoDisponibilita } from './disponibilita.ts';
+import { LINGUE } from './condizioni.ts';
+import { creaFrenoIp } from './limite-ip.ts';
 
 const testo = (v: unknown) => String(v ?? '').trim();
 
@@ -57,7 +61,20 @@ async function autorizzato(req: Request): Promise<boolean> {
    dove il numero e' uno solo. In caso di errore si lascia passare: meglio
    una richiesta di troppo che una richiesta persa. */
 const TETTO_PERSONA = 3;
-const TETTO_TOTALE = 20;
+/* Il tetto per persona resta stretto: e' li' che si ferma chi insiste.
+   Quello TOTALE conta invece tutte le righe di richiesta_sito nella mezz'ora,
+   di chiunque: a 20 ci passavano transfer e green fee, che sono pochi al
+   giorno, ma da adesso ci passa ogni richiesta di soggiorno generata dai
+   pulsanti sulla home. Lo scenario che ho in mente e' una giornata da
+   vetrina: la newsletter di primavera o un post che gira, qualche centinaio
+   di persone sul sito nella stessa mezz'ora e magari cinquanta che arrivano
+   fino all'invio. A 20 la ventunesima — un ospite vero, con le date scelte e
+   il modulo compilato — leggeva 429. Vale qui lo stesso criterio scritto per
+   il freno della disponibilita': fra rifiutare un ospite vero e lasciarne
+   passare uno di troppo, l'errore giusto e' il secondo. Questo resta un
+   freno contro uno script che riempie la tabella, non un antifrode: chi
+   insiste da solo lo ferma comunque TETTO_PERSONA a 3. */
+const TETTO_TOTALE = 300;
 
 async function troppeRichieste(email: string, ip: string): Promise<boolean> {
   const da = new Date(Date.now() - 30 * 60 * 1000).toISOString();
@@ -76,6 +93,26 @@ async function troppeRichieste(email: string, ip: string): Promise<boolean> {
   }
 }
 
+/* Freno per l'azione pubblica a=disponibilita. Non puo' usare
+   troppeRichieste() sopra: quella conta a database le righe salvate in
+   richiesta_sito e ha bisogno di una email, mentre la disponibilita' non
+   salva niente e non ne ha una. Il conteggio vive quindi in memoria, per
+   IP: e' un freno PER ISTANZA della funzione, quindi approssimativo (istanze
+   diverse hanno contatori diversi, un riavvio a freddo lo azzera) — attrito
+   onesto contro un abuso a raffica sul sito vero dell'hotel, non un sistema
+   antifrode. Fra rifiutare un ospite vero e lasciarne passare uno di
+   troppo, l'errore giusto e' il secondo.
+
+   Il tetto NON e' per persona, e' per indirizzo: un albergo, un ufficio o
+   una rete mobile con CGNAT mettono molti ospiti veri dietro lo stesso IP.
+   200 chiamate ogni 5 minuti reggono, per esempio, una quarantina di
+   persone che condividono una rete e fanno ciascuna 4-5 tentativi di date
+   mentre confrontano i prezzi — restando comunque un freno vero contro uno
+   script che manda centinaia di chiamate al secondo dallo stesso indirizzo. */
+const TETTO_DISPONIBILITA = 200;
+const FINESTRA_DISPONIBILITA_MS = 5 * 60 * 1000;
+const permessoDisponibilita = creaFrenoIp(TETTO_DISPONIBILITA, FINESTRA_DISPONIBILITA_MS);
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   const url = new URL(req.url);
@@ -89,28 +126,17 @@ Deno.serve(async (req) => {
     try { corpo = await req.json(); }
     catch { return risposta({ errore: 'richiesta illeggibile' }, 400); }
 
-    /* Il tipo decide cosa si valida. Il soggiorno tiene i suoi campi nelle
-       colonne della tabella, gli altri tipi nel jsonb `dati`: cosi' un tipo
-       nuovo non richiede una migrazione. */
-    const tipo = testo(corpo.tipo) || 'soggiorno';
-    let contatti: { nome: string; email: string; telefono: string; lingua: string };
-    let colonne: Record<string, unknown> = {};
-    let propri: Record<string, unknown> | null = null;
-
-    if (tipo === 'soggiorno') {
-      const { errore, dati } = validaRichiesta(corpo);
-      if (errore || !dati) return risposta({ errore }, 400);
-      contatti = { nome: dati.nome, email: dati.email, telefono: dati.telefono, lingua: dati.lingua };
-      colonne = dati;
-    } else {
-      const c = validaContatti(corpo);
-      if (c.errore || !c.dati) return risposta({ errore: c.errore }, 400);
-      const d = validaDati(tipo, (corpo.dati || {}) as Record<string, unknown>);
-      if (d.errore || !d.dati) return risposta({ errore: d.errore }, 400);
-      contatti = c.dati;
-      colonne = { ...c.dati };
-      propri = d.dati;
+    /* Cosa si valida e cosa finisce dove vive in componi-richiesta.ts, non
+       qui: e' un modulo puro, collaudato da solo, che Deno.serve non puo'
+       far scavalcare in silenzio come e' gia' successo una volta. */
+    const composta = componiRichiesta(corpo);
+    if (composta.errore || !composta.contatti || !composta.colonne) {
+      return risposta({ errore: composta.errore }, 400);
     }
+    const tipo = composta.tipo!;
+    const contatti: Contatti = composta.contatti;
+    const colonne = composta.colonne;
+    const propri = composta.dati ?? null;
 
     const ip = indirizzo(req);
     if (await troppeRichieste(contatti.email, ip)) {
@@ -173,6 +199,57 @@ Deno.serve(async (req) => {
         adulti: data.adulti, bambini: data.bambini, pratica: data.numero_pratica,
       },
     });
+  }
+
+  /* ---------- pubblico: disponibilita' camere ----------
+     La pagina non deve conoscere la chiave del proxy: e' questa funzione
+     che chiama check-availability con PROXY_KEY dal proprio ambiente. */
+  if (azione === 'disponibilita') {
+    if (!permessoDisponibilita(indirizzo(req))) {
+      return risposta({ errore: 'troppe richieste, riprova tra qualche minuto' }, 429);
+    }
+
+    const b = await req.json().catch(() => ({}));
+
+    /* le date e il numero di adulti si convalidano PRIMA di chiamare il
+       servizio a monte, con gli stessi limiti di una richiesta di
+       soggiorno vera: una data assurda respinta qui e' anche una chiamata
+       in meno verso il sito reale dell'hotel */
+    const v = validaParametriDisponibilita(b);
+    if (v.errore || !v.dati) return risposta({ errore: v.errore }, 400);
+    const { adulti } = v.dati;
+
+    const lingua = LINGUE.includes(String(b?.lingua)) ? String(b.lingua) : 'it';
+    const r = await fetch(
+      Deno.env.get('SUPABASE_URL') + '/functions/v1/check-availability',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-proxy-key': Deno.env.get('PROXY_KEY') ?? '',
+        },
+        /* i nomi e i formati dell'API a monte stanno in disponibilita.ts, un
+           modulo puro: `children_ages` e' una stringa "4,9" come la manda gia'
+           la chat, non un array */
+        body: JSON.stringify(corpoDisponibilita(v.dati)),
+      },
+    );
+    if (!r.ok) {
+      /* senza questo, un guasto a monte diventa invisibile in produzione */
+      console.error('check-availability ha risposto', r.status, await r.text().catch(() => ''));
+      return risposta({ esito: 'errore', errore: 'disponibilita non raggiungibile' }, 502);
+    }
+    /* Un 200 con dentro qualcosa che non e' JSON faceva uscire l'eccezione da
+       Deno.serve: la risposta perdeva le intestazioni CORS e sulla pagina
+       l'errore diventava incomprensibile. Un guasto a monte e' un guasto
+       nostro da raccontare, non un'eccezione da lasciar scappare. */
+    let grezzo: unknown;
+    try { grezzo = await r.json(); }
+    catch (e) {
+      console.error('check-availability ha risposto 200 con qualcosa che non e JSON:', e);
+      return risposta({ esito: 'errore', errore: 'disponibilita non raggiungibile' }, 502);
+    }
+    return risposta(componiRisposta(grezzo, adulti, lingua));
   }
 
   /* ---------- riservati al back office ---------- */

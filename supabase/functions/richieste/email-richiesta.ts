@@ -29,6 +29,29 @@ function data(iso: string): string {
   return g ? `${g}/${m}/${a}` : '';
 }
 
+/* ATTENZIONE ALL'UNITA': prezzo_cent e caparra_cent sono in CENTESIMI.
+   31000 sono 310,00 euro. Nessun essere umano deve leggere "31000" in una
+   email: e' la stessa trappola che ha gia' prodotto un difetto altrove. */
+function euro(cent: unknown): string {
+  const n = Number(cent);
+  if (!Number.isFinite(n)) return '';
+  return (n / 100).toLocaleString('it-IT', {
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  }) + ' €';
+}
+
+/* "2 adulti · 2 bambini": la colonna `ospiti` dice solo "4", e la caparra si
+   calcola sugli adulti. Senza questa riga la reception non ha modo di
+   ricostruire i due numeri. */
+function composizione(r: Record<string, unknown>): string {
+  const a = Number(r.adulti);
+  if (!Number.isInteger(a)) return '';
+  const b = Number(r.bambini);
+  const voci = [`${a} adult${a === 1 ? 'o' : 'i'}`];
+  if (Number.isInteger(b) && b > 0) voci.push(`${b} bambin${b === 1 ? 'o' : 'i'}`);
+  return voci.join(' · ');
+}
+
 /* una riga solo se ha qualcosa da dire: le righe vuote fanno sembrare
    l'avviso rotto e allungano la lettura per niente */
 function riga(etichetta: string, valore: string, forte = false): string {
@@ -110,7 +133,15 @@ export function richiestaHTML(r: ConNumero): string {
   const s = (v: unknown) => String(v ?? '');
   const tipo = s(r.tipo) || 'soggiorno';
   const periodo = `${data(s(r.check_in))} → ${data(s(r.check_out))}`;
-  const soggiorno = `${r.notti} notti · ${r.ospiti} ospiti`;
+  const comp = composizione(r as unknown as Record<string, unknown>);
+  const soggiorno = `${r.notti} notti · ${r.ospiti} ospiti${comp ? ` · ${comp}` : ''}`;
+  /* La camera scelta si salva in `dati`, che index.ts appiattisce qui sopra:
+     finche' nessuna riga la leggeva, l'ospite sceglieva "Doppia — Mezza
+     Pensione — 310,00 €" e la reception riceveva "Camera: Doppia". Due
+     proposte della stessa camera differiscono SOLO per trattamento e
+     prezzo. */
+  const prezzo = euro(r.prezzo_cent);
+  const caparra = euro(r.caparra_cent);
   return `<table cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:100%;
   border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;background:#FFFFFF;">
 <tr><td style="padding:26px 28px;">
@@ -134,10 +165,24 @@ export function richiestaHTML(r: ConNumero): string {
     })()}
     ${riga('Email', s(r.email))}
     ${riga('Telefono', s(r.telefono))}
-    ${riga('Camera', s(r.tipo_camera))}
+    ${riga('Camera', s(r.tipo_camera) || s(r.nome_camera))}
     ${riga('Pacchetto', s(r.pacchetto))}
+    ${tipo === 'soggiorno' ? riga('Trattamento', s(r.trattamento)) : ''}
+    ${tipo === 'soggiorno' ? riga('Prezzo visto dall’ospite', prezzo, true) : ''}
+    ${tipo === 'soggiorno' ? riga('Caparra indicata', caparra) : ''}
     ${riga('Lingua', LINGUE[s(r.lingua)] || LINGUE.it)}
   </table>
+
+  ${prezzo && tipo === 'soggiorno'
+    ? `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:14px;border-collapse:collapse;">
+      <tr><td style="border-left:3px solid #8FC4BC;background:#F2F8F6;padding:12px 15px;
+        font-size:12.5px;line-height:1.6;color:#3C5346;">
+        Prezzo e caparra sono quelli che l’ospite ha visto sulla pagina al momento
+        della scelta, per l’intero soggiorno. Vanno confermati dalla reception:
+        non sono un preventivo della casa, e la camera non è bloccata.
+      </td></tr>
+    </table>`
+    : ''}
 
   ${(() => {
     /* il soggiorno chiama questo campo `messaggio`, gli altri tipi `note`:
@@ -173,7 +218,7 @@ export async function avvisaHotel(r: ConNumero): Promise<boolean> {
       method: 'POST',
       headers: { authorization: `Bearer ${chiave}`, 'content-type': 'application/json' },
       body: JSON.stringify({
-        from: Deno.env.get('MITTENTE_EMAIL') || 'Hotel Terme Leonardo <onboarding@resend.dev>',
+        from: Deno.env.get('MITTENTE_EMAIL') || 'Hotel Terme Leonardo <noreply@hoteltermeleonardo.com>',
         to: a,
         reply_to: r.email,
         subject: `${r.numero} · richiesta dal sito · ${r.nome}`,

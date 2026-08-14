@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#1A3626" />
+<meta name="robots" content="index,follow" />
+<title>Prenotazione camere — Hotel Terme Leonardo</title>
+<link rel="icon" href="/buoni/img/logo-quadrato.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --verde:#1A3626; --verde-medio:#3C5346; --acqua:#8FC4BC; --acqua-chiara:#E4F0EA;
+  --oro:#C9A961; --crema:#F9F6F0; --grigio:#7B756A; --allarme:#C0392B;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--crema);color:#2A2E2B;
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;}
+.testata{background:var(--acqua-chiara);padding:34px 20px 30px;text-align:center;position:relative;}
+/* la lingua e' una scelta che si fa una volta: sta in un angolo, non in
+   mezzo al percorso. Una select vera e non un menu finto: sui telefoni
+   apre il selettore di sistema, che si usa meglio di qualunque tendina
+   disegnata a mano */
+.sceltaLingua{position:absolute;top:12px;right:12px;}
+.sceltaLingua select{width:auto;margin:0;padding:6px 26px 6px 9px;font-size:14px;
+  border-radius:8px;border:1px solid rgba(26,54,38,.15);background:rgba(255,255,255,.8);
+  color:var(--verde-medio);cursor:pointer;}
+.testata img{width:210px;max-width:60%;height:auto;display:block;margin:0 auto;}
+h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;
+  font-size:34px;line-height:1.2;color:var(--verde);margin:20px 0 8px;}
+.occhiello{font-size:11px;letter-spacing:3px;color:var(--oro);text-transform:uppercase;}
+.sotto{color:var(--verde-medio);max-width:560px;margin:0 auto;}
+main{max-width:640px;margin:0 auto;padding:26px 18px 60px;}
+.riquadro{background:#fff;border:1px solid #E5E0D8;border-radius:14px;
+  padding:22px;margin-bottom:18px;}
+h2{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:23px;
+  color:var(--verde);margin:0 0 4px;}
+.guida{color:var(--grigio);font-size:13.5px;margin-bottom:16px;}
+label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--verde-medio);font-weight:600;margin-top:14px;}
+input,select,textarea{width:100%;margin-top:6px;padding:12px 13px;font:15px inherit;
+  border:1px solid #DCD6CB;border-radius:9px;background:#FCFBF8;color:#2A2E2B;}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--acqua);border-color:transparent;}
+textarea{min-height:80px;resize:vertical;}
+.due{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.tre{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+@media(max-width:560px){.due,.tre{grid-template-columns:1fr 1fr;}}
+.spunta{display:flex;align-items:flex-start;gap:10px;margin-top:12px;font-size:14.5px;
+  color:var(--verde-medio);cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;}
+.spunta input{width:18px;height:18px;margin:2px 0 0;flex:0 0 auto;}
+.avviso{background:#FFF6E8;border-left:4px solid var(--oro);padding:13px 15px;
+  border-radius:6px;font-size:13.5px;color:#6B4A22;margin-bottom:18px;line-height:1.6;}
+.errore{margin-top:14px;background:#FDF0EE;border-left:4px solid var(--allarme);
+  padding:13px 15px;border-radius:6px;color:#7A2E24;font-size:14px;line-height:1.6;}
+.invia{width:100%;margin-top:22px;padding:16px;border:0;border-radius:999px;
+  background:var(--verde);color:var(--crema);font:600 16px inherit;cursor:pointer;}
+.invia:disabled{background:#B9BDB6;cursor:default;}
+.fatta{text-align:center;padding:40px 22px;}
+.fatta .rif{font-family:"Courier New",monospace;font-size:20px;color:var(--verde);
+  letter-spacing:1px;margin-top:10px;}
+.pie{text-align:center;color:var(--grigio);font-size:12.5px;padding:0 18px 40px;}
+.pie a{color:var(--verde-medio);}
+
+/* ---- passi: tre schermate in una pagina sola, un indicatore leggero ---- */
+.passi{display:flex;justify-content:center;gap:8px;margin:0 auto 22px;max-width:640px;
+  padding:0 18px;}
+.passi span{flex:1;height:3px;border-radius:3px;background:#E5E0D8;}
+.passi span.fatto,.passi span.attivo{background:var(--oro);}
+.indietro{display:inline-block;background:none;border:0;padding:0;margin-bottom:6px;
+  color:var(--verde-medio);font-size:13px;cursor:pointer;text-decoration:underline;}
+
+/* ---- ospiti e bambini ---- */
+.eta-bambini{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
+  gap:10px;margin-top:10px;}
+.eta-bambini div label{margin-top:0;}
+
+/* ---- riepilogo della scelta fatta, ricordo per non farla ridigitare ---- */
+.riepilogo{background:var(--acqua-chiara);border-radius:10px;padding:12px 15px;
+  font-size:13.5px;color:var(--verde-medio);margin-bottom:18px;line-height:1.6;}
+.riepilogo strong{color:var(--verde);}
+
+/* ---- le camere proposte, raggruppate per camera: una scheda per proposta ---- */
+.gruppoCamera{margin-bottom:16px;}
+.gruppoCamera:last-child{margin-bottom:0;}
+.gruppoCamera h3{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;
+  font-size:19px;color:var(--verde);margin:0 0 2px;}
+.gruppoCamera .descrizione{color:var(--grigio);font-size:13px;margin-bottom:8px;}
+.gruppoCamera .maxAdulti{color:var(--grigio);font-size:12px;margin-bottom:8px;}
+.proposta{display:block;width:100%;text-align:left;background:#FCFBF8;
+  border:1.5px solid #DCD6CB;border-radius:10px;padding:12px 14px;margin-top:8px;
+  cursor:pointer;font:inherit;color:inherit;}
+.proposta:first-of-type{margin-top:0;}
+.proposta.selezionata{border-color:var(--oro);background:#FDFBF3;}
+.proposta .riga{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.proposta .tariffa{font-weight:600;color:var(--verde);}
+.proposta .trattamento{color:var(--verde-medio);font-size:13px;margin-top:1px;}
+.proposta .prezzo{font-family:"Cormorant Garamond",Georgia,serif;font-size:22px;
+  color:var(--oro);white-space:nowrap;}
+
+/* ---- condizioni di cancellazione: si stampano come arrivano dal server ---- */
+.condizioni{margin-top:4px;border:1px solid #E5E0D8;border-radius:10px;
+  background:#FCFBF8;padding:14px 16px;}
+.condizioni .tit{font-size:11px;letter-spacing:1.6px;text-transform:uppercase;
+  color:var(--oro);margin-bottom:8px;}
+.condizioni ul{margin:0;padding-left:18px;font-size:13px;line-height:1.6;
+  color:var(--verde-medio);}
+.condizioni ul li{margin-bottom:4px;}
+.condizioni .recesso{font-size:12px;color:var(--grigio);margin-top:10px;
+  padding-top:10px;border-top:1px solid #E5E0D8;}
+.caparra{background:var(--acqua-chiara);border-left:4px solid var(--acqua);
+  padding:13px 15px;border-radius:6px;font-size:13.5px;color:var(--verde-medio);
+  margin-top:16px;line-height:1.6;}
+</style>
+</head>
+<body>
+
+<div class="testata">
+  <div class="sceltaLingua" id="tLingue"></div>
+  <img src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" />
+  <div class="occhiello" style="margin-top:22px;" id="tOcchiello"></div>
+  <h1 id="tTitolo"></h1>
+  <p class="sotto" id="tSotto"></p>
+</div>
+
+<div class="passi" id="passi"></div>
+<main id="app"></main>
+
+<div class="pie" id="tPie"></div>
+
+<script type="module">
+'use strict';
+/* Tre schermate in un unico file — date e ospiti, le camere, i dati — come
+   indicato nel brief: una pagina sola e' piu' facile da tenere sorella
+   delle altre che una cascata di file quasi identici. La logica pura
+   (centesimi->euro, corpo della richiesta, scelta della lingua) sta in
+   logica.js, cosi' si prova anche senza aprire un browser: vedi
+   logica.test.ts. */
+
+/* PERCORSO ASSOLUTO, NON './logica.js'. Un modulo si risolve contro
+   l'indirizzo che si vede nella barra, non contro il file servito. Questa
+   pagina vive in due posti: arrivo-terme-leonardo.vercel.app/prenota/ e
+   www.hoteltermeleonardo.com/it/prenota — quest'ultimo e' una riscrittura
+   di vercel.json e nella barra resta /it/prenota, senza barra finale.
+   Li' './logica.js' diventa /it/logica.js, che nessuna riscrittura copre:
+   404, oppure l'index.html della SPA servito come text/html, che un modulo
+   rifiuta. In entrambi i casi testata() e disegna() non partono mai e
+   l'ospite vede il logo e una pagina bianca.
+   '/prenota/logica.js' invece e' lo stesso su tutti e due i domini: sul
+   primo e' il file vero, sul secondo lo copre la riscrittura
+   /prenota/:percorso*. Vale comunque sia scritto l'indirizzo nella barra,
+   ed e' la regola per ogni risorsa di queste pagine — la presidia
+   percorsi-web.test.ts, cosi' non torna con la prossima pagina che
+   qualcuno divide in due file. */
+import { componiCorpo, euroDaCentesimi, linguaScelta } from '/prenota/logica.js';
+
+const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
+  c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+/* la lingua guarda anche il PERCORSO, non solo `?l=`: sul dominio
+   dell'hotel gli indirizzi sono /it/prenota, /de/buchen, /en/book,
+   /fr/reserver e li' `?l=` non c'e'. Regole e precedenze in logica.js. */
+let LNG = linguaScelta(location.pathname, location.search, navigator.language);
+
+const BANDIERE = { it:'🇮🇹', de:'🇩🇪', en:'🇬🇧', fr:'🇫🇷' };
+const oggiISO = () => new Date().toISOString().slice(0,10);
+
+const T = {
+  it:{
+    occhiello:'PRENOTAZIONE CAMERE', titolo:'La sua camera all’Hotel Terme Leonardo',
+    sotto:'Scelga le date, veda le camere libere e il prezzo: la reception le conferma tutto entro poche ore.',
+    // passo 1
+    dateTit:'Date e ospiti', dateGuida:'Ci dica quando arriva e in quanti siete: le mostriamo le camere libere per quelle date.',
+    arrivo:'Arrivo', partenza:'Partenza', adulti:'Adulti', bambini:'Bambini',
+    etaBambino:(n)=>`Età bambino ${n}`, etaOpt:'Età',
+    cerca:'Vedi le camere', cercando:'Cerco le camere…',
+    mancaRicerca:'Indichi arrivo, partenza e il numero di adulti.',
+    partenzaPrimaArrivo:'La partenza deve essere dopo l’arrivo.',
+    mancaEta:'Indichi l’età di ogni bambino.',
+    troppePersone:'Per più di 10 persone ci scriva a info@termeleonardo.com o ci chiami allo +39 049 9939200: le prepariamo un preventivo su misura.',
+    nessunaCamera:'Non risultano camere libere per queste date. Provi con altre date, oppure ci scriva a info@termeleonardo.com o chiami il +39 049 9939200.',
+    erroreRicerca:'Non siamo riusciti a controllare la disponibilità. Riprovi tra poco, oppure ci chiami allo +39 049 9939200.',
+    // passo 2
+    cameraTit:'Le camere libere', cameraGuida:'Scelga la camera e il trattamento che preferisce: il prezzo è per l’intero soggiorno.',
+    finoAdulti:(n)=>`Fino a ${n} adulti`,
+    indietroDate:'← Cambi le date', continua:'Continua con i suoi dati',
+    mancaScelta:'Scelga una camera per continuare.',
+    // passo 3
+    riepilogo:(a,p,ad,b)=>`Dal <strong>${a}</strong> al <strong>${p}</strong> · ${ad} adult${ad===1?'o':'i'}${b>0?`, ${b} bambin${b===1?'o':'i'}`:''}`,
+    riepilogoCamera:(nome,tariffa,prezzo)=>`<strong>${esc(nome)}</strong> — ${esc(tariffa)} — ${prezzo} €`,
+    datiTit:'I suoi dati', datiGuida:'Ci servono per confermarle la richiesta.',
+    nome:'Nome e cognome', email:'Email', tel:'Telefono',
+    note:'Note (facoltative)', notePh:'Richieste particolari, orario di arrivo previsto…',
+    condizioniTit:'Condizioni di cancellazione',
+    caparraRiga:(v)=>`Alla conferma la reception le chiederà una caparra di ${v} €, che si detrae dal totale.`,
+    privacy:"Ho preso atto dell’informativa sul trattamento dei dati personali", privacyLink:"Leggi l’informativa",
+    privacyManca:"Per procedere deve prendere atto dell’informativa privacy.",
+    indietroCamere:'← Cambi camera',
+    invia:'Invia la richiesta', invio:'Invio…',
+    mancaDati:'Compili nome ed email.',
+    ripiego:'Non siamo riusciti a registrare la richiesta. Ci chiami allo +39 049 9939200 o scriva a info@termeleonardo.com: rispondiamo subito.',
+    // chiusura
+    grazieTit:'Richiesta inviata',
+    grazieTxt:'La reception le risponde entro poche ore con la conferma e le indicazioni per la caparra.',
+    rif:'Riferimento', ancora:'Fai un’altra richiesta',
+  },
+  de:{
+    occhiello:'ZIMMERBUCHUNG', titolo:'Ihr Zimmer im Hotel Terme Leonardo',
+    sotto:'Wählen Sie die Daten, sehen Sie die freien Zimmer und den Preis: die Rezeption bestätigt Ihnen alles innerhalb weniger Stunden.',
+    dateTit:'Daten und Gäste', dateGuida:'Sagen Sie uns, wann Sie ankommen und wie viele Sie sind: wir zeigen Ihnen die freien Zimmer für diese Daten.',
+    arrivo:'Anreise', partenza:'Abreise', adulti:'Erwachsene', bambini:'Kinder',
+    etaBambino:(n)=>`Alter Kind ${n}`, etaOpt:'Alter',
+    cerca:'Zimmer ansehen', cercando:'Wir suchen die Zimmer…',
+    mancaRicerca:'Bitte geben Sie Anreise, Abreise und die Anzahl der Erwachsenen an.',
+    partenzaPrimaArrivo:'Die Abreise muss nach der Anreise liegen.',
+    mancaEta:'Bitte geben Sie das Alter jedes Kindes an.',
+    troppePersone:'Für mehr als 10 Personen schreiben Sie bitte an info@termeleonardo.com oder rufen Sie +39 049 9939200 an: wir erstellen Ihnen ein individuelles Angebot.',
+    nessunaCamera:'Für diese Daten sind keine Zimmer frei. Versuchen Sie andere Daten, oder schreiben Sie an info@termeleonardo.com bzw. rufen Sie +39 049 9939200 an.',
+    erroreRicerca:'Wir konnten die Verfügbarkeit nicht prüfen. Bitte versuchen Sie es später erneut, oder rufen Sie uns unter +39 049 9939200 an.',
+    cameraTit:'Freie Zimmer', cameraGuida:'Wählen Sie Zimmer und Verpflegung: der Preis gilt für den gesamten Aufenthalt.',
+    finoAdulti:(n)=>`Bis zu ${n} Erwachsene`,
+    indietroDate:'← Daten ändern', continua:'Weiter zu Ihren Daten',
+    mancaScelta:'Bitte wählen Sie ein Zimmer, um fortzufahren.',
+    riepilogo:(a,p,ad,b)=>`Vom <strong>${a}</strong> bis <strong>${p}</strong> · ${ad} Erwachsene${b>0?`, ${b} Kind${b===1?'':'er'}`:''}`,
+    riepilogoCamera:(nome,tariffa,prezzo)=>`<strong>${esc(nome)}</strong> — ${esc(tariffa)} — ${prezzo} €`,
+    datiTit:'Ihre Daten', datiGuida:'Wir brauchen sie, um Ihnen die Anfrage zu bestätigen.',
+    nome:'Vor- und Nachname', email:'E-Mail', tel:'Telefon',
+    note:'Anmerkungen (optional)', notePh:'Besondere Wünsche, voraussichtliche Ankunftszeit…',
+    condizioniTit:'Stornobedingungen',
+    caparraRiga:(v)=>`Bei der Bestätigung wird die Rezeption eine Anzahlung von ${v} € verlangen, die vom Gesamtbetrag abgezogen wird.`,
+    privacy:"Ich habe die Datenschutzerklärung zur Kenntnis genommen", privacyLink:"Datenschutzerklärung lesen",
+    privacyManca:"Bitte nehmen Sie die Datenschutzerklärung zur Kenntnis.",
+    indietroCamere:'← Zimmer ändern',
+    invia:'Anfrage senden', invio:'Senden…',
+    mancaDati:'Bitte Name und E-Mail ausfüllen.',
+    ripiego:'Wir konnten die Anfrage nicht speichern. Rufen Sie uns unter +39 049 9939200 an oder schreiben Sie an info@termeleonardo.com: wir antworten sofort.',
+    grazieTit:'Anfrage gesendet',
+    grazieTxt:'Die Rezeption antwortet Ihnen innerhalb weniger Stunden mit der Bestätigung und den Hinweisen zur Anzahlung.',
+    rif:'Referenz', ancora:'Weitere Anfrage stellen',
+  },
+  en:{
+    occhiello:'ROOM BOOKING', titolo:'Your room at Hotel Terme Leonardo',
+    sotto:'Choose your dates, see the rooms available and the price: reception confirms everything within a few hours.',
+    dateTit:'Dates and guests', dateGuida:'Tell us when you arrive and how many you are: we will show the rooms available for those dates.',
+    arrivo:'Arrival', partenza:'Departure', adulti:'Adults', bambini:'Children',
+    etaBambino:(n)=>`Age of child ${n}`, etaOpt:'Age',
+    cerca:'See the rooms', cercando:'Looking for rooms…',
+    mancaRicerca:'Please fill in arrival, departure and the number of adults.',
+    partenzaPrimaArrivo:'Departure must be after arrival.',
+    mancaEta:'Please give the age of every child.',
+    troppePersone:'For more than 10 people please write to info@termeleonardo.com or call +39 049 9939200: we will prepare a tailored quote.',
+    nessunaCamera:'No rooms are available for these dates. Please try other dates, or write to info@termeleonardo.com or call +39 049 9939200.',
+    erroreRicerca:'We could not check availability. Please try again shortly, or call us at +39 049 9939200.',
+    cameraTit:'Available rooms', cameraGuida:'Choose the room and rate you prefer: the price is for the whole stay.',
+    finoAdulti:(n)=>`Up to ${n} adults`,
+    indietroDate:'← Change dates', continua:'Continue with your details',
+    mancaScelta:'Please choose a room to continue.',
+    riepilogo:(a,p,ad,b)=>`From <strong>${a}</strong> to <strong>${p}</strong> · ${ad} adult${ad===1?'':'s'}${b>0?`, ${b} child${b===1?'':'ren'}`:''}`,
+    riepilogoCamera:(nome,tariffa,prezzo)=>`<strong>${esc(nome)}</strong> — ${esc(tariffa)} — ${prezzo} €`,
+    datiTit:'Your details', datiGuida:'We need them to confirm your request.',
+    nome:'Full name', email:'Email', tel:'Phone',
+    note:'Notes (optional)', notePh:'Special requests, expected arrival time…',
+    condizioniTit:'Cancellation conditions',
+    caparraRiga:(v)=>`On confirmation reception will ask you for a deposit of ${v} €, deducted from the total.`,
+    privacy:"I have read the privacy notice", privacyLink:"Read the privacy notice",
+    privacyManca:"Please acknowledge the privacy notice to continue.",
+    indietroCamere:'← Change room',
+    invia:'Send request', invio:'Sending…',
+    mancaDati:'Please fill in name and email.',
+    ripiego:'We could not register your request. Please call +39 049 9939200 or write to info@termeleonardo.com: we will reply right away.',
+    grazieTit:'Request sent',
+    grazieTxt:'Reception will reply within a few hours with the confirmation and instructions for the deposit.',
+    rif:'Reference', ancora:'Make another request',
+  },
+  fr:{
+    occhiello:'RÉSERVATION DE CHAMBRE', titolo:'Votre chambre à l’Hotel Terme Leonardo',
+    sotto:'Choisissez les dates, consultez les chambres disponibles et le prix : la réception vous confirme tout sous quelques heures.',
+    dateTit:'Dates et voyageurs', dateGuida:'Dites-nous quand vous arrivez et combien vous êtes : nous vous montrons les chambres disponibles pour ces dates.',
+    arrivo:'Arrivée', partenza:'Départ', adulti:'Adultes', bambini:'Enfants',
+    etaBambino:(n)=>`Âge de l’enfant ${n}`, etaOpt:'Âge',
+    cerca:'Voir les chambres', cercando:'Recherche des chambres…',
+    mancaRicerca:'Veuillez indiquer l’arrivée, le départ et le nombre d’adultes.',
+    partenzaPrimaArrivo:'Le départ doit être après l’arrivée.',
+    mancaEta:'Veuillez indiquer l’âge de chaque enfant.',
+    troppePersone:'Pour plus de 10 personnes, écrivez à info@termeleonardo.com ou appelez le +39 049 9939200 : nous vous préparons un devis sur mesure.',
+    nessunaCamera:'Aucune chambre disponible pour ces dates. Essayez d’autres dates, ou écrivez à info@termeleonardo.com ou appelez le +39 049 9939200.',
+    erroreRicerca:'Nous n’avons pas pu vérifier la disponibilité. Réessayez dans un instant, ou appelez-nous au +39 049 9939200.',
+    cameraTit:'Chambres disponibles', cameraGuida:'Choisissez la chambre et le tarif que vous préférez : le prix est pour tout le séjour.',
+    finoAdulti:(n)=>`Jusqu’à ${n} adultes`,
+    indietroDate:'← Changer les dates', continua:'Continuer avec vos coordonnées',
+    mancaScelta:'Veuillez choisir une chambre pour continuer.',
+    riepilogo:(a,p,ad,b)=>`Du <strong>${a}</strong> au <strong>${p}</strong> · ${ad} adulte${ad===1?'':'s'}${b>0?`, ${b} enfant${b===1?'':'s'}`:''}`,
+    riepilogoCamera:(nome,tariffa,prezzo)=>`<strong>${esc(nome)}</strong> — ${esc(tariffa)} — ${prezzo} €`,
+    datiTit:'Vos coordonnées', datiGuida:'Elles nous servent pour confirmer votre demande.',
+    nome:'Nom et prénom', email:'E-mail', tel:'Téléphone',
+    note:'Remarques (facultatif)', notePh:'Demandes particulières, heure d’arrivée prévue…',
+    condizioniTit:'Conditions d’annulation',
+    caparraRiga:(v)=>`À la confirmation, la réception vous demandera des arrhes de ${v} €, déduites du total.`,
+    privacy:"J’ai pris connaissance de la politique de confidentialité", privacyLink:"Lire la politique de confidentialité",
+    privacyManca:"Veuillez prendre connaissance de la politique de confidentialité.",
+    indietroCamere:'← Changer de chambre',
+    invia:'Envoyer la demande', invio:'Envoi…',
+    mancaDati:'Veuillez renseigner le nom et l’e-mail.',
+    ripiego:'Nous n’avons pas pu enregistrer la demande. Appelez-nous au +39 049 9939200 ou écrivez à info@termeleonardo.com : nous répondons tout de suite.',
+    grazieTit:'Demande envoyée',
+    grazieTxt:'La réception vous répond sous quelques heures avec la confirmation et les indications pour les arrhes.',
+    rif:'Référence', ancora:'Faire une autre demande',
+  },
+};
+
+/* ---------------- stato della pagina ---------------- */
+let STATO = 'ricerca';           // 'ricerca' | 'camere' | 'dati' | 'fatta'
+let RICERCA = null;              // { arrivo, partenza, adulti, bambini, eta_bambini }
+let PROPOSTE = [];                // risposta di a=disponibilita
+let CAPARRA_CENT = 0;
+let CONDIZIONI = { righe: [], recesso: '' };
+let SCELTA = null;                // la proposta scelta
+let CERCANDO = false;
+let INVIANDO = false;
+
+function testata() {
+  const t = T[LNG];
+  document.documentElement.lang = LNG;
+  $('tOcchiello').textContent = t.occhiello;
+  $('tTitolo').textContent = t.titolo;
+  $('tSotto').textContent = t.sotto;
+  $('tLingue').innerHTML = '<select id="selLingua" aria-label="Lingua">' +
+    ['it','de','en','fr'].map(l =>
+      '<option value="' + l + '"' + (l === LNG ? ' selected' : '') + '>' +
+        BANDIERE[l] + ' ' + l.toUpperCase() + '</option>').join('') + '</select>';
+  $('selLingua').onchange = (e) => { location.search = '?l=' + e.target.value; };
+  $('tPie').innerHTML = `Hotel Terme Leonardo &middot; Via Monteortone 46, Abano Terme &middot;
+    <a href="tel:+390499939200">+39 049 9939200</a> &middot;
+    <a href="mailto:info@termeleonardo.com">info@termeleonardo.com</a>`;
+}
+
+function passi() {
+  const ordine = ['ricerca','camere','dati'];
+  const i = ordine.indexOf(STATO === 'fatta' ? 'dati' : STATO);
+  $('passi').innerHTML = ordine.map((_, n) =>
+    `<span class="${n < i ? 'fatto' : n === i ? 'attivo' : ''}"></span>`).join('');
+}
+
+/* ================= passo 1: date e ospiti ================= */
+
+function schermaRicerca(erroreIniziale) {
+  const t = T[LNG];
+  const r = RICERCA || { arrivo:'', partenza:'', adulti:2, bambini:0 };
+  $('app').innerHTML = `
+    <div class="avviso">${esc(t.sotto)}</div>
+    <div class="riquadro">
+      <h2>${esc(t.dateTit)}</h2><div class="guida">${esc(t.dateGuida)}</div>
+      <div class="due">
+        <div><label for="fArrivo">${esc(t.arrivo)}</label>
+          <input type="date" id="fArrivo" name="arrivo" min="${oggiISO()}" value="${esc(r.arrivo)}" /></div>
+        <div><label for="fPartenza">${esc(t.partenza)}</label>
+          <input type="date" id="fPartenza" name="partenza" min="${oggiISO()}" value="${esc(r.partenza)}" /></div>
+      </div>
+      <div class="due">
+        <div><label for="fAdulti">${esc(t.adulti)}</label>
+          <input type="number" id="fAdulti" min="1" max="10" value="${r.adulti}" /></div>
+        <div><label for="fBambini">${esc(t.bambini)}</label>
+          <input type="number" id="fBambini" min="0" max="6" value="${r.bambini}" /></div>
+      </div>
+      <div class="eta-bambini" id="boxEta"></div>
+    </div>
+    <button class="invia" id="bCerca" data-testid="cerca">${esc(t.cerca)}</button>
+    <div id="esitoRicerca">${erroreIniziale ? `<div class="errore">${esc(erroreIniziale)}</div>` : ''}</div>`;
+
+  const disegnaEta = () => {
+    const n = Math.max(0, Math.min(6, Number($('fBambini').value) || 0));
+    const precedenti = (RICERCA && RICERCA.eta_bambini) || [];
+    $('boxEta').innerHTML = Array.from({ length: n }).map((_, i) => `
+      <div><label for="fEta${i}">${esc(t.etaBambino(i + 1))}</label>
+        <select id="fEta${i}">
+          <option value="">${esc(t.etaOpt)}</option>
+          ${Array.from({ length: 18 }).map((__, e) =>
+            `<option value="${e}"${precedenti[i] === e ? ' selected' : ''}>${e}</option>`).join('')}
+        </select></div>`).join('');
+  };
+  disegnaEta();
+  $('fBambini').oninput = disegnaEta;
+
+  $('bCerca').onclick = cercaDisponibilita;
+}
+
+async function cercaDisponibilita() {
+  const t = T[LNG];
+  if (CERCANDO) return;
+  const arrivo = $('fArrivo').value, partenza = $('fPartenza').value;
+  const adulti = Number($('fAdulti').value) || 0;
+  const nBambini = Math.max(0, Math.min(6, Number($('fBambini').value) || 0));
+
+  if (!arrivo || !partenza || adulti < 1) {
+    $('esitoRicerca').innerHTML = `<div class="errore">${esc(t.mancaRicerca)}</div>`;
+    return;
+  }
+  if (partenza <= arrivo) {
+    $('esitoRicerca').innerHTML = `<div class="errore">${esc(t.partenzaPrimaArrivo)}</div>`;
+    return;
+  }
+  /* stesso tetto della ricerca e dell'invio: adulti PIU' bambini, non
+     adulti e basta. Prima 8 adulti e 3 bambini cercavano, sceglievano,
+     compilavano tutto e venivano respinti solo alla fine; e il messaggio
+     che leggevano non parlava di quante persone fossero. */
+  if (adulti + nBambini > 10) {
+    $('esitoRicerca').innerHTML = `<div class="errore">${esc(t.troppePersone)}</div>`;
+    return;
+  }
+  const eta_bambini = [];
+  for (let i = 0; i < nBambini; i++) {
+    const v = $('fEta' + i).value;
+    if (v === '') {
+      $('esitoRicerca').innerHTML = `<div class="errore">${esc(t.mancaEta)}</div>`;
+      return;
+    }
+    eta_bambini.push(Number(v));
+  }
+
+  CERCANDO = true;
+  $('bCerca').disabled = true;
+  $('bCerca').textContent = t.cercando;
+  $('esitoRicerca').innerHTML = '';
+
+  try {
+    const r = await fetch(FUNZIONE + '?a=disponibilita', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        check_in: arrivo, check_out: partenza, adulti,
+        ...(nBambini > 0 ? { bambini: nBambini, eta_bambini } : {}),
+        lingua: LNG,
+      }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d.esito !== 'ok') {
+      console.error('disponibilita non riuscita:', r.status, d);
+      throw new Error('ko');
+    }
+    RICERCA = { arrivo, partenza, adulti, bambini: nBambini, eta_bambini };
+    PROPOSTE = Array.isArray(d.proposte) ? d.proposte : [];
+    CAPARRA_CENT = Number(d.caparra_cent) || 0;
+    CONDIZIONI = d.condizioni && Array.isArray(d.condizioni.righe)
+      ? d.condizioni : { righe: [], recesso: '' };
+    SCELTA = null;
+
+    if (!PROPOSTE.length) {
+      CERCANDO = false;
+      $('bCerca').disabled = false;
+      $('bCerca').textContent = t.cerca;
+      $('esitoRicerca').innerHTML = `<div class="errore">${esc(t.nessunaCamera)}</div>`;
+      return;
+    }
+    STATO = 'camere';
+    disegna();
+  } catch (e) {
+    console.error(e);
+    CERCANDO = false;
+    $('bCerca').disabled = false;
+    $('bCerca').textContent = t.cerca;
+    $('esitoRicerca').innerHTML = `<div class="errore">${esc(t.erroreRicerca)}</div>`;
+  }
+}
+
+/* ================= passo 2: le camere ================= */
+
+function schermaCamere() {
+  const t = T[LNG];
+  /* raggruppate per camera_id, nell'ordine in cui arrivano: una scheda
+     "camera" con dentro una riga selezionabile per ogni proposta — cioe'
+     per ogni combinazione di tariffa e trattamento */
+  const gruppi = [];
+  const perId = new Map();
+  PROPOSTE.forEach((p, i) => {
+    let g = perId.get(p.camera_id);
+    if (!g) { g = { camera_id: p.camera_id, nome: p.nome, descrizione: p.descrizione,
+      max_adulti: p.max_adulti, voci: [] }; perId.set(p.camera_id, g); gruppi.push(g); }
+    g.voci.push({ ...p, indice: i });
+  });
+
+  $('app').innerHTML = `
+    <button type="button" class="indietro" id="bIndietroDate">${esc(t.indietroDate)}</button>
+    <div class="riquadro">
+      <h2>${esc(t.cameraTit)}</h2><div class="guida">${esc(t.cameraGuida)}</div>
+      ${gruppi.map(g => `
+        <div class="gruppoCamera">
+          <h3>${esc(g.nome)}</h3>
+          ${g.descrizione ? `<div class="descrizione">${esc(g.descrizione)}</div>` : ''}
+          ${g.max_adulti ? `<div class="maxAdulti">${esc(t.finoAdulti(g.max_adulti))}</div>` : ''}
+          ${g.voci.map(v => `
+            <button type="button" class="proposta${SCELTA && SCELTA.indice === v.indice ? ' selezionata' : ''}"
+              data-testid="proposta-${v.indice}" data-indice="${v.indice}">
+              <div class="riga">
+                <div>
+                  <div class="tariffa">${esc(v.tariffa)}</div>
+                  ${v.trattamento ? `<div class="trattamento">${esc(v.trattamento)}</div>` : ''}
+                </div>
+                <div class="prezzo">${euroDaCentesimi(v.prezzo_cent)} €</div>
+              </div>
+            </button>`).join('')}
+        </div>`).join('')}
+    </div>
+    <button class="invia" id="bContinua"${SCELTA ? '' : ' disabled'}>${esc(t.continua)}</button>
+    <div id="esitoCamere"></div>`;
+
+  $('bIndietroDate').onclick = () => { STATO = 'ricerca'; disegna(); };
+  document.querySelectorAll('.proposta').forEach(btn => {
+    btn.onclick = () => {
+      const i = Number(btn.dataset.indice);
+      SCELTA = { ...PROPOSTE[i], indice: i };
+      schermaCamere();
+    };
+  });
+  $('bContinua').onclick = () => {
+    if (!SCELTA) {
+      $('esitoCamere').innerHTML = `<div class="errore">${esc(t.mancaScelta)}</div>`;
+      return;
+    }
+    STATO = 'dati';
+    disegna();
+  };
+}
+
+/* ================= passo 3: i dati e l'invio ================= */
+
+function schermaDati() {
+  const t = T[LNG];
+  const bambini = RICERCA.bambini || 0;
+  $('app').innerHTML = `
+    <button type="button" class="indietro" id="bIndietroCamere">${esc(t.indietroCamere)}</button>
+    <div class="riepilogo">
+      ${t.riepilogo(esc(RICERCA.arrivo), esc(RICERCA.partenza), RICERCA.adulti, bambini)}<br />
+      ${t.riepilogoCamera(SCELTA.nome, SCELTA.tariffa, euroDaCentesimi(SCELTA.prezzo_cent))}
+    </div>
+    <div class="riquadro">
+      <h2>${esc(t.datiTit)}</h2><div class="guida">${esc(t.datiGuida)}</div>
+      <label for="fNome">${esc(t.nome)}</label>
+      <input type="text" id="fNome" autocomplete="name" />
+      <div class="due">
+        <div><label for="fEmail">${esc(t.email)}</label>
+          <input type="email" id="fEmail" autocomplete="email" /></div>
+        <div><label for="fTel">${esc(t.tel)}</label>
+          <input type="tel" id="fTel" autocomplete="tel" /></div>
+      </div>
+      <label for="fNote">${esc(t.note)}</label>
+      <textarea id="fNote" placeholder="${esc(t.notePh)}"></textarea>
+
+      <label style="margin-top:20px;">${esc(t.condizioniTit)}</label>
+      <div class="condizioni">
+        <div class="tit">${esc(t.condizioniTit)}</div>
+        <ul>${CONDIZIONI.righe.map(r => `<li>${esc(r)}</li>`).join('')}</ul>
+        ${CONDIZIONI.recesso ? `<div class="recesso">${esc(CONDIZIONI.recesso)}</div>` : ''}
+      </div>
+      <div class="caparra">${esc(t.caparraRiga(euroDaCentesimi(CAPARRA_CENT)))}</div>
+
+      <label class="spunta"><input type="checkbox" id="fPrivacy" />
+        <span>${esc(t.privacy)} &mdash;
+          <a href="https://www.termeleonardo.com/${LNG}/privacy" target="_blank"
+            rel="noopener noreferrer">${esc(t.privacyLink)}</a></span></label>
+    </div>
+    <button class="invia" id="bInvia">${esc(t.invia)}</button>
+    <div id="esitoDati"></div>`;
+
+  $('bIndietroCamere').onclick = () => { STATO = 'camere'; disegna(); };
+  $('bInvia').onclick = inviaRichiesta;
+}
+
+async function inviaRichiesta() {
+  const t = T[LNG];
+  if (INVIANDO) return;
+  const nome = $('fNome').value.trim();
+  const email = $('fEmail').value.trim();
+  const telefono = $('fTel').value.trim();
+  const note = $('fNote').value.trim();
+
+  if (!nome || !email) {
+    $('esitoDati').innerHTML = `<div class="errore">${esc(t.mancaDati)}</div>`;
+    return;
+  }
+  if (!$('fPrivacy').checked) {
+    $('esitoDati').innerHTML = `<div class="errore">${esc(t.privacyManca)}</div>`;
+    return;
+  }
+
+  INVIANDO = true;
+  $('bInvia').disabled = true;
+  $('bInvia').textContent = t.invio;
+  $('esitoDati').innerHTML = '';
+
+  /* la caparra si manda com'e' stata MOSTRATA all'ospite poche righe piu'
+     su: e' una promessa gia' fatta, non un numero da ricalcolare a valle */
+  const corpo = componiCorpo({
+    scelta: SCELTA, nome, email, telefono,
+    checkIn: RICERCA.arrivo, checkOut: RICERCA.partenza,
+    adulti: RICERCA.adulti, bambini: RICERCA.bambini,
+    caparraCent: CAPARRA_CENT,
+    note, lingua: LNG,
+  });
+
+  try {
+    const r = await fetch(FUNZIONE, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(corpo),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.ok) {
+      /* qualunque intoppo lascia un modo di arrivare a noi: mai un falso
+         "inviata", che e' proprio il difetto che questo progetto corregge */
+      console.error('richiesta non registrata:', r.status, d);
+      throw new Error('non registrata');
+    }
+    STATO = 'fatta';
+    disegna(d.numero || '');
+  } catch (e) {
+    console.error(e);
+    INVIANDO = false;
+    $('bInvia').disabled = false;
+    $('bInvia').textContent = t.invia;
+    $('esitoDati').innerHTML = `<div class="errore">${esc(t.ripiego)}</div>`;
+  }
+}
+
+/* ================= chiusura ================= */
+/* Non dice "prenotata" ne' "confermata": in questo passo la richiesta non
+   lo e' ancora, non si incassa niente e la camera non e' bloccata. */
+function schermaFatta(numero) {
+  const t = T[LNG];
+  $('app').innerHTML = `<div class="riquadro fatta">
+    <h2>${esc(t.grazieTit)}</h2>
+    <p style="color:var(--verde-medio);">${esc(t.grazieTxt)}</p>
+    ${numero ? `<div class="rif">${esc(numero)}</div>
+      <div class="guida" style="margin-top:4px;">${esc(t.rif)}</div>` : ''}
+    <p style="margin-top:22px;"><a href="?l=${LNG}">${esc(t.ancora)}</a></p>
+  </div>`;
+}
+
+function disegna(numeroFatta) {
+  passi();
+  if (STATO === 'ricerca') schermaRicerca();
+  else if (STATO === 'camere') schermaCamere();
+  else if (STATO === 'dati') schermaDati();
+  else schermaFatta(numeroFatta);
+}
+
+testata();
+disegna();
+</script>
+</body>
+</html>

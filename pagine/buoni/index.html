@@ -143,7 +143,7 @@ font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
 <body>
 <div class="fascia"></div>
 <header>
-<div class="marchio"><img src="img/logo.svg" alt="Hotel Terme Leonardo" /><span>buoni regalo</span></div>
+<div class="marchio"><img src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" /><span>buoni regalo</span></div>
 <div class="chi"><span id="chiSono"></span> <a href="#" id="esci" style="color:var(--acqua);">esci</a></div>
 </header>
 <main id="app"></main>
@@ -153,7 +153,13 @@ font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
 /* il modello del buono sta in buono.js, condiviso con la pagina pubblica
    di acquisto: due copie divergevano e quella pubblica era rimasta
    indietro. Presidiato da buono.test.ts. */
-import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, categoriaBuono, buonoHTML } from './buono.js';
+/* percorso assoluto e non './buono.js': un modulo si risolve contro
+   l'indirizzo nella barra, non contro il file servito. Qui funzionava per
+   fortuna, perche' il back office si apre sotto /buoni/, che la riscrittura
+   di vercel.json copre; sarebbe bastato aprirlo su /buoni (senza barra
+   finale) per cercare /buono.js e trovare la SPA. '/buoni/buono.js' vale
+   uguale sui due domini. Vedi percorsi-web.test.ts. */
+import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, categoriaBuono, buonoHTML } from '/buoni/buono.js';
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -806,7 +812,7 @@ function buonoStampaHTML(b, bozza) {
   return `<div class="foglio">
   ${bozza ? `<div class="bozza-avviso">BOZZA &middot; NON VALIDO &middot; il codice viene assegnato al pagamento</div>` : ''}
   <section class="meta copertina">
-    <img class="marchio-s" src="img/logo.svg" alt="Hotel Terme Leonardo" />
+    <img class="marchio-s" src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" />
     ${foto ? `<img class="foto" src="${esc(foto)}" alt="" />` : `<div class="foto sfumata"></div>`}
     <div class="occhiello">${esc(n.occhiello)}</div>
     <div class="titolo-oro">${e.titolo.toUpperCase()}</div>
@@ -966,6 +972,40 @@ function campiModificabili(r) {
         style="width:auto;margin:0;" /> serve anche il ritorno</label>`;
 }
 
+/* ATTENZIONE ALL'UNITA': in `dati` i prezzi sono in CENTESIMI (lo dichiara
+   il campo `valuta`). 31000 sono 310,00 €, non 31000 €. */
+const eurDaCent = (c) => Number.isFinite(Number(c))
+  ? Number(c) / 100 : null;
+
+/* La camera scelta sulla pagina di prenotazione vive in `dati`, e questa
+   scheda non la guardava affatto: l'ospite sceglieva "Doppia — Soggiorno
+   breve — Mezza Pensione — 310,00 €" e in reception si leggeva solo
+   "Camera: Doppia · Pacchetto: Soggiorno breve". Due proposte della stessa
+   camera differiscono SOLO per trattamento e prezzo, quindi cosi' non c'era
+   modo di sapere quale avesse scelto ne' a che cifra. Stesso discorso per
+   adulti e bambini: la colonna `ospiti` porta la somma, e la caparra si
+   calcola sugli ADULTI. */
+function righeSceltaSoggiorno(r, riga) {
+  const d = r.dati || {};
+  if (r.tipo !== 'soggiorno') return '';
+  const prezzo = eurDaCent(d.prezzo_cent);
+  const caparra = eurDaCent(d.caparra_cent);
+  const persone = Number.isInteger(d.adulti)
+    ? `${d.adulti} adult${d.adulti === 1 ? 'o' : 'i'}` +
+      (Number.isInteger(d.bambini) && d.bambini > 0
+        ? ` · ${d.bambini} bambin${d.bambini === 1 ? 'o' : 'i'}` : '')
+    : '';
+  return riga('Composizione', esc(persone)) +
+    riga('Trattamento', esc(d.trattamento || '')) +
+    riga('Prezzo visto dall’ospite',
+      prezzo === null ? '' : `<strong>${eur(prezzo)} €</strong>`) +
+    riga('Caparra indicata', caparra === null ? '' : `${eur(caparra)} €`) +
+    (prezzo === null ? '' : `<tr><td></td><td class="mini" style="padding-bottom:6px;">
+      Prezzo e caparra sono quelli che l’ospite ha visto sulla pagina al momento
+      della scelta, per l’intero soggiorno: vanno confermati, non sono un
+      preventivo della casa. La camera non è bloccata.</td></tr>`);
+}
+
 function dettaglioRichiesta(r) {
   const riga = (e, v) => v ? `<tr><td class="mini" style="padding-right:14px;white-space:nowrap;">${esc(e)}</td>
     <td>${v}</td></tr>` : '';
@@ -982,8 +1022,9 @@ function dettaglioRichiesta(r) {
       ${riga('Email', `<a href="mailto:${esc(r.email)}?subject=${oggetto}">${esc(r.email)}</a>`)}
       ${riga('Telefono', r.telefono ? `<a href="tel:${esc(r.telefono)}">${esc(r.telefono)}</a>` : '')}
       ${riga('Lingua', esc(LINGUA_NOME[r.lingua] || r.lingua))}
-      ${riga('Camera', esc(r.tipo_camera || ''))}
+      ${riga('Camera', esc(r.tipo_camera || (r.dati && r.dati.nome_camera) || ''))}
       ${riga('Pacchetto', esc(r.pacchetto || ''))}
+      ${righeSceltaSoggiorno(r, riga)}
       ${riga('Gestita da', r.gestita_da ? esc(r.gestita_da) + ' · ' + quandoIT(r.gestita_il) : '')}
     </table>
     ${r.messaggio ? `<div style="border-left:3px solid var(--oro);background:#FBFAF7;padding:12px 14px;

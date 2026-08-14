@@ -118,3 +118,70 @@ Deno.test('senza chiave Resend non si spedisce ma non si esplode', async () => {
     assertEquals(i.spedite.length, 0);
   } finally { i.ripristina(); }
 });
+
+/* ---------------- C1: il prezzo e il trattamento arrivano a un essere umano ----------------
+   I campi di `dati` arrivano qui appiattiti sull'oggetto (index.ts fa
+   ...(propri || {})): se nessuna riga li legge, l'ospite sceglie
+   "Doppia — Mezza Pensione — 310,00 EUR" e la reception legge "Doppia". */
+const scelto = {
+  ...r,
+  lingua: 'it',
+  ospiti: 4,
+  camera_id: 5,
+  nome_camera: 'Doppia',
+  variante_id: 3,
+  tariffa: 'Soggiorno breve',
+  trattamento: 'Mezza Pensione',
+  prezzo_cent: 31000,
+  valuta: 'centesimi',
+  adulti: 2,
+  bambini: 2,
+  caparra_cent: 15000,
+};
+
+Deno.test('l avviso dice il trattamento scelto, non solo la camera', () => {
+  assertStringIncludes(richiestaHTML(scelto), 'Mezza Pensione');
+});
+
+Deno.test('il prezzo arriva in euro, non in centesimi in faccia alla reception', () => {
+  const h = richiestaHTML(scelto);
+  assertStringIncludes(h, '310,00');
+  assert(!h.includes('31000'), 'i centesimi grezzi non si mostrano a un essere umano');
+});
+
+Deno.test('la caparra promessa all ospite si legge nell avviso', () => {
+  assertStringIncludes(richiestaHTML(scelto), '150,00');
+});
+
+/* e' il caso che rende il difetto grave: due proposte della stessa camera
+   differiscono SOLO per trattamento e prezzo */
+Deno.test('due proposte della stessa camera si distinguono nell avviso', () => {
+  const mezza = richiestaHTML(scelto);
+  const piena = richiestaHTML({ ...scelto, trattamento: 'Pensione Completa', prezzo_cent: 38000 });
+  assert(mezza !== piena, 'due trattamenti diversi non possono produrre lo stesso avviso');
+  assertStringIncludes(piena, 'Pensione Completa');
+  assertStringIncludes(piena, '380,00');
+});
+
+/* 2 adulti + 2 bambini: "4 ospiti" farebbe chiedere 300 EUR invece di 150 */
+Deno.test('adulti e bambini non si perdono dietro un totale di ospiti', () => {
+  const h = richiestaHTML(scelto);
+  assertStringIncludes(h, '2 adulti');
+  assertStringIncludes(h, '2 bambini');
+});
+
+/* il prezzo non e' un preventivo della casa: e' quello che l'ospite aveva
+   davanti quando ha scelto, e la reception lo conferma */
+Deno.test('accanto al prezzo sta scritto che va confermato', () => {
+  const h = richiestaHTML(scelto);
+  assertStringIncludes(h, 'visto dall');
+  assertStringIncludes(h, 'confermat');
+});
+
+/* la chat manda soggiorni senza camera scelta: nessuna riga di prezzo, e
+   soprattutto nessun "0,00 EUR" inventato */
+Deno.test('un soggiorno senza camera scelta non inventa un prezzo', () => {
+  const h = richiestaHTML(r);
+  assert(!h.includes('0,00'), 'senza prezzo non si stampa una cifra finta');
+  assert(!h.includes('Trattamento'));
+});
