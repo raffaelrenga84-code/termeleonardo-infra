@@ -69,14 +69,24 @@ export type Voce = { voce_id: string; quantita: number };
 /* Due voci al massimo: sotto le voci, sul foglio del buono, c'e' la
    descrizione di cosa comprendono, e con tre quel testo non ci sta piu'.
    Quattro come quantita' copre la famiglia o il gruppo di amici senza
-   trasformare un regalo in un ordine all'ingrosso. */
+   trasformare un regalo in un ordine all'ingrosso.
+   Il messaggio sotto ("al massimo due voci") e' scritto per esteso e non
+   derivato da VOCI_MAX: un numero tradotto in parola italiana corretta per
+   ogni valore possibile sarebbe piu' complicato del problema che risolve,
+   per una costante che il vincolo qui sopra (lo spazio sul foglio del
+   buono) lega fisicamente a "due" e che quindi non cambia da sola — se
+   cambiasse, il messaggio va riscritto a mano insieme al codice. */
 const VOCI_MAX = 2;
 const QUANTITA_MAX = 4;
 
 /* Le voci arrivano dal cliente: si normalizzano prima di toccare il listino.
    Chi sceglie due volte la stessa voce sta dicendo una quantita', non due
    voci — e se non si sommassero, il tetto di quattro si aggirerebbe
-   scegliendo la stessa voce due volte. */
+   scegliendo la stessa voce due volte.
+   Il controllo sul cumulo (quantita' e numero di voci diverse) sta dentro
+   lo stesso ciclo che scandisce l'elenco, non in un secondo giro sulla
+   Map dopo: un elenco enorme viene rifiutato alla prima voce di troppo,
+   non dopo averlo scandito per intero. */
 function normalizzaVoci(grezze: unknown, voceSingola: unknown):
   { errore?: string; voci?: Voce[] } {
   let elenco: Array<Record<string, unknown>> = [];
@@ -90,16 +100,24 @@ function normalizzaVoci(grezze: unknown, voceSingola: unknown):
   const somma = new Map<string, number>();
   for (const v of elenco) {
     const id = String(v?.voce_id ?? '');
-    if (!LISTINO[id]) return { errore: 'voce di listino sconosciuta' };
+    /* proprieta' proprie soltanto: 'toString', 'constructor', '__proto__'
+       esistono su qualunque oggetto letterale per ereditarieta' da
+       Object.prototype e sarebbero truthy con un accesso diretto
+       LISTINO[id] — una funzione, o per '__proto__' l'oggetto prototipo
+       stesso — lasciando passare una voce fasulla fino al calcolo del
+       prezzo, con NaN al posto di un rifiuto. Stesso precedente della
+       lingua in condizioni.ts. */
+    if (!Object.hasOwn(LISTINO, id)) return { errore: 'voce di listino sconosciuta' };
     const q = Number(v?.quantita ?? 1);
     if (!Number.isInteger(q) || q < 1 || q > QUANTITA_MAX) {
       return { errore: `quantita fuori dai limiti (1-${QUANTITA_MAX})` };
     }
-    somma.set(id, (somma.get(id) ?? 0) + q);
-  }
-  if (somma.size > VOCI_MAX) return { errore: `al massimo ${VOCI_MAX === 2 ? 'due' : VOCI_MAX} voci` };
-  for (const [, q] of somma) {
-    if (q > QUANTITA_MAX) return { errore: `quantita fuori dai limiti (1-${QUANTITA_MAX})` };
+    const cumulata = (somma.get(id) ?? 0) + q;
+    if (cumulata > QUANTITA_MAX) {
+      return { errore: `quantita fuori dai limiti (1-${QUANTITA_MAX})` };
+    }
+    somma.set(id, cumulata);
+    if (somma.size > VOCI_MAX) return { errore: 'al massimo due voci' };
   }
   return { voci: [...somma].map(([voce_id, quantita]) => ({ voce_id, quantita })) };
 }

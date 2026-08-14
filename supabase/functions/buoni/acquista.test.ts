@@ -243,6 +243,19 @@ Deno.test('un elenco vuoto viene rifiutato', () => {
   assertEquals(validaAcquisto({ ...base, voci: [] }).errore, 'voce di listino sconosciuta');
 });
 
+/* 'toString', 'constructor', '__proto__' esistono su LISTINO per
+   ereditarieta' da Object.prototype, non come voci di listino: un accesso
+   diretto LISTINO[id] le troverebbe truthy (una funzione, o per
+   '__proto__' l'oggetto prototipo stesso) e lascerebbe passare una voce
+   fasulla fino al calcolo del prezzo, con NaN al posto di un rifiuto —
+   esattamente il precedente di condizioni.ts con la lingua. */
+Deno.test('le proprieta ereditate da Object.prototype non sono voci di listino', () => {
+  for (const finta of ['toString', 'constructor', '__proto__']) {
+    const r = validaAcquisto({ ...base, voci: [{ voce_id: finta, quantita: 1 }] });
+    assertEquals(r.errore, 'voce di listino sconosciuta', finta);
+  }
+});
+
 /* il buono monetario non deve cambiare in niente */
 Deno.test('il buono monetario resta com era', () => {
   const { errore, dati } = validaAcquisto({ ...base, tipo: 'valore', valore: 100 });
