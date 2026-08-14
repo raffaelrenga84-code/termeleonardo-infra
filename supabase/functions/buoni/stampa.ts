@@ -53,10 +53,14 @@
    nemmeno un codice spendibile: stesso trattamento.
 
    IL FRENO. Senza un limite, chiunque potrebbe provare codici a raffica
-   finché non ne indovina uno valido: la stessa preoccupazione di
-   `?a=acquista`, che già usa `entroIlLimite` di limite.ts. Qui si riusa lo
-   stesso freno in memoria — vedi index.ts, che è il punto che chiama
-   `entroIlLimite` prima di interrogare il database.
+   finché non ne indovina uno valido — lo stesso rischio, nella forma, di
+   un ciclo automatico su `?a=acquista`. Ma il tetto è suo, non condiviso:
+   `entroIlLimiteStampa` in limite.ts ha un contatore separato da
+   `entroIlLimiteAcquista`, con un tetto più largo, perché stampare il
+   proprio buono più volte (lo si perde, si cambia stampante) è normale
+   per un cliente vero, comprare più volte no — vedi limite.ts per il
+   ragionamento completo. index.ts è il punto che chiama
+   `entroIlLimiteStampa` prima di interrogare il database.
    ============================================================ */
 
 /** Quello che una riga vera della tabella buono_regalo porta: qui dentro

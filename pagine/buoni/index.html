@@ -1118,7 +1118,7 @@ function vistaVerifica() {
     <button class="azione" id="vCerca">Controlla</button>
     <div class="esito" id="vEsito"></div>
     <div id="vRis"></div></div>`;
-  $('vCerca').onclick = async () => {
+  const cerca = async () => {
     const cod = $('vCod').value.trim().toUpperCase();
     if (!cod) return;
     $('vEsito').textContent = 'Controllo\u2026'; $('vRis').innerHTML = '';
@@ -1154,6 +1154,16 @@ function vistaVerifica() {
       $('vAnnulla').onclick = () => agisci('annulla');
     } catch (e) { $('vEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
   };
+  $('vCerca').onclick = cerca;
+  /* il lettore di codici in portineria e' un lettore 2D: si comporta come
+     una tastiera, "digita" il codice che ha letto nel campo che ha il
+     fuoco e preme Invio. Senza questo listener quell'Invio non farebbe
+     nulla e l'operatore dovrebbe cliccare "Controlla" a mano ogni volta.
+     Stesso schema di $('kPwd').onkeydown piu' sopra, per l'accesso. */
+  $('vCod').onkeydown = (ev) => { if (ev.key === 'Enter') cerca(); };
+  /* il fuoco al campo appena si apre la scheda: chi scansiona un buono
+     non deve prima cliccarci dentro con il mouse */
+  $('vCod').focus();
 }
 
 $('esci').onclick = async (ev) => {

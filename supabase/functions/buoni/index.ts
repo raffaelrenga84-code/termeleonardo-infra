@@ -30,7 +30,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { validaAcquisto, colonnaVoci } from './acquista.ts';
 import { nasceGiaPagato } from './pagamenti.ts';
-import { entroIlLimite, troppiDalSito } from './limite.ts';
+import { entroIlLimiteAcquista, entroIlLimiteStampa, troppiDalSito } from './limite.ts';
 import { avvisaAmministrazione, inviaBuonoEmesso, statoConsegna } from './email-buono.ts';
 import { datiStampa } from './stampa.ts';
 
@@ -278,10 +278,12 @@ Deno.serve(async (req) => {
      questa azione e perché, cosa invece non esce mai — sta in stampa.ts,
      accanto a datiStampa() che decide la risposta. Qui restano solo le due
      cose che riguardano il TRASPORTO, non la privacy dei dati:
-     - il freno: lo stesso limite in memoria di ?a=acquista (entroIlLimite,
-       limite.ts). Senza, chiunque potrebbe provare codici a raffica finché
-       non ne indovina uno valido — lo stesso rischio, la stessa soluzione
-       già scritta, non se ne inventa una seconda;
+     - il freno: un contatore in memoria TUTTO SUO (entroIlLimiteStampa,
+       limite.ts) — non più lo stesso di ?a=acquista: sono due rischi
+       diversi (qui l'enumerazione dei codici, là l'integrità della
+       numerazione) e condividere un'unica risorsa lasciava che l'uno
+       erodesse il budget dell'altro. Senza freno, chiunque potrebbe
+       provare codici a raffica finché non ne indovina uno valido;
      - la select(): elenca ESATTAMENTE i campi che datiStampa può lasciar
        uscire. Anche qui un allow-list, non un blocklist: se domani la
        tabella cresce di una colonna, quella colonna non arriva nemmeno
@@ -289,7 +291,7 @@ Deno.serve(async (req) => {
   if (azione === 'stampa') {
     const codice = (url.searchParams.get('codice') || '').toUpperCase().trim();
     if (!codice) return risposta({ errore: 'codice mancante' }, 400);
-    if (!entroIlLimite(ipRichiesta(req))) {
+    if (!entroIlLimiteStampa(ipRichiesta(req))) {
       console.warn('stampa respinta per troppe richieste, ip', ipRichiesta(req));
       return risposta({ errore: 'troppe richieste, riprovi tra qualche minuto' }, 429);
     }
@@ -347,9 +349,10 @@ Deno.serve(async (req) => {
 
   /* ---------- pubblico: acquisto dal sito, si paga con carta ---------- */
   if (azione === 'acquista' && req.method === 'POST') {
-    /* due freni: quello in memoria costa nulla e prende il caso facile,
+    /* due freni: quello in memoria costa nulla e prende il caso facile
+       (contatore suo, separato da quello di ?a=stampa — vedi limite.ts),
        quello sul database regge anche fra istanze diverse */
-    if (!entroIlLimite(ipRichiesta(req)) || await troppiDalSito(db)) {
+    if (!entroIlLimiteAcquista(ipRichiesta(req)) || await troppiDalSito(db)) {
       console.warn('acquisto respinto per troppe richieste, ip', ipRichiesta(req));
       return risposta({ errore: 'troppe richieste, riprovi tra qualche minuto' }, 429);
     }

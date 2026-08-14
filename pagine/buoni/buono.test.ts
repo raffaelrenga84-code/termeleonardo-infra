@@ -5,6 +5,7 @@
    qui invece che in produzione. */
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
 import { buonoHTML, buonoStampaHTML, categoriaBuono, CONDIZIONI, ETI, riepilogoVoci, righeDescrizione } from './buono.js';
+import { generaSvgQR } from '../comune/qr.js';
 import { CONDIZIONI as CONDIZIONI_EMAIL, ETI as ETI_EMAIL } from '../../supabase/functions/buoni/email-buono.ts';
 /* lo stesso schema del confronto qui sopra fra sito ed email: riepilogoVoci
    non si confronta con stringhe scritte a mano leggendo acquista.ts, si
@@ -349,14 +350,39 @@ Deno.test('senza bozza il foglio di stampa non porta nessun avviso di anteprima'
   assertEquals(f.includes('BOZZA'), false);
 });
 
-Deno.test('il foglio di stampa cambia lingua, date e istruzioni per prenotare comprese', () => {
-  const de = buonoStampaHTML({ ...dayspa, lingua: 'de' }, false);
-  assertStringIncludes(de, 'THERMALB');
-  assertStringIncludes(de, '13. August 2027');
-  assertStringIncludes(de, 'SO RESERVIEREN SIE');
-  const fr = buonoStampaHTML({ ...dayspa, lingua: 'fr' }, false);
-  assertStringIncludes(fr, 'PISCINES THERMALES');
-  assertStringIncludes(fr, 'COMMENT RÉSERVER');
+/* Prima questo test controllava solo che la lingua giusta comparisse, non
+   che le altre tre mancassero: un foglio con un pezzo di testo rimasto
+   nella lingua sbagliata (un occhiello, un titolo) sarebbe passato lo
+   stesso. Il test gemello in email-buono.test.ts ("il pulsante è nella
+   lingua del buono, lingua per lingua, dentro l'email vera") controlla
+   già entrambe le direzioni: qui si allinea a quello. */
+Deno.test('il foglio di stampa cambia lingua, date e istruzioni per prenotare comprese — e non porta testo di un\'altra lingua', () => {
+  const OCCHIELLO: Record<string, string> = {
+    it: 'PISCINE TERMALI', de: 'THERMALBÄDER', en: 'THERMAL POOLS', fr: 'PISCINES THERMALES',
+  };
+  const TITOLO: Record<string, string> = {
+    it: 'BUONO REGALO', de: 'GESCHENKGUTSCHEIN', en: 'GIFT VOUCHER', fr: 'BON CADEAU',
+  };
+  const PRENOTA: Record<string, string> = {
+    it: 'COME PRENOTARE', de: 'SO RESERVIEREN SIE', en: 'HOW TO BOOK', fr: 'COMMENT RÉSERVER',
+  };
+  const DATA: Record<string, string> = {
+    it: '13 agosto 2027', de: '13. August 2027', en: '13 August 2027', fr: '13 août 2027',
+  };
+  for (const l of LINGUE) {
+    const f = buonoStampaHTML({ ...dayspa, lingua: l }, false);
+    assertStringIncludes(f, OCCHIELLO[l], `occhiello mancante in ${l}`);
+    assertStringIncludes(f, TITOLO[l], `titolo mancante in ${l}`);
+    assertStringIncludes(f, PRENOTA[l], `istruzioni di prenotazione mancanti in ${l}`);
+    assertStringIncludes(f, DATA[l], `data mancante in ${l}`);
+    for (const altra of LINGUE) {
+      if (altra === l) continue;
+      assertEquals(f.includes(TITOLO[altra]), false,
+        `il foglio in ${l} non deve contenere il titolo in ${altra} ("${TITOLO[altra]}")`);
+      assertEquals(f.includes(PRENOTA[altra]), false,
+        `il foglio in ${l} non deve contenere le istruzioni di prenotazione in ${altra} ("${PRENOTA[altra]}")`);
+    }
+  }
 });
 
 Deno.test('il foglio di stampa neutralizza i tag nei campi liberi', () => {
@@ -367,4 +393,59 @@ Deno.test('il foglio di stampa neutralizza i tag nei campi liberi', () => {
 
 Deno.test('il foglio di stampa porta il riferimento per l’amministrazione', () => {
   assertStringIncludes(buonoStampaHTML(dayspa, false), 'BR-2026-0007');
+});
+
+/* ============================================================
+   Il QR sul foglio — per il lettore 2D di portineria. Il lettore si
+   comporta come una tastiera: legge, "digita" quello che ha letto nel
+   campo che ha il fuoco e preme Invio. Dentro ci va SOLO il codice, non
+   un indirizzo — altrimenti il lettore scriverebbe un indirizzo in un
+   campo che si aspetta "LEO-XXXX-XXXX". La correttezza del QR in sé (che
+   si legga davvero, non solo che abbia dei quadratini) è presidiata a
+   fondo in pagine/comune/qr.test.ts con un decoder indipendente; qui si
+   presidia solo che buonoStampaHTML lo chiami con l'input giusto, nel
+   punto giusto, e non lo mostri quando non c'è ancora un codice vero. */
+Deno.test('il foglio di stampa porta il QR con dentro esattamente il codice generato da generaSvgQR, non uno scritto a mano', () => {
+  const f = buonoStampaHTML(dayspa, false);
+  const atteso = generaSvgQR(dayspa.codice, { livello: 'Q', classe: 'qr-s' });
+  assertStringIncludes(f, atteso);
+});
+
+/* Il valore codificato nel QR non si legge nel markup SVG a occhio (è
+   disegnato come quadratini, non come testo) — ma l'attributo
+   aria-label porta esattamente il testo passato a QrCode.encodeText
+   (vedi generaSvgQR in qr.js), quindi è il modo giusto per controllare
+   COSA il QR rappresenta senza reinventare un decoder qui: quello vero,
+   con la prova che genera-svg-QR decodifica esattamente al testo dato,
+   sta in pagine/comune/qr.test.ts. Nota: l'xmlns="http://www.w3.org/…"
+   dentro ogni <svg> contiene "http://" di suo — è sintassi XML, non
+   contenuto codificato nel QR, per questo qui non si cerca "http" nel
+   markup ma nel solo valore di aria-label. */
+Deno.test('il QR non porta nessun indirizzo web: solo il codice, come lo leggerebbe il lettore in portineria', () => {
+  const f = buonoStampaHTML(dayspa, false);
+  const m = f.match(/aria-label="([^"]*)"/);
+  assert(m, 'il QR deve avere un aria-label con il testo codificato');
+  assertEquals(m![1], dayspa.codice, 'il QR deve codificare esattamente il codice, nient\'altro');
+  for (const vietato of ['http', 'www.', 'termeleonardo.com', '/buoni/']) {
+    assertEquals(m![1].toLowerCase().includes(vietato), false,
+      `il QR non deve contenere "${vietato}": un lettore 2D digita quello che legge in un campo che si aspetta solo il codice`);
+  }
+});
+
+Deno.test('in bozza il foglio di stampa non porta nessun QR: non c’è ancora un codice vero da far leggere', () => {
+  const f = buonoStampaHTML(dayspa, true);
+  assertEquals(f.includes('qr-riquadro'), false);
+  assertEquals(f.includes('<svg'), false);
+});
+
+Deno.test('il QR resta lo stesso qualunque sia la lingua del buono: il codice non cambia con la lingua', () => {
+  const it = buonoStampaHTML({ ...dayspa, lingua: 'it' }, false);
+  const de = buonoStampaHTML({ ...dayspa, lingua: 'de' }, false);
+  const atteso = generaSvgQR(dayspa.codice, { livello: 'Q', classe: 'qr-s' });
+  assertStringIncludes(it, atteso);
+  assertStringIncludes(de, atteso);
+});
+
+Deno.test('il buono monetario e i buoni a voce singola portano il QR come tutti gli altri: nessun trattamento speciale', () => {
+  assertStringIncludes(buonoStampaHTML(valore, false), generaSvgQR(valore.codice, { livello: 'Q', classe: 'qr-s' }));
 });

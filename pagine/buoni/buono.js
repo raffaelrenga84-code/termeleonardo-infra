@@ -9,6 +9,16 @@
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
   c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
+/* percorso relativo, non '/comune/qr.js': un modulo si risolve contro
+   l'URL DI QUESTO FILE (pagine/buoni/buono.js), non contro la barra degli
+   indirizzi della pagina che lo importa — vale sia nel browser (buono.js è
+   servito da /buoni/buono.js, quindi '../comune/qr.js' diventa
+   /comune/qr.js) sia in Deno per i test (risolto contro il file su disco).
+   percorsi-web.test.ts in pagine/prenota presidia i percorsi RELATIVI nelle
+   pagine HTML (quelli sì dipendono dalla barra), non gli import fra moduli
+   .js: qui la regola è opposta, un percorso assoluto sarebbe quello sbagliato. */
+import { generaSvgQR } from '../comune/qr.js';
+
 export const BASE_IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 export const COPERTINE = {
   dayspa:   `${BASE_IMG}/dayspa.jpg`,
@@ -326,7 +336,22 @@ export function buonoHTML(b, bozza) {
    Lo stile del foglio (#stampa .foglio e tutto quel che c'è dentro, più
    @page) vive invece in stampa.css, caricato da entrambe le pagine con
    <link>: un foglio di stile si condivide con un <link>, un modulo con un
-   import — stessa ragione, due strumenti diversi. */
+   import — stessa ragione, due strumenti diversi.
+
+   IL QR (vicino al codice, dentro .codice-riga). In portineria c'è un
+   lettore di codici 2D: si comporta come una tastiera, "digita" quello
+   che legge nel campo che ha il fuoco e preme Invio (vedi vCod in
+   pagine/buoni/index.html). Il QR contiene SOLO il codice del buono —
+   la stringa "LEO-XXXX-XXXX", niente indirizzi web, niente altro — o il
+   lettore digiterebbe un indirizzo dentro un campo che si aspetta un
+   codice. Generato in pagine/comune/qr.js (nessuna libreria esterna, SVG
+   vettoriale: nitido a ogni scala di stampa, non un'immagine caricata da
+   fuori). Niente QR in bozza: senza codice vero non c'è niente di
+   spendibile da far leggere. Livello di correzione d'errore 'Q' (25%
+   circa) invece del default: il foglio si piega a metà e può stare in un
+   portafoglio, quindi tollera meglio una piega o un angolo consumato — a
+   parità di versione del QR, perché il codice è breve (13 caratteri) e
+   ci sta comunque nella versione più piccola anche al livello più alto. */
 const ETI_STAMPA = {
   it:{ prenota:'COME PRENOTARE', condizioni:'CONDIZIONI', piega:'piega qui', rif:'Riferimento',
     come:'Per prenotare ci chiami o ci scriva: fissiamo insieme il giorno e l’ora.' },
@@ -378,6 +403,8 @@ export function buonoStampaHTML(b, bozza) {
         <div class="codice-s">${bozza ? '&mdash; &mdash; &mdash; &mdash; &mdash;' : esc(b.codice || '')}</div>
         <div class="scadenza">${e.valido(dataLingua(b.scade_il, L))}</div>
       </div>
+      ${!bozza && b.codice ? `<div class="qr-riquadro">${
+        generaSvgQR(b.codice, { livello: 'Q', classe: 'qr-s' })}</div>` : ''}
       <div class="recapiti">+39 049 9939200<br />info@termeleonardo.com<br />www.termeleonardo.com</div>
     </div>
     <span class="etichetta-s cond-tit">${s.prenota}</span>
