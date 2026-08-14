@@ -210,8 +210,21 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
   const n = Number(id);
   if (!Number.isInteger(n) || !CAMERE[n]) return { errore: 'camera sconosciuta' };
 
-  const p = d?.prezzo_cent === undefined ? null : Number(d.prezzo_cent);
-  if (p !== null && (!Number.isFinite(p) || p < 0 || p > PREZZO_MAX_CENT)) {
+  /* stesso rigore di camera_id: se c'e', deve essere un intero non negativo */
+  const vRaw = d?.variante_id;
+  let variante_id = 0;
+  if (vRaw !== undefined && vRaw !== null && vRaw !== '') {
+    const v = Number(vRaw);
+    if (!Number.isInteger(v) || v < 0) return { errore: 'variante non valida' };
+    variante_id = v;
+  }
+
+  /* null esplicito equivale ad assenza, come camera_id: mai un prezzo
+     inventato. I centesimi sono interi per definizione: isInteger scarta
+     anche NaN e i valori non finiti, non serve isFinite a parte. */
+  const pRaw = d?.prezzo_cent;
+  const p = (pRaw === undefined || pRaw === null) ? null : Number(pRaw);
+  if (p !== null && (!Number.isInteger(p) || p < 0 || p > PREZZO_MAX_CENT)) {
     return { errore: 'prezzo non valido' };
   }
 
@@ -219,9 +232,9 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
     dati: {
       camera_id: n,
       nome_camera: CAMERE[n].nome,
-      variante_id: Number(d?.variante_id) || 0,
-      tariffa: String(d?.tariffa ?? '').trim().slice(0, 60),
-      trattamento: String(d?.trattamento ?? '').trim().slice(0, 60),
+      variante_id,
+      tariffa: testo(d?.tariffa).slice(0, 60),
+      trattamento: testo(d?.trattamento).slice(0, 60),
       ...(p !== null ? { prezzo_cent: p, valuta: 'centesimi' } : {}),
     },
   };

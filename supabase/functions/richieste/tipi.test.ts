@@ -208,3 +208,25 @@ Deno.test('un prezzo assurdo viene rifiutato', () => {
   assertEquals(validaDati('soggiorno', { camera_id: 5, prezzo_cent: 99999999 }, OGGI).errore,
     'prezzo non valido');
 });
+
+/* un null esplicito non e' uno zero: e' come non aver mandato il campo.
+   Trattarlo come 0 farebbe comparire in email un prezzo finto di 0,00 EUR. */
+Deno.test('un prezzo nullo esplicito non produce un prezzo finto', () => {
+  const { errore, dati } = validaDati('soggiorno', { camera_id: 5, prezzo_cent: null }, OGGI);
+  assertEquals(errore, undefined);
+  assertEquals(dati!.prezzo_cent, undefined);
+  assertEquals(dati!.valuta, undefined);
+});
+
+/* i centesimi sono interi per definizione: un valore frazionario non ha senso */
+Deno.test('un prezzo frazionario viene rifiutato', () => {
+  assertEquals(validaDati('soggiorno', { camera_id: 5, prezzo_cent: 30999.5 }, OGGI).errore,
+    'prezzo non valido');
+});
+
+Deno.test('una variante negativa o frazionaria viene rifiutata', () => {
+  assertEquals(validaDati('soggiorno', { camera_id: 5, variante_id: -1 }, OGGI).errore,
+    'variante non valida');
+  assertEquals(validaDati('soggiorno', { camera_id: 5, variante_id: 1.5 }, OGGI).errore,
+    'variante non valida');
+});
