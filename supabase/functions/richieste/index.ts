@@ -12,11 +12,13 @@
    ============================================================ */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { validaContatti, validaRichiesta } from './valida.ts';
+import { validaContatti, validaParametriDisponibilita, validaRichiesta } from './valida.ts';
 import { validaDati } from './tipi.ts';
 import { avvisaHotel } from './email-richiesta.ts';
 import { inviaConferma } from './conferma.ts';
 import { componiRisposta } from './disponibilita.ts';
+import { LINGUE } from './condizioni.ts';
+import { creaFrenoIp } from './limite-ip.ts';
 
 const testo = (v: unknown) => String(v ?? '').trim();
 
@@ -76,6 +78,19 @@ async function troppeRichieste(email: string, ip: string): Promise<boolean> {
     return false;
   }
 }
+
+/* Freno per l'azione pubblica a=disponibilita. Non puo' usare
+   troppeRichieste() sopra: quella conta a database le righe salvate in
+   richiesta_sito e ha bisogno di una email, mentre la disponibilita' non
+   salva niente e non ne ha una. Il conteggio vive quindi in memoria, per
+   IP: e' un freno PER ISTANZA della funzione, quindi approssimativo (istanze
+   diverse hanno contatori diversi, un riavvio a freddo lo azzera) — attrito
+   onesto contro un abuso a raffica, non una difesa distribuita. Il tetto
+   sta largo apposta: un ospite vero puo' cambiare le date piu' volte in
+   pochi minuti mentre confronta i prezzi. */
+const TETTO_DISPONIBILITA = 20;
+const FINESTRA_DISPONIBILITA_MS = 5 * 60 * 1000;
+const permessoDisponibilita = creaFrenoIp(TETTO_DISPONIBILITA, FINESTRA_DISPONIBILITA_MS);
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -180,9 +195,21 @@ Deno.serve(async (req) => {
      La pagina non deve conoscere la chiave del proxy: e' questa funzione
      che chiama check-availability con PROXY_KEY dal proprio ambiente. */
   if (azione === 'disponibilita') {
+    if (!permessoDisponibilita(indirizzo(req))) {
+      return risposta({ errore: 'troppe richieste, riprova tra qualche minuto' }, 429);
+    }
+
     const b = await req.json().catch(() => ({}));
-    const lingua = ['it', 'de', 'en', 'fr'].includes(String(b?.lingua)) ? String(b.lingua) : 'it';
-    const adulti = Number(b?.adulti) || 2;
+
+    /* le date e il numero di adulti si convalidano PRIMA di chiamare il
+       servizio a monte, con gli stessi limiti di una richiesta di
+       soggiorno vera: una data assurda respinta qui e' anche una chiamata
+       in meno verso il sito reale dell'hotel */
+    const v = validaParametriDisponibilita(b);
+    if (v.errore || !v.dati) return risposta({ errore: v.errore }, 400);
+    const { check_in, check_out, adulti } = v.dati;
+
+    const lingua = LINGUE.includes(String(b?.lingua)) ? String(b.lingua) : 'it';
     const r = await fetch(
       Deno.env.get('SUPABASE_URL') + '/functions/v1/check-availability',
       {
@@ -192,7 +219,7 @@ Deno.serve(async (req) => {
           'x-proxy-key': Deno.env.get('PROXY_KEY') ?? '',
         },
         body: JSON.stringify({
-          from_date: b?.check_in, to_date: b?.check_out,
+          from_date: check_in, to_date: check_out,
           adults: adulti,
           ...(b?.bambini ? { children: Number(b.bambini) } : {}),
           ...(Array.isArray(b?.eta_bambini) ? { children_ages: b.eta_bambini } : {}),
@@ -200,6 +227,8 @@ Deno.serve(async (req) => {
       },
     );
     if (!r.ok) {
+      /* senza questo, un guasto a monte diventa invisibile in produzione */
+      console.error('check-availability ha risposto', r.status, await r.text().catch(() => ''));
       return risposta({ esito: 'errore', errore: 'disponibilita non raggiungibile' }, 502);
     }
     return risposta(componiRisposta(await r.json(), adulti, lingua));

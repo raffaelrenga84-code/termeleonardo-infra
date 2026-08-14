@@ -130,3 +130,49 @@ export function validaRichiesta(
     },
   };
 }
+
+export type ParametriDisponibilita = {
+  check_in: string;
+  check_out: string;
+  adulti: number;
+};
+
+/* Convalida gli argomenti dell'azione a=disponibilita con gli STESSI limiti
+   della casa gia' usati sopra per una richiesta di soggiorno vera (date che
+   esistono, partenza dopo l'arrivo, non nel passato, non troppo lontane ne'
+   troppo lunghe, un tetto sugli ospiti): qui pero' non c'e' ancora un
+   ospite identificato, solo una ricerca, quindi niente contatti da
+   convalidare. Chiamata PRIMA di interrogare check-availability: una data
+   assurda respinta qui e' anche una chiamata in meno al servizio a monte. */
+export function validaParametriDisponibilita(
+  b: Record<string, unknown>,
+  oggi: Date = new Date(),
+): { errore?: string; dati?: ParametriDisponibilita } {
+  const ci = testo(b.check_in), co = testo(b.check_out);
+  if (!ci || !co) return { errore: 'date mancanti' };
+  const arrivo = giorno(ci), partenza = giorno(co);
+  if (arrivo === null || partenza === null) return { errore: 'date non valide' };
+  if (partenza <= arrivo) return { errore: 'la partenza precede l’arrivo' };
+
+  const adesso = Date.UTC(oggi.getUTCFullYear(), oggi.getUTCMonth(), oggi.getUTCDate());
+  if (arrivo < adesso) return { errore: 'arrivo nel passato' };
+  const limite = new Date(adesso);
+  limite.setUTCFullYear(limite.getUTCFullYear() + ANNI_AVANTI);
+  if (arrivo > limite.getTime()) return { errore: 'arrivo troppo lontano' };
+
+  const notti = Math.round((partenza - arrivo) / GIORNO_MS);
+  if (notti > NOTTI_MAX) return { errore: 'soggiorno troppo lungo' };
+
+  /* assente vuol dire due, il caso normale; presente ma assurdo e' un
+     errore da segnalare, non da correggere di nascosto — stesso criterio
+     usato sopra per gli ospiti di una richiesta */
+  let adulti = 2;
+  if (b.adulti !== undefined && b.adulti !== null && testo(b.adulti) !== '') {
+    adulti = Number(b.adulti);
+    if (!Number.isInteger(adulti) || adulti < 1 || adulti > OSPITI_MAX) {
+      return { errore: 'numero di adulti non valido' };
+    }
+  }
+
+  return { dati: { check_in: ci, check_out: co, adulti } };
+}

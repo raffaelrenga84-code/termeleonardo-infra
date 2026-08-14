@@ -52,8 +52,10 @@ export const NOTA_RECESSO: Record<string, string> = {
    'constructor', 'hasOwnProperty' esistono su qualunque oggetto letterale
    per ereditarieta' da Object.prototype e sarebbero truthy, restituendo una
    funzione al posto dell'array di stringhe. La lingua arriva dal corpo di
-   una richiesta HTTP, quindi e' un valore che viene da fuori. */
-const LINGUE = ['it', 'de', 'en', 'fr'];
+   una richiesta HTTP, quindi e' un valore che viene da fuori.
+   Esportata: e' la stessa lista che serve altrove (index.ts) per non avere
+   due whitelist di lingue che un giorno potrebbero disallinearsi. */
+export const LINGUE = ['it', 'de', 'en', 'fr'];
 
 export function condizioni(lingua: string): { righe: string[]; recesso: string } {
   const l = LINGUE.includes(lingua) ? lingua : 'it';

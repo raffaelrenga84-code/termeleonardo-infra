@@ -2,7 +2,7 @@
    La data di riferimento si passa da fuori: legandola a new Date() questi
    test comincerebbero a fallire da soli col passare del tempo. */
 import { assertEquals } from 'jsr:@std/assert';
-import { validaContatti, validaRichiesta } from './valida.ts';
+import { validaContatti, validaParametriDisponibilita, validaRichiesta } from './valida.ts';
 
 const OGGI = new Date('2026-08-13T10:00:00Z');
 
@@ -111,4 +111,63 @@ Deno.test('senza presa d atto della privacy la richiesta non parte', () => {
     'informativa privacy non accettata');
   assertEquals(validaContatti({ nome: 'Anna', email: 'a@b.it', privacy_presa_atto: true }).errore,
     undefined);
+});
+
+/* Gli argomenti dell'azione a=disponibilita non hanno contatti (e' una
+   ricerca, non ancora una richiesta), ma devono rispettare gli stessi
+   limiti di un soggiorno vero: senza, un check_in malformato o assurdo
+   passerebbe diretto al servizio a monte. */
+Deno.test('i parametri di disponibilita rispettano gli stessi limiti di una richiesta', () => {
+  assertEquals(
+    validaParametriDisponibilita({ check_in: '', check_out: '2026-09-12' }, OGGI).errore,
+    'date mancanti',
+  );
+  assertEquals(
+    validaParametriDisponibilita({ check_in: 'boh', check_out: '2026-09-12' }, OGGI).errore,
+    'date non valide',
+  );
+  assertEquals(
+    validaParametriDisponibilita({ check_in: '2026-09-14', check_out: '2026-09-10' }, OGGI).errore,
+    'la partenza precede l’arrivo',
+  );
+  assertEquals(
+    validaParametriDisponibilita({ check_in: '2026-08-12', check_out: '2026-08-15' }, OGGI).errore,
+    'arrivo nel passato',
+  );
+  assertEquals(
+    validaParametriDisponibilita({ check_in: '2029-09-10', check_out: '2029-09-14' }, OGGI).errore,
+    'arrivo troppo lontano',
+  );
+  assertEquals(
+    validaParametriDisponibilita({ check_in: '2026-09-10', check_out: '2026-12-10' }, OGGI).errore,
+    'soggiorno troppo lungo',
+  );
+});
+
+Deno.test('il numero di adulti resta dentro un tetto sensato', () => {
+  assertEquals(
+    validaParametriDisponibilita(
+      { check_in: '2026-09-10', check_out: '2026-09-12', adulti: 0 }, OGGI,
+    ).errore,
+    'numero di adulti non valido',
+  );
+  assertEquals(
+    validaParametriDisponibilita(
+      { check_in: '2026-09-10', check_out: '2026-09-12', adulti: 99 }, OGGI,
+    ).errore,
+    'numero di adulti non valido',
+  );
+  const conStringa = validaParametriDisponibilita(
+    { check_in: '2026-09-10', check_out: '2026-09-12', adulti: '3' }, OGGI,
+  );
+  assertEquals(conStringa.errore, undefined);
+  assertEquals(conStringa.dati!.adulti, 3);
+});
+
+Deno.test('senza indicare gli adulti si assume una coppia', () => {
+  const r = validaParametriDisponibilita({ check_in: '2026-09-10', check_out: '2026-09-12' }, OGGI);
+  assertEquals(r.errore, undefined);
+  assertEquals(r.dati!.adulti, 2);
+  assertEquals(r.dati!.check_in, '2026-09-10');
+  assertEquals(r.dati!.check_out, '2026-09-12');
 });
