@@ -16,6 +16,7 @@ import { validaContatti, validaRichiesta } from './valida.ts';
 import { validaDati } from './tipi.ts';
 import { avvisaHotel } from './email-richiesta.ts';
 import { inviaConferma } from './conferma.ts';
+import { componiRisposta } from './disponibilita.ts';
 
 const testo = (v: unknown) => String(v ?? '').trim();
 
@@ -173,6 +174,35 @@ Deno.serve(async (req) => {
         adulti: data.adulti, bambini: data.bambini, pratica: data.numero_pratica,
       },
     });
+  }
+
+  /* ---------- pubblico: disponibilita' camere ----------
+     La pagina non deve conoscere la chiave del proxy: e' questa funzione
+     che chiama check-availability con PROXY_KEY dal proprio ambiente. */
+  if (azione === 'disponibilita') {
+    const b = await req.json().catch(() => ({}));
+    const lingua = ['it', 'de', 'en', 'fr'].includes(String(b?.lingua)) ? String(b.lingua) : 'it';
+    const adulti = Number(b?.adulti) || 2;
+    const r = await fetch(
+      Deno.env.get('SUPABASE_URL') + '/functions/v1/check-availability',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-proxy-key': Deno.env.get('PROXY_KEY') ?? '',
+        },
+        body: JSON.stringify({
+          from_date: b?.check_in, to_date: b?.check_out,
+          adults: adulti,
+          ...(b?.bambini ? { children: Number(b.bambini) } : {}),
+          ...(Array.isArray(b?.eta_bambini) ? { children_ages: b.eta_bambini } : {}),
+        }),
+      },
+    );
+    if (!r.ok) {
+      return risposta({ esito: 'errore', errore: 'disponibilita non raggiungibile' }, 502);
+    }
+    return risposta(componiRisposta(await r.json(), adulti, lingua));
   }
 
   /* ---------- riservati al back office ---------- */

@@ -6,6 +6,7 @@
    la stessa trappola ha gia' prodotto un difetto nella funzione `chat`. */
 
 import { CAMERE, descrizioneCamera } from './camere.ts';
+import { condizioni } from './condizioni.ts';
 
 export type Proposta = {
   camera_id: number;
@@ -63,4 +64,22 @@ export function normalizzaDisponibilita(grezzo: unknown, lingua: string): Propos
 export function caparraCent(adulti: number): number {
   const a = Number.isFinite(adulti) && adulti > 0 ? Math.floor(adulti) : 1;
   return 7500 * a;
+}
+
+/* Compone la risposta dell'azione `a=disponibilita`. Sta qui e non in
+   index.ts, che avvia il server al caricamento e non e' importabile da un
+   test. */
+export function componiRisposta(grezzo: unknown, adulti: number, lingua: string): {
+  esito: string; valuta: string; proposte: Proposta[];
+  caparra_cent: number; condizioni: { righe: string[]; recesso: string };
+} {
+  return {
+    esito: 'ok',
+    /* dichiarata sempre: la stessa unita' non dichiarata ha gia' prodotto un
+       difetto nella funzione chat */
+    valuta: 'centesimi',
+    proposte: normalizzaDisponibilita(grezzo, lingua),
+    caparra_cent: caparraCent(adulti),
+    condizioni: condizioni(lingua),
+  };
 }
