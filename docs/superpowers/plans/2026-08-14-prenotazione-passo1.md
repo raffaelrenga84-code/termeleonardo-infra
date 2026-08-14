@@ -57,15 +57,31 @@ Deno.test('un identificativo sconosciuto non fa saltare niente', () => {
   assertEquals(CAMERE[999], undefined);
 });
 
-Deno.test('ogni descrizione presente esiste in tutte e quattro le lingue', () => {
+/* Il catalogo deve coprire tutte le categorie che l'API restituisce: se
+   domani ne compare una nuova e nessuno la aggiunge qui, la pagina la
+   mostrerebbe senza nome. */
+Deno.test('il catalogo copre le undici categorie dell API', () => {
+  const id = Object.keys(CAMERE).map(Number).sort((a, b) => a - b);
+  assertEquals(id, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+  for (const i of id) assertEquals(CAMERE[i].nome.length > 0, true, `camera ${i} senza nome`);
+});
+
+/* Guardia per quando la direzione confermera' gli abbinamenti: una
+   descrizione che esiste in una lingua sola farebbe comparire l'italiano a
+   un ospite tedesco. Il conteggio delle camere descritte e' asserito, cosi'
+   il test non diventa vacuo quando sono tutte vuote. */
+Deno.test('una descrizione o e in tutte e quattro le lingue o non c e', () => {
+  let descritte = 0;
   for (const [id, c] of Object.entries(CAMERE)) {
-    const lingue = Object.keys(c.descrizione);
-    if (!lingue.length) continue;
-    for (const l of ['it', 'de', 'en', 'fr']) {
-      assertEquals(typeof c.descrizione[l], 'string', `camera ${id}, lingua ${l}`);
-      assertEquals(c.descrizione[l].length > 0, true, `camera ${id}, lingua ${l} vuota`);
-    }
+    const presenti = ['it', 'de', 'en', 'fr'].filter(
+      (l) => typeof c.descrizione[l] === 'string' && c.descrizione[l].length > 0);
+    if (!presenti.length) continue;
+    descritte++;
+    assertEquals(presenti.length, 4, `camera ${id}: descritta in ${presenti.join(',')}`);
   }
+  /* oggi nessuna e' confermata: quando la direzione ne conferma una, questo
+     numero va alzato di pari passo, ed e' il promemoria che il test esiste */
+  assertEquals(descritte, 0);
 });
 ```
 
@@ -122,7 +138,7 @@ export function descrizioneCamera(id: number, lingua: string): string {
 - [ ] **Step 4: Eseguire il test e vederlo passare**
 
 Run: `cd supabase/functions/richieste && deno test camere.test.ts --allow-read`
-Expected: PASS, 4 test
+Expected: PASS, 5 test
 
 - [ ] **Step 5: Commit**
 
@@ -547,6 +563,8 @@ git commit -m "La camera scelta entra nella richiesta di soggiorno, senza migraz
 
 **Files:**
 - Modify: `supabase/functions/richieste/index.ts`
+- Modify: `supabase/functions/richieste/disponibilita.ts` (aggiunta di `componiRisposta`)
+- Test: `supabase/functions/richieste/disponibilita-azione.test.ts`
 
 **Interfaces:**
 - Consumes: `normalizzaDisponibilita(grezzo, lingua)`, `caparraCent(adulti)` da `./disponibilita.ts`; `condizioni(lingua)` da `./condizioni.ts`
@@ -561,7 +579,10 @@ La pagina non deve conoscere la chiave del proxy: la funzione `richieste` chiama
    Non si prova la rete: si prova che la risposta dichiari l'unita' e la
    caparra, che sono le due cose che possono far sbagliare cifre all'ospite. */
 import { assertEquals } from 'jsr:@std/assert';
-import { componiRisposta } from './index.ts';
+/*  sta in disponibilita.ts e NON in index.ts: index.ts
+   chiama Deno.serve in cima al file, quindi importarlo da un test avvierebbe
+   un server vero durante . */
+import { componiRisposta } from './disponibilita.ts';
 
 const GREZZO = [[{
   room_category_id: 5,
@@ -592,22 +613,18 @@ Deno.test('le condizioni seguono la lingua chiesta', () => {
 - [ ] **Step 2: Eseguire il test e vederlo fallire**
 
 Run: `cd supabase/functions/richieste && deno test disponibilita-azione.test.ts --allow-read --allow-env`
-Expected: FAIL, `componiRisposta` non è esportata da `index.ts`
+Expected: FAIL, `componiRisposta` non è esportata da `disponibilita.ts`
 
-- [ ] **Step 3: Aggiungere a `index.ts`**
+- [ ] **Step 3a: Aggiungere `componiRisposta` in coda a `disponibilita.ts`**
 
-In cima, accanto agli altri import:
+Va qui e non in `index.ts`, che chiama `Deno.serve` in cima al file: un test che importasse `index.ts` avvierebbe un server vero durante `deno test`.
 
 ```ts
-import { caparraCent, normalizzaDisponibilita, type Proposta } from './disponibilita.ts';
 import { condizioni } from './condizioni.ts';
-```
 
-Poi la funzione, esportata perché sia collaudabile senza rete:
-
-```ts
-/* Esportata apposta: cosi' il collaudo prova la composizione della risposta
-   senza dover fingere una chiamata di rete. */
+/* Compone la risposta dell'azione `a=disponibilita`. Sta qui e non in
+   index.ts, che avvia il server al caricamento e non e' importabile da un
+   test. */
 export function componiRisposta(grezzo: unknown, adulti: number, lingua: string): {
   esito: string; valuta: string; proposte: Proposta[];
   caparra_cent: number; condizioni: { righe: string[]; recesso: string };
@@ -622,6 +639,14 @@ export function componiRisposta(grezzo: unknown, adulti: number, lingua: string)
     condizioni: condizioni(lingua),
   };
 }
+```
+
+- [ ] **Step 3b: Collegare l'azione in `index.ts`**
+
+In cima, accanto agli altri import:
+
+```ts
+import { componiRisposta } from './disponibilita.ts';
 ```
 
 E dentro il gestore delle azioni, accanto a `a=elenco` e `a=stato`:
@@ -675,7 +700,7 @@ Expected: `{"esito":"ok","valuta":"centesimi","proposte":[...],"caparra_cent":15
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/functions/richieste/index.ts supabase/functions/richieste/disponibilita-azione.test.ts
+git add supabase/functions/richieste/index.ts supabase/functions/richieste/disponibilita.ts supabase/functions/richieste/disponibilita-azione.test.ts
 git commit -m "Azione disponibilita: camere vere, caparra e condizioni in una risposta sola"
 ```
 

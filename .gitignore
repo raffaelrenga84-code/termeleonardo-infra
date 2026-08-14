@@ -1,2 +1,3 @@
 # stato locale di graphify: e' della macchina, non del progetto
 .graphify/
+.superpowers/
