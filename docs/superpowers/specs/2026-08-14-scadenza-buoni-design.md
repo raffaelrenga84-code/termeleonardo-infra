@@ -91,11 +91,29 @@ la telefonata di chi teme di perdere il regalo.
    chiusura.
 6. **Il testo delle condizioni** chiarito nelle quattro lingue.
 
-## Cosa resta da sapere
+## Le date della chiusura, e perché non vanno nel codice
 
-**Le date esatte della chiusura.** "Fine novembre" e "metà febbraio" non
-bastano per calcolare: servono due giorni precisi. E se cambiano di stagione
-in stagione, non possono stare scritte nel codice — serve un posto dove la
-reception le aggiorna, e il calcolo le legge da lì.
+**Stagione 2026/2027, dalla proprietà il 14 agosto 2026:**
 
-Finché non ci sono, la regola non si può scrivere senza inventare.
+| | |
+|---|---|
+| Chiusura | **29 novembre 2026** |
+| Riapertura | **13 febbraio 2027** |
+
+**E cambiano ogni anno.** Questo decide l'impianto: le date non possono
+stare scritte nel codice, altrimenti ogni stagione serve un intervento di
+programmazione per una cosa che sa la reception. Vanno in una tabella che il
+back office modifica, con una riga per stagione.
+
+Il calcolo le legge da lì. Se per una stagione mancano, **non si prorogano
+buoni a caso**: si emette la scadenza normale e si avvisa che le date della
+stagione non sono state inserite. Meglio un promemoria mancato che una
+proroga inventata su date sbagliate.
+
+Con le date di quest'anno, la regola dà: scadenza fra il 29 novembre 2026 e
+il 13 febbraio 2027 → spostata al **13 marzo 2027**, un mese dopo la
+riapertura.
+
+*(Il 15 marzo indicato prima era una data fissa scelta quando la riapertura
+era approssimata a "metà febbraio". Con la data vera si calcola: riapertura
+più un mese.)*
