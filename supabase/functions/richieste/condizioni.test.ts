@@ -29,6 +29,18 @@ Deno.test('una lingua sconosciuta ricade sull italiano', () => {
   assertEquals(condizioni('zz').righe, CANCELLAZIONE.it);
 });
 
+/* 'toString', 'constructor', 'hasOwnProperty' esistono su CANCELLAZIONE per
+   ereditarieta' da Object.prototype, non come lingue: un accesso diretto
+   CANCELLAZIONE[lingua] le troverebbe truthy e restituirebbe una funzione al
+   posto dell'array di stringhe, con un TypeError a valle sul primo .join(). */
+Deno.test('le proprieta ereditate da Object.prototype non sono lingue valide', () => {
+  for (const finta of ['toString', 'constructor', 'hasOwnProperty']) {
+    const r = condizioni(finta);
+    assertEquals(Array.isArray(r.righe), true, finta);
+    assertEquals(r.righe, CANCELLAZIONE.it, finta);
+  }
+});
+
 Deno.test('ogni lingua dichiara che non c e diritto di recesso', () => {
   for (const l of ['it', 'de', 'en', 'fr']) {
     assertEquals(condizioni(l).recesso.length > 0, true, l);

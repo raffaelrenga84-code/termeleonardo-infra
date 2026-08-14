@@ -48,7 +48,14 @@ export const NOTA_RECESSO: Record<string, string> = {
   fr: 'S’agissant d’un hébergement à date déterminée, le droit de rétractation ne s’applique pas.',
 };
 
+/* whitelist esplicita, non accesso diretto alla proprieta': 'toString',
+   'constructor', 'hasOwnProperty' esistono su qualunque oggetto letterale
+   per ereditarieta' da Object.prototype e sarebbero truthy, restituendo una
+   funzione al posto dell'array di stringhe. La lingua arriva dal corpo di
+   una richiesta HTTP, quindi e' un valore che viene da fuori. */
+const LINGUE = ['it', 'de', 'en', 'fr'];
+
 export function condizioni(lingua: string): { righe: string[]; recesso: string } {
-  const l = CANCELLAZIONE[lingua] ? lingua : 'it';
+  const l = LINGUE.includes(lingua) ? lingua : 'it';
   return { righe: CANCELLAZIONE[l], recesso: NOTA_RECESSO[l] };
 }
