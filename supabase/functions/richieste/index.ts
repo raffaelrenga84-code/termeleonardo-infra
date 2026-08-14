@@ -85,10 +85,17 @@ async function troppeRichieste(email: string, ip: string): Promise<boolean> {
    salva niente e non ne ha una. Il conteggio vive quindi in memoria, per
    IP: e' un freno PER ISTANZA della funzione, quindi approssimativo (istanze
    diverse hanno contatori diversi, un riavvio a freddo lo azzera) — attrito
-   onesto contro un abuso a raffica, non una difesa distribuita. Il tetto
-   sta largo apposta: un ospite vero puo' cambiare le date piu' volte in
-   pochi minuti mentre confronta i prezzi. */
-const TETTO_DISPONIBILITA = 20;
+   onesto contro un abuso a raffica sul sito vero dell'hotel, non un sistema
+   antifrode. Fra rifiutare un ospite vero e lasciarne passare uno di
+   troppo, l'errore giusto e' il secondo.
+
+   Il tetto NON e' per persona, e' per indirizzo: un albergo, un ufficio o
+   una rete mobile con CGNAT mettono molti ospiti veri dietro lo stesso IP.
+   200 chiamate ogni 5 minuti reggono, per esempio, una quarantina di
+   persone che condividono una rete e fanno ciascuna 4-5 tentativi di date
+   mentre confrontano i prezzi — restando comunque un freno vero contro uno
+   script che manda centinaia di chiamate al secondo dallo stesso indirizzo. */
+const TETTO_DISPONIBILITA = 200;
 const FINESTRA_DISPONIBILITA_MS = 5 * 60 * 1000;
 const permessoDisponibilita = creaFrenoIp(TETTO_DISPONIBILITA, FINESTRA_DISPONIBILITA_MS);
 
