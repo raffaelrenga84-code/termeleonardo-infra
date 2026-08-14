@@ -1,7 +1,7 @@
 import { assertEquals } from 'jsr:@std/assert';
 import {
-  azzeraLimiteAcquista, azzeraLimiteStampa,
-  entroIlLimiteAcquista, entroIlLimiteStampa,
+  azzeraLimiteAcquista, azzeraLimiteQr, azzeraLimiteStampa,
+  entroIlLimiteAcquista, entroIlLimiteQr, entroIlLimiteStampa,
   troppiDalSito,
 } from './limite.ts';
 
@@ -66,6 +66,45 @@ Deno.test('stampa: il tetto è più largo di quello dell’acquisto', () => {
   azzeraLimiteStampa();
   for (let i = 0; i < 10; i++) assertEquals(entroIlLimiteStampa('9.9.9.9', ORA + i * 1000), true,
     'dieci ristampe dello stesso buono, in dieci minuti, restano un uso plausibile');
+});
+
+/* ---------- freno del QR: complessivo, non per indirizzo ----------
+   A differenza dei due freni qui sopra, entroIlLimiteQr non prende un IP:
+   un solo tetto per l'intera funzione (vedi il commento in limite.ts per
+   lo scenario dietro al numero). Per questo i test qui sotto chiamano
+   entroIlLimiteQr(ora) senza indirizzo, e verificano che indirizzi diversi
+   NON aprano contatori separati (l'opposto di quanto già provato per
+   acquisto e stampa sopra: lì "un altro indirizzo non paga per il primo",
+   qui invece deve pagare, perché la chiave è unica di proposito). */
+
+Deno.test('qr: i primi passano, poi si chiude — un tetto UNICO, non per indirizzo', () => {
+  azzeraLimiteQr();
+  for (let i = 0; i < 500; i++) assertEquals(entroIlLimiteQr(ORA), true, 'tentativo ' + i);
+  assertEquals(entroIlLimiteQr(ORA), false);
+});
+
+Deno.test('qr: il tetto è condiviso da chiunque chiami, non un contatore per indirizzo', () => {
+  azzeraLimiteQr();
+  for (let i = 0; i < 500; i++) entroIlLimiteQr(ORA);
+  // qui non c'è un IP da passare: la richiesta successiva, chiunque la faccia,
+  // trova il tetto già pieno — proprio perché non discrimina per chiamante
+  assertEquals(entroIlLimiteQr(ORA), false);
+});
+
+Deno.test('qr: passata la finestra di 10 minuti si ricomincia', () => {
+  azzeraLimiteQr();
+  for (let i = 0; i < 500; i++) entroIlLimiteQr(ORA);
+  assertEquals(entroIlLimiteQr(ORA + 9 * 60 * 1000), false, 'dentro la finestra');
+  assertEquals(entroIlLimiteQr(ORA + 11 * 60 * 1000), true, 'fuori dalla finestra');
+});
+
+Deno.test('qr: il suo freno non condivide stato con quello di acquisto o di stampa', () => {
+  azzeraLimiteQr(); azzeraLimiteAcquista(); azzeraLimiteStampa();
+  for (let i = 0; i < 500; i++) entroIlLimiteQr(ORA);
+  assertEquals(entroIlLimiteQr(ORA), false, 'il tetto del QR è pieno');
+  // acquisto e stampa, nello stesso istante, restano del tutto intatti
+  assertEquals(entroIlLimiteAcquista('9.9.9.9', ORA), true);
+  assertEquals(entroIlLimiteStampa('9.9.9.9', ORA), true);
 });
 
 /* ---------- il punto della revisione: due contatori separati ---------- */

@@ -34,7 +34,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { validaAcquisto, colonnaVoci } from './acquista.ts';
 import { nasceGiaPagato } from './pagamenti.ts';
-import { entroIlLimiteAcquista, entroIlLimiteStampa, troppiDalSito } from './limite.ts';
+import { entroIlLimiteAcquista, entroIlLimiteQr, entroIlLimiteStampa, troppiDalSito } from './limite.ts';
 import { avvisaAmministrazione, inviaBuonoEmesso, statoConsegna } from './email-buono.ts';
 import { datiStampa } from './stampa.ts';
 import { generaPngQR } from './qr.js';
@@ -325,21 +325,33 @@ Deno.serve(async (req) => {
      "trovato" invece di "non trovato" la trasformerebbe in un modo per
      scoprire quali buoni esistono, esattamente il rischio che stampa.ts
      spiega per ?a=stampa. Così com'è, chi la chiama non impara nulla che non
-     sapesse già: ha scelto lui il testo. Per lo stesso motivo non serve un
-     freno per indirizzo IP (non protegge nulla che non sia già protetto dal
-     non essere un oracolo, e i proxy immagine dei client di posta — Gmail in
-     testa — caricano le immagini da un pool di IP condivisi fra utenti
-     diversi: un freno per IP rischierebbe di bloccare email legittime di
-     persone diverse) né una query al database (velocità: genera l'immagine e
-     basta, come vuole stare "dentro il caricamento di un'email"). L'unico
-     limite è sulla LUNGHEZZA del testo, non sul suo contenuto o sulla sua
-     validità: un freno contro l'abuso (un input molto lungo produce un QR di
-     versione più alta, più lento da generare), non un controllo di validità
-     del codice — la cache lunga sotto ne assorbe comunque la ripetizione. */
+     sapesse già: ha scelto lui il testo. Niente query al database nemmeno
+     per questo: velocità, genera l'immagine e basta, come vuole stare
+     "dentro il caricamento di un'email". L'unico limite sul TESTO è sulla
+     sua lunghezza, non sul contenuto o sulla validità: un freno contro
+     l'abuso di calcolo (un input molto lungo produce un QR di versione più
+     alta, più lento da generare), non un controllo di validità del codice.
+
+     IL FRENO È COMPLESSIVO, NON PER INDIRIZZO IP. Non essendo un oracolo
+     non c'è enumerazione da fermare, quindi qui manca apposta il freno per
+     IP che hanno ?a=stampa e ?a=acquista — anzi, uno per IP sarebbe
+     dannoso: i proxy immagine dei client di posta (Gmail, e soprattutto
+     Apple Mail Privacy Protection, che precarica ogni immagine di ogni
+     email appena arriva) arrivano da pool di indirizzi condivisi fra
+     destinatari scollegati fra loro, e frenare per IP farebbe sparire il QR
+     a gruppi interi di ospiti veri. Resta però un costo di calcolo reale
+     (~2,7 ms a chiamata) a chi la chiama a raffica solo per farci lavorare
+     a vuoto: entroIlLimiteQr (limite.ts) è un tetto UNICO sull'intera
+     funzione, non un contatore per chi chiama — vedi il commento lì per lo
+     scenario dietro al numero scelto. */
   if (azione === 'qr') {
     const testo = url.searchParams.get('codice') || '';
     if (!testo) return risposta({ errore: 'codice mancante' }, 400);
     if (testo.length > 128) return risposta({ errore: 'codice troppo lungo' }, 400);
+    if (!entroIlLimiteQr()) {
+      console.warn('qr respinto per troppe richieste complessive');
+      return risposta({ errore: 'troppe richieste, riprovi tra qualche minuto' }, 429);
+    }
     let corpo: ArrayBuffer;
     try {
       /* generaPngQR vive in qr.js, un modulo .js senza annotazioni di tipo:

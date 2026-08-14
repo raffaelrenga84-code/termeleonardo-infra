@@ -85,6 +85,55 @@ export const entroIlLimiteStampa = frenoStampa.entroIlLimite;
 /** solo per i test: azzera lo stato del freno di stampa fra un caso e l'altro */
 export const azzeraLimiteStampa = frenoStampa.azzera;
 
+/* QR (?a=qr in index.ts). Un tetto COMPLESSIVO, non per indirizzo — a
+   differenza dei due freni qui sopra. Il motivo è specifico di questa
+   azione: chi la chiama non impara nulla sull'esistenza di un codice (non
+   tocca il database), quindi non c'è enumerazione da fermare; il rischio
+   qui è solo il costo di calcolo di chi la chiama a raffica per farci
+   lavorare a vuoto. E frenare per indirizzo sarebbe proprio sbagliato:
+   l'immagine sta in un'email, e i proxy che la caricano — Gmail, e
+   soprattutto Apple Mail Privacy Protection, che PRECARICA ogni immagine
+   di ogni email appena arriva, per ogni destinatario, prima ancora che
+   qualcuno la apra — arrivano da pool di indirizzi condivisi fra
+   destinatari scollegati fra loro: un freno per IP farebbe sparire il QR
+   a gruppi interi di ospiti veri, non solo a chi abusa.
+
+   LO SCENARIO PENSATO PER IL NUMERO (finestra di 10 minuti, la stessa di
+   acquisto e stampa qui sopra). Un giorno di punta arriva forse a una
+   cinquantina di buoni emessi fra sito e reception, non distribuiti piano:
+   un gruppo che acquista insieme in reception, o l'esito di una
+   promozione, può concentrarne una decina nella stessa finestra di 10
+   minuti. Ciascun buono manda fino a due email (acquirente e
+   destinatario), e ciascuna email genera più di una richiesta reale
+   all'origine: un precaricamento di Apple MPP appena l'email arriva (una
+   volta a testa, la apra o no) più qualche ricarica dal proxy di Gmail o
+   simili a ogni apertura vera (telefono, poi computer, magari inoltrata).
+   Contando largo — 10 buoni × 2 email × (1 precaricamento + 5 riletture
+   × 2 fetch) = 220 richieste vere nella finestra più affollata immagi-
+   nabile — il tetto sta a più del doppio di quella stima: l'errore da non
+   fare qui è far sparire il QR a un ospite vero, non lasciar passare
+   qualche disegno di troppo. A ~2,7 ms a chiamata (misurato), anche il
+   tetto pieno costa meno di 1,4 secondi di calcolo spalmati sui 10
+   minuti — economico anche nel caso limite.
+
+   Riusa creaFreno qui sopra invece di un meccanismo nuovo: una sola
+   "chiave" fissa ('*') vale un contatore unico per l'intera funzione,
+   non uno per IP. */
+const MAX_QR_COMPLESSIVO = 500;
+const frenoQr = creaFreno(MAX_QR_COMPLESSIVO);
+
+/** true se la funzione può ancora disegnare un QR in questa finestra di 10
+ * minuti (complessiva, non per indirizzo — vedi sopra); registra il
+ * tentativo. */
+export function entroIlLimiteQr(ora: number = Date.now()): boolean {
+  return frenoQr.entroIlLimite('*', ora);
+}
+
+/** solo per i test: azzera lo stato del freno QR fra un caso e l'altro */
+export function azzeraLimiteQr(): void {
+  frenoQr.azzera();
+}
+
 /* ---------- il tetto che regge fra istanze diverse ----------
    Conta i buoni nati dal sito nell'ultima mezz'ora: sta nel database,
    quindi vale per tutti. La soglia è molto sopra il traffico vero (un
