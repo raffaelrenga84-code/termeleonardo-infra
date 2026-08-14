@@ -8,7 +8,12 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
 const eur = (n: number) => Number(n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 });
 
-const ETI: Record<string, any> = {
+/* nota, in tutte e quattro le lingue qui sotto: la frase risponde alla
+   domanda di chi riceve un buono con più voci (es. "4 × Day Spa festivo") —
+   quattro persone insieme o una persona in quattro momenti diversi?
+   "come preferite" lascia scegliere. Vale per ogni lingua, non solo per
+   quella che si sta modificando. */
+export const ETI: Record<string, any> = {
   it: { titolo: 'Buono Regalo', haRicevuto: (n: string) => `${n}, hai ricevuto<br />un dono speciale`,
     senzaNome: 'Un dono speciale<br />per te', da: 'CON AFFETTO, DA', codice: 'CODICE BUONO',
     valido: (d: string) => `Valido fino al ${d}`,
@@ -18,9 +23,6 @@ const ETI: Record<string, any> = {
     corpoAcq: 'grazie del suo acquisto: il pagamento è stato ricevuto e il buono è stato emesso. Lo trova qui sotto, pronto da stampare o da inoltrare a chi lo riceverà.',
     corpoDest: 'qualcuno ha pensato a lei: ecco il suo buono regalo per l’Hotel Terme Leonardo. Per usarlo basta chiamarci o scriverci indicando il codice.',
     saluto: 'Un cordiale saluto,<br />Hotel Terme Leonardo',
-    /* la frase risponde alla domanda di chi riceve un buono con più voci
-       (es. "4 × Day Spa festivo"): quattro persone insieme o una persona
-       in quattro momenti diversi? "come preferite" lascia scegliere. */
     nota: 'Ogni ingresso o trattamento vale per una persona: potete venire insieme o in momenti diversi, come preferite. Su prenotazione: basta chiamarci o scriverci.' },
   de: { titolo: 'Geschenkgutschein', haRicevuto: (n: string) => `${n}, Sie haben<br />ein besonderes Geschenk erhalten`,
     senzaNome: 'Ein besonderes<br />Geschenk für Sie', da: 'HERZLICHST, VON', codice: 'GUTSCHEINCODE',

@@ -71,15 +71,17 @@ export const NARRATIVA = {
 };
 
 /* etichette del buono */
+/* nota, in tutte e quattro le lingue qui sotto: la frase risponde alla
+   domanda di chi riceve un buono con pi\u00f9 voci (es. "4 \u00d7 Day Spa festivo") \u2014
+   quattro persone insieme o una persona in quattro momenti diversi?
+   "come preferite" lascia scegliere. Vale per ogni lingua, non solo per
+   quella che si sta modificando. */
 export const ETI = {
   it:{ titolo:'Buono Regalo', haRicevuto:(n)=>`${n}, hai ricevuto<br />un dono speciale`,
     senzaNome:'Un dono speciale<br />per te', da:'CON AFFETTO, DA', codice:'CODICE BUONO',
     valido:(d)=>`Valido fino al ${d}`, valore:(v)=>`valore ${v} &euro;`,
     anteprima:'ANTEPRIMA \u2014 NON ANCORA VALIDO',
     anteprimaNota:'Il codice viene assegnato al momento del pagamento.',
-    /* la frase risponde alla domanda di chi riceve un buono con pi\u00f9 voci
-       (es. "4 \u00d7 Day Spa festivo"): quattro persone insieme o una persona
-       in quattro momenti diversi? "come preferite" lascia scegliere. */
     nota:'Ogni ingresso o trattamento vale per una persona: potete venire insieme o in momenti diversi, come preferite. Su prenotazione: basta chiamarci o scriverci.' },
   de:{ titolo:'Geschenkgutschein', haRicevuto:(n)=>`${n}, Sie haben<br />ein besonderes Geschenk erhalten`,
     senzaNome:'Ein besonderes<br />Geschenk f\u00fcr Sie', da:'HERZLICHST, VON', codice:'GUTSCHEINCODE',

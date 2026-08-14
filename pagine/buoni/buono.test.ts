@@ -4,8 +4,8 @@
    sorgente unica delle due copie web: se il buono perde un pezzo, si vede
    qui invece che in produzione. */
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
-import { buonoHTML, categoriaBuono, CONDIZIONI } from './buono.js';
-import { CONDIZIONI as CONDIZIONI_EMAIL } from '../../supabase/functions/buoni/email-buono.ts';
+import { buonoHTML, categoriaBuono, CONDIZIONI, ETI } from './buono.js';
+import { CONDIZIONI as CONDIZIONI_EMAIL, ETI as ETI_EMAIL } from '../../supabase/functions/buoni/email-buono.ts';
 
 /* as const: senza, le lingue sono string[] e TypeScript non le accetta come
    chiavi delle condizioni */
@@ -85,12 +85,30 @@ Deno.test('i nomi con caratteri speciali non rompono il buono', () => {
   assert(!h.includes('<script>'), 'il nome non deve poter iniettare un tag');
 });
 
-/* Le condizioni restano in due copie per forza: il buono del sito le prende
-   da qui, l'email le ha dentro perche' va costruita a tabelle per Outlook.
-   Questo test e' l'unica cosa che impedisce loro di divergere in silenzio —
-   ed e' gia' successo una volta, con un refuso nel testo tedesco. */
-Deno.test('le condizioni del sito e quelle dell email sono identiche', () => {
-  for (const l of LINGUE) assertEquals(CONDIZIONI[l], CONDIZIONI_EMAIL[l], `lingua ${l}`);
+/* Il buono vive in due copie per forza: il sito le prende da qui, l'email
+   le ha dentro perche' va costruita a tabelle per Outlook. Ogni testo
+   presente in entrambe le copie deve restare identico, o il cliente legge
+   due versioni diverse dello stesso buono — e' gia' successo una volta,
+   con un refuso nel testo tedesco delle condizioni.
+
+   Questo test confronta CONDIZIONI e, dentro ETI, ogni campo che e' una
+   stringa in entrambi gli oggetti (etichette, e la nota su persone e
+   prenotazione) — non un elenco scritto a mano dei singoli campi, cosi'
+   che un domani un nuovo campo condiviso sia coperto da solo, senza doverlo
+   aggiungere qui. Prima di questo test la nota non era confrontata da
+   nessuna parte: poteva divergere fra le due copie senza che nulla se ne
+   accorgesse. */
+Deno.test('i testi condivisi fra sito ed email restano identici, lingua per lingua', () => {
+  for (const l of LINGUE) {
+    assertEquals(CONDIZIONI[l], CONDIZIONI_EMAIL[l], `CONDIZIONI ${l}`);
+    const sito = ETI[l] as Record<string, unknown>;
+    const email = ETI_EMAIL[l] as Record<string, unknown>;
+    for (const chiave of Object.keys(sito)) {
+      if (typeof sito[chiave] === 'string' && typeof email[chiave] === 'string') {
+        assertEquals(sito[chiave], email[chiave], `ETI.${chiave} ${l}`);
+      }
+    }
+  }
 });
 
 Deno.test('le condizioni nominano cancellazione, modifica e no show', () => {
