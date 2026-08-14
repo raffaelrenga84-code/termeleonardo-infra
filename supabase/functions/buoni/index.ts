@@ -38,6 +38,7 @@ import { entroIlLimiteAcquista, entroIlLimiteQr, entroIlLimiteStampa, troppiDalS
 import { avvisaAmministrazione, inviaBuonoEmesso, statoConsegna } from './email-buono.ts';
 import { datiStampa } from './stampa.ts';
 import { generaPngQR } from './qr.js';
+import { filtroRicercaBuoni } from './ricerca.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -515,8 +516,11 @@ Deno.serve(async (req) => {
     const cerca = (url.searchParams.get('cerca') || '').trim();
     let q = db.from('buono_regalo').select('*').order('creato_il', { ascending: false }).limit(200);
     if (stato) q = q.eq('stato', stato);
-    if (cerca) q = q.or(
-      `codice.ilike.%${cerca}%,acquirente.ilike.%${cerca}%,destinatario.ilike.%${cerca}%`);
+    /* la costruzione del filtro vive in ricerca.ts: cerca anche nelle
+       email di acquirente e destinatario, e sfugge il testo digitato
+       perché virgole, parentesi e apici non vengano letti come
+       sintassi del filtro combinato — vedi il commento lì per il perché */
+    if (cerca) q = q.or(filtroRicercaBuoni(cerca));
     const { data, error } = await q;
     if (error) return risposta({ errore: error.message }, 500);
     return risposta({ buoni: data });
