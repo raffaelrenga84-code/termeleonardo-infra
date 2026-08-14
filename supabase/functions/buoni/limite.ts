@@ -88,38 +88,65 @@ export const azzeraLimiteStampa = frenoStampa.azzera;
 /* QR (?a=qr in index.ts). Un tetto COMPLESSIVO, non per indirizzo — a
    differenza dei due freni qui sopra. Il motivo è specifico di questa
    azione: chi la chiama non impara nulla sull'esistenza di un codice (non
-   tocca il database), quindi non c'è enumerazione da fermare; il rischio
-   qui è solo il costo di calcolo di chi la chiama a raffica per farci
-   lavorare a vuoto. E frenare per indirizzo sarebbe proprio sbagliato:
-   l'immagine sta in un'email, e i proxy che la caricano — Gmail, e
-   soprattutto Apple Mail Privacy Protection, che PRECARICA ogni immagine
-   di ogni email appena arriva, per ogni destinatario, prima ancora che
-   qualcuno la apra — arrivano da pool di indirizzi condivisi fra
-   destinatari scollegati fra loro: un freno per IP farebbe sparire il QR
-   a gruppi interi di ospiti veri, non solo a chi abusa.
+   tocca il database), quindi non c'è enumerazione da fermare. E frenare
+   per indirizzo sarebbe proprio sbagliato: l'immagine sta in un'email, e i
+   proxy che la caricano — Gmail, e soprattutto Apple Mail Privacy
+   Protection, che PRECARICA ogni immagine di ogni email appena arriva, per
+   ogni destinatario, prima ancora che qualcuno la apra — arrivano da pool
+   di indirizzi condivisi fra destinatari scollegati fra loro: un freno per
+   IP farebbe sparire il QR a gruppi interi di ospiti veri, non solo a chi
+   abusa.
 
-   LO SCENARIO PENSATO PER IL NUMERO (finestra di 10 minuti, la stessa di
-   acquisto e stampa qui sopra). Un giorno di punta arriva forse a una
-   cinquantina di buoni emessi fra sito e reception, non distribuiti piano:
-   un gruppo che acquista insieme in reception, o l'esito di una
-   promozione, può concentrarne una decina nella stessa finestra di 10
-   minuti. Ciascun buono manda fino a due email (acquirente e
-   destinatario), e ciascuna email genera più di una richiesta reale
-   all'origine: un precaricamento di Apple MPP appena l'email arriva (una
-   volta a testa, la apra o no) più qualche ricarica dal proxy di Gmail o
-   simili a ogni apertura vera (telefono, poi computer, magari inoltrata).
-   Contando largo — 10 buoni × 2 email × (1 precaricamento + 5 riletture
-   × 2 fetch) = 220 richieste vere nella finestra più affollata immagi-
-   nabile — il tetto sta a più del doppio di quella stima: l'errore da non
-   fare qui è far sparire il QR a un ospite vero, non lasciar passare
-   qualche disegno di troppo. A ~2,7 ms a chiamata (misurato), anche il
-   tetto pieno costa meno di 1,4 secondi di calcolo spalmati sui 10
-   minuti — economico anche nel caso limite.
+   QUESTO TETTO NON DIFENDE DALL'ABUSO. È una rete contro le FUGHE nostre
+   (un baco che chiama questa azione in ciclo, un retry impazzito), non un
+   controllo di sicurezza — e non lo sarebbe a nessun valore: un contatore
+   CONDIVISO, per costruzione, lo si può tenere pieno indefinitamente
+   mandando richieste a un ritmo pari a tetto/finestra (qui, tetto/10
+   minuti — vedi il numero più sotto), zittendo il QR per TUTTI gli ospiti
+   veri per tutto il tempo che si vuole, a un costo economico e senza
+   bisogno di più indirizzi IP (il tetto è unico, non per indirizzo: non
+   c'è nulla da aggirare distribuendo le richieste). Alzare il numero alza
+   anche il ritmo che servirebbe per sfruttarlo così — ma non lo *impedisce*:
+   resta una proprietà strutturale di qualunque tetto condiviso, non un
+   difetto di questo numero in particolare. Per questo il tetto qui sotto è
+   scelto largo non per "reggere più traffico legittimo con margine", ma
+   per essere IRRAGGIUNGIBILE dal traffico legittimo, lasciando che sia
+   solo una fuga vera a incontrarlo.
+
+   LO SCENARIO CHE IL NUMERO NON DEVE MAI TOCCARE (finestra di 10 minuti,
+   la stessa di acquisto e stampa qui sopra) — rifatto dopo una revisione
+   che ha trovato la prima stima troppo stretta: non "un gruppo in
+   reception" concentra il traffico, ma una CAMPAGNA PROMOZIONALE RIUSCITA,
+   che fa aprire un mucchio di email nei minuti subito dopo l'invio. Fino a
+   metà del volume di un giorno di punta (50 buoni/giorno stimati) può
+   cadere in una sola finestra di 10 minuti: 25 buoni, non un'ipotesi
+   estrema. Ciascun buono manda fino a due email (acquirente e
+   destinatario). Ciascuna email genera più di una richiesta reale
+   all'origine anche senza che nessuno la apra: Apple MPP la precarica
+   sempre, e i filtri di sicurezza aziendali (Defender, Proofpoint,
+   Mimecast) possono farne un secondo precaricamento automatico per un
+   destinatario aziendale — due, non uno. Più le riletture vere (telefono,
+   poi computer, magari inoltrata): ~5 riletture × ~2 fetch = 10. Per
+   email: 2 automatici + 10 da riletture = 12. Totale: 25 × 2 × 12 = 600
+   richieste vere nella finestra più affollata che riesco a immaginare.
+
+   IL NUMERO. 20 000 ogni 10 minuti — più di 30 volte quei 600, un margine
+   che il traffico legittimo non può avvicinare nemmeno nello scenario
+   sopra. Bastano comunque a limitare una fuga vera a un costo tollerabile
+   (20 000 × ~2,7 ms misurati = poco più di 54 secondi di calcolo spalmati
+   sui 10 minuti, non ore). Un aggressore deliberato che volesse tenere il
+   tetto pieno con QUESTO numero dovrebbe sostenere ~33 richieste al
+   secondo, continue, indefinitamente (20000/600s) — più facile da notare
+   nei log dello 0,83/s del tetto precedente, ma comunque alla portata di
+   un singolo script: non è una difesa, è solo un numero grande. Chi legge
+   fra un anno non deve pensare che questo tetto protegga da un ospite (o
+   da chiunque altro) intenzionato a spegnere il QR di proposito — non lo
+   fa, e non può farlo restando un contatore condiviso.
 
    Riusa creaFreno qui sopra invece di un meccanismo nuovo: una sola
    "chiave" fissa ('*') vale un contatore unico per l'intera funzione,
    non uno per IP. */
-const MAX_QR_COMPLESSIVO = 500;
+const MAX_QR_COMPLESSIVO = 20_000;
 const frenoQr = creaFreno(MAX_QR_COMPLESSIVO);
 
 /** true se la funzione può ancora disegnare un QR in questa finestra di 10

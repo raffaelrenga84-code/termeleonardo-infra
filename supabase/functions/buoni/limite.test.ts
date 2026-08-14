@@ -77,30 +77,54 @@ Deno.test('stampa: il tetto è più largo di quello dell’acquisto', () => {
    acquisto e stampa sopra: lì "un altro indirizzo non paga per il primo",
    qui invece deve pagare, perché la chiave è unica di proposito). */
 
-Deno.test('qr: i primi passano, poi si chiude — un tetto UNICO, non per indirizzo', () => {
-  azzeraLimiteQr();
-  for (let i = 0; i < 500; i++) assertEquals(entroIlLimiteQr(ORA), true, 'tentativo ' + i);
-  assertEquals(entroIlLimiteQr(ORA), false);
-});
+/* il tetto ora è 20 000 (vedi limite.ts per il conto): un ciclo così non è
+   più gratis da eseguire, ma resta nell'ordine del secondo — a ogni
+   iterazione si conta solo, senza asserire messaggio per messaggio, per
+   non appesantire il test con 20 000 stringhe costruite a vuoto */
+const TETTO_QR = 20_000;
 
-Deno.test('qr: il tetto è condiviso da chiunque chiami, non un contatore per indirizzo', () => {
+/* le due proprietà — "i primi passano poi si chiude" e "il tetto è
+   condiviso, non per indirizzo" — sono un solo test e non due: la seconda
+   è già dimostrata dalla prima, dato che entroIlLimiteQr non prende un
+   indirizzo a cui appoggiarsi. Separarle raddoppierebbe un riempimento da
+   20 000 chiamate (~2s) per un'asserzione che ridice la stessa cosa. */
+Deno.test('qr: i primi passano, poi si chiude — un tetto UNICO condiviso da chiunque chiami, non per indirizzo', () => {
   azzeraLimiteQr();
-  for (let i = 0; i < 500; i++) entroIlLimiteQr(ORA);
-  // qui non c'è un IP da passare: la richiesta successiva, chiunque la faccia,
-  // trova il tetto già pieno — proprio perché non discrimina per chiamante
-  assertEquals(entroIlLimiteQr(ORA), false);
+  let tutteOk = true;
+  for (let i = 0; i < TETTO_QR; i++) tutteOk = tutteOk && entroIlLimiteQr(ORA);
+  assertEquals(tutteOk, true, `le prime ${TETTO_QR} chiamate devono passare tutte`);
+  // la richiesta successiva, chiunque la faccia, trova il tetto già pieno:
+  // non c'è un indirizzo da passare, quindi non c'è "un altro chiamante"
+  // con un budget suo — a differenza di acquisto e stampa qui sopra
+  assertEquals(entroIlLimiteQr(ORA), false, `la ${TETTO_QR + 1}-esima deve trovare il tetto pieno`);
 });
 
 Deno.test('qr: passata la finestra di 10 minuti si ricomincia', () => {
   azzeraLimiteQr();
-  for (let i = 0; i < 500; i++) entroIlLimiteQr(ORA);
+  for (let i = 0; i < TETTO_QR; i++) entroIlLimiteQr(ORA);
   assertEquals(entroIlLimiteQr(ORA + 9 * 60 * 1000), false, 'dentro la finestra');
   assertEquals(entroIlLimiteQr(ORA + 11 * 60 * 1000), true, 'fuori dalla finestra');
 });
 
+/* lo scenario di traffico legittimo più affollato che il commento in
+   limite.ts immagina (campagna promozionale riuscita: 25 buoni concentrati
+   in 10 minuti, fino a due email ciascuno, fino a due precaricamenti
+   automatici più le riletture vere) resta ben sotto il tetto — è proprio
+   il punto della revisione: il numero deve essere irraggiungibile da
+   traffico vero, non solo "largo" */
+Deno.test('qr: lo scenario di traffico legittimo più affollato immaginato (~600 richieste) resta ben sotto il tetto', () => {
+  azzeraLimiteQr();
+  const RICHIESTE_SCENARIO_PROMOZIONE = 25 /* buoni concentrati */ * 2 /* email */ *
+    (2 /* precaricamenti automatici: Apple MPP + un filtro aziendale */ + 5 * 2 /* riletture vere */);
+  assertEquals(RICHIESTE_SCENARIO_PROMOZIONE, 600);
+  for (let i = 0; i < RICHIESTE_SCENARIO_PROMOZIONE; i++) {
+    assertEquals(entroIlLimiteQr(ORA), true, `richiesta ${i} dello scenario, ben sotto il tetto di ${TETTO_QR}`);
+  }
+});
+
 Deno.test('qr: il suo freno non condivide stato con quello di acquisto o di stampa', () => {
   azzeraLimiteQr(); azzeraLimiteAcquista(); azzeraLimiteStampa();
-  for (let i = 0; i < 500; i++) entroIlLimiteQr(ORA);
+  for (let i = 0; i < TETTO_QR; i++) entroIlLimiteQr(ORA);
   assertEquals(entroIlLimiteQr(ORA), false, 'il tetto del QR è pieno');
   // acquisto e stampa, nello stesso istante, restano del tutto intatti
   assertEquals(entroIlLimiteAcquista('9.9.9.9', ORA), true);

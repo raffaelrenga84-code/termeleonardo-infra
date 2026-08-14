@@ -332,18 +332,24 @@ Deno.serve(async (req) => {
      l'abuso di calcolo (un input molto lungo produce un QR di versione più
      alta, più lento da generare), non un controllo di validità del codice.
 
-     IL FRENO È COMPLESSIVO, NON PER INDIRIZZO IP. Non essendo un oracolo
-     non c'è enumerazione da fermare, quindi qui manca apposta il freno per
-     IP che hanno ?a=stampa e ?a=acquista — anzi, uno per IP sarebbe
-     dannoso: i proxy immagine dei client di posta (Gmail, e soprattutto
-     Apple Mail Privacy Protection, che precarica ogni immagine di ogni
-     email appena arriva) arrivano da pool di indirizzi condivisi fra
-     destinatari scollegati fra loro, e frenare per IP farebbe sparire il QR
-     a gruppi interi di ospiti veri. Resta però un costo di calcolo reale
-     (~2,7 ms a chiamata) a chi la chiama a raffica solo per farci lavorare
-     a vuoto: entroIlLimiteQr (limite.ts) è un tetto UNICO sull'intera
-     funzione, non un contatore per chi chiama — vedi il commento lì per lo
-     scenario dietro al numero scelto. */
+     IL FRENO È COMPLESSIVO, NON PER INDIRIZZO IP — E NON È UNA DIFESA
+     CONTRO L'ABUSO, È UNA RETE CONTRO LE FUGHE. Non essendo un oracolo non
+     c'è enumerazione da fermare, quindi qui manca apposta il freno per IP
+     che hanno ?a=stampa e ?a=acquista — anzi, uno per IP sarebbe dannoso:
+     i proxy immagine dei client di posta (Gmail, e soprattutto Apple Mail
+     Privacy Protection, che precarica ogni immagine di ogni email appena
+     arriva) arrivano da pool di indirizzi condivisi fra destinatari
+     scollegati fra loro, e frenare per IP farebbe sparire il QR a gruppi
+     interi di ospiti veri. entroIlLimiteQr (limite.ts) è un tetto UNICO
+     sull'intera funzione, non un contatore per chi chiama — ma proprio
+     perché è condiviso, chiunque può tenerlo pieno di proposito (basta un
+     ritmo costante, senza bisogno di più indirizzi) e spegnere il QR a
+     TUTTI per tutto il tempo che vuole: non protegge da questo, per
+     costruzione, a nessun valore del tetto. Serve solo a limitare il danno
+     di un baco nostro (un ciclo impazzito che richiama questa azione), non
+     a fermare un aggressore — vedi il commento sopra il numero in
+     limite.ts per il conto completo e la finestra di traffico legittimo
+     che il numero non deve mai toccare. */
   if (azione === 'qr') {
     const testo = url.searchParams.get('codice') || '';
     if (!testo) return risposta({ errore: 'codice mancante' }, 400);
