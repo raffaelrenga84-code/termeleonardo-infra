@@ -5,6 +5,8 @@
    e anche lì entro i limiti del regolamento.
    ============================================================ */
 
+import { calcolaScadenza, type Stagione } from './scadenza.ts';
+
 export const LISTINO: Record<string, [string, number]> = {
   progCoccola: ['Programma Coccola — pulizia viso completa + manicure', 90],
   progViso: ['Programma Viso Antirughe — pulizia completa + collagene', 90],
@@ -62,6 +64,8 @@ export interface DatiAcquisto {
   ricevuta_email: string;
   dedica: string;
   scade_il: string;
+  scade_il_base: string;
+  prorogato: boolean;
 }
 
 export type Voce = { voce_id: string; quantita: number };
@@ -151,7 +155,7 @@ export function colonnaVoci(voci: Voce[]): Voce[] | null {
   return voci.length ? voci : null;
 }
 
-export function validaAcquisto(b: Record<string, unknown>):
+export function validaAcquisto(b: Record<string, unknown>, stagioni: Stagione[] = []):
   { errore?: string; dati?: DatiAcquisto } {
   const lingua = ['it', 'de', 'en', 'fr'].includes(String(b.lingua)) ? String(b.lingua) : 'it';
   const email = String(b.acquirente_email || '').trim();
@@ -188,8 +192,10 @@ export function validaAcquisto(b: Record<string, unknown>):
      e' stato dato — ed e' il genere di domanda che arriva mesi dopo. */
   if (b.privacy_presa_atto !== true) return { errore: 'informativa privacy non accettata' };
 
-  /* scadenza: 12 mesi da oggi, come da regolamento */
-  const scade = new Date(); scade.setFullYear(scade.getFullYear() + 1);
+  /* scadenza: dodici mesi, spostati se cadrebbero ad albergo chiuso.
+     Le stagioni arrivano da fuori (tabella stagione_chiusura): qui non
+     c'e' nessuna data scritta a mano, apposta. */
+  const scadenza = calcolaScadenza(new Date(), stagioni);
 
   return { dati: {
     tipo, voce_id, voci, descrizione, valore, lingua,
@@ -202,6 +208,8 @@ export function validaAcquisto(b: Record<string, unknown>):
     ricevuta_email: /.+@.+\..+/.test(String(b.ricevuta_email || '').trim())
       ? String(b.ricevuta_email).trim().slice(0, 160) : '',
     dedica: String(b.dedica || '').trim().slice(0, 400),
-    scade_il: scade.toISOString().slice(0, 10)
+    scade_il: scadenza.scade_il,
+    scade_il_base: scadenza.scade_il_base,
+    prorogato: scadenza.prorogato
   } };
 }

@@ -33,6 +33,7 @@
    ============================================================ */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { validaAcquisto, colonnaVoci } from './acquista.ts';
+import { type Stagione } from './scadenza.ts';
 import { nasceGiaPagato } from './pagamenti.ts';
 import { entroIlLimiteAcquista, entroIlLimiteQr, entroIlLimiteStampa, troppiDalSito } from './limite.ts';
 import { avvisaAmministrazione, inviaBuonoEmesso, statoConsegna } from './email-buono.ts';
@@ -266,7 +267,7 @@ Deno.serve(async (req) => {
     const codice = (url.searchParams.get('codice') || '').toUpperCase().trim();
     if (!codice) return risposta({ errore: 'codice mancante' }, 400);
     const { data } = await db.from('buono_regalo')
-      .select('codice, descrizione, valore, scade_il, stato, riscosso_il, voci')
+      .select('codice, descrizione, valore, scade_il, scade_il_base, prorogato, stato, riscosso_il, voci')
       .eq('codice', codice).maybeSingle();
     if (!data) return risposta({ valido: false, motivo: 'non trovato' }, 404);
     const scaduto = new Date(data.scade_il + 'T23:59:59') < new Date();
@@ -302,7 +303,7 @@ Deno.serve(async (req) => {
       return risposta({ errore: 'troppe richieste, riprovi tra qualche minuto' }, 429);
     }
     const { data } = await db.from('buono_regalo')
-      .select('codice, tipo, voce_id, descrizione, lingua, sottotitolo, destinatario, dedica, acquirente, numero, scade_il, stato')
+      .select('codice, tipo, voce_id, descrizione, lingua, sottotitolo, destinatario, dedica, acquirente, numero, scade_il, scade_il_base, prorogato, stato')
       .eq('codice', codice).maybeSingle();
     return risposta(datiStampa(data), data ? 200 : 404);
   }
@@ -444,8 +445,27 @@ Deno.serve(async (req) => {
     let b: Record<string, unknown>;
     try { b = await req.json(); } catch { b = {}; }
 
+    /* Le stagioni si leggono a ogni acquisto e non si tengono in memoria: la
+       funzione gira su istanze diverse, e una cache qui vorrebbe dire due
+       clienti con due regole diverse a seconda di quale istanza li serve.
+       Se la lettura fallisce si prosegue senza: la scadenza naturale e' un
+       ripiego onesto, perdere l'acquisto no. */
+    let stagioni: Stagione[] = [];
+    try {
+      /* `.order` e non a caso: senza, l'ordine delle righe lo decide Postgres, e
+         la revisione del Task 1 ha mostrato che con due stagioni sovrapposte —
+         un errore di inserimento plausibile, le righe le scrive la reception —
+         l'ordine cambierebbe la proroga data al cliente. `calcolaScadenza` e'
+         stata resa indipendente dall'ordine, questo e' il secondo giro di
+         chiave: le due difese costano una parola e non si fidano l'una
+         dell'altra. */
+      const { data } = await db.from('stagione_chiusura')
+        .select('chiusura, riapertura').order('chiusura');
+      stagioni = (data ?? []) as Stagione[];
+    } catch (e) { console.error('stagioni non lette, scadenza naturale:', e); }
+
     /* prezzi e limiti decisi qui, non dal browser */
-    const v = validaAcquisto(b);
+    const v = validaAcquisto(b, stagioni);
     if (v.errore) return risposta({ errore: v.errore }, 400);
     const d = v.dati!;
 
@@ -467,6 +487,8 @@ Deno.serve(async (req) => {
       ricevuta_email: d.ricevuta_email || null,
       dedica: d.dedica || null,
       scade_il: d.scade_il,
+      scade_il_base: d.scade_il_base,
+      prorogato: d.prorogato,
       pagamento: 'stripe', creato_da: 'sito',
       /* l'ora la mette il server, non il browser: è la traccia che le
          condizioni sono state accettate prima del pagamento. La versione

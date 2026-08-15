@@ -1,7 +1,17 @@
 /* Test del ramo pubblico a=acquista: la validazione è l'unica
    fonte dei prezzi — quello che arriva dal browser non conta. */
-import { assertEquals, assertMatch } from 'jsr:@std/assert';
+import { assertEquals, assertMatch, assertNotEquals } from 'jsr:@std/assert';
 import { LISTINO, validaAcquisto, colonnaVoci, componiDescrizione } from './acquista.ts';
+import { type Stagione } from './scadenza.ts';
+
+/* oggetto minimo che validaAcquisto accetta, riusato dai test sulla
+   scadenza cosi' com'e', senza reinventarlo ogni volta */
+const ACQUISTO_VALIDO = {
+  tipo: 'valore', valore: 100, acquirente_email: 'a@b.it',
+  condizioni_accettate: true, privacy_presa_atto: true,
+};
+
+const STAGIONI: Stagione[] = [{ chiusura: '2026-11-29', riapertura: '2027-02-13' }];
 
 Deno.test('rifiuta email mancante o malformata', () => {
   const r1 = validaAcquisto({ tipo: 'valore', valore: 100 });
@@ -54,13 +64,23 @@ Deno.test('lingua sconosciuta ricade su italiano', () => {
   assertMatch(r.dati!.descrizione, /Buono valore di 50,00 €/);
 });
 
-Deno.test('scadenza a 12 mesi da oggi', () => {
-  const r = validaAcquisto({
-    tipo: 'valore', valore: 100, acquirente_email: 'a@b.it', condizioni_accettate: true, privacy_presa_atto: true
-  });
-  const attesa = new Date();
-  attesa.setFullYear(attesa.getFullYear() + 1);
+Deno.test('senza stagioni: dodici mesi, e le due date coincidono', () => {
+  const r = validaAcquisto(ACQUISTO_VALIDO, []);
+  const attesa = new Date(); attesa.setFullYear(attesa.getFullYear() + 1);
   assertEquals(r.dati!.scade_il, attesa.toISOString().slice(0, 10));
+  assertEquals(r.dati!.scade_il_base, r.dati!.scade_il);
+  assertEquals(r.dati!.prorogato, false);
+});
+
+Deno.test('le stagioni arrivano da fuori, non dal codice di acquista', () => {
+  /* si prova che validaAcquisto le USA davvero, con una stagione finta che
+     copre l'anno intero: qualunque scadenza deve risultare prorogata */
+  const anno = new Date().getFullYear() + 1;
+  const sempre: Stagione[] = [{ chiusura: `${anno}-01-01`, riapertura: `${anno}-12-31` }];
+  const r = validaAcquisto(ACQUISTO_VALIDO, sempre);
+  assertEquals(r.dati!.prorogato, true);
+  assertEquals(r.dati!.scade_il, `${anno + 1}-01-31`);
+  assertNotEquals(r.dati!.scade_il, r.dati!.scade_il_base);
 });
 
 Deno.test('campi liberi accorciati e ripuliti', () => {
