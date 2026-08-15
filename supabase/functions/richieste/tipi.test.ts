@@ -109,6 +109,22 @@ Deno.test('il circolo deve essere uno dei tre convenzionati', () => {
   }
 });
 
+/* Il valore di `circolo` arriva dal corpo della richiesta HTTP: chi manda i
+   dati sceglie la stringa. Indicizzare CIRCOLI_GOLF con quella stringa e poi
+   fidarsi di `if (!c)` come verifica di appartenenza non basta, perche' un
+   oggetto non risponde `undefined` solo alle chiavi che non ha: risponde con
+   quello che eredita da Object.prototype. `toString` e `constructor` sono
+   funzioni, quindi truthy, e il controllo passa. Il risultato sarebbe una
+   richiesta registrata e mandata per email alla reception con un circolo che
+   non esiste e un luogo del taxi vuoto. */
+Deno.test('una chiave ereditata da Object non e un circolo convenzionato', () => {
+  for (const finto of ['toString', 'constructor', 'hasOwnProperty', 'valueOf',
+    '__proto__', 'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString']) {
+    assertEquals(validaDati('greenfee', { ...green, circolo: finto }, OGGI).errore,
+      'circolo sconosciuto', `«${finto}» e' passato come circolo valido`);
+  }
+});
+
 Deno.test('una partenza regge al massimo quattro giocatori', () => {
   assertEquals(validaDati('greenfee', { ...green, giocatori: 0 }, OGGI).errore, 'giocatori non validi');
   assertEquals(validaDati('greenfee', { ...green, giocatori: 5 }, OGGI).errore, 'giocatori non validi');

@@ -101,9 +101,15 @@ function validaTransfer(d: Record<string, unknown>, oggi: Date): Esito {
    gia' una destinazione del loro elenco. Chiederlo due volte sarebbe un
    modo per farli divergere. */
 function validaGreenfee(d: Record<string, unknown>, oggi: Date): Esito {
+  /* Object.hasOwn e non `CIRCOLI_GOLF[circolo]`: la stringa arriva dal corpo
+     della richiesta, e un oggetto non risponde `undefined` solo alle chiavi
+     che non ha — risponde con quello che eredita da Object.prototype.
+     `toString` e `constructor` sono funzioni, quindi truthy, e un `if (!c)`
+     le lascerebbe passare: la richiesta finirebbe registrata e spedita alla
+     reception con un circolo che non esiste e il luogo del taxi vuoto. */
   const circolo = testo(d.circolo);
+  if (!Object.hasOwn(CIRCOLI_GOLF, circolo)) return { errore: 'circolo sconosciuto' };
   const c = CIRCOLI_GOLF[circolo];
-  if (!c) return { errore: 'circolo sconosciuto' };
 
   const data = dataServizio(d.data, oggi);
   if (data.errore) return { errore: data.errore };

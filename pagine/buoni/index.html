@@ -865,6 +865,19 @@ function quandoIT(ts) {
 
 const LINGUA_NOME = { it: 'Italiano', de: 'Tedesco', en: 'Inglese', fr: 'Francese' };
 
+/* Cerca un'etichetta in una mappa e, se non c'e', restituisce il valore
+   grezzo. Object.hasOwn e non `MAPPA[chiave] || chiave`: la chiave arriva da
+   una colonna del database, e un oggetto non risponde `undefined` solo alle
+   chiavi che non ha — risponde con quello che eredita da Object.prototype.
+   Con `stato` uguale a "toString" il `||` non scatterebbe mai e in tabella
+   comparirebbe il codice sorgente di una funzione al posto dello stato.
+   Oggi nessuno scrive quei valori in quelle colonne, quindi non e' un buco
+   aperto: e' che la stessa riga sbagliata, altrove in questo progetto,
+   lasciava passare un circolo di golf inesistente. Si chiude la forma. */
+function etichetta(mappa, chiave) {
+  return Object.hasOwn(mappa, chiave) ? mappa[chiave] : (chiave || '');
+}
+
 /* Il riepilogo nella forma esatta che vuole il modulo dei tassisti: si
    incolla senza tradurre niente, e il luogo combacia parola per parola con
    il loro elenco perche' e' da li' che l'abbiamo preso. */
@@ -944,14 +957,14 @@ function dettaglioRichiesta(r) {
      cui si sbaglia una lettera e la risposta non arriva */
   const oggetto = encodeURIComponent(`Hotel Terme Leonardo — la sua richiesta ${r.numero}`);
   return `<div class="riquadro" style="margin-top:14px;">
-    <h2>${esc(r.nome)} <span class="stato st-${esc(r.stato)}">${esc(STATI_RICHIESTA[r.stato] || r.stato)}</span></h2>
+    <h2>${esc(r.nome)} <span class="stato st-${esc(r.stato)}">${esc(etichetta(STATI_RICHIESTA, r.stato))}</span></h2>
     <div class="mini">${esc(r.numero)} · arrivata il ${quandoIT(r.creato_il)}</div>
     <table style="margin-top:12px;">
       ${riga('Periodo', `<strong>${dataIT(r.check_in)} → ${dataIT(r.check_out)}</strong>
         <span class="mini">${r.notti} notti · ${r.ospiti} ospiti</span>`)}
       ${riga('Email', `<a href="mailto:${esc(r.email)}?subject=${oggetto}">${esc(r.email)}</a>`)}
       ${riga('Telefono', r.telefono ? `<a href="tel:${esc(r.telefono)}">${esc(r.telefono)}</a>` : '')}
-      ${riga('Lingua', esc(LINGUA_NOME[r.lingua] || r.lingua))}
+      ${riga('Lingua', esc(etichetta(LINGUA_NOME, r.lingua)))}
       ${riga('Camera', esc(r.tipo_camera || (r.dati && r.dati.nome_camera) || ''))}
       ${riga('Pacchetto', esc(r.pacchetto || ''))}
       ${righeSceltaSoggiorno(r, riga)}
@@ -1029,8 +1042,8 @@ async function vistaRichieste() {
           <td class="mini">${quandoIT(r.creato_il)}</td>
           <td>${esc(r.nome)}<div class="mini">${esc(r.email)}${r.telefono ? ' · ' + esc(r.telefono) : ''}</div></td>
           <td>${dataIT(r.check_in)} → ${dataIT(r.check_out)}
-            <div class="mini">${r.notti} notti · ${r.ospiti} ospiti · ${esc(LINGUA_NOME[r.lingua] || r.lingua)}</div></td>
-          <td><span class="stato st-${esc(r.stato)}">${esc(STATI_RICHIESTA[r.stato] || r.stato)}</span></td>
+            <div class="mini">${r.notti} notti · ${r.ospiti} ospiti · ${esc(etichetta(LINGUA_NOME, r.lingua))}</div></td>
+          <td><span class="stato st-${esc(r.stato)}">${esc(etichetta(STATI_RICHIESTA, r.stato))}</span></td>
         </tr>`).join('') + `</table>` : '';
 
       for (const tr of $('rTab').querySelectorAll('tr.apribile')) {

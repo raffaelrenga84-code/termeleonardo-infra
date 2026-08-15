@@ -160,8 +160,17 @@ async function carica() {
     /* j.stato vale 'attesa' | 'annullato' | 'riscosso' | 'scaduto': sono
        proprio le chiavi che T porta gia' tradotte, quindi si usa il valore
        cosi' com'e' per scegliere il messaggio, senza una mappa a parte che
-       potrebbe restare indietro se domani il server aggiunge uno stato. */
-    const testo = (j && j.stato && t[j.stato]) ? t[j.stato] : t.nonTrovato;
+       potrebbe restare indietro se domani il server aggiunge uno stato.
+
+       Object.hasOwn e non `t[j.stato]`: la verita' di `t[j.stato]` non dice
+       che lo stato esiste fra i testi, dice che l'oggetto ha risposto
+       qualcosa — e a "toString" o "constructor" un oggetto risponde sempre,
+       con roba ereditata da Object.prototype. All'ospite che prova a
+       stampare il suo buono arriverebbe il sorgente di una funzione al posto
+       del messaggio. Il server oggi manda solo i quattro stati veri, quindi
+       non e' un buco aperto: e' la stessa forma sbagliata che altrove qui
+       lasciava passare un circolo di golf inesistente. */
+    const testo = (j && Object.hasOwn(t, j.stato)) ? t[j.stato] : t.nonTrovato;
     messaggio(testo, true);
     return;
   }
