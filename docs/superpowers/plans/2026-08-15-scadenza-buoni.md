@@ -225,7 +225,11 @@ git commit -m "La scadenza di un buono non cade piu' dentro l'albergo chiuso"
 - Consumes: `calcolaScadenza`, `Stagione` da `./scadenza.ts` (Task 1).
 - Produces: `validaAcquisto(b, stagioni: Stagione[] = [])` — il secondo parametro è nuovo e ha un default, così le chiamate esistenti nei test continuano a compilare; `DatiAcquisto` guadagna `scade_il_base: string` e `prorogato: boolean`.
 
-- [ ] **Step 1: La migrazione**
+- [x] **Step 1: La migrazione** — *già fatta e applicata il 15 agosto 2026:
+  il file è `supabase/2026-08-15-stagione-chiusura.sql`, la tabella esiste con
+  la riga 2026/2027 (29 novembre → 13 febbraio) e le due colonne nuove ci
+  sono. Verificato anche che rieseguirla non duplichi niente. **Non
+  rifarla**: passa allo Step 2.*
 
 ```sql
 -- Le date di chiusura e riapertura cambiano ogni anno e le sa la reception:
@@ -341,7 +345,15 @@ Trovare la chiamata a `validaAcquisto` in `index.ts` e farla precedere dalla let
    ripiego onesto, perdere l'acquisto no. */
 let stagioni: Stagione[] = [];
 try {
-  const { data } = await db.from('stagione_chiusura').select('chiusura, riapertura');
+  /* `.order` e non a caso: senza, l'ordine delle righe lo decide Postgres, e
+     la revisione del Task 1 ha mostrato che con due stagioni sovrapposte —
+     un errore di inserimento plausibile, le righe le scrive la reception —
+     l'ordine cambierebbe la proroga data al cliente. `calcolaScadenza` e'
+     stata resa indipendente dall'ordine, questo e' il secondo giro di
+     chiave: le due difese costano una parola e non si fidano l'una
+     dell'altra. */
+  const { data } = await db.from('stagione_chiusura')
+    .select('chiusura, riapertura').order('chiusura');
   stagioni = (data ?? []) as Stagione[];
 } catch (e) { console.error('stagioni non lette, scadenza naturale:', e); }
 ```
