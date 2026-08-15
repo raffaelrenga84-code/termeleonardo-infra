@@ -37,6 +37,8 @@ import { type Stagione } from './scadenza.ts';
 import { nasceGiaPagato } from './pagamenti.ts';
 import { entroIlLimiteAcquista, entroIlLimiteQr, entroIlLimiteStampa, troppiDalSito } from './limite.ts';
 import { avvisaAmministrazione, inviaBuonoEmesso, statoConsegna } from './email-buono.ts';
+import { inviaEmailPromemoria } from './email-promemoria.ts';
+import { daAvvisare, type RigaBuono } from './promemoria.ts';
 import { datiStampa } from './stampa.ts';
 import { generaPngQR } from './qr.js';
 import { filtroRicercaBuoni } from './ricerca.ts';
@@ -279,6 +281,81 @@ async function leggiStagioni(): Promise<Stagione[]> {
     console.error('stagioni non lette, scadenza naturale:', e);
     return [];
   }
+}
+
+/* ============================================================
+   Il lavoro giornaliero del promemoria (?a=promemoria più sotto).
+
+   L'ORDINE È L'UNICA COSA CHE CONTA QUI: promemoria_il si scrive
+   SUBITO DOPO L'INVIO RIUSCITO, buono per buono, non alla fine del
+   giro. Se si segnasse tutto insieme a fine giro, un solo fallimento
+   a metà (rete, timeout, quota Resend finita) lascerebbe SENZA segno
+   anche i buoni già spediti prima di quello fallito, e domani
+   manderebbe loro l'email una seconda volta — un cliente avvisato
+   ogni mattina per un mese è peggio di un cliente che il promemoria
+   non lo riceve affatto (vedi il piano). Segnando dentro il ciclo,
+   se l'invio numero tre fallisce i primi due restano segnati e non
+   ripartono.
+
+   Il verso opposto conta uguale: se l'invio FALLISCE non si scrive
+   promemoria_il, o quel cliente non sarebbe avvisato mai più e
+   nessuno se ne accorgerebbe — resta candidato per il giro di domani
+   (`falliti++` sotto, così si vede dal back office).
+
+   Resta un buco che nessuna delle due regole chiude da sola: se
+   l'invio riesce ma la SCRITTURA di promemoria_il fallisce subito
+   dopo, il cliente ha già ricevuto l'email ma il database non lo sa,
+   e domani la riceverebbe una seconda volta. Non è evitabile del
+   tutto senza una transazione che comprenda anche l'invio via Resend
+   — non esiste. segnaPromemoria ritenta la sola scrittura (l'email è
+   già partita, non si può ritentare anche quella) e logga forte se
+   anche i tentativi falliscono, così la reception può segnare il
+   buono a mano invece di scoprire fra un mese che ha scritto tre
+   volte allo stesso cliente. */
+async function segnaPromemoria(codice: string): Promise<boolean> {
+  for (let i = 0; i < 3; i++) {
+    const { error } = await db.from('buono_regalo')
+      .update({ promemoria_il: new Date().toISOString() })
+      .eq('codice', codice);
+    if (!error) return true;
+    console.error('scrittura promemoria_il fallita, tentativo', i + 1, '-', codice, error.message);
+  }
+  console.error('CRITICO: promemoria inviato ma non segnato, rischio di reinvio domani -', codice);
+  return false;
+}
+
+async function eseguiPromemoria(): Promise<{ mandati: number; falliti: number }> {
+  /* pre-filtro sul database: gli stessi tre criteri che daAvvisare
+     applica comunque (vedi promemoria.ts), qui servono solo a non
+     scaricare l'intera tabella ogni giorno — la finestra dei trenta
+     giorni resta decisa da daAvvisare, non duplicata qui. */
+  const { data, error } = await db.from('buono_regalo')
+    .select('codice, stato, scade_il, riscosso_il, promemoria_il, destinatario_email, acquirente_email, descrizione, valore, lingua, destinatario, acquirente')
+    .eq('stato', 'pagato').is('promemoria_il', null).is('riscosso_il', null);
+  if (error) { console.error('lettura buoni per promemoria fallita:', error.message); return { mandati: 0, falliti: 0 }; }
+
+  /* destinatario e acquirente: servono entrambi perché inviaEmailPromemoria
+     sceglie il nome del saluto in base a QUALE dei due indirizzi riceve
+     davvero l'email (vedi il commento lì) — non solo l'indirizzo, anche
+     il nome giusto per chi lo apre. */
+  const righe = (data ?? []) as (RigaBuono &
+    { descrizione: string; valore: number; lingua: string; destinatario: string | null; acquirente: string | null })[];
+  const candidati = daAvvisare(righe, new Date());
+
+  let mandati = 0, falliti = 0;
+  for (const c of candidati) {
+    const riga = righe.find(r => r.codice === c.codice);
+    if (!riga) { falliti++; continue; }              // non dovrebbe succedere: per sicurezza
+
+    let ok = false;
+    try { ok = await inviaEmailPromemoria(riga, c.email); }
+    catch (e) { console.error('invio promemoria fallito -', c.codice, e); ok = false; }
+    if (!ok) { falliti++; continue; }                 // niente scrittura: resta candidato domani
+
+    if (await segnaPromemoria(c.codice)) mandati++;
+    else falliti++;                                   // spedito ma non segnato: si vede nei log
+  }
+  return { mandati, falliti };
 }
 
 Deno.serve(async (req) => {
@@ -552,6 +629,20 @@ Deno.serve(async (req) => {
     const { data, error } = await q;
     if (error) return risposta({ errore: error.message }, 500);
     return risposta({ buoni: data });
+  }
+
+  /* ---------- lavoro giornaliero: il promemoria dei trenta giorni ----------
+     Protetta come ?a=elenco qui sopra: si arriva qui solo dopo
+     "acc = await autorizzato(req)" (utente autenticato del dominio
+     dell'hotel, IP dell'hotel, o la chiave condivisa x-hotel-key finché
+     HOTEL_KEY esiste). Senza questo, chiunque potrebbe farla girare a
+     piacimento e trasformarla in un modo per mandare email a nome
+     dell'hotel — non un dettaglio, per un lavoro che spedisce posta vera.
+     POST e non GET: ha un effetto (email vere, scritture sul database),
+     un GET qui sarebbe visitabile per sbaglio da un link o un prefetch. */
+  if (req.method === 'POST' && azione === 'promemoria') {
+    const esito = await eseguiPromemoria();
+    return risposta(esito);
   }
 
   if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
