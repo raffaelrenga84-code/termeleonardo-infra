@@ -52,7 +52,11 @@ Deno.test('per un servizio il prezzo viene dal listino, non dal browser', () => 
   assertEquals(r.errore, undefined);
   assertEquals(r.dati!.valore, 40);                     // prezzo del listino server
   assertEquals(r.dati!.voce_id, 'relax25');
-  assertMatch(r.dati!.descrizione, /Massaggio relax con olio di cacao/);
+  /* il nome e' quello del listino ufficiale del reparto: «Massaggio Relax
+     (con olio di cacao)». Diceva «relax con olio di cacao» minuscolo, ed era
+     una delle tre voci in cui il LISTINO del server divergeva dal listino
+     stampato — allineate il 15 agosto 2026. */
+  assertMatch(r.dati!.descrizione, /Massaggio Relax \(con olio di cacao\)/);
 });
 
 Deno.test('lingua sconosciuta ricade su italiano', () => {

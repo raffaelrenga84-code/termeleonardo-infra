@@ -65,7 +65,7 @@ export const TRATTAMENTI = [
   { nome: 'Massaggio Ayurveda', durata: '55 min', prezzo: 65, gruppo: 'massaggi', chiave: 'ayurveda', da: false, cuore: false, regalabile: 'ayurveda55' },
   { nome: 'Massaggio Pindasweda', durata: '55 min', prezzo: 65, gruppo: 'massaggi', chiave: 'pindasweda', da: false, cuore: false, regalabile: 'pindasweda55' },
   { nome: 'Massaggio antistress', durata: '55 min', prezzo: 65, gruppo: 'massaggi', chiave: 'antistress', da: false, cuore: false, regalabile: null },
-  { nome: 'Massaggio “Hot Stone”', durata: '55 min', prezzo: 65, gruppo: 'massaggi', chiave: 'hotstone', da: false, cuore: false, regalabile: 'hotstone55' },
+  { nome: 'Massaggio Hot Stone', durata: '55 min', prezzo: 65, gruppo: 'massaggi', chiave: 'hotstone', da: false, cuore: false, regalabile: 'hotstone55' },
   { nome: 'Linfodrenaggio completo', durata: '60 min', prezzo: 65, gruppo: 'massaggi', chiave: 'linfo', da: false, cuore: false, regalabile: 'linfo60' },
   { nome: 'Massaggio anticellulite con fiala', durata: '50 min', prezzo: 70, gruppo: 'massaggi', chiave: 'fiala', da: false, cuore: false, regalabile: null },
   { nome: 'Massaggio Shiatzu', durata: '50 min', prezzo: 70, gruppo: 'massaggi', chiave: 'shiatzu', da: false, cuore: true, regalabile: 'shiatzu50' },

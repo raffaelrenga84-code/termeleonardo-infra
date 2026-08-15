@@ -30,22 +30,20 @@ import { nomeCompleto, TRATTAMENTI } from './trattamenti.js';
    voci che una lineetta non ce l'hanno. */
 const senzaDescrizioneBuono = (nome: string) => nome.split(' — ')[0];
 
-/* ECCEZIONI DOCUMENTATE SUL NOME, NON SUL PREZZO. L'anteprima approvata
-   dalla proprietà (docs/anteprime/2026-08-15-menu-trattamenti.html) ha
-   scritto questi tre nomi copiandoli dal PDF del listino ufficiale del
-   reparto — e per la riflessologia plantare lo dice esplicitamente nel suo
-   stesso commento: il listino ufficiale scrive «Massaggio riflessologia
-   plantare», non «Riflessologia plantare». `LISTINO` in acquista.ts non è
-   ancora stato allineato a quel PDF per queste tre voci — non è compito di
-   questo modulo toccare acquista.ts (fuori dallo scopo di questo lavoro, e
-   il listino dei buoni ha un altro percorso di modifica in corso). Quando
-   verrà allineato, questa voce va tolta: se il nome combacia già, il test
-   sotto lo scopre da solo (vedi il terzo test). */
-const NOME_DA_ALLINEARE_IN_ACQUISTA_TS: Record<string, string> = {
-  relax25: 'Massaggio relax con olio di cacao (25 min)',
-  plantare25: 'Riflessologia plantare (25 min)',
-  hotstone55: 'Massaggio Hot Stone (55 min)',
-};
+/* NESSUNA ECCEZIONE. Fino al 15 agosto 2026 qui c'erano tre nomi che
+   divergevano fra il listino ufficiale del reparto e il LISTINO in
+   acquista.ts — relax25, plantare25, hotstone55 — registrati come «note e
+   documentate» perche' allinearli era fuori dallo scopo di quel lavoro.
+
+   Sono stati allineati, e questo elenco e' tornato vuoto. Tenerlo vuoto e'
+   il punto: una divergenza nuova non puo' entrare di nascosto, va scritta
+   qui insieme al motivo, e chi la scrive deve giustificarla.
+
+   Nel giorno in cui e' stato svuotato, il test qui sotto ha fatto
+   esattamente il suo mestiere: e' diventato rosso perche' la divergenza
+   registrata non c'era piu'. Un presidio che non protesta quando il mondo
+   cambia non protegge niente. */
+const NOME_DA_ALLINEARE_IN_ACQUISTA_TS: Record<string, string> = {};
 
 const regalabili = () => TRATTAMENTI.filter((v) => v.regalabile);
 
@@ -94,10 +92,14 @@ Deno.test('il nome delle voci regalabili combacia col LISTINO dei buoni, salvo l
 Deno.test('il presidio guarda davvero le voci regalabili, non un elenco vuoto o tutto in eccezione', () => {
   const voci = regalabili();
   assertEquals(voci.length, 21, `attese 21 voci regalabili, trovate ${voci.length}`);
+  /* Le eccezioni sono zero, e devono restare zero. Se qualcuno ne aggiunge
+     una, questa riga diventa rossa e lo costringe a scriverla qui insieme al
+     motivo: una divergenza fra il listino del reparto e quello che si stampa
+     sul buono non deve poter entrare in silenzio. */
   assertEquals(
     Object.keys(NOME_DA_ALLINEARE_IN_ACQUISTA_TS).sort(),
-    ['hotstone55', 'plantare25', 'relax25'],
-    'le eccezioni sul nome sono cambiate: aggiorna questo test insieme alla tabella qui sopra',
+    [],
+    'e stata aggiunta una divergenza sul nome: scrivila nella tabella qui sopra col motivo, o allinea acquista.ts',
   );
 });
 
