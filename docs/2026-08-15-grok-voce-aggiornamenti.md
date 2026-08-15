@@ -242,6 +242,54 @@ così fra sei mesi si capisce quale versione è caricata sull'agente.
 
 ---
 
+## 11 · I più richiesti erano quelli sbagliati
+
+**Dove:** Knowledge Base, sezione MASSAGGI E TRATTAMENTI, il blocco «Se
+l'ospite non sa cosa scegliere».
+
+Il prompt propone **antistress, relax al cacao, Ayurveda**. Sul listino
+stampato del centro benessere i più richiesti sono segnati col ♥, e sono
+altri: i **cinque Programmi**, il **Relax con olio di cacao**, lo **Shiatzu**,
+**manicure** e **pedicure**. Le due liste coincidono su **una voce sola**.
+
+Il prompt dice anche «Antistress — il più richiesto», che secondo il listino
+non è vero. E non nomina mai i Programmi, che sono anche i più cari (90–130 €).
+
+La proprietà ha confermato il 15 agosto 2026: **vale il listino**.
+
+**Sostituisci quel blocco con questo:**
+
+```
+**I PIÙ RICHIESTI — sono questi, e sono quelli segnati col ♥ sul listino del
+centro benessere.** ⟨verificare ogni anno col listino⟩
+
+- i **cinque Programmi**: Coccola 90 € · Viso Antirughe 90 € · Viso Termale
+  95 € · Oriente 130 € · Antistress 130 €
+- **Massaggio Relax con olio di cacao**, 25 min, 40 €
+- **Massaggio Shiatzu**, 50 min, 70 €
+- **Manicure** da 30 € · **Pedicure** da 40 €
+
+**Se l'ospite non sa cosa scegliere, dinne al massimo TRE**, una riga
+ciascuna, poi fermati — l'elenco qui sopra è quello da cui pescare, non da
+recitare. Scegli i tre in base a cosa ha detto:
+
+- vuole **qualcosa di veloce**, o è appena uscito dalle piscine → Relax con
+  olio di cacao, venticinque minuti
+- vuole **un massaggio vero**, o parla di tensioni → Shiatzu, cinquanta minuti
+- vuole **coccolarsi**, è un regalo, o ha tempo → un Programma, dicendo cosa
+  comprende
+
+**Non elencare mai l'intero listino a voce**, e non nominare manicure e
+pedicure come consiglio: sono fra i più richiesti perché la gente le prenota,
+non perché siano una risposta a «cosa mi consiglia».
+```
+
+L'ultima riga conta: manicure e pedicure sono nella lista dei ♥, ma proporle a
+chi chiede «cosa mi consiglia» fa sembrare che il centro benessere non abbia
+di meglio.
+
+---
+
 ## Cosa NON è cambiato
 
 Prezzi delle camere, fasce dei bambini, transfer, tassa di soggiorno, animali,

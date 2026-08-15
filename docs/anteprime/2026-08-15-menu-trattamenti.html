@@ -63,7 +63,9 @@
   /* la prima strada e' quella dei piu' richiesti: si distingue, perche' e'
      la risposta a "non so cosa scegliere" — la domanda piu' frequente */
   .strada.consiglio{border-color:var(--oro-chiaro);background:var(--verde-chiaro)}
-  .strada.consiglio .st::after{content:" ★";color:var(--oro);font-size:13px}
+  /* il cuore e' lo stesso segno che il cliente trova sul listino stampato:
+     non un simbolo inventato qui */
+  .strada.consiglio .st::after{content:" ♥";color:var(--oro);font-size:13px}
 
   .risultato{margin-top:22px;padding-top:19px;border-top:1px solid var(--bordo)}
   .vuoto{color:var(--tenue);font-size:14.5px;font-style:italic;margin:0}
@@ -112,17 +114,15 @@
   <div class="occhiello">Hotel Terme Leonardo · modulo richieste</div>
   <h1>Prima cosa cerca, poi cosa sceglie</h1>
   <p class="sottotitolo">
-    Il reparto benessere fa <strong>trentatré</strong> trattamenti. Mostrarli tutti
+    Il reparto benessere fa <strong>trentasei</strong> trattamenti. Mostrarli tutti
     insieme è una lista della spesa; questa strada ne fa vedere cinque o sei per volta,
     dopo aver chiesto cosa serve.
   </p>
 
   <div class="nota">
     <strong>È una prova, ma i dati sono veri.</strong> Nomi, durate e prezzi vengono dal
-    listino del reparto. La classifica dei più richiesti è quella che usate già voi
-    quando un ospite non sa scegliere. <strong>Le spiegazioni sotto la ⓘ le ho scritte
-    io e vanno lette dal reparto benessere prima di andare online:</strong> descrivono
-    trattamenti che non ho visto.
+    listino del reparto. I più richiesti sono i ♥ segnati sul listino. <strong>Le spiegazioni sotto la ⓘ sono state confermate dalla proprietà</strong>
+    il 15 agosto 2026: sono testo approvato, non una bozza.
   </div>
 
   <div class="telaio">
@@ -183,57 +183,75 @@ const D = {
 
 /* Il primo gruppo e' la classifica che l'hotel usa gia' al telefono con chi
    non sa scegliere: non e' una vetrina inventata qui. */
+/* IL LISTINO UFFICIALE, dal PDF del centro benessere consegnato dalla
+   proprieta' il 15 agosto 2026. Nomi, durate e prezzi copiati alla lettera:
+   dove il listino scrive «Massaggio riflessologia plantare» qui non c'e'
+   scritto «Riflessologia plantare», perche' la reception poi deve ritrovare
+   la voce nel gestionale.
+
+   Il ♥ sul listino segna i piu' richiesti — confermato dalla proprieta'.
+   Sono nove: manicure, pedicure, relax al cacao, Shiatzu e tutti e cinque i
+   Programmi. NOTA: la Knowledge Base del chatbot e dell'agente vocale ne
+   consiglia altri tre (antistress, relax al cacao, Ayurveda) e le due liste
+   coincidono su UNA voce sola: vanno allineate. */
 const GRUPPI = [
-  ['I più richiesti', 'se non sa cosa scegliere, si comincia da qui', [
-    ['Massaggio antistress', '45 min', 55, 'antistress'],
-    ['Massaggio relax con olio di cacao', '25 min', 40, 'cacao'],
-    ['Massaggio Ayurveda', '55 min', 65, 'ayurveda'],
+  ['I più richiesti', 'i ♥ del nostro listino', [
+    ['Programma Coccola', '', 90, 'progCoccola'],
+    ['Programma Viso Termale', '', 95, 'progTermale'],
+    ['Programma Viso Antirughe', '', 90, 'progViso'],
+    ['Programma Oriente', '', 130, 'progOriente'],
+    ['Programma Antistress', '', 130, 'progAnti'],
+    ['Massaggio Relax (con olio di cacao)', '25 min', 40, 'cacao'],
+    ['Massaggio Shiatzu', '50 min', 70, 'shiatzu'],
+    ['Manicure', '', 30, '', 'da'],
+    ['Pedicure', '', 40, '', 'da'],
   ]],
   ['Programmi benessere', 'più trattamenti in una volta sola', [
     ['Programma Coccola', '', 90, 'progCoccola'],
-    ['Programma Viso Antirughe', '', 90, 'progViso'],
     ['Programma Viso Termale', '', 95, 'progTermale'],
-    ['Programma Antistress', '', 130, 'progAnti'],
+    ['Programma Viso Antirughe', '', 90, 'progViso'],
     ['Programma Oriente', '', 130, 'progOriente'],
+    ['Programma Antistress', '', 130, 'progAnti'],
   ]],
-  ['Massaggi', 'il reparto più richiesto', [
-    ['Massaggio relax con olio di cacao', '25 min', 40, 'cacao'],
+  ['Massaggi corpo', 'il reparto più richiesto', [
+    ['Massaggio Relax (con olio di cacao)', '25 min', 40, 'cacao'],
     ['Massaggio nutriente al burro', '25 min', 40, 'burro'],
-    ['Riflessologia plantare', '25 min', 40, 'plantare'],
+    ['Massaggio riflessologia plantare', '25 min', 40, 'plantare'],
     ['Linfodrenaggio viso', '25 min', 40, 'linfoviso'],
-    ['Massaggio tonificante agli oli essenziali', '25 min', 45, 'tonificante'],
+    ['Massaggio tonificante con oli essenziali', '25 min', 45, 'tonificante'],
     ['Massaggio Body Candle', '25 min', 48, 'candle'],
     ['Massaggio antistress', '45 min', 55, 'antistress'],
-    ['Massaggio antistress', '55 min', 65, 'antistress'],
+    ['Massaggio anticellulite con fiala', '40 min', 60, 'fiala'],
     ['Massaggio californiano', '50 min', 60, 'californiano'],
     ['Massaggio Ayurveda', '55 min', 65, 'ayurveda'],
     ['Massaggio Pindasweda', '55 min', 65, 'pindasweda'],
-    ['Massaggio Hot Stone', '55 min', 65, 'hotstone'],
-    ['Massaggio Shiatzu', '50 min', 70, 'shiatzu'],
-    ['Anticellulite con fiala', '40 min', 60, 'fiala'],
-    ['Anticellulite con fiala', '50 min', 70, 'fiala'],
-    ['Linfodrenaggio parziale', '30 min', 40, 'linfo'],
+    ['Massaggio antistress', '55 min', 65, 'antistress'],
+    ['Massaggio “Hot Stone”', '55 min', 65, 'hotstone'],
     ['Linfodrenaggio completo', '60 min', 65, 'linfo'],
+    ['Massaggio anticellulite con fiala', '50 min', 70, 'fiala'],
+    ['Massaggio Shiatzu', '50 min', 70, 'shiatzu'],
+    ['Linfodrenaggio parziale', '30 min', 40, 'linfo'],
   ]],
-  ['Viso', 'dal fango termale all’anti-age', [
+  ['Trattamenti viso', 'dal fango termale all’anti-age', [
     ['Trattamento viso al fango termale con massaggio', '25 min', 44, 'visofango'],
     ['Pulizia viso completa con peeling e maschera', '55 min', 60, 'pulizia'],
-    ['Anti-age all’acido ialuronico', '55 min', 80, 'ialuronico'],
-    ['Bio-vitaminico alla vitamina C', '55 min', 80, 'vitaminac'],
-    ['Anti-age al collagene naturale', '55 min', 80, 'collagene'],
+    ['Trattamento anti-age all’acido ialuronico', '55 min', 80, 'ialuronico'],
+    ['Trattamento bio-vitaminico alla vitamina C', '55 min', 80, 'vitaminac'],
+    ['Trattamento anti-age collagene naturale', '55 min', 80, 'collagene'],
   ]],
-  ['Corpo, mani e piedi', 'scrub, rimodellanti e cure estetiche', [
-    ['Scrub al lime', '40 min', 50, 'scrublime'],
-    ['Scrub ai sali del Mar Morto', '40 min', 55, 'scrubmar'],
+  ['Trattamenti corpo', 'scrub, rimodellanti e cure estetiche', [
+    ['Scrub corpo al lime', '40 min', 50, 'scrublime'],
+    ['Scrub corpo ai sali del Mar Morto', '40 min', 55, 'scrubmar'],
     ['Trattamento seno gommage e maschera', '40 min', 60, 'seno'],
-    ['Anti-age allo zucchero levigante con massaggio', '55 min', 65, 'zucchero'],
-    ['Riducente anticellulite al fango', '55 min', 70, 'riducente'],
+    ['Trattamento anti-age a base di zucchero levigante e massaggio', '55 min', 65, 'zucchero'],
+    ['Trattamento riducente-anticellulite al fango', '55 min', 70, 'riducente'],
+    ['Epilazione parziale (ascelle o inguine)', '', 35, '', 'da'],
+    ['Epilazione completa', '', 60, '', 'da'],
     ['Manicure', '', 30, '', 'da'],
     ['Pedicure', '', 40, '', 'da'],
-    ['Epilazione parziale', '', 35, '', 'da'],
-    ['Epilazione completa', '', 60, '', 'da'],
   ]],
 ];
+
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const euro = (n, da) => (da ? 'da ' : '') + n + ' €';
