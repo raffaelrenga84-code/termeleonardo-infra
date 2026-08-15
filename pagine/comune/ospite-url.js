@@ -67,9 +67,20 @@ const testo = (v, max) => {
    controllo severo, solo "assomiglia a un indirizzo email" */
 const EMAIL_RE = /.+@.+\..+/;
 
+/* Dentro un indirizzo email vero non ci stanno `<`, `>`, virgolette (singole
+   o doppie) ne' spazi. EMAIL_RE da sola li lascia passare (bastano una
+   chiocciola e un punto: "<img src=x onerror=alert(1)>@b.it" la supera), e
+   `esc()` a valle li rende innocui — ma questo modulo non serve a rendere
+   innocuo, serve a dare un campo GIA' GIUSTO: un'email con markup dentro non
+   la manderebbe comunque in porto (il server la rifiuterebbe lo stesso), e
+   nel frattempo l'ospite si ritroverebbe un campo da ripulire invece che da
+   compilare — l'opposto del motivo per cui questo modulo esiste. */
+const EMAIL_CARATTERI_VIETATI = /[<>"'\s]/;
+
 function emailValida(v) {
   const s = testo(v, EMAIL_MAX);
-  return s && EMAIL_RE.test(s) ? s : '';
+  if (!s || EMAIL_CARATTERI_VIETATI.test(s)) return '';
+  return EMAIL_RE.test(s) ? s : '';
 }
 
 /* La data deve esistere DAVVERO: new Date('2026-02-31') non protesta, scivola
@@ -103,13 +114,26 @@ function adultiValidi(v) {
     Non fa escaping: vedi il commento in cima al file. */
 export function parametriOspite(ricerca) {
   const q = new URLSearchParams(ricerca || '');
+  const arrivo = dataValida(q.get('arrivo'));
+  let partenza = dataValida(q.get('partenza'));
+  /* Ogni data e' gia' validata per conto suo qui sopra (esiste davvero), ma
+     un arrivo e una partenza possono essere due date VERE e insieme
+     formare un periodo IMPOSSIBILE — la stessa regola che il server applica
+     gia' a una richiesta di soggiorno (richieste/valida.ts, validaRichiesta:
+     `partenza <= arrivo` e' un errore, non solo `partenza < arrivo`: non si
+     parte il giorno stesso in cui si arriva). Si scarta solo la partenza,
+     mai l'arrivo: un ospite che vede l'arrivo giusto e la partenza vuota
+     capisce subito quale campo correggere, uno che se le vede tornare
+     indietro tutte e due no. Senza un arrivo valido non c'e' una relazione
+     da controllare: la partenza resta quella che era. */
+  if (arrivo && partenza && partenza <= arrivo) partenza = '';
   return {
     rif: testo(q.get('rif'), RIF_MAX),
     nome: testo(q.get('nome'), NOME_MAX),
     email: emailValida(q.get('email')),
     tel: testo(q.get('tel'), TEL_MAX),
-    arrivo: dataValida(q.get('arrivo')),
-    partenza: dataValida(q.get('partenza')),
+    arrivo,
+    partenza,
     adulti: adultiValidi(q.get('adulti')),
     lang: LINGUE.includes(q.get('lang')) ? q.get('lang') : null,
   };

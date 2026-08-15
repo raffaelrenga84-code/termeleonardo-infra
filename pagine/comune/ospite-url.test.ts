@@ -74,6 +74,24 @@ Deno.test('un email malformata sparisce', () => {
   assertEquals(parametriOspite('email=' + encodeURIComponent('@senza-utente.it')).email, '');
 });
 
+/* Trovato provando il modulo con input ostili: "<img src=x onerror=alert(1)>@b.it"
+   ha una chiocciola e un punto, quindi passava EMAIL_RE cosi' com'era prima.
+   Non e' un pericolo — esc() lo neutralizza comunque — ma e' l'opposto del
+   motivo per cui questo modulo esiste: un campo email precompilato con
+   markup e' un campo che l'ospite deve RIPULIRE prima di poterlo usare,
+   invece di uno che trova gia' pronto. Dentro un indirizzo email vero non
+   ci stanno `<`, `>`, virgolette (singole o doppie) ne' spazi: se ci sono,
+   meglio un campo vuoto che uno sbagliato. */
+Deno.test('un email con markup, virgolette o spazi non ha la forma di un email vera', () => {
+  assertEquals(parametriOspite('email=' + encodeURIComponent('<img src=x onerror=alert(1)>@b.it')).email, '');
+  assertEquals(parametriOspite('email=' + encodeURIComponent('mario"rossi@b.it')).email, '');
+  assertEquals(parametriOspite('email=' + encodeURIComponent("mario'rossi@b.it")).email, '');
+  assertEquals(parametriOspite('email=' + encodeURIComponent('mario rossi@b.it')).email, '');
+  /* la controprova che il controllo e' mirato ai caratteri vietati e non a
+     tutto: un'email vera, senza niente di quello, deve continuare a passare */
+  assertEquals(parametriOspite('email=' + encodeURIComponent('mario.rossi@example.it')).email, 'mario.rossi@example.it');
+});
+
 /* Il difetto vero che questo test esiste a evitare: new Date('2026-02-31')
    NON protesta, scivola avanti al 3 marzo 2026. Un ospite con un link che
    contenesse quella data per errore si vedrebbe precompilare un arrivo
@@ -101,6 +119,40 @@ Deno.test('una data in un formato diverso da AAAA-MM-GG viene scartata', () => {
 Deno.test('il 29 febbraio esiste solo negli anni bisestili', () => {
   assertEquals(parametriOspite('arrivo=2026-02-29').arrivo, '');
   assertEquals(parametriOspite('arrivo=2028-02-29').arrivo, '2028-02-29');
+});
+
+/* Trovato provando il modulo con input ostili: arrivo e partenza erano
+   validate SEPARATAMENTE (ognuna e' una data vera) ma non nella loro
+   RELAZIONE — un periodo impossibile (si parte prima di essere arrivati)
+   passava intero fino a prenota/index.html. Stessa regola del server
+   (richieste/valida.ts, validaRichiesta: `partenza <= arrivo` e' un
+   errore), qui applicata scartando solo la partenza: un ospite che vede
+   l'arrivo giusto e la partenza vuota capisce subito cosa correggere, uno
+   che se le vede tornare indietro tutte e due no. */
+Deno.test('una partenza non dopo l arrivo si scarta, l arrivo resta', () => {
+  const primaDellArrivo = parametriOspite('arrivo=2026-09-20&partenza=2026-09-10');
+  assertEquals(primaDellArrivo.arrivo, '2026-09-20');
+  assertEquals(primaDellArrivo.partenza, '');
+
+  /* stesso giorno: non si parte il giorno in cui si arriva, la regola del
+     server e' `<=`, non `<` */
+  const stessoGiorno = parametriOspite('arrivo=2026-09-20&partenza=2026-09-20');
+  assertEquals(stessoGiorno.arrivo, '2026-09-20');
+  assertEquals(stessoGiorno.partenza, '');
+});
+
+Deno.test('una partenza dopo l arrivo resta cosi come e', () => {
+  const r = parametriOspite('arrivo=2026-09-20&partenza=2026-09-25');
+  assertEquals(r.arrivo, '2026-09-20');
+  assertEquals(r.partenza, '2026-09-25');
+});
+
+/* Senza le due date insieme non c'e' una relazione da controllare: una
+   partenza da sola (l'arrivo manca o non e' una data vera) non deve sparire
+   per colpa di un confronto con un arrivo che non esiste. */
+Deno.test('senza arrivo valido la partenza da sola non si tocca', () => {
+  assertEquals(parametriOspite('partenza=2026-09-10').partenza, '2026-09-10');
+  assertEquals(parametriOspite('arrivo=2026-13-40&partenza=2026-09-10').partenza, '2026-09-10');
 });
 
 /* adulti: un intero fra 1 e 10 (lo stesso tetto di OSPITI_MAX in
