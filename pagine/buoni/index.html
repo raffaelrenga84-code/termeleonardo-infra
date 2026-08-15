@@ -85,6 +85,14 @@ tr.apribile:hover td{background:#F7F5EF;}
 .st-vista{background:#FFF6E8;color:#B3541E;}
 .st-risposta{background:var(--acqua-chiara);color:var(--acqua-scura);}
 .st-chiusa{background:#F3F0EC;color:var(--grigio);}
+/* il tipo di richiesta (Trattamenti/Transfer/Green fee/Maestro/Soggiorno):
+   una pastiglia sola per tutti i tipi, non un colore per tipo — l'etichetta
+   arriva gia' scelta dal server (riepilogo.ts) e qui basta mostrarla */
+.badge-tipo{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;
+  background:var(--acqua-chiara);color:var(--acqua-scura);white-space:nowrap;}
+/* «aveva chiesto: mattina» accanto a un campo che la reception ha gia'
+   corretto rispetto a dati_originali */
+.nota-prima{font-size:11.5px;color:var(--grigio);margin-top:2px;}
 .esito{font-size:14px;color:var(--acqua-scura);min-height:20px;padding-top:10px;}
 .errore{color:var(--allarme);}
 .mini{font-size:12px;color:var(--grigio);}
@@ -966,24 +974,262 @@ function riepilogoATAM(r) {
   ].filter(Boolean).join('\n');
 }
 
-/* I campi che la reception cambia davvero: un orario spostato, un
-   passeggero in piu'. Il LUOGO non si modifica qui di proposito — deve
-   combaciare parola per parola con l'elenco ATAM, e un campo libero
-   inviterebbe a digitarlo a mano e a sbagliarlo. */
-function campiModificabili(r) {
+/* Stessa lista di supabase/functions/richieste/luoghi.ts (LUOGHI_ATAM),
+   copiata qui parola per parola, emoji comprese: questa pagina e' HTML
+   statico, non puo' importare un modulo Deno. Deve restare IDENTICA — la
+   conferma del server la rivalida (luogoValido in tipi.ts) e un valore che
+   non combacia si rifiuta con "luogo non in elenco". Stessa scelta gia'
+   fatta in pagine/richieste/transfer/index.html, che la duplica allo stesso
+   modo per il modulo pubblico. */
+const LUOGHI_ATAM = [
+  "Montegrotto", "Padova FS", "Padova città", "Terme  Euganee FS",
+  "Treviso Aeroporto", "Venezia  aeroporto", "Venezia P.le Roma", "Venezia porto",
+  "Abano", "Abano - Montegrotto", "Abano F.S", "Aeroporto Roma fiumicino",
+  "Agugliaro", "Albignasego", "Anguillara", "Ariano ferrarese", "Arquà Petrarca",
+  "Arzergrande", "Ascona", "Asiago", "Asolo", "Assenza corte", "Assenza lunghe",
+  "Bad KleinKircheim", "Badia Polesine", "Bagnoli di Sopra", "Baone",
+  "Bassano del Grappa", "Bastia", "Battaglia Terme", "Belluno",
+  "Bergamo aeroporto✈️", "Bologna Aeroporto", "Bologna città🎯", "Bolzano",
+  "Bovolenta", "Brendola (VI)", "Brescia", "Brindisi", "Cadoneghe", "Cagliari",
+  "Campodarsego", "Camposampiero", "Cartura", "Casalserugo",
+  "Caselle di Selvazzano", "Castelfranco", "Castello del Catajo",
+  "Cervarese Santa Croce", "Cesena", "Chiasso", "Chiasso (ch)",
+  "Chioggia-Sottomarina", "Cinto Euganeo", "Cittadella", "Como", "Conegliano",
+  "Conselve", "Cortina D'ampezzo", "Courmayeur", "Cremona", "Due Carrare",
+  "Este", "Ferrara", "Firenze", "Folgaria", "Formigine", "Galzignano",
+  "Galzignano e Galz Hotels", "Gardone Riviera", "Genova", "Giro Colli 2 ore🖼",
+  "Giro Colli 3 ore🖼", "Giro Colli 4 ore🖼", "Golf Frassanelle 🏌",
+  "Golf Montecchia🏌", "Golf Valsanzibio 🏌", "Gorizia", "Grado", "Grisignano",
+  "Imola", "Imperia", "Innsbruck", "Ipercity-Albignasego", "Jesolo⛱",
+  "La Spezia", "Legnaro", "Lignano Sabbiadoro⛱", "Limena", "Luvigliano",
+  "Mandria opera immacolata", "Mantova", "Marchirolo", "Marostica", "Maserà",
+  "Mentone", "Merano", "Mercato Abano", "Mercato Montegrotto", "Mestre fs",
+  "Mestrino", "Milano Città🎯", "Milano Malpensa✈️", "Milano Marittima",
+  "Milano-Linate", "Mira-Dolo", "Modena", "Monselice", "Montagnana",
+  "Montegaldella", "Montemerlo", "Noventa Padovana", "Noventa di Piave👔",
+  "Noventa vicentina", "Occhiobello", "Ortisei", "Outlet Noventa 3 ore",
+  "Outlet Noventa 4 ore", "Palmanova", "Parco dei Tigli", "Parma", "Pavia",
+  "Pernumia", "Perugia", "Pesaro - Urbino", "Pescara", "Peschiera del Garda",
+  "Piacenza", "Piazzola sul Brenta", "Piove di Sacco", "Pisa", "Pordenone",
+  "Porto Sant' Elpidio", "Pozzonovo", "Praglia⛪️", "Prato", "Princ. di Monaco",
+  "Ravenna", "Reggio Emilia", "Rimini", "Riva del Garda", "Roma", "Rovigo",
+  "Rovolon", "Rubano", "Saccolongo", "Sacile", "San Daniele ⛪️",
+  "San Pietro viminario", "Santa Giustina in Colle", "Saonara",
+  "Sarmeola di Rubano", "Sassuolo", "Schiavonia", "Schio", "Selvazzano",
+  "Sermide", "Siena", "Sirmione", "Solesino", "Stanghella", "Stra",
+  "Tencarola", "Teolo", "Terassa padovana", "Terradura", "Torino",
+  "Torre di Quartesolo", "Torreglia", "Tortona", "Trento", "Tribano",
+  "Trieste", "Udine", "Val Badia", "Valsanzibio", "Varese",
+  "Verona Aeroporto✈️", "Verona Arena🌛", "Verona città🎯", "Vicenza Fiera",
+  "Vicenza città🎯", "Vienna", "Vigonovo", "Vigonza", "Villafranca Padovana",
+  "Vo", "Zurigo", "civitavecchia",
+];
+
+/* Stessi tre circoli di CIRCOLI_GOLF in luoghi.ts: qui serve solo la chiave
+   (quella che tipi.ts controlla con Object.hasOwn) e il nome da mostrare —
+   nome esteso, luogo del taxi e le altre derivazioni le ricalcola il
+   server da solo (validaGreenfee), non vanno duplicate qui. */
+const CIRCOLI_GOLF_NOMI = {
+  padova: 'Golf Club Padova',
+  montecchia: 'Golf della Montecchia',
+  frassanelle: 'Golf Club Frassanelle',
+};
+
+/* «aveva chiesto: mattina» accanto al campo che la reception ha gia'
+   corretto. `differenze` arriva gia' calcolata dal server (differenze.ts,
+   confronto sui VALORI, non sugli oggetti) dentro ogni riga di ?a=elenco:
+   qui si legge un'etichetta gia' pronta, non si ricalcola niente. Le
+   stringhe qui sotto (in ETICHETTE_CAMPO_PER_TIPO e nelle chiamate ad
+   avevaChiesto) sono le stesse che etichettaCampo() in differenze.ts
+   genera per ogni chiave — non un calcolo duplicato, sono comunque il
+   testo delle etichette che questo modulo dei campi deve scrivere. */
+function avevaChiesto(r, etichettaCampo) {
+  const d = Array.isArray(r.differenze) ? r.differenze.find((x) => x.campo === etichettaCampo) : null;
+  return d ? `<div class="nota-prima">aveva chiesto: ${esc(d.prima || '—')}</div>` : '';
+}
+
+/* Le etichette che ogni tipo mostra gia' come campo modificabile (le stesse
+   passate ad avevaChiesto qui sotto): serve a boxAltreDifferenze per capire
+   quali differenze sono gia' visibili accanto a un campo e quali resterebbero
+   altrimenti invisibili — es. i noleggi del green fee (golfcar, carrello…),
+   che tipi.ts accetta ma questa scheda non offre in un campo dedicato.
+   Object.hasOwn e non ETICHETTE_CAMPO_PER_TIPO[r.tipo]: `tipo` arriva dal
+   database. */
+const ETICHETTE_CAMPO_PER_TIPO = {
+  transfer: ['Data', 'Ora', 'Passeggeri', 'Arrivo o partenza', 'Luogo', 'Volo', 'Ritorno incluso', 'Note'],
+  greenfee: ['Circolo', 'Data', 'Ora', 'Giocatori', 'Percorso', 'Tessera', 'Taxi al campo', 'Ora del taxi', 'Note'],
+  maestro: ['Data', 'Ora', 'Persone', 'Livello', 'Note'],
+  trattamenti: ['Trattamenti scelti', 'Giorno', 'Fascia oraria', 'Note'],
+};
+
+function differenzeNonMostrate(r) {
+  const coperte = Object.hasOwn(ETICHETTE_CAMPO_PER_TIPO, r.tipo) ? ETICHETTE_CAMPO_PER_TIPO[r.tipo] : [];
+  return Array.isArray(r.differenze) ? r.differenze.filter((d) => !coperte.includes(d.campo)) : [];
+}
+
+/* Una riga in coda ai campi, solo se c'e' una differenza che nessun campo
+   qui sopra ha gia' mostrato: cosi' nessuna correzione gia' fatta resta
+   invisibile, anche per un campo che questa scheda non rende modificabile. */
+function boxAltreDifferenze(r) {
+  const extra = differenzeNonMostrate(r);
+  if (!extra.length) return '';
+  return `<div class="mini" style="margin-top:10px;padding-top:10px;border-top:1px solid #F0EBE1;">
+    Altro gia' cambiato rispetto alla richiesta originale: ${extra.map((d) =>
+      `${esc(d.campo)} (aveva chiesto: ${esc(d.prima || '—')})`).join(' · ')}</div>`;
+}
+
+/* ---- i campi modificabili, uno schema per tipo ----
+   Le chiavi qui sotto rispecchiano tipi.ts (validaTransfer, validaGreenfee,
+   validaMaestro, validaTrattamenti): e' quel modulo a rivalidare quello che
+   si rimanda con ?a=conferma, qui si costruisce solo il modulo che lo
+   raccoglie. I campi che un tipo non espone qui (es. golfcar del green fee)
+   restano quelli che c'erano: vedi lo spread di r.dati in datiCorretti(). */
+function campiTransfer(r) {
   const d = r.dati || {};
-  if (r.tipo !== 'transfer') return '';
+  const opzLuogo = LUOGHI_ATAM.map((l) =>
+    `<option value="${esc(l)}" ${d.luogo === l ? 'selected' : ''}>${esc(l)}</option>`).join('');
   return `<div class="due">
-      <div><label>Giorno</label><input type="date" id="cQuando" value="${esc(d.quando || '')}" /></div>
-      <div><label>Ora</label><input type="time" id="cOra" value="${esc(d.ora || '')}" /></div>
+      <div><label>Giorno</label><input type="date" id="cQuando" value="${esc(d.quando || '')}" />${avevaChiesto(r, 'Data')}</div>
+      <div><label>Ora</label><input type="time" id="cOra" value="${esc(d.ora || '')}" />${avevaChiesto(r, 'Ora')}</div>
     </div>
     <div class="due">
-      <div><label>Passeggeri</label><input type="number" id="cPax" min="1" max="8" value="${esc(d.pax || 2)}" /></div>
-      <div><label>Volo / treno</label><input type="text" id="cVolo" value="${esc(d.volo || '')}" /></div>
+      <div><label>Passeggeri</label><input type="number" id="cPax" min="1" max="8" value="${esc(d.pax || 2)}" />${avevaChiesto(r, 'Passeggeri')}</div>
+      <div><label>Arrivo o partenza</label><select id="cVerso">
+        <option value="arrivo" ${d.verso === 'arrivo' ? 'selected' : ''}>Arrivo</option>
+        <option value="partenza" ${d.verso === 'partenza' ? 'selected' : ''}>Partenza</option>
+      </select>${avevaChiesto(r, 'Arrivo o partenza')}</div>
     </div>
+    <label>Luogo (deve combaciare con l’elenco ATAM)</label>
+    <select id="cLuogo"><option value="">—</option>${opzLuogo}</select>
+    ${avevaChiesto(r, 'Luogo')}
+    <div class="due">
+      <div><label>Volo / treno</label><input type="text" id="cVolo" value="${esc(d.volo || '')}" />${avevaChiesto(r, 'Volo')}</div>
+      <div><label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:400;margin-top:24px;">
+        <input type="checkbox" id="cRitorno" ${d.ritorno ? 'checked' : ''}
+          style="width:auto;margin:0;" /> serve anche il ritorno</label>${avevaChiesto(r, 'Ritorno incluso')}</div>
+    </div>
+    <label>Note</label><textarea id="cNote">${esc(d.note || '')}</textarea>${avevaChiesto(r, 'Note')}`;
+}
+
+function campiGreenfee(r) {
+  const d = r.dati || {};
+  const opzCircolo = Object.keys(CIRCOLI_GOLF_NOMI).map((k) =>
+    `<option value="${esc(k)}" ${d.circolo === k ? 'selected' : ''}>${esc(CIRCOLI_GOLF_NOMI[k])}</option>`).join('');
+  return `<label>Circolo</label>
+    <select id="cCircolo">${opzCircolo}</select>${avevaChiesto(r, 'Circolo')}
+    <div class="due">
+      <div><label>Data</label><input type="date" id="cData" value="${esc(d.data || '')}" />${avevaChiesto(r, 'Data')}</div>
+      <div><label>Ora</label><input type="time" id="cOra" value="${esc(d.ora || '')}" />${avevaChiesto(r, 'Ora')}</div>
+    </div>
+    <div class="due">
+      <div><label>Giocatori</label><input type="number" id="cGiocatori" min="1" max="4" value="${esc(d.giocatori || 1)}" />${avevaChiesto(r, 'Giocatori')}</div>
+      <div><label>Percorso</label><input type="text" id="cPercorso" value="${esc(d.percorso || '')}" />${avevaChiesto(r, 'Percorso')}</div>
+    </div>
+    <label>Tessera</label><input type="text" id="cTessera" value="${esc(d.tessera || '')}" />${avevaChiesto(r, 'Tessera')}
     <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:400;">
-      <input type="checkbox" id="cRitorno" ${d.ritorno ? 'checked' : ''}
-        style="width:auto;margin:0;" /> serve anche il ritorno</label>`;
+      <input type="checkbox" id="cTaxi" ${d.taxi ? 'checked' : ''}
+        style="width:auto;margin:0;" /> serve anche il taxi per il campo</label>${avevaChiesto(r, 'Taxi al campo')}
+    <label>Ora del taxi (se serve)</label><input type="time" id="cTaxiOra" value="${esc(d.taxi_ora || '')}" />${avevaChiesto(r, 'Ora del taxi')}
+    <label>Note</label><textarea id="cNote">${esc(d.note || '')}</textarea>${avevaChiesto(r, 'Note')}`;
+}
+
+const LIVELLI_MAESTRO = ['principiante', 'intermedio', 'esperto'];
+
+function campiMaestro(r) {
+  const d = r.dati || {};
+  /* "non so" e' il default di tipi.ts per un livello assente: la casella
+     vuota deve tornare a mandare '' (non la parola "non so"), perche'
+     validaMaestro rifiuta "non so" come livello sconosciuto — lo accetta
+     solo quando il campo e' vuoto. Vedi datiCorretti(). */
+  const livello = LIVELLI_MAESTRO.includes(d.livello) ? d.livello : '';
+  return `<div class="due">
+      <div><label>Data</label><input type="date" id="cData" value="${esc(d.data || '')}" />${avevaChiesto(r, 'Data')}</div>
+      <div><label>Ora</label><input type="time" id="cOra" value="${esc(d.ora || '')}" />${avevaChiesto(r, 'Ora')}</div>
+    </div>
+    <div class="due">
+      <div><label>Persone</label><input type="number" id="cPersone" min="1" max="4" value="${esc(d.persone || 1)}" />${avevaChiesto(r, 'Persone')}</div>
+      <div><label>Livello</label><select id="cLivello">
+        <option value="" ${!livello ? 'selected' : ''}>Non so / non specificato</option>
+        <option value="principiante" ${livello === 'principiante' ? 'selected' : ''}>Principiante</option>
+        <option value="intermedio" ${livello === 'intermedio' ? 'selected' : ''}>Intermedio</option>
+        <option value="esperto" ${livello === 'esperto' ? 'selected' : ''}>Esperto</option>
+      </select>${avevaChiesto(r, 'Livello')}</div>
+    </div>
+    <label>Note</label><textarea id="cNote">${esc(d.note || '')}</textarea>${avevaChiesto(r, 'Note')}`;
+}
+
+const FASCE_TRATTAMENTI = ['mattina', 'pomeriggio', 'indifferente'];
+
+function campiTrattamenti(r) {
+  const d = r.dati || {};
+  const voci = Array.isArray(d.voci) ? d.voci : [];
+  const fascia = FASCE_TRATTAMENTI.includes(d.fascia) ? d.fascia : 'indifferente';
+  return `<label>Trattamenti scelti (uno per riga)</label>
+    <textarea id="cVoci" rows="4">${esc(voci.join('\n'))}</textarea>${avevaChiesto(r, 'Trattamenti scelti')}
+    <div class="due">
+      <div><label>Giorno</label><input type="date" id="cGiorno" value="${esc(d.giorno || '')}" />${avevaChiesto(r, 'Giorno')}</div>
+      <div><label>Fascia oraria</label><select id="cFascia">
+        <option value="mattina" ${fascia === 'mattina' ? 'selected' : ''}>Mattina</option>
+        <option value="pomeriggio" ${fascia === 'pomeriggio' ? 'selected' : ''}>Pomeriggio</option>
+        <option value="indifferente" ${fascia === 'indifferente' ? 'selected' : ''}>Indifferente</option>
+      </select>${avevaChiesto(r, 'Fascia oraria')}</div>
+    </div>
+    <label>Note</label><textarea id="cNote">${esc(d.note || '')}</textarea>${avevaChiesto(r, 'Note')}`;
+}
+
+/* Elenco chiuso via switch, mai un OGGETTO[tipo]: il tipo arriva dal
+   database, e una chiave come "toString" esiste su Object.prototype. Un
+   tipo non riconosciuto non offre campi: non sappiamo la sua forma, e un
+   modulo indovinato manderebbe a ?a=conferma qualcosa che tipi.ts
+   rifiuterebbe comunque. */
+function campiModificabili(r) {
+  switch (r.tipo) {
+    case 'transfer': return campiTransfer(r);
+    case 'greenfee': return campiGreenfee(r);
+    case 'maestro': return campiMaestro(r);
+    case 'trattamenti': return campiTrattamenti(r);
+    default: return '';
+  }
+}
+
+/* Il `dati` da mandare a ?a=conferma, nella forma esatta che tipi.ts si
+   aspetta per quel tipo (il server rivalida e rifiuta se non torna). Si
+   parte SEMPRE da {...r.dati}: i campi che questa scheda non rende
+   modificabili (i noleggi del green fee, per esempio) restano quelli che
+   c'erano, non spariscono perche' il modulo non li ha mandati. */
+function datiCorretti(r) {
+  const base = r.dati || {};
+  switch (r.tipo) {
+    case 'transfer': return {
+      ...base,
+      quando: $('cQuando').value, ora: $('cOra').value,
+      pax: Number($('cPax').value || 1), verso: $('cVerso').value,
+      luogo: $('cLuogo').value, volo: $('cVolo').value,
+      ritorno: $('cRitorno').checked, note: $('cNote').value,
+    };
+    case 'greenfee': return {
+      ...base,
+      circolo: $('cCircolo').value, data: $('cData').value, ora: $('cOra').value,
+      giocatori: Number($('cGiocatori').value || 1), percorso: $('cPercorso').value,
+      tessera: $('cTessera').value, note: $('cNote').value,
+      taxi: $('cTaxi').checked, taxi_ora: $('cTaxiOra').value,
+    };
+    case 'maestro': return {
+      ...base,
+      data: $('cData').value, ora: $('cOra').value,
+      persone: Number($('cPersone').value || 1), livello: $('cLivello').value,
+      note: $('cNote').value,
+    };
+    case 'trattamenti': return {
+      ...base,
+      voci: $('cVoci').value.split('\n').map((s) => s.trim()).filter(Boolean),
+      giorno: $('cGiorno').value, fascia: $('cFascia').value, note: $('cNote').value,
+    };
+    /* soggiorno (mai passato qui: il pannello di conferma non si mostra
+       per lui) o un tipo non riconosciuto: nessuna correzione da mandare,
+       ?a=conferma tiene i dati che c'erano gia' */
+    default: return undefined;
+  }
 }
 
 /* ATTENZIONE ALL'UNITA': in `dati` i prezzi sono in CENTESIMI (lo dichiara
@@ -1020,6 +1266,23 @@ function righeSceltaSoggiorno(r, riga) {
       preventivo della casa. La camera non è bloccata.</td></tr>`);
 }
 
+/* Periodo/notti/ospiti sono i campi di un SOGGIORNO: componi-richiesta.ts
+   non valorizza quelle colonne per un transfer, un green fee, una lezione o
+   dei trattamenti — restano null. Mostrarle comunque era esattamente il
+   difetto di partenza di questa scheda: "→ · null notti · null ospiti". Qui
+   il pezzo mancante sparisce invece di comparire come "null": si guarda il
+   dato, non il tipo, cosi' vale anche per un tipo non ancora previsto che
+   avesse comunque un periodo. */
+function rigaPeriodo(r, riga) {
+  const periodo = [dataIT(r.check_in), dataIT(r.check_out)].filter(Boolean).join(' → ');
+  const pezzi = [
+    Number.isFinite(r.notti) ? `${r.notti} notti` : '',
+    Number.isFinite(r.ospiti) ? `${r.ospiti} ospiti` : '',
+  ].filter(Boolean).join(' · ');
+  if (!periodo && !pezzi) return '';
+  return riga('Periodo', `<strong>${esc(periodo)}</strong>${pezzi ? ` <span class="mini">${esc(pezzi)}</span>` : ''}`);
+}
+
 function dettaglioRichiesta(r) {
   const riga = (e, v) => v ? `<tr><td class="mini" style="padding-right:14px;white-space:nowrap;">${esc(e)}</td>
     <td>${v}</td></tr>` : '';
@@ -1027,12 +1290,19 @@ function dettaglioRichiesta(r) {
      e' configurato: il taglia e incolla dell'indirizzo e' il passaggio in
      cui si sbaglia una lettera e la risposta non arriva */
   const oggetto = encodeURIComponent(`Hotel Terme Leonardo — la sua richiesta ${r.numero}`);
+  /* nasce gia' spuntata quando dati_originali e dati differiscono davvero
+     (r.differenze, gia' calcolata dal server): i due errori non pesano
+     uguale. Segnalare all'ospite una cosa che sapeva gia' e' un fastidio
+     piccolo; non segnalargliene una che non sa e' un ospite che si
+     presenta all'ora sbagliata, convinto di avere ragione. L'operatore la
+     toglie in un clic se ha gia' sentito l'ospite al telefono. */
+  const segnalaDiDefault = Array.isArray(r.differenze) && r.differenze.length > 0;
   return `<div class="riquadro" style="margin-top:14px;">
-    <h2>${esc(r.nome)} <span class="stato st-${esc(r.stato)}">${esc(etichetta(STATI_RICHIESTA, r.stato))}</span></h2>
+    <h2>${esc(r.nome)} <span class="badge-tipo">${esc(r.etichetta || 'Richiesta')}</span>
+      <span class="stato st-${esc(r.stato)}">${esc(etichetta(STATI_RICHIESTA, r.stato))}</span></h2>
     <div class="mini">${esc(r.numero)} · arrivata il ${quandoIT(r.creato_il)}</div>
     <table style="margin-top:12px;">
-      ${riga('Periodo', `<strong>${dataIT(r.check_in)} → ${dataIT(r.check_out)}</strong>
-        <span class="mini">${r.notti} notti · ${r.ospiti} ospiti</span>`)}
+      ${rigaPeriodo(r, riga)}
       ${riga('Email', `<a href="mailto:${esc(r.email)}?subject=${oggetto}">${esc(r.email)}</a>`)}
       ${riga('Telefono', r.telefono ? `<a href="tel:${esc(r.telefono)}">${esc(r.telefono)}</a>` : '')}
       ${riga('Lingua', esc(etichetta(LINGUA_NOME, r.lingua)))}
@@ -1053,9 +1323,13 @@ function dettaglioRichiesta(r) {
       <div class="mini" style="padding-bottom:6px;">Correggi qui se hai spostato qualcosa:
         l’ospite riceve questi dati, non quelli che aveva chiesto.</div>
       ${campiModificabili(r)}
+      ${boxAltreDifferenze(r)}
       <label>Messaggio per l’ospite (facoltativo)</label>
       <textarea id="cMessaggio" rows="3"
         placeholder="es. Il prezzo è di 85 € a tratta, pagamento diretto all’autista."></textarea>
+      <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:400;margin-top:12px;">
+        <input type="checkbox" id="cSegnala" ${segnalaDiDefault ? 'checked' : ''}
+          style="width:auto;margin:0;" /> segnala all’ospite cosa è cambiato</label>
       <button class="azione" id="bConferma">Conferma e avvisa l’ospite</button>
     </div>` : ''}
 
@@ -1107,13 +1381,13 @@ async function vistaRichieste() {
       $('rEsito').textContent = CARICATE.length
         ? `${CARICATE.length} richieste` : 'Nessuna richiesta.';
       $('rTab').innerHTML = CARICATE.length ? `<table>
-        <tr><th>Numero</th><th>Arrivata</th><th>Ospite</th><th>Periodo</th><th>Stato</th></tr>` +
+        <tr><th>Numero</th><th>Arrivata</th><th>Ospite</th><th>Richiesta</th><th>Stato</th></tr>` +
         CARICATE.map(r => `<tr class="apribile" data-numero="${esc(r.numero)}">
           <td class="cod">${esc(r.numero)}</td>
           <td class="mini">${quandoIT(r.creato_il)}</td>
           <td>${esc(r.nome)}<div class="mini">${esc(r.email)}${r.telefono ? ' · ' + esc(r.telefono) : ''}</div></td>
-          <td>${dataIT(r.check_in)} → ${dataIT(r.check_out)}
-            <div class="mini">${r.notti} notti · ${r.ospiti} ospiti · ${esc(etichetta(LINGUA_NOME, r.lingua))}</div></td>
+          <td><span class="badge-tipo">${esc(r.etichetta || 'Richiesta')}</span>
+            <div class="mini">${esc(r.riepilogo || '')}</div></td>
           <td><span class="stato st-${esc(r.stato)}">${esc(etichetta(STATI_RICHIESTA, r.stato))}</span></td>
         </tr>`).join('') + `</table>` : '';
 
@@ -1144,19 +1418,17 @@ async function vistaRichieste() {
           if (bConf) bConf.onclick = async () => {
             bConf.disabled = true;
             $('rAzione').textContent = 'Invio la conferma…';
-            /* si mandano solo i campi che esistono davvero per questo tipo:
-               il server li rivalida comunque */
-            const dati = r.tipo === 'transfer' ? {
-              ...(r.dati || {}),
-              quando: $('cQuando').value, ora: $('cOra').value,
-              pax: Number($('cPax').value || 1), volo: $('cVolo').value,
-              ritorno: $('cRitorno').checked,
-            } : undefined;
+            /* la forma esatta che tipi.ts si aspetta per questo tipo: il
+               server la rivalida comunque e rifiuta se non torna */
+            const dati = datiCorretti(r);
+            const cSegnala = $('cSegnala');
             try {
               const j = await chiama('?a=conferma', {
                 method: 'POST',
                 body: JSON.stringify({ numero: r.numero, dati,
-                  messaggio: $('cMessaggio').value, utente: OPERATORE }),
+                  messaggio: $('cMessaggio').value,
+                  segnala_modifiche: cSegnala ? cSegnala.checked : false,
+                  utente: OPERATORE }),
               }, FUNZIONE_RICHIESTE);
               /* la conferma vale solo se l'email e' partita: dirlo, invece di
                  lasciar credere che l'ospite sappia */
