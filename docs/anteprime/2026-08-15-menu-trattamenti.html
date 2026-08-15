@@ -1,0 +1,293 @@
+<title>Menu Trattamenti Leonardo</title>
+<style>
+  /* Palette del Leonardo, presa dal codice del sito e dei buoni regalo:
+     verde profondo, oro, crema, verde chiaro. Il modulo deve sembrare
+     dell'hotel, non di un'agenzia. */
+  :root{
+    --verde:#1A3626; --verde-chiaro:#E4F0EA; --oro:#B08D57; --oro-chiaro:#C9A961;
+    --crema:#F9F6F0; --inchiostro:#1C1C1C; --tenue:#6B6459; --bordo:#E5E0D8;
+    --fondo:#FFFFFF; --carta:#FFFFFF; --ombra:0 1px 3px rgba(26,54,38,.07);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --verde:#DCEBE1; --verde-chiaro:#1E3227; --oro:#D5B173; --oro-chiaro:#C9A961;
+      --crema:#151A16; --inchiostro:#ECEAE4; --tenue:#9A958B; --bordo:#2C3A31;
+      --fondo:#101410; --carta:#181D19; --ombra:0 1px 3px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --verde:#DCEBE1; --verde-chiaro:#1E3227; --oro:#D5B173; --oro-chiaro:#C9A961;
+    --crema:#151A16; --inchiostro:#ECEAE4; --tenue:#9A958B; --bordo:#2C3A31;
+    --fondo:#101410; --carta:#181D19; --ombra:0 1px 3px rgba(0,0,0,.4);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--fondo);color:var(--inchiostro);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .foglio{max-width:760px;margin:0 auto;padding:40px 20px 90px}
+
+  .occhiello{
+    font:11px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--oro);
+  }
+  h1{
+    font:400 clamp(28px,5vw,42px)/1.15 Georgia,"Times New Roman",serif;
+    color:var(--verde);margin:13px 0 0;text-wrap:balance;letter-spacing:-.01em;
+  }
+  .sottotitolo{max-width:60ch;color:var(--tenue);margin:13px 0 0}
+  .nota{
+    margin:30px 0 0;padding:15px 17px;background:var(--verde-chiaro);
+    border-left:3px solid var(--oro);border-radius:2px;
+  }
+  .nota strong{color:var(--verde)}
+
+  .telaio{
+    margin-top:36px;border:1px solid var(--bordo);border-radius:4px;
+    background:var(--carta);box-shadow:var(--ombra);overflow:hidden;
+  }
+  .intestazione{background:var(--verde);color:var(--crema);padding:13px 20px;font-size:13px;letter-spacing:.04em}
+  .corpo{padding:22px 20px}
+
+  .domanda{font:400 21px/1.3 Georgia,serif;color:var(--verde);margin:0 0 15px}
+  .strade{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:11px}
+  .strada{
+    border:1px solid var(--bordo);border-radius:4px;padding:16px 15px;cursor:pointer;
+    background:transparent;text-align:left;font-family:inherit;color:var(--inchiostro);
+  }
+  .strada:hover{border-color:var(--oro);background:var(--verde-chiaro)}
+  .strada[aria-pressed="true"]{border-color:var(--verde);background:var(--verde-chiaro)}
+  .strada .st{font:400 17px/1.2 Georgia,serif;color:var(--verde);display:block}
+  .strada .sq{font-size:12.5px;color:var(--tenue);margin-top:5px;display:block}
+  /* la prima strada e' quella dei piu' richiesti: si distingue, perche' e'
+     la risposta a "non so cosa scegliere" — la domanda piu' frequente */
+  .strada.consiglio{border-color:var(--oro-chiaro);background:var(--verde-chiaro)}
+  .strada.consiglio .st::after{content:" ★";color:var(--oro);font-size:13px}
+
+  .risultato{margin-top:22px;padding-top:19px;border-top:1px solid var(--bordo)}
+  .vuoto{color:var(--tenue);font-size:14.5px;font-style:italic;margin:0}
+  .titolo-gruppo{font:400 19px/1.2 Georgia,serif;color:var(--verde);margin:0 0 4px}
+  .intro-gruppo{color:var(--tenue);font-size:14px;margin:0 0 16px}
+
+  .voce{display:flex;align-items:baseline;gap:10px;padding:10px 4px;border-radius:3px}
+  .voce:hover{background:var(--verde-chiaro)}
+  .voce > input{margin:0;accent-color:var(--verde);flex:0 0 auto;align-self:center}
+  .voce .nome{flex:1 1 auto;cursor:pointer}
+  .voce .durata{color:var(--tenue);font-size:13.5px;white-space:nowrap}
+  .voce .prezzo{
+    font-weight:600;color:var(--verde);white-space:nowrap;
+    font-variant-numeric:tabular-nums;min-width:60px;text-align:right;
+  }
+  .filetto{flex:1 1 auto;border-bottom:1px dotted var(--bordo);transform:translateY(-4px);min-width:14px}
+
+  /* la ⓘ: piccola, discreta, ma con un bersaglio grande abbastanza per un
+     dito — 30px, non 14 come sembra a vederla */
+  .info{
+    flex:0 0 auto;width:30px;height:30px;margin:-6px 0;border:0;background:transparent;
+    color:var(--oro);cursor:pointer;font:italic 600 15px/1 Georgia,serif;
+    border-radius:50%;align-self:center;
+  }
+  .info:hover{background:var(--verde-chiaro);color:var(--verde)}
+  .info[aria-expanded="true"]{background:var(--verde);color:var(--crema)}
+  .spiega{
+    margin:-2px 4px 12px 34px;padding:11px 14px;background:var(--verde-chiaro);
+    border-radius:3px;font-size:14px;color:var(--inchiostro);max-width:56ch;
+  }
+  .riga{display:block}
+
+  .pieno{
+    margin-top:26px;padding-top:18px;border-top:1px solid var(--bordo);
+    display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;
+  }
+  .pieno .conto{color:var(--tenue);font-size:14px}
+  .pieno .somma{font:400 21px/1 Georgia,serif;color:var(--verde);font-variant-numeric:tabular-nums}
+  .avviso{margin:14px 0 0;font-size:13px;color:var(--tenue);max-width:62ch}
+
+  button:focus-visible,input:focus-visible{outline:2px solid var(--oro);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="foglio">
+  <div class="occhiello">Hotel Terme Leonardo · modulo richieste</div>
+  <h1>Prima cosa cerca, poi cosa sceglie</h1>
+  <p class="sottotitolo">
+    Il reparto benessere fa <strong>trentatré</strong> trattamenti. Mostrarli tutti
+    insieme è una lista della spesa; questa strada ne fa vedere cinque o sei per volta,
+    dopo aver chiesto cosa serve.
+  </p>
+
+  <div class="nota">
+    <strong>È una prova, ma i dati sono veri.</strong> Nomi, durate e prezzi vengono dal
+    listino del reparto. La classifica dei più richiesti è quella che usate già voi
+    quando un ospite non sa scegliere. <strong>Le spiegazioni sotto la ⓘ le ho scritte
+    io e vanno lette dal reparto benessere prima di andare online:</strong> descrivono
+    trattamenti che non ho visto.
+  </div>
+
+  <div class="telaio">
+    <div class="intestazione">Massaggi e trattamenti — la sua richiesta</div>
+    <div class="corpo">
+      <p class="domanda">Cosa le farebbe piacere?</p>
+      <div class="strade" id="strade"></div>
+      <div class="risultato" id="risultato"><p class="vuoto">Scelga una strada qui sopra.</p></div>
+      <div class="pieno">
+        <span class="conto" id="conto">Nessun trattamento scelto</span>
+        <span class="somma" id="somma"></span>
+      </div>
+      <p class="avviso">
+        I prezzi sono quelli di listino. Giorno e ora li conferma il reparto benessere:
+        questa è una richiesta, non una prenotazione.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Le spiegazioni sono volutamente corte — una o due righe. Descrivono COSA
+   SUCCEDE sul lettino, non cosa promette di fare: un trattamento estetico che
+   promette effetti terapeutici e' una promessa che l'hotel non puo' mantenere,
+   e su massaggi e fanghi la differenza fra benessere e curativo e' anche
+   normativa. Vanno comunque confermate dal reparto. */
+const D = {
+  antistress:  'Pressioni lente su schiena, collo e spalle, dove la tensione si accumula.',
+  cacao:       'Movimenti avvolgenti con olio tiepido al cacao. Il più breve: sta bene dopo le piscine.',
+  ayurveda:    'Tecnica indiana con olio caldo e movimenti lunghi e continui, su tutto il corpo.',
+  californiano:'Movimenti ampi, lenti e continui, senza pressioni forti. Il più dolce dei nostri.',
+  hotstone:    'Pietre laviche calde appoggiate sulla schiena e fatte scorrere: il calore fa il lavoro.',
+  pindasweda:  'Tamponi di erbe caldi, picchiettati e fatti scorrere sul corpo.',
+  shiatzu:     'Pressioni con i pollici lungo linee precise. Si riceve vestiti, senza olio.',
+  candle:      'Cera di una candela vegetale, sciolta a bassa temperatura e usata come olio.',
+  plantare:    'Pressioni su punti precisi della pianta del piede.',
+  linfo:       'Movimenti molto leggeri e ritmici, nel verso della circolazione linfatica.',
+  linfoviso:   'Lo stesso tocco leggero del linfodrenaggio, sul viso e sul collo.',
+  tonificante: 'Manovre più vivaci, con oli essenziali scelti insieme all’operatore.',
+  burro:       'Burro vegetale tiepido al posto dell’olio: più denso, per la pelle secca.',
+  fiala:       'Manovre di rimodellamento su gambe e fianchi, con una fiala concentrata.',
+  visofango:   'Il fango delle nostre vasche, maturato, sul viso, seguito da un massaggio.',
+  pulizia:     'Peeling, estrazione e maschera. È la base, prima di qualunque altro viso.',
+  ialuronico:  'Trattamento rimpolpante all’acido ialuronico.',
+  vitaminac:   'Trattamento illuminante alla vitamina C.',
+  collagene:   'Maschera in foglio al collagene naturale.',
+  scrublime:   'Esfoliante agli agrumi: leggero e profumato.',
+  scrubmar:    'Sali del Mar Morto, granulosi: levigano e preparano la pelle.',
+  seno:        'Gommage e maschera specifici per il décolleté.',
+  zucchero:    'Zucchero levigante, seguito da massaggio.',
+  riducente:   'Fango termale su gambe e addome, con manovre rimodellanti.',
+  progCoccola: 'Due trattamenti in una volta: pulizia viso completa e manicure.',
+  progViso:    'Pulizia viso completa seguita dal trattamento al collagene.',
+  progTermale: 'Pulizia viso e trattamento con il nostro fango termale.',
+  progAnti:    'Tre passaggi: scrub ai sali del Mar Morto, massaggio antistress, viso al fango.',
+  progOriente: 'Massaggio Ayurveda e trattamento viso alla vitamina C.',
+};
+
+/* Il primo gruppo e' la classifica che l'hotel usa gia' al telefono con chi
+   non sa scegliere: non e' una vetrina inventata qui. */
+const GRUPPI = [
+  ['I più richiesti', 'se non sa cosa scegliere, si comincia da qui', [
+    ['Massaggio antistress', '45 min', 55, 'antistress'],
+    ['Massaggio relax con olio di cacao', '25 min', 40, 'cacao'],
+    ['Massaggio Ayurveda', '55 min', 65, 'ayurveda'],
+  ]],
+  ['Programmi benessere', 'più trattamenti in una volta sola', [
+    ['Programma Coccola', '', 90, 'progCoccola'],
+    ['Programma Viso Antirughe', '', 90, 'progViso'],
+    ['Programma Viso Termale', '', 95, 'progTermale'],
+    ['Programma Antistress', '', 130, 'progAnti'],
+    ['Programma Oriente', '', 130, 'progOriente'],
+  ]],
+  ['Massaggi', 'il reparto più richiesto', [
+    ['Massaggio relax con olio di cacao', '25 min', 40, 'cacao'],
+    ['Massaggio nutriente al burro', '25 min', 40, 'burro'],
+    ['Riflessologia plantare', '25 min', 40, 'plantare'],
+    ['Linfodrenaggio viso', '25 min', 40, 'linfoviso'],
+    ['Massaggio tonificante agli oli essenziali', '25 min', 45, 'tonificante'],
+    ['Massaggio Body Candle', '25 min', 48, 'candle'],
+    ['Massaggio antistress', '45 min', 55, 'antistress'],
+    ['Massaggio antistress', '55 min', 65, 'antistress'],
+    ['Massaggio californiano', '50 min', 60, 'californiano'],
+    ['Massaggio Ayurveda', '55 min', 65, 'ayurveda'],
+    ['Massaggio Pindasweda', '55 min', 65, 'pindasweda'],
+    ['Massaggio Hot Stone', '55 min', 65, 'hotstone'],
+    ['Massaggio Shiatzu', '50 min', 70, 'shiatzu'],
+    ['Anticellulite con fiala', '40 min', 60, 'fiala'],
+    ['Anticellulite con fiala', '50 min', 70, 'fiala'],
+    ['Linfodrenaggio parziale', '30 min', 40, 'linfo'],
+    ['Linfodrenaggio completo', '60 min', 65, 'linfo'],
+  ]],
+  ['Viso', 'dal fango termale all’anti-age', [
+    ['Trattamento viso al fango termale con massaggio', '25 min', 44, 'visofango'],
+    ['Pulizia viso completa con peeling e maschera', '55 min', 60, 'pulizia'],
+    ['Anti-age all’acido ialuronico', '55 min', 80, 'ialuronico'],
+    ['Bio-vitaminico alla vitamina C', '55 min', 80, 'vitaminac'],
+    ['Anti-age al collagene naturale', '55 min', 80, 'collagene'],
+  ]],
+  ['Corpo, mani e piedi', 'scrub, rimodellanti e cure estetiche', [
+    ['Scrub al lime', '40 min', 50, 'scrublime'],
+    ['Scrub ai sali del Mar Morto', '40 min', 55, 'scrubmar'],
+    ['Trattamento seno gommage e maschera', '40 min', 60, 'seno'],
+    ['Anti-age allo zucchero levigante con massaggio', '55 min', 65, 'zucchero'],
+    ['Riducente anticellulite al fango', '55 min', 70, 'riducente'],
+    ['Manicure', '', 30, '', 'da'],
+    ['Pedicure', '', 40, '', 'da'],
+    ['Epilazione parziale', '', 35, '', 'da'],
+    ['Epilazione completa', '', 60, '', 'da'],
+  ]],
+];
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const euro = (n, da) => (da ? 'da ' : '') + n + ' €';
+
+document.getElementById('strade').innerHTML = GRUPPI.map(([g, q], i) => `
+  <button type="button" class="strada${i === 0 ? ' consiglio' : ''}" aria-pressed="false" data-i="${i}">
+    <span class="st">${esc(g)}</span><span class="sq">${esc(q)}</span>
+  </button>`).join('');
+
+function mostra(i) {
+  const [g, q, voci] = GRUPPI[i];
+  document.getElementById('risultato').innerHTML =
+    `<p class="titolo-gruppo">${esc(g)}</p><p class="intro-gruppo">${esc(q)}</p>` +
+    voci.map(([n, d, p, chiave, da], k) => `
+      <span class="riga">
+        <label class="voce">
+          <input type="checkbox" data-p="${p}" />
+          <span class="nome">${esc(n)}</span>
+          ${d ? `<span class="durata">${esc(d)}</span>` : ''}
+          ${chiave ? `<button type="button" class="info" aria-expanded="false"
+              aria-label="Che cos'è ${esc(n)}" data-k="${esc(chiave)}" data-id="s${i}-${k}">i</button>` : ''}
+          <span class="filetto"></span>
+          <span class="prezzo">${euro(p, da)}</span>
+        </label>
+        <span class="spiega" id="s${i}-${k}" hidden></span>
+      </span>`).join('');
+  conta();
+}
+
+function conta() {
+  const scelti = [...document.querySelectorAll('#risultato input:checked')];
+  const somma = scelti.reduce((t, e) => t + Number(e.dataset.p), 0);
+  document.getElementById('conto').textContent =
+    scelti.length === 0 ? 'Nessun trattamento scelto'
+    : scelti.length === 1 ? '1 trattamento scelto' : scelti.length + ' trattamenti scelti';
+  document.getElementById('somma').textContent = somma ? somma + ' €' : '';
+}
+
+document.addEventListener('click', (e) => {
+  const info = e.target.closest('.info');
+  if (info) {
+    e.preventDefault();
+    const box = document.getElementById(info.dataset.id);
+    const aperto = info.getAttribute('aria-expanded') === 'true';
+    info.setAttribute('aria-expanded', String(!aperto));
+    box.hidden = aperto;
+    if (!aperto) box.textContent = D[info.dataset.k] || '';
+    return;
+  }
+  const strada = e.target.closest('.strada');
+  if (!strada) return;
+  document.querySelectorAll('.strada').forEach((s) => s.setAttribute('aria-pressed', String(s === strada)));
+  mostra(Number(strada.dataset.i));
+});
+
+document.addEventListener('change', (e) => { if (e.target.matches('#risultato input')) conta(); });
+</script>
