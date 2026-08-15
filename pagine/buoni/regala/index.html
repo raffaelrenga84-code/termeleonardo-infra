@@ -141,6 +141,12 @@ font-size:13px;color:var(--verde-medio);}
    buoni regalo resta bianca. '/buoni/buono.js' vale uguale sui due domini
    e comunque sia scritto l'indirizzo. Vedi percorsi-web.test.ts. */
 import { buonoHTML, CONDIZIONI, esc, riepilogoVoci } from '/buoni/buono.js';
+/* IDEM PERCORSO ASSOLUTO: i parametri che i pulsanti delle email della
+   reception scrivono nell'indirizzo — vedi il commento in cima a
+   ospite-url.js per il perche' e il contratto (ripulisce, non fa
+   escaping: tocca comunque a `esc()` qui sotto, come per ogni altro
+   campo di questa pagina). */
+import { normalizzaLingua, parametriOspite } from '/comune/ospite-url.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
 
@@ -165,10 +171,23 @@ const eur = (n) => Number(n || 0).toLocaleString('it-IT', { minimumFractionDigit
 const arrotondaValore = (v) => Math.round(Number(v) || 0);
 
 /* ---------- lingua della pagina ---------- */
-const qs = new URLSearchParams(location.search);
+/* normalizzaLingua copia `lang=` su `l` solo se `l` manca: `qs` resta
+   quella che questa pagina gia' usa anche per altro (es. `qs.get('rif')`
+   in grazie(), il riferimento del PAGAMENTO dopo Stripe — un `rif` diverso
+   da quello di un'offerta, non toccato da questa normalizzazione, che
+   riguarda solo la chiave `l`/`lang`). */
+const qs = new URLSearchParams(normalizzaLingua(location.search));
 let LNG = ['it','de','en','fr'].includes(qs.get('l')) ? qs.get('l')
   : (['de','fr'].includes((navigator.language || '').slice(0,2)) ? (navigator.language || '').slice(0,2)
   : ((navigator.language || '').slice(0,2) === 'it' ? 'it' : 'en'));
+
+/* Il ripiego per chi non ha un token: nome ed email letti dall'indirizzo
+   stesso, come li scrivono i pulsanti delle email della reception. Qui
+   servono solo questi due campi (e la lingua, sopra): un buono regalo non
+   ha un riferimento di offerta di soggiorno, per questo questa pagina non
+   usa `DA_URL.rif` — e non lo deve, visto che `rif` qui e' gia' preso dal
+   riferimento del pagamento (vedi il commento su `qs` qui sopra). */
+const DA_URL = parametriOspite(location.search);
 
 /* ---------- catalogo: identico al back office (i prezzi veri li ricontrolla il server) ---------- */
 /* il Day Spa sta in cima perch\u00e9 \u00e8 quello che chiedono di pi\u00f9: la prima
@@ -534,8 +553,8 @@ function modulo() {
     <div class="riquadro">
       <h2>${esc(t.tu)}</h2><div class="guida">${esc(t.guidaTu)}</div>
       <div class="due">
-        <div><label>${esc(t.acq)}</label><input type="text" id="fAcq" autocomplete="name" /></div>
-        <div><label>${esc(t.mail)} *</label><input type="email" id="fAcqMail" autocomplete="email" /></div>
+        <div><label>${esc(t.acq)}</label><input type="text" id="fAcq" autocomplete="name" value="${esc(DA_URL.nome)}" /></div>
+        <div><label>${esc(t.mail)} *</label><input type="email" id="fAcqMail" autocomplete="email" value="${esc(DA_URL.email)}" /></div>
       </div>
       <label>${esc(t.mailDest)}</label><input type="email" id="fDestMail" />
       <div class="mini" style="margin-top:5px;">${esc(t.mailDestNota)}</div>

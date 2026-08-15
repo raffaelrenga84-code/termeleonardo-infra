@@ -139,6 +139,12 @@ import { oggiISO, attivaDate } from '/comune/date.js';
    arriva alla pagina, e leggendo solo location.search questa pagina apriva
    il modulo dei green fee a chi aveva chiesto i trattamenti. */
 import { indirizzoPerLingua, linguaScelta, tipoScelto } from '/comune/percorso.js';
+/* IDEM PERCORSO ASSOLUTO: i parametri che i pulsanti delle email della
+   reception scrivono nell'indirizzo (rif, nome, email, tel, arrivo,
+   partenza, adulti, lang) — vedi il commento in cima a ospite-url.js per
+   il perche' e il contratto (ripulisce, non fa escaping: tocca comunque
+   a `esc()` qui sotto). */
+import { normalizzaLingua, parametriOspite } from '/comune/ospite-url.js';
 /* IDEM PERCORSO ASSOLUTO: i 36 trattamenti, i loro gruppi e le spiegazioni
    della ⓘ vivono in un modulo solo (vedi il commento in cima a
    trattamenti.js) — non si riscrivono qui dentro, altrimenti sarebbe il
@@ -155,7 +161,23 @@ const qs = new URLSearchParams(location.search);
 const TOKEN = qs.get('t') || '';
 const TIPI = ['greenfee','maestro','trattamenti'];
 const TIPO = tipoScelto(location.search, location.pathname, TIPI, 'greenfee');
-let LNG = linguaScelta(location.search, location.pathname, navigator.language);
+/* normalizzaLingua copia `lang=` su `l` SOLO quando `l` manca: la `qs` qui
+   sopra resta la query VERA, non tocca. Serve piu' sotto, in precompila():
+   il token che risponde con una lingua nota deve vincere su `lang=` (dati
+   di Fidra, un ripiego) esattamente come gia' vince sul browser — per
+   questo il controllo la' e' `!qs.get('l')` e non `!LNG_QUERY`. */
+let LNG = linguaScelta(normalizzaLingua(location.search), location.pathname, navigator.language);
+
+/* Il ripiego per chi non ha un token: dati dell'ospite letti dall'indirizzo
+   stesso, come li scrivono i pulsanti delle email della reception
+   («Richiedi trattamenti e massaggi» eccetera). ORDINE DI FIDUCIA: OSPITE
+   (dal token, sotto in precompila()) resta la fonte vera quando risponde e
+   scavalca questi valori campo per campo (`OSPITE?.nome || DA_URL.nome`),
+   mai il contrario — i parametri qui riempiono solo quello che il token
+   non ha dato. Il telefono, per esempio, non lo da' mai: l'endpoint di
+   precompilazione non lo restituisce (vedi supabase/functions/richieste/
+   index.ts, azione precompila). */
+const DA_URL = parametriOspite(location.search);
 
 const CIRCOLI = [
   ['montecchia', 'Golf della Montecchia — Selvazzano Dentro · 27 buche, par 72'],
@@ -205,6 +227,7 @@ const T = {
     chi:'I suoi dati', guidaChi:'Ci servono per confermarle la prenotazione.',
     nome:'Nome e cognome', email:'Email', tel:'Telefono',
     note:'Note (facoltative)', notePh:'Qualsiasi cosa ci aiuti a organizzare…',
+    rifOfferta:(r)=>`Rif. offerta: ${r}`,
     privacy:"Ho preso atto dell’informativa sul trattamento dei dati personali", privacyLink:"Leggi l’informativa",
     privacyManca:"Per procedere deve prendere atto dell’informativa privacy.", invia:'Invia la richiesta', invio:'Invio…',
     manca:'Compili i campi obbligatori.',
@@ -245,6 +268,7 @@ const T = {
     chi:'Ihre Daten', guidaChi:'Wir brauchen sie für die Bestätigung.',
     nome:'Vor- und Nachname', email:'E-Mail', tel:'Telefon',
     note:'Anmerkungen (optional)', notePh:'Alles, was uns bei der Organisation hilft…',
+    rifOfferta:(r)=>`Angebotsreferenz: ${r}`,
     privacy:"Ich habe die Datenschutzerklärung zur Kenntnis genommen", privacyLink:"Datenschutzerklärung lesen",
     privacyManca:"Bitte nehmen Sie die Datenschutzerklärung zur Kenntnis.", invia:'Anfrage senden', invio:'Senden…',
     manca:'Bitte Pflichtfelder ausfüllen.',
@@ -285,6 +309,7 @@ const T = {
     chi:'Your details', guidaChi:'We need them to confirm the booking.',
     nome:'Full name', email:'Email', tel:'Phone',
     note:'Notes (optional)', notePh:'Anything that helps us organise…',
+    rifOfferta:(r)=>`Offer reference: ${r}`,
     privacy:"I have read the privacy notice", privacyLink:"Read the privacy notice",
     privacyManca:"Please acknowledge the privacy notice to continue.", invia:'Send request', invio:'Sending…',
     manca:'Please fill in the required fields.',
@@ -325,6 +350,7 @@ const T = {
     chi:'Vos coordonnées', guidaChi:'Elles nous servent pour la confirmation.',
     nome:'Nom et prénom', email:'E-mail', tel:'Téléphone',
     note:'Remarques (facultatif)', notePh:'Tout ce qui nous aide à organiser…',
+    rifOfferta:(r)=>`Réf. offre : ${r}`,
     privacy:"J’ai pris connaissance de la politique de confidentialité", privacyLink:"Lire la politique de confidentialité",
     privacyManca:"Veuillez prendre connaissance de la politique de confidentialité.", invia:'Envoyer la demande', invio:'Envoi…',
     manca:'Veuillez remplir les champs obligatoires.',
@@ -581,15 +607,20 @@ function modulo() {
     <div class="riquadro">
       <h2>${esc(t.chi)}</h2><div class="guida">${esc(t.guidaChi)}</div>
       <label for="fNome">${esc(t.nome)}</label>
-      <input type="text" id="fNome" autocomplete="name" value="${esc(OSPITE?.nome || '')}" />
+      <input type="text" id="fNome" autocomplete="name" value="${esc(OSPITE?.nome || DA_URL.nome)}" />
       <div class="due">
         <div><label for="fEmail">${esc(t.email)}</label>
-          <input type="email" id="fEmail" autocomplete="email" value="${esc(OSPITE?.email || '')}" /></div>
+          <input type="email" id="fEmail" autocomplete="email" value="${esc(OSPITE?.email || DA_URL.email)}" /></div>
         <div><label for="fTel">${esc(t.tel)}</label>
-          <input type="tel" id="fTel" autocomplete="tel" /></div>
+          <!-- niente OSPITE?.tel: il token non lo restituisce mai, vedi il
+               commento su DA_URL piu' in alto -->
+          <input type="tel" id="fTel" autocomplete="tel" value="${esc(DA_URL.tel)}" /></div>
       </div>
       <label for="fNote">${esc(t.note)}</label>
-      <textarea id="fNote" placeholder="${esc(t.notePh)}"></textarea>
+      <!-- il riferimento dell'offerta va nelle note, con un'etichetta
+           chiara: e' li' che lo ritrova la reception, non e' un campo del
+           modulo (vedi il commento in cima a ospite-url.js) -->
+      <textarea id="fNote" placeholder="${esc(t.notePh)}">${DA_URL.rif ? esc(t.rifOfferta(DA_URL.rif)) : ''}</textarea>
 
       <label class="spunta"><input type="checkbox" id="fPrivacy" />
         <span>${esc(t.privacy)} &mdash;
