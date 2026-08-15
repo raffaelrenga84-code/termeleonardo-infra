@@ -104,7 +104,8 @@ export function frasechiusura(stagioni: Stagione[], oggi: Date): string {
 
   const righe = valide.map((s) =>
     `L'hotel è chiuso dal **${formattaData(s.chiusura)}** al **${formattaData(giornoPrima(s.riapertura))}** compreso, e riapre il **${formattaData(s.riapertura)}**. ` +
-    `Per qualunque data in questo periodo (Day Spa compreso) rispondi che l'hotel è chiuso e indica la data di riapertura. ` +
+    `In questo periodo sono chiusi **hotel, SPA, campo pratica golf e Day Spa**: tutto. ` +
+    `Per qualunque data in questo periodo rispondi che è chiuso e indica la data di riapertura. ` +
     `Non dire mai che le prenotazioni "non sono ancora aperte", e non dire "esaurito": in quei giorni l'hotel semplicemente non è operativo.`
   );
 

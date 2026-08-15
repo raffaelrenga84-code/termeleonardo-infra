@@ -41,6 +41,16 @@ Deno.test('la riapertura al primo del mese: l\'ultimo giorno chiuso è l\'ultimo
   assertStringIncludes(riga, '28 febbraio 2027');
 });
 
+/* «L'hotel è chiuso» non basta: qualcuno può pensare che il campo pratica
+   o la spa restino aperti anche a hotel chiuso — sono servizi che si usano
+   anche senza dormirci. La riga deve nominarli tutti e quattro. */
+Deno.test('la riga dice esplicitamente cosa è chiuso: hotel, spa, campo pratica golf e Day Spa', () => {
+  const riga = frasechiusura(STAGIONE_VERA, oggi('2026-08-15'));
+  for (const servizio of [/hotel/i, /spa/i, /campo pratica/i, /day spa/i]) {
+    assert(servizio.test(riga), `la riga non nomina ${servizio}`);
+  }
+});
+
 Deno.test('tabella vuota: nessuna riga, stringa vuota', () => {
   assertEquals(frasechiusura([], oggi('2026-08-15')), '');
 });
