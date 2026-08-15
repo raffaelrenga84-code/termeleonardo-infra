@@ -390,8 +390,27 @@ let TIPO = 'servizio';
    scelte possibili sono i due pulsanti che l'ospite può premere. */
 let FATT_TIPO = 'privato';
 
+/* Il titolo della scheda del browser, per lingua.
+
+   Il <title> scritto nell'HTML e' in italiano, e restava tale anche su
+   /de/gutscheine e /fr/cheques-cadeaux: verificato con un browser vero, non
+   solo con curl — il contenuto cambiava lingua, la scheda no. Chi apre
+   quattro schede per confrontare hotel legge «Buoni Regalo» in tedesco, e
+   nei risultati di ricerca compare quello.
+
+   Si aggiorna qui, insieme al resto della testata, perche' il titolo E' un
+   testo dell'intestazione: tenerlo separato vorrebbe dire che il giorno che
+   qualcuno cambia lingua col menu a tendina, uno dei due resta indietro.
+   Il modulo delle richieste fa gia' cosi'. */
+const TITOLO_SCHEDA = {
+  it: 'Buoni regalo', de: 'Geschenkgutscheine',
+  en: 'Gift vouchers', fr: 'Chèques cadeaux',
+};
+
 function testata() {
   const t = T[LNG];
+  document.title = (Object.hasOwn(TITOLO_SCHEDA, LNG) ? TITOLO_SCHEDA[LNG] : TITOLO_SCHEDA.it)
+    + ' — Hotel Terme Leonardo';
   $('tTitolo').textContent = t.titolo;
   $('tSotto').textContent = t.sotto;
   $('lingue').innerHTML = '<select id="selLingua" aria-label="Lingua">' +
