@@ -59,6 +59,56 @@ textarea{min-height:80px;resize:vertical;}
   letter-spacing:1px;margin-top:10px;}
 .pie{text-align:center;color:var(--grigio);font-size:12.5px;padding:0 18px 40px;}
 .pie a{color:var(--verde-medio);}
+
+/* -------- percorso guidato dei trattamenti --------
+   Stessa idea dell'anteprima approvata (docs/anteprime/2026-08-15-menu-
+   trattamenti.html): prima si sceglie una categoria, poi solo le voci di
+   quella. Nomi di classe distinti (suffisso Tratt) per non toccare nessuna
+   regola gia' in uso da greenfee/maestro. */
+.domandaTratt{font:600 16px/1.3 inherit;color:var(--verde);margin:16px 0 10px;}
+.stradeTratt{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px;}
+.stradaTratt{border:1px solid #DCD6CB;border-radius:9px;padding:12px 13px;cursor:pointer;
+  background:#FCFBF8;text-align:left;font-family:inherit;color:#2A2E2B;}
+.stradaTratt:hover{border-color:var(--oro);background:var(--acqua-chiara);}
+.stradaTratt[aria-pressed="true"]{border-color:var(--verde);background:var(--acqua-chiara);}
+.stradaTratt .stTratt{font-weight:600;color:var(--verde);display:block;font-size:14.5px;}
+.stradaTratt .sqTratt{font-size:12px;color:var(--grigio);margin-top:3px;display:block;}
+/* il cuore e' lo stesso segno del listino stampato, non un'icona inventata */
+.stradaTratt.consiglioTratt{border-color:var(--oro);}
+.stradaTratt.consiglioTratt .stTratt::after{content:" ♥";color:var(--oro);font-size:12px;}
+
+.risultatoTratt{margin-top:16px;}
+.vuotoTratt{color:var(--grigio);font-size:14px;font-style:italic;margin:6px 0;}
+.titoloGruppoTratt{font:600 15px inherit;color:var(--verde);margin:0 0 8px;}
+
+.rigaTratt{display:block;}
+.vociTratt{display:flex;align-items:center;gap:9px;padding:9px 4px;border-radius:6px;cursor:pointer;}
+.vociTratt:hover{background:var(--acqua-chiara);}
+.vociTratt>input{width:18px;height:18px;margin:0;flex:0 0 auto;accent-color:var(--verde);}
+.vociTratt .nomeTratt{flex:1 1 auto;font-size:14.5px;color:#2A2E2B;}
+.vociTratt .durataTratt{color:var(--grigio);font-size:12.5px;white-space:nowrap;}
+.vociTratt .prezzoTratt{font-weight:600;color:var(--verde);white-space:nowrap;
+  font-variant-numeric:tabular-nums;min-width:56px;text-align:right;}
+.filettoTratt{flex:1 1 auto;border-bottom:1px dotted #DCD6CB;min-width:10px;}
+
+/* bersaglio di 30px anche se il segno che si vede e' piccolo: su un
+   telefono un'icona piu' piccola e' un pulsante che non si riesce a
+   premere — segnalato nella specifica di design */
+.infoTratt{flex:0 0 auto;width:30px;height:30px;border:0;background:transparent;
+  color:var(--oro);cursor:pointer;font:italic 700 14px/1 Georgia,serif;
+  border-radius:50%;padding:0;}
+.infoTratt:hover{background:var(--acqua-chiara);color:var(--verde);}
+.infoTratt[aria-expanded="true"]{background:var(--verde);color:var(--crema);}
+.spiegaTratt{display:block;margin:-2px 4px 10px 43px;padding:9px 12px;
+  background:var(--acqua-chiara);border-radius:6px;font-size:13.5px;
+  color:var(--verde-medio);max-width:56ch;}
+
+.pienoTratt{margin-top:16px;padding-top:14px;border-top:1px solid #E5E0D8;
+  display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;}
+.pienoTratt .contoTratt{color:var(--grigio);font-size:13.5px;}
+.pienoTratt .sommaTratt{font:600 17px inherit;color:var(--verde);font-variant-numeric:tabular-nums;}
+.capMsgTratt{margin:10px 0 0;background:#FFF6E8;border-left:4px solid var(--oro);
+  padding:10px 13px;border-radius:6px;font-size:13px;color:#6B4A22;line-height:1.5;}
 </style>
 </head>
 <body>
@@ -89,6 +139,11 @@ import { oggiISO, attivaDate } from '/comune/date.js';
    arriva alla pagina, e leggendo solo location.search questa pagina apriva
    il modulo dei green fee a chi aveva chiesto i trattamenti. */
 import { indirizzoPerLingua, linguaScelta, tipoScelto } from '/comune/percorso.js';
+/* IDEM PERCORSO ASSOLUTO: i 36 trattamenti, i loro gruppi e le spiegazioni
+   della ⓘ vivono in un modulo solo (vedi il commento in cima a
+   trattamenti.js) — non si riscrivono qui dentro, altrimenti sarebbe il
+   quarto elenco che diverge dagli altri tre. */
+import { nomeCompleto, ORDINE_GRUPPI, prezzoTesto, SPIEGAZIONI, TRATTAMENTI } from '/comune/trattamenti.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 
@@ -106,15 +161,6 @@ const CIRCOLI = [
   ['montecchia', 'Golf della Montecchia — Selvazzano Dentro · 27 buche, par 72'],
   ['padova', 'Golf Club Padova — Valsanzibio di Galzignano · 27 buche'],
   ['frassanelle', 'Golf Club Frassanelle — Rovolon · 18 buche'],
-];
-
-/* i trattamenti piu' richiesti, come sul sito: non e' il listino completo e
-   non si promettono prezzi — quelli li conferma la reception */
-const TRATTAMENTI = [
-  'Relax con olio di cacao (25 min)', 'Antistress (45–55 min)',
-  'Californiano (50 min)', 'Ayurveda (55 min)',
-  'Hot Stone (55 min)', 'Linfodrenaggio completo (60 min)',
-  'Viso al fango termale (25 min)', 'Anti-age acido ialuronico (55 min)',
 ];
 
 const T = {
@@ -135,7 +181,24 @@ const T = {
     taxiOra:'Ora di partenza dall’hotel', taxiRitorno:'Anche il ritorno',
     persone:'Quante persone', livello:'A che punto è',
     liv0:'Non so / mai giocato', liv1:'Principiante', liv2:'Intermedio', liv3:'Esperto',
-    quali:'Quali trattamenti', qualiGuida:'Ne scelga uno o più; il prezzo glielo confermiamo noi.',
+    quali:'Quali trattamenti', qualiGuida:'Scelga prima una categoria, poi i trattamenti che le interessano: il prezzo è di listino, glielo confermiamo noi.',
+    /* i nomi dei trattamenti (in TRATTAMENTI, /comune/trattamenti.js) restano
+       SEMPRE in italiano, in tutte le lingue: sono i nomi che la reception
+       ritrova nel gestionale e che il reparto usa per organizzare il turno.
+       Tradurli farebbe arrivare richieste che nessuno sa ricollegare al
+       listino — decisione della specifica di design, non una svista. Qui
+       sotto si traducono solo la domanda, i nomi dei GRUPPI e i testi di
+       cornice: mai il nome di un trattamento. */
+    tratt:{
+      domanda:'Cosa le farebbe piacere?', vuoto:'Scelga una categoria qui sopra.',
+      cuoreNome:'I più richiesti', cuoreTag:'i ♥ del nostro listino',
+      programmiNome:'Programmi benessere', programmiTag:'più trattamenti in una volta sola',
+      massaggiNome:'Massaggi corpo', massaggiTag:'il reparto più richiesto',
+      visoNome:'Trattamenti viso', visoTag:'dal fango termale all’anti-age',
+      corpoNome:'Trattamenti corpo', corpoTag:'scrub, rimodellanti e cure estetiche',
+      nessuna:'Nessun trattamento scelto', una:'1 trattamento scelto',
+      molte:(n)=>`${n} trattamenti scelti`, info:(n)=>`Che cos’è ${n}`,
+      massimo:'Può scegliere al massimo otto trattamenti: ne tolga uno per aggiungerne un altro.' },
     giorno:'Giorno', fascia:'Preferenza di orario',
     mattina:'Mattina', pomeriggio:'Pomeriggio', indifferente:'Indifferente',
     quando:'Giorno', ora:'Ora preferita',
@@ -165,7 +228,17 @@ const T = {
     taxiOra:'Abfahrt am Hotel', taxiRitorno:'Auch die Rückfahrt',
     persone:'Wie viele Personen', livello:'Ihr Niveau',
     liv0:'Weiß nicht / noch nie', liv1:'Anfänger', liv2:'Fortgeschritten', liv3:'Erfahren',
-    quali:'Welche Anwendungen', qualiGuida:'Wählen Sie eine oder mehrere; den Preis bestätigen wir.',
+    quali:'Welche Anwendungen', qualiGuida:'Wählen Sie zuerst eine Kategorie, dann die gewünschten Anwendungen: der Preis ist der Listenpreis, wir bestätigen ihn Ihnen.',
+    tratt:{
+      domanda:'Was würde Ihnen gefallen?', vuoto:'Wählen Sie oben eine Kategorie.',
+      cuoreNome:'Die beliebtesten', cuoreTag:'die ♥ unserer Preisliste',
+      programmiNome:'Wellnessprogramme', programmiTag:'mehrere Anwendungen in einer',
+      massaggiNome:'Körpermassagen', massaggiTag:'unser gefragtester Bereich',
+      visoNome:'Gesichtsbehandlungen', visoTag:'vom Thermalschlamm bis zur Anti-Aging-Pflege',
+      corpoNome:'Körperbehandlungen', corpoTag:'Peeling, Formbehandlungen und Schönheitspflege',
+      nessuna:'Keine Anwendung gewählt', una:'1 Anwendung gewählt',
+      molte:(n)=>`${n} Anwendungen gewählt`, info:(n)=>`Was ist ${n}`,
+      massimo:'Sie können höchstens acht Anwendungen wählen: entfernen Sie eine, um eine andere hinzuzufügen.' },
     giorno:'Tag', fascia:'Bevorzugte Zeit',
     mattina:'Vormittag', pomeriggio:'Nachmittag', indifferente:'Egal',
     quando:'Tag', ora:'Wunschzeit',
@@ -195,7 +268,17 @@ const T = {
     taxiOra:'Pick-up time at the hotel', taxiRitorno:'Return trip too',
     persone:'How many people', livello:'Your level',
     liv0:'Not sure / never played', liv1:'Beginner', liv2:'Intermediate', liv3:'Experienced',
-    quali:'Which treatments', qualiGuida:'Choose one or more; we will confirm the price.',
+    quali:'Which treatments', qualiGuida:'Choose a category first, then the treatments you like: the price is the list price, we will confirm it.',
+    tratt:{
+      domanda:'What would you enjoy?', vuoto:'Choose a category above.',
+      cuoreNome:'Most requested', cuoreTag:'the ♥ on our price list',
+      programmiNome:'Wellness programmes', programmiTag:'several treatments in one',
+      massaggiNome:'Body massages', massaggiTag:'our most requested area',
+      visoNome:'Face treatments', visoTag:'from thermal mud to anti-ageing',
+      corpoNome:'Body treatments', corpoTag:'scrubs, body-shaping and beauty care',
+      nessuna:'No treatment selected', una:'1 treatment selected',
+      molte:(n)=>`${n} treatments selected`, info:(n)=>`What is ${n}`,
+      massimo:'You can choose up to eight treatments: remove one to add another.' },
     giorno:'Day', fascia:'Preferred time',
     mattina:'Morning', pomeriggio:'Afternoon', indifferente:'No preference',
     quando:'Day', ora:'Preferred time',
@@ -225,7 +308,17 @@ const T = {
     taxiOra:'Heure de départ de l’hôtel', taxiRitorno:'Le retour aussi',
     persone:'Combien de personnes', livello:'Votre niveau',
     liv0:'Je ne sais pas / jamais joué', liv1:'Débutant', liv2:'Intermédiaire', liv3:'Confirmé',
-    quali:'Quels soins', qualiGuida:'Choisissez-en un ou plusieurs ; nous confirmons le prix.',
+    quali:'Quels soins', qualiGuida:'Choisissez d’abord une catégorie, puis les soins qui vous intéressent : le prix est celui de la carte, nous vous le confirmons.',
+    tratt:{
+      domanda:'Qu’est-ce qui vous ferait plaisir ?', vuoto:'Choisissez une catégorie ci-dessus.',
+      cuoreNome:'Les plus demandés', cuoreTag:'les ♥ de notre carte',
+      programmiNome:'Programmes bien-être', programmiTag:'plusieurs soins en un seul',
+      massaggiNome:'Massages du corps', massaggiTag:'notre secteur le plus demandé',
+      visoNome:'Soins du visage', visoTag:'de la boue thermale à l’anti-âge',
+      corpoNome:'Soins du corps', corpoTag:'gommages, soins remodelants et esthétiques',
+      nessuna:'Aucun soin choisi', una:'1 soin choisi',
+      molte:(n)=>`${n} soins choisis`, info:(n)=>`Qu’est-ce que ${n}`,
+      massimo:'Vous pouvez choisir huit soins au maximum : retirez-en un pour en ajouter un autre.' },
     giorno:'Jour', fascia:'Horaire préféré',
     mattina:'Matin', pomeriggio:'Après-midi', indifferente:'Peu importe',
     quando:'Jour', ora:'Heure souhaitée',
@@ -319,11 +412,26 @@ function campiTipo(t) {
         </select></div>
     </div>`;
 
+  /* Il percorso guidato: prima "Cosa le farebbe piacere?" coi cinque
+     gruppi (il primo e' sintetico, i piu' richiesti — un filtro sul campo
+     `cuore` di ogni voce, non un sesto elenco scritto qui che potrebbe
+     divergere dagli altri quattro), poi solo le voci di quel gruppo.
+     I checkbox restano `class="voce"` con `value` = il nome del trattamento
+     comprensivo della durata: raccogli() e completo() li leggono cosi'
+     gia' da prima, e non cambiano — il contratto col server resta quello. */
   return `
     <label>${esc(t.quali)}</label>
     <div class="guida" style="margin-top:4px;">${esc(t.qualiGuida)}</div>
-    ${TRATTAMENTI.map((v,i) => `<label class="spunta">
-      <input type="checkbox" class="voce" value="${esc(v)}" id="v${i}" /><span>${esc(v)}</span></label>`).join('')}
+    <div class="percorsoTratt" id="percorsoTratt">
+      <p class="domandaTratt">${esc(t.tratt.domanda)}</p>
+      <div class="stradeTratt" id="stradeTratt"></div>
+      <div class="risultatoTratt" id="risultatoTratt" aria-live="polite"></div>
+      <div class="pienoTratt">
+        <span class="contoTratt" id="contoTratt" aria-live="polite"></span>
+        <span class="sommaTratt" id="sommaTratt"></span>
+      </div>
+      <p class="capMsgTratt" id="capMsgTratt" hidden></p>
+    </div>
     <div class="due" style="margin-top:16px;">
       <div><label for="fGiorno">${esc(t.giorno)}</label>
         <input type="date" id="fGiorno" min="${oggiISO()}" /></div>
@@ -334,6 +442,134 @@ function campiTipo(t) {
           <option value="pomeriggio">${esc(t.pomeriggio)}</option>
         </select></div>
     </div>`;
+}
+
+/* ---------------- trattamenti: percorso guidato ----------------
+   Le voci scelte si tengono per INDICE nell'array TRATTAMENTI (stabile: non
+   si riordina mai a runtime), in un Set che sopravvive al passaggio da un
+   gruppo all'altro. Senza questo, ogni volta che si cambia "strada" il
+   pannello viene ridisegnato da capo e le caselle spuntate nel gruppo
+   precedente sparirebbero insieme al DOM che le conteneva: si potrebbe
+   scegliere un trattamento per gruppo soltanto, non uno o due per gruppo
+   fino a un totale di otto. */
+let SCELTI_TRATT = new Set();
+const TRATT_MAX = 8;
+
+function percorsiTratt(t) {
+  const gruppo = (id, nome, tag, voci) => ({ id, nome, tag, voci });
+  return [
+    gruppo('cuore', t.tratt.cuoreNome, t.tratt.cuoreTag, TRATTAMENTI.filter((v) => v.cuore)),
+    ...ORDINE_GRUPPI.map((id) => gruppo(
+      id, t.tratt[id + 'Nome'], t.tratt[id + 'Tag'],
+      TRATTAMENTI.filter((v) => v.gruppo === id),
+    )),
+  ];
+}
+
+function disegnaStradeTratt(t, percorsi, attivo) {
+  $('stradeTratt').innerHTML = percorsi.map((p, i) => `
+    <button type="button" class="stradaTratt${i === 0 ? ' consiglioTratt' : ''}"
+      aria-pressed="${i === attivo}" data-i="${i}">
+      <span class="stTratt">${esc(p.nome)}</span><span class="sqTratt">${esc(p.tag)}</span>
+    </button>`).join('');
+}
+
+function disegnaRisultatoTratt(t, percorsi, attivo) {
+  if (attivo < 0) {
+    $('risultatoTratt').innerHTML = `<p class="vuotoTratt">${esc(t.tratt.vuoto)}</p>`;
+    return;
+  }
+  const p = percorsi[attivo];
+  $('risultatoTratt').innerHTML = `<p class="titoloGruppoTratt">${esc(p.nome)}</p>` +
+    p.voci.map((v) => {
+      const i = TRATTAMENTI.indexOf(v);
+      return `
+      <span class="rigaTratt">
+        <label class="vociTratt">
+          <input type="checkbox" class="voce" value="${esc(nomeCompleto(v))}"
+            data-i="${i}"${SCELTI_TRATT.has(i) ? ' checked' : ''} />
+          <span class="nomeTratt">${esc(v.nome)}</span>
+          ${v.durata ? `<span class="durataTratt">${esc(v.durata)}</span>` : ''}
+          ${v.chiave ? `<button type="button" class="infoTratt" aria-expanded="false"
+              aria-label="${esc(t.tratt.info(v.nome))}" data-k="${esc(v.chiave)}"
+              data-id="spiegaTratt${i}">i</button>` : ''}
+          <span class="filettoTratt"></span>
+          <span class="prezzoTratt">${esc(prezzoTesto(v))}</span>
+        </label>
+        <span class="spiegaTratt" id="spiegaTratt${i}" hidden></span>
+      </span>`;
+    }).join('');
+}
+
+function contaTratt(t) {
+  const n = SCELTI_TRATT.size;
+  $('contoTratt').textContent = n === 0 ? t.tratt.nessuna : n === 1 ? t.tratt.una : t.tratt.molte(n);
+  let somma = 0;
+  for (const i of SCELTI_TRATT) somma += TRATTAMENTI[i].prezzo;
+  $('sommaTratt').textContent = somma ? somma + ' €' : '';
+}
+
+/* Chiamata una sola volta per disegno di modulo() (come attivaDate()):
+   modulo() ricrea #app da zero a ogni chiamata, quindi non c'e' rischio di
+   attaccare due volte lo stesso ascoltatore. */
+function attivaTrattamenti(t) {
+  const percorsi = percorsiTratt(t);
+  let attivo = -1;
+  disegnaStradeTratt(t, percorsi, attivo);
+  disegnaRisultatoTratt(t, percorsi, attivo);
+  contaTratt(t);
+
+  $('percorsoTratt').addEventListener('click', (e) => {
+    const info = e.target.closest('.infoTratt');
+    if (info) {
+      e.preventDefault();
+      const box = document.getElementById(info.dataset.id);
+      const aperto = info.getAttribute('aria-expanded') === 'true';
+      /* una spiegazione aperta per volta: due o tre righe ciascuna, tenerne
+         aperte piu' di una allunga il pannello piu' di quanto serva */
+      document.querySelectorAll('#risultatoTratt .infoTratt[aria-expanded="true"]').forEach((altro) => {
+        if (altro === info) return;
+        altro.setAttribute('aria-expanded', 'false');
+        const altraBox = document.getElementById(altro.dataset.id);
+        if (altraBox) altraBox.hidden = true;
+      });
+      info.setAttribute('aria-expanded', String(!aperto));
+      box.hidden = aperto;
+      /* la chiave arriva da TRATTAMENTI, dati nostri e non dall'esterno:
+         indicizzare SPIEGAZIONI[LNG][chiave] qui e' sicuro. LNG invece e'
+         gia' passato da linguaScelta(), che lo valida contro l'elenco
+         chiuso delle quattro lingue prima che arrivi fin qui. */
+      if (!aperto) box.textContent = SPIEGAZIONI[LNG][info.dataset.k] || '';
+      return;
+    }
+    const strada = e.target.closest('.stradaTratt');
+    if (!strada) return;
+    attivo = Number(strada.dataset.i);
+    disegnaStradeTratt(t, percorsi, attivo);
+    disegnaRisultatoTratt(t, percorsi, attivo);
+  });
+
+  $('percorsoTratt').addEventListener('change', (e) => {
+    if (!e.target.matches('.voce')) return;
+    const i = Number(e.target.dataset.i);
+    if (e.target.checked) {
+      /* il tetto si ferma QUI, prima dell'invio: tipi.ts rifiuta piu' di
+         otto voci lato server, ma un rifiuto dopo aver compilato tutto il
+         resto del modulo e' il tipo di sorpresa che questo progetto ha
+         gia' imparato a evitare (vedi date.js, partenzaCoerente) */
+      if (SCELTI_TRATT.size >= TRATT_MAX) {
+        e.target.checked = false;
+        $('capMsgTratt').textContent = t.tratt.massimo;
+        $('capMsgTratt').hidden = false;
+        return;
+      }
+      SCELTI_TRATT.add(i);
+    } else {
+      SCELTI_TRATT.delete(i);
+    }
+    $('capMsgTratt').hidden = true;
+    contaTratt(t);
+  });
 }
 
 function modulo() {
@@ -373,6 +609,7 @@ function modulo() {
      ogni disegno di modulo(): riattivarli in questo punto, non solo al
      primo caricamento. */
   attivaDate();
+  if (TIPO === 'trattamenti') attivaTrattamenti(t);
 }
 
 function raccogli() {
@@ -390,8 +627,16 @@ function raccogli() {
     data: v('fData'), ora: v('fOra'),
     persone: Number(v('fPersone') || 1), livello: v('fLivello'), note: v('fNote'),
   };
+  /* NON `[...document.querySelectorAll('.voce:checked')]`: #risultatoTratt
+     contiene solo le voci del gruppo attualmente aperto, le altre sono
+     state ridisegnate via al primo cambio di "strada". Leggendo solo il DOM
+     una richiesta con un trattamento dai piu' richiesti e uno dai massaggi
+     ne avrebbe mandato solo uno al server — il conteggio a schermo ne
+     avrebbe mostrati due, la reception ne avrebbe ricevuto uno. SCELTI_TRATT
+     e' la fonte vera, sopravvive al cambio di gruppo: vedi il commento sopra
+     attivaTrattamenti(). */
   return {
-    voci: [...document.querySelectorAll('.voce:checked')].map(e => e.value),
+    voci: [...SCELTI_TRATT].map((i) => nomeCompleto(TRATTAMENTI[i])),
     giorno: v('fGiorno'), fascia: v('fFascia'), note: v('fNote'),
   };
 }
@@ -403,7 +648,7 @@ function raccogli() {
 function completo() {
   const v = (id) => ($(id) ? $(id).value.trim() : '');
   if (!v('fNome') || !v('fEmail') || !v('fTel')) return false;
-  if (TIPO === 'trattamenti') return !!v('fGiorno') && document.querySelectorAll('.voce:checked').length > 0;
+  if (TIPO === 'trattamenti') return !!v('fGiorno') && SCELTI_TRATT.size > 0;
   return !!v('fData') && !!v('fOra');
 }
 
