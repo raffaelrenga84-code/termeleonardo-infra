@@ -51,6 +51,18 @@ export function calcolaScadenza(acquisto: Date, stagioni: Stagione[]): Scadenza 
   const base = sposta(acquisto, 1, 0);
   const naturale = gg(base);
 
+  /* Due stagioni non dovrebbero accavallarsi, ma le inserisce a mano la
+     reception, e una riga duplicata o corretta senza cancellare la vecchia
+     e' l'errore piu' facile da fare di fretta. Se piu' stagioni contengono
+     la stessa scadenza naturale, si tiene la riapertura piu' TARDIVA fra
+     quelle che matchano, non la prima incontrata: le righe arrivano da una
+     query senza order by, quindi "la prima" e' un dettaglio interno di
+     Postgres, non una regola — con quella scelta stesso cliente e stessa
+     data potrebbero ricevere proroghe diverse a seconda del giorno. Fra due
+     proroghe possibili si dà sempre la piu' lunga: se i dati sono sporchi,
+     a perderci non deve essere il cliente. */
+  let riaperturaMigliore: Date | null = null;
+
   for (const s of stagioni) {
     const chiusura = data(s?.chiusura ?? '');
     const riapertura = data(s?.riapertura ?? '');
@@ -60,8 +72,12 @@ export function calcolaScadenza(acquisto: Date, stagioni: Stagione[]): Scadenza 
     /* estremi compresi: il giorno della riapertura non lascia margine per
        telefonare e trovare posto */
     if (base >= chiusura && base <= riapertura) {
-      return { scade_il: gg(sposta(riapertura, 0, 1)), scade_il_base: naturale, prorogato: true };
+      if (!riaperturaMigliore || riapertura > riaperturaMigliore) riaperturaMigliore = riapertura;
     }
+  }
+
+  if (riaperturaMigliore) {
+    return { scade_il: gg(sposta(riaperturaMigliore, 0, 1)), scade_il_base: naturale, prorogato: true };
   }
   return { scade_il: naturale, scade_il_base: naturale, prorogato: false };
 }
