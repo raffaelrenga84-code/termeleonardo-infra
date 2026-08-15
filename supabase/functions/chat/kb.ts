@@ -31,7 +31,8 @@ Spiega sempre il perché (posti limitati, garanzia): è un vantaggio, non un'imp
 - Nessuna riduzione per l'ingresso pomeridiano.
 - **Walk-in feriale:** dal lunedì al venerdì si può anche venire direttamente, **senza garanzia di posto**. Dillo **solo se l'ospite chiede espressamente** se può venire senza prenotare.
 - Difficoltà con internet → familiare o trasferimento.
-- **Abbonati e buoni regalo:** si gestiscono al telefono o via email, non online (vale anche per camera d'appoggio e massaggi collegati). Raccogli nome, data, recapito, n. buono → inoltra.
+- **Abbonati:** si gestiscono al telefono o via email, non online (vale anche per camera d'appoggio e massaggi collegati). Raccogli nome, data, recapito → inoltra.
+- **Buoni regalo: si COMPRANO ONLINE** su termeleonardo.com, sezione Buoni Regalo — vedi la sezione dedicata più sotto. *(Questa riga diceva il contrario fino al 15 agosto 2026: mandava al telefono chi poteva comprare in due minuti.)* Al telefono si gestiscono solo i buoni **già emessi** — ricerca, riscatto, problemi: raccogli nome, recapito e n. buono → inoltra.
 - Regola d'oro 1: se chiedono un "ingresso pomeridiano", prima chiarisci che il giornaliero (9:00–18:30) copre già il pomeriggio.
 
 **Buono regalo in scadenza durante la chiusura:** condizioni valide dall'acquisto — chiusura annuale per ristrutturazione; maggiore età obbligatoria; ingressi soggetti a disponibilità; importi residui non trasferibili né riutilizzabili; non utilizzabile nelle prime 48 ore dall'acquisto; non rimborsabile; validità 12 mesi; sempre con prenotazione; non valido durante la chiusura stagionale; non convertibile in denaro. Se l'ospite insiste: "Posso inoltrare la richiesta alla reception con il numero del buono."
@@ -47,7 +48,7 @@ Spiega sempre il perché (posti limitati, garanzia): è un vantaggio, non un'imp
 - **Nessuna riduzione bambini a partire da 1 anno compiuto.** I neonati fino a 1 anno entrano gratuitamente. Un bambino di tre anni paga la tariffa intera: dillo con chiarezza, è la sorpresa più frequente.
 - **Animali:** non ammessi per chi usufruisce del Day Spa; vietato l'accesso a piscine e zona verde. Permessi solo nelle aree comuni.
 
-**BUONI REGALO A LISTINO ⟨verificare⟩:** Ingresso Day Spa da **35 €** · Spa & Massaggio Relax (Day Spa + massaggio olio di cacao 25') da **75 €** · Giornata Benessere Deluxe (Day Spa + antistress 55') da **90 €**. Validità 12 mesi, sempre su prenotazione, non rimborsabili né convertibili, non utilizzabili durante la chiusura stagionale.
+**⚠ L'elenco dei tre pacchetti fissi che stava qui è stato tolto il 15 agosto 2026: il sito non li vende più così. Il buono si compone liberamente — vedi la sezione BUONI REGALO.**
 
 **CAMERA D'APPOGGIO PER OSPITI DAY SPA (esterni) — non confondere con il prolungamento del giorno di partenza.**
 Camera d'appoggio fino alle 19:30: **60 €**, **in aggiunta** al costo dell'ingresso (35 o 45 € a persona). Solo via inoltro alla reception: non prenotabile online né confermabile al telefono.
@@ -139,6 +140,60 @@ Pagamento: contanti, bonifico istantaneo, Mastercard, Visa, bancomat — **no Di
 **Come arrivare:** centro di Abano 1.500 m; stazione Terme Euganee Abano-Montegrotto 7 km; Padova 12 km, con bus per le terme ogni venti minuti circa; aeroporto di Venezia 60 km; aeroporto di Treviso 70 km. In auto: A13 uscita "Terme Euganee" oppure A4 uscita "Padova Ovest".
 
 **Offerte correnti — "a partire da" veri ⟨verificare⟩:** Smart 1 notte + massaggio da 180 €; Thermal Escape 2 notti da 280 €; Deluxe 3 notti + massaggio da 400 €; Golf 7 giorni da 820 €.
+
+## BUONI REGALO — SI COMPRANO ONLINE, SUBITO
+
+**Su termeleonardo.com, sezione Buoni Regalo.** Si paga con carta e il buono
+arriva **per email in pochi minuti**, pronto da stampare o da inoltrare a chi
+lo riceve. Non serve passare dalla reception e non serve aspettare.
+
+*Questa è la cosa da dire per prima.* Chi chiede di un buono regalo di solito
+lo vuole **adesso** — è un regalo, spesso all'ultimo. Mandarlo al telefono o
+all'email della reception gli fa perdere un giorno e a volte l'occasione.
+
+**Cosa si può mettere dentro**
+- **Un servizio a listino** (ingressi Day Spa, massaggi, trattamenti viso e
+  corpo, programmi benessere): fino a **due voci diverse**, ognuna in
+  quantità fino a **quattro**. Il prezzo è la somma del listino, senza sconti
+  per quantità.
+- **Un importo libero**, da **25 a 1000 €**, spendibile in hotel.
+
+⟨verificare ogni anno⟩ **Prezzi degli ingressi a buono:** Day Spa
+infrasettimanale **35 €** · festivo **45 €** · serale **29 €**. Massaggi e
+trattamenti: stesso listino del reparto benessere.
+
+**Il Day Spa SERALE non si può abbinare a un trattamento.** Di sera il centro
+benessere non fa trattamenti, quindi quel buono non sarebbe utilizzabile in
+una volta sola: il sito lo rifiuta. Se l'ospite vuole regalare tutti e due,
+la strada è il Day Spa **infrasettimanale o festivo** più il trattamento.
+
+**Validità e chiusura stagionale**
+- Dodici mesi dall'emissione.
+- **Se la scadenza cadrebbe durante la chiusura, viene prorogata da noi** a un
+  mese dopo la riapertura, e **la data prorogata è quella stampata sul buono**:
+  non c'è niente da chiedere e niente da negoziare. Sul buono si leggono tutte
+  e due le date, con la spiegazione.
+- **Trenta giorni prima della scadenza mandiamo un promemoria** a chi ha il
+  buono in mano. Una volta sola.
+
+**Regole da dire, se pertinenti**
+- Non utilizzabile nelle **prime 48 ore** dall'acquisto.
+- Non rimborsabile, non convertibile in denaro; gli importi residui dopo il
+  primo utilizzo non sono trasferibili.
+- Ingressi e trattamenti **sempre su prenotazione**.
+- Ogni ingresso o trattamento vale **per una persona**.
+
+**In reception:** il buono porta un **codice** e un **QR** che il banco legge
+col lettore. Chi lo ha ricevuto può ristamparlo da solo dal link nella sua
+email, senza stampare tutta la posta.
+
+**Fattura:** si può chiedere **al momento dell'acquisto**, come privato o come
+azienda. Le aziende comprano buoni per il welfare aziendale: senza fattura non
+possono, quindi se senti nominare "azienda", "welfare" o "dipendenti", dillo.
+
+**Quando serve comunque la reception:** buoni già emessi da cercare o
+modificare, riscatti, rimborsi, e le vendite al banco. Raccogli nome, recapito
+e **numero del buono**, e inoltra.
 
 ## SOSTENIBILITÀ E CERTIFICAZIONI ⟨verificare⟩
 
