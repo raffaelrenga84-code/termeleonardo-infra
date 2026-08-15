@@ -82,11 +82,19 @@ function numeroValido(v: unknown): number | null {
 const conPlurale = (n: number, singolare: string, plurale: string): string =>
   `${n} ${n === 1 ? singolare : plurale}`;
 
+/* Il dato salvato NON si tocca: alcune voci del modulo ATAM hanno spazi
+   doppi copiati testualmente dal loro elenco (vedi luoghi.ts, "Venezia
+   aeroporto" con due spazi), e restano cosi' perche' la reception li
+   ricopia parola per parola nel modulo dei tassisti. Ma questa riga e' la
+   VETRINA di quel dato, non il dato: qui gli spazi doppi si riducono a uno,
+   cosi' si legge come la leggerebbe una persona. */
+const unoSpazio = (s: string): string => s.replace(/\s+/g, ' ').trim();
+
 /* Il modulo ATAM chiede data/ora/persone e un luogo dal suo elenco chiuso;
    qui basta sapere in che verso va il taxi. Senza un luogo non c'e' niente
    da dire: meglio un pezzo mancante che una freccia con un lato vuoto. */
 function direzioneTransfer(d: Record<string, unknown>): string {
-  const luogo = String(d.luogo ?? '').trim();
+  const luogo = unoSpazio(String(d.luogo ?? ''));
   if (!luogo) return '';
   const verso = String(d.verso ?? '').trim();
   if (verso === 'arrivo') return `${luogo} → hotel`;
@@ -96,20 +104,20 @@ function direzioneTransfer(d: Record<string, unknown>): string {
   return luogo;
 }
 
-/* CIRCOLI_GOLF vive in luoghi.ts, unica fonte: qui non si riscrivono i nomi
-   dei circoli a mano. La chiave salvata in dati.circolo e' gia' una delle
-   tre chiavi di quella mappa (padova/montecchia/frassanelle) — capitalizzata
-   e' il nome breve che compare nella scheda. Object.hasOwn, non
-   CIRCOLI_GOLF[chiave]: una chiave sbagliata o vecchia non deve travestirsi
+/* Il nome per esteso, `circolo_nome`, e' quello buono: tipi.ts lo salva gia'
+   apposta (vedi validaGreenfee), preso da CIRCOLI_GOLF al momento della
+   richiesta. E' la PRIMA scelta. La chiave capitalizzata e' solo un ripiego
+   per le richieste vecchie che non ce l'hanno ancora — e resta verificata
+   con Object.hasOwn contro CIRCOLI_GOLF, mai una chiave sbagliata travestita
    da nome inventato. */
 function nomeCircoloBreve(d: Record<string, unknown>): string {
+  const nomeCompleto = unoSpazio(String(d.circolo_nome ?? ''));
+  if (nomeCompleto) return nomeCompleto;
   const chiave = String(d.circolo ?? '').trim();
   if (chiave && Object.hasOwn(CIRCOLI_GOLF, chiave)) {
     return chiave.charAt(0).toUpperCase() + chiave.slice(1);
   }
-  /* richiesta vecchia senza la chiave, o un circolo non piu' in elenco: il
-     nome per esteso gia' salvato al momento resta meglio di niente */
-  return String(d.circolo_nome ?? '').trim();
+  return '';
 }
 
 /* Uguale per 'soggiorno' e per un tipo non riconosciuto: e' il comportamento
@@ -126,65 +134,89 @@ function riepilogoSoggiorno(r: Richiesta): string {
   ].filter(Boolean).join(' · ');
 }
 
+/* Una riga vuota in elenco e' lo stesso difetto di partenza vestito
+   diverso: chi guarda non sa se la richiesta non ha dettagli o se il back
+   office si e' rotto. Meglio dirlo. Applicato in un solo punto, alla fine,
+   cosi' vale per tutti i tipi (compreso il fallback di un tipo sconosciuto)
+   senza doverlo ripetere in ogni ramo. */
+const NESSUN_DETTAGLIO = 'nessun dettaglio indicato';
+
 export function riepilogoRichiesta(r: Richiesta): Riga {
   const tipo = typeof r?.tipo === 'string' ? r.tipo : '';
   const d = r?.dati && typeof r.dati === 'object' ? (r.dati as Record<string, unknown>) : {};
+
+  let etichetta: string;
+  let riepilogo: string;
 
   /* elenco chiuso via switch, mai un OGGETTO[tipo]: un tipo come "toString"
      esiste su Object.prototype, e una lookup diretta ci cascherebbe */
   switch (tipo) {
     case 'trattamenti': {
       const voci = Array.isArray(d.voci) ? d.voci : [];
-      const fascia = typeof d.fascia === 'string' ? d.fascia.trim() : '';
-      const riepilogo = [
+      const fasciaGrezza = typeof d.fascia === 'string' ? unoSpazio(d.fascia) : '';
+      /* "indifferente" da sola non dice a cosa si riferisce, in mezzo a
+         conteggio e data: si preferisce dirlo per esteso piuttosto che
+         ometterlo, per lo stesso motivo per cui una riga vuota non basta */
+      const fascia = fasciaGrezza === 'indifferente' ? 'orario indifferente' : fasciaGrezza;
+      etichetta = 'Trattamenti';
+      riepilogo = [
         voci.length > 0 ? conPlurale(voci.length, 'trattamento', 'trattamenti') : '',
         dataLunga(d.giorno),
         fascia,
       ].filter(Boolean).join(' · ');
-      return { etichetta: 'Trattamenti', riepilogo };
+      break;
     }
 
     case 'transfer': {
       const quandoOra = [dataBreve(d.quando), oraValida(d.ora)].filter(Boolean).join(' ');
       const pax = numeroValido(d.pax);
-      const riepilogo = [
+      etichetta = 'Transfer';
+      riepilogo = [
         direzioneTransfer(d),
         quandoOra,
         pax !== null ? conPlurale(pax, 'persona', 'persone') : '',
       ].filter(Boolean).join(' · ');
-      return { etichetta: 'Transfer', riepilogo };
+      break;
     }
 
     case 'greenfee': {
       const quandoOra = [dataBreve(d.data), oraValida(d.ora)].filter(Boolean).join(' ');
       const giocatori = numeroValido(d.giocatori);
-      const riepilogo = [
+      etichetta = 'Green fee';
+      riepilogo = [
         nomeCircoloBreve(d),
         quandoOra,
         giocatori !== null ? conPlurale(giocatori, 'giocatore', 'giocatori') : '',
       ].filter(Boolean).join(' · ');
-      return { etichetta: 'Green fee', riepilogo };
+      break;
     }
 
     case 'maestro': {
       const quandoOra = [dataBreve(d.data), oraValida(d.ora)].filter(Boolean).join(' ');
       const persone = numeroValido(d.persone);
-      const livello = typeof d.livello === 'string' ? d.livello.trim() : '';
-      const riepilogo = [
+      const livello = typeof d.livello === 'string' ? unoSpazio(d.livello) : '';
+      etichetta = 'Maestro';
+      riepilogo = [
         quandoOra,
         persone !== null ? conPlurale(persone, 'persona', 'persone') : '',
         livello,
       ].filter(Boolean).join(' · ');
-      return { etichetta: 'Maestro', riepilogo };
+      break;
     }
 
     case 'soggiorno':
-      return { etichetta: 'Soggiorno', riepilogo: riepilogoSoggiorno(r) };
+      etichetta = 'Soggiorno';
+      riepilogo = riepilogoSoggiorno(r);
+      break;
 
     default:
       /* tipo assente, mai visto, o un nome ereditato come "toString": una
          riga generica col periodo se c'e' e' meglio di un errore o di un
          vuoto senza spiegazione */
-      return { etichetta: 'Richiesta', riepilogo: riepilogoSoggiorno(r) };
+      etichetta = 'Richiesta';
+      riepilogo = riepilogoSoggiorno(r);
+      break;
   }
+
+  return { etichetta, riepilogo: riepilogo || NESSUN_DETTAGLIO };
 }

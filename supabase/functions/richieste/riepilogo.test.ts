@@ -3,9 +3,17 @@
    vera del back office: "→ · null notti · null ospiti" per una richiesta
    che non era affatto un soggiorno. Ogni test qui sotto o verifica che il
    tipo giusto produca la riga giusta, o che un campo mancante sparisca
-   dalla riga invece di comparirci come null/undefined/NaN. */
+   dalla riga invece di comparirci come null/undefined/NaN — e, dov'e' il
+   caso, che una richiesta senza dettagli lo DICA invece di lasciare la riga
+   bianca: una riga vuota in elenco e' lo stesso difetto vestito diverso,
+   perche' chi guarda non sa se la richiesta e' vuota o se qualcosa si e'
+   rotto. */
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { riepilogoRichiesta } from './riepilogo.ts';
+
+/* la stringa che compare quando non c'e' proprio niente da dire — deve
+   comparire lei, non il vuoto */
+const NESSUN_DETTAGLIO = 'nessun dettaglio indicato';
 
 /* nessuna riga deve mai contenere questi tre testi, qualunque sia il caso:
    e' esattamente il difetto da cui parte questo modulo */
@@ -31,16 +39,25 @@ Deno.test('trattamenti: un solo trattamento si dice al singolare', () => {
   assertEquals(r.riepilogo, '1 trattamento · 21 agosto · mattina');
 });
 
-Deno.test('trattamenti: dati a null non produce una riga sporca', () => {
+/* "indifferente" da sola, in mezzo a un conteggio e una data, non dice a
+   cosa si riferisce: si scrive per esteso invece di lasciarla ambigua (o di
+   ometterla, che qui varrebbe dire "tenere per se'" un'informazione vera —
+   l'ospite ha risposto "mi va bene qualunque orario", e questo si dice) */
+Deno.test('trattamenti: la fascia "indifferente" si legge per esteso, non ambigua', () => {
+  const r = riepilogoRichiesta({ tipo: 'trattamenti', dati: { voci: ['Shiatzu', 'Pindasweda'], giorno: '2026-08-21', fascia: 'indifferente' } });
+  assertEquals(r.riepilogo, '2 trattamenti · 21 agosto · orario indifferente');
+});
+
+Deno.test('trattamenti: dati a null lo dice, non lascia la riga bianca', () => {
   const r = riepilogoRichiesta({ tipo: 'trattamenti', dati: null });
   assertEquals(r.etichetta, 'Trattamenti');
-  assertEquals(r.riepilogo, '');
+  assertEquals(r.riepilogo, NESSUN_DETTAGLIO);
   assert(senzaValoriSporchi(r.riepilogo));
 });
 
-Deno.test('trattamenti: dati vuoto {} non produce una riga sporca', () => {
+Deno.test('trattamenti: dati vuoto {} lo dice, non lascia la riga bianca', () => {
   const r = riepilogoRichiesta({ tipo: 'trattamenti', dati: {} });
-  assertEquals(r.riepilogo, '');
+  assertEquals(r.riepilogo, NESSUN_DETTAGLIO);
   assert(senzaValoriSporchi(r.riepilogo));
 });
 
@@ -57,37 +74,40 @@ Deno.test('trattamenti: senza la fascia restano conteggio e giorno', () => {
 
 /* ---------------- transfer ---------------- */
 
+/* il valore vero letto dal database: due spazi copiati testualmente
+   dall'elenco ATAM (vedi luoghi.ts). Il dato resta cosi' — solo la riga di
+   riepilogo lo mostra con uno spazio solo */
 const transferCompleto = {
   tipo: 'transfer',
   dati: { quando: '2026-08-15', ora: '15:30', pax: 2, verso: 'arrivo', luogo: 'Venezia  aeroporto' },
 };
 
-Deno.test('transfer: dati completi danno luogo, orario e persone', () => {
+Deno.test('transfer: dati completi danno luogo, orario e persone, con un solo spazio', () => {
   const r = riepilogoRichiesta(transferCompleto);
   assertEquals(r.etichetta, 'Transfer');
-  assertEquals(r.riepilogo, 'Venezia  aeroporto → hotel · 15 ago 15:30 · 2 persone');
+  assertEquals(r.riepilogo, 'Venezia aeroporto → hotel · 15 ago 15:30 · 2 persone');
 });
 
 Deno.test('transfer: la partenza va verso il luogo, non da esso', () => {
   const r = riepilogoRichiesta({ tipo: 'transfer', dati: { ...transferCompleto.dati, verso: 'partenza' } });
-  assertEquals(r.riepilogo, 'hotel → Venezia  aeroporto · 15 ago 15:30 · 2 persone');
+  assertEquals(r.riepilogo, 'hotel → Venezia aeroporto · 15 ago 15:30 · 2 persone');
 });
 
 Deno.test('transfer: un solo passeggero si dice al singolare', () => {
   const r = riepilogoRichiesta({ tipo: 'transfer', dati: { ...transferCompleto.dati, pax: 1 } });
-  assertEquals(r.riepilogo, 'Venezia  aeroporto → hotel · 15 ago 15:30 · 1 persona');
+  assertEquals(r.riepilogo, 'Venezia aeroporto → hotel · 15 ago 15:30 · 1 persona');
 });
 
-Deno.test('transfer: dati a null non produce una riga sporca', () => {
+Deno.test('transfer: dati a null lo dice, non lascia la riga bianca', () => {
   const r = riepilogoRichiesta({ tipo: 'transfer', dati: null });
   assertEquals(r.etichetta, 'Transfer');
-  assertEquals(r.riepilogo, '');
+  assertEquals(r.riepilogo, NESSUN_DETTAGLIO);
   assert(senzaValoriSporchi(r.riepilogo));
 });
 
-Deno.test('transfer: dati vuoto {} non produce una riga sporca', () => {
+Deno.test('transfer: dati vuoto {} lo dice, non lascia la riga bianca', () => {
   const r = riepilogoRichiesta({ tipo: 'transfer', dati: {} });
-  assertEquals(r.riepilogo, '');
+  assertEquals(r.riepilogo, NESSUN_DETTAGLIO);
   assert(senzaValoriSporchi(r.riepilogo));
 });
 
@@ -100,9 +120,9 @@ Deno.test('transfer: senza il luogo la freccia sparisce, non resta a meta', () =
   assert(senzaValoriSporchi(r.riepilogo));
 });
 
-Deno.test('transfer: senza un verso riconosciuto si mostra solo il luogo, nessuna direzione indovinata', () => {
+Deno.test('transfer: senza un verso riconosciuto si mostra solo il luogo, con un solo spazio', () => {
   const r = riepilogoRichiesta({ tipo: 'transfer', dati: { quando: '2026-08-15', ora: '15:30', pax: 2, luogo: 'Venezia  aeroporto' } });
-  assertEquals(r.riepilogo, 'Venezia  aeroporto · 15 ago 15:30 · 2 persone');
+  assertEquals(r.riepilogo, 'Venezia aeroporto · 15 ago 15:30 · 2 persone');
 });
 
 /* ---------------- green fee ---------------- */
@@ -112,33 +132,62 @@ const greenfeeCompleto = {
   dati: { circolo: 'montecchia', circolo_nome: 'Golf della Montecchia', data: '2026-09-10', ora: '09:30', giocatori: 2 },
 };
 
-Deno.test('greenfee: dati completi danno circolo, orario e giocatori', () => {
+/* circolo_nome, salvato gia' da tipi.ts, e' il nome buono e va per intero:
+   la chiave capitalizzata e' solo il ripiego per le richieste che non
+   hanno ancora circolo_nome */
+Deno.test('greenfee: dati completi danno il nome per esteso del circolo, orario e giocatori', () => {
   const r = riepilogoRichiesta(greenfeeCompleto);
   assertEquals(r.etichetta, 'Green fee');
-  assertEquals(r.riepilogo, 'Montecchia · 10 set 09:30 · 2 giocatori');
+  assertEquals(r.riepilogo, 'Golf della Montecchia · 10 set 09:30 · 2 giocatori');
 });
 
 Deno.test('greenfee: un solo giocatore si dice al singolare', () => {
   const r = riepilogoRichiesta({ tipo: 'greenfee', dati: { ...greenfeeCompleto.dati, giocatori: 1 } });
-  assertEquals(r.riepilogo, 'Montecchia · 10 set 09:30 · 1 giocatore');
+  assertEquals(r.riepilogo, 'Golf della Montecchia · 10 set 09:30 · 1 giocatore');
 });
 
-Deno.test('greenfee: dati a null non produce una riga sporca', () => {
+/* se un giorno la chiave e il nome per esteso non corrispondessero (un dato
+   corretto a mano, un refuso), vince circolo_nome: e' quello che tipi.ts
+   salva apposta come nome da mostrare, non un derivato dalla chiave */
+Deno.test('greenfee: circolo_nome ha la precedenza sulla chiave capitalizzata', () => {
+  const r = riepilogoRichiesta({
+    tipo: 'greenfee',
+    dati: { circolo: 'montecchia', circolo_nome: 'Golf della Montecchia (soci)', data: '2026-09-10', ora: '09:30', giocatori: 2 },
+  });
+  assertEquals(r.riepilogo, 'Golf della Montecchia (soci) · 10 set 09:30 · 2 giocatori');
+});
+
+Deno.test('greenfee: dati a null lo dice, non lascia la riga bianca', () => {
   const r = riepilogoRichiesta({ tipo: 'greenfee', dati: null });
   assertEquals(r.etichetta, 'Green fee');
-  assertEquals(r.riepilogo, '');
+  assertEquals(r.riepilogo, NESSUN_DETTAGLIO);
   assert(senzaValoriSporchi(r.riepilogo));
 });
 
-Deno.test('greenfee: dati vuoto {} non produce una riga sporca', () => {
+Deno.test('greenfee: dati vuoto {} lo dice, non lascia la riga bianca', () => {
   const r = riepilogoRichiesta({ tipo: 'greenfee', dati: {} });
-  assertEquals(r.riepilogo, '');
+  assertEquals(r.riepilogo, NESSUN_DETTAGLIO);
 });
 
 /* una richiesta vecchia puo' non avere la chiave 'circolo' (aggiunta dopo):
-   si usa il nome intero gia' salvato invece di lasciare il posto vuoto */
-Deno.test('greenfee: senza la chiave del circolo si usa il nome intero salvato', () => {
+   con solo circolo_nome si passa comunque dalla via principale, non dal
+   ripiego */
+Deno.test('greenfee: senza la chiave del circolo, circolo_nome basta', () => {
   const r = riepilogoRichiesta({ tipo: 'greenfee', dati: { circolo_nome: 'Golf della Montecchia', data: '2026-09-10', ora: '09:30', giocatori: 2 } });
+  assertEquals(r.riepilogo, 'Golf della Montecchia · 10 set 09:30 · 2 giocatori');
+});
+
+/* senza circolo_nome si cade sulla chiave capitalizzata, verificata contro
+   CIRCOLI_GOLF: e' il ripiego per le richieste ancora piu' vecchie */
+Deno.test('greenfee: senza circolo_nome si usa la chiave capitalizzata', () => {
+  const r = riepilogoRichiesta({ tipo: 'greenfee', dati: { circolo: 'montecchia', data: '2026-09-10', ora: '09:30', giocatori: 2 } });
+  assertEquals(r.riepilogo, 'Montecchia · 10 set 09:30 · 2 giocatori');
+});
+
+/* circolo_nome e' testo libero quanto il luogo di un transfer: la stessa
+   normalizzazione vale anche qui, per lo stesso motivo */
+Deno.test('greenfee: anche il nome del circolo si mostra con un solo spazio', () => {
+  const r = riepilogoRichiesta({ tipo: 'greenfee', dati: { circolo_nome: 'Golf  della  Montecchia', data: '2026-09-10', ora: '09:30', giocatori: 2 } });
   assertEquals(r.riepilogo, 'Golf della Montecchia · 10 set 09:30 · 2 giocatori');
 });
 
@@ -148,8 +197,8 @@ Deno.test('greenfee: senza ne il circolo ne il suo nome il pezzo sparisce', () =
 });
 
 /* un circolo battuto male, o non piu' in CIRCOLI_GOLF, non e' un club vero:
-   Object.hasOwn lo scarta e si cade sul nome salvato, mai su una chiave
-   capitalizzata a caso */
+   Object.hasOwn lo scarta e il pezzo sparisce, mai una chiave capitalizzata
+   a caso */
 Deno.test('greenfee: un circolo sconosciuto non passa come nome breve inventato', () => {
   const r = riepilogoRichiesta({ tipo: 'greenfee', dati: { circolo: 'marte', circolo_nome: '', data: '2026-09-10', ora: '09:30', giocatori: 2 } });
   assertEquals(r.riepilogo, '10 set 09:30 · 2 giocatori');
@@ -168,15 +217,15 @@ Deno.test('maestro: dati completi danno orario, persone e livello', () => {
   assertEquals(r.riepilogo, '10 set 09:30 · 2 persone · principiante');
 });
 
-Deno.test('maestro: dati a null non produce una riga sporca', () => {
+Deno.test('maestro: dati a null lo dice, non lascia la riga bianca', () => {
   const r = riepilogoRichiesta({ tipo: 'maestro', dati: null });
   assertEquals(r.etichetta, 'Maestro');
-  assertEquals(r.riepilogo, '');
+  assertEquals(r.riepilogo, NESSUN_DETTAGLIO);
 });
 
-Deno.test('maestro: dati vuoto {} non produce una riga sporca', () => {
+Deno.test('maestro: dati vuoto {} lo dice, non lascia la riga bianca', () => {
   const r = riepilogoRichiesta({ tipo: 'maestro', dati: {} });
-  assertEquals(r.riepilogo, '');
+  assertEquals(r.riepilogo, NESSUN_DETTAGLIO);
 });
 
 Deno.test('maestro: senza il livello restano solo orario e persone', () => {
@@ -207,10 +256,10 @@ Deno.test('soggiorno: dati a null non produce una riga sporca, il periodo resta'
   assertEquals(r.riepilogo, '10/09/2026 → 15/09/2026 · 5 notti · 2 ospiti');
 });
 
-Deno.test('soggiorno: senza check_in/check_out/notti/ospiti la riga e vuota, non "null notti null ospiti"', () => {
+Deno.test('soggiorno: senza check_in/check_out/notti/ospiti lo dice, non torna "null notti null ospiti" ne resta bianca', () => {
   const r = riepilogoRichiesta({ tipo: 'soggiorno' });
   assertEquals(r.etichetta, 'Soggiorno');
-  assertEquals(r.riepilogo, '');
+  assertEquals(r.riepilogo, NESSUN_DETTAGLIO);
   assert(senzaValoriSporchi(r.riepilogo));
 });
 
@@ -224,6 +273,18 @@ Deno.test('soggiorno: senza gli ospiti restano periodo e notti', () => {
   const r = riepilogoRichiesta({ tipo: 'soggiorno', check_in: '2026-09-10', check_out: '2026-09-15', notti: 5, ospiti: null });
   assertEquals(r.riepilogo, '10/09/2026 → 15/09/2026 · 5 notti');
   assert(senzaValoriSporchi(r.riepilogo));
+});
+
+/* ---------------- niente e' proprio niente: la riga lo dice ---------------- */
+
+/* Il rilievo vero: una riga bianca in elenco e' lo stesso difetto di
+   partenza vestito diverso, perche' chi guarda non sa se la richiesta non
+   ha dettagli o se il back office si e' rotto. Questo test prova che
+   compare del testo leggibile, non solo che non compare "null". */
+Deno.test('senza alcun dettaglio la riga lo dice esplicitamente, non resta bianca', () => {
+  const r = riepilogoRichiesta({ tipo: 'trattamenti', dati: null });
+  assertEquals(r.riepilogo, NESSUN_DETTAGLIO);
+  assert(r.riepilogo.length > 0, 'una riga vuota sembra un back office rotto, non una richiesta senza dettagli');
 });
 
 /* ---------------- tipo sconosciuto / il difetto OGGETTO[tipo] ---------------- */
@@ -242,13 +303,13 @@ Deno.test('il tipo "toString" e trattato come sconosciuto, non come una funzione
   const r = riepilogoRichiesta({ tipo: 'toString' });
   assertEquals(typeof r.etichetta, 'string');
   assertEquals(r.etichetta, 'Richiesta');
-  assertEquals(typeof r.riepilogo, 'string');
+  assertEquals(r.riepilogo, NESSUN_DETTAGLIO);
   assert(!r.etichetta.includes('function'));
   assert(!r.riepilogo.includes('function'));
 });
 
-Deno.test('un tipo assente (undefined) e trattato come sconosciuto', () => {
+Deno.test('un tipo assente (undefined) e trattato come sconosciuto, e lo dice', () => {
   const r = riepilogoRichiesta({});
   assertEquals(r.etichetta, 'Richiesta');
-  assertEquals(r.riepilogo, '');
+  assertEquals(r.riepilogo, NESSUN_DETTAGLIO);
 });
