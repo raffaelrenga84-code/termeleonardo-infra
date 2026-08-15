@@ -77,7 +77,42 @@ Una spunta «Mi serve la fattura» apre il riquadro. Presente in due punti:
 - `pagine/buoni/regala/index.html` — l'azienda che compra online
 - `pagine/buoni/index.html` — la reception che vende al banco
 
-Campi, tutti obbligatori quando la spunta è attiva tranne dove indicato:
+### Prima si sceglie chi è l'intestatario
+
+*(Aggiunto il 15 agosto 2026, con la proprietà, dopo aver guardato il
+modulo di una struttura concorrente.)*
+
+Subito dentro il riquadro, **una scelta fra due: privato o azienda.** Poi
+compaiono solo i campi di quel caso.
+
+Serve perché i due casi vogliono dati diversi, e mescolarli produce fatture
+sbagliate. Il modulo del concorrente li mescola: chiede la **Ragione
+Sociale** a chiunque. Una persona fisica ci scrive il proprio nome, e la
+fattura esce con una denominazione al posto di nome e cognome — formalmente
+diversa da quella che quella persona deve ricevere.
+
+| | Privato | Azienda |
+|---|---|---|
+| Denominazione | *(nome e cognome, già raccolti nell'acquisto)* | Ragione sociale |
+| Partita IVA | — | obbligatoria |
+| Codice fiscale | **obbligatorio**, 16 caratteri | facoltativo se c'è la P.IVA |
+| Indirizzo, civico, CAP, comune, provincia | obbligatori | obbligatori |
+| Codice destinatario | **non si chiede** | obbligatorio, o la PEC |
+| PEC | **non si chiede** | obbligatoria, o il codice destinatario |
+
+**Al privato non si chiedono codice destinatario e PEC.** Per una persona
+fisica il codice è `0000000` e la fattura arriva nel suo cassetto fiscale:
+chiederglieli vorrebbe dire chiedergli due cose che non ha, e ottenere due
+campi vuoti o inventati. Il codice `0000000` lo scrive il sistema, non
+l'ospite.
+
+**La scelta va registrata**, in una colonna sua: serve a comporre l'XML —
+`CessionarioCommittente` cambia forma fra persona fisica e azienda — e serve
+a chi guarda una fattura vecchia per capire perché è fatta così.
+
+### I campi
+
+Obbligatori quando la spunta è attiva, secondo la tabella qui sopra:
 
 | Campo | Colonna | Validazione |
 |---|---|---|
