@@ -1157,19 +1157,46 @@ function vistaVerifica() {
         <div class="mini">Scade il ${dataIT(j.scade_il)}</div>
         <label>Note (facoltative)</label><input type="text" id="vNote" />
         <button class="azione" id="vRiscuoti">Segna come riscosso</button>
-        <button class="azione sec" id="vAnnulla">Annulla il buono</button>
+        <button class="azione sec" id="vAnnulla"
+          style="border-color:var(--allarme);color:var(--allarme);">Annulla e rimborsa</button>
         <div class="esito" id="vEsito2"></div></div>`;
-      const agisci = async (azione) => {
-        if (azione === 'annulla' && !confirm('Annullare il buono ' + cod + '? Non sar\u00e0 pi\u00f9 utilizzabile.')) return;
+      $('vRiscuoti').onclick = async () => {
         try {
-          await chiama('?a=' + azione, { method:'POST', body: JSON.stringify({
+          await chiama('?a=riscuoti', { method:'POST', body: JSON.stringify({
             codice: cod, operatore: OPERATORE, note: $('vNote').value }) });
-          $('vEsito2').textContent = azione === 'riscuoti' ? '\u2713 Registrato come riscosso.' : '\u2713 Buono annullato.';
+          $('vEsito2').textContent = '\u2713 Registrato come riscosso.';
           $('vRiscuoti').disabled = true; $('vAnnulla').disabled = true;
         } catch (e) { $('vEsito2').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
       };
-      $('vRiscuoti').onclick = () => agisci('riscuoti');
-      $('vAnnulla').onclick = () => agisci('annulla');
+      /* Un gesto solo: annulla e, se il buono \u00e8 stato pagato con Stripe,
+         rimborsa \u2014 lo decide il server (?a=rimborsa, vedi rimborso.ts),
+         qui c'\u00e8 solo la conferma. La conferma dice cosa succede DAVVERO \u2014
+         quale buono, quanti euro tornano al cliente, che non si torna
+         indietro \u2014 non un "sei sicuro?" generico: prima di questa modifica
+         il back office sapeva solo annullare, e il rimborso si faceva a
+         mano dentro Stripe: due gesti separati, facili da disallineare
+         (buono annullato e mai rimborsato, o rimborsato e mai annullato). */
+      $('vAnnulla').onclick = async () => {
+        const conferma = `Annullare il buono ${cod} e rimborsare ${eur(j.valore)} \u20ac a chi l\u2019ha pagato?\n\n` +
+          `L\u2019operazione NON si pu\u00f2 annullare: se \u00e8 stato pagato con Stripe il rimborso parte subito.`;
+        if (!confirm(conferma)) return;
+        $('vRiscuoti').disabled = true; $('vAnnulla').disabled = true;
+        $('vEsito2').textContent = 'Un momento\u2026';
+        try {
+          const ris = await chiama('?a=rimborsa', { method:'POST', body: JSON.stringify({
+            codice: cod, operatore: OPERATORE, note: $('vNote').value }) });
+          $('vEsito2').innerHTML = `\u2713 ${esc(ris.messaggio || 'Buono annullato.')}`;
+        } catch (e) {
+          /* il buono NON \u00e8 stato toccato (rimborso fallito) o \u00e8 successo
+             qualcosa che l'operatore deve sistemare a mano (vedi
+             messaggioScritturaFallita in rimborso.ts): in entrambi i casi
+             si riabilitano i pulsanti, perch\u00e9 un nuovo tentativo pu\u00f2
+             ancora avere senso \u2014 e se il rimborso era gi\u00e0 partito, Stripe
+             risponder\u00e0 "gi\u00e0 rimborsato" invece di rimborsare due volte. */
+          $('vEsito2').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
+          $('vRiscuoti').disabled = false; $('vAnnulla').disabled = false;
+        }
+      };
     } catch (e) { $('vEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
   };
   $('vCerca').onclick = cerca;

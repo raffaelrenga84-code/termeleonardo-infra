@@ -14,7 +14,13 @@
      POST ?a=pagato     → registra l'incasso ed emette il codice
      POST ?a=link       → crea il link di pagamento Stripe
      POST ?a=riscuoti   → segna il buono usato
-     POST ?a=annulla    → annulla
+     POST ?a=annulla    → annulla (senza toccare Stripe: la usa solo chi sa
+                          già che non c'è nulla da rimborsare — per il gesto
+                          unico "annulla e rimborsa" vedi ?a=rimborsa)
+     POST ?a=rimborsa   → annulla E rimborsa in un solo gesto: prima il
+                          rimborso su Stripe (se il buono è stato pagato lì),
+                          e solo se riesce si annulla — vedi rimborso.ts per
+                          il perché e per tutte le regole
      GET  ?a=elenco     → ultimi buoni, con filtri
    Pubblico:
      GET  ?a=verifica&codice=…  → validità, senza dati personali (la usa la
@@ -35,6 +41,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { validaAcquisto, colonnaVoci, scadenzaCrea } from './acquista.ts';
 import { type Stagione } from './scadenza.ts';
 import { nasceGiaPagato } from './pagamenti.ts';
+import { idoneitaRimborso, eseguiRimborsoStripe, messaggioScritturaFallita } from './rimborso.ts';
 import { entroIlLimiteAcquista, entroIlLimiteQr, entroIlLimiteStampa, troppiDalSito } from './limite.ts';
 import { avvisaAmministrazione, inviaBuonoEmesso, statoConsegna } from './email-buono.ts';
 import { inviaEmailPromemoria } from './email-promemoria.ts';
@@ -356,6 +363,26 @@ async function eseguiPromemoria(): Promise<{ mandati: number; falliti: number }>
     else falliti++;                                   // spedito ma non segnato: si vede nei log
   }
   return { mandati, falliti };
+}
+
+/* Regola 2 di ?a=rimborsa (vedi rimborso.ts): il rimborso su Stripe è già
+   un fatto compiuto — riuscito adesso, o già presente prima — quando questa
+   funzione viene chiamata; resta solo da scrivere `stato: 'annullato'`.
+   Si ritenta la sola scrittura, tre volte, esattamente come già fa
+   segnaPromemoria qui sopra per lo stesso genere di rischio (un'azione
+   già avvenuta fuori dal database, che il database deve ancora sapere).
+   Se anche i tre tentativi falliscono NON si inventa un quarto: si
+   restituisce false, e chi chiama logga CRITICO e risponde all'operatore
+   con messaggioScritturaFallita — mai un "errore" generico, qui i soldi
+   sono già partiti e l'operatore deve saperlo subito. */
+async function scriviAnnullamentoRimborsato(chiave: string, patch: Record<string, unknown>): Promise<boolean> {
+  for (let i = 0; i < 3; i++) {
+    const { error } = await db.from('buono_regalo').update(patch)
+      .or(`codice.eq.${chiave},numero.eq.${chiave}`);
+    if (!error) return true;
+    console.error('scrittura annullamento dopo rimborso fallita, tentativo', i + 1, '-', chiave, error.message);
+  }
+  return false;
 }
 
 Deno.serve(async (req) => {
@@ -793,6 +820,82 @@ Deno.serve(async (req) => {
       .or(`codice.eq.${codice},numero.eq.${codice}`);
     if (error) return risposta({ errore: error.message }, 500);
     return risposta({ ok: true });
+  }
+
+  /* ---------- annulla e rimborsa, in un solo gesto ----------
+     La decisione (si può? quanto? cosa vuol dire che Stripe dice "già
+     rimborsato"?) sta tutta in rimborso.ts, collaudata da sola: qui c'è
+     solo l'orchestrazione, nell'ordine che conta — REGOLA 1 su tutte:
+     prima il rimborso, e SOLO se riesce (o Stripe dice che è già
+     avvenuto) si scrive `annullato`. Se il rimborso fallisce la riga
+     non si tocca: niente qui sotto scrive sul database prima di quel
+     punto. */
+  if (azione === 'rimborsa') {
+    const codice = String(b.codice || '').toUpperCase().trim();
+    if (!codice) return risposta({ errore: 'codice mancante' }, 400);
+    const { data: esistente } = await db.from('buono_regalo')
+      .select('stato, pagamento, pagamento_rif, valore')
+      .or(`codice.eq.${codice},numero.eq.${codice}`).maybeSingle();
+    if (!esistente) return risposta({ errore: 'buono non trovato' }, 404);
+
+    const idoneita = idoneitaRimborso(esistente);
+    /* regola 4: non ancora pagato, già riscosso o già annullato — si
+       rifiuta prima di chiamare Stripe, non dopo */
+    if (idoneita.tipo === 'rifiutato') return risposta({ errore: idoneita.motivo }, 409);
+
+    const notaOperatore = testo(b.note, 300);
+
+    /* regola 3: contanti, bonifico, omaggio — o un pagamento segnato
+       "stripe" senza un riferimento usabile: nulla da rimborsare qui,
+       si annulla e basta, dicendolo chiaro all'operatore. Non si finge
+       un rimborso che non è mai partito. */
+    if (idoneita.tipo === 'senza_stripe') {
+      const { error } = await db.from('buono_regalo')
+        .update({ stato: 'annullato', riscosso_note: notaOperatore })
+        .or(`codice.eq.${codice},numero.eq.${codice}`);
+      if (error) return risposta({ errore: error.message }, 500);
+      return risposta({
+        ok: true, rimborsato: false,
+        messaggio: 'Buono annullato. Non risulta un pagamento Stripe collegato: il rimborso al cliente va fatto di persona.'
+      });
+    }
+
+    /* idoneita.tipo === 'da_rimborsare': c'è un pagamento Stripe. Prima
+       la rete, poi (solo se va bene) il database — regola 1. */
+    const chiaveStripe = Deno.env.get('STRIPE_RESTRICTED_KEY');
+    if (!chiaveStripe) return risposta({ errore: 'Stripe non configurato: il rimborso non è disponibile adesso.' }, 502);
+
+    const esitoStripe = await eseguiRimborsoStripe(fetch, chiaveStripe, idoneita.riferimentoStripe, idoneita.centesimi);
+    if (esitoStripe.esito === 'fallito') {
+      console.error('rimborso Stripe non riuscito:', esitoStripe.messaggio, '-', codice);
+      return risposta({
+        errore: `Il rimborso non è riuscito (${esitoStripe.messaggio}): il buono NON è stato annullato. Riprovi, o controlli Stripe.`
+      }, 502);
+    }
+
+    /* qui il rimborso è un fatto compiuto — riuscito adesso (esito
+       'riuscito') o già avvenuto prima (esito 'gia_rimborsato', regola
+       5: non è un errore, è uno stato). In entrambi i casi il buono va
+       annullato. */
+    const patch = {
+      stato: 'annullato',
+      riscosso_note: [
+        esitoStripe.esito === 'gia_rimborsato' ? 'rimborso già presente su Stripe' : `rimborsato su Stripe (${esitoStripe.id})`,
+        notaOperatore
+      ].filter(Boolean).join(' · ')
+    };
+    const scritto = await scriviAnnullamentoRimborsato(codice, patch);
+    if (!scritto) {
+      console.error('CRITICO: rimborso Stripe riuscito ma il buono non risulta annullato -', codice,
+        '- riferimento', idoneita.riferimentoStripe, '-', (idoneita.centesimi / 100).toFixed(2), 'euro');
+      return risposta({ errore: messaggioScritturaFallita(codice, idoneita.centesimi, idoneita.riferimentoStripe) }, 500);
+    }
+    return risposta({
+      ok: true, rimborsato: true, gia_rimborsato: esitoStripe.esito === 'gia_rimborsato',
+      messaggio: esitoStripe.esito === 'gia_rimborsato'
+        ? 'Buono annullato. Il pagamento risultava già rimborsato su Stripe.'
+        : `Buono annullato e ${(idoneita.centesimi / 100).toFixed(2).replace('.', ',')} € rimborsati su Stripe.`
+    });
   }
 
   return risposta({ errore: 'azione sconosciuta' }, 400);
