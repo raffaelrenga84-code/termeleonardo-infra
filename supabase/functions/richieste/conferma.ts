@@ -9,6 +9,8 @@
    Costruita a tabelle come le altre: Outlook non regge i layout moderni.
    ============================================================ */
 
+import { differenze, type Differenza } from './differenze.ts';
+
 const BASE_IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 const TELEFONO = '+39 049 9939200';
 const EMAIL_HOTEL = 'info@termeleonardo.com';
@@ -24,6 +26,15 @@ export type Richiesta = {
   lingua?: string;
   messaggio?: string;
   dati?: Record<string, unknown> | null;
+  /* La richiesta come l'ospite l'aveva scritta, mai piu' toccata dopo la
+     creazione (vedi componi-richiesta.ts / index.ts, insert). Assente o
+     null sulle righe mai corrette: in quel caso non c'e' niente da
+     confrontare, non "tutto e' cambiato". */
+  dati_originali?: Record<string, unknown> | null;
+  /* La casella del back office "segnala all'ospite cosa e' cambiato". Il
+     riquadro delle differenze compare SOLO se questo e' vero E ci sono
+     davvero differenze — mai uno dei due da solo. */
+  segnala_modifiche?: boolean;
   [k: string]: unknown;
 };
 
@@ -36,6 +47,8 @@ const T: Record<string, Record<string, string>> = {
     ritorno: 'Ritorno incluso', rif: 'Riferimento',
         noleggi: 'Noleggi', taxi: 'Taxi dall’hotel', trattamenti: 'Trattamenti',
     oggetto: 'confermata',
+    modifiche: 'Cosa è cambiato rispetto alla richiesta',
+    chiesto: 'Aveva chiesto', confermato: 'Confermiamo',
   },
   de: {
     occhiello: 'BESTÄTIGUNG', caro: 'Sehr geehrte(r)', titolo: 'Ihre Anfrage ist bestätigt',
@@ -45,6 +58,8 @@ const T: Record<string, Record<string, string>> = {
     ritorno: 'Rückfahrt inbegriffen', rif: 'Referenz',
         noleggi: 'Verleih', taxi: 'Taxi ab Hotel', trattamenti: 'Anwendungen',
     oggetto: 'bestätigt',
+    modifiche: 'Was sich gegenüber Ihrer Anfrage geändert hat',
+    chiesto: 'Angefragt', confermato: 'Bestätigt',
   },
   en: {
     occhiello: 'CONFIRMATION', caro: 'Dear', titolo: 'Your request is confirmed',
@@ -54,6 +69,8 @@ const T: Record<string, Record<string, string>> = {
     ritorno: 'Return trip included', rif: 'Reference',
         noleggi: 'Rentals', taxi: 'Taxi from the hotel', trattamenti: 'Treatments',
     oggetto: 'confirmed',
+    modifiche: 'What has changed from your request',
+    chiesto: 'Originally requested', confermato: 'Now confirmed',
   },
   fr: {
     occhiello: 'CONFIRMATION', caro: 'Cher/Chère', titolo: 'Votre demande est confirmée',
@@ -63,6 +80,8 @@ const T: Record<string, Record<string, string>> = {
     ritorno: 'Retour inclus', rif: 'Référence',
         noleggi: 'Locations', taxi: 'Taxi depuis l’hôtel', trattamenti: 'Soins',
     oggetto: 'confirmée',
+    modifiche: 'Ce qui a changé par rapport à votre demande',
+    chiesto: 'Demandé initialement', confermato: 'Confirmé',
   },
 };
 
@@ -122,11 +141,43 @@ function dettagli(tipo: string, d: Record<string, unknown>, t: Record<string, st
   return '';
 }
 
+/* Le differenze compaiono SOLO se l'operatore ha spuntato la casella E ci
+   sono davvero differenze: `differenze()` gia' restituisce un elenco vuoto
+   quando dati_originali manca, e' null, o coincide col dato attuale — qui
+   basta il gate sulla casella, mai il contrario (mostrare quando manca la
+   casella ma ci sarebbero differenze). */
+function differenzeDaMostrare(r: Richiesta): Differenza[] {
+  if (r.segnala_modifiche !== true) return [];
+  return differenze(r.dati_originali, r.dati);
+}
+
+/* Una riga per differenza, nello stesso stile a due colonne di riga():
+   l'etichetta e' il campo cambiato, il valore affianca cosa l'ospite aveva
+   chiesto e cosa gli si conferma adesso. esc() dentro riga() copre l'intera
+   stringa, quindi un valore con `<` dentro (scritto dall'ospite) esce
+   sfuggito comunque. */
+function rigaDifferenza(diff: Differenza, t: Record<string, string>): string {
+  const prima = diff.prima || '—';
+  const adesso = diff.adesso || '—';
+  return riga(diff.campo, `${t.chiesto}: ${prima} → ${t.confermato}: ${adesso}`);
+}
+
+function boxDifferenze(diffs: Differenza[], t: Record<string, string>): string {
+  if (diffs.length === 0) return '';
+  return `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:18px;border-collapse:collapse;">
+    <tr><td style="padding-bottom:4px;font-size:12.5px;color:#8A938F;">${esc(t.modifiche)}</td></tr>
+  </table>
+  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;border-top:1px solid #E6E2D8;">
+    ${diffs.map((diff) => rigaDifferenza(diff, t)).join('')}
+  </table>`;
+}
+
 export function confermaHTML(r: Richiesta): string {
   const l = ['it', 'de', 'en', 'fr'].includes(String(r.lingua)) ? String(r.lingua) : 'it';
   const t = T[l];
   const d = (r.dati || {}) as Record<string, unknown>;
   const messaggio = String(r.messaggio ?? '').trim();
+  const diffs = differenzeDaMostrare(r);
 
   return `<table cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:100%;
   border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;background:#FFFFFF;">
@@ -147,6 +198,8 @@ export function confermaHTML(r: Richiesta): string {
     ${dettagli(String(r.tipo ?? ''), d, t)}
     ${riga(t.rif, String(r.numero))}
   </table>
+
+  ${boxDifferenze(diffs, t)}
 
   ${messaggio
     ? `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:18px;border-collapse:collapse;">

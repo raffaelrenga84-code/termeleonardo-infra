@@ -17,6 +17,7 @@ import { validaDati } from './tipi.ts';
 import { componiRichiesta, type Contatti } from './componi-richiesta.ts';
 import { avvisaHotel } from './email-richiesta.ts';
 import { inviaConferma } from './conferma.ts';
+import { arricchisciElenco } from './elenco.ts';
 import { componiRisposta, corpoDisponibilita } from './disponibilita.ts';
 import { LINGUE } from './condizioni.ts';
 import { creaFrenoIp } from './limite-ip.ts';
@@ -157,6 +158,11 @@ Deno.serve(async (req) => {
       tipo,
       ...colonne,
       dati: propri,
+      /* la richiesta come e' arrivata, scritta una volta sola qui e mai
+         piu' toccata: ?a=conferma aggiorna `dati`, non questa colonna,
+         altrimenti conserverebbe la penultima versione invece
+         dell'originale */
+      dati_originali: propri,
       arrivo_token: testo(corpo.token).slice(0, 120) || null,
       origine: String(corpo.origine || '').slice(0, 200) || null,
       ip,
@@ -261,7 +267,13 @@ Deno.serve(async (req) => {
     if (stato) q = q.eq('stato', stato);
     const { data, error } = await q;
     if (error) return risposta({ errore: error.message }, 500);
-    return risposta({ ok: true, richieste: data });
+    /* etichetta, riepilogo e differenze si calcolano QUI, non nella pagina
+       del back office: quella e' HTML puro e non puo' importare moduli
+       Deno, e riscriverne la logica li' vorrebbe dire due implementazioni
+       della stessa regola che divergono al primo cambiamento — il difetto
+       gia' pagato coi prezzi del listino, i testi dei buoni, l'indirizzo,
+       i trattamenti. */
+    return risposta({ ok: true, richieste: arricchisciElenco(data ?? []) });
   }
 
   /* ---------- conferma all'ospite ----------
@@ -290,9 +302,15 @@ Deno.serve(async (req) => {
     }
 
     const messaggio = testo(b.messaggio).slice(0, 2000);
+    /* la casella del back office "segnala all'ospite cosa e' cambiato":
+       le differenze si calcolano dentro conferma.ts, da dati_originali
+       (mai riscritto dopo la creazione) contro `dati` appena rivalidato */
+    const segnalaModifiche = b.segnala_modifiche === true;
     const esito = await inviaConferma({
       numero: r.numero, tipo: r.tipo, nome: r.nome, email: r.email,
       lingua: r.lingua, dati, messaggio,
+      dati_originali: r.dati_originali,
+      segnala_modifiche: segnalaModifiche,
     });
 
     const { error: eUp } = await db.from('richiesta_sito').update({
