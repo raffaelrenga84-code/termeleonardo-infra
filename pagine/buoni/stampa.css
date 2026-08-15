@@ -42,6 +42,15 @@
 #stampa .foglio{width:210mm;height:297mm;position:relative;box-sizing:border-box;
 background:#FFFFFF;color:#1B4D4A;font-family:Georgia,'Times New Roman',serif;}
 #stampa .meta{height:148.5mm;box-sizing:border-box;padding:14mm 20mm;overflow:hidden;}
+/* MISURATO, non stimato: con Edge headless il riquadro interno traboccava di
+   24px in italiano gia' prima della riga sulla proroga, e di 74px in tedesco
+   dopo. L'overflow nascosto non lo fa vedere: taglia in silenzio la coda delle
+   CONDIZIONI — cancellazione, rimborso, validita' — cioe' proprio il testo che
+   il cliente dichiara di aver accettato prima di pagare.
+   Si stringe SOLO l'interno: la copertina e' la faccia che si vede, e la sua
+   aria e' voluta. I valori qui sotto sono stati scelti rimisurando ogni volta,
+   non a occhio. */
+#stampa .meta.interno{padding:9mm 17mm;}
 #stampa .copertina{background:#E4F0EA;display:flex;flex-direction:column;}
 #stampa .marchio-s{display:block;width:46mm;height:auto;}
 #stampa .stelle{font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:3px;color:#7A9490;margin-top:3mm;}
@@ -66,11 +75,11 @@ font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
 #stampa .servizio-nome{font-size:18px;}
 #stampa .servizio-sotto{font:9px/1.4 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#C9A961;margin-top:2mm;}
 #stampa .comprende{margin:4mm 0 0;padding:0;list-style:none;
-font:11px/1.7 Arial,Helvetica,sans-serif;color:#4A5C59;}
+font:11px/1.55 Arial,Helvetica,sans-serif;color:#4A5C59;}
 #stampa .comprende li::before{content:'\00b7  ';color:#C9A961;}
-#stampa .nota-persone{font:9px/1.6 Arial,Helvetica,sans-serif;color:#8A938F;margin-top:4mm;border-top:1px solid #EFEBE0;padding-top:2.5mm;}
+#stampa .nota-persone{font:9px/1.5 Arial,Helvetica,sans-serif;color:#8A938F;margin-top:3mm;border-top:1px solid #EFEBE0;padding-top:2.5mm;}
 #stampa .codice-riga{display:flex;justify-content:space-between;align-items:flex-start;
-border-top:1px solid #E6E2D8;margin-top:7mm;padding-top:5mm;}
+border-top:1px solid #E6E2D8;margin-top:5mm;padding-top:4mm;}
 #stampa .etichetta-s{font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#9AA9A6;}
 #stampa .codice-s{font:20px/1 'Courier New',monospace;letter-spacing:2px;margin-top:2mm;}
 #stampa .scadenza{font:11px/1 Arial,Helvetica,sans-serif;color:#C9A961;margin-top:2mm;}
@@ -87,7 +96,7 @@ border-top:1px solid #E6E2D8;margin-top:7mm;padding-top:5mm;}
 #stampa .qr-s{display:block;width:20mm;height:20mm;}
 #stampa .recapiti{font:10px/1.6 Arial,Helvetica,sans-serif;color:#5C736F;text-align:right;}
 #stampa .prenota{font:11px/1.6 Arial,Helvetica,sans-serif;color:#4A5C59;margin-top:2mm;}
-#stampa .cond-tit{margin-top:6mm;display:block;}
-#stampa .condizioni{font:7.5px/1.5 Arial,Helvetica,sans-serif;color:#8A938F;margin-top:2mm;text-align:justify;}
+#stampa .cond-tit{margin-top:4mm;display:block;}
+#stampa .condizioni{font:7.2px/1.36 Arial,Helvetica,sans-serif;color:#8A938F;margin-top:2mm;text-align:justify;}
 #stampa .pieded{position:absolute;bottom:10mm;left:20mm;
 font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}

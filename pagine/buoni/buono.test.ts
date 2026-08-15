@@ -57,7 +57,10 @@ Deno.test('il buono porta contatti, scadenza e condizioni', () => {
   assertStringIncludes(h, '+39 049 9939200');
   assertStringIncludes(h, '13 agosto 2027');
   assertStringIncludes(h, 'Per prenotare basta chiamarci o scriverci');
-  assertStringIncludes(h, 'da fine novembre a febbraio');
+  /* la frase era «da fine novembre a febbraio», che si legge in due modi
+     opposti: sostituita, non tolta — il buono deve continuare a dire quando
+     l'hotel e' chiuso, e il test continua a pretenderlo */
+  assertStringIncludes(h, 'da fine novembre a metà febbraio');
 });
 
 Deno.test('il buono monetario non eredita gli inclusi del Day Spa', () => {
@@ -121,6 +124,40 @@ Deno.test('i testi condivisi fra sito ed email restano identici, lingua per ling
     const provaSito = (sito.prorogato as (n: string, x: string) => string)('30 novembre 2026', '13 marzo 2027');
     const provaEmail = (email.prorogato as (n: string, x: string) => string)('30 novembre 2026', '13 marzo 2027');
     assertEquals(provaSito, provaEmail, `ETI.prorogato ${l}`);
+  }
+});
+
+/* «da fine novembre a febbraio» si legge in due modi opposti: chiuso PER
+   TUTTO febbraio, o chiuso FINO A febbraio. Chi compra un buono a novembre
+   e legge la prima non capisce se a metà febbraio l'hotel è aperto — ed è
+   proprio il periodo in cui i buoni comprati a Natale vengono usati.
+   La frase giusta, dalla proprietà: «da fine novembre a metà febbraio». */
+Deno.test('le condizioni dicono «metà febbraio», che si legge in un modo solo', () => {
+  const AMBIGUE: Record<string, RegExp> = {
+    it: /fine novembre a febbraio/,
+    de: /Ende November bis Februar/,
+    en: /late November to February/,
+    fr: /fin novembre à février/,
+  };
+  for (const l of LINGUE) {
+    assertEquals(AMBIGUE[l].test(CONDIZIONI[l]), false,
+      `le condizioni ${l} dicono ancora la frase ambigua`);
+  }
+});
+
+/* La proroga è una cosa a favore del cliente e oggi non è scritta da
+   nessuna parte: chi vede la scadenza cadere dentro la chiusura teme di
+   perdere il regalo e telefona. Scriverla evita la telefonata. */
+Deno.test('le condizioni dicono che la scadenza dentro la chiusura viene prorogata', () => {
+  const PROROGA: Record<string, RegExp> = {
+    it: /prolunghiamo/i,
+    de: /verlängern/i,
+    en: /extend/i,
+    fr: /prolongeons/i,
+  };
+  for (const l of LINGUE) {
+    assertEquals(PROROGA[l].test(CONDIZIONI[l]), true,
+      `le condizioni ${l} non dicono che la scadenza viene prorogata`);
   }
 });
 
