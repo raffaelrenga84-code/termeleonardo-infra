@@ -137,6 +137,13 @@ Pagamento: contanti, bonifico istantaneo, Mastercard, Visa, bancomat — **no Di
 
 **Altro:** divieto di fumo in camera (ok balcone); minibar vuoto, rifornito su richiesta; noleggio bici a pagamento; box bici chiuso con ricarica e-bike.
 
+**INDIRIZZO POSTALE — questo, per esteso, quando lo chiedono:**
+**Via Monteortone 46 · 35037 Monteortone di Abano Terme (PD)**
+*Coordinate: 45.349404, 11.754545.* Non dire solo "Abano Terme": Monteortone
+è la frazione, e chi imposta il navigatore o spedisce qualcosa senza di
+quella finisce altrove. Fino al 15 agosto 2026 in giro c'erano quattro
+versioni diverse di questo indirizzo, una col comune sbagliato.
+
 **Come arrivare:** centro di Abano 1.500 m; stazione Terme Euganee Abano-Montegrotto 7 km; Padova 12 km, con bus per le terme ogni venti minuti circa; aeroporto di Venezia 60 km; aeroporto di Treviso 70 km. In auto: A13 uscita "Terme Euganee" oppure A4 uscita "Padova Ovest".
 
 **Offerte correnti — "a partire da" veri ⟨verificare⟩:** Smart 1 notte + massaggio da 180 €; Thermal Escape 2 notti da 280 €; Deluxe 3 notti + massaggio da 400 €; Golf 7 giorni da 820 €.
