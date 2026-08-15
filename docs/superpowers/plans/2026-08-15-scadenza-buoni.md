@@ -386,7 +386,21 @@ git commit -m "Le date della chiusura stanno in tabella, non nel codice: le camb
 **Files:**
 - Modify: `supabase/functions/buoni/email-buono.ts` (i quattro blocchi di testi, righe 23/36/49/62; il punto dove si scrive `e.valido(...)`, riga 230)
 - Modify: `pagine/buoni/buono.js` (i quattro blocchi `valido:`, righe 96/102/108/114; i due punti che scrivono la scadenza, righe 307 e 404)
-- Test: `supabase/functions/buoni/email-buono.test.ts`, `pagine/buoni/buono.test.ts`, `pagine/buoni/listino-copie.test.ts`
+- **Modify: `supabase/functions/buoni/stampa.ts`** — vedi sotto, senza questo il foglio non riceve i dati e il resto del task non serve a niente
+- Test: `supabase/functions/buoni/email-buono.test.ts`, `pagine/buoni/buono.test.ts`, `pagine/buoni/listino-copie.test.ts`, `supabase/functions/buoni/stampa.test.ts`
+
+**`stampa.ts` non è un dettaglio: è la strozzatura.** Il Task 2 ha aggiunto
+`scade_il_base` e `prorogato` al `.select(...)` di `?a=stampa`, ma `stampa.ts`
+**costruisce la risposta campo per campo**, con un elenco chiuso di cosa esce
+— è una scelta di quel file, spiegata nel suo commento in cima, e va
+rispettata invece che aggirata: una colonna nuova resta fuori finché qualcuno
+non la aggiunge di proposito. Quindi vanno aggiunti *a mano*, in tre posti:
+i tipi `RigaStampa` ed `EsitoStampa`, e la costruzione della risposta in
+`datiStampa`. Senza questo passo il foglio A4 stampato dal cliente non
+riceverà mai i due valori, i test dell'email passeranno lo stesso, e il
+difetto si scoprirà solo quando un cliente stamperà un buono prorogato e non
+vedrà la spiegazione. **Aggiungere un test in `stampa.test.ts` che verifichi
+che i due campi escono davvero** — non basta che il codice li nomini.
 
 **Interfaces:**
 - Consumes: le colonne `scade_il`, `scade_il_base`, `prorogato` sulla riga del buono (Task 2).
