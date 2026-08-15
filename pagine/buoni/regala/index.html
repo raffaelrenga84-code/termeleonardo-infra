@@ -234,7 +234,16 @@ const T = {
     erroreGen:'Non \u00e8 stato possibile avviare il pagamento. Riprova tra poco, oppure scrivici a info@termeleonardo.com o chiamaci al +39 049 9939200.',
     grazieTit:'Grazie! Il pagamento \u00e8 andato a buon fine.',
     grazieTxt:(rif)=>`Il buono ${rif ? '(' + rif + ') ' : ''}\u00e8 stato emesso ed \u00e8 in viaggio verso la tua email, con il codice e tutte le indicazioni. Se non lo vedi entro qualche minuto, controlla la posta indesiderata.`,
-    grazieAncora:'Regala un altro buono' },
+    grazieAncora:'Regala un altro buono',
+    fattServe:'Mi serve la fattura', fattGuida:'Ci servono alcuni dati in pi\u00f9: li usiamo solo per la fattura elettronica.',
+    fattPrivato:'Privato', fattPrivatoSotto:'persona fisica', fattAzienda:'Azienda', fattAziendaSotto:'con partita IVA',
+    fattIndirizzo:'Indirizzo', fattCivico:'N. civico', fattCap:'CAP', fattComune:'Comune', fattProvincia:'Provincia',
+    fattCf:'Codice fiscale', fattDenominazione:'Ragione sociale', fattPiva:'Partita IVA',
+    fattCfAzienda:'Codice fiscale (se diverso dalla partita IVA)',
+    fattSdi:'Codice destinatario', fattPec:'PEC',
+    fattSdiPecNota:'Indichi almeno uno dei due: il codice destinatario a 7 caratteri o la PEC.',
+    fattPrivatoNota:'Per un privato la fattura arriva automaticamente nel cassetto fiscale personale: non servono codice destinatario n\u00e9 PEC.',
+    fattManca:'Completi correttamente i dati per la fattura.' },
   de:{ titolo:'Ein Geschenk, das nach Thermen duftet', sotto:'Eine Massage, ein Tag in den Thermalb\u00e4dern oder ein Wertgutschein: der Gutschein kommt sofort nach der Zahlung per E-Mail \u2014 zum Ausdrucken oder Weiterleiten.',
     cosa:'Was m\u00f6chten Sie schenken', guidaCosa:'W\u00e4hlen Sie aus der Spa-Preisliste oder einen freien Betrag.',
     servizio:'Eine Anwendung oder ein Eintritt', servizioSotto:'aus der Preisliste des Wellnessbereichs',
@@ -256,7 +265,16 @@ const T = {
     erroreGen:'Die Zahlung konnte nicht gestartet werden. Bitte versuchen Sie es sp\u00e4ter erneut oder schreiben Sie an info@termeleonardo.com / rufen Sie +39 049 9939200 an.',
     grazieTit:'Danke! Die Zahlung war erfolgreich.',
     grazieTxt:(rif)=>`Der Gutschein ${rif ? '(' + rif + ') ' : ''}wurde ausgestellt und ist auf dem Weg in Ihr Postfach \u2014 mit Code und allen Hinweisen. Bitte pr\u00fcfen Sie ggf. auch den Spam-Ordner.`,
-    grazieAncora:'Noch einen Gutschein verschenken' },
+    grazieAncora:'Noch einen Gutschein verschenken',
+    fattServe:'Ich ben\u00f6tige eine Rechnung', fattGuida:'Wir brauchen noch ein paar Angaben \u2014 nur f\u00fcr die elektronische Rechnung.',
+    fattPrivato:'Privatperson', fattPrivatoSotto:'nat\u00fcrliche Person', fattAzienda:'Firma', fattAziendaSotto:'mit USt-IdNr.',
+    fattIndirizzo:'Adresse', fattCivico:'Hausnummer', fattCap:'PLZ', fattComune:'Ort', fattProvincia:'Provinz',
+    fattCf:'Steuernummer (Codice Fiscale)', fattDenominazione:'Firmenname', fattPiva:'USt-IdNr. (Partita IVA)',
+    fattCfAzienda:'Steuernummer (falls abweichend von der USt-IdNr.)',
+    fattSdi:'Empf\u00e4ngerkode (Codice Destinatario)', fattPec:'PEC-Adresse',
+    fattSdiPecNota:'Bitte geben Sie mindestens eines der beiden an: den 7-stelligen Empf\u00e4ngerkode oder die PEC-Adresse.',
+    fattPrivatoNota:'Bei einer Privatperson wird die Rechnung automatisch im pers\u00f6nlichen Steuerfach hinterlegt: Empf\u00e4ngerkode und PEC sind nicht n\u00f6tig.',
+    fattManca:'Bitte f\u00fcllen Sie die Rechnungsdaten korrekt aus.' },
   en:{ titolo:'A gift that smells of thermal water', sotto:'A massage, a day at the thermal pools or a value of your choice: the voucher arrives by email right after payment, ready to print or forward.',
     cosa:'What would you like to give', guidaCosa:'Choose from the spa price list or a free amount.',
     servizio:'A treatment or an entrance', servizioSotto:'from the wellness centre price list',
@@ -278,7 +296,16 @@ const T = {
     erroreGen:'We could not start the payment. Please try again shortly, or write to info@termeleonardo.com or call +39 049 9939200.',
     grazieTit:'Thank you! Your payment was successful.',
     grazieTxt:(rif)=>`The voucher ${rif ? '(' + rif + ') ' : ''}has been issued and is on its way to your inbox, with the code and all details. If you don\u2019t see it within a few minutes, please check your spam folder.`,
-    grazieAncora:'Give another voucher' },
+    grazieAncora:'Give another voucher',
+    fattServe:'I need an invoice', fattGuida:'We need a few more details, used only for the electronic invoice.',
+    fattPrivato:'Individual', fattPrivatoSotto:'private person', fattAzienda:'Company', fattAziendaSotto:'with a VAT number',
+    fattIndirizzo:'Address', fattCivico:'Number', fattCap:'Postcode', fattComune:'Town', fattProvincia:'Province',
+    fattCf:'Tax code (Codice Fiscale)', fattDenominazione:'Company name', fattPiva:'VAT number (Partita IVA)',
+    fattCfAzienda:'Tax code (if different from the VAT number)',
+    fattSdi:'Recipient code (Codice Destinatario)', fattPec:'Certified email (PEC)',
+    fattSdiPecNota:'Please provide at least one of the two: the 7-character recipient code or the certified email (PEC).',
+    fattPrivatoNota:'For an individual the invoice reaches your personal tax drawer automatically: no recipient code or PEC is needed.',
+    fattManca:'Please fill in the invoice details correctly.' },
   fr:{ titolo:'Un cadeau qui sent bon les thermes', sotto:'Un massage, une journ\u00e9e aux piscines thermales ou un montant libre : le bon arrive par e-mail juste apr\u00e8s le paiement, pr\u00eat \u00e0 imprimer ou \u00e0 transf\u00e9rer.',
     cosa:'Que souhaitez-vous offrir', guidaCosa:'Choisissez dans la carte du spa ou un montant libre.',
     servizio:'Un soin ou une entr\u00e9e', servizioSotto:'de la carte du centre de bien-\u00eatre',
@@ -300,7 +327,16 @@ const T = {
     erroreGen:'Le paiement n\u2019a pas pu d\u00e9marrer. R\u00e9essayez dans un instant, ou \u00e9crivez \u00e0 info@termeleonardo.com ou appelez le +39 049 9939200.',
     grazieTit:'Merci ! Votre paiement a bien \u00e9t\u00e9 re\u00e7u.',
     grazieTxt:(rif)=>`Le bon ${rif ? '(' + rif + ') ' : ''}a \u00e9t\u00e9 \u00e9mis et arrive dans votre bo\u00eete mail, avec le code et toutes les indications. S\u2019il n\u2019appara\u00eet pas d\u2019ici quelques minutes, v\u00e9rifiez vos courriers ind\u00e9sirables.`,
-    grazieAncora:'Offrir un autre bon' }
+    grazieAncora:'Offrir un autre bon',
+    fattServe:'J\u2019ai besoin d\u2019une facture', fattGuida:'Il nous faut quelques informations en plus, utilis\u00e9es uniquement pour la facture \u00e9lectronique.',
+    fattPrivato:'Particulier', fattPrivatoSotto:'personne physique', fattAzienda:'Entreprise', fattAziendaSotto:'avec num\u00e9ro de TVA',
+    fattIndirizzo:'Adresse', fattCivico:'N\u00b0', fattCap:'Code postal', fattComune:'Ville', fattProvincia:'Province',
+    fattCf:'Code fiscal (Codice Fiscale)', fattDenominazione:'Raison sociale', fattPiva:'Num\u00e9ro de TVA (Partita IVA)',
+    fattCfAzienda:'Code fiscal (si diff\u00e9rent du num\u00e9ro de TVA)',
+    fattSdi:'Code destinataire (Codice Destinatario)', fattPec:'E-mail certifi\u00e9 (PEC)',
+    fattSdiPecNota:'Indiquez au moins l\u2019un des deux : le code destinataire \u00e0 7 caract\u00e8res ou l\u2019e-mail certifi\u00e9 (PEC).',
+    fattPrivatoNota:'Pour un particulier, la facture arrive automatiquement dans le tiroir fiscal personnel : ni code destinataire ni PEC ne sont n\u00e9cessaires.',
+    fattManca:'Veuillez compl\u00e9ter correctement les donn\u00e9es de facturation.' }
 };
 
 
@@ -349,6 +385,10 @@ const TESTO_VALORE = {
 
 /* ---------- la pagina ---------- */
 let TIPO = 'servizio';
+/* privato o azienda: decide quali campi del riquadro fattura si vedono.
+   Elenco chiuso, non un valore preso a caso da un menu: le uniche due
+   scelte possibili sono i due pulsanti che l'ospite può premere. */
+let FATT_TIPO = 'privato';
 
 function testata() {
   const t = T[LNG];
@@ -487,6 +527,51 @@ function modulo() {
         <input type="email" id="fRicMail" placeholder="${esc(g.altraRicevutaPh)}" />
         <div class="mini" style="margin-top:5px;">${esc(g.altraRicevutaNota)}</div>
       </div>
+
+      <label class="cond-spunta" style="border:0;padding-top:14px;margin-top:6px;">
+        <input type="checkbox" id="fFattRichiesta" /><span>${esc(t.fattServe)}</span>
+      </label>
+      <div id="boxFatt" style="display:none;margin-top:6px;">
+        <div class="mini" style="margin-bottom:10px;">${esc(t.fattGuida)}</div>
+        <div class="scelta-tipo" style="margin-bottom:12px;">
+          <button type="button" id="btFattPrivato" class="attivo"><strong>${esc(t.fattPrivato)}</strong>${esc(t.fattPrivatoSotto)}</button>
+          <button type="button" id="btFattAzienda"><strong>${esc(t.fattAzienda)}</strong>${esc(t.fattAziendaSotto)}</button>
+        </div>
+
+        <div class="due">
+          <div><label>${esc(t.fattIndirizzo)} *</label><input type="text" id="fFattIndirizzo" maxlength="60" /></div>
+          <div><label>${esc(t.fattCivico)}</label><input type="text" id="fFattCivico" maxlength="8" /></div>
+        </div>
+        <div class="due">
+          <div><label>${esc(t.fattCap)} *</label><input type="text" id="fFattCap" maxlength="5" inputmode="numeric" /></div>
+          <div><label>${esc(t.fattComune)} *</label><input type="text" id="fFattComune" maxlength="60" /></div>
+        </div>
+        <label>${esc(t.fattProvincia)} *</label>
+        <input type="text" id="fFattProvincia" maxlength="2" style="max-width:110px;" />
+
+        <div id="boxFattPrivato">
+          <label>${esc(t.fattCf)} *</label>
+          <input type="text" id="fFattCfPrivato" maxlength="16" />
+          <div class="mini" style="margin-top:5px;">${esc(t.fattPrivatoNota)}</div>
+        </div>
+
+        <div id="boxFattAzienda" style="display:none;">
+          <label>${esc(t.fattDenominazione)} *</label>
+          <input type="text" id="fFattDenominazione" maxlength="80" />
+          <div class="due">
+            <div><label>${esc(t.fattPiva)} *</label><input type="text" id="fFattPiva" maxlength="11" inputmode="numeric" /></div>
+            <div><label>${esc(t.fattCfAzienda)}</label><input type="text" id="fFattCfAzienda" maxlength="16" /></div>
+          </div>
+          <div class="due">
+            <div><label>${esc(t.fattSdi)}</label><input type="text" id="fFattSdi" maxlength="7" /></div>
+            <div><label>${esc(t.fattPec)}</label><input type="email" id="fFattPec" /></div>
+          </div>
+          <div class="mini" style="margin-top:5px;">${esc(t.fattSdiPecNota)}</div>
+        </div>
+
+        <div class="mini errore" id="erroreFatt" style="display:none;margin-top:8px;"></div>
+      </div>
+
       <div class="condizioni">
         <div class="cond-tit">${esc(g.titolo)}</div>
         <div class="cond-testo">${esc(CONDIZIONI[LNG] || CONDIZIONI.it)}</div>
@@ -688,6 +773,107 @@ function modulo() {
     if (!$('fAltraRic').checked) $('fRicMail').value = '';
   };
 
+  /* ---------- riquadro fattura: prima privato o azienda, poi solo i campi di quel caso ----------
+     Validazione SOLO lato client, per un messaggio gentile prima di
+     pagare: quella vera sta sul server (fattura.ts, richiamato da
+     acquista.ts) — un campo può sempre arrivare falsificato da una
+     chiamata diretta. Niente cifra di controllo della partita IVA qui:
+     due copie dello stesso algoritmo divergono prima o poi (stesso
+     principio del commento su calcolaScadenza in scadenza.ts) — una
+     partita IVA sbagliata la scopre comunque il server, e l'ospite vede
+     lo stesso messaggio generico di qualunque altro rifiuto del server. */
+  const fatturaAttiva = () => $('fFattRichiesta').checked;
+
+  const fattCampiComuniOk = () => {
+    const indirizzo = $('fFattIndirizzo').value.trim();
+    const cap = $('fFattCap').value.trim();
+    const comune = $('fFattComune').value.trim();
+    const provincia = $('fFattProvincia').value.trim();
+    return indirizzo.length > 0 && indirizzo.length <= 60
+      && /^\d{5}$/.test(cap)
+      && comune.length > 0 && comune.length <= 60
+      && /^[A-Z]{2}$/.test(provincia);
+  };
+  const fattPrivatoOk = () => /^[A-Za-z0-9]{16}$/.test($('fFattCfPrivato').value.trim());
+  const fattAziendaOk = () => {
+    const denom = $('fFattDenominazione').value.trim();
+    const piva = $('fFattPiva').value.trim();
+    const sdi = $('fFattSdi').value.trim();
+    const pec = $('fFattPec').value.trim();
+    /* codice destinatario o PEC, almeno uno dei due: è l'errore che le
+       aziende fanno più spesso, e quello che fa scartare la fattura
+       dallo SdI giorni dopo — vale la pena dirlo già qui */
+    return denom.length >= 2 && denom.length <= 80
+      && /^\d{11}$/.test(piva)
+      && (/^[A-Za-z0-9]{7}$/.test(sdi) || /.+@.+\..+/.test(pec));
+  };
+  const fatturaOk = () => {
+    if (!fatturaAttiva()) return true;
+    if (!fattCampiComuniOk()) return false;
+    return FATT_TIPO === 'privato' ? fattPrivatoOk() : fattAziendaOk();
+  };
+  /* i dati per il corpo della richiesta: solo quelli del caso scelto, così
+     un privato non manda mai una ragione sociale o un codice destinatario
+     che comunque il server ignorerebbe (vedi fattura.ts) */
+  const datiFattura = () => {
+    if (!fatturaAttiva()) return { fatt_richiesta: false };
+    const comuni = {
+      fatt_richiesta: true, fatt_intestatario: FATT_TIPO,
+      fatt_indirizzo: $('fFattIndirizzo').value.trim(),
+      fatt_civico: $('fFattCivico').value.trim(),
+      fatt_cap: $('fFattCap').value.trim(),
+      fatt_comune: $('fFattComune').value.trim(),
+      fatt_provincia: $('fFattProvincia').value.trim(),
+    };
+    return FATT_TIPO === 'privato'
+      ? { ...comuni, fatt_cf: $('fFattCfPrivato').value.trim() }
+      : { ...comuni,
+          fatt_denominazione: $('fFattDenominazione').value.trim(),
+          fatt_piva: $('fFattPiva').value.trim(),
+          fatt_cf: $('fFattCfAzienda').value.trim(),
+          fatt_sdi: $('fFattSdi').value.trim(),
+          fatt_pec: $('fFattPec').value.trim() };
+  };
+
+  /* il messaggio compare solo quando la spunta è attiva e i dati non sono
+     ancora completi: a modulo appena aperto, vuoto, non è un errore */
+  const aggiornaFattura = () => {
+    const erroreFatt = $('erroreFatt');
+    if (fatturaAttiva() && !fatturaOk()) {
+      erroreFatt.textContent = t.fattManca;
+      erroreFatt.style.display = '';
+    } else {
+      erroreFatt.style.display = 'none';
+    }
+    aggiornaPaga();
+  };
+
+  $('fFattRichiesta').onchange = () => {
+    $('boxFatt').style.display = fatturaAttiva() ? '' : 'none';
+    aggiornaFattura();
+  };
+  const scegliFatt = (tipo) => {
+    FATT_TIPO = tipo;
+    $('btFattPrivato').classList.toggle('attivo', tipo === 'privato');
+    $('btFattAzienda').classList.toggle('attivo', tipo === 'azienda');
+    $('boxFattPrivato').style.display = tipo === 'privato' ? '' : 'none';
+    $('boxFattAzienda').style.display = tipo === 'azienda' ? '' : 'none';
+    aggiornaFattura();
+  };
+  $('btFattPrivato').onclick = () => scegliFatt('privato');
+  $('btFattAzienda').onclick = () => scegliFatt('azienda');
+
+  /* provincia, codice fiscale e codice destinatario: il server li vuole
+     maiuscoli e la provincia li rifiuta (non li corregge) se minuscola —
+     vedi fattura.ts. Portarli in maiuscolo mentre l'ospite scrive evita
+     il rifiuto più comune, senza spostare la vera validazione dal
+     server alla pagina: è la stessa cautela di arrotondaValore più sopra. */
+  ['fFattProvincia', 'fFattCfPrivato', 'fFattCfAzienda', 'fFattSdi'].forEach((id) => {
+    $(id).oninput = () => { $(id).value = $(id).value.toUpperCase(); aggiornaFattura(); };
+  });
+  ['fFattIndirizzo', 'fFattCivico', 'fFattCap', 'fFattComune', 'fFattDenominazione', 'fFattPiva', 'fFattPec']
+    .forEach((id) => { $(id).oninput = aggiornaFattura; });
+
   /* si paga solo dopo aver accettato le condizioni. I gestori si attaccano
      PRIMA del primo disegno: se ridisegna() inciampasse, il pulsante
      resterebbe disabilitato per sempre e la spunta inerte, cioè una pagina
@@ -701,7 +887,7 @@ function modulo() {
   /* !importoFuoriLimiti(): stesso trattamento di !vociFuseTroppo() qui
      accanto — l'ospite non deve poter premere "paga" mentre l'importo
      digitato e' fuori dai limiti, scoprendolo solo dal rifiuto del server */
-  const tuttoOk = () => condOk() && privacyOk() && !vociFuseTroppo() && !seraleConTrattamento() && !importoFuoriLimiti();
+  const tuttoOk = () => condOk() && privacyOk() && !vociFuseTroppo() && !seraleConTrattamento() && !importoFuoriLimiti() && fatturaOk();
   const aggiornaPaga = () => { $('fPaga').disabled = inviando || !tuttoOk(); };
   $('fCond').onchange = $('fPrivacy').onchange = () => {
     aggiornaPaga();
@@ -722,6 +908,7 @@ function modulo() {
     attesaResize = setTimeout(ridisegna, 150);
   });
   ridisegna();
+  aggiornaFattura();
 
   $('fPaga').onclick = async () => {
     const b = stato();
@@ -749,13 +936,20 @@ function modulo() {
     if (!privacyOk()) {
       $('fEsito').innerHTML = `<span class="errore">${esc(g.privacyManca)}</span>`; return;
     }
+    /* il pulsante è già spento in questo caso (tuttoOk() lo controlla):
+       stessa cautela di vociFuseTroppo() e seraleConTrattamento() più
+       sopra, non la prima barriera — la vera validazione resta sul
+       server, che i dati falsificati li rifiuta comunque */
+    if (fatturaAttiva() && !fatturaOk()) {
+      $('fEsito').innerHTML = `<span class="errore">${esc(t.fattManca)}</span>`; return;
+    }
     inviando = true; aggiornaPaga();
     $('fEsito').textContent = t.attesa;
     try {
       const r = await fetch(FUNZIONE + '?a=acquista', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...b, condizioni_accettate: condOk(),
+        body: JSON.stringify({ ...b, ...datiFattura(), condizioni_accettate: condOk(),
           privacy_presa_atto: !!($('fPrivacy') && $('fPrivacy').checked),
           ricevuta_email: $('fAltraRic').checked ? $('fRicMail').value.trim() : '',
           ritorno: location.origin + location.pathname + '?l=' + LNG })

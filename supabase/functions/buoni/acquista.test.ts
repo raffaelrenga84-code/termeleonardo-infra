@@ -503,3 +503,66 @@ Deno.test('colonnaVoci: una voce sola passa invariata', () => {
   const voci = [{ voce_id: 'relax25', quantita: 1 }];
   assertEquals(colonnaVoci(voci), voci);
 });
+
+/* ============================================================
+   Integrazione con fattura.ts: validaAcquisto chiama validaFattura e
+   ne propaga sia l'errore sia i dati validati. La validazione dei
+   singoli campi è già provata per intero in fattura.test.ts — qui si
+   prova solo che il collegamento c'è davvero, in entrambi i sensi.
+   ============================================================ */
+
+Deno.test('senza spunta fattura, acquisto normale: fattura torna con fatt_richiesta false', () => {
+  const r = validaAcquisto({ ...ACQUISTO_VALIDO });
+  assertEquals(r.errore, undefined);
+  assertEquals(r.dati!.fattura.fatt_richiesta, false);
+  assertEquals(r.dati!.fattura.fatt_intestatario, null);
+});
+
+/* prova che validaAcquisto usa DAVVERO validaFattura per rifiutare, non
+   solo per arricchire i dati: un dato fattura mancante blocca l'intero
+   acquisto, esattamente come un'email non valida lo blocca più sopra.
+   Cosa lo farebbe fallire: rimuovere la chiamata a validaFattura (o il
+   suo controllo dell'errore) da validaAcquisto */
+Deno.test('con la fattura richiesta, un dato mancante blocca tutto l acquisto', () => {
+  const r = validaAcquisto({
+    ...ACQUISTO_VALIDO,
+    fatt_richiesta: true, fatt_intestatario: 'azienda',
+    // manca la partita IVA
+    fatt_denominazione: 'Tria S.r.l.', fatt_indirizzo: 'Via Roma', fatt_cap: '35037',
+    fatt_comune: 'Abano Terme', fatt_provincia: 'PD', fatt_sdi: 'ABC1234',
+  });
+  assertEquals(r.dati, undefined);
+  assertEquals(typeof r.errore, 'string');
+});
+
+Deno.test('con la fattura richiesta e i dati completi, l acquisto procede e porta i dati fattura', () => {
+  const r = validaAcquisto({
+    ...ACQUISTO_VALIDO,
+    fatt_richiesta: true, fatt_intestatario: 'azienda',
+    fatt_denominazione: 'Tria S.r.l.', fatt_piva: '02042330288',
+    fatt_indirizzo: 'Via Roma', fatt_cap: '35037',
+    fatt_comune: 'Abano Terme', fatt_provincia: 'PD', fatt_sdi: 'ABC1234',
+  });
+  assertEquals(r.errore, undefined);
+  assertEquals(r.dati!.fattura.fatt_richiesta, true);
+  assertEquals(r.dati!.fattura.fatt_intestatario, 'azienda');
+  assertEquals(r.dati!.fattura.fatt_denominazione, 'Tria S.r.l.');
+  assertEquals(r.dati!.fattura.fatt_piva, '02042330288');
+});
+
+/* il buono monetario con richiesta fattura resta accettato dalla
+   validazione: l'acquisto procede (nessun XML si genera qui — quella
+   regola vive in un'altra fase, non ancora costruita), coerente con la
+   riga "Buono monetario con richiesta fattura" della tabella Errori
+   nella specifica */
+Deno.test('un buono valore con fattura richiesta viene comunque accettato', () => {
+  const r = validaAcquisto({
+    ...ACQUISTO_VALIDO, tipo: 'valore', valore: 100,
+    fatt_richiesta: true, fatt_intestatario: 'privato',
+    fatt_cf: 'RSSMRA85M01H501Z', fatt_indirizzo: 'Via Roma', fatt_cap: '35037',
+    fatt_comune: 'Abano Terme', fatt_provincia: 'PD',
+  });
+  assertEquals(r.errore, undefined);
+  assertEquals(r.dati!.fattura.fatt_richiesta, true);
+  assertEquals(r.dati!.fattura.fatt_sdi, '0000000');
+});

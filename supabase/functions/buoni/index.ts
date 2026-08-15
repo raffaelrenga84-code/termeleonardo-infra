@@ -599,6 +599,12 @@ Deno.serve(async (req) => {
       scade_il: d.scade_il,
       scade_il_base: d.scade_il_base,
       prorogato: d.prorogato,
+      /* i nomi dei campi di d.fattura sono già gli stessi delle colonne
+         (fatt_richiesta, fatt_intestatario, ...): validaFattura in
+         fattura.ts li ha già validati e normalizzati, qui si scrivono
+         così come sono, senza XML né numerazione — quella è un'altra
+         fase, non ancora costruita. */
+      ...d.fattura,
       pagamento: 'stripe', creato_da: 'sito',
       /* l'ora la mette il server, non il browser: è la traccia che le
          condizioni sono state accettate prima del pagamento. La versione

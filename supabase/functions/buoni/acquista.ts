@@ -6,6 +6,7 @@
    ============================================================ */
 
 import { calcolaScadenza, data as dataValida, type Scadenza, type Stagione } from './scadenza.ts';
+import { validaFattura, type DatiFattura } from './fattura.ts';
 
 export const LISTINO: Record<string, [string, number]> = {
   progCoccola: ['Programma Coccola — pulizia viso completa + manicure', 90],
@@ -66,6 +67,10 @@ export interface DatiAcquisto {
   scade_il: string;
   scade_il_base: string;
   prorogato: boolean;
+  /** dati e scelta privato/azienda per la fattura: vedi fattura.ts.
+   *  fatt_richiesta è false e tutto il resto null quando l'ospite non ha
+   *  spuntato «Mi serve la fattura» — la fattura non serve a tutti. */
+  fattura: DatiFattura;
 }
 
 export type Voce = { voce_id: string; quantita: number };
@@ -221,6 +226,13 @@ export function validaAcquisto(b: Record<string, unknown>, stagioni: Stagione[] 
      e' stato dato — ed e' il genere di domanda che arriva mesi dopo. */
   if (b.privacy_presa_atto !== true) return { errore: 'informativa privacy non accettata' };
 
+  /* dati fattura: solo raccolta e validazione, qui — niente XML, niente
+     numerazione (vedi fattura.ts). Con la spunta spenta f.dati torna
+     comunque valorizzato (fatt_richiesta: false, il resto null): non
+     c'e' un ramo "senza fattura" da gestire a parte qui sotto. */
+  const f = validaFattura(b);
+  if (f.errore) return { errore: f.errore };
+
   /* scadenza: dodici mesi, spostati se cadrebbero ad albergo chiuso.
      Le stagioni arrivano da fuori (tabella stagione_chiusura): qui non
      c'e' nessuna data scritta a mano, apposta. */
@@ -228,6 +240,7 @@ export function validaAcquisto(b: Record<string, unknown>, stagioni: Stagione[] 
 
   return { dati: {
     tipo, voce_id, voci, descrizione, valore, lingua,
+    fattura: f.dati!,
     acquirente: String(b.acquirente || '').trim().slice(0, 120),
     acquirente_email: email.slice(0, 160),
     destinatario: String(b.destinatario || '').trim().slice(0, 120),
