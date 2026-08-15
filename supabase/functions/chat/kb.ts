@@ -301,7 +301,14 @@ Fonte: menu "Età Bambino" del booking engine.
 - **Ospiti tedeschi:** hotel riconosciuto dal Ministero della Salute italiano e ai fini del § 13 Abs. 4 Satz 2 SGB V — cure fango potenzialmente rimborsabili dalla Krankenkasse. Conferma il riconoscimento, suggerisci verifica con la propria cassa.
 - Visita medica di ammissione obbligatoria, su appuntamento (**di norma la domenica pomeriggio**), **senza obbligo di soggiorno**. Tutti i trattamenti su prenotazione.
 - Acque salso-bromo-iodiche ipertermali; fango maturato 60–90 giorni.
-- Convenzione SSN → serve la prescrizione del medico.
+- **Due strade, e vanno nominate tutte e due: in forma PRIVATA, oppure con
+  la convenzione SSN.** La **prescrizione del medico serve solo per la
+  convenzione SSN**: chi paga privatamente non ne ha bisogno. Basta la visita
+  medica di ammissione, che è obbligatoria in tutti e due i casi.
+  *Dirlo conta: la voce qui sopra comincia con «Convenzionate SSN», e chi
+  legge solo quella conclude che senza prescrizione non si può fare niente.
+  Un ospite straniero, o chi non ha il medico di base a portata di mano,
+  rinuncia — e sarebbe stato un cliente pagante.*
 - Altri enti (es. INAIL): informazione non disponibile → non inventare.
 - **Le cure si possono fare anche senza alloggiare in hotel.**
 
