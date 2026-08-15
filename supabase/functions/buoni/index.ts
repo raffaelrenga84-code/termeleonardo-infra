@@ -606,6 +606,33 @@ Deno.serve(async (req) => {
     }
   }
 
+  /* ---------- il lavoro giornaliero del promemoria ----------
+     STA PRIMA del controllo qui sotto apposta, e ha una chiave sua.
+
+     Il lavoro lo fa girare pg_cron, che vive DENTRO il database: non ha un
+     utente autenticato, non ha una sessione, e non arriva dalla rete
+     dell'hotel. Con la sola `autorizzato` prenderebbe 401 tutte le notti —
+     e sarebbe il peggior tipo di guasto, quello silenzioso: il lavoro
+     risulta programmato e "gira" regolarmente, nessun cliente riceve mai il
+     promemoria, e non c'e' niente che lo dica finche' qualcuno non si
+     lamenta di un buono scaduto senza preavviso.
+
+     CRON_KEY e' distinta da HOTEL_KEY e apre SOLO questa azione: se un
+     giorno finisse dove non deve, il danno e' far partire i promemoria in
+     anticipo, non entrare nel back office.
+
+     Resta buona anche l'altra strada — un operatore autenticato puo'
+     farla girare a mano dal back office se serve rimandare il giro. */
+  if (req.method === 'POST' && azione === 'promemoria') {
+    const attesaCron = Deno.env.get('CRON_KEY');
+    const daCron = !!attesaCron && req.headers.get('x-cron-key') === attesaCron;
+    if (!daCron) {
+      const a = await autorizzato(req);
+      if (!a.ok) return risposta({ errore: 'non autorizzato' }, 401);
+    }
+    return risposta(await eseguiPromemoria());
+  }
+
   /* ---------- da qui in poi serve la chiave ---------- */
   const acc = await autorizzato(req);
   if (!acc.ok) {
@@ -631,19 +658,10 @@ Deno.serve(async (req) => {
     return risposta({ buoni: data });
   }
 
-  /* ---------- lavoro giornaliero: il promemoria dei trenta giorni ----------
-     Protetta come ?a=elenco qui sopra: si arriva qui solo dopo
-     "acc = await autorizzato(req)" (utente autenticato del dominio
-     dell'hotel, IP dell'hotel, o la chiave condivisa x-hotel-key finché
-     HOTEL_KEY esiste). Senza questo, chiunque potrebbe farla girare a
-     piacimento e trasformarla in un modo per mandare email a nome
-     dell'hotel — non un dettaglio, per un lavoro che spedisce posta vera.
-     POST e non GET: ha un effetto (email vere, scritture sul database),
-     un GET qui sarebbe visitabile per sbaglio da un link o un prefetch. */
-  if (req.method === 'POST' && azione === 'promemoria') {
-    const esito = await eseguiPromemoria();
-    return risposta(esito);
-  }
+  /* (il ramo ?a=promemoria sta piu' sopra, prima del controllo di accesso:
+     il perche' e' spiegato li'. POST e non GET perche' ha un effetto —
+     email vere e scritture — e un GET sarebbe visitabile per sbaglio da un
+     link o da un prefetch del browser.) */
 
   if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
 
