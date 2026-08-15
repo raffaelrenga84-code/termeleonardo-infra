@@ -83,6 +83,25 @@ export type Voce = { voce_id: string; quantita: number };
 const VOCI_MAX = 2;
 const QUANTITA_MAX = 4;
 
+/* Il Day Spa serale vale solo venerdi' e sabato dalle 18.00 alle 22.30, e a
+   quell'ora il centro benessere non fa trattamenti: un buono "serale +
+   massaggio" sarebbe un buono che il cliente non potrebbe usare come gli
+   e' stato venduto. La nota in fondo al buono non promette piu' "venga in
+   momenti diversi, come preferisce" — tolta apposta dalla proprieta' (vedi
+   ETI.nota in pagine/buoni/buono.js) perche' complicava le riscossioni
+   parziali in reception — quindi non basta rimandare il problema al
+   cliente, va rifiutato qui. Un altro ingresso Day Spa (anche un secondo
+   serale) resta libero di combinarsi: e' un ingresso, non un trattamento
+   che pretende il centro aperto.
+   eIngressoDaySpa guarda solo il prefisso, come categoriaBuono in
+   buono.js: qui e' sicuro perche' l'id e' gia' passato dal controllo
+   Object.hasOwn(LISTINO, id) qui sopra, non una chiave arrivata da fuori
+   senza prima essere stata verificata. */
+const eSerale = (id: string) => id === 'dayspa_sera' || id === 'dayspa_pom';
+const eIngressoDaySpa = (id: string) => id.startsWith('dayspa');
+const ERRORE_SERALE_TRATTAMENTO =
+  'il Day Spa serale non si può abbinare a un trattamento: di sera il centro non fa trattamenti — scelga il Day Spa infrasettimanale o festivo';
+
 /* Le voci arrivano dal cliente: si normalizzano prima di toccare il listino.
    Chi sceglie due volte la stessa voce sta dicendo una quantita', non due
    voci — e se non si sommassero, il tetto di quattro si aggirerebbe
@@ -123,7 +142,17 @@ function normalizzaVoci(grezze: unknown, voceSingola: unknown):
     somma.set(id, cumulata);
     if (somma.size > VOCI_MAX) return { errore: 'al massimo due voci' };
   }
-  return { voci: [...somma].map(([voce_id, quantita]) => ({ voce_id, quantita })) };
+
+  const voci = [...somma].map(([voce_id, quantita]) => ({ voce_id, quantita }));
+  /* il controllo guarda l'elenco finito, non voce per voce dentro il ciclo
+     qui sopra: l'ordine in cui il cliente ha scelto le due voci non deve
+     cambiare l'esito, e con VOCI_MAX a due il costo di un secondo giro
+     minuscolo su un elenco di al massimo due elementi non vale la
+     complicazione di anticiparlo dentro il primo */
+  if (voci.some((v) => eSerale(v.voce_id)) && voci.some((v) => !eIngressoDaySpa(v.voce_id))) {
+    return { errore: ERRORE_SERALE_TRATTAMENTO };
+  }
+  return { voci };
 }
 
 /* "4 x Day Spa festivo", senza numero quando la voce e' una sola e la

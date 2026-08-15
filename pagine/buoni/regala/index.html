@@ -220,6 +220,7 @@ const T = {
     voce:'Voce del listino', quantita:'Quantit\u00e0',
     aggiungiVoce:'Aggiungi una seconda voce', rimuoviVoce:'Togli la seconda voce',
     stessaVoceTroppo:'Hai scelto la stessa voce due volte: insieme la quantit\u00e0 non pu\u00f2 superare 4. Cambia una delle due o riduci la quantit\u00e0.',
+    seraleConTrattamento:'I trattamenti non si fanno di sera: per regalarli insieme scelga il Day Spa infrasettimanale o festivo.',
     importo:'Importo (\u20ac)', importoGuida:'da 25 a 1.000 \u20ac',
     per:'Per chi \u00e8', guidaPer:'Il nome esce sul buono; la dedica \u00e8 facoltativa.',
     dest:'Nome di chi lo riceve', dedica:'Dedica (facoltativa)', dedicaPh:'Buon compleanno, con affetto\u2026',
@@ -241,6 +242,7 @@ const T = {
     voce:'Position der Preisliste', quantita:'Menge',
     aggiungiVoce:'Zweite Position hinzuf\u00fcgen', rimuoviVoce:'Zweite Position entfernen',
     stessaVoceTroppo:'Sie haben zweimal dieselbe Position gew\u00e4hlt: die Gesamtmenge darf 4 nicht \u00fcberschreiten. \u00c4ndern Sie eine der beiden oder verringern Sie die Menge.',
+    seraleConTrattamento:'Am Abend werden keine Anwendungen durchgef\u00fchrt: um sie zusammen zu verschenken, w\u00e4hlen Sie den Day Spa unter der Woche oder am Wochenende.',
     importo:'Betrag (\u20ac)', importoGuida:'von 25 bis 1.000 \u20ac',
     per:'F\u00fcr wen ist es', guidaPer:'Der Name erscheint auf dem Gutschein; die Widmung ist optional.',
     dest:'Name der beschenkten Person', dedica:'Widmung (optional)', dedicaPh:'Alles Gute zum Geburtstag\u2026',
@@ -262,6 +264,7 @@ const T = {
     voce:'Price list item', quantita:'Quantity',
     aggiungiVoce:'Add a second item', rimuoviVoce:'Remove the second item',
     stessaVoceTroppo:'You picked the same item twice: the combined quantity cannot exceed 4. Change one of the two or lower the quantity.',
+    seraleConTrattamento:'Treatments are not available in the evening: to give them together, choose the weekday or weekend Day Spa.',
     importo:'Amount (\u20ac)', importoGuida:'from 25 to 1,000 \u20ac',
     per:'Who is it for', guidaPer:'The name appears on the voucher; the dedication is optional.',
     dest:'Recipient\u2019s name', dedica:'Dedication (optional)', dedicaPh:'Happy birthday, with love\u2026',
@@ -283,6 +286,7 @@ const T = {
     voce:'Article de la carte', quantita:'Quantit\u00e9',
     aggiungiVoce:'Ajouter un second article', rimuoviVoce:'Retirer le second article',
     stessaVoceTroppo:'Vous avez choisi le m\u00eame article deux fois : la quantit\u00e9 totale ne peut pas d\u00e9passer 4. Changez l\u2019un des deux ou r\u00e9duisez la quantit\u00e9.',
+    seraleConTrattamento:'Les soins ne sont pas propos\u00e9s le soir : pour les offrir ensemble, choisissez le Day Spa en semaine ou le week-end.',
     importo:'Montant (\u20ac)', importoGuida:'de 25 \u00e0 1 000 \u20ac',
     per:'Pour qui est-ce', guidaPer:'Le nom appara\u00eet sur le bon ; la d\u00e9dicace est facultative.',
     dest:'Nom du destinataire', dedica:'D\u00e9dicace (facultative)', dedicaPh:'Joyeux anniversaire, avec affection\u2026',
@@ -375,10 +379,55 @@ function modulo() {
   /* la stessa lista di opzioni serve due volte, per la prima e per la
      seconda voce: una funzione sola, cosi' le due tendine non possono
      divergere fra loro */
-  const opzioniCatalogo = () => CATALOGO.map(gr =>
-    `<optgroup label="${esc(gr.g[LNG] || gr.g.it)}">` + gr.v.map(([id, nome, prezzo]) =>
+  /* `escludi(id)`, se passato, toglie dalla tendina le voci che non
+     dovrebbero starci \u2014 un gruppo che resta senza voci non si stampa
+     nemmeno lui, un <optgroup> vuoto sarebbe solo rumore nella tendina */
+  const opzioniCatalogo = (escludi) => CATALOGO.map(gr => {
+    const voci = escludi ? gr.v.filter(([id]) => !escludi(id)) : gr.v;
+    if (!voci.length) return '';
+    return `<optgroup label="${esc(gr.g[LNG] || gr.g.it)}">` + voci.map(([id, nome, prezzo]) =>
       `<option value="${id}" data-prezzo="${prezzo}" data-nome="${esc(nome)}">${esc(nome)} \u2014 ${eur(prezzo)} \u20ac</option>`
-    ).join('') + `</optgroup>`).join('');
+    ).join('') + `</optgroup>`;
+  }).join('');
+
+  /* Il Day Spa serale non ha trattamenti alle spalle: alle 18-22.30 di
+     venerdi' e sabato il centro benessere non fa trattamenti, e un buono
+     "serale + massaggio" sarebbe un buono che l'ospite non potrebbe usare
+     come gli e' stato venduto. La nota in fondo al buono non promette piu'
+     "venga in momenti diversi" (tolta apposta dalla proprieta', vedi
+     ETI.nota in buono.js): non basta rimandare il problema all'ospite,
+     va evitato mentre sceglie. Un altro ingresso Day Spa (anche un
+     secondo serale) resta libero di combinarsi: e' un ingresso, non un
+     trattamento che pretende il centro aperto.
+     Stessa regola del server (normalizzaVoci, acquista.ts), scritta qui a
+     mano e non importata: pagina statica ed edge function vivono in due
+     ambienti diversi, stesso motivo di QUANTITA_MAX piu' sotto. Presidiata
+     contro la regola vera del server in regala/serale.test.ts, coppia per
+     coppia su tutto il listino. */
+  const eSerale = (id) => id === 'dayspa_sera';
+  const eIngressoDaySpa = (id) => id.startsWith('dayspa');
+  /* cosa la tendina dell'ALTRA voce non deve poter offrire, dato il
+     valore di questa: col serale, niente trattamenti; con un trattamento,
+     niente serale; con un altro ingresso Day Spa (infrasettimanale o
+     festivo) o senza ancora una scelta, nessuna esclusione. */
+  const escludiPer = (id) => !id ? null : eSerale(id) ? (altro) => !eIngressoDaySpa(altro) : !eIngressoDaySpa(id) ? (altro) => eSerale(altro) : null;
+
+  /* la seconda tendina si ricostruisce sul valore della prima. Se
+     l'elenco filtrato non cambia si lascia stare del tutto: sostituire
+     l'HTML resetta comunque la selezione alla prima opzione, e farlo ogni
+     volta che la prima tendina cambia \u2014 anche fra due voci che non si
+     escludono a vicenda \u2014 sposterebbe la scelta della seconda ospite senza
+     ragione. Se invece l'elenco cambia davvero e la voce di prima c'e'
+     ancora, si ripristina: solo se e' proprio lei a sparire (il caso che
+     conta: era il serale, o era un trattamento incompatibile con la nuova
+     prima scelta) la selezione scivola sulla prima voce rimasta. */
+  const rigenerafVoce2 = () => {
+    const valorePrima = $('fVoce2').value;
+    const nuove = opzioniCatalogo(escludiPer($('fVoce').value));
+    if ($('fVoce2').innerHTML === nuove) return;
+    $('fVoce2').innerHTML = nuove;
+    if ([...$('fVoce2').options].some((o) => o.value === valorePrima)) $('fVoce2').value = valorePrima;
+  };
   /* da 1 a 4: lo stesso limite che il server applica per ciascuna voce,
      qui e' semplicemente l'unica scelta possibile nella tendina */
   const opzioniQuantita = () => [1, 2, 3, 4].map(n => `<option value="${n}">${n}</option>`).join('');
@@ -491,6 +540,25 @@ function modulo() {
     return (Number($('fQta1').value) || 0) + (Number($('fQta2').value) || 0) > QUANTITA_MAX;
   };
 
+  /* difensivo, non la prima barriera: con la seconda tendina filtrata da
+     rigenerafVoce2() (vedi sopra) l'ospite non dovrebbe mai riuscire a
+     mettere insieme il serale e un trattamento — ma se qualcosa nella
+     filtratura si inceppasse, questo e' lo stesso controllo che gia' fa
+     normalizzaVoci sul server (acquista.ts), cosi' il pulsante si spegne
+     comunque invece di lasciar credere che l'acquisto possa andare avanti. */
+  const seraleConTrattamento = () => {
+    if (TIPO !== 'servizio' || $('rigaVoce2').style.display === 'none') return false;
+    const scelte = [$('fVoce').value, $('fVoce2').value];
+    return scelte.some(eSerale) && scelte.some((id) => !eIngressoDaySpa(id));
+  };
+
+  /* l'avviso compare appena il serale limita l'altra tendina, prima ancora
+     che l'ospite possa arrivare alla combinazione vietata: spiega perche'
+     certe voci non compaiono piu' nell'altra tendina, invece di lasciarlo
+     a chiedersi dove sono finite */
+  const mostraNotaSerale = () => TIPO === 'servizio' && $('rigaVoce2').style.display !== 'none'
+    && escludiPer($('fVoce').value) !== null;
+
   /* stesso principio di vociFuseTroppo qui sopra: il limite vero resta sul
      server (25-1.000 €, in acquista.ts), ma se la cifra digitata lo supera
      l'ospite deve saperlo subito — non al momento di pagare, quando
@@ -545,10 +613,24 @@ function modulo() {
     }
     /* l'avviso compare accanto alle tendine appena la scelta lo causa, non
        solo al momento di pagare; aggiornaPaga() spegne anche il pulsante,
-       cosi' il messaggio e lo stato del modulo dicono la stessa cosa */
+       cosi' il messaggio e lo stato del modulo dicono la stessa cosa.
+       Tre casi, in ordine di gravita': una combinazione davvero vietata
+       (rossa, come vociFuseTroppo — non dovrebbe succedere, e' difensiva),
+       altrimenti la nota che spiega perche' l'altra tendina offre di meno
+       (informativa, non un errore: l'ospite non ha ancora sbagliato niente). */
     const erroreVoci = $('erroreVoci');
-    if (vociFuseTroppo()) { erroreVoci.textContent = t.stessaVoceTroppo; erroreVoci.style.display = ''; }
-    else erroreVoci.style.display = 'none';
+    if (vociFuseTroppo()) {
+      erroreVoci.textContent = t.stessaVoceTroppo;
+      erroreVoci.className = 'mini errore'; erroreVoci.style.display = '';
+    } else if (seraleConTrattamento()) {
+      erroreVoci.textContent = t.seraleConTrattamento;
+      erroreVoci.className = 'mini errore'; erroreVoci.style.display = '';
+    } else if (mostraNotaSerale()) {
+      erroreVoci.textContent = t.seraleConTrattamento;
+      erroreVoci.className = 'mini'; erroreVoci.style.display = '';
+    } else {
+      erroreVoci.style.display = 'none';
+    }
     /* stesso schema, per l'importo libero: il testo di aiuto gia' dice il
        limite ("da 25 a 1.000 €"), colorarlo di avviso quando lo si supera
        basta a farlo notare mentre si scrive, senza inventare un secondo
@@ -570,11 +652,22 @@ function modulo() {
   ['fVoce','fQta1','fVoce2','fQta2','fValore','fDest','fDedica','fLingua','fAcq'].forEach(id => {
     const e = $(id); e.oninput = ridisegna; e.onchange = ridisegna;
   });
+  /* la prima tendina scavalca il gestore generico qui sopra: cambiando
+     voce puo' cambiare anche cosa la seconda tendina puo' offrire (il
+     serale scelto qui esclude i trattamenti li', un trattamento esclude
+     il serale), quindi la si rigenera PRIMA di ridisegnare l'anteprima —
+     se l'opzione gia' scelta in fVoce2 sparisce, il browser sposta da solo
+     la selezione sulla prima rimasta, ed e' quella che ridisegna() legge. */
+  $('fVoce').oninput = $('fVoce').onchange = () => { rigenerafVoce2(); ridisegna(); };
   /* la seconda voce si apre e si chiude: mai una terza, non esiste una
      terza tendina da poter aprire */
   $('btAggiungiVoce').onclick = () => {
     $('rigaVoce2').style.display = '';
     $('btAggiungiVoce').style.display = 'none';
+    /* filtrata sul valore della prima tendina PRIMA di scegliere l'indice
+       di partenza, o il conteggio delle opzioni disponibili sarebbe quello
+       di prima del filtro */
+    rigenerafVoce2();
     /* la seconda tendina si apre su un articolo diverso dal primo: ferma
        com'era sul primo elemento del catalogo, l'anteprima si fonderebbe
        subito in una riga con un numero davanti senza che l'ospite abbia
@@ -608,7 +701,7 @@ function modulo() {
   /* !importoFuoriLimiti(): stesso trattamento di !vociFuseTroppo() qui
      accanto — l'ospite non deve poter premere "paga" mentre l'importo
      digitato e' fuori dai limiti, scoprendolo solo dal rifiuto del server */
-  const tuttoOk = () => condOk() && privacyOk() && !vociFuseTroppo() && !importoFuoriLimiti();
+  const tuttoOk = () => condOk() && privacyOk() && !vociFuseTroppo() && !seraleConTrattamento() && !importoFuoriLimiti();
   const aggiornaPaga = () => { $('fPaga').disabled = inviando || !tuttoOk(); };
   $('fCond').onchange = $('fPrivacy').onchange = () => {
     aggiornaPaga();
@@ -644,6 +737,9 @@ function modulo() {
        l'errore generico del server. */
     if (vociFuseTroppo()) {
       $('fEsito').innerHTML = `<span class="errore">${esc(t.stessaVoceTroppo)}</span>`; return;
+    }
+    if (seraleConTrattamento()) {
+      $('fEsito').innerHTML = `<span class="errore">${esc(t.seraleConTrattamento)}</span>`; return;
     }
     if (!condOk()) {
       $('fEsito').innerHTML = `<span class="errore">${esc(g.manca)}</span>`; return;

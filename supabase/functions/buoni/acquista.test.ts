@@ -269,6 +269,85 @@ Deno.test('due voci con quantita fanno la somma secca del listino', () => {
 });
 
 /* ============================================================
+   Il Day Spa serale (venerdi' e sabato, 18.00-22.30) non si abbina a un
+   trattamento: a quell'ora il centro benessere non fa trattamenti, e un
+   buono "serale + massaggio" sarebbe un buono che il cliente non potrebbe
+   usare come gli e' stato venduto. Resta libero di combinarsi con un altro
+   ingresso Day Spa (compreso un secondo serale): sono ingressi, non
+   trattamenti che pretendono il centro aperto.
+   ============================================================ */
+
+const ERRORE_SERALE =
+  'il Day Spa serale non si può abbinare a un trattamento: di sera il centro non fa trattamenti — scelga il Day Spa infrasettimanale o festivo';
+
+Deno.test('serale + trattamento viene rifiutato', () => {
+  const r = validaAcquisto({ ...base, voci: [
+    { voce_id: 'dayspa_sera', quantita: 1 },
+    { voce_id: 'antistress45', quantita: 1 },
+  ]});
+  assertEquals(r.errore, ERRORE_SERALE);
+});
+
+Deno.test('trattamento + serale, ordine inverso, viene rifiutato ugualmente', () => {
+  const r = validaAcquisto({ ...base, voci: [
+    { voce_id: 'antistress45', quantita: 1 },
+    { voce_id: 'dayspa_sera', quantita: 1 },
+  ]});
+  assertEquals(r.errore, ERRORE_SERALE);
+});
+
+Deno.test('il vecchio identificativo dayspa_pom conta come serale: rifiutato insieme a un trattamento', () => {
+  const r = validaAcquisto({ ...base, voci: [
+    { voce_id: 'relax25', quantita: 1 },
+    { voce_id: 'dayspa_pom', quantita: 1 },
+  ]});
+  assertEquals(r.errore, ERRORE_SERALE);
+});
+
+Deno.test('serale da solo viene accettato', () => {
+  const r = validaAcquisto({ ...base, voce_id: 'dayspa_sera' });
+  assertEquals(r.errore, undefined);
+});
+
+Deno.test('serale a quantita 4 viene accettato', () => {
+  const r = validaAcquisto({ ...base, voci: [{ voce_id: 'dayspa_sera', quantita: 4 }] });
+  assertEquals(r.errore, undefined);
+  assertEquals(r.dati!.valore, LISTINO.dayspa_sera[1] * 4);
+});
+
+Deno.test('festivo + trattamento resta permesso', () => {
+  const r = validaAcquisto({ ...base, voci: [
+    { voce_id: 'dayspa_wknd', quantita: 1 },
+    { voce_id: 'antistress45', quantita: 1 },
+  ]});
+  assertEquals(r.errore, undefined);
+});
+
+Deno.test('infrasettimanale + trattamento resta permesso', () => {
+  const r = validaAcquisto({ ...base, voci: [
+    { voce_id: 'dayspa_fer', quantita: 1 },
+    { voce_id: 'antistress45', quantita: 1 },
+  ]});
+  assertEquals(r.errore, undefined);
+});
+
+Deno.test('due trattamenti insieme restano permessi', () => {
+  const r = validaAcquisto({ ...base, voci: [
+    { voce_id: 'relax25', quantita: 1 },
+    { voce_id: 'antistress45', quantita: 1 },
+  ]});
+  assertEquals(r.errore, undefined);
+});
+
+Deno.test('festivo + serale, due ingressi Day Spa insieme, resta permesso', () => {
+  const r = validaAcquisto({ ...base, voci: [
+    { voce_id: 'dayspa_wknd', quantita: 1 },
+    { voce_id: 'dayspa_sera', quantita: 1 },
+  ]});
+  assertEquals(r.errore, undefined);
+});
+
+/* ============================================================
    componiDescrizione — la regola nuova chiesta dalla proprietà: quando le
    voci sono più di una il numero si scrive su tutte, anche dove vale uno.
    Con una voce sola resta come prima: "1 × Massaggio" non si scrive, è il

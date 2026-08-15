@@ -291,6 +291,19 @@ function vistaEmetti() {
   const fraCinqueAnni = new Date(oggi); fraCinqueAnni.setFullYear(fraCinqueAnni.getFullYear() + 5);
   const iso = (d) => d.toISOString().slice(0, 10);
 
+  /* `escludi(id)`, se passato, toglie dalla tendina le voci che non
+     dovrebbero starci — un gruppo che resta senza voci non si stampa
+     nemmeno lui. "Altro (scrivo io)" non si esclude mai: e' testo libero
+     scritto dall'operatore, che ne risponde lui, non una voce del listino
+     che questa regola possa classificare. */
+  const opzioniCatalogo = (escludi) => CATALOGO.map(gr => {
+    const voci = escludi ? gr.v.filter(([id]) => !escludi(id)) : gr.v;
+    if (!voci.length) return '';
+    return `<optgroup label="${esc(gr.g)}">` + voci.map(([id, nome, prezzo]) =>
+      `<option value="${id}" data-prezzo="${prezzo}" data-nome="${esc(nome)}">${esc(nome)} — ${eur(prezzo)} €</option>`
+    ).join('') + `</optgroup>`;
+  }).join('') + `<option value="__altro" data-prezzo="0" data-nome="">Altro (scrivo io)</option>`;
+
   $('vista').innerHTML = `<div class="due-col"><div><div class="riquadro">
     <h2>Cosa regala</h2>
     <label>Tipo</label>
@@ -301,12 +314,7 @@ function vistaEmetti() {
     <div id="boxServizio">
       <label>Voce del listino</label>
       <div class="due" style="align-items:flex-end;">
-        <div style="flex:3;min-width:240px;"><select id="fVoce">${CATALOGO.map(gr =>
-          `<optgroup label="${esc(gr.g)}">` + gr.v.map(([id, nome, prezzo]) =>
-            `<option value="${id}" data-prezzo="${prezzo}" data-nome="${esc(nome)}">${esc(nome)} \u2014 ${eur(prezzo)} \u20ac</option>`
-          ).join('') + `</optgroup>`).join('')}
-        <option value="__altro" data-prezzo="0" data-nome="">Altro (scrivo io)</option>
-        </select></div>
+        <div style="flex:3;min-width:240px;"><select id="fVoce">${opzioniCatalogo()}</select></div>
         <div style="flex:0 0 90px;min-width:90px;"><label>Quantit\u00e0</label>
           <input type="number" id="fQta" min="1" step="1" value="1" /></div>
         <div style="flex:0 0 auto;"><button class="azione sec" id="fAggiungi"
@@ -323,6 +331,7 @@ function vistaEmetti() {
       <div id="fRighe"></div>
       <p class="mini" id="fRigheNota">Con \u00abAggiungi\u00bb componi un buono con pi\u00f9 voci
       (es. un ingresso alle piscine e un massaggio). Senza aggiungere nulla, vale la voce selezionata qui sopra.</p>
+      <p class="mini" id="fNotaSerale" style="display:none;"></p>
     </div>
     <div class="due">
       <div><label>Valore (\u20ac)</label><input type="number" id="fValore" min="1" step="1" /></div>
@@ -385,6 +394,31 @@ function vistaEmetti() {
   /* ---- paniere: pi\u00f9 voci con quantit\u00e0 ---- */
   let CARRELLO = [];   // [{id, nome, prezzo, q}]
 
+  /* Il Day Spa serale non ha trattamenti alle spalle: alle 18-22.30 di
+     venerdi' e sabato il centro benessere non fa trattamenti, e un buono
+     "serale + massaggio" sarebbe un buono che il cliente non potrebbe
+     usare come gli e' stato venduto \u2014 qui il carrello non ha il tetto di
+     due voci che ha la pagina pubblica (regala/index.html), quindi la
+     stessa combinazione era possibile anche qui, semplicemente aggiungendo
+     le due righe una dopo l'altra. Un altro ingresso Day Spa (anche un
+     secondo serale) resta libero di stare nello stesso buono: e' un
+     ingresso, non un trattamento che pretende il centro aperto.
+     Stessa regola del server (normalizzaVoci, acquista.ts) e della pagina
+     pubblica (escludiPer, regala/index.html), scritta qui a mano una terza
+     volta e non condivisa: tre ambienti diversi, stesso motivo del
+     QUANTITA_MAX duplicato in regala/index.html. Presidiata contro la
+     regola vera del server in serale-backoffice.test.ts. */
+  const eSerale = (id) => id === 'dayspa_sera';
+  const eIngressoDaySpa = (id) => id.startsWith('dayspa');
+  /* cosa la tendina non deve piu' poter offrire, dato l'elenco delle voci
+     di listino gia' nel carrello (le righe "Altro" non contano: id e'
+     null, testo libero dell'operatore). Col serale gia' dentro, niente
+     trattamenti; con un trattamento gia' dentro, niente serale; con solo
+     altri ingressi Day Spa o un carrello vuoto, nessuna esclusione. */
+  const escludiPerVoci = (ids) => ids.some(eSerale) ? (id) => !eIngressoDaySpa(id) : ids.some((id) => !eIngressoDaySpa(id)) ? (id) => eSerale(id) : null;
+  const escludiPerCarrello = () => escludiPerVoci(CARRELLO.filter((r) => r.id).map((r) => r.id));
+  const NOTA_SERALE = 'I trattamenti non si fanno di sera: per metterli nello stesso buono scelga il Day Spa infrasettimanale o festivo.';
+
   const vocePlurale = (nome, q) => {
     if (q <= 1) return nome;
     /* plurali garbati per le voci pi\u00f9 comuni; il resto resta invariato */
@@ -424,7 +458,28 @@ function vistaEmetti() {
     return [{ id: $('fVoce').value, nome: o.dataset.nome, prezzo: Number(o.dataset.prezzo), q }];
   };
 
+  /* la tendina si ricostruisce sul contenuto del carrello. Se l'elenco
+     filtrato non cambia si lascia stare del tutto: sostituire l'HTML
+     resetta comunque la selezione alla prima opzione, e farlo ogni volta
+     che il carrello cambia — anche per un'aggiunta che non tocca la
+     regola — sposterebbe la scelta dell'operatore senza ragione. Se
+     l'elenco cambia davvero e la voce di prima c'e' ancora, si ripristina:
+     solo se e' proprio lei a sparire (il caso che conta: era il serale, o
+     era un trattamento incompatibile) la selezione scivola sulla prima
+     voce rimasta. "__altro" non sparisce mai (vedi opzioniCatalogo). */
+  const rigenerafVoceOpzioni = () => {
+    const valorePrima = $('fVoce').value;
+    const nuove = opzioniCatalogo(escludiPerCarrello());
+    if ($('fVoce').innerHTML === nuove) return;
+    $('fVoce').innerHTML = nuove;
+    if ([...$('fVoce').options].some((o) => o.value === valorePrima)) $('fVoce').value = valorePrima;
+  };
+
   function disegnaRighe() {
+    rigenerafVoceOpzioni();
+    const esclusa = escludiPerCarrello();
+    $('fNotaSerale').style.display = esclusa ? '' : 'none';
+    if (esclusa) $('fNotaSerale').textContent = NOTA_SERALE;
     if (!CARRELLO.length) { $('fRighe').innerHTML = ''; return; }
     $('fRighe').innerHTML = `<table style="margin-top:10px;">` + CARRELLO.map((r, i) =>
       `<tr><td style="width:70px;">n. ${r.q}</td><td>${esc(vocePlurale(r.nome, r.q))}</td>
@@ -514,6 +569,17 @@ function vistaEmetti() {
       CARRELLO.push({ id: null, nome, prezzo: parseFloat($('fAltroPrezzo').value) || 0, q });
       $('fAltro').value = ''; $('fAltroPrezzo').value = '';
     } else {
+      /* difensivo, non la prima barriera: con la tendina gia' filtrata da
+         rigenerafVoceOpzioni() (dentro disegnaRighe(), chiamata dopo ogni
+         aggiunta e ogni rimozione) l'operatore non dovrebbe mai poter
+         selezionare una combinazione vietata — ma se qualcosa nel filtro si
+         inceppasse, questo e' lo stesso controllo del server
+         (normalizzaVoci, acquista.ts), cosi' l'aggiunta si rifiuta comunque
+         invece di lasciar comporre un buono che il cliente non potrebbe usare. */
+      const esclusa = escludiPerCarrello();
+      if (esclusa && esclusa($('fVoce').value)) {
+        $('fEsito').innerHTML = `<span class="errore">${esc(NOTA_SERALE)}</span>`; return;
+      }
       const o = $('fVoce').selectedOptions[0];
       const gia = CARRELLO.find(r => r.id === $('fVoce').value);
       if (gia) gia.q += q;
