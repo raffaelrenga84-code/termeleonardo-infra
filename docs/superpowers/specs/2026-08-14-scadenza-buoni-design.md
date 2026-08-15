@@ -49,6 +49,40 @@ Conseguenza: i **buoni già emessi** con una scadenza dentro la chiusura vanno
 sistemati a parte, una volta sola, e ai loro intestatari va detto — non
 scoperto per caso.
 
+*(Verificato il 15 agosto 2026: la tabella `buono_regalo` ha **zero righe**.
+Non c'è niente da correggere, quindi la correzione una tantum non si
+costruisce. Va però ricontato il giorno della pubblicazione: se nel
+frattempo qualcuno ha comprato, quel buono si sistema a mano — è uno.)*
+
+## La proroga si deve vedere
+
+Se il buono nasce già col 13 marzo stampato sopra e basta, il cliente non
+sa che gli è stato fatto un favore: vede solo una data, e non ha modo di
+capire che è più lunga di quella che gli spettava. Un regalo che non si
+vede non è un regalo.
+
+Sul foglio e nell'email si scrivono **tutte e due**:
+
+> **Valido fino al 13 marzo 2027**
+> La validità sarebbe scaduta il 30 novembre 2026, quando l'hotel è chiuso:
+> l'abbiamo prorogata fino al 13 marzo 2027, un mese dopo la riapertura.
+
+La data grande è quella che vale — una sola, quella operativa, così alla
+reception non c'è mai dubbio su quale leggere. La riga sotto spiega da dove
+viene.
+
+**Solo quando c'è stata una proroga.** Un buono che scade a giugno mostra
+la sua data e nient'altro: una spiegazione che non spiega niente è rumore.
+
+Serve quindi tenere anche la **scadenza naturale** dei dodici mesi, accanto
+a quella valida: senza, la frase non si può scrivere, e ricalcolarla dopo
+darebbe una data diversa se il regolamento cambia.
+
+*(Il numero di mesi non si scrive mai — né "due mesi" né "tre e mezzo".
+La proroga non aggiunge mesi: sposta a una data utilizzabile, e quanti mesi
+siano dipende da quando si è comprato. Scrivere un numero vorrebbe dire
+scriverne uno diverso per ogni cliente, e sbagliarne qualcuno.)*
+
 ## Il promemoria
 
 **Trenta giorni prima della scadenza, a chi ha il buono in mano:** al
@@ -79,17 +113,21 @@ la telefonata di chi teme di perdere il regalo.
 
 ## Cosa serve costruire
 
-1. **La regola della scadenza** in `acquista.ts`, come funzione pura
-   collaudabile: date dentro la chiusura, ai bordi, e la stessa data in anni
-   diversi devono dare il risultato atteso.
-2. **Il lavoro programmato** che ogni giorno cerca i buoni in scadenza fra
+1. **La regola della scadenza** come funzione pura collaudabile: date dentro
+   la chiusura, ai bordi, e la stessa data in anni diversi devono dare il
+   risultato atteso. Restituisce **due** date — quella valida e quella
+   naturale — più il fatto che ci sia stata una proroga.
+2. **La proroga scritta** sul foglio, nell'email e nell'anteprima, nelle
+   quattro lingue, e solo quando c'è stata.
+3. **Il lavoro programmato** che ogni giorno cerca i buoni in scadenza fra
    trenta giorni e non ancora avvisati.
-3. **L'email del promemoria** nelle quattro lingue, col mittente del dominio
+4. **L'email del promemoria** nelle quattro lingue, col mittente del dominio
    verificato.
-4. **La traccia dell'invio** sul buono, così non si ripete.
-5. **La correzione una tantum** dei buoni già emessi con scadenza nella
-   chiusura.
+5. **La traccia dell'invio** sul buono, così non si ripete.
 6. **Il testo delle condizioni** chiarito nelle quattro lingue.
+
+*(La correzione una tantum dei buoni già emessi non si costruisce: non ce
+n'è nessuno. Vedi sopra.)*
 
 ## Le date della chiusura, e perché non vanno nel codice
 
