@@ -491,7 +491,11 @@ async function invia() {
   const t = T[LNG];
   if (INVIANDO) return;
   const v = (id) => $(id).value.trim();
-  if (!v('fLuogo') || !v('fQuando') || !v('fOra') || !v('fNome') || !v('fEmail')) {
+  /* il telefono e' obbligatorio quanto nome ed email: il server lo impone
+     da quando esiste un solo modo per raggiungere l'ospite se la corsa va
+     spostata, ed e' quello. Il controllo qui evita che l'ospite scopra il
+     rifiuto solo dopo aver premuto invia. */
+  if (!v('fLuogo') || !v('fQuando') || !v('fOra') || !v('fNome') || !v('fEmail') || !v('fTel')) {
     $('esito').innerHTML = `<div class="errore">${esc(t.manca)}</div>`;
     return;
   }
