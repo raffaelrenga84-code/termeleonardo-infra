@@ -5,7 +5,7 @@
    e anche lì entro i limiti del regolamento.
    ============================================================ */
 
-import { calcolaScadenza, type Scadenza, type Stagione } from './scadenza.ts';
+import { calcolaScadenza, data as dataValida, type Scadenza, type Stagione } from './scadenza.ts';
 
 export const LISTINO: Record<string, [string, number]> = {
   progCoccola: ['Programma Coccola — pulizia viso completa + manicure', 90],
@@ -214,6 +214,12 @@ export function validaAcquisto(b: Record<string, unknown>, stagioni: Stagione[] 
   } };
 }
 
+/* Cinque anni oltre oggi: abbondante per qualunque validità vera (un anno,
+   raramente prorogata di qualche mese in più), stretto abbastanza da
+   intercettare un anno scritto per sbaglio (9999, o un 2036 al posto di
+   2026) senza mai disturbare un caso reale. */
+const ANNI_MAX_MANUALE = 5;
+
 /* Il ramo di creazione manuale in back office (?a=crea, index.ts): la
    reception vende un buono al banco o ne crea uno omaggio, e l'operatore
    può scrivere una scadenza a mano per un caso particolare. Se lo fa,
@@ -225,8 +231,31 @@ export function validaAcquisto(b: Record<string, unknown>, stagioni: Stagione[] 
    il...», e lasciarla vuota gli toglierebbe di cosa scrivere, non gli
    direbbe "nessuna proroga".
    Senza una data scritta a mano, si calcola come fa il sito: stessa
-   regola, stessa proroga se la scadenza cade a hotel chiuso. */
-export function scadenzaCrea(scadeManuale: string | undefined, stagioni: Stagione[]): Scadenza {
-  if (scadeManuale) return { scade_il: scadeManuale, scade_il_base: scadeManuale, prorogato: false };
-  return calcolaScadenza(new Date(), stagioni);
+   regola, stessa proroga se la scadenza cade a hotel chiuso.
+
+   LA DATA SCRITTA A MANO VA VALIDATA QUI, PRIMA DI POSTGRES. Trovato in
+   revisione: senza controllo, un anno digitato per sbaglio (2025 invece di
+   2026 — l'errore tipico nei primi mesi dell'anno) faceva nascere il buono
+   già scaduto. Nessun errore, nessun avviso: lo si scopriva mesi dopo, al
+   banco, con i contanti già in cassa e nessuno che ricollegava più le due
+   cose. Si riusa `data()` di scadenza.ts (regex piu' andata-e-ritorno, che
+   scarta anche un 31 novembre che altrimenti scivolerebbe silenziosamente
+   al 1 dicembre) invece di riscriverlo: due copie dello stesso controllo
+   divergono, una sola no. */
+export function scadenzaCrea(scadeManuale: string | undefined, stagioni: Stagione[]):
+  { errore?: string; scadenza?: Scadenza } {
+  if (!scadeManuale) return { scadenza: calcolaScadenza(new Date(), stagioni) };
+
+  const d = dataValida(scadeManuale);
+  if (!d) return { errore: 'la scadenza scritta non è una data valida' };
+
+  const oggi = new Date();
+  const oggiUTC = new Date(Date.UTC(oggi.getUTCFullYear(), oggi.getUTCMonth(), oggi.getUTCDate(), 12));
+  if (d < oggiUTC) return { errore: 'la scadenza scritta è già nel passato' };
+
+  const limite = new Date(Date.UTC(
+    oggi.getUTCFullYear() + ANNI_MAX_MANUALE, oggi.getUTCMonth(), oggi.getUTCDate(), 12));
+  if (d > limite) return { errore: 'la scadenza scritta è troppo lontana nel futuro' };
+
+  return { scadenza: { scade_il: scadeManuale, scade_il_base: scadeManuale, prorogato: false } };
 }

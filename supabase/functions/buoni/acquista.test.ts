@@ -91,26 +91,69 @@ Deno.test('le stagioni arrivano da fuori, non dal codice di acquista', () => {
    ============================================================ */
 
 Deno.test('scadenzaCrea: la data scritta a mano dall operatore vince, anche se cadrebbe a hotel chiuso', () => {
-  /* 5 dicembre 2026 sta dentro la chiusura 2026-11-29..2027-02-13: se
+  /* una data futura, dentro la finestra 2026-11-29..2027-02-13: se
      passasse per calcolaScadenza verrebbe prorogata. Non deve succedere. */
   const r = scadenzaCrea('2026-12-05', STAGIONI);
-  assertEquals(r, { scade_il: '2026-12-05', scade_il_base: '2026-12-05', prorogato: false });
+  assertEquals(r.errore, undefined);
+  assertEquals(r.scadenza, { scade_il: '2026-12-05', scade_il_base: '2026-12-05', prorogato: false });
 });
 
 Deno.test('scadenzaCrea: senza data manuale calcola come fa il sito', () => {
   const r = scadenzaCrea(undefined, []);
   const attesa = new Date(); attesa.setFullYear(attesa.getFullYear() + 1);
-  assertEquals(r.scade_il, attesa.toISOString().slice(0, 10));
-  assertEquals(r.scade_il_base, r.scade_il);
-  assertEquals(r.prorogato, false);
+  assertEquals(r.errore, undefined);
+  assertEquals(r.scadenza!.scade_il, attesa.toISOString().slice(0, 10));
+  assertEquals(r.scadenza!.scade_il_base, r.scadenza!.scade_il);
+  assertEquals(r.scadenza!.prorogato, false);
 });
 
 Deno.test('scadenzaCrea: senza data manuale, prorogata se cade a hotel chiuso', () => {
   const anno = new Date().getFullYear() + 1;
   const sempre: Stagione[] = [{ chiusura: `${anno}-01-01`, riapertura: `${anno}-12-31` }];
   const r = scadenzaCrea(undefined, sempre);
-  assertEquals(r.prorogato, true);
-  assertNotEquals(r.scade_il, r.scade_il_base);
+  assertEquals(r.errore, undefined);
+  assertEquals(r.scadenza!.prorogato, true);
+  assertNotEquals(r.scadenza!.scade_il, r.scadenza!.scade_il_base);
+});
+
+/* ------------------------------------------------------------
+   Validazione della data manuale: il difetto trovato in revisione.
+   L'operatore ha un cliente davanti e digita l'anno sbagliato (2025 invece
+   di 2026, il tipico errore nei primi mesi dell'anno): senza controllo il
+   buono nasceva già scaduto, senza nessun avviso — lo si scopriva mesi
+   dopo, coi contanti già in cassa. ------------------------------------ */
+
+Deno.test('scadenzaCrea: una data manuale nel passato viene rifiutata', () => {
+  const r = scadenzaCrea('2025-08-15', []);
+  assertEquals(r.scadenza, undefined);
+  assertNotEquals(r.errore, undefined);
+});
+
+Deno.test('scadenzaCrea: oggi stesso e accettato, non e nel passato', () => {
+  const oggi = new Date().toISOString().slice(0, 10);
+  const r = scadenzaCrea(oggi, []);
+  assertEquals(r.errore, undefined);
+  assertEquals(r.scadenza!.scade_il, oggi);
+});
+
+Deno.test('scadenzaCrea: una data che non esiste (31 novembre) viene rifiutata', () => {
+  const r = scadenzaCrea('2026-11-31', []);
+  assertEquals(r.scadenza, undefined);
+  assertNotEquals(r.errore, undefined);
+});
+
+Deno.test('scadenzaCrea: input non una data (0, spazio) vengono rifiutati', () => {
+  for (const spazzatura of ['0', ' ', 'non-una-data']) {
+    const r = scadenzaCrea(spazzatura, []);
+    assertEquals(r.scadenza, undefined, `input "${spazzatura}"`);
+    assertNotEquals(r.errore, undefined, `input "${spazzatura}"`);
+  }
+});
+
+Deno.test('scadenzaCrea: una data troppo lontana nel futuro (9999-12-31) viene rifiutata', () => {
+  const r = scadenzaCrea('9999-12-31', []);
+  assertEquals(r.scadenza, undefined);
+  assertNotEquals(r.errore, undefined);
 });
 
 Deno.test('campi liberi accorciati e ripuliti', () => {

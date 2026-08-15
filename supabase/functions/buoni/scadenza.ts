@@ -41,7 +41,11 @@ function sposta(d: Date, anni: number, mesi: number): Date {
   return new Date(Date.UTC(a, m, Math.min(giorno, fine), 12));
 }
 
-function data(s: string): Date | null {
+/* Esportata: la riusa scadenzaCrea (acquista.ts) per validare la data che
+   l'operatore scrive a mano in back office, prima che arrivi a Postgres.
+   Una sola copia del controllo "e' una data vera, andata e ritorno" — due
+   copie divergono, ed e' gia' successo in questo progetto. */
+export function data(s: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
   const d = new Date(s + 'T12:00:00Z');
   return isNaN(d.getTime()) || gg(d) !== s ? null : d;

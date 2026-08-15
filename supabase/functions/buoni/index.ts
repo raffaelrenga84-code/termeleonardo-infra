@@ -568,16 +568,20 @@ Deno.serve(async (req) => {
     /* pagato subito (reception od omaggio) oppure in attesa (richiesta via email) */
     const subito = nasceGiaPagato(b.pagamento);
 
-    const { data: num, error: eNum } = await db.rpc('prossimo_numero_buono');
-    const riga0 = Array.isArray(num) ? num[0] : num;
-    if (eNum || !riga0) return risposta({ errore: eNum?.message || 'numerazione fallita' }, 500);
-
     /* validità: dodici mesi, spostati se cadrebbero ad albergo chiuso — la
        stessa regola del sito (scadenzaCrea, acquista.ts). Se l'operatore ha
        scritto una data a mano, quella vince e non si legge nemmeno la
-       tabella delle stagioni: non serve, la sua decisione non si ricalcola. */
+       tabella delle stagioni: non serve, la sua decisione non si ricalcola.
+       Controllata PRIMA di chiedere un numero di buono: un anno digitato
+       per sbaglio non deve bruciare la numerazione per niente. */
     const scadeManuale = b.scade_il ? String(b.scade_il) : undefined;
-    const scadenza = scadenzaCrea(scadeManuale, scadeManuale ? [] : await leggiStagioni());
+    const esitoScadenza = scadenzaCrea(scadeManuale, scadeManuale ? [] : await leggiStagioni());
+    if (esitoScadenza.errore) return risposta({ errore: 'scadenza non valida' }, 400);
+    const scadenza = esitoScadenza.scadenza!;
+
+    const { data: num, error: eNum } = await db.rpc('prossimo_numero_buono');
+    const riga0 = Array.isArray(num) ? num[0] : num;
+    if (eNum || !riga0) return risposta({ errore: eNum?.message || 'numerazione fallita' }, 500);
 
     /* il codice si assegna solo quando il buono è pagato */
     let creato = null, errore = null;

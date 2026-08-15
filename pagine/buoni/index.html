@@ -285,6 +285,10 @@ function disegna() {
 function vistaEmetti() {
   const oggi = new Date();
   const fra12 = new Date(oggi); fra12.setFullYear(fra12.getFullYear() + 1);
+  /* affianca, non sostituisce, il controllo vero sul server (scadenzaCrea in
+     supabase/functions/buoni/acquista.ts): qui serve solo perche' l'errore
+     si veda mentre l'operatore digita, non dopo aver gia' premuto "crea" */
+  const fraCinqueAnni = new Date(oggi); fraCinqueAnni.setFullYear(fraCinqueAnni.getFullYear() + 5);
   const iso = (d) => d.toISOString().slice(0, 10);
 
   $('vista').innerHTML = `<div class="due-col"><div><div class="riquadro">
@@ -322,7 +326,8 @@ function vistaEmetti() {
     </div>
     <div class="due">
       <div><label>Valore (\u20ac)</label><input type="number" id="fValore" min="1" step="1" /></div>
-      <div><label>Valido fino al</label><input type="date" id="fScade" value="${iso(fra12)}" /></div>
+      <div><label>Valido fino al</label><input type="date" id="fScade" value="${iso(fra12)}"
+        min="${iso(oggi)}" max="${iso(fraCinqueAnni)}" /></div>
     </div>
     <p class="mini">Dodici mesi come da regolamento. Ricordi che l'hotel chiude
     da fine novembre a met\u00e0 febbraio: se la scadenza cade l\u00ec, valuti di allungarla.</p>
