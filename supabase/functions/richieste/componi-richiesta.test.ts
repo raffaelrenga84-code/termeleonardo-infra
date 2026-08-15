@@ -85,23 +85,19 @@ Deno.test('senza telefono anche un soggiorno vero e respinto', () => {
   assertEquals(r.errore, 'telefono mancante');
 });
 
-/* La chat (chat/index.ts, invia_richiesta) registra richieste per conto
-   dell'ospite e manda sempre tipo:'soggiorno', ma non sempre ha un
-   telefono da dare. Se il telefono obbligatorio la mandasse in errore, la
-   chat smetterebbe di poter registrare richieste — e nessun test in questa
-   cartella se ne accorgerebbe, perche' la chat sta in un'altra. Il canale
-   si riconosce dal campo `origine` che la chat manda gia' oggi
-   ('assistente del sito'): finche' la decisione su di lei (esentarla per
-   sempre, o farla chiedere il numero come fa il modulo del sito) non e'
-   presa altrove, il comportamento di oggi resta quello di oggi. */
-Deno.test('la chat continua a registrare richieste senza telefono', () => {
+/* Decisione della proprieta' del 15 agosto 2026: l'esenzione della chat
+   (chat/index.ts, invia_richiesta, origine 'assistente del sito') e' chiusa.
+   Il telefono e' obbligatorio per tutti i canali, senza casi speciali — la
+   chat ora lo chiede prima di registrare (vedi chat/prompt.ts), qui non
+   deve piu' passare senza. */
+Deno.test('la chat non registra piu senza telefono: origine non e piu una scusa', () => {
   const r = componiRichiesta({
     ...CONTATTI_BASE, telefono: '', origine: 'assistente del sito', tipo: 'soggiorno',
   });
-  assertEquals(r.errore, undefined);
+  assertEquals(r.errore, 'telefono mancante');
 });
 
-Deno.test('un origine qualsiasi non vale come il canale della chat', () => {
+Deno.test('origine qualsiasi, stesso esito: nessun canale e piu esentato', () => {
   const r = componiRichiesta({
     ...CONTATTI_BASE, telefono: '', origine: 'https://www.termeleonardo.com/it/prenota', tipo: 'soggiorno',
   });

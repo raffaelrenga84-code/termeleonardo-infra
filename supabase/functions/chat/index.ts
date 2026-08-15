@@ -104,17 +104,17 @@ const STRUMENTI = [
     type: 'function',
     function: {
       name: 'invia_richiesta',
-      description: 'Registra la richiesta per il reparto competente. Chiamare solo quando si hanno nome e almeno un recapito. Restituisce un numero di riferimento se riuscita.',
+      description: 'Registra la richiesta per il reparto competente. Chiamare solo quando si hanno nome, email e telefono: il telefono serve sempre, non e facoltativo, perche la reception lo usa per richiamare e spostare un appuntamento. Restituisce un numero di riferimento se riuscita.',
       parameters: {
         type: 'object',
         properties: {
           tipo: { type: 'string', enum: ['soggiorno', 'transfer', 'greenfee', 'maestro', 'trattamenti'] },
           nome: { type: 'string' },
           email: { type: 'string', description: 'email dell ospite, se data' },
-          telefono: { type: 'string', description: 'telefono dell ospite, se dato' },
+          telefono: { type: 'string', description: 'telefono dell ospite: sempre richiesto, la reception lo usa per richiamare' },
           note: { type: 'string', description: 'nota interna per l operatore: dati secchi, date assolute con giorno mese e anno' },
         },
-        required: ['tipo', 'nome', 'note'],
+        required: ['tipo', 'nome', 'telefono', 'note'],
       },
     },
   },
@@ -163,7 +163,12 @@ async function inviaRichiesta(a: Record<string, unknown>, ip: string, privacyVis
   const email = testo(a.email);
   const telefono = testo(a.telefono);
   /* la funzione richieste pretende un'email valida: senza, si registra con
-     un segnaposto e il telefono nelle note, invece di perdere la richiesta */
+     un segnaposto e il telefono nelle note, invece di perdere la richiesta.
+     Il telefono pero' non ha un segnaposto che tenga (decisione del 15
+     agosto 2026, vedi richieste/componi-richiesta.ts): se manca, la funzione
+     richieste respinge tutta la richiesta con errore 'telefono mancante', e
+     quell'errore va restituito com'e' — altrimenti il modello vede solo
+     'fallita' e non sa dire all'ospite cosa manca davvero. */
   const emailValida = /.+@.+\..+/.test(email);
   try {
     const r = await fetch(`${BASE_FUNZIONI}/richieste`, {
@@ -189,12 +194,12 @@ async function inviaRichiesta(a: Record<string, unknown>, ip: string, privacyVis
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.ok) {
       console.error('richiesta dalla chat non registrata:', r.status, j);
-      return { stato: 'fallita' };
+      return { stato: 'fallita', motivo: testo(j?.errore) || 'errore del server' };
     }
     return { stato: 'registrata', riferimento: j.numero };
   } catch (e) {
     console.error('richiesta dalla chat non registrata:', e);
-    return { stato: 'fallita' };
+    return { stato: 'fallita', motivo: 'errore di comunicazione' };
   }
 }
 

@@ -59,12 +59,13 @@ export type Contatti = {
 };
 
 export type OpzioniContatti = {
-  /* Obbligatorio di default: ogni richiesta e' un appuntamento che si puo'
-     spostare (il taxi per un volo in ritardo, la partenza al campo, il
-     lettino del massaggio), e per spostarlo bisogna poter chiamare. Il
-     parametro esiste per il canale che oggi non lo pretende ancora — vedi
-     componi-richiesta.ts — cosi' la scelta resta esplicita nel codice e non
-     un comportamento diverso deciso di nascosto. */
+  /* Obbligatorio di default, senza eccezioni: ogni richiesta e' un
+     appuntamento che si puo' spostare (il taxi per un volo in ritardo, la
+     partenza al campo, il lettino del massaggio), e per spostarlo bisogna
+     poter chiamare. Fino al 15 agosto 2026 la chat se ne serviva per
+     esentarsi (vedi componi-richiesta.ts): quella scelta e' chiusa. Il
+     parametro resta come leva esplicita nel codice, non come comportamento
+     diverso deciso di nascosto. */
   telefonoObbligatorio?: boolean;
 };
 
