@@ -58,10 +58,23 @@ export type Contatti = {
   lingua: string;
 };
 
+export type OpzioniContatti = {
+  /* Obbligatorio di default: ogni richiesta e' un appuntamento che si puo'
+     spostare (il taxi per un volo in ritardo, la partenza al campo, il
+     lettino del massaggio), e per spostarlo bisogna poter chiamare. Il
+     parametro esiste per il canale che oggi non lo pretende ancora — vedi
+     componi-richiesta.ts — cosi' la scelta resta esplicita nel codice e non
+     un comportamento diverso deciso di nascosto. */
+  telefonoObbligatorio?: boolean;
+};
+
 /* Chi chiede e come lo si richiama: uguale per tutti i tipi di richiesta.
    Un transfer o un green fee non hanno un periodo di soggiorno, ma hanno
    sempre una persona dietro. */
-export function validaContatti(b: Record<string, unknown>): { errore?: string; dati?: Contatti } {
+export function validaContatti(
+  b: Record<string, unknown>,
+  opzioni: OpzioniContatti = {},
+): { errore?: string; dati?: Contatti } {
   /* Anche una richiesta raccoglie nome, email e telefono. Il consenso e' un
      campo a se' e non si deduce dal fatto che qualcuno abbia premuto invia:
      dedurlo vorrebbe dire non averlo. */
@@ -77,6 +90,13 @@ export function validaContatti(b: Record<string, unknown>): { errore?: string; d
 
   const telefono = testo(b.telefono);
   if (telefono.length > LIMITI.telefono) return { errore: 'telefono troppo lungo' };
+  /* niente controlli sulla FORMA — prefissi, cifre, spazi: un numero
+     austriaco, uno con l'interno, uno scritto coi punti sono tutti numeri
+     veri. Si pretende che ci sia, non che assomigli a un'idea di numero:
+     rifiutare un numero valido e' peggio che accettarne uno storto. */
+  if ((opzioni.telefonoObbligatorio ?? true) && !telefono) {
+    return { errore: 'telefono mancante' };
+  }
 
   const lingua = ['it', 'de', 'en', 'fr'].includes(testo(b.lingua)) ? testo(b.lingua) : 'it';
   return { dati: { nome, email, telefono, lingua } };
@@ -85,8 +105,9 @@ export function validaContatti(b: Record<string, unknown>): { errore?: string; d
 export function validaRichiesta(
   b: Record<string, unknown>,
   oggi: Date = new Date(),
+  opzioni: OpzioniContatti = {},
 ): { errore?: string; dati?: Richiesta } {
-  const c = validaContatti(b);
+  const c = validaContatti(b, opzioni);
   if (c.errore || !c.dati) return { errore: c.errore };
   const { nome, email, telefono, lingua } = c.dati;
 

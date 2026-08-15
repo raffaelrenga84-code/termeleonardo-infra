@@ -397,10 +397,12 @@ function raccogli() {
 }
 
 /* il controllo qui serve solo a dare un messaggio gentile: quello vero lo
-   fa il server, perche' il browser si aggira */
+   fa il server, perche' il browser si aggira. Il telefono e' obbligatorio
+   come nome ed email: ognuna di queste richieste e' un appuntamento che si
+   puo' spostare, e per spostarlo bisogna poter chiamare. */
 function completo() {
   const v = (id) => ($(id) ? $(id).value.trim() : '');
-  if (!v('fNome') || !v('fEmail')) return false;
+  if (!v('fNome') || !v('fEmail') || !v('fTel')) return false;
   if (TIPO === 'trattamenti') return !!v('fGiorno') && document.querySelectorAll('.voce:checked').length > 0;
   return !!v('fData') && !!v('fOra');
 }

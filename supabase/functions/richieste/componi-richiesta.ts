@@ -11,6 +11,22 @@ import { validaDati } from './tipi.ts';
 
 const testo = (v: unknown) => String(v ?? '').trim();
 
+/* La chat (chat/index.ts, invia_richiesta) registra richieste per conto
+   dell'ospite e manda sempre questo valore in `origine`. Non sempre ha un
+   telefono: lo chiede ma non lo pretende, e oggi manda un segnaposto per
+   l'email quando manca lei, non il telefono. Il telefono obbligatorio qui
+   sotto e' una decisione nuova, presa per il modulo del sito (15 agosto
+   2026): se debba valere anche per la chat — farla chiedere sempre il
+   numero prima di registrare, o lasciarla come e' — non e' ancora deciso.
+   Nel frattempo si riconosce il canale da questo segnale, gia' mandato
+   oggi, cosi' la chat non smette di poter registrare richieste mentre la
+   decisione si aspetta. ATTENZIONE: `origine` e' testo che arriva dal
+   chiamante, non una credenziale — chi lo imposta allo stesso valore
+   ottiene la stessa esenzione. Non e' un problema di sicurezza (il
+   telefono e' una questione di qualita' del dato, non un controllo
+   antifrode) ma va saputo, non dimenticato. */
+const ORIGINE_CHAT = 'assistente del sito';
+
 export type Contatti = { nome: string; email: string; telefono: string; lingua: string };
 
 export type Composta = {
@@ -27,9 +43,10 @@ export type Composta = {
 
 export function componiRichiesta(corpo: Record<string, unknown>): Composta {
   const tipo = testo(corpo.tipo) || 'soggiorno';
+  const opzioni = { telefonoObbligatorio: testo(corpo.origine) !== ORIGINE_CHAT };
 
   if (tipo === 'soggiorno') {
-    const { errore, dati } = validaRichiesta(corpo);
+    const { errore, dati } = validaRichiesta(corpo, undefined, opzioni);
     if (errore || !dati) return { errore };
     const contatti: Contatti = { nome: dati.nome, email: dati.email, telefono: dati.telefono, lingua: dati.lingua };
 
@@ -50,7 +67,7 @@ export function componiRichiesta(corpo: Record<string, unknown>): Composta {
     return { tipo, contatti, colonne: dati, dati: jsonb };
   }
 
-  const c = validaContatti(corpo);
+  const c = validaContatti(corpo, opzioni);
   if (c.errore || !c.dati) return { errore: c.errore };
   const d = validaDati(tipo, (corpo.dati || {}) as Record<string, unknown>);
   if (d.errore || !d.dati) return { errore: d.errore };

@@ -89,28 +89,84 @@ Deno.test('una lingua sconosciuta diventa italiano', () => {
   assertEquals(validaRichiesta({ ...buona, lingua: undefined }, OGGI).dati!.lingua, 'it');
 });
 
-Deno.test('i campi facoltativi possono mancare', () => {
+Deno.test('i campi facoltativi possono mancare, il telefono no', () => {
   const { errore, dati } = validaRichiesta({
     privacy_presa_atto: true,
-    nome: 'Anna', email: 'anna@email.it',
+    nome: 'Anna', email: 'anna@email.it', telefono: '345 1112222',
     check_in: '2026-09-10', check_out: '2026-09-12',
   }, OGGI);
   assertEquals(errore, undefined);
-  assertEquals(dati!.telefono, '');
   assertEquals(dati!.tipo_camera, '');
   assertEquals(dati!.ospiti, 2);
+});
+
+/* Il telefono e' l'unico modo di spostare un appuntamento gia' preso — il
+   taxi per un volo in ritardo, la partenza al campo, il lettino del
+   massaggio — e per spostarlo bisogna poter chiamare. Vale per tutti i tipi
+   di richiesta, non solo il soggiorno: qui si prova sul soggiorno perche'
+   validaRichiesta lo richiede, ma il controllo vive in validaContatti,
+   condiviso da tutti. */
+Deno.test('senza telefono, o con soli spazi, la richiesta non parte', () => {
+  assertEquals(
+    validaRichiesta({ ...buona, telefono: undefined }, OGGI).errore,
+    'telefono mancante',
+  );
+  assertEquals(
+    validaRichiesta({ ...buona, telefono: '' }, OGGI).errore,
+    'telefono mancante',
+  );
+  assertEquals(
+    validaRichiesta({ ...buona, telefono: '   ' }, OGGI).errore,
+    'telefono mancante',
+  );
+});
+
+/* la regola e' "servono tutti e due", non "uno vale l'altro": un telefono
+   valido non deve scavalcare un'email mancante o storta, come oggi */
+Deno.test('un telefono valido non basta se manca o e sbagliata l email', () => {
+  assertEquals(
+    validaRichiesta({ ...buona, email: '' }, OGGI).errore,
+    'email non valida',
+  );
+  assertEquals(
+    validaRichiesta({ ...buona, email: 'mario@' }, OGGI).errore,
+    'email non valida',
+  );
+});
+
+/* Il telefono NON si valida nella forma: un numero austriaco, uno con
+   l'interno, uno scritto coi punti sono tutti numeri veri. Rifiutare un
+   numero valido e' peggio che accettarne uno storto: l'ospite non capisce
+   cosa vuoi. Questo test fallisce se qualcuno aggiunge un controllo sui
+   prefissi, sulle cifre o sugli spazi. */
+Deno.test('il telefono passa con prefisso internazionale e spazi, o scritto in altri modi', () => {
+  assertEquals(validaRichiesta({ ...buona, telefono: '+43 664 123 4567' }, OGGI).errore, undefined);
+  assertEquals(validaRichiesta({ ...buona, telefono: '049.123.456 int. 12' }, OGGI).errore, undefined);
+});
+
+/* il tetto sulla lunghezza c'era gia' (LIMITI.telefono = 40): resta lui a
+   fermare un numero assurdo, non un controllo sulla forma */
+Deno.test('un telefono lunghissimo resta respinto dal limite di lunghezza', () => {
+  assertEquals(
+    validaRichiesta({ ...buona, telefono: '3'.repeat(60) }, OGGI).errore,
+    'telefono troppo lungo',
+  );
 });
 
 /* Anche una richiesta raccoglie nome, email e telefono: l'informativa va
    presa d'atto qui come sulla pagina dei buoni. Consenso a se stante e non
    dedotto dal fatto che qualcuno abbia premuto invia. */
 Deno.test('senza presa d atto della privacy la richiesta non parte', () => {
-  assertEquals(validaContatti({ nome: 'Anna', email: 'a@b.it' }).errore,
+  assertEquals(validaContatti({ nome: 'Anna', email: 'a@b.it', telefono: '333 1112222' }).errore,
     'informativa privacy non accettata');
-  assertEquals(validaContatti({ nome: 'Anna', email: 'a@b.it', privacy_presa_atto: false }).errore,
-    'informativa privacy non accettata');
-  assertEquals(validaContatti({ nome: 'Anna', email: 'a@b.it', privacy_presa_atto: true }).errore,
-    undefined);
+  assertEquals(
+    validaContatti({ nome: 'Anna', email: 'a@b.it', telefono: '333 1112222', privacy_presa_atto: false }).errore,
+    'informativa privacy non accettata',
+  );
+  assertEquals(
+    validaContatti({ nome: 'Anna', email: 'a@b.it', telefono: '333 1112222', privacy_presa_atto: true }).errore,
+    undefined,
+  );
 });
 
 /* Gli argomenti dell'azione a=disponibilita non hanno contatti (e' una
