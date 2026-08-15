@@ -80,6 +80,12 @@ export interface RigaStampa {
   acquirente?: string | null;
   numero?: string | null;
   scade_il?: string | null;
+  /* le due colonne del Task 2: senza scade_il_base la spiegazione della
+     proroga non si può scrivere, e senza prorogato non si sa nemmeno se
+     va scritta. Servono al foglio esattamente come servono all'email —
+     stessa ragione, stesso elenco chiuso. */
+  scade_il_base?: string | null;
+  prorogato?: boolean | null;
   stato?: string | null;
   // deno-lint-ignore no-explicit-any
   [altro: string]: any;
@@ -92,7 +98,9 @@ export type EsitoStampa =
       codice: string | null; tipo: string | null; voce_id: string | null;
       descrizione: string; lingua: string; sottotitolo: string | null;
       destinatario: string | null; dedica: string | null; acquirente: string | null;
-      numero: string | null; scade_il: string | null; stato: 'pagato';
+      numero: string | null; scade_il: string | null;
+      scade_il_base: string | null; prorogato: boolean;
+      stato: 'pagato';
     } };
 
 /** Decide cosa risponde `?a=stampa`, dalla riga del database (o null se il
@@ -122,6 +130,8 @@ export function datiStampa(riga: RigaStampa | null, ora: Date = new Date()): Esi
       acquirente: riga.acquirente ?? null,
       numero: riga.numero ?? null,
       scade_il: riga.scade_il ?? null,
+      scade_il_base: riga.scade_il_base ?? null,
+      prorogato: riga.prorogato ?? false,
       stato: 'pagato',
     },
   };

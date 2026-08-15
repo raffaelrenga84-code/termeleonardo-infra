@@ -90,28 +90,37 @@ export const NARRATIVA = {
    per quella che si sta modificando. Presidiata da buono.test.ts, che la
    confronta con la stessa nota in supabase/functions/buoni/email-buono.ts:
    deve restare identica l\u00ec e qui. */
+/* prorogato: la riga di spiegazione della proroga, identica parola per
+   parola a ETI.prorogato in supabase/functions/buoni/email-buono.ts \u2014
+   presidiata dal confronto qui sotto in buono.test.ts. Non nomina mai un
+   numero di mesi: la proroga sposta a una data usabile, non aggiunge mesi
+   fissi, e quanti mesi siano dipende da quando si e' comprato. */
 export const ETI = {
   it:{ titolo:'Buono Regalo', haRicevuto:(n)=>`${n}, hai ricevuto<br />un dono speciale`,
     senzaNome:'Un dono speciale<br />per te', da:'CON AFFETTO, DA', codice:'CODICE BUONO',
     valido:(d)=>`Valido fino al ${d}`, valore:(v)=>`valore ${v} &euro;`,
+    prorogato:(n,x)=>`La validit\u00e0 sarebbe scaduta il ${n}, quando l\u2019hotel \u00e8 chiuso: l\u2019abbiamo prorogata fino al ${x}.`,
     anteprima:'ANTEPRIMA \u2014 NON ANCORA VALIDO',
     anteprimaNota:'Il codice viene assegnato al momento del pagamento.',
     nota:'Ogni ingresso o trattamento vale per una persona. Per prenotare basta chiamarci o scriverci: ci organizziamo insieme.' },
   de:{ titolo:'Geschenkgutschein', haRicevuto:(n)=>`${n}, Sie haben<br />ein besonderes Geschenk erhalten`,
     senzaNome:'Ein besonderes<br />Geschenk f\u00fcr Sie', da:'HERZLICHST, VON', codice:'GUTSCHEINCODE',
     valido:(d)=>`G\u00fcltig bis ${d}`, valore:(v)=>`Wert ${v} &euro;`,
+    prorogato:(n,x)=>`Die G\u00fcltigkeit w\u00e4re am ${n} abgelaufen, w\u00e4hrend das Hotel geschlossen ist: Wir haben sie bis zum ${x} verl\u00e4ngert.`,
     anteprima:'VORSCHAU \u2014 NOCH NICHT G\u00dcLTIG',
     anteprimaNota:'Der Code wird bei Zahlungseingang vergeben.',
     nota:'Jeder Eintritt und jede Anwendung gilt f\u00fcr eine Person. F\u00fcr die Reservierung rufen Sie uns an oder schreiben Sie uns: wir organisieren alles gemeinsam.' },
   en:{ titolo:'Gift Voucher', haRicevuto:(n)=>`${n}, you have received<br />a special gift`,
     senzaNome:'A special gift<br />for you', da:'WITH LOVE, FROM', codice:'VOUCHER CODE',
     valido:(d)=>`Valid until ${d}`, valore:(v)=>`value ${v} &euro;`,
+    prorogato:(n,x)=>`It would have expired on ${n}, while the hotel is closed: we have extended it to ${x}.`,
     anteprima:'PREVIEW \u2014 NOT YET VALID',
     anteprimaNota:'The code is assigned once payment is received.',
     nota:'Each admission or treatment is for one person. To book, just call or write to us: we will arrange everything together.' },
   fr:{ titolo:'Bon Cadeau', haRicevuto:(n)=>`${n}, vous avez re\u00e7u<br />un cadeau tr\u00e8s sp\u00e9cial`,
     senzaNome:'Un cadeau sp\u00e9cial<br />pour vous', da:'AVEC AFFECTION, DE', codice:'CODE DU BON',
     valido:(d)=>`Valable jusqu'au ${d}`, valore:(v)=>`valeur ${v} &euro;`,
+    prorogato:(n,x)=>`La validit\u00e9 aurait expir\u00e9 le ${n}, alors que l\u2019h\u00f4tel est ferm\u00e9 : nous l\u2019avons prolong\u00e9e jusqu\u2019au ${x}.`,
     anteprima:'APER\u00c7U \u2014 PAS ENCORE VALABLE',
     anteprimaNota:'Le code est attribu\u00e9 au moment du paiement.',
     nota:'Chaque entr\u00e9e ou soin vaut pour une personne. Pour r\u00e9server, appelez-nous ou \u00e9crivez-nous : nous organisons tout ensemble.' }
@@ -305,6 +314,8 @@ export function buonoHTML(b, bozza) {
             ${bozza ? '\u2014 \u2014 \u2014 \u2014 \u2014 \u2014 \u2014' : esc(b.codice)}</div>
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#C9A961;margin-top:6px;">
             ${b.scade_il ? e.valido(dataLingua(b.scade_il, L)) : e.valido('\u2014')}</div>
+          ${b.prorogato && b.scade_il_base ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;color:#8A8A8A;margin-top:3px;line-height:1.45;">
+            ${e.prorogato(dataLingua(b.scade_il_base, L), dataLingua(b.scade_il, L))}</div>` : ''}
         </td>
         <td valign="top" align="right" style="padding-top:14px;font-family:Arial,Helvetica,sans-serif;
           font-size:11px;line-height:1.6;color:#5C736F;">
@@ -402,6 +413,8 @@ export function buonoStampaHTML(b, bozza) {
         <div class="etichetta-s">${e.codice}</div>
         <div class="codice-s">${bozza ? '&mdash; &mdash; &mdash; &mdash; &mdash;' : esc(b.codice || '')}</div>
         <div class="scadenza">${e.valido(dataLingua(b.scade_il, L))}</div>
+        ${b.prorogato && b.scade_il_base ? `<div class="scadenza-prorogata">${
+          e.prorogato(dataLingua(b.scade_il_base, L), dataLingua(b.scade_il, L))}</div>` : ''}
       </div>
       ${!bozza && b.codice ? `<div class="qr-riquadro">${
         generaSvgQR(b.codice, { livello: 'Q', classe: 'qr-s' })}</div>` : ''}

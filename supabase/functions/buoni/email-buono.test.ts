@@ -28,6 +28,51 @@ Deno.test('il buono esce nella lingua giusta, data compresa', () => {
   assertStringIncludes(html, 'LEO-ACDE-FGHJ');
 });
 
+/* ============================================================
+   La proroga si vede. Un buono che nasce già con la data prorogata
+   stampata sopra e basta non dice al cliente che gli è stato fatto un
+   favore: la data grande resta una sola — quella che vale, così alla
+   reception non c'è mai dubbio su quale leggere — e sotto compare una
+   riga piccola che spiega da dove viene, SOLO quando c'è stata una
+   proroga davvero. */
+Deno.test('buono prorogato: si vedono tutte e due le date', () => {
+  const html = buonoEmailHTML({ ...BUONO, lingua: 'it',
+    scade_il: '2027-03-13', scade_il_base: '2026-11-30', prorogato: true });
+  assertStringIncludes(html, 'Valido fino al 13 marzo 2027');
+  assertStringIncludes(html, '30 novembre 2026');
+  assertStringIncludes(html, 'prorogata fino al 13 marzo 2027');
+});
+
+Deno.test('buono non prorogato: nessuna spiegazione, solo la data', () => {
+  const html = buonoEmailHTML({ ...BUONO, lingua: 'it',
+    scade_il: '2027-08-15', scade_il_base: '2027-08-15', prorogato: false });
+  assertStringIncludes(html, 'Valido fino al 15 agosto 2027');
+  assertEquals(html.includes('sarebbe scaduta'), false);
+});
+
+/* Il numero di mesi non si scrive mai: la proroga non aggiunge mesi
+   fissi, sposta a una data usabile, e quanti mesi siano dipende da
+   quando si è comprato. Un numero scritto sarebbe giusto per un cliente
+   e sbagliato per il prossimo. */
+Deno.test('la spiegazione non nomina mai un numero di mesi, in nessuna lingua', () => {
+  for (const lingua of ['it', 'de', 'en', 'fr']) {
+    const html = buonoEmailHTML({ ...BUONO, lingua,
+      scade_il: '2027-03-13', scade_il_base: '2026-11-30', prorogato: true });
+    /* «due mesi», «zwei Monate», «two months», «deux mois» — e qualunque
+       altro numero attaccato alla parola mese */
+    assertEquals(/\b(due|zwei|two|deux|\d+)\s+(mesi|monate|months|mois)\b/i.test(html), false,
+      `la lingua ${lingua} nomina un numero di mesi`);
+  }
+});
+
+Deno.test('senza scade_il_base non si inventa niente: si mostra solo la data valida', () => {
+  /* i buoni emessi prima di questa modifica non hanno la colonna popolata */
+  const html = buonoEmailHTML({ ...BUONO, lingua: 'it',
+    scade_il: '2027-08-15', scade_il_base: null, prorogato: true });
+  assertStringIncludes(html, 'Valido fino al 15 agosto 2027');
+  assertEquals(html.includes('sarebbe scaduta'), false);
+});
+
 /* piccolo aiuto: intercetta fetch e raccoglie i destinatari */
 function conFetchFinto() {
   const spedite: { to: string[]; subject: string; html: string }[] = [];

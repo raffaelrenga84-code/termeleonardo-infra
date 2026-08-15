@@ -113,6 +113,14 @@ Deno.test('i testi condivisi fra sito ed email restano identici, lingua per ling
         assertEquals(sito[chiave], email[chiave], `ETI.${chiave} ${l}`);
       }
     }
+    /* prorogato è una funzione, non una stringa: il confronto generico qui
+       sopra la salta (typeof !== 'string'). La si confronta chiamandola con
+       gli stessi argomenti nelle due copie — la voce che spiega la proroga
+       deve restare parola per parola identica quanto CONDIZIONI, o il
+       cliente legge una spiegazione sul foglio e un'altra nell'email. */
+    const provaSito = (sito.prorogato as (n: string, x: string) => string)('30 novembre 2026', '13 marzo 2027');
+    const provaEmail = (email.prorogato as (n: string, x: string) => string)('30 novembre 2026', '13 marzo 2027');
+    assertEquals(provaSito, provaEmail, `ETI.prorogato ${l}`);
   }
 });
 
@@ -448,4 +456,69 @@ Deno.test('il QR resta lo stesso qualunque sia la lingua del buono: il codice no
 
 Deno.test('il buono monetario e i buoni a voce singola portano il QR come tutti gli altri: nessun trattamento speciale', () => {
   assertStringIncludes(buonoStampaHTML(valore, false), generaSvgQR(valore.codice, { livello: 'Q', classe: 'qr-s' }));
+});
+
+/* ============================================================
+   La proroga si vede — stessi quattro casi di email-buono.test.ts,
+   tradotti sulle due rese di questo file: buonoHTML (l'anteprima nel
+   back office e nella pagina di acquisto) e buonoStampaHTML (il foglio
+   A4). La data grande resta una sola — quella che vale — e la riga di
+   spiegazione compare solo quando c'è stata una proroga davvero. */
+Deno.test('buono prorogato: l’anteprima mostra tutte e due le date', () => {
+  const h = buonoHTML({ ...dayspa, lingua: 'it',
+    scade_il: '2027-03-13', scade_il_base: '2026-11-30', prorogato: true }, false);
+  assertStringIncludes(h, 'Valido fino al 13 marzo 2027');
+  assertStringIncludes(h, '30 novembre 2026');
+  assertStringIncludes(h, 'prorogata fino al 13 marzo 2027');
+});
+
+Deno.test('buono non prorogato: l’anteprima non mostra nessuna spiegazione, solo la data', () => {
+  const h = buonoHTML({ ...dayspa, lingua: 'it',
+    scade_il: '2027-08-15', scade_il_base: '2027-08-15', prorogato: false }, false);
+  assertStringIncludes(h, 'Valido fino al 15 agosto 2027');
+  assertEquals(h.includes('sarebbe scaduta'), false);
+});
+
+Deno.test('senza scade_il_base l’anteprima non inventa niente: si mostra solo la data valida', () => {
+  const h = buonoHTML({ ...dayspa, lingua: 'it',
+    scade_il: '2027-08-15', scade_il_base: null, prorogato: true }, false);
+  assertStringIncludes(h, 'Valido fino al 15 agosto 2027');
+  assertEquals(h.includes('sarebbe scaduta'), false);
+});
+
+Deno.test('buono prorogato: il foglio di stampa mostra tutte e due le date', () => {
+  const f = buonoStampaHTML({ ...dayspa, lingua: 'it',
+    scade_il: '2027-03-13', scade_il_base: '2026-11-30', prorogato: true }, false);
+  assertStringIncludes(f, 'Valido fino al 13 marzo 2027');
+  assertStringIncludes(f, '30 novembre 2026');
+  assertStringIncludes(f, 'prorogata fino al 13 marzo 2027');
+});
+
+Deno.test('buono non prorogato: il foglio di stampa non mostra nessuna spiegazione', () => {
+  const f = buonoStampaHTML({ ...dayspa, lingua: 'it',
+    scade_il: '2027-08-15', scade_il_base: '2027-08-15', prorogato: false }, false);
+  assertStringIncludes(f, 'Valido fino al 15 agosto 2027');
+  assertEquals(f.includes('sarebbe scaduta'), false);
+});
+
+Deno.test('senza scade_il_base il foglio di stampa non inventa niente: si mostra solo la data valida', () => {
+  const f = buonoStampaHTML({ ...dayspa, lingua: 'it',
+    scade_il: '2027-08-15', scade_il_base: null, prorogato: true }, false);
+  assertStringIncludes(f, 'Valido fino al 15 agosto 2027');
+  assertEquals(f.includes('sarebbe scaduta'), false);
+});
+
+/* Nessuna delle due rese nomina mai un numero di mesi, in nessuna lingua:
+   stesso vincolo di email-buono.ts, stesso motivo — la proroga sposta a
+   una data usabile, non aggiunge mesi fissi. */
+Deno.test('né l’anteprima né il foglio di stampa nominano mai un numero di mesi, in nessuna lingua', () => {
+  for (const lingua of LINGUE) {
+    const base = { ...dayspa, lingua, scade_il: '2027-03-13', scade_il_base: '2026-11-30', prorogato: true };
+    const h = buonoHTML(base, false);
+    const f = buonoStampaHTML(base, false);
+    for (const [nome, html] of [['anteprima', h], ['foglio di stampa', f]] as const) {
+      assertEquals(/\b(due|zwei|two|deux|\d+)\s+(mesi|monate|months|mois)\b/i.test(html), false,
+        `${nome} in ${lingua} nomina un numero di mesi`);
+    }
+  }
 });

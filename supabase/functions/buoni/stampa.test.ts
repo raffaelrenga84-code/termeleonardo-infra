@@ -34,7 +34,12 @@ Deno.test('un buono pagato e non scaduto è stampabile, con solo i campi che ser
       codice: 'LEO-ACDE-FGHJ', tipo: 'servizio', voce_id: 'dayspa_fer',
       descrizione: 'Day Spa infrasettimanale — piscine e grotte', lingua: 'de',
       sottotitolo: null, destinatario: 'Anna', dedica: 'Alles Gute', acquirente: 'Max',
-      numero: 'BR-2026-0042', scade_il: '2027-08-14', stato: 'pagato',
+      numero: 'BR-2026-0042', scade_il: '2027-08-14',
+      /* RIGA (qui sopra) non porta scade_il_base né prorogato: sono i buoni
+         emessi prima di questa modifica. Non si inventa nulla, si ripiega
+         su null/false, come fa già il resto della funzione con ?? */
+      scade_il_base: null, prorogato: false,
+      stato: 'pagato',
     },
   });
 });
@@ -90,4 +95,28 @@ Deno.test('un buono monetario (voce_id null) resta stampabile: non è un caso a 
   const esito = datiStampa({ ...RIGA, tipo: 'valore', voce_id: null }, ORA);
   assertEquals(esito.valido, true);
   if (esito.valido) assertEquals(esito.buono.voce_id, null);
+});
+
+/* Il punto dove questo modulo fallisce in silenzio: la query di ?a=stampa
+   in index.ts legge già scade_il_base e prorogato dalla riga (Task 2), ma
+   questo file COSTRUISCE la risposta campo per campo — un elenco chiuso di
+   cosa esce. Se i due campi non si aggiungono qui apposta, restano fuori
+   per sempre e il foglio A4 non può mai scrivere la spiegazione della
+   proroga, anche se tutto il resto (email compresa) funziona. */
+Deno.test('un buono prorogato porta scade_il_base e prorogato al foglio di stampa', () => {
+  const esito = datiStampa({ ...RIGA, scade_il: '2027-03-13', scade_il_base: '2026-11-30', prorogato: true }, ORA);
+  assertEquals(esito.valido, true);
+  if (esito.valido) {
+    assertEquals(esito.buono.scade_il_base, '2026-11-30');
+    assertEquals(esito.buono.prorogato, true);
+  }
+});
+
+Deno.test('un buono non prorogato porta prorogato false e scade_il_base uguale a scade_il', () => {
+  const esito = datiStampa({ ...RIGA, scade_il: '2027-08-14', scade_il_base: '2027-08-14', prorogato: false }, ORA);
+  assertEquals(esito.valido, true);
+  if (esito.valido) {
+    assertEquals(esito.buono.scade_il_base, '2027-08-14');
+    assertEquals(esito.buono.prorogato, false);
+  }
 });

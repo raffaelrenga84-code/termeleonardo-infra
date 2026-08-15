@@ -17,10 +17,17 @@ const eur = (n: number) => Number(n || 0).toLocaleString('it-IT', { minimumFract
    per quella che si sta modificando. Presidiata da buono.test.ts, che la
    confronta con la stessa nota in pagine/buoni/buono.js: deve restare
    identica lì e qui. */
+/* la riga di spiegazione della proroga, in tutte e quattro le lingue.
+   Non nomina mai un numero di mesi: la proroga non aggiunge mesi fissi,
+   sposta a una data usabile, e quanti mesi siano dipende da quando si è
+   comprato — scriverne uno sarebbe giusto per un cliente e sbagliato per
+   il prossimo. Compare solo quando prorogato && scade_il_base, vedi
+   buonoEmailHTML più sotto: un buono che scade a giugno non la mostra. */
 export const ETI: Record<string, any> = {
   it: { titolo: 'Buono Regalo', haRicevuto: (n: string) => `${n}, hai ricevuto<br />un dono speciale`,
     senzaNome: 'Un dono speciale<br />per te', da: 'CON AFFETTO, DA', codice: 'CODICE BUONO',
     valido: (d: string) => `Valido fino al ${d}`,
+    prorogato: (n: string, x: string) => `La validità sarebbe scaduta il ${n}, quando l’hotel è chiuso: l’abbiamo prorogata fino al ${x}.`,
     oggetto: 'Il suo Buono Regalo — Hotel Terme Leonardo',
     oggettoAcq: (rif: string) => `Buono regalo ${rif} emesso — Hotel Terme Leonardo`,
     caro: (n: string) => `Gentile ${n || 'Cliente'},`,
@@ -34,6 +41,7 @@ export const ETI: Record<string, any> = {
   de: { titolo: 'Geschenkgutschein', haRicevuto: (n: string) => `${n}, Sie haben<br />ein besonderes Geschenk erhalten`,
     senzaNome: 'Ein besonderes<br />Geschenk für Sie', da: 'HERZLICHST, VON', codice: 'GUTSCHEINCODE',
     valido: (d: string) => `Gültig bis ${d}`,
+    prorogato: (n: string, x: string) => `Die Gültigkeit wäre am ${n} abgelaufen, während das Hotel geschlossen ist: Wir haben sie bis zum ${x} verlängert.`,
     oggetto: 'Ihr Geschenkgutschein — Hotel Terme Leonardo',
     oggettoAcq: (rif: string) => `Geschenkgutschein ${rif} ausgestellt — Hotel Terme Leonardo`,
     caro: (n: string) => `Sehr geehrte(r) ${n || 'Kundin/Kunde'},`,
@@ -47,6 +55,7 @@ export const ETI: Record<string, any> = {
   en: { titolo: 'Gift Voucher', haRicevuto: (n: string) => `${n}, you have received<br />a special gift`,
     senzaNome: 'A special gift<br />for you', da: 'WITH LOVE, FROM', codice: 'VOUCHER CODE',
     valido: (d: string) => `Valid until ${d}`,
+    prorogato: (n: string, x: string) => `It would have expired on ${n}, while the hotel is closed: we have extended it to ${x}.`,
     oggetto: 'Your Gift Voucher — Hotel Terme Leonardo',
     oggettoAcq: (rif: string) => `Gift voucher ${rif} issued — Hotel Terme Leonardo`,
     caro: (n: string) => `Dear ${n || 'Guest'},`,
@@ -60,6 +69,7 @@ export const ETI: Record<string, any> = {
   fr: { titolo: 'Bon Cadeau', haRicevuto: (n: string) => `${n}, vous avez reçu<br />un cadeau très spécial`,
     senzaNome: 'Un cadeau spécial<br />pour vous', da: 'AVEC AFFECTION, DE', codice: 'CODE DU BON',
     valido: (d: string) => `Valable jusqu'au ${d}`,
+    prorogato: (n: string, x: string) => `La validité aurait expiré le ${n}, alors que l’hôtel est fermé : nous l’avons prolongée jusqu’au ${x}.`,
     oggetto: 'Votre Bon Cadeau — Hôtel Terme Leonardo',
     oggettoAcq: (rif: string) => `Bon cadeau ${rif} émis — Hôtel Terme Leonardo`,
     caro: (n: string) => `Cher/Chère ${n || 'Client(e)'},`,
@@ -228,6 +238,10 @@ export function buonoEmailHTML(b: any) {
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#9AA9A6;">${e.codice}</div>
           <div style="font-family:'Courier New',monospace;font-size:17px;letter-spacing:2px;color:#1B4D4A;margin-top:6px;">${esc(b.codice)}</div>
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#C9A961;margin-top:6px;">${e.valido(dataLingua(b.scade_il, L))}</div>
+          ${b.prorogato && b.scade_il_base ? `
+          <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;color:#8A8A8A;margin-top:3px;line-height:1.45;">
+            ${e.prorogato(dataLingua(b.scade_il_base, L), dataLingua(b.scade_il, L))}
+          </div>` : ''}
         </td>
         ${b.codice ? `<td valign="top" align="center" style="padding-top:14px;padding-left:16px;padding-right:16px;">
           <img src="${esc(linkQr(b.codice))}" width="92" height="92" alt="QR" style="display:block;width:92px;height:92px;border:0;" />
