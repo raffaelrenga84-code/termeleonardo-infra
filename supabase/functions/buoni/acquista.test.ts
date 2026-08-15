@@ -1,7 +1,7 @@
 /* Test del ramo pubblico a=acquista: la validazione è l'unica
    fonte dei prezzi — quello che arriva dal browser non conta. */
 import { assertEquals, assertMatch, assertNotEquals } from 'jsr:@std/assert';
-import { LISTINO, validaAcquisto, colonnaVoci, componiDescrizione } from './acquista.ts';
+import { LISTINO, validaAcquisto, colonnaVoci, componiDescrizione, scadenzaCrea } from './acquista.ts';
 import { type Stagione } from './scadenza.ts';
 
 /* oggetto minimo che validaAcquisto accetta, riusato dai test sulla
@@ -81,6 +81,36 @@ Deno.test('le stagioni arrivano da fuori, non dal codice di acquista', () => {
   assertEquals(r.dati!.prorogato, true);
   assertEquals(r.dati!.scade_il, `${anno + 1}-01-31`);
   assertNotEquals(r.dati!.scade_il, r.dati!.scade_il_base);
+});
+
+/* ============================================================
+   scadenzaCrea — il ramo ?a=crea del back office (index.ts), dove
+   l'operatore può scrivere una scadenza a mano per un caso particolare.
+   Quella data, se c'è, è definitiva: non va prorogata né trattata come
+   "naturale" — sennò un domani qualcuno "semplifica" e la sovrascrive.
+   ============================================================ */
+
+Deno.test('scadenzaCrea: la data scritta a mano dall operatore vince, anche se cadrebbe a hotel chiuso', () => {
+  /* 5 dicembre 2026 sta dentro la chiusura 2026-11-29..2027-02-13: se
+     passasse per calcolaScadenza verrebbe prorogata. Non deve succedere. */
+  const r = scadenzaCrea('2026-12-05', STAGIONI);
+  assertEquals(r, { scade_il: '2026-12-05', scade_il_base: '2026-12-05', prorogato: false });
+});
+
+Deno.test('scadenzaCrea: senza data manuale calcola come fa il sito', () => {
+  const r = scadenzaCrea(undefined, []);
+  const attesa = new Date(); attesa.setFullYear(attesa.getFullYear() + 1);
+  assertEquals(r.scade_il, attesa.toISOString().slice(0, 10));
+  assertEquals(r.scade_il_base, r.scade_il);
+  assertEquals(r.prorogato, false);
+});
+
+Deno.test('scadenzaCrea: senza data manuale, prorogata se cade a hotel chiuso', () => {
+  const anno = new Date().getFullYear() + 1;
+  const sempre: Stagione[] = [{ chiusura: `${anno}-01-01`, riapertura: `${anno}-12-31` }];
+  const r = scadenzaCrea(undefined, sempre);
+  assertEquals(r.prorogato, true);
+  assertNotEquals(r.scade_il, r.scade_il_base);
 });
 
 Deno.test('campi liberi accorciati e ripuliti', () => {

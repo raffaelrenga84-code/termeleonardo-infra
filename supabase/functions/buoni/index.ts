@@ -32,7 +32,7 @@
      POST ?a=webhook    → incasso confermato: emette il codice da sé
    ============================================================ */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { validaAcquisto, colonnaVoci } from './acquista.ts';
+import { validaAcquisto, colonnaVoci, scadenzaCrea } from './acquista.ts';
 import { type Stagione } from './scadenza.ts';
 import { nasceGiaPagato } from './pagamenti.ts';
 import { entroIlLimiteAcquista, entroIlLimiteQr, entroIlLimiteStampa, troppiDalSito } from './limite.ts';
@@ -256,6 +256,31 @@ function nuovoCodice() {
 const testo = (v: unknown, max: number) =>
   v == null ? null : String(v).trim().slice(0, max) || null;
 
+/* Le stagioni si leggono a ogni chiamata e non si tengono in memoria: la
+   funzione gira su istanze diverse, e una cache qui vorrebbe dire due
+   clienti (o due operatori in reception) con due regole diverse a seconda
+   di quale istanza li serve. Usata sia da ?a=acquista sia da ?a=crea, così
+   la query sta scritta in un punto solo invece di essere duplicata nei due
+   rami. Se la lettura fallisce si prosegue senza: la scadenza naturale e'
+   un ripiego onesto, perdere l'acquisto o bloccare la reception no. */
+async function leggiStagioni(): Promise<Stagione[]> {
+  try {
+    /* `.order` e non a caso: senza, l'ordine delle righe lo decide Postgres, e
+       la revisione del Task 1 ha mostrato che con due stagioni sovrapposte —
+       un errore di inserimento plausibile, le righe le scrive la reception —
+       l'ordine cambierebbe la proroga data al cliente. `calcolaScadenza` e'
+       stata resa indipendente dall'ordine, questo e' il secondo giro di
+       chiave: le due difese costano una parola e non si fidano l'una
+       dell'altra. */
+    const { data } = await db.from('stagione_chiusura')
+      .select('chiusura, riapertura').order('chiusura');
+    return (data ?? []) as Stagione[];
+  } catch (e) {
+    console.error('stagioni non lette, scadenza naturale:', e);
+    return [];
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -267,7 +292,7 @@ Deno.serve(async (req) => {
     const codice = (url.searchParams.get('codice') || '').toUpperCase().trim();
     if (!codice) return risposta({ errore: 'codice mancante' }, 400);
     const { data } = await db.from('buono_regalo')
-      .select('codice, descrizione, valore, scade_il, scade_il_base, prorogato, stato, riscosso_il, voci')
+      .select('codice, descrizione, valore, scade_il, stato, riscosso_il, voci')
       .eq('codice', codice).maybeSingle();
     if (!data) return risposta({ valido: false, motivo: 'non trovato' }, 404);
     const scaduto = new Date(data.scade_il + 'T23:59:59') < new Date();
@@ -445,27 +470,8 @@ Deno.serve(async (req) => {
     let b: Record<string, unknown>;
     try { b = await req.json(); } catch { b = {}; }
 
-    /* Le stagioni si leggono a ogni acquisto e non si tengono in memoria: la
-       funzione gira su istanze diverse, e una cache qui vorrebbe dire due
-       clienti con due regole diverse a seconda di quale istanza li serve.
-       Se la lettura fallisce si prosegue senza: la scadenza naturale e' un
-       ripiego onesto, perdere l'acquisto no. */
-    let stagioni: Stagione[] = [];
-    try {
-      /* `.order` e non a caso: senza, l'ordine delle righe lo decide Postgres, e
-         la revisione del Task 1 ha mostrato che con due stagioni sovrapposte —
-         un errore di inserimento plausibile, le righe le scrive la reception —
-         l'ordine cambierebbe la proroga data al cliente. `calcolaScadenza` e'
-         stata resa indipendente dall'ordine, questo e' il secondo giro di
-         chiave: le due difese costano una parola e non si fidano l'una
-         dell'altra. */
-      const { data } = await db.from('stagione_chiusura')
-        .select('chiusura, riapertura').order('chiusura');
-      stagioni = (data ?? []) as Stagione[];
-    } catch (e) { console.error('stagioni non lette, scadenza naturale:', e); }
-
     /* prezzi e limiti decisi qui, non dal browser */
-    const v = validaAcquisto(b, stagioni);
+    const v = validaAcquisto(b, await leggiStagioni());
     if (v.errore) return risposta({ errore: v.errore }, 400);
     const d = v.dati!;
 
@@ -566,11 +572,12 @@ Deno.serve(async (req) => {
     const riga0 = Array.isArray(num) ? num[0] : num;
     if (eNum || !riga0) return risposta({ errore: eNum?.message || 'numerazione fallita' }, 500);
 
-    /* validità: 12 mesi, come scritto nelle FAQ del sito */
-    const scade = b.scade_il ? String(b.scade_il) : (() => {
-      const d = new Date(); d.setFullYear(d.getFullYear() + 1);
-      return d.toISOString().slice(0, 10);
-    })();
+    /* validità: dodici mesi, spostati se cadrebbero ad albergo chiuso — la
+       stessa regola del sito (scadenzaCrea, acquista.ts). Se l'operatore ha
+       scritto una data a mano, quella vince e non si legge nemmeno la
+       tabella delle stagioni: non serve, la sua decisione non si ricalcola. */
+    const scadeManuale = b.scade_il ? String(b.scade_il) : undefined;
+    const scadenza = scadenzaCrea(scadeManuale, scadeManuale ? [] : await leggiStagioni());
 
     /* il codice si assegna solo quando il buono è pagato */
     let creato = null, errore = null;
@@ -595,7 +602,9 @@ Deno.serve(async (req) => {
         acquirente_tel:   testo(b.acquirente_tel, 40),
         destinatario:     testo(b.destinatario, 120),
         dedica:           testo(b.dedica, 400),
-        scade_il:         scade,
+        scade_il:         scadenza.scade_il,
+        scade_il_base:    scadenza.scade_il_base,
+        prorogato:        scadenza.prorogato,
         pagamento:        testo(b.pagamento, 20),
         note:             testo(b.note, 500)
       }).select().single();

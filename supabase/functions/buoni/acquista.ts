@@ -5,7 +5,7 @@
    e anche lì entro i limiti del regolamento.
    ============================================================ */
 
-import { calcolaScadenza, type Stagione } from './scadenza.ts';
+import { calcolaScadenza, type Scadenza, type Stagione } from './scadenza.ts';
 
 export const LISTINO: Record<string, [string, number]> = {
   progCoccola: ['Programma Coccola — pulizia viso completa + manicure', 90],
@@ -212,4 +212,21 @@ export function validaAcquisto(b: Record<string, unknown>, stagioni: Stagione[] 
     scade_il_base: scadenza.scade_il_base,
     prorogato: scadenza.prorogato
   } };
+}
+
+/* Il ramo di creazione manuale in back office (?a=crea, index.ts): la
+   reception vende un buono al banco o ne crea uno omaggio, e l'operatore
+   può scrivere una scadenza a mano per un caso particolare. Se lo fa,
+   quella data è definitiva — non è "quella naturale" che il calcolo
+   potrebbe ancora prorogare, e non va MAI fatta ripassare da
+   calcolaScadenza: e' la decisione dell'operatore, non un dato da
+   correggere. scade_il_base si valorizza comunque con la stessa data:
+   il foglio legge sempre quella colonna per scrivere «sarebbe scaduto
+   il...», e lasciarla vuota gli toglierebbe di cosa scrivere, non gli
+   direbbe "nessuna proroga".
+   Senza una data scritta a mano, si calcola come fa il sito: stessa
+   regola, stessa proroga se la scadenza cade a hotel chiuso. */
+export function scadenzaCrea(scadeManuale: string | undefined, stagioni: Stagione[]): Scadenza {
+  if (scadeManuale) return { scade_il: scadeManuale, scade_il_base: scadeManuale, prorogato: false };
+  return calcolaScadenza(new Date(), stagioni);
 }
