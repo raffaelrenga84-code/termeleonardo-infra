@@ -49,6 +49,7 @@ import { daAvvisare, type RigaBuono } from './promemoria.ts';
 import { datiStampa } from './stampa.ts';
 import { generaPngQR } from './qr.js';
 import { filtroRicercaBuoni } from './ricerca.ts';
+import { dataConsenso } from './consenso.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -615,7 +616,16 @@ Deno.serve(async (req) => {
          quale e' stato dato, "condizioni + privacy" e' una risposta, un
          "accettato" generico no */
       note: `acquisto dal sito · condizioni v1 e informativa privacy accettate il ${
-        new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`
+        new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`,
+      /* le due colonne vere (privacy_il, condizioni_il): dataConsenso
+         guarda i booleani grezzi cosi' come sono arrivati dal browser, non
+         "il fatto che siamo arrivati fin qui" — validaAcquisto li ha gia'
+         pretesi piu' sopra per rifiutare l'acquisto, ma se quel controllo
+         cambiasse un giorno queste colonne resterebbero comunque oneste
+         invece di scrivere una data non guadagnata. La `note` sopra resta
+         com'era, per la lettura veloce in reception: qui e' la prova. */
+      privacy_il: dataConsenso(b.privacy_presa_atto),
+      condizioni_il: dataConsenso(b.condizioni_accettate),
     }).select().single();
     if (error || !ins) return risposta({ errore: 'salvataggio non riuscito' }, 500);
 

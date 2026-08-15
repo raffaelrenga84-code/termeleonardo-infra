@@ -21,6 +21,7 @@ import { arricchisciElenco } from './elenco.ts';
 import { componiRisposta, corpoDisponibilita } from './disponibilita.ts';
 import { LINGUE } from './condizioni.ts';
 import { creaFrenoIp } from './limite-ip.ts';
+import { dataConsenso } from './consenso.ts';
 
 const testo = (v: unknown) => String(v ?? '').trim();
 
@@ -166,6 +167,12 @@ Deno.serve(async (req) => {
       arrivo_token: testo(corpo.token).slice(0, 120) || null,
       origine: String(corpo.origine || '').slice(0, 200) || null,
       ip,
+      /* dataConsenso guarda il booleano grezzo com'e' arrivato dal modulo,
+         non "il fatto che siamo arrivati fin qui" (componiRichiesta l'ha
+         gia' preteso piu' sopra, per rifiutare la richiesta): se un giorno
+         quel controllo cambiasse, questa colonna resterebbe comunque
+         onesta invece di scrivere una data non guadagnata. */
+      privacy_il: dataConsenso(corpo.privacy_presa_atto),
     });
     if (eIns) {
       console.error('inserimento fallito:', eIns);
