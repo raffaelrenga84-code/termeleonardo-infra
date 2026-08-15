@@ -21,6 +21,26 @@ Deno.test('con la stagione vera: la riga nomina entrambe le date e dice che l\'h
     'la chiusura va nominata prima della riapertura');
 });
 
+/* Il giorno della riapertura e' un giorno APERTO. La riga diceva «chiuso
+   ... al 13 febbraio compreso, e riapre il 13 febbraio»: due meta' che si
+   contraddicono, e un ospite che chiede proprio del 13 puo' sentirsi dire
+   che siamo chiusi il giorno in cui invece apriamo — cioe' perdere una
+   prenotazione nel primo giorno di stagione, quello che si riempie meno.
+   L'ultimo giorno chiuso e' il giorno PRIMA della riapertura. */
+Deno.test('l\'ultimo giorno chiuso è il giorno prima della riapertura, non la riapertura stessa', () => {
+  const riga = frasechiusura(STAGIONE_VERA, oggi('2026-08-15'));
+  assertStringIncludes(riga, '12 febbraio 2027');
+  assertEquals(/al \*\*13 febbraio 2027\*\* compreso/.test(riga), false,
+    'la riga dice ancora che il giorno della riapertura è chiuso');
+});
+
+Deno.test('la riapertura al primo del mese: l\'ultimo giorno chiuso è l\'ultimo del mese prima', () => {
+  /* il giorno prima non si calcola togliendo 1 al numero: il 1 marzo meno
+     un giorno e' il 28 (o 29) febbraio, non il 0 marzo */
+  const riga = frasechiusura([{ chiusura: '2026-11-29', riapertura: '2027-03-01' }], oggi('2026-08-15'));
+  assertStringIncludes(riga, '28 febbraio 2027');
+});
+
 Deno.test('tabella vuota: nessuna riga, stringa vuota', () => {
   assertEquals(frasechiusura([], oggi('2026-08-15')), '');
 });

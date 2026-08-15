@@ -90,8 +90,20 @@ export function frasechiusura(stagioni: Stagione[], oggi: Date): string {
 
   if (!valide.length) return '';
 
+  /* Il giorno della riapertura e' un giorno APERTO: l'ultimo giorno chiuso e'
+     quello prima. Scrivendo la stessa data due volte — «chiuso fino al 13
+     compreso, riapre il 13» — le due meta' della frase si contraddicono, e un
+     ospite che chiede proprio del 13 puo' sentirsi dire che siamo chiusi il
+     giorno in cui apriamo: una prenotazione persa nel primo giorno di
+     stagione, che e' anche quello che si riempie di meno.
+     Si toglie un giorno con getUTCDate() - 1 e non sottraendo 1 al numero
+     stampato: il giorno prima del 1 marzo e' il 28 febbraio, non il «0 marzo»,
+     e Date normalizza da se' il cambio di mese e di anno. */
+  const giornoPrima = (d: Date) =>
+    new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - 1, 12));
+
   const righe = valide.map((s) =>
-    `L'hotel è chiuso dal **${formattaData(s.chiusura)}** al **${formattaData(s.riapertura)}** compreso, e riapre il **${formattaData(s.riapertura)}**. ` +
+    `L'hotel è chiuso dal **${formattaData(s.chiusura)}** al **${formattaData(giornoPrima(s.riapertura))}** compreso, e riapre il **${formattaData(s.riapertura)}**. ` +
     `Per qualunque data in questo periodo (Day Spa compreso) rispondi che l'hotel è chiuso e indica la data di riapertura. ` +
     `Non dire mai che le prenotazioni "non sono ancora aperte", e non dire "esaurito": in quei giorni l'hotel semplicemente non è operativo.`
   );
