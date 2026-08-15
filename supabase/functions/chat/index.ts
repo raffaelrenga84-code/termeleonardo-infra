@@ -10,8 +10,8 @@
    ============================================================ */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { REGOLE_CANALE } from './prompt.ts';
-import { KNOWLEDGE_BASE } from './kb.ts';
+import { sistema } from './sistema.ts';
+import { type Stagione } from './chiusura.ts';
 import {
   GIRI_MAX,
   chiediAlModelloStreaming,
@@ -203,45 +203,24 @@ async function inviaRichiesta(a: Record<string, unknown>, ip: string, privacyVis
   }
 }
 
-/* ---------------- il prompt di sistema ----------------
-   La data viene da qui e non dal modello: un modello non sa che giorno e'.
-   L'elenco degli strumenti disponibili viene DOPO le regole, cosi' se le
-   regole ne nominano uno che non esiste, l'ultima parola e' la realta'. */
-function sistema(lingua: string): string {
-  const oggi = new Date();
-  const GG = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
-  const MM = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio',
-    'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
-  const data = `${GG[oggi.getUTCDay()]} ${oggi.getUTCDate()} ${MM[oggi.getUTCMonth()]} ${oggi.getUTCFullYear()}`;
-
-  return [
-    REGOLE_CANALE,
-    '',
-    '---',
-    '',
-    KNOWLEDGE_BASE,
-    '',
-    '---',
-    '',
-    '# STRUMENTI DISPONIBILI IN QUESTO CANALE',
-    '',
-    'Questo elenco ha la precedenza su qualunque altro punto del prompt.',
-    '',
-    '- `verifica_camere` — disponibile.',
-    '- `invia_richiesta` — disponibile. Restituisce `stato: "registrata"` e un',
-    '  `riferimento` solo se ha funzionato davvero. Se restituisce `fallita`,',
-    '  la richiesta NON esiste: e\' vietato dire che l\'hai registrata.',
-    '- `verifica_dayspa` — **NON esiste in questo canale.** Non tentare di',
-    '  chiamarlo. Sul Day Spa rispondi con i dati della Knowledge Base (orari,',
-    '  prezzi, regola dei sette giorni) e manda a prenotare online: e\' comunque',
-    '  l\'unico modo per garantire il posto. Non dire mai che una data e\'',
-    '  esaurita, perche\' non puoi saperlo.',
-    '',
-    '# CONTESTO',
-    '',
-    `Oggi è ${data}. Questa è l'unica fonte valida per qualunque calcolo di date.`,
-    `La lingua dell'interfaccia è: ${lingua}.`,
-  ].join('\n');
+/* ---------------- le stagioni di chiusura ----------------
+   Stessa tabella e stesso modo di leggerla di leggiStagioni() in
+   buoni/index.ts: .order('chiusura') per un ordine deterministico (vedi
+   il commento lì sulle stagioni sovrapposte inserite a mano), e un
+   try/catch che non fa mai fallire la richiesta — se la lettura va storta
+   si prosegue senza la riga di chiusura nel prompt (vedi chiusura.ts: è
+   il caso "meglio niente che una chiusura inventata"). Non importata da
+   buoni/index.ts: sono due funzioni Supabase indipendenti, pubblicate
+   separatamente — un import fra cartelle diverse romperebbe il bundle. */
+async function leggiStagioni(): Promise<Stagione[]> {
+  try {
+    const { data } = await db.from('stagione_chiusura')
+      .select('chiusura, riapertura').order('chiusura');
+    return (data ?? []) as Stagione[];
+  } catch (e) {
+    console.error('stagioni non lette, prompt senza riga di chiusura:', e);
+    return [];
+  }
 }
 
 /* ---------------- la chiamata al modello ---------------- */
@@ -452,8 +431,12 @@ Deno.serve(async (req) => {
     };
   }).filter((m) => m.content);
 
+  /* le stagioni si leggono a ogni chiamata, come in buoni/index.ts: la
+     funzione gira su istanze diverse, una cache qui terrebbe una risposta
+     vecchia dopo che la reception aggiorna la tabella */
+  const stagioni = await leggiStagioni();
   const messaggi: Record<string, unknown>[] = [
-    { role: 'system', content: sistema(lingua) },
+    { role: 'system', content: sistema(lingua, stagioni, new Date()) },
     ...recenti,
   ];
 
