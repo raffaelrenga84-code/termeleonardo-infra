@@ -65,7 +65,13 @@ Oltre a: lettini massaggianti, docce emozionali con aromaterapia, whirlpool, cas
 
 **Massaggi e trattamenti:** anche per ospiti Day Spa, prenotare **almeno 2 giorni prima**.
 
-**Golf (valido per tutti):** campo pratica 9:00–18:30, solo golfisti (principianti inclusi). Range fee in portineria: **10 € esterni / 6 € soggiornanti**; gettone **3 €** per 22 palline; noleggio attrezzatura disponibile. Driving range di 15.000 mq adiacente alle piscine; Golf Academy con lezioni private su prenotazione. Green fee agevolato ai Golfclub Padova, Montecchia e Frassanelle (18 buche, 10–15 minuti).
+**Golf (valido per tutti):** campo pratica 9:00–18:30, solo golfisti (principianti inclusi). Range fee in portineria: **10 € esterni / 6 € soggiornanti**; gettone **3 €** per 22 palline; noleggio attrezzatura disponibile. Driving range di 15.000 mq adiacente alle piscine.
+
+**LE LEZIONI COL MAESTRO SI FANNO SOLO SUL NOSTRO CAMPO PRATICA**, accanto all'hotel — **mai sui circoli convenzionati**. Sono due cose diverse e vanno tenute separate quando si risponde:
+- **Col maestro si impara, qui da noi**: Golf Academy, lezioni private o in piccolo gruppo, su prenotazione, sul campo pratica dell'hotel. Anche per chi non ha mai tenuto un ferro in mano.
+- **Ai circoli si va a giocare**: green fee agevolato ai Golfclub Padova, Montecchia e Frassanelle (18 buche, 10–15 minuti d'auto), e su richiesta organizziamo il taxi.
+
+*Se l'ospite chiede una lezione «alla Montecchia» o su uno degli altri circoli, chiarisci con garbo che il maestro insegna sul nostro campo pratica: farlo credere il contrario vuol dire un ospite che si presenta nel posto sbagliato.*
 
 ## HOTEL (per chi soggiorna)
 

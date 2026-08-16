@@ -34,8 +34,10 @@ main{max-width:640px;margin:0 auto;padding:26px 18px 60px;}
 h2{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:23px;
   color:var(--verde);margin:0 0 4px;}
 .guida{color:var(--grigio);font-size:13.5px;margin-bottom:16px;}
-label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.6px;
-  color:var(--verde-medio);font-weight:600;margin-top:14px;}
+/* niente maiuscoletto: le etichette si leggono come frasi, non come
+   voci di un modulo da sportello */
+label{display:block;font-size:13.5px;
+  color:var(--verde-medio);font-weight:500;margin-top:15px;}
 input,select,textarea{width:100%;margin-top:6px;padding:12px 13px;font:15px inherit;
   border:1px solid #DCD6CB;border-radius:9px;background:#FCFBF8;color:#2A2E2B;}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--acqua);border-color:transparent;}
@@ -420,11 +422,18 @@ function campiTipo(t) {
       <div><label for="fPercorso">${esc(t.percorso)}</label>
         <input type="text" id="fPercorso" placeholder="${esc(t.percorsoPh)}" /></div>
     </div>
-    <label>${esc(t.noleggi)}</label>
-    <label class="spunta"><input type="checkbox" id="fGolfcar" /><span>${esc(t.golfcar)}</span></label>
-    <label class="spunta"><input type="checkbox" id="fCarrello" /><span>${esc(t.carrello)}</span></label>
-    <label class="spunta"><input type="checkbox" id="fCarrelloE" /><span>${esc(t.carrelloE)}</span></label>
-    <label class="spunta"><input type="checkbox" id="fSacca" /><span>${esc(t.sacca)}</span></label>
+    <!-- Quattro quadratini sempre in vista li deve leggere anche chi arriva
+         con la propria sacca, per non spuntarne nessuno. Una domanda sola,
+         che apre il resto solo a chi risponde di si'. E' lo stesso
+         meccanismo del taxi qui sotto, gia' collaudato su questa pagina. -->
+    <label class="spunta" style="margin-top:16px;"><input type="checkbox" id="fNoleggi" />
+      <span>${esc(t.noleggi)}</span></label>
+    <div id="boxNoleggi" style="display:none;">
+      <label class="spunta"><input type="checkbox" id="fGolfcar" /><span>${esc(t.golfcar)}</span></label>
+      <label class="spunta"><input type="checkbox" id="fCarrello" /><span>${esc(t.carrello)}</span></label>
+      <label class="spunta"><input type="checkbox" id="fCarrelloE" /><span>${esc(t.carrelloE)}</span></label>
+      <label class="spunta"><input type="checkbox" id="fSacca" /><span>${esc(t.sacca)}</span></label>
+    </div>
     <label for="fTessera">${esc(t.tessera)}</label>
     <input type="text" id="fTessera" placeholder="${esc(t.tesseraPh)}" />
     <label class="spunta" style="margin-top:18px;"><input type="checkbox" id="fTaxi" />
@@ -650,6 +659,21 @@ function modulo() {
   const taxi = $('fTaxi');
   if (taxi) taxi.onchange = () => {
     $('boxTaxi').style.display = taxi.checked ? 'block' : 'none';
+  };
+
+  /* I noleggi si aprono come il taxi. La differenza sta nella chiusura:
+     `fNoleggi` non viene mandato al server — quello che parte sono le
+     quattro caselle dentro. Se restassero spuntate dopo aver richiuso il
+     riquadro, l'ospite chiederebbe una golf car che non vede piu' e che
+     credeva di aver tolto, e in reception arriverebbe un noleggio da
+     preparare per niente. Chiudendo si azzerano. */
+  const noleggi = $('fNoleggi');
+  if (noleggi) noleggi.onchange = () => {
+    const box = $('boxNoleggi');
+    box.style.display = noleggi.checked ? 'block' : 'none';
+    if (!noleggi.checked) {
+      for (const c of box.querySelectorAll('input[type="checkbox"]')) c.checked = false;
+    }
   };
   $('bInvia').onclick = invia;
 
