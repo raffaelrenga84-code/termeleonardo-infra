@@ -536,7 +536,7 @@ function modulo() {
      deve arrivare il valore ESATTO, o i tassisti ricevono una destinazione
      che nel loro sistema non esiste. Si ripulisce solo l'etichetta. */
   const perVedere = (v) => v.replace(/[🌀-🫿☀-➿️]/gu, '')
-    .replace(/s{2,}/g, ' ').trim();
+    .replace(/\s{2,}/g, ' ').trim();
 
   const primoGruppo = $('fLuogo').querySelector('optgroup');
   $('mete').innerHTML = [...(primoGruppo ? primoGruppo.children : [])]
