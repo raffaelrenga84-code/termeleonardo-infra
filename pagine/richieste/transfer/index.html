@@ -51,6 +51,17 @@ textarea{min-height:84px;resize:vertical;}
 .scelte button{padding:13px;border:1.5px solid #DCD6CB;background:#fff;border-radius:10px;
   cursor:pointer;font:600 14px inherit;color:var(--verde-medio);}
 .scelte button.attivo{border-color:var(--verde);color:var(--verde);background:var(--acqua-chiara);}
+/* Le dodici destinazioni piu' richieste, fuori dalla tendina. Nove ospiti
+   su dieci vanno in uno di quei posti: oggi devono aprire un elenco di 191
+   voci per trovarlo. */
+.mete{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;}
+.meta{border:1px solid #DCD6CB;border-radius:999px;padding:8px 14px;font:14px inherit;
+  background:#fff;color:#2A2E2B;cursor:pointer;line-height:1.25;}
+.meta:hover{border-color:var(--oro);}
+.meta[aria-pressed="true"]{background:var(--verde);color:var(--crema);border-color:var(--verde);}
+.altre{margin-top:11px;background:none;border:0;padding:0;cursor:pointer;font:13.5px inherit;
+  color:var(--verde-medio);text-decoration:underline;text-decoration-color:var(--oro);
+  text-underline-offset:3px;}
 .spunta{display:flex;align-items:flex-start;gap:10px;margin-top:16px;font-size:14px;
   color:var(--verde-medio);cursor:pointer;}
 .spunta input{width:18px;height:18px;margin:2px 0 0;flex:0 0 auto;}
@@ -135,7 +146,7 @@ const T = {
     viaggio:'Il viaggio', guidaViaggio:'Negli arrivi indichi l’orario a cui atterra o arriva il treno; nelle partenze l’ora a cui vuole essere preso in hotel.',
     verso:'Arrivo o partenza', arrivo:'Arrivo', arrivoSotto:'vengo verso l’hotel',
     partenza:'Partenza', partenzaSotto:'parto dall’hotel',
-    luogo:'Da dove / verso dove', comuni:'I più richiesti', tutte:'Tutte le destinazioni',
+    luogo:'Da dove / verso dove', comuni:'I più richiesti', tutte:'Tutte le destinazioni', altreMete:'Un’altra destinazione…', tornaMete:'Torna alle più richieste',
     quando:'Giorno', ora:'Ora', pax:'Passeggeri',
     volo:'Volo o treno (facoltativo)', voloPh:'es. FR1234',
     ritorno:'Mi serve anche il ritorno',
@@ -156,7 +167,7 @@ const T = {
     viaggio:'Die Fahrt', guidaViaggio:'Bei Ankunft geben Sie die Landezeit bzw. Ankunft des Zuges an; bei Abfahrt die Uhrzeit der Abholung am Hotel.',
     verso:'Ankunft oder Abfahrt', arrivo:'Ankunft', arrivoSotto:'zum Hotel',
     partenza:'Abfahrt', partenzaSotto:'vom Hotel',
-    luogo:'Von wo / wohin', comuni:'Am häufigsten', tutte:'Alle Ziele',
+    luogo:'Von wo / wohin', comuni:'Am häufigsten', tutte:'Alle Ziele', altreMete:'Ein anderes Ziel…', tornaMete:'Zurück zu den häufigsten',
     quando:'Tag', ora:'Uhrzeit', pax:'Personen',
     volo:'Flug oder Zug (optional)', voloPh:'z. B. FR1234',
     ritorno:'Ich brauche auch die Rückfahrt',
@@ -177,7 +188,7 @@ const T = {
     viaggio:'The journey', guidaViaggio:'For arrivals give the landing or train arrival time; for departures the pick-up time at the hotel.',
     verso:'Arrival or departure', arrivo:'Arrival', arrivoSotto:'coming to the hotel',
     partenza:'Departure', partenzaSotto:'leaving the hotel',
-    luogo:'From / to', comuni:'Most requested', tutte:'All destinations',
+    luogo:'From / to', comuni:'Most requested', tutte:'All destinations', altreMete:'Another destination…', tornaMete:'Back to the most requested',
     quando:'Day', ora:'Time', pax:'Passengers',
     volo:'Flight or train (optional)', voloPh:'e.g. FR1234',
     ritorno:'I also need the return trip',
@@ -198,7 +209,7 @@ const T = {
     viaggio:'Le trajet', guidaViaggio:'Pour les arrivées, indiquez l’heure d’atterrissage ou d’arrivée du train ; pour les départs, l’heure de prise en charge à l’hôtel.',
     verso:'Arrivée ou départ', arrivo:'Arrivée', arrivoSotto:'vers l’hôtel',
     partenza:'Départ', partenzaSotto:'depuis l’hôtel',
-    luogo:'D’où / vers où', comuni:'Les plus demandés', tutte:'Toutes les destinations',
+    luogo:'D’où / vers où', comuni:'Les plus demandés', tutte:'Toutes les destinations', altreMete:'Une autre destination…', tornaMete:'Retour aux plus demandées',
     quando:'Jour', ora:'Heure', pax:'Passagers',
     volo:'Vol ou train (facultatif)', voloPh:'ex. FR1234',
     ritorno:'J’ai aussi besoin du retour',
@@ -265,6 +276,9 @@ function modulo() {
       </div>
 
       <label for="fLuogo">${esc(t.luogo)}</label>
+      <div class="mete" id="mete"></div>
+      <button type="button" class="altre" id="bAltre">${esc(t.altreMete)}</button>
+      <div id="boxAltre" style="display:none;">
       <select id="fLuogo">
         <option value="">—</option>
       <optgroup label="__COMUNI__">
@@ -461,6 +475,7 @@ function modulo() {
         <option value="civitavecchia">civitavecchia</option>
       </optgroup>
       </select>
+      </div>
 
       <div class="due">
         <div><label for="fQuando">${esc(t.quando)}</label>
@@ -508,6 +523,54 @@ function modulo() {
 
     <button class="invia" id="bInvia">${esc(t.invia)}</button>
     <div id="esito"></div>`;
+
+  /* ---------- le dodici piu' richieste, fuori dalla tendina ----------
+     Le pastiglie si COSTRUISCONO DALLA TENDINA STESSA, leggendo il primo
+     optgroup: cosi' l'elenco resta uno solo. Scriverne un secondo qui
+     sarebbe la quinta copia di una lista in questo progetto, e la prima a
+     divergere il giorno che i tassisti aggiungono una destinazione.
+
+     QUELLO CHE SI VEDE E QUELLO CHE PARTE SONO DIVERSI, ed e' voluto:
+     l'elenco di ATAM porta dentro emoji e doppi spazi ("Venezia  aeroporto",
+     "Golf Montecchia⛳"). Su una pastiglia si notano; nella richiesta invece
+     deve arrivare il valore ESATTO, o i tassisti ricevono una destinazione
+     che nel loro sistema non esiste. Si ripulisce solo l'etichetta. */
+  const perVedere = (v) => v.replace(/[🌀-🫿☀-➿️]/gu, '')
+    .replace(/s{2,}/g, ' ').trim();
+
+  const primoGruppo = $('fLuogo').querySelector('optgroup');
+  $('mete').innerHTML = [...(primoGruppo ? primoGruppo.children : [])]
+    .map((o) => `<button type="button" class="meta" aria-pressed="false"
+      data-valore="${esc(o.value)}">${esc(perVedere(o.value))}</button>`).join('');
+
+  /* la tendina resta l'unico campo letto da invia(): le pastiglie non fanno
+     altro che scriverci dentro il valore esatto. Un campo solo, una fonte
+     sola — e la validazione del server (luogoValido) non cambia di una riga. */
+  $('mete').addEventListener('click', (e) => {
+    const p = e.target.closest('.meta');
+    if (!p) return;
+    for (const altra of $('mete').querySelectorAll('.meta')) {
+      altra.setAttribute('aria-pressed', String(altra === p));
+    }
+    $('fLuogo').value = p.dataset.valore;
+  });
+
+  $('bAltre').onclick = () => {
+    const box = $('boxAltre');
+    const apro = box.style.display === 'none';
+    box.style.display = apro ? 'block' : 'none';
+    $('bAltre').textContent = apro ? t.tornaMete : t.altreMete;
+    /* chi apre l'elenco completo sta cercando altro: la pastiglia scelta
+       prima non deve restare accesa, o si vedrebbero due scelte insieme */
+    if (apro) for (const p of $('mete').querySelectorAll('.meta')) p.setAttribute('aria-pressed', 'false');
+  };
+  /* scegliendo dalla tendina si spengono le pastiglie, per lo stesso motivo */
+  $('fLuogo').addEventListener('change', () => {
+    const scelto = $('fLuogo').value;
+    for (const p of $('mete').querySelectorAll('.meta')) {
+      p.setAttribute('aria-pressed', String(p.dataset.valore === scelto));
+    }
+  });
 
   /* le etichette dei gruppi si traducono qui: nel modello sono segnaposto */
   for (const g of $('fLuogo').querySelectorAll('optgroup')) {
