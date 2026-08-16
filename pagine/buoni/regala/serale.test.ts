@@ -52,7 +52,7 @@ const BASE = { tipo: 'servizio', acquirente_email: 'a@b.it',
    ancora, per chi arriva da una pagina in cache — vedi SOLO_SERVER in
    listino-copie.test.ts): non ha senso chiedere alla pagina di escluderlo
    da una tendina che non lo offre mai. */
-const idPagina = Object.keys(LISTINO).filter((id) => id !== 'dayspa_pom');
+const idPagina = Object.keys(LISTINO);
 
 Deno.test('escludiPer concorda con validaAcquisto su ogni coppia possibile del listino del server', () => {
   for (const a of idPagina) {

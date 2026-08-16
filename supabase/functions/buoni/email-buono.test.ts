@@ -125,8 +125,7 @@ Deno.test('se il destinatario ha la stessa email dell’acquirente, una copia so
 
 Deno.test('la foto segue il tipo di buono', () => {
   assertEquals(fotoBuono({ tipo: 'valore' }), `${IMG}/valore.jpg`);
-  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'dayspa_fer' }), `${IMG}/dayspa.jpg`);
-  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'dayspa_pom' }), `${IMG}/dayspa.jpg`);
+  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'dayspa_fer' }), `${IMG}/dayspa.jpg`);
   assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'relax25' }), `${IMG}/trattamenti.jpg`);
   assertEquals(fotoBuono({ tipo: 'servizio', voce_id: null }), `${IMG}/valore.jpg`);
   assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'altro' }), `${IMG}/valore.jpg`);

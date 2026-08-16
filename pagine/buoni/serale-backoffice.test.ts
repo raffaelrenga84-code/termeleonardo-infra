@@ -43,7 +43,7 @@ const BASE = { tipo: 'servizio', acquirente_email: 'a@b.it',
 
 /* dayspa_pom non compare nel catalogo del back office (solo il server lo
    accetta ancora, vedi SOLO_SERVER in listino-copie.test.ts) */
-const idPagina = Object.keys(LISTINO).filter((id) => id !== 'dayspa_pom');
+const idPagina = Object.keys(LISTINO);
 
 Deno.test('escludiPerVoci([a]) concorda con validaAcquisto su ogni coppia possibile del listino del server', () => {
   for (const a of idPagina) {

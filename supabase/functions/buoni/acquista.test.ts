@@ -206,18 +206,18 @@ Deno.test('il Day Spa serale sostituisce il pomeridiano, che non esiste', () => 
   assertMatch(r.dati!.descrizione, /serale.*venerdì e sabato.*18\.00–22\.30/);
 });
 
-Deno.test('il vecchio identificativo porta comunque al prodotto vero', () => {
-  const vecchio = validaAcquisto({
+/* Il vecchio identificativo del serale (`dayspa_pom`) e' stato tolto dal
+   listino il 15 agosto 2026. Prima era accettato e portava al prodotto
+   vero, per le pagine rimaste in cache; ora non esiste piu' e deve essere
+   rifiutato come qualunque id sconosciuto. Questo test guarda il
+   comportamento NUOVO: se un domani qualcuno lo rimettesse a listino per
+   sbaglio, diventerebbe rosso. */
+Deno.test('il vecchio identificativo del serale non è più a listino: rifiutato', () => {
+  const r = validaAcquisto({
     tipo: 'servizio', voce_id: 'dayspa_pom',
     acquirente_email: 'a@b.it', condizioni_accettate: true, privacy_presa_atto: true
   });
-  const nuovo = validaAcquisto({
-    tipo: 'servizio', voce_id: 'dayspa_sera',
-    acquirente_email: 'a@b.it', condizioni_accettate: true, privacy_presa_atto: true
-  });
-  assertEquals(vecchio.errore, undefined);
-  assertEquals(vecchio.dati!.descrizione, nuovo.dati!.descrizione);
-  assertEquals(vecchio.dati!.valore, 29);
+  assertNotEquals(r.errore, undefined, 'dayspa_pom non è più a listino: deve essere rifiutato');
 });
 
 Deno.test('giornaliero e festivo portano giorni e orari sul buono', () => {
@@ -300,13 +300,9 @@ Deno.test('trattamento + serale, ordine inverso, viene rifiutato ugualmente', ()
   assertEquals(r.errore, ERRORE_SERALE);
 });
 
-Deno.test('il vecchio identificativo dayspa_pom conta come serale: rifiutato insieme a un trattamento', () => {
-  const r = validaAcquisto({ ...base, voci: [
-    { voce_id: 'relax25', quantita: 1 },
-    { voce_id: 'dayspa_pom', quantita: 1 },
-  ]});
-  assertEquals(r.errore, ERRORE_SERALE);
-});
+/* Il caso «serale insieme a un trattamento» resta presidiato dai test qui
+   sopra con `dayspa_sera`. Con `dayspa_pom` non ha piu' senso: quell'id
+   viene rifiutato prima ancora di arrivare al controllo sul serale. */
 
 Deno.test('serale da solo viene accettato', () => {
   const r = validaAcquisto({ ...base, voce_id: 'dayspa_sera' });

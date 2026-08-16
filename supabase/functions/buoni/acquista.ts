@@ -17,7 +17,7 @@ export const LISTINO: Record<string, [string, number]> = {
   relax25: ['Massaggio Relax (con olio di cacao) (25 min)', 40],
   plantare25: ['Massaggio riflessologia plantare (25 min)', 40],
   candle25: ['Massaggio Body Candle (25 min)', 48],
-  antistress45: ['Massaggio antistress (45 min)', 55],
+  antistress45: ['Massaggio antistress (45 min)', 55],
   ayurveda55: ['Massaggio Ayurveda (55 min)', 65],
   hotstone55: ['Massaggio Hot Stone (55 min)', 65],
   pindasweda55: ['Massaggio Pindasweda (55 min)', 65],
@@ -35,11 +35,13 @@ export const LISTINO: Record<string, [string, number]> = {
      giornaliero, e i 29 € sono l'ingresso serale. */
   dayspa_fer: ['Day Spa infrasettimanale — piscine e grotte, dal lunedì al venerdì, 9.00–18.30', 35],
   dayspa_wknd: ['Day Spa festivo — piscine e grotte, sabato, domenica e festivi, 9.00–18.30', 45],
-  dayspa_sera: ['Day Spa serale — piscine e grotte, venerdì e sabato, 18.00–22.30', 29],
-  /* il vecchio identificativo resta accettato finché tutte le pagine in
-     cache non sono state sostituite; punta al prodotto vero, non a quello
-     inesistente. Si può togliere fra qualche giorno. */
-  dayspa_pom: ['Day Spa serale — piscine e grotte, venerdì e sabato, 18.00–22.30', 29]
+  dayspa_sera: ['Day Spa serale — piscine e grotte, venerdì e sabato, 18.00–22.30', 29]
+  /* Qui sotto stava `dayspa_pom`, il vecchio identificativo del serale,
+     tenuto perché una pagina rimasta in cache poteva ancora mandarlo. Il
+     commento diceva «si può togliere fra qualche giorno»: tolto il 15
+     agosto 2026, con zero buoni venduti — il momento in cui non può averlo
+     in mano nessuno. Da oggi quell'id viene rifiutato come qualunque altro
+     sconosciuto, e un test lo verifica. */
 };
 
 const TESTO_VALORE: Record<string, (v: string) => string> = {
@@ -101,7 +103,13 @@ const QUANTITA_MAX = 4;
    buono.js: qui e' sicuro perche' l'id e' gia' passato dal controllo
    Object.hasOwn(LISTINO, id) qui sopra, non una chiave arrivata da fuori
    senza prima essere stata verificata. */
-const eSerale = (id: string) => id === 'dayspa_sera' || id === 'dayspa_pom';
+/* Fino al 15 agosto 2026 qui c'era anche `dayspa_pom`, il vecchio
+   identificativo del serale, tenuto perche' una pagina in cache poteva
+   ancora mandarlo. E' stato tolto su decisione della proprieta': ora
+   quell'id non e' piu' a listino e viene rifiutato come qualunque altro
+   sconosciuto. Il momento scelto e' quello giusto — zero buoni venduti,
+   quindi nessuno puo' averlo in mano. */
+const eSerale = (id: string) => id === 'dayspa_sera';
 const eIngressoDaySpa = (id: string) => id.startsWith('dayspa');
 const ERRORE_SERALE_TRATTAMENTO =
   'il Day Spa serale non si può abbinare a un trattamento: di sera il centro non fa trattamenti — scelga il Day Spa infrasettimanale o festivo';

@@ -54,7 +54,12 @@ const nome = (u: URL) => decodeURIComponent(u.pathname).split('/pagine/')[1] ?? 
    anche che punti allo stesso prodotto di dayspa_sera, cosi' se un domani
    il serale cambiasse prezzo e il vecchio identificativo restasse indietro,
    chi arriva dalla cache pagherebbe la cifra sbagliata e si vedrebbe qui. */
-const SOLO_SERVER: Record<string, string> = { dayspa_pom: 'dayspa_sera' };
+/* Vuoto dal 15 agosto 2026: `dayspa_pom` — il vecchio identificativo del
+   serale, che il server accettava per le pagine rimaste in cache — e'
+   stato tolto dal listino. Tenerlo vuoto e' il punto: una differenza
+   nuova fra le tre copie va scritta qui col motivo, non lasciata
+   passare. */
+const SOLO_SERVER: Record<string, string> = {};
 
 /* i commenti dentro il blocco non sono dati: si tolgono prima di leggerlo */
 const senzaCommenti = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '');
