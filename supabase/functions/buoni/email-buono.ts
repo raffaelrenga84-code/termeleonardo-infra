@@ -161,7 +161,7 @@ export function fotoBuono(b: { tipo?: string; voce_id?: string | null }): string
   if (id.startsWith('dayspa')) return `${BASE_IMG}/dayspa.jpg`;
   /* stesse categorie di categoriaBuono() nel back office: se cambiano
      lì, vanno cambiate anche qui, o email e stampa si smentiscono */
-  if (/^(prog|relax|plantare|candle|antistress|californiano|ayurveda|hotstone|pindasweda|linfo|shiatzu)/.test(id) ||
+  if (/^(prog|relax|plantare|candle|antistress|ayurveda|hotstone|pindasweda|linfo|shiatzu)/.test(id) ||
       /^(visofango|pulizia|ialuronico|collagene|vitaminac)/.test(id) ||
       /^(scrub|riducente|seno|antiage|manicure|pedicure|epil)/.test(id))
     return `${BASE_IMG}/trattamenti.jpg`;

@@ -145,7 +145,7 @@ export function categoriaBuono(b) {
   const id = String(b.voce_id || '');
   if (b.tipo === 'valore') return 'valore';
   if (id.startsWith('dayspa')) return 'dayspa';
-  if (/^(prog|relax|plantare|candle|antistress|californiano|ayurveda|hotstone|pindasweda|linfo|shiatzu)/.test(id)) return 'massaggi';
+  if (/^(prog|relax|plantare|candle|antistress|ayurveda|hotstone|pindasweda|linfo|shiatzu)/.test(id)) return 'massaggi';
   if (/^(visofango|pulizia|ialuronico|collagene|vitaminac)/.test(id)) return 'viso';
   if (/^(scrub|riducente|seno|antiage|manicure|pedicure|epil)/.test(id)) return 'corpo';
   return 'valore';

@@ -6,7 +6,7 @@
    per il modulo delle richieste; `LISTINO` in supabase/functions/buoni/
    acquista.ts resta la fonte sola dei PREZZI per chi compra un buono
    regalo — vedi il commento in cima ad acquista.ts. Sono due liste diverse
-   per due scopi diversi, ma per le 21 voci che si possono sia richiedere
+   per due scopi diversi, ma per le 20 voci che si possono sia richiedere
    sia regalare devono raccontare lo stesso nome e lo stesso prezzo: se
    divergono, un ospite legge un prezzo qui e ne trova un altro comprando
    il buono, e la reception riceve una richiesta che non ritrova nel
@@ -83,15 +83,15 @@ Deno.test('il nome delle voci regalabili combacia col LISTINO dei buoni, salvo l
   }
 });
 
-/* il presidio deve guardare qualcosa di vero: le 21 voci regalabili sono
-   note dalla specifica di design (docs/superpowers/specs/2026-08-15-
-   trattamenti-scelta-design.md dice 21), e le eccezioni sul nome non
+/* il presidio deve guardare qualcosa di vero: le 20 voci regalabili sono
+   note dalla specifica di design (erano 21 fino al 15 agosto 2026: il massaggio californiano e' stato
+   tolto dal listino su richiesta della proprieta'), e le eccezioni sul nome non
    devono coprire più di quelle tre righe — altrimenti il test qui sopra
    passerebbe senza aver confrontato niente, come temuto in
    listino-copie.test.ts */
 Deno.test('il presidio guarda davvero le voci regalabili, non un elenco vuoto o tutto in eccezione', () => {
   const voci = regalabili();
-  assertEquals(voci.length, 21, `attese 21 voci regalabili, trovate ${voci.length}`);
+  assertEquals(voci.length, 20, `attese 20 voci regalabili, trovate ${voci.length}`);
   /* Le eccezioni sono zero, e devono restare zero. Se qualcuno ne aggiunge
      una, questa riga diventa rossa e lo costringe a scriverla qui insieme al
      motivo: una divergenza fra il listino del reparto e quello che si stampa

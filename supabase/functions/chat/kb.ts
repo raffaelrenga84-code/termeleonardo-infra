@@ -457,7 +457,7 @@ non perché siano una risposta a «cosa mi consiglia».
 
 **Prezzi ⟨verificare listino ogni anno⟩ — dilli in modo diretto.**
 
-**Massaggi corpo:** Relax olio di cacao (25') 40 € · nutriente al burro (25') 40 € · riflessologia plantare (25') 40 € · tonificante oli essenziali (25') 45 € · Body Candle (25') 48 € · antistress (45') 55 € · antistress (55') 65 € · californiano (50') 60 € · Ayurveda (55') 65 € · Pindasweda (55') 65 € · Hot Stone (55') 65 € · Shiatzu (50') 70 € · anticellulite con fiala (40') 60 € / (50') 70 € · linfodrenaggio parziale (30') 40 € / completo (60') 65 € · linfodrenaggio viso (25') 40 €
+**Massaggi corpo:** Relax olio di cacao (25') 40 € · nutriente al burro (25') 40 € · riflessologia plantare (25') 40 € · tonificante oli essenziali (25') 45 € · Body Candle (25') 48 € · antistress (45') 55 € · antistress (55') 65 € · Ayurveda (55') 65 € · Pindasweda (55') 65 € · Hot Stone (55') 65 € · Shiatzu (50') 70 € · anticellulite con fiala (40') 60 € / (50') 70 € · linfodrenaggio parziale (30') 40 € / completo (60') 65 € · linfodrenaggio viso (25') 40 €
 
 **Trattamenti corpo:** scrub al lime (40') 50 € · scrub sali del Mar Morto (40') 55 € · trattamento seno gommage e maschera (40') 60 € · anti-age allo zucchero levigante con massaggio (55') 65 € · riducente anticellulite al fango (55') 70 € · epilazione parziale da 35 €, completa da 60 € · manicure da 30 € · pedicure da 40 €
 
