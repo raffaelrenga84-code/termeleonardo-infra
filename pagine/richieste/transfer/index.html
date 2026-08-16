@@ -215,6 +215,15 @@ const T = {
 const BANDIERE = { it:'🇮🇹', de:'🇩🇪', en:'🇬🇧', fr:'🇫🇷' };
 
 let VERSO = 'arrivo';
+
+/* La data della corsa secondo il verso: il transfer di ARRIVO cade il
+   giorno del check-in, quello di PARTENZA il giorno del check-out. I due
+   valori arrivano dai pulsanti nelle offerte della reception (vedi
+   ospite-url.js); se non ci sono, il campo resta vuoto come prima. */
+const dataPerVerso = () => (VERSO === 'partenza' ? DA_URL.partenza : DA_URL.arrivo) || '';
+/* l'ultima data scritta DA NOI: serve a distinguerla da una scritta
+   dall'ospite, che non va mai sovrascritta */
+let nostra = '';
 let OSPITE = null;      /* dati dal token, se c'e' */
 let INVIANDO = false;
 
@@ -453,7 +462,7 @@ function modulo() {
 
       <div class="due">
         <div><label for="fQuando">${esc(t.quando)}</label>
-          <input type="date" id="fQuando" min="${oggiISO()}" /></div>
+          <input type="date" id="fQuando" min="${oggiISO()}" value="${esc(dataPerVerso())}" /></div>
         <div><label for="fOra">${esc(t.ora)}</label>
           <input type="time" id="fOra" /></div>
       </div>
@@ -508,10 +517,31 @@ function modulo() {
     VERSO = v;
     $('bArrivo').classList.toggle('attivo', v === 'arrivo');
     $('bPartenza').classList.toggle('attivo', v === 'partenza');
+    /* La data segue il verso: il transfer di ARRIVO cade il giorno del
+       check-in, quello di PARTENZA il giorno del check-out. Chi arriva
+       dall'email della reception ha tutte e due le date nell'indirizzo,
+       quindi il campo si riempie da solo e cambia quando cambia il verso.
+
+       MA SOLO SE L'OSPITE NON L'HA GIA' CORRETTA. `nostra` tiene l'ultimo
+       valore che abbiamo scritto noi: se il campo contiene ancora quello,
+       e' rimasto come l'avevamo messo e possiamo sostituirlo; se contiene
+       altro, l'ha scritto lui e non si tocca. Senza questo controllo, un
+       ospite che corregge la data e poi tocca «Partenza» per curiosita' si
+       vedrebbe cancellare quello che aveva appena scritto. */
+    const campo = $('fQuando');
+    if (campo && (campo.value === '' || campo.value === nostra)) {
+      nostra = dataPerVerso();
+      campo.value = nostra;
+    }
   };
   $('bArrivo').onclick = () => scegli('arrivo');
   $('bPartenza').onclick = () => scegli('partenza');
   $('bInvia').onclick = invia;
+
+  /* la data che il modello ha appena scritto e' NOSTRA: senza ricordarla,
+     al primo tocco su «Partenza» la pagina crederebbe che l'abbia messa
+     l'ospite e non la aggiornerebbe mai */
+  nostra = dataPerVerso();
 
   /* #fQuando e' ricreato qui a ogni disegno di modulo(): riattivarlo in
      questo punto, non solo al primo caricamento. */

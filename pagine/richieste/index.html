@@ -364,6 +364,23 @@ const BANDIERE = { it:'🇮🇹', de:'🇩🇪', en:'🇬🇧', fr:'🇫🇷' };
 let OSPITE = null;
 let INVIANDO = false;
 
+/* ---------- il periodo del soggiorno, quando lo sappiamo ----------
+   Chi arriva da un pulsante nell'offerta della reception porta le date del
+   suo soggiorno nell'indirizzo. Un trattamento, una lezione o una partenza
+   di golf FUORI da quel periodo non ha senso: l'ospite non c'e'.
+
+   Non si precompila un giorno — sceglierlo al posto suo sarebbe indovinare
+   — ma si stringono i limiti del calendario a quei giorni. Cosi' il mese
+   sbagliato non si puo' proprio scegliere, che e' l'errore piu' comune su
+   un campo data, e la reception non riceve richieste per date impossibili.
+
+   `min` e' la piu' TARDA fra oggi e l'arrivo: un soggiorno gia' cominciato
+   non deve riaprire i giorni passati. Se le date non ci sono, i limiti
+   restano quelli di prima e non cambia niente per nessuno. */
+const DAL = DA_URL.arrivo && DA_URL.arrivo > oggiISO() ? DA_URL.arrivo : oggiISO();
+const AL = DA_URL.partenza || '';
+const limitiSoggiorno = () => `min="${esc(DAL)}"` + (AL ? ` max="${esc(AL)}"` : '');
+
 function testata() {
   const t = T[LNG], s = t[TIPO];
   document.documentElement.lang = LNG;
@@ -394,7 +411,7 @@ function campiTipo(t) {
       `<option value="${v}">${esc(n)}</option>`).join('')}</select>
     <div class="due">
       <div><label for="fData">${esc(t.quando)}</label>
-        <input type="date" id="fData" min="${oggiISO()}" /></div>
+        <input type="date" id="fData" ${limitiSoggiorno()} /></div>
       <div><label for="fOra">${esc(t.ora)}</label><input type="time" id="fOra" /></div>
     </div>
     <div class="due">
@@ -423,7 +440,7 @@ function campiTipo(t) {
   if (TIPO === 'maestro') return `
     <div class="due">
       <div><label for="fData">${esc(t.quando)}</label>
-        <input type="date" id="fData" min="${oggiISO()}" /></div>
+        <input type="date" id="fData" ${limitiSoggiorno()} /></div>
       <div><label for="fOra">${esc(t.ora)}</label><input type="time" id="fOra" /></div>
     </div>
     <div class="due">
@@ -460,7 +477,7 @@ function campiTipo(t) {
     </div>
     <div class="due" style="margin-top:16px;">
       <div><label for="fGiorno">${esc(t.giorno)}</label>
-        <input type="date" id="fGiorno" min="${oggiISO()}" /></div>
+        <input type="date" id="fGiorno" ${limitiSoggiorno()} /></div>
       <div><label for="fFascia">${esc(t.fascia)}</label>
         <select id="fFascia">
           <option value="indifferente">${esc(t.indifferente)}</option>
