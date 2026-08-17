@@ -247,6 +247,9 @@ let BUONO_DATA = '';
    quando non lo si puo' dire, e allora della differenza non si parla
    affatto (vedi coperturaBuono in buono-url.js) */
 let COPERTURA = null;
+/* cosa contiene il buono, da ripetere nelle note quando il modulo non lo sa
+   rappresentare: '' quando non c'e' niente da aggiungere */
+let CONTENUTO_DA_DIRE = '';
 
 const CIRCOLI = [
   ['montecchia', 'Golf della Montecchia — Selvazzano Dentro · 27 buche, par 72'],
@@ -323,7 +326,11 @@ const T = {
          uno valido, lo cerca a mano, non lo trova e telefona all'ospite —
          cioe' la telefonata che tutto questo lavoro vuole evitare, spostata
          a valle e a carico dell'hotel */
-      notaNonTrovato:(c)=>`Buono regalo: ${c} — codice non riconosciuto dal sito` },
+      notaNonTrovato:(c)=>`Buono regalo: ${c} — codice non riconosciuto dal sito`,
+      /* le caselle dei trattamenti non hanno una quantita': un buono per due
+         massaggi uguali da qui parte come UNO. La reception lo deve leggere,
+         o preparerebbe un turno invece di due. */
+      notaContenuto:(x)=>`Il buono comprende: ${x}` },
     privacy:"Ho preso atto dell’informativa sul trattamento dei dati personali", privacyLink:"Leggi l’informativa",
     privacyManca:"Per procedere deve prendere atto dell’informativa privacy.", invia:'Invia la richiesta', invio:'Invio…',
     manca:'Compili i campi obbligatori.',
@@ -378,7 +385,8 @@ const T = {
       attesa:'Dieser Gutschein ist noch nicht aktiv.',
       altro:'Dieser Gutschein kann nicht eingelöst werden. Schreiben Sie uns, wir prüfen das.',
       nota:(c)=>`Buono regalo / Gutschein: ${c}`,
-      notaNonTrovato:(c)=>`Buono regalo / Gutschein: ${c} — codice non riconosciuto dal sito / vom Portal nicht erkannt` },
+      notaNonTrovato:(c)=>`Buono regalo / Gutschein: ${c} — codice non riconosciuto dal sito / vom Portal nicht erkannt`,
+      notaContenuto:(x)=>`Il buono comprende / Gutschein enthält: ${x}` },
     privacy:"Ich habe die Datenschutzerklärung zur Kenntnis genommen", privacyLink:"Datenschutzerklärung lesen",
     privacyManca:"Bitte nehmen Sie die Datenschutzerklärung zur Kenntnis.", invia:'Anfrage senden', invio:'Senden…',
     manca:'Bitte Pflichtfelder ausfüllen.',
@@ -433,7 +441,8 @@ const T = {
       attesa:'This voucher is not active yet.',
       altro:'This voucher cannot be used. Please write to us and we will check.',
       nota:(c)=>`Buono regalo / Gift voucher: ${c}`,
-      notaNonTrovato:(c)=>`Buono regalo / Gift voucher: ${c} — codice non riconosciuto dal sito / not recognised by the site` },
+      notaNonTrovato:(c)=>`Buono regalo / Gift voucher: ${c} — codice non riconosciuto dal sito / not recognised by the site`,
+      notaContenuto:(x)=>`Il buono comprende / Voucher includes: ${x}` },
     privacy:"I have read the privacy notice", privacyLink:"Read the privacy notice",
     privacyManca:"Please acknowledge the privacy notice to continue.", invia:'Send request', invio:'Sending…',
     manca:'Please fill in the required fields.',
@@ -488,7 +497,8 @@ const T = {
       attesa:'Ce chèque n’est pas encore actif.',
       altro:'Ce chèque ne peut pas être utilisé. Écrivez-nous, nous vérifions.',
       nota:(c)=>`Buono regalo / Bon cadeau : ${c}`,
-      notaNonTrovato:(c)=>`Buono regalo / Bon cadeau : ${c} — codice non riconosciuto dal sito / non reconnu par le site` },
+      notaNonTrovato:(c)=>`Buono regalo / Bon cadeau : ${c} — codice non riconosciuto dal sito / non reconnu par le site`,
+      notaContenuto:(x)=>`Il buono comprende / Le chèque comprend : ${x}` },
     privacy:"J’ai pris connaissance de la politique de confidentialité", privacyLink:"Lire la politique de confidentialité",
     privacyManca:"Veuillez prendre connaissance de la politique de confidentialité.", invia:'Envoyer la demande', invio:'Envoi…',
     manca:'Veuillez remplir les champs obligatoires.',
@@ -519,6 +529,17 @@ const DAL = DA_URL.arrivo && DA_URL.arrivo > oggiISO() ? DA_URL.arrivo : oggiISO
 const AL = DA_URL.partenza || '';
 const limitiSoggiorno = () => `min="${esc(DAL)}"` + (AL ? ` max="${esc(AL)}"` : '');
 
+/* Un parametro dentro un indirizzo che puo' gia' avere una query o no, senza
+   doppioni: serve al cambio di lingua qui sotto. Valore vuoto, niente da
+   aggiungere. */
+function conParametro(dove, chiave, valore) {
+  if (!valore) return dove;
+  const [base, query] = String(dove).split('?');
+  const q = new URLSearchParams(query || '');
+  q.set(chiave, valore);
+  return `${base}?${q.toString()}`;
+}
+
 function testata() {
   const t = T[LNG], s = t[TIPO];
   document.documentElement.lang = LNG;
@@ -534,7 +555,19 @@ function testata() {
     /* su un indirizzo tradotto si resta tradotti: cambiando lingua l'ospite
        non deve vedere la barra tornare a un indirizzo tecnico */
     let dove = indirizzoPerLingua(location.pathname, location.search, TIPO, e.target.value);
-    if (TOKEN) dove += (dove.includes('?') ? '&' : '?') + 't=' + encodeURIComponent(TOKEN);
+    /* Sotto un indirizzo tradotto indirizzoPerLingua torna /de/behandlungen
+       e basta: la query non sopravvive al cambio di lingua, e quello che
+       serve va riattaccato a mano — come si e' sempre fatto col token.
+       Da oggi anche il BUONO: un ospite tedesco che atterra sulla pagina
+       italiana e sceglie il tedesco perdeva il codice e si ritrovava il
+       modulo semplice, senza che niente glielo dicesse. Col riferimento
+       dell'offerta succedeva lo stesso, ed e' un giro solo di chiave.
+       `set` e non un `+=`: sugli indirizzi NON tradotti la query c'e' gia'
+       tutta, e appenderla di nuovo lascerebbe due `t=` uguali nella barra
+       (succedeva gia' prima di questa modifica). */
+    dove = conParametro(dove, 't', TOKEN);
+    dove = conParametro(dove, 'buono', CODICE_BUONO);
+    dove = conParametro(dove, 'rif', DA_URL.rif);
     location.href = dove;
   };
   $('tPie').innerHTML = `Hotel Terme Leonardo &middot; Via Monteortone 46, 35037 Monteortone di Abano Terme (PD) &middot;
@@ -814,14 +847,34 @@ function dataBuono(v) {
    nessuna richiesta. */
 const ATTESA_VERIFICA = 6000;
 
+/* Il segnale che ferma l'attesa — con un ripiego, perche' senza il riquadro
+   sparirebbe SEMPRE su dei telefoni veri.
+   `AbortSignal.timeout` e' arrivato su Safari e Safari iOS solo con la 16:
+   su un iPhone rimasto alla 15 — che e' esattamente il telefono di chi si
+   vede regalare un buono dai figli — chiamarlo solleva un TypeError, e un
+   TypeError dentro la chiamata vorrebbe dire nessun riquadro MAI, non
+   «nessun riquadro quando la rete tace». Un degrado silenzioso e totale al
+   posto di uno morbido e raro.
+   Dove non c'e', si fa a mano: un AbortController e un setTimeout sono la
+   stessa cosa scritta piu' lunga, e ci sono da molto prima. `ferma()` spegne
+   il timer quando la risposta arriva in tempo, cosi' non resta acceso un
+   conto alla rovescia che non serve piu' a nessuno. */
+function segnaleConScadenza(ms) {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return { signal: AbortSignal.timeout(ms), ferma: () => {} };
+  }
+  if (typeof AbortController !== 'function') return { signal: undefined, ferma: () => {} };
+  const c = new AbortController();
+  const id = setTimeout(() => c.abort(), ms);
+  return { signal: c.signal, ferma: () => clearTimeout(id) };
+}
+
 async function verificaBuono() {
   if (!CODICE_BUONO) return;
+  const { signal, ferma } = segnaleConScadenza(ATTESA_VERIFICA);
   try {
-    /* AbortSignal.timeout su un browser che non ce l'ha solleva qui dentro,
-       e finisce nel catch: nessun riquadro, modulo normale. La stessa via
-       d'uscita di sempre, non una pagina rotta. */
     const r = await fetch(`${FUNZIONE_BUONI}?a=verifica&codice=${encodeURIComponent(CODICE_BUONO)}`,
-      { signal: AbortSignal.timeout(ATTESA_VERIFICA) });
+      { signal });
     const d = await r.json();
     /* un 404 qui NON e' un guasto: e' la risposta vera per "non trovato",
        e si legge come tutte le altre. Quello che non si sa leggere (nessun
@@ -845,6 +898,8 @@ async function verificaBuono() {
        scaduti: nessun riquadro, modulo normale, codice nelle note. Meglio
        una richiesta senza riquadro che nessuna richiesta. */
     console.error('verifica del buono non riuscita', e);
+  } finally {
+    ferma();
   }
 }
 
@@ -910,8 +965,19 @@ function riquadroBuono(t) {
    sarebbe peggio di nessun numero. */
 function preselezionaDalBuono() {
   if (!BUONO || TIPO !== 'trattamenti') return;
-  const c = coperturaBuono(BUONO, TRATTAMENTI);
-  if (c.ignorate.length) {
+  /* Valori predefiniti nella destrutturazione, e non per pignoleria: l'HTML
+     e il modulo /comune/buono-url.js sono due file che il browser tiene in
+     cache PER CONTO LORO. Nella finestra di una pubblicazione puo' capitare
+     una pagina nuova con un modulo vecchio: se quello non conoscesse ancora
+     un campo, un `c.campo.length` diretto solleverebbe e lascerebbe la
+     pagina BIANCA — questa pagina e' un modulo ES, e li' un errore non si
+     ferma alla riga sbagliata, porta via tutto il resto. Con i predefiniti
+     si perde al massimo un avviso in console.
+     (Non e' teoria: mi e' successo in prova, con una copia rimasta
+     indietro, e la pagina era bianca esattamente cosi'.) */
+  const { copre = null, indici: dalBuono = [], ignorate = [], ripetute = [] } =
+    coperturaBuono(BUONO, TRATTAMENTI) || {};
+  if (ignorate.length) {
     /* non si perde in silenzio: se un domani il LISTINO dei buoni prendesse
        una voce nuova e nessuno la collegasse a trattamenti.js, quel buono
        arriverebbe qui e non preselezionerebbe niente. Il test
@@ -919,9 +985,20 @@ function preselezionaDalBuono() {
        questo avviso serve per quello che il test non vede — un buono
        vecchio, un id tolto dal listino dopo la vendita. */
     console.warn('voci del buono senza trattamento corrispondente su questo modulo:',
-      c.ignorate.join(', '));
+      ignorate.join(', '));
   }
-  let indici = c.indici;
+  if (ripetute.length) {
+    /* il buono contiene qualcosa piu' di una volta, e le caselle non hanno
+       una quantita': la richiesta parte nominando UN trattamento. Quello
+       che il modulo non sa dire lo dice la nota, con le parole del buono
+       stesso — «2 × Massaggio Shiatsu (50 min)» — cosi' chi la legge
+       prepara due turni e non uno. I ritorni a capo diventano ' · ' come
+       fa gia' il server quando deve mettere la descrizione su una riga
+       sola (vedi product_data[name] in buoni/index.ts). */
+    CONTENUTO_DA_DIRE = String(BUONO.descrizione ?? '').split('\n')
+      .map((r) => r.trim()).filter(Boolean).join(' · ');
+  }
+  let indici = dalBuono;
   if (indici.length > TRATT_MAX) {
     /* oggi irraggiungibile (il listino ammette al massimo due voci per
        buono), ma scartare in silenzio delle voci pagate non e' una porta da
@@ -933,7 +1010,7 @@ function preselezionaDalBuono() {
     indici = indici.slice(0, TRATT_MAX);
     COPERTURA = null;
   } else {
-    COPERTURA = c.copre;
+    COPERTURA = copre;
   }
   for (const i of indici) SCELTI_TRATT.add(i);
 }
@@ -981,6 +1058,7 @@ function notePrecompilate(t) {
     righe.push(BUONO_KO === 'nonTrovato'
       ? t.buono.notaNonTrovato(CODICE_BUONO)
       : t.buono.nota(CODICE_BUONO));
+    if (CONTENUTO_DA_DIRE) righe.push(t.buono.notaContenuto(CONTENUTO_DA_DIRE));
   }
   return righe.join('\n');
 }

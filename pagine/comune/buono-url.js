@@ -61,15 +61,19 @@ export function differenzaBuono(copre, scelto) {
    disco — un import solo non puo' andare bene a tutti e due. Chi chiama sa
    gia' qual e' l'elenco giusto.
 
-   Torna { copre, indici, ignorate }:
+   Torna { copre, indici, ignorate, ripetute }:
    · copre    quanto dire che il buono copre, o null se non si puo' dire;
    · indici   le posizioni da spuntare, nell'ordine delle voci del buono;
    · ignorate gli id che qui non hanno un trattamento (per segnalarli: una
               voce nuova a listino che nessuno ha collegato non deve sparire
-              in silenzio). */
+              in silenzio);
+   · ripetute gli id presi piu' di una volta. La richiesta che parte da
+              questo modulo ne nomina UNO — le caselle non hanno quantita' —
+              quindi chi la legge in reception deve trovarlo scritto nelle
+              note, o preparerebbe un turno invece di due. */
 export function coperturaBuono(buono, trattamenti) {
   const voci = buono?.voci;
-  const vuoto = { copre: null, indici: [], ignorate: [] };
+  const vuoto = { copre: null, indici: [], ignorate: [], ripetute: [] };
   /* niente voci: e' un buono a IMPORTO, e un importo si spende su qualunque
      trattamento — li' il conto e' esattamente il suo valore (la specifica:
      «per i buoni a importo libero il conto funziona identico») */
@@ -79,10 +83,15 @@ export function coperturaBuono(buono, trattamenti) {
 
   const indici = [];
   const ignorate = [];
+  const ripetute = [];
   let somma = 0;
   let dicibile = true;
   for (const v of voci) {
     const id = String(v?.voce_id ?? '');
+    /* la quantita' si guarda PRIMA di sapere se la voce ha una casella:
+       vale anche per un ingresso Day Spa preso due volte, che qui non si
+       spunta ma in reception sono comunque due ingressi */
+    if (id && (v?.quantita ?? 1) > 1) ripetute.push(id);
     const i = id ? trattamenti.findIndex((t) => t.regalabile === id) : -1;
     if (i < 0) {
       /* una voce che questo modulo non sa spuntare: un ingresso Day Spa,
@@ -96,5 +105,5 @@ export function coperturaBuono(buono, trattamenti) {
     indici.push(i);
     somma += trattamenti[i].prezzo;
   }
-  return { copre: dicibile ? somma : null, indici, ignorate };
+  return { copre: dicibile ? somma : null, indici, ignorate, ripetute };
 }

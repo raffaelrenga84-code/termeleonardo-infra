@@ -97,6 +97,30 @@ Deno.test('due volte lo stesso trattamento: una casella sola non lo sa dire, e s
   /* la casella si spunta lo stesso, una volta: e' il massimo che il modulo
      sa rappresentare, e il riquadro scrive comunque «2 ×» */
   assertEquals(c.indici, [indiceDi('shiatsu50')]);
+  /* e la quantita' va DETTA, perche' la richiesta che parte da qui parla di
+     un massaggio solo: senza questo in reception preparerebbero un turno
+     invece di due, e nessuno se ne accorgerebbe prima dell'arrivo */
+  assertEquals(c.ripetute, ['shiatsu50']);
+});
+
+Deno.test('senza quantita ripetute non c e niente da segnalare', () => {
+  for (const voci of [
+    [{ voce_id: 'shiatsu50', quantita: 1 }],
+    [{ voce_id: 'dayspa_fer', quantita: 1 }, { voce_id: 'shiatsu50', quantita: 1 }],
+    null,
+  ]) {
+    assertEquals(coperturaBuono({ voci, valore: 70 }, TRATTAMENTI).ripetute, [],
+      `voci ${JSON.stringify(voci)}`);
+  }
+});
+
+/* anche un ingresso Day Spa preso due volte va detto: qui non ha una
+   casella, ma la reception deve sapere che gli ingressi sono due */
+Deno.test('la quantita si segnala anche su una voce che il modulo non sa spuntare', () => {
+  const c = coperturaBuono({ voci: [{ voce_id: 'dayspa_fer', quantita: 2 }], valore: 70 }, TRATTAMENTI);
+  assertEquals(c.copre, null);
+  assertEquals(c.indici, []);
+  assertEquals(c.ripetute, ['dayspa_fer']);
 });
 
 Deno.test('un buono di solo Day Spa non copre nessun trattamento', () => {
