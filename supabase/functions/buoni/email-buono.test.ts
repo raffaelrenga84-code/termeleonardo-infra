@@ -340,7 +340,51 @@ Deno.test('il riepilogo a un terzo indirizzo conta come consegna', () => {
    nemmeno (ricevutaEmailHTML non lo stampa mai). */
 Deno.test('il link punta al dominio dell’hotel, con codice e lingua del buono', () => {
   assertEquals(linkStampa({ codice: 'LEO-ACDE-FGHJ', lingua: 'de' }),
-    'https://www.hoteltermeleonardo.com/buoni/stampa/?codice=LEO-ACDE-FGHJ&l=de');
+    'https://www.hoteltermeleonardo.com/buoni/stampa?codice=LEO-ACDE-FGHJ&l=de');
+});
+
+/* ============================================================
+   LA BARRA FINALE — il difetto vivo trovato il 17 agosto 2026.
+
+   `linkStampa` componeva '/buoni/stampa/?codice=…', con la barra. La
+   riscrittura '/buoni/:percorso*' di vercel.json confronta `source` alla
+   lettera e NON aggancia il percorso con la barra: la richiesta scivolava
+   oltre tutte le regole e la serviva il sito vetrina, che per qualunque
+   percorso sconosciuto risponde 200 con la propria home. Risultato: il
+   pulsante «Stampa il tuo buono» di ogni email portava alla home dell'hotel
+   invece che al buono — e siccome è un 200 e non un 404, non se ne accorgeva
+   nessun controllo automatico. Nessun ospite ci è sbattuto solo perché non
+   era ancora stato venduto un buono.
+
+   Questi test esistono perché la barra NON torni «per simmetria» con
+   /buoni/regala/ o con le destinazioni scritte in vercel.json, che la barra
+   ce l'hanno per un'altra ragione (sono destinazioni, non sorgenti).
+   Il ragionamento completo, con le misure vere, è sopra linkStampa.
+   ============================================================ */
+Deno.test('nessun indirizzo verso una pagina riscritta ha la barra prima della query: la barra rompe la riscrittura', () => {
+  const CASI = [
+    linkStampa({ codice: 'LEO-ACDE-FGHJ', lingua: 'it' }),
+    linkStampa({ codice: 'LEO-ACDE-FGHJ', lingua: 'de' }),
+    linkPrenota({ ...BUONO, lingua: 'it' }),
+    linkPrenota({ ...BUONO, tipo: 'servizio', voce_id: 'dayspa_fer',
+      descrizione: 'Day Spa infrasettimanale — piscine e grotte', lingua: 'fr' }),
+  ];
+  for (const u of CASI) {
+    const percorso = u.slice(0, u.indexOf('?'));
+    assertEquals(percorso.endsWith('/'), false,
+      `«${u}» ha la barra finale: con la barra la riscrittura non aggancia e risponde il sito vetrina`);
+  }
+});
+
+Deno.test('il link di stampa è esattamente il percorso che la riscrittura aggancia, in tutte e quattro le lingue', () => {
+  for (const lingua of ['it', 'de', 'en', 'fr']) {
+    assertEquals(linkStampa({ codice: 'LEO-ACDE-FGHJ', lingua }),
+      `https://www.hoteltermeleonardo.com/buoni/stampa?codice=LEO-ACDE-FGHJ&l=${lingua}`);
+  }
+  /* e la forma vecchia, quella rotta, non deve più uscire da nessuna lingua */
+  for (const lingua of ['it', 'de', 'en', 'fr']) {
+    assertEquals(linkStampa({ codice: 'LEO-ACDE-FGHJ', lingua }).includes('/buoni/stampa/'), false);
+  }
 });
 
 Deno.test('una lingua non riconosciuta ricade sull’italiano, come ovunque nel progetto', () => {

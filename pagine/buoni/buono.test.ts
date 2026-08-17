@@ -687,3 +687,21 @@ Deno.test('l’invito a prenotare online è nella lingua del foglio, e «ci chia
   /* il telefono non se ne va: il pulsante e la riga si AGGIUNGONO */
   assertStringIncludes(buonoStampaHTML(dayspa, false), 'ci chiami o ci scriva');
 });
+
+/* La barra finale rompe la riscrittura: '/buoni/:percorso*' e '/it/day-spa'
+   in vercel.json sono confrontati alla lettera, e con la barra la richiesta
+   scivola oltre tutte le regole fino al sito vetrina, che risponde 200 con
+   la propria home — misurato il 17 agosto 2026, vedi il ragionamento sopra
+   linkStampa in email-buono.ts. Sull'email un indirizzo morto si corregge;
+   qui è stampato su carta. */
+Deno.test('l’indirizzo stampato non finisce con la barra: con la barra la riscrittura non aggancia', () => {
+  for (const l of LINGUE) {
+    for (const b of [{ ...dayspa, lingua: l },
+                     { ...dayspa, voce_id: 'shiatsu50', descrizione: 'Massaggio Shiatsu (50 min)', lingua: l }]) {
+      assertEquals(percorsoPrenota(b).endsWith('/'), false,
+        `${percorsoPrenota(b)} finisce con la barra`);
+      assertEquals(buonoStampaHTML(b, false).includes(`${PERCORSI[moduloDelBuono(b)][l]}/</strong>`), false,
+        `l'indirizzo stampato in ${l} finisce con la barra`);
+    }
+  }
+});

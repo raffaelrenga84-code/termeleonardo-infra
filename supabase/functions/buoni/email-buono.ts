@@ -276,9 +276,44 @@ export function buonoEmailHTML(b: any) {
    progetto Vercel che serve i file ma non è l'indirizzo che l'ospite deve
    vedere in un anno. La riscrittura /buoni/:percorso* di
    termeleonardo/frontend/vercel.json (nell'altro repository) copre
-   qualunque pagina nuova sotto /buoni/, /buoni/stampa/ compresa: nessuna
-   regola nuova serve là per questo pulsante. */
+   qualunque pagina nuova sotto /buoni/: nessuna regola nuova serve là.
+
+   ⚠ MA SOLO SENZA LA BARRA FINALE — vedi NIENTE BARRA FINALE qui sotto.
+   Fino al 17 agosto 2026 questo commento diceva «/buoni/stampa/ compresa»,
+   con la barra, ed era falso: con la barra la riscrittura non aggancia. */
 const BASE_HOTEL = 'https://www.hoteltermeleonardo.com';
+
+/* ============================================================
+   NIENTE BARRA FINALE PRIMA DELLA QUERY. Vale per ogni indirizzo che
+   componiamo verso una pagina riscritta — linkStampa qui sotto e
+   linkPrenota più avanti.
+
+   `source` in vercel.json è confrontato ALLA LETTERA: '/buoni/:percorso*'
+   aggancia '/buoni/stampa', non '/buoni/stampa/'. Con la barra la richiesta
+   scivola oltre tutte le regole e la serve il sito vetrina, che per
+   qualunque percorso sconosciuto risponde 200 con la propria home: non un
+   404 che si nota, una pagina che sembra funzionare e non è quella giusta.
+
+   Misurato sul sito vero il 17 agosto 2026, a parità di tutto il resto:
+
+     /buoni/stampa?codice=…&l=it     10380 byte  <title>Buono Regalo — …
+     /buoni/stampa/?codice=…&l=it     6583 byte  <title>Hotel Terme Leonardo | 4 stelle…
+     /it/trattamenti                 45513 byte  <title>Richieste — …
+     /it/trattamenti/                 6583 byte  <title>Hotel Terme Leonardo | 4 stelle…
+
+   I 6583 byte sono il guscio della vetrina, identico a quello di un percorso
+   inventato. Il pulsante «Stampa il tuo buono» ha portato lì per giorni.
+
+   E LA PAGINA REGGE SENZA LA BARRA: pagine/buoni/stampa/index.html importa
+   tutto per percorso ASSOLUTO (/buoni/buono.js, /buoni/stampa.css,
+   /buoni/img/logo.svg), quindi niente si risolve contro la cartella e niente
+   cambia se la barra non c'è — è scritto apposta nel commento sopra
+   quell'import. Verificato caricando l'indirizzo senza barra in un browser
+   vero: il modulo gira (il <title> lo riscrive lui) e la pagina risponde
+   nella lingua del parametro.
+
+   Se qualcuno la rimette «per simmetria», i test qui accanto diventano rossi.
+   ============================================================ */
 
 /** L'indirizzo della pagina pubblica pagine/buoni/stampa/: il codice è
  * quello che la rende sua (vedi il ragionamento in stampa.ts), la lingua è
@@ -288,7 +323,7 @@ const BASE_HOTEL = 'https://www.hoteltermeleonardo.com';
  * test e che potrebbe divergere in silenzio. */
 export function linkStampa(b: { codice?: string | null; lingua?: string }): string {
   const L = ['it', 'de', 'en', 'fr'].includes(String(b.lingua)) ? b.lingua : 'it';
-  return `${BASE_HOTEL}/buoni/stampa/?codice=${encodeURIComponent(String(b.codice ?? ''))}&l=${L}`;
+  return `${BASE_HOTEL}/buoni/stampa?codice=${encodeURIComponent(String(b.codice ?? ''))}&l=${L}`;
 }
 
 /* ============================================================
