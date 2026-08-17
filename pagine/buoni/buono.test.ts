@@ -4,9 +4,14 @@
    sorgente unica delle due copie web: se il buono perde un pezzo, si vede
    qui invece che in produzione. */
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
-import { buonoHTML, buonoStampaHTML, categoriaBuono, CONDIZIONI, ETI, riepilogoVoci, righeDescrizione } from './buono.js';
+import { buonoHTML, buonoStampaHTML, categoriaBuono, CONDIZIONI, ETI, moduloDelBuono, percorsoPrenota, riepilogoVoci, righeDescrizione } from './buono.js';
 import { generaSvgQR } from '../comune/qr.js';
-import { CONDIZIONI as CONDIZIONI_EMAIL, ETI as ETI_EMAIL } from '../../supabase/functions/buoni/email-buono.ts';
+/* i percorsi tradotti dalla loro sorgente, non ricopiati qui: la stessa
+   tabella che le riscritture di termeleonardo/frontend/vercel.json servono */
+import { PERCORSI } from '../comune/percorso.js';
+import { CONDIZIONI as CONDIZIONI_EMAIL, ETI as ETI_EMAIL,
+  moduloDelBuono as moduloDelBuonoEmail,
+  percorsoPrenota as percorsoPrenotaEmail } from '../../supabase/functions/buoni/email-buono.ts';
 /* lo stesso schema del confronto qui sopra fra sito ed email: riepilogoVoci
    non si confronta con stringhe scritte a mano leggendo acquista.ts, si
    confronta con le funzioni vere del server, importate da qui */
@@ -558,4 +563,127 @@ Deno.test('né l’anteprima né il foglio di stampa nominano mai un numero di m
         `${nome} in ${lingua} nomina un numero di mesi`);
     }
   }
+});
+
+/* ============================================================
+   DOVE SI PRENOTA COL BUONO (specifica §4-bis) e l'indirizzo sul foglio.
+
+   Due cose da presidiare, e la seconda è quella che non si recupera:
+   · la REGOLA vive in due copie — qui e in email-buono.ts — perché la
+     funzione Deno non raggiunge pagine/. Se divergono, il pulsante
+     dell'email e la riga stampata mandano lo stesso ospite in due posti
+     diversi. I test qui sotto le confrontano caso per caso invece di
+     ricopiare a mano il risultato atteso in due punti;
+   · i PERCORSI tradotti non si scrivono a mano nel test: si confrontano con
+     PERCORSI di comune/percorso.js, che è la metà nostra delle riscritture
+     di termeleonardo/frontend/vercel.json. Un indirizzo sbagliato in
+     un'email si corregge; su un foglio stampato resta sbagliato per sempre.
+   ============================================================ */
+Deno.test('§4-bis: almeno un trattamento apre i trattamenti, il solo ingresso apre il Day Spa', () => {
+  /* il caso della specifica: un ingresso Day Spa PIÙ un massaggio sono una
+     visita sola, quindi una richiesta sola — e si compila quella dei
+     trattamenti, dove il massaggio si sceglie */
+  assertEquals(moduloDelBuono({
+    voce_id: 'dayspa_fer',
+    descrizione: '1 × Day Spa infrasettimanale — piscine e grotte, dal lunedì al venerdì, 9.00–18.30\n1 × Massaggio Shiatsu (50 min)',
+  }), 'trattamenti');
+  /* e vale anche con le due voci nell'ordine opposto: `voce_id` è solo la
+     prima che il cliente ha scelto, non "che tipo di buono è" */
+  assertEquals(moduloDelBuono({
+    voce_id: 'shiatsu50',
+    descrizione: '1 × Massaggio Shiatsu (50 min)\n1 × Day Spa festivo — piscine e grotte, sabato, domenica e festivi, 9.00–18.30',
+  }), 'trattamenti');
+  assertEquals(moduloDelBuono(dayspa), 'dayspa');
+  assertEquals(moduloDelBuono({ voce_id: 'shiatsu50', descrizione: 'Massaggio Shiatsu (50 min)' }), 'trattamenti');
+  /* due ingressi e nient'altro restano un ingresso: niente da spuntare */
+  assertEquals(moduloDelBuono({
+    voce_id: 'dayspa_fer',
+    descrizione: '1 × Day Spa infrasettimanale — piscine e grotte\n1 × Day Spa festivo — piscine e grotte',
+  }), 'dayspa');
+});
+
+Deno.test('il buono a importo apre i trattamenti: un importo si spende su qualunque trattamento', () => {
+  assertEquals(moduloDelBuono(valore), 'trattamenti');
+  assertEquals(moduloDelBuono({ tipo: 'valore', voce_id: null, descrizione: '' }), 'trattamenti');
+});
+
+Deno.test('con una voce sola vince l’id di listino, non il testo: i buoni scritti a mano in reception non hanno la descrizione del listino', () => {
+  /* ?a=nuovo salva una `descrizione` libera e non scrive mai `voci`: se si
+     credesse solo al testo, questo finirebbe sul modulo dei trattamenti */
+  assertEquals(moduloDelBuono({ voce_id: 'dayspa_fer', descrizione: 'Ingresso piscine, omaggio' }), 'dayspa');
+  assertEquals(moduloDelBuono({ voce_id: 'relax25', descrizione: 'Massaggio omaggio' }), 'trattamenti');
+});
+
+Deno.test('il percorso è quello tradotto delle riscritture, nella lingua del buono', () => {
+  for (const l of LINGUE) {
+    assertEquals(percorsoPrenota({ ...dayspa, lingua: l }), `/${l}/${PERCORSI.dayspa[l]}`);
+    assertEquals(percorsoPrenota({ voce_id: 'shiatsu50', descrizione: 'Massaggio Shiatsu (50 min)', lingua: l }),
+      `/${l}/${PERCORSI.trattamenti[l]}`);
+  }
+  /* le quattro forme vere, scritte per esteso una volta sola: se PERCORSI
+     cambiasse per sbaglio, il ciclo qui sopra resterebbe verde e questo no */
+  assertEquals(percorsoPrenota({ voce_id: 'shiatsu50', descrizione: 'Massaggio Shiatsu (50 min)', lingua: 'de' }), '/de/behandlungen');
+  assertEquals(percorsoPrenota({ voce_id: 'shiatsu50', descrizione: 'Massaggio Shiatsu (50 min)', lingua: 'fr' }), '/fr/soins');
+  assertEquals(percorsoPrenota({ voce_id: 'shiatsu50', descrizione: 'Massaggio Shiatsu (50 min)', lingua: 'en' }), '/en/treatments');
+  assertEquals(percorsoPrenota({ ...dayspa, lingua: 'de' }), '/de/day-spa');
+});
+
+Deno.test('una lingua non riconosciuta ricade sull’italiano, come ovunque nel progetto', () => {
+  assertEquals(percorsoPrenota({ ...dayspa, lingua: 'xx' }), '/it/day-spa');
+});
+
+Deno.test('la regola e il percorso sono identici alla copia dentro email-buono.ts', () => {
+  const CASI = [
+    dayspa,
+    valore,
+    { voce_id: 'shiatsu50', descrizione: 'Massaggio Shiatsu (50 min)' },
+    { voce_id: 'dayspa_fer', descrizione: '1 × Day Spa infrasettimanale\n1 × Massaggio Shiatsu (50 min)' },
+    { voce_id: 'shiatsu50', descrizione: '1 × Massaggio Shiatsu (50 min)\n1 × Day Spa festivo' },
+    { voce_id: 'dayspa_wknd', descrizione: 'Ingresso piscine, omaggio' },
+    { tipo: 'valore', voce_id: null, descrizione: 'Buono valore di 100,00 €, spendibile in hotel' },
+    { voce_id: '', descrizione: '' },
+  ];
+  for (const c of CASI) {
+    for (const l of LINGUE) {
+      const b = { ...c, lingua: l };
+      assertEquals(moduloDelBuono(b), moduloDelBuonoEmail(b),
+        `la regola diverge fra foglio ed email su ${JSON.stringify(b)}`);
+      assertEquals(percorsoPrenota(b), percorsoPrenotaEmail(b),
+        `il percorso diverge fra foglio ed email su ${JSON.stringify(b)}`);
+    }
+  }
+});
+
+Deno.test('il foglio stampato porta l’indirizzo del modulo giusto, digitabile a mano', () => {
+  for (const l of LINGUE) {
+    const f = buonoStampaHTML({ ...dayspa, lingua: l }, false);
+    assertStringIncludes(f, `hoteltermeleonardo.com/${l}/${PERCORSI.dayspa[l]}`);
+  }
+  const t = buonoStampaHTML({ ...dayspa, voce_id: 'shiatsu50',
+    descrizione: 'Massaggio Shiatsu (50 min)', lingua: 'de' }, false);
+  assertStringIncludes(t, 'hoteltermeleonardo.com/de/behandlungen');
+});
+
+Deno.test('l’indirizzo stampato non porta il codice attaccato: da un foglio di carta si digita, non si copia', () => {
+  const f = buonoStampaHTML(dayspa, false);
+  assertEquals(f.includes('?buono='), false);
+  assertEquals(f.includes('buono=ABCD-1234'), false);
+  /* e nemmeno lo schema: «https://» sono otto caratteri che nessuno digita */
+  assertEquals(f.includes('https://hoteltermeleonardo.com'), false);
+});
+
+Deno.test('l’invito a prenotare online è nella lingua del foglio, e «ci chiami o ci scriva» resta', () => {
+  const ONLINE = { it: 'Oppure prenoti online su', de: 'Oder buchen Sie online auf',
+    en: 'Or book online at', fr: 'Ou réservez en ligne sur' };
+  for (const l of LINGUE) {
+    const f = buonoStampaHTML({ ...dayspa, lingua: l }, false);
+    assertStringIncludes(f, ONLINE[l], `invito a prenotare online mancante in ${l}`);
+    for (const altra of LINGUE) {
+      if (altra === l) continue;
+      assertEquals(f.includes(ONLINE[altra]), false,
+        `il foglio in ${l} non deve contenere l’invito in ${altra}`);
+    }
+  }
+  /* il telefono non se ne va: il pulsante e la riga si AGGIUNGONO */
+  assertStringIncludes(buonoStampaHTML(dayspa, false), 'ci chiami o ci scriva');
 });

@@ -112,11 +112,18 @@ export const CONDIZIONI: Record<string, string> = {
 /* come si prenota: sul foglio stampato ha un titolo tutto suo, e anche
    qui deve averlo. Chi compra dal sito non passa dalla reception: questa
    è l'unica volta in cui gli viene detto. (Stessi testi del back office.) */
-const PRENOTA: Record<string, { titolo: string; come: string }> = {
-  it: { titolo: 'COME PRENOTARE', come: 'Per prenotare ci chiami o ci scriva: fissiamo insieme il giorno e l’ora.' },
-  de: { titolo: 'SO RESERVIEREN SIE', come: 'Rufen Sie uns an oder schreiben Sie uns: wir vereinbaren gemeinsam Tag und Uhrzeit.' },
-  en: { titolo: 'HOW TO BOOK', come: 'To book, call or write to us: we will arrange the day and time together.' },
-  fr: { titolo: 'COMMENT RÉSERVER', come: 'Pour réserver, appelez-nous ou écrivez-nous : nous fixerons ensemble le jour et l’heure.' }
+/* `come` RESTA: il pulsante qui sotto si aggiunge, non sostituisce. Chi
+   preferisce il telefono deve continuare a trovare il telefono — e chi legge
+   da un programma di posta che blocca tutto vede comunque come fare. */
+const PRENOTA: Record<string, { titolo: string; come: string; bottone: string }> = {
+  it: { titolo: 'COME PRENOTARE', come: 'Per prenotare ci chiami o ci scriva: fissiamo insieme il giorno e l’ora.',
+    bottone: 'Prenota online' },
+  de: { titolo: 'SO RESERVIEREN SIE', come: 'Rufen Sie uns an oder schreiben Sie uns: wir vereinbaren gemeinsam Tag und Uhrzeit.',
+    bottone: 'Online reservieren' },
+  en: { titolo: 'HOW TO BOOK', come: 'To book, call or write to us: we will arrange the day and time together.',
+    bottone: 'Book online' },
+  fr: { titolo: 'COMMENT RÉSERVER', come: 'Pour réserver, appelez-nous ou écrivez-nous : nous fixerons ensemble le jour et l’heure.',
+    bottone: 'Réserver en ligne' }
 };
 
 /* cosa comprende il Day Spa: è la voce più richiesta, e sul foglio
@@ -254,6 +261,11 @@ export function buonoEmailHTML(b: any) {
     </table>
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#C9A961;padding-top:20px;">${p.titolo}</div>
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#4A5C59;padding-top:5px;">${esc(p.come)}</div>
+    ${/* niente pulsante su una bozza (`b.codice` falsy): senza un codice vero
+         il modulo aprirebbe un ?buono= vuoto, cioè il modulo semplice, e il
+         pulsante prometterebbe qualcosa che non fa. Stesso freno del QR qui
+         sopra e del pulsante di stampa in inviaBuonoEmesso. */''}
+    ${b.codice ? bottonePrenota(b, p) : ''}
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:1.55;color:#B3ADA1;padding-top:18px;">${esc(CONDIZIONI[L] || CONDIZIONI.it)}</div>
   </td>
 </tr>
@@ -277,6 +289,81 @@ const BASE_HOTEL = 'https://www.hoteltermeleonardo.com';
 export function linkStampa(b: { codice?: string | null; lingua?: string }): string {
   const L = ['it', 'de', 'en', 'fr'].includes(String(b.lingua)) ? b.lingua : 'it';
   return `${BASE_HOTEL}/buoni/stampa/?codice=${encodeURIComponent(String(b.codice ?? ''))}&l=${L}`;
+}
+
+/* ============================================================
+   DOVE SI PRENOTA COL BUONO — la regola della specifica §4-bis.
+
+   ⚠ SECONDA COPIA di moduloDelBuono()/percorsoPrenota() in
+   pagine/buoni/buono.js, dove servono al foglio A4: il ragionamento completo
+   — perché si guarda `descrizione` e non `voci`, perché con una voce sola
+   vince l'id di listino, perché il buono a importo va ai trattamenti — sta
+   scritto per esteso là, in cima a quelle due funzioni. Qui non si ripete:
+   si tiene identico. Questa copia esiste perché la funzione Deno non
+   raggiunge pagine/ (stessa ragione della copia di qr.js qui accanto), ed è
+   presidiata da buono.test.ts, che confronta le due caso per caso.
+
+   La tabella qui sotto è il pezzo di PERCORSI (pagine/comune/percorso.js)
+   che serve a queste due sole voci, e va tenuta uguale a quella: sono i
+   percorsi tradotti scritti nelle riscritture di
+   termeleonardo/frontend/vercel.json. «Day Spa» non si traduce in nessuna
+   delle quattro lingue — è il nome col quale l'hotel vende l'ingresso, ed è
+   quello stampato sul buono.
+   ============================================================ */
+const PERCORSI_PRENOTA: Record<string, Record<string, string>> = {
+  trattamenti: { it: 'trattamenti', de: 'behandlungen', en: 'treatments', fr: 'soins' },
+  dayspa: { it: 'day-spa', de: 'day-spa', en: 'day-spa', fr: 'day-spa' }
+};
+
+const eRigaDaySpa = (riga: string) => /day spa/i.test(riga);
+
+export function moduloDelBuono(b: { tipo?: string | null; voce_id?: string | null; descrizione?: string | null }): string {
+  if (b?.tipo === 'valore') return 'trattamenti';
+  const righe = String(b?.descrizione || '').split('\n')
+    .map((r) => r.trim()).filter(Boolean);
+  const id = String(b?.voce_id || '');
+  if (righe.length <= 1 && id) return id.startsWith('dayspa') ? 'dayspa' : 'trattamenti';
+  if (!righe.length) return 'trattamenti';
+  return righe.some((r) => !eRigaDaySpa(r)) ? 'trattamenti' : 'dayspa';
+}
+
+/** Il percorso tradotto del modulo giusto, nella lingua del buono:
+ *  '/de/behandlungen', '/fr/day-spa'. Senza dominio e senza query. */
+export function percorsoPrenota(b: { lingua?: string | null; tipo?: string | null; voce_id?: string | null; descrizione?: string | null }): string {
+  const L = ['it', 'de', 'en', 'fr'].includes(String(b?.lingua)) ? String(b.lingua) : 'it';
+  return `/${L}/${PERCORSI_PRENOTA[moduloDelBuono(b)][L]}`;
+}
+
+/** L'indirizzo del pulsante «Prenota online»: il modulo giusto, nella lingua
+ * del buono, col codice già dentro — qui si clicca, non si digita, quindi il
+ * codice ci sta (sul foglio stampato invece no: vedi buonoStampaHTML). Con
+ * `?buono=` il modulo riconosce il buono da solo, disegna il riquadro,
+ * preseleziona la voce e dice la differenza: senza, l'ospite si troverebbe
+ * un modulo vuoto e il codice da ricopiare a mano nelle note.
+ * Esportata per il test, stessa ragione di linkStampa qui sopra: l'email
+ * deve arrivare esattamente a questo indirizzo, non a uno scritto a mano nel
+ * test e che potrebbe divergere in silenzio. */
+export function linkPrenota(b: { codice?: string | null; lingua?: string | null; tipo?: string | null; voce_id?: string | null; descrizione?: string | null }): string {
+  return `${BASE_HOTEL}${percorsoPrenota(b)}?buono=${encodeURIComponent(String(b?.codice ?? ''))}`;
+}
+
+/** Il pulsante «Prenota online», dentro il buono, sotto «ci chiami o ci
+ * scriva». Tabella e non un <a> con padding e border-radius: è lo stesso
+ * vincolo di bottoneStampa qui sotto — Outlook non regge i bottoni.
+ *
+ * Verde del buono (#1B4D4A) e non l'arancio dei pulsanti d'azione: questo
+ * sta DENTRO il riquadro del buono, che è il regalo, e un arancio pubblicitario
+ * incollato sopra un regalo si legge come pubblicità. L'arancio resta al
+ * pulsante di stampa, che sta fuori dal riquadro ed è un'azione dell'email —
+ * così i due pulsanti non si contendono nemmeno l'occhio. */
+function bottonePrenota(b: { codice?: string | null; lingua?: string | null; tipo?: string | null; voce_id?: string | null; descrizione?: string | null }, p: { bottone: string }): string {
+  return `<table cellpadding="0" cellspacing="0" border="0" style="margin:11px 0 0;border-collapse:collapse;">
+      <tr><td align="center" style="background:#1B4D4A;border-radius:5px;">
+        <a href="${esc(linkPrenota(b))}" target="_blank" rel="noopener noreferrer"
+          style="display:inline-block;padding:11px 22px;font-family:Arial,Helvetica,sans-serif;
+          font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;">${esc(p.bottone)}</a>
+      </td></tr>
+    </table>`;
 }
 
 /** Il pulsante «Stampa il tuo buono»: stesso colore e stessa forma dei

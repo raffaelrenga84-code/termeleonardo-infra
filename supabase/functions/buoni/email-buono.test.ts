@@ -1,7 +1,7 @@
 /* Test del modulo email: il buono in HTML e le tre spedizioni
    (acquirente, destinatario, amministrazione) via Resend. */
-import { assertEquals, assertStringIncludes } from 'jsr:@std/assert';
-import { avvisaAmministrazione, buonoEmailHTML, fotoBuono, inviaBuonoEmesso, linkQr, linkStampa, ricevutaEmailHTML, statoConsegna } from './email-buono.ts';
+import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
+import { avvisaAmministrazione, buonoEmailHTML, fotoBuono, inviaBuonoEmesso, linkPrenota, linkQr, linkStampa, moduloDelBuono, ricevutaEmailHTML, statoConsegna } from './email-buono.ts';
 
 const IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
@@ -125,7 +125,7 @@ Deno.test('se il destinatario ha la stessa email dell’acquirente, una copia so
 
 Deno.test('la foto segue il tipo di buono', () => {
   assertEquals(fotoBuono({ tipo: 'valore' }), `${IMG}/valore.jpg`);
-  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'dayspa_fer' }), `${IMG}/dayspa.jpg`);
+  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'dayspa_fer' }), `${IMG}/dayspa.jpg`);
   assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'relax25' }), `${IMG}/trattamenti.jpg`);
   assertEquals(fotoBuono({ tipo: 'servizio', voce_id: null }), `${IMG}/valore.jpg`);
   assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'altro' }), `${IMG}/valore.jpg`);
@@ -485,4 +485,97 @@ Deno.test('l’avviso all’amministrazione non porta il QR: e-mail interna, non
     assertEquals(spedite.length, 1);
     assertEquals(spedite[0].html.includes('a=qr'), false);
   } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); Deno.env.delete('EMAIL_AMMINISTRAZIONE'); }
+});
+
+/* ============================================================
+   Il pulsante «Prenota online», dentro il buono, sotto «ci chiami o ci
+   scriva». Porta al modulo che la specifica §4-bis indica, col codice già
+   nell'indirizzo. La REGOLA che sceglie il modulo è in due copie (qui e in
+   pagine/buoni/buono.js, per il foglio A4): a confrontarle caso per caso è
+   buono.test.ts, che le importa tutte e due — qui si prova quello che
+   dipende dall'email, cioè che il pulsante ci sia, sia una tabella e non
+   sostituisca il telefono. */
+Deno.test('il link porta al modulo giusto, nella lingua del buono, col codice dentro', () => {
+  /* BUONO è un buono a importo: si spende su qualunque trattamento */
+  assertEquals(linkPrenota(BUONO),
+    'https://www.hoteltermeleonardo.com/de/behandlungen?buono=LEO-ACDE-FGHJ');
+  assertEquals(linkPrenota({ ...BUONO, tipo: 'servizio', voce_id: 'dayspa_fer',
+    descrizione: 'Day Spa infrasettimanale — piscine e grotte', lingua: 'fr' }),
+    'https://www.hoteltermeleonardo.com/fr/day-spa?buono=LEO-ACDE-FGHJ');
+  assertEquals(linkPrenota({ ...BUONO, tipo: 'servizio', voce_id: 'shiatsu50',
+    descrizione: 'Massaggio Shiatsu (50 min)', lingua: 'it' }),
+    'https://www.hoteltermeleonardo.com/it/trattamenti?buono=LEO-ACDE-FGHJ');
+});
+
+Deno.test('§4-bis nell’email: Day Spa più un massaggio aprono i trattamenti, una richiesta sola', () => {
+  const b = { ...BUONO, tipo: 'servizio', voce_id: 'dayspa_fer', lingua: 'it',
+    descrizione: '1 × Day Spa infrasettimanale — piscine e grotte\n1 × Massaggio Shiatsu (50 min)' };
+  assertEquals(moduloDelBuono(b), 'trattamenti');
+  assertStringIncludes(buonoEmailHTML(b), 'https://www.hoteltermeleonardo.com/it/trattamenti?buono=LEO-ACDE-FGHJ');
+});
+
+Deno.test('il codice finisce nell’indirizzo passato per encodeURIComponent, non incollato così com’è', () => {
+  assertStringIncludes(linkPrenota({ ...BUONO, codice: 'LEO A/B' }), '?buono=LEO%20A%2FB');
+});
+
+Deno.test('il pulsante è una tabella, non un <a> con padding: Outlook non regge i bottoni', () => {
+  const html = buonoEmailHTML({ ...BUONO, lingua: 'it' });
+  /* l'indirizzo non contiene & né virgolette: esc() lo lascia com'è */
+  const i = html.indexOf(linkPrenota({ ...BUONO, lingua: 'it' }));
+  assert(i > 0, 'il link del pulsante non compare nel buono');
+  /* la cella colorata che fa da bottone sta appena sopra il link */
+  assertStringIncludes(html.slice(Math.max(0, i - 400), i), '<table');
+  assertStringIncludes(html.slice(Math.max(0, i - 400), i), 'background:#1B4D4A');
+});
+
+Deno.test('il testo «ci chiami o ci scriva» resta accanto al pulsante, in tutte e quattro le lingue', () => {
+  const COME: Record<string, string> = {
+    it: 'ci chiami o ci scriva', de: 'Rufen Sie uns an oder schreiben Sie uns',
+    en: 'call or write to us', fr: 'appelez-nous ou écrivez-nous',
+  };
+  for (const lingua of ['it', 'de', 'en', 'fr']) {
+    const html = buonoEmailHTML({ ...BUONO, lingua });
+    assertStringIncludes(html, COME[lingua], `chi preferisce il telefono non lo trova più in ${lingua}`);
+    assertStringIncludes(html, linkPrenota({ ...BUONO, lingua }).split('?')[0]);
+  }
+});
+
+Deno.test('il pulsante di prenotazione è nella lingua del buono e non porta testo di un’altra lingua', () => {
+  const TESTI: Record<string, string> = {
+    it: 'Prenota online', de: 'Online reservieren',
+    en: 'Book online', fr: 'Réserver en ligne',
+  };
+  for (const lingua of ['it', 'de', 'en', 'fr']) {
+    const html = buonoEmailHTML({ ...BUONO, lingua });
+    assertStringIncludes(html, TESTI[lingua]);
+    for (const altra of ['it', 'de', 'en', 'fr']) {
+      if (altra === lingua) continue;
+      assertEquals(html.includes(TESTI[altra]), false,
+        `il buono in ${lingua} non deve contenere il pulsante in ${altra} ("${TESTI[altra]}")`);
+    }
+  }
+});
+
+Deno.test('senza codice non c’è pulsante: una bozza aprirebbe un ?buono= vuoto, cioè il modulo semplice', () => {
+  const html = buonoEmailHTML({ ...BUONO, codice: null });
+  assertEquals(html.includes('Prenota online'), false);
+  assertEquals(html.includes('?buono='), false);
+});
+
+Deno.test('il pulsante di prenotazione arriva sia all’acquirente sia al destinatario', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    await inviaBuonoEmesso(BUONO);
+    assertEquals(spedite.length, 2);
+    const linkEscapato = linkPrenota(BUONO).replace(/&/g, '&amp;');
+    for (const s of spedite) assertStringIncludes(s.html, `href="${linkEscapato}"`);
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
+});
+
+Deno.test('il riepilogo d’acquisto non porta il pulsante di prenotazione: non è il buono', () => {
+  const html = ricevutaEmailHTML(BUONO);
+  assertEquals(html.includes('?buono='), false);
+  assertEquals(html.includes('Online reservieren'), false);
 });

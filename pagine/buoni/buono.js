@@ -18,6 +18,11 @@ export const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
    pagine HTML (quelli sì dipendono dalla barra), non gli import fra moduli
    .js: qui la regola è opposta, un percorso assoluto sarebbe quello sbagliato. */
 import { generaSvgQR } from '../comune/qr.js';
+/* i percorsi tradotti (/it/trattamenti, /de/behandlungen, ...) stanno in un
+   posto solo, accanto alle riscritture di vercel.json che li servono: qui si
+   importano, non si ricopiano. Stesso percorso relativo di qr.js qui sopra,
+   e per la stessa ragione. */
+import { PERCORSI } from '../comune/percorso.js';
 
 export const BASE_IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 export const COPERTINE = {
@@ -149,6 +154,71 @@ export function categoriaBuono(b) {
   if (/^(visofango|pulizia|ialuronico|collagene|vitaminac)/.test(id)) return 'viso';
   if (/^(scrub|riducente|seno|antiage|manicure|pedicure|epil)/.test(id)) return 'corpo';
   return 'valore';
+}
+
+/* ============================================================
+   DOVE SI PRENOTA COL BUONO — la regola della specifica §4-bis.
+
+   In una riga: se il buono contiene almeno un trattamento si apre il modulo
+   dei trattamenti, altrimenti quello del Day Spa. Un ingresso Day Spa piu'
+   un massaggio sono una visita sola, quindi una richiesta sola.
+
+   SI GUARDA LA `descrizione`, NON `voci`. E' la scelta che tiene insieme i
+   due punti d'ingresso, e non e' una comodita':
+   · la colonna `voci` NON arriva al foglio A4. La pagina pubblica di stampa
+     riceve solo l'elenco chiuso di campi che datiStampa() lascia uscire
+     (stampa.ts), e li' `voci` e' escluso di proposito. Il back office invece
+     ha la riga intera: una regola che leggesse `voci` darebbe due fogli
+     DIVERSI per lo stesso buono a seconda di chi lo stampa — esattamente la
+     divergenza che stampa.ts spiega di voler evitare;
+   · `descrizione` ce l'hanno tutti e due, ed e' costruita DA `voci`
+     (componiDescrizione in acquista.ts): una riga per voce. Leggere le righe
+     e' quindi leggere le voci, senza allargare cosa esce dal server;
+   · sui buoni scritti in reception `voci` e' comunque null (l'insert di
+     ?a=nuovo non la scrive mai): li' `voci` non aiuterebbe affatto.
+
+   La riga di un ingresso si riconosce da "Day Spa", che sta letteralmente in
+   tutte e tre le voci dayspa_* del LISTINO — che e' in italiano qualunque sia
+   la lingua del buono. E' lo stesso segno che questa funzione usa gia' due
+   righe piu' sotto per decidere se stampare l'elenco delle piscine
+   (`catComprende`) e che email-buono.ts usa in `comprende()`.
+
+   Con UNA voce sola si crede all'id di listino invece che al testo: e' piu'
+   solido, e su un buono compilato a mano in reception ("Ingresso piscine",
+   voce_id dayspa_fer) e' l'unico segno che ci sia.
+
+   IL BUONO A IMPORTO va ai trattamenti, e la specifica non lo dice: la §4-bis
+   parla di buoni con delle voci, un importo non contiene ne' l'una ne'
+   l'altra cosa. Ai trattamenti perche' un importo si spende su qualunque
+   trattamento e quel modulo e' l'unico che sa dirne la differenza
+   (coperturaBuono, in comune/buono-url.js, tratta apposta il buono senza voci
+   come "copre = valore"); sul Day Spa non ci sarebbe niente da scegliere.
+
+   ⚠ Seconda copia in supabase/functions/buoni/email-buono.ts, che deve
+   mandare il pulsante dell'email allo STESSO modulo: quella non puo'
+   importare questa (l'email vive dentro la funzione Deno, che non raggiunge
+   pagine/ — stessa ragione della copia di qr.js li' dentro). Presidiate
+   insieme da buono.test.ts, che le confronta caso per caso.
+   ============================================================ */
+const eRigaDaySpa = (riga) => /day spa/i.test(riga);
+
+export function moduloDelBuono(b) {
+  if (b?.tipo === 'valore') return 'trattamenti';
+  const righe = String(b?.descrizione || '').split('\n')
+    .map(r => r.trim()).filter(Boolean);
+  const id = String(b?.voce_id || '');
+  if (righe.length <= 1 && id) return id.startsWith('dayspa') ? 'dayspa' : 'trattamenti';
+  if (!righe.length) return 'trattamenti';
+  return righe.some(r => !eRigaDaySpa(r)) ? 'trattamenti' : 'dayspa';
+}
+
+/** Il percorso tradotto del modulo giusto, nella lingua del buono:
+ *  '/de/behandlungen', '/fr/day-spa'. Senza dominio e senza query — chi
+ *  chiama ci mette quello che gli serve (il foglio stampato il dominio nudo,
+ *  l'email l'indirizzo intero con ?buono=). */
+export function percorsoPrenota(b) {
+  const L = ['it','de','en','fr'].includes(b?.lingua) ? b.lingua : 'it';
+  return `/${L}/${PERCORSI[moduloDelBuono(b)][L]}`;
 }
 
 /* dettaglio di cosa comprende: per il Day Spa l'elenco vero delle piscine */
@@ -363,15 +433,28 @@ export function buonoHTML(b, bozza) {
    portafoglio, quindi tollera meglio una piega o un angolo consumato — a
    parità di versione del QR, perché il codice è breve (13 caratteri) e
    ci sta comunque nella versione più piccola anche al livello più alto. */
+/* IL DOMINIO SCRITTO SUL FOGLIO, senza schema e senza "www.": e' un
+   indirizzo che si DIGITA da un foglio di carta, non un link da cliccare, e
+   ogni carattere in piu' e' un carattere in piu' da sbagliare. Il nudo
+   hoteltermeleonardo.com risponde 308 verso www conservando il percorso —
+   provato, non dedotto — quindi /it/day-spa arriva dove deve.
+   Non e' termeleonardo.com, quello dei recapiti qui sotto: le riscritture
+   delle pagine stanno sull'altro dominio (vedi BASE_HOTEL in email-buono.ts). */
+const DOMINIO_STAMPATO = 'hoteltermeleonardo.com';
+
 const ETI_STAMPA = {
   it:{ prenota:'COME PRENOTARE', condizioni:'CONDIZIONI', piega:'piega qui', rif:'Riferimento',
-    come:'Per prenotare ci chiami o ci scriva: fissiamo insieme il giorno e l’ora.' },
+    come:'Per prenotare ci chiami o ci scriva: fissiamo insieme il giorno e l’ora.',
+    online:'Oppure prenoti online su ' },
   de:{ prenota:'SO RESERVIEREN SIE', condizioni:'BEDINGUNGEN', piega:'hier falten', rif:'Referenz',
-    come:'Rufen Sie uns an oder schreiben Sie uns: wir vereinbaren gemeinsam Tag und Uhrzeit.' },
+    come:'Rufen Sie uns an oder schreiben Sie uns: wir vereinbaren gemeinsam Tag und Uhrzeit.',
+    online:'Oder buchen Sie online auf ' },
   en:{ prenota:'HOW TO BOOK', condizioni:'TERMS', piega:'fold here', rif:'Reference',
-    come:'To book, call or write to us: we will arrange the day and time together.' },
+    come:'To book, call or write to us: we will arrange the day and time together.',
+    online:'Or book online at ' },
   fr:{ prenota:'COMMENT RÉSERVER', condizioni:'CONDITIONS', piega:'plier ici', rif:'Référence',
-    come:'Pour réserver, appelez-nous ou écrivez-nous : nous fixerons ensemble le jour et l’heure.' }
+    come:'Pour réserver, appelez-nous ou écrivez-nous : nous fixerons ensemble le jour et l’heure.',
+    online:'Ou réservez en ligne sur ' }
 };
 
 export function buonoStampaHTML(b, bozza) {
@@ -422,6 +505,15 @@ export function buonoStampaHTML(b, bozza) {
     </div>
     <span class="etichetta-s cond-tit">${s.prenota}</span>
     <div class="prenota">${s.come}</div>
+    ${/* L'indirizzo SENZA ?buono=CODICE, di proposito: un codice attaccato a
+          una query lo si copia da uno schermo, non da un foglio di carta —
+          e chi sbaglia a ricopiarlo arriva su un modulo che gli dice "questo
+          codice non risulta", che e' peggio di non averlo messo. Il codice
+          sta gia' stampato qui sopra in grande, e il QR accanto lo porta in
+          reception. Nell'email, dove si clicca, il codice invece c'e'
+          (linkPrenota in email-buono.ts). */''}
+    <div class="prenota-web">${s.online}<strong>${
+      esc(DOMINIO_STAMPATO + percorsoPrenota(b))}</strong></div>
     <span class="etichetta-s cond-tit">${s.condizioni}</span>
     <div class="condizioni">${esc(CONDIZIONI[L] || CONDIZIONI.it)}</div>
   </section>

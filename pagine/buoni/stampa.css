@@ -95,8 +95,26 @@ border-top:1px solid #E6E2D8;margin-top:5mm;padding-top:4mm;}
 #stampa .qr-riquadro{flex:0 0 auto;margin:0 6mm;}
 #stampa .qr-s{display:block;width:20mm;height:20mm;}
 #stampa .recapiti{font:10px/1.6 Arial,Helvetica,sans-serif;color:#5C736F;text-align:right;}
-#stampa .prenota{font:11px/1.6 Arial,Helvetica,sans-serif;color:#4A5C59;margin-top:2mm;}
-#stampa .cond-tit{margin-top:4mm;display:block;}
-#stampa .condizioni{font:7.2px/1.36 Arial,Helvetica,sans-serif;color:#8A938F;margin-top:2mm;text-align:justify;}
+#stampa .prenota{font:11px/1.6 Arial,Helvetica,sans-serif;color:#4A5C59;margin-top:1.5mm;}
+/* l'indirizzo da digitare a mano: una riga sola, e una riga sola deve
+   restare — l'interno del foglio si taglia in silenzio (vedi la nota su
+   .meta.interno piu' sopra) e nel caso peggiore, il tedesco prorogato,
+   l'aria che avanza si conta in decine di pixel. Percio' 10px e non gli 11
+   della riga sopra, e interlinea 1.45 invece di 1.6: la misura vera, prima e
+   dopo, sta nel rapporto del compito 6. L'indirizzo in grassetto e in colore
+   pieno perche' e' la parte che l'ospite deve copiare carattere per
+   carattere; niente sottolineatura, su carta non si clicca niente. */
+#stampa .prenota-web{font:10px/1.45 Arial,Helvetica,sans-serif;color:#5C736F;margin-top:0.6mm;}
+#stampa .prenota-web strong{font-weight:700;color:#1B4D4A;}
+/* 4mm fino al 17 agosto: la riga dell'indirizzo qui sopra costa 18px, e i
+   due titoletti (COME PRENOTARE, CONDIZIONI) ne restituiscono quasi
+   altrettanti senza togliere una parola a nessuno. Si stringe l'aria prima
+   del testo, non il testo: e' il primo posto da cui prendere, non l'ultimo. */
+#stampa .cond-tit{margin-top:2.8mm;display:block;}
+/* 1.36 fino al 17 agosto. Le condizioni sono il testo che il cliente
+   dichiara di accettare: si stringe l'interlinea, mai il corpo (7.2px
+   resta), e solo dopo aver preso tutto quello che si poteva prendere dai
+   margini qui sopra. */
+#stampa .condizioni{font:7.2px/1.32 Arial,Helvetica,sans-serif;color:#8A938F;margin-top:1.5mm;text-align:justify;}
 #stampa .pieded{position:absolute;bottom:10mm;left:20mm;
 font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
