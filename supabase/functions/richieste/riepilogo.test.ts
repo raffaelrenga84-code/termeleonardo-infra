@@ -234,6 +234,20 @@ Deno.test('maestro: senza il livello restano solo orario e persone', () => {
   assert(senzaValoriSporchi(r.riepilogo));
 });
 
+/* ---------------- dayspa ---------------- */
+
+Deno.test('dayspa: la riga dice persone e giorno', () => {
+  const r = riepilogoRichiesta({ tipo: 'dayspa', dati: { giorno: '2026-09-20', persone: 2 } } as never);
+  assertEquals(r.etichetta, 'Day Spa');
+  assertEquals(r.riepilogo, '2 persone · 20 settembre');
+});
+
+Deno.test('dayspa senza dati: lo dice invece di lasciare la riga vuota', () => {
+  const r = riepilogoRichiesta({ tipo: 'dayspa', dati: null } as never);
+  assertEquals(r.etichetta, 'Day Spa');
+  assertEquals(r.riepilogo, 'nessun dettaglio indicato');
+});
+
 /* ---------------- soggiorno ---------------- */
 
 const soggiornoCompleto = { tipo: 'soggiorno', check_in: '2026-09-10', check_out: '2026-09-15', notti: 5, ospiti: 2 };

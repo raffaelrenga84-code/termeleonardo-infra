@@ -1,7 +1,7 @@
 /* Test della validazione per tipo di richiesta.
    La data di riferimento arriva da fuori: legata a new Date() questi test
    comincerebbero a fallire da soli col passare del tempo. */
-import { assertEquals } from 'jsr:@std/assert';
+import { assertEquals, assertNotEquals } from 'jsr:@std/assert';
 import { validaDati } from './tipi.ts';
 import { CAMERE } from './camere.ts';
 
@@ -304,4 +304,24 @@ Deno.test('senza adulti, bambini e caparra la camera resta valida come prima', (
   assertEquals(dati!.adulti, undefined);
   assertEquals(dati!.bambini, undefined);
   assertEquals(dati!.caparra_cent, undefined);
+});
+
+/* ---------------- dayspa ---------------- */
+Deno.test('dayspa: giorno e persone validi', () => {
+  const r = validaDati('dayspa', { giorno: '2026-09-20', persone: 2, note: '' }, OGGI);
+  assertEquals(r.errore, undefined);
+  assertEquals(r.dati!.persone, 2);
+  assertEquals(r.dati!.giorno, '2026-09-20');
+});
+
+Deno.test('dayspa: un giorno che non esiste viene rifiutato', () => {
+  const r = validaDati('dayspa', { giorno: '2026-02-31', persone: 2 }, OGGI);
+  assertNotEquals(r.errore, undefined);
+});
+
+Deno.test('dayspa: persone fuori scala rifiutate', () => {
+  for (const p of [0, 9, 2.5, 'due']) {
+    const r = validaDati('dayspa', { giorno: '2026-09-20', persone: p }, OGGI);
+    assertNotEquals(r.errore, undefined, `persone ${p}`);
+  }
 });

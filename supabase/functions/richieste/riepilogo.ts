@@ -204,6 +204,16 @@ export function riepilogoRichiesta(r: Richiesta): Riga {
       break;
     }
 
+    case 'dayspa': {
+      const p = numeroValido(d.persone);
+      etichetta = 'Day Spa';
+      riepilogo = [
+        p !== null ? conPlurale(p, 'persona', 'persone') : '',
+        dataLunga(d.giorno),
+      ].filter(Boolean).join(' · ');
+      break;
+    }
+
     case 'soggiorno':
       etichetta = 'Soggiorno';
       riepilogo = riepilogoSoggiorno(r);

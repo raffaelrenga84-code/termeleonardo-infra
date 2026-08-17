@@ -11,7 +11,7 @@
 import { CIRCOLI_GOLF, luogoValido } from './luoghi.ts';
 import { CAMERE } from './camere.ts';
 
-export const TIPI_ATTIVI = ['soggiorno', 'transfer', 'greenfee', 'maestro', 'trattamenti'] as const;
+export const TIPI_ATTIVI = ['soggiorno', 'transfer', 'greenfee', 'maestro', 'trattamenti', 'dayspa'] as const;
 
 type Esito = { errore?: string; dati?: Record<string, unknown> };
 
@@ -172,6 +172,30 @@ function validaMaestro(d: Record<string, unknown>, oggi: Date): Esito {
   return { dati: { data: data.valore, ora: o.valore, persone, livello, note } };
 }
 
+/* ---------------- Day Spa ---------------- */
+/* Il Day Spa non era mai stato una richiesta: si prenotava pagando online,
+   sul sito precedente. Lo diventa per i BUONI REGALO, che quel sistema non
+   sa accettare — vedi la specifica del 17 agosto 2026.
+
+   Il tetto di 8 persone e' preso da `pax` del transfer, NON dedotto da una
+   capienza vera del Day Spa: e' una scelta dichiarata. Un gruppo piu'
+   numeroso passa comunque dalla reception (regola dei gruppi), quindi non
+   blocca niente di legittimo. */
+const PERSONE_DAYSPA_MAX = 8;
+
+function validaDayspa(d: Record<string, unknown>, oggi: Date): Esito {
+  const giorno = dataServizio(d.giorno, oggi);
+  if (giorno.errore) return { errore: giorno.errore };
+
+  const persone = intero(d.persone, 1, PERSONE_DAYSPA_MAX);
+  if (persone === null) return { errore: 'persone non valide' };
+
+  const note = testo(d.note);
+  if (note.length > 2000) return { errore: 'note troppo lunghe' };
+
+  return { dati: { giorno: giorno.valore, persone, note } };
+}
+
 /* ---------------- trattamenti ---------------- */
 /* Le voci arrivano come testo e non come codici di listino: il listino vero
    vive nella funzione dei buoni, e duplicarlo qui vorrebbe dire tenerne due
@@ -296,6 +320,7 @@ export function validaDati(
     case 'greenfee': return validaGreenfee(d || {}, oggi);
     case 'maestro': return validaMaestro(d || {}, oggi);
     case 'trattamenti': return validaTrattamenti(d || {}, oggi);
+    case 'dayspa': return validaDayspa(d || {}, oggi);
     default: return { errore: 'tipo di richiesta sconosciuto' };
   }
 }
