@@ -185,3 +185,48 @@ Deno.test('un soggiorno senza camera scelta non inventa un prezzo', () => {
   assert(!h.includes('0,00'), 'senza prezzo non si stampa una cifra finta');
   assert(!h.includes('Trattamento'));
 });
+
+/* ---------------- Day Spa ----------------
+   Questa email e' il modo in cui la reception SCOPRE che e' arrivata una
+   richiesta: la riga di back office puo' anche essere giusta, ma nessuno
+   la guarda se l'avviso non dice cosa e' stato chiesto. Fino al 17 agosto
+   2026 il ramo `dayspa` non c'era e l'avviso usciva con l'etichetta del
+   soggiorno e "undefined notti · undefined ospiti" — il giorno e il numero
+   di persone non comparivano da nessuna parte.
+   I campi arrivano appiattiti sull'oggetto, come per gli altri tipi
+   (index.ts fa ...(propri || {})). */
+const ingresso = {
+  numero: 'RIC-2026-0006', tipo: 'dayspa',
+  nome: 'Anna Verdi', email: 'anna@example.it', telefono: '+39 333 1234567',
+  lingua: 'it',
+  giorno: '2026-08-22', persone: 2, note: 'Buono regalo: LEO-DUE-VOCI',
+};
+
+Deno.test('l avviso di un Day Spa dice il giorno e quante persone', () => {
+  const h = richiestaHTML(ingresso as never);
+  assertStringIncludes(h, '22/08/2026');
+  assertStringIncludes(h, '2 persone');
+  /* la nota libera arriva gia' oggi, ma da sola non basta: dice il buono,
+     non quando viene e in quanti */
+  assertStringIncludes(h, 'LEO-DUE-VOCI');
+});
+
+/* il difetto in una riga sola: e' esattamente l'"undefined" contro cui
+   mette in guardia il commento sopra ETICHETTA */
+Deno.test('l avviso di un Day Spa non contiene la parola undefined', () => {
+  const h = richiestaHTML(ingresso as never);
+  assert(!h.includes('undefined'), 'un campo assente non deve mai arrivare in reception cosi');
+  assert(!h.includes('notti'), 'un ingresso di un giorno non ha notti da contare');
+});
+
+Deno.test('l avviso di un Day Spa porta la sua etichetta, non quella del soggiorno', () => {
+  const h = richiestaHTML(ingresso as never);
+  assertStringIncludes(h, 'DAY SPA');
+  assert(!h.includes('RICHIESTA DAL SITO'), 'l etichetta del soggiorno qui e sbagliata');
+});
+
+/* una persona sola non e' "1 persone": la reception legge una riga scritta
+   da un essere umano, come gia' in riepilogo.ts */
+Deno.test('l avviso di un Day Spa per una persona sola si legge in italiano', () => {
+  assertStringIncludes(richiestaHTML({ ...ingresso, persone: 1 } as never), '1 persona');
+});

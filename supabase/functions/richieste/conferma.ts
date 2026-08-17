@@ -131,6 +131,17 @@ function dettagli(tipo: string, d: Record<string, unknown>, t: Record<string, st
       riga(t.persone, String(d.persone ?? '')),
     ].join('');
   }
+  /* Un ingresso Day Spa non ha un'ora — si entra dalle 9:00 — quindi le
+     righe sono il giorno e quante persone. Nessuna etichetta nuova nelle
+     quattro lingue: `quando` e `persone` esistono gia' e dicono esattamente
+     questo. Senza questo ramo la conferma diceva «Le confermiamo quanto
+     organizzato» e poi il solo riferimento, cioe' non diceva COSA. */
+  if (tipo === 'dayspa') {
+    return [
+      riga(t.quando, data(d.giorno)),
+      riga(t.persone, String(d.persone ?? '')),
+    ].join('');
+  }
   if (tipo === 'trattamenti') {
     const voci = Array.isArray(d.voci) ? (d.voci as string[]) : [];
     return [

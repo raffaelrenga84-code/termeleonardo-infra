@@ -76,6 +76,7 @@ const ETICHETTA: Record<string, string> = {
   greenfee: 'RICHIESTA GREEN FEE',
   maestro: 'LEZIONE CON IL MAESTRO',
   trattamenti: 'RICHIESTA TRATTAMENTI',
+  dayspa: 'INGRESSO DAY SPA',
 };
 
 function righeTransfer(r: Record<string, unknown>, riga: (e: string, v: string, f?: boolean) => string): string {
@@ -126,6 +127,21 @@ function righeTrattamenti(r: Record<string, unknown>, riga: (e: string, v: strin
   ].join('');
 }
 
+/* Un ingresso Day Spa non ha un'ora — si entra dalle 9:00 — quindi le righe
+   sono due sole: quale giorno e in quanti. Sono anche le uniche due cose che
+   la reception deve sapere per confermarlo, e questa email e' il modo in cui
+   SCOPRE che e' arrivata una richiesta: la riga di back office e' giusta, ma
+   nessuno la guarda se l'avviso non dice niente.
+   Le persone si scrivono come le scriverebbe una persona ("1 persona", "2
+   persone"), come gia' fa riepilogo.ts. */
+function righeDayspa(r: Record<string, unknown>, riga: (e: string, v: string, f?: boolean) => string): string {
+  const p = Number(r.persone);
+  return [
+    riga('Giorno', data(String(r.giorno ?? '')), true),
+    riga('Persone', Number.isInteger(p) ? `${p} person${p === 1 ? 'a' : 'e'}` : ''),
+  ].join('');
+}
+
 export function richiestaHTML(r: ConNumero): string {
   /* i campi del soggiorno sono facoltativi da quando l'avviso serve anche
      agli altri tipi: si leggono sempre passando da qui, cosi' un campo
@@ -161,6 +177,7 @@ export function richiestaHTML(r: ConNumero): string {
       if (tipo === 'greenfee') return righeGreenfee(d, riga);
       if (tipo === 'maestro') return righeMaestro(d, riga);
       if (tipo === 'trattamenti') return righeTrattamenti(d, riga);
+      if (tipo === 'dayspa') return righeDayspa(d, riga);
       return riga('Periodo', periodo, true) + riga('Soggiorno', soggiorno);
     })()}
     ${riga('Email', s(r.email))}

@@ -165,3 +165,50 @@ Deno.test('un valore nella differenza con < dentro esce sfuggito, mai come tag v
   assert(!h.includes('<script>'), 'il tag non deve comparire crudo nell HTML');
   assertStringIncludes(h, '&lt;script&gt;');
 });
+
+/* ---------------- Day Spa ----------------
+   Fino al 17 agosto 2026 `dettagli()` non aveva il ramo `dayspa`: la
+   conferma partiva col solo riferimento, cioe' diceva all'ospite «Le
+   confermiamo quanto organizzato» senza dire COSA. Un ingresso non ha
+   un'ora — si entra dalle 9:00 — quindi le righe sono due: il giorno e
+   quante persone. */
+const ingresso = {
+  numero: 'RIC-2026-0006', tipo: 'dayspa',
+  nome: 'Anna Verdi', email: 'anna@example.it', lingua: 'it',
+  dati: { giorno: '2026-08-22', persone: 3, note: '' },
+};
+
+Deno.test('la conferma di un Day Spa dice il giorno e quante persone', () => {
+  const h = confermaHTML(ingresso);
+  assertStringIncludes(h, '22/08/2026');
+  assertStringIncludes(h, 'Persone');
+  assertStringIncludes(h, '>3</td>');
+});
+
+Deno.test('la conferma di un Day Spa non contiene la parola undefined', () => {
+  assert(!confermaHTML(ingresso).includes('undefined'));
+  /* nemmeno quando la reception ha svuotato un campo */
+  assert(!confermaHTML({ ...ingresso, dati: {} }).includes('undefined'));
+});
+
+Deno.test('la conferma di un Day Spa parla le quattro lingue, come gli altri tipi', () => {
+  assertStringIncludes(confermaHTML({ ...ingresso, lingua: 'it' }), 'Quando');
+  assertStringIncludes(confermaHTML({ ...ingresso, lingua: 'de' }), 'Wann');
+  assertStringIncludes(confermaHTML({ ...ingresso, lingua: 'en' }), 'When');
+  assertStringIncludes(confermaHTML({ ...ingresso, lingua: 'fr' }), 'Quand');
+  assertStringIncludes(confermaHTML({ ...ingresso, lingua: 'de' }), 'Personen');
+  assertStringIncludes(confermaHTML({ ...ingresso, lingua: 'en' }), 'People');
+  assertStringIncludes(confermaHTML({ ...ingresso, lingua: 'fr' }), 'Personnes');
+  /* il giorno resta lo stesso in tutte e quattro: e' un dato, non un testo */
+  for (const l of ['it', 'de', 'en', 'fr']) {
+    assertStringIncludes(confermaHTML({ ...ingresso, lingua: l }), '22/08/2026');
+  }
+});
+
+/* la reception puo' aver spostato il giorno o cambiato il numero: vale qui
+   come per il transfer, l'ospite deve leggere il dato DEFINITIVO */
+Deno.test('la conferma di un Day Spa ripete il giorno definitivo, non quello chiesto', () => {
+  const h = confermaHTML({ ...ingresso, dati: { giorno: '2026-08-23', persone: 3 } });
+  assertStringIncludes(h, '23/08/2026');
+  assert(!h.includes('22/08/2026'), 'non deve restare il giorno chiesto in origine');
+});
