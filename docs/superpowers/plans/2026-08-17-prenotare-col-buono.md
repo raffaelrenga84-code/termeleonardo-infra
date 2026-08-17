@@ -295,9 +295,17 @@ git commit -m "Il Day Spa diventa il sesto tipo di richiesta"
 ### Compito 3: `?a=dayspa` — il ponte sulla disponibilità
 
 **File:**
-- Creare: `supabase/functions/richieste/disponibilita.ts`
-- Creare: `supabase/functions/richieste/disponibilita.test.ts`
+- Creare: `supabase/functions/richieste/dayspa-disponibilita.ts`
+- Creare: `supabase/functions/richieste/dayspa-disponibilita.test.ts`
 - Modificare: `supabase/functions/richieste/index.ts` (nuova azione, **fuori** dal cancello della chiave hotel: la chiama il browser di un ospite)
+
+> ⚠ **Il prefisso `dayspa-` non è un vezzo: `richieste/disponibilita.ts`
+> ESISTE GIÀ ed è in produzione.** È il ponte sulla disponibilità delle
+> CAMERE (riduce la risposta di `/api/available/rates`, lavora in centesimi,
+> lo usa la pagina di prenotazione). Questo piano nella sua prima stesura
+> diceva «Creare: `richieste/disponibilita.ts`»: seguirlo alla lettera lo
+> avrebbe sovrascritto. Sono due ponti verso due API diverse, e il nome deve
+> dire quale — non «semplificarlo» dopo.
 
 **Interfacce:**
 - Consuma: niente dai compiti precedenti.
@@ -314,7 +322,7 @@ posti residui — che non deve mai arrivare al cliente.
 
 ```ts
 import { assertEquals } from 'jsr:@std/assert';
-import { esitoDisponibilita } from './disponibilita.ts';
+import { esitoDisponibilita } from './dayspa-disponibilita.ts';
 
 const RISPOSTA_VERA = [{
   id: 2100, date: '2026-08-18', amount: 42, title: 'Giornaliero h.9-18:30',
@@ -369,7 +377,7 @@ Deno.test('l esito non contiene MAI i posti residui', () => {
 
 - [ ] **Passo 2: eseguirlo e vederlo fallire**
 
-Esegui: `deno test --allow-env --allow-read disponibilita.test.ts`
+Esegui: `deno test --allow-env --allow-read dayspa-disponibilita.test.ts`
 Atteso: FALLISCE — il modulo non esiste.
 
 - [ ] **Passo 3: scrivere il codice**
@@ -408,7 +416,7 @@ if (azione === 'dayspa') {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(giorno)) {
     return risposta({ errore: 'giorno non valido' }, 400);
   }
-  const stagioni = await leggiStagioni(db);
+  const stagioni = await leggiStagioni();
   const chiuso = aHotelChiuso(giorno, stagioni);
   const giorni = Math.round(
     (new Date(giorno + 'T12:00:00Z').getTime() - Date.now()) / 86400000,
@@ -429,8 +437,12 @@ if (azione === 'dayspa') {
 
 *(`leggiStagioni` esiste già in `buoni/index.ts`: se in `richieste/index.ts`
 non c'è, portala qui con la stessa forma — legge `stagione_chiusura` ordinata
-per `chiusura`. `aHotelChiuso` è una funzione nuova di due righe: vero se il
-giorno cade fra `chiusura` e `riapertura` esclusa, per una qualsiasi stagione.)*
+per `chiusura`. **Non prende argomenti**: il client `db` è già in cima al
+file, e passarglielo (`leggiStagioni(db)`, come scriveva questo piano nella
+prima stesura) non compila. `aHotelChiuso` è una funzione nuova di due righe:
+vero se il giorno cade fra `chiusura` e `riapertura` esclusa, per una
+qualsiasi stagione — e sta in `dayspa-disponibilita.ts`, dove è pura e
+collaudata, non in `index.ts`.)*
 
 - [ ] **Passo 4: eseguire e vedere passare**
 
@@ -446,7 +458,7 @@ codice buono.
 - [ ] **Passo 6: commit**
 
 ```bash
-git add supabase/functions/richieste/disponibilita.ts supabase/functions/richieste/disponibilita.test.ts supabase/functions/richieste/index.ts
+git add supabase/functions/richieste/dayspa-disponibilita.ts supabase/functions/richieste/dayspa-disponibilita.test.ts supabase/functions/richieste/index.ts
 git commit -m "La disponibilita del Day Spa passa da noi: esce uno stato, mai i posti residui"
 ```
 
