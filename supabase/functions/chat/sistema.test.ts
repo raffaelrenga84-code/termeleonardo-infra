@@ -41,3 +41,28 @@ Deno.test('la dichiarazione che verifica_dayspa non esiste in questo canale rest
   const prompt = sistema('it', [], oggi('2026-08-15'));
   assertStringIncludes(prompt, 'NON esiste in questo canale');
 });
+
+/* Il blocco STRUMENTI ha la precedenza dichiarata su tutto il resto del
+   prompt, e proprio per questo puo' smentire gli altri due per distrazione:
+   ha continuato a dire che prenotare online era «l'unico modo per garantire
+   il posto» anche dopo che kb.ts e prompt.ts erano stati corretti — e a
+   valere era la sua versione. Qui si guarda il prompt ASSEMBLATO, che e'
+   quello che il modello legge davvero. */
+Deno.test('il blocco che ha la precedenza non dice piu che pagare online e l unico modo', () => {
+  const prompt = sistema('it', [], oggi('2026-08-15'));
+  assert(
+    !/unico modo per garantire il posto/.test(prompt),
+    'per chi ha un buono regalo quella frase e falsa: il sito il buono non lo accetta',
+  );
+});
+
+Deno.test('e nomina tutte e due le strade del Day Spa, quella di chi paga e quella del buono', () => {
+  const prompt = sistema('it', [], oggi('2026-08-15'));
+  const blocco = prompt.slice(prompt.indexOf('# STRUMENTI DISPONIBILI IN QUESTO CANALE'));
+  assertStringIncludes(blocco, 'chi paga adesso');
+  assertStringIncludes(blocco, 'buono regalo');
+  assertStringIncludes(blocco, 'nostro modulo');
+  /* i due divieti che quel blocco esiste per ribadire restano intatti */
+  assertStringIncludes(blocco, 'NON esiste in questo canale');
+  assertStringIncludes(blocco, 'esaurita');
+});

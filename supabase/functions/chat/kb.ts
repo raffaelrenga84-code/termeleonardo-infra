@@ -31,7 +31,9 @@ export const KNOWLEDGE_BASE = `# KNOWLEDGE BASE
 
 Spiega sempre il perché (posti limitati, garanzia): è un vantaggio, non un'imposizione.
 
-- Si paga alla prenotazione online (no bonifico). **La prenotazione è vincolante: non spostabile, non stornabile, non rimborsabile** — dillo **prima** che l'ospite vada a prenotare, mai dopo.
+**Il resto vale per tutti e due, tranne dove è detto.**
+
+- **Solo per il punto 1 (chi paga adesso):** si paga alla prenotazione online (no bonifico), e **quella prenotazione è vincolante: non spostabile, non stornabile, non rimborsabile** — dillo **prima** che l'ospite vada a prenotare, mai dopo. *Non dirlo a chi ha un buono:* lui ha già pagato, non sta prenotando su quel sito, e la sua data la fissa con noi.
 - Nessuna riduzione per l'ingresso pomeridiano.
 - **Walk-in feriale:** dal lunedì al venerdì si può anche venire direttamente, **senza garanzia di posto**. Dillo **solo se l'ospite chiede espressamente** se può venire senza prenotare.
 - Difficoltà con internet → familiare o trasferimento.
