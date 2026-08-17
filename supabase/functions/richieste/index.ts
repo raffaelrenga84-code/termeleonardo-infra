@@ -140,13 +140,24 @@ const permessoDisponibilita = creaFrenoIp(TETTO_DISPONIBILITA, FINESTRA_DISPONIB
    una sessione (cookie + token CSRF) verso termeleonardo.com per 5 minuti,
    quindi molte chiamate ravvicinate pesano solo su quella cache. a=dayspa
    invece chiama /it/api/1/availability DIRETTAMENTE — una fetch vera verso
-   il sito reale dell'hotel a ogni chiamata, senza nessuna cache in mezzo —
-   e la pagina ha un solo campo data (niente combinazioni di adulti e
-   bambini come per le camere), quindi un ospite vero ne fa al massimo
-   qualche decina mentre confronta i giorni. 60 chiamate ogni 5 minuti
-   reggono una decina di persone che condividono una rete (albergo, ufficio,
-   CGNAT) e provano 5-6 date ciascuna, restando comunque un freno vero
-   contro uno script che bombarda direttamente il sito reale dell'hotel. */
+   il sito reale dell'hotel a ogni chiamata, senza nessuna cache in mezzo.
+
+   COM'E' FATTA LA PAGINA CHE CHIAMA QUI (aggiornato il 17 agosto 2026: fino
+   a quel giorno questo commento diceva «un solo campo data», ed era la
+   giustificazione dichiarata del numero qui sotto). I campi che fanno
+   partire una domanda sono DUE: il giorno e «quante persone» — quest'ultimo
+   perche' il ponte gira il numero all'API, e in sei si puo' essere pieni
+   dove in uno c'era posto. Un `input[type=number]` pero' lancia un `change`
+   a ogni scatto della freccetta, quindi davanti ai due campi c'e' un freno
+   di 400 ms (ATTESA_PRIMA_DI_CHIEDERE in pagine/richieste/index.html): il
+   gesto 1→8 vale UNA chiamata, non sette. Restano le combinazioni che un
+   ospite vero prova davvero — qualche giorno per qualche numero di persone,
+   cioe' ancora qualche decina di chiamate, non centinaia.
+
+   60 chiamate ogni 5 minuti reggono una decina di persone che condividono
+   una rete (albergo, ufficio, CGNAT) e provano 5-6 combinazioni di giorno e
+   persone ciascuna, restando comunque un freno vero contro uno script che
+   bombarda direttamente il sito reale dell'hotel. */
 const TETTO_DAYSPA = 60;
 const FINESTRA_DAYSPA_MS = 5 * 60 * 1000;
 const permessoDayspa = creaFrenoIp(TETTO_DAYSPA, FINESTRA_DAYSPA_MS);
