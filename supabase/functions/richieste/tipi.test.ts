@@ -2,7 +2,7 @@
    La data di riferimento arriva da fuori: legata a new Date() questi test
    comincerebbero a fallire da soli col passare del tempo. */
 import { assertEquals, assertNotEquals } from 'jsr:@std/assert';
-import { validaDati } from './tipi.ts';
+import { TIPI_ATTIVI, validaDati } from './tipi.ts';
 import { CAMERE } from './camere.ts';
 
 const OGGI = new Date('2026-08-13T10:00:00Z');
@@ -324,4 +324,60 @@ Deno.test('dayspa: persone fuori scala rifiutate', () => {
     const r = validaDati('dayspa', { giorno: '2026-09-20', persone: p }, OGGI);
     assertNotEquals(r.errore, undefined, `persone ${p}`);
   }
+});
+
+/* ---------------- il presidio su TIPI_ATTIVI ----------------
+   IL DIFETTO CHE PRESIDIA. `TIPI_ATTIVI` non ha consumatori a runtime: chi
+   decide davvero quali tipi esistono e' lo `switch` di `validaDati` (e il suo
+   `default`, che rifiuta tutto il resto). La costante e' una DICHIARAZIONE, e
+   una dichiarazione che nessuno verifica invecchia in silenzio — infatti il
+   prompt della chat si dichiarava «allineato a TIPI_ATTIVI» mentre TIPI_ATTIVI
+   stessa non era allineata a niente.
+
+   Senza questi test, chat/prompt.test.ts confronta la copia della chat con un
+   originale che a sua volta nessuno verifica: un settimo tipo aggiunto allo
+   switch e dimenticato nell'elenco lascerebbe tutto verde, e la chat non lo
+   saprebbe mai.
+
+   Il terzo test legge la SORGENTE dello switch — stessa tecnica di
+   pagine/buoni/regala/serale.test.ts e pagine/richieste/avviso-dayspa.test.ts —
+   perche' i `case` di uno switch non si possono enumerare a runtime. */
+const SORGENTE_TIPI = Deno.readTextFileSync(new URL('tipi.ts', import.meta.url));
+
+Deno.test('ogni tipo di TIPI_ATTIVI e accettato da validaDati', () => {
+  for (const tipo of TIPI_ATTIVI) {
+    /* con dati vuoti quasi tutti rispondono un errore di campo (data
+       mancante, e simili): quello va benissimo. Quello che NON deve mai
+       arrivare e' «tipo di richiesta sconosciuto», che vorrebbe dire che
+       l'elenco promette un tipo che la funzione poi rifiuta. */
+    assertNotEquals(
+      validaDati(tipo, {}, OGGI).errore,
+      'tipo di richiesta sconosciuto',
+      `TIPI_ATTIVI promette «${tipo}», ma validaDati non lo conosce`,
+    );
+  }
+});
+
+Deno.test('un tipo fuori da TIPI_ATTIVI viene rifiutato, anche se sembra uno dei nostri', () => {
+  /* 'toString' e 'constructor' sono il caso serio: esistono su
+     Object.prototype, e una lookup diretta OGGETTO[tipo] ci cascherebbe.
+     Lo switch no — questo test e' quello che tiene ferma quella scelta. */
+  for (const finto of ['scommesse', '', 'toString', 'constructor', 'dayspa2', 'DAYSPA', 'soggiorni']) {
+    assertEquals(
+      validaDati(finto, {}, OGGI).errore,
+      'tipo di richiesta sconosciuto',
+      `«${finto}» e' passato come tipo valido`,
+    );
+  }
+});
+
+Deno.test('lo switch di validaDati e TIPI_ATTIVI dicono gli stessi tipi, nessuno in piu o in meno', () => {
+  const corpo = /export function validaDati\([\s\S]*?switch \(tipo\) \{([\s\S]*?)\n  \}/.exec(SORGENTE_TIPI);
+  assertNotEquals(corpo, null, 'lo switch di validaDati non si trova piu: e cambiata la forma?');
+  const casi = [...corpo![1].matchAll(/case '([a-z]+)':/g)].map((m) => m[1]);
+  assertEquals(
+    casi.sort(),
+    [...TIPI_ATTIVI].sort(),
+    'un tipo e stato aggiunto o tolto in un posto solo: l elenco dichiarato e quello vero divergono',
+  );
 });
