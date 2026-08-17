@@ -111,6 +111,27 @@ textarea{min-height:80px;resize:vertical;}
 .pienoTratt .sommaTratt{font:600 17px inherit;color:var(--verde);font-variant-numeric:tabular-nums;}
 .capMsgTratt{margin:10px 0 0;background:#FFF6E8;border-left:4px solid var(--oro);
   padding:10px 13px;border-radius:6px;font-size:13px;color:#6B4A22;line-height:1.5;}
+
+/* -------- il riquadro del buono regalo --------
+   Nessuna di queste regole tocca qualcosa che esiste gia': si applicano
+   solo a elementi che nascono quando l'indirizzo porta un ?buono=. Senza
+   quel parametro la pagina non ne disegna nessuno. */
+.buono{background:#fff;border:1px solid #E5E0D8;border-left:4px solid var(--oro);
+  border-radius:10px;padding:15px 17px;margin-bottom:18px;}
+.buono .titBuono{font:600 15px inherit;color:var(--verde);margin:0;}
+.buono .numBuono{font-family:"Courier New",monospace;font-size:13px;color:var(--grigio);
+  letter-spacing:1px;margin:2px 0 0;}
+.buono .comprendeBuono{margin:10px 0 0;font-size:13.5px;color:var(--verde-medio);}
+.buono ul{margin:4px 0 0;padding-left:20px;}
+.buono li{margin:2px 0;}
+.buono .scadeBuono{color:var(--grigio);font-size:13px;margin:10px 0 0;}
+/* il buono che non si puo' usare: stesso segno d'allarme dei messaggi di
+   errore del modulo, perche' e' la stessa cosa — qualcosa da sistemare
+   prima di arrivare, non un dettaglio decorativo */
+.buonoNo{background:#FDF0EE;border-left:4px solid var(--allarme);padding:13px 15px;
+  border-radius:6px;color:#7A2E24;font-size:14px;line-height:1.6;margin-bottom:18px;}
+.diffBuono{margin:10px 0 0;background:var(--acqua-chiara);border-left:4px solid var(--acqua);
+  padding:10px 13px;border-radius:6px;font-size:13.5px;color:var(--verde-medio);line-height:1.5;}
 </style>
 </head>
 <body>
@@ -154,8 +175,20 @@ import { normalizzaLingua, parametriOspite } from '/comune/ospite-url.js';
    trattamenti.js) — non si riscrivono qui dentro, altrimenti sarebbe il
    quarto elenco che diverge dagli altri tre. */
 import { nomeCompleto, ORDINE_GRUPPI, prezzoTesto, SPIEGAZIONI, TRATTAMENTI } from '/comune/trattamenti.js';
+/* IDEM PERCORSO ASSOLUTO: il codice del buono letto dall'indirizzo e il
+   conto della differenza fra quanto copre il buono e quanto costa la
+   scelta. Il conto e' una SECONDA COPIA di quello del server (vive in
+   Deno, da qui non si importa): buono-url.test.ts confronta le due su
+   ogni caso, cosi' una divergenza diventa rossa invece di far leggere
+   all'ospite una cifra sulla pagina e sentirne un'altra alla cassa. */
+import { codiceDaUrl, differenzaBuono } from '/comune/buono-url.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
+/* i buoni stanno su un'altra funzione: ?a=verifica e' una LETTURA pubblica
+   che dice validita' e contenuto e nessun dato personale (vedi l'azione in
+   supabase/functions/buoni/index.ts). Non riscuote niente: il buono lo
+   scala la reception al banco, col QR. */
+const FUNZIONE_BUONI = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
@@ -182,6 +215,26 @@ let LNG = linguaScelta(normalizzaLingua(location.search), location.pathname, nav
    precompilazione non lo restituisce (vedi supabase/functions/richieste/
    index.ts, azione precompila). */
 const DA_URL = parametriOspite(location.search);
+
+/* ---------- il buono regalo, quando l'indirizzo ne porta uno ----------
+   CODICE_BUONO e' l'interruttore di tutto il pezzo dei buoni. Quando e'
+   vuoto — cioe' per chiunque apra il modulo come ha sempre fatto — non
+   parte nessuna chiamata in piu', non si disegna nessun riquadro e la
+   pagina e' identica a quella di ieri: il buono e' un caso particolare
+   che si innesta, non una riscrittura del modulo.
+   codiceDaUrl ripulisce gia' il valore (maiuscole, solo lettere, cifre e
+   trattini, al massimo 40 caratteri): quello che non e' un codice non
+   arriva nemmeno alla chiamata. */
+const CODICE_BUONO = codiceDaUrl(location.search);
+/* la risposta di ?a=verifica quando il buono e' VALIDO, altrimenti null */
+let BUONO = null;
+/* quale delle vie d'uscita mostrare: '' quando non ce n'e' nessuna da
+   mostrare — sia perche' il buono e' valido, sia perche' la verifica non
+   ha risposto affatto (li' si tace e si mostra il modulo normale) */
+let BUONO_KO = '';
+/* la data che serve al messaggio: la scadenza, o il giorno della
+   riscossione se il buono risulta gia' usato */
+let BUONO_DATA = '';
 
 const CIRCOLI = [
   ['montecchia', 'Golf della Montecchia — Selvazzano Dentro · 27 buche, par 72'],
@@ -232,6 +285,27 @@ const T = {
     nome:'Nome e cognome', email:'Email', tel:'Telefono',
     note:'Note (facoltative)', notePh:'Qualsiasi cosa ci aiuti a organizzare…',
     rifOfferta:(r)=>`Rif. offerta: ${r}`,
+    /* Il buono regalo. Le quattro vie d'uscita (non trovato · scaduto ·
+       gia' riscosso · non ancora attivo) sono quelle della specifica, coi
+       suoi testi: nessuna blocca l'invio, perche' la reception puo'
+       sistemare al banco quello che qui non torna.
+       La differenza si dice in tutte e due le direzioni: la frase del
+       residuo non e' una gentilezza, e' la condizione gia' stampata sul
+       buono («l'importo residuo non e' rimborsabile ne' riutilizzabile»)
+       detta nel momento in cui l'ospite sceglie, invece che al banco
+       quando ormai e' un reclamo. */
+    buono:{
+      titolo:'Il suo buono regalo', comprende:'Comprende:',
+      scade:(d)=>`Valido fino al ${d}`,
+      differenza:(c,s,d)=>`Il suo buono copre ${c} €. Ha scelto trattamenti per ${s} €: all’arrivo pagherà la differenza di ${d} €.`,
+      residuo:(c,s)=>`Il suo buono vale ${c} €. Ha scelto trattamenti per ${s} €: le ricordiamo che l’importo residuo non è rimborsabile né riutilizzabile.`,
+      copre:(c)=>`Il suo buono copre per intero quello che ha scelto (${c} €).`,
+      nonTrovato:'Questo codice non risulta. Controlli sul buono, oppure ci scriva.',
+      scaduto:(d)=>`Questo buono è scaduto${d ? ' il ' + d : ''} — la reception valuta caso per caso, ci scriva.`,
+      riscosso:(d)=>`Risulta già utilizzato${d ? ' il ' + d : ''}. Se non le risulta, ci scriva.`,
+      attesa:'Questo buono non risulta ancora attivo.',
+      altro:'Questo buono non risulta utilizzabile. Ci scriva e controlliamo.',
+      nota:(c)=>`Buono regalo: ${c}` },
     privacy:"Ho preso atto dell’informativa sul trattamento dei dati personali", privacyLink:"Leggi l’informativa",
     privacyManca:"Per procedere deve prendere atto dell’informativa privacy.", invia:'Invia la richiesta', invio:'Invio…',
     manca:'Compili i campi obbligatori.',
@@ -273,6 +347,18 @@ const T = {
     nome:'Vor- und Nachname', email:'E-Mail', tel:'Telefon',
     note:'Anmerkungen (optional)', notePh:'Alles, was uns bei der Organisation hilft…',
     rifOfferta:(r)=>`Rif. offerta / Angebotsreferenz: ${r}`,
+    buono:{
+      titolo:'Ihr Gutschein', comprende:'Enthält:',
+      scade:(d)=>`Gültig bis ${d}`,
+      differenza:(c,s,d)=>`Ihr Gutschein deckt ${c} €. Sie haben Anwendungen für ${s} € gewählt: bei der Ankunft zahlen Sie die Differenz von ${d} €.`,
+      residuo:(c,s)=>`Ihr Gutschein ist ${c} € wert. Sie haben Anwendungen für ${s} € gewählt: Wir weisen Sie darauf hin, dass der Restbetrag weder erstattet noch weiterverwendet werden kann.`,
+      copre:(c)=>`Ihr Gutschein deckt Ihre Auswahl vollständig ab (${c} €).`,
+      nonTrovato:'Dieser Code ist bei uns nicht auffindbar. Bitte prüfen Sie ihn auf dem Gutschein oder schreiben Sie uns.',
+      scaduto:(d)=>`Dieser Gutschein ist${d ? ' am ' + d : ''} abgelaufen — die Rezeption entscheidet von Fall zu Fall, schreiben Sie uns.`,
+      riscosso:(d)=>`Er wurde${d ? ' am ' + d : ''} bereits eingelöst. Sollte das nicht stimmen, schreiben Sie uns.`,
+      attesa:'Dieser Gutschein ist noch nicht aktiv.',
+      altro:'Dieser Gutschein kann nicht eingelöst werden. Schreiben Sie uns, wir prüfen das.',
+      nota:(c)=>`Buono regalo / Gutschein: ${c}` },
     privacy:"Ich habe die Datenschutzerklärung zur Kenntnis genommen", privacyLink:"Datenschutzerklärung lesen",
     privacyManca:"Bitte nehmen Sie die Datenschutzerklärung zur Kenntnis.", invia:'Anfrage senden', invio:'Senden…',
     manca:'Bitte Pflichtfelder ausfüllen.',
@@ -314,6 +400,18 @@ const T = {
     nome:'Full name', email:'Email', tel:'Phone',
     note:'Notes (optional)', notePh:'Anything that helps us organise…',
     rifOfferta:(r)=>`Rif. offerta / Offer reference: ${r}`,
+    buono:{
+      titolo:'Your gift voucher', comprende:'Includes:',
+      scade:(d)=>`Valid until ${d}`,
+      differenza:(c,s,d)=>`Your voucher covers ${c} €. You have chosen treatments for ${s} €: on arrival you will pay the difference of ${d} €.`,
+      residuo:(c,s)=>`Your voucher is worth ${c} €. You have chosen treatments for ${s} €: please note that the remaining amount is neither refundable nor reusable.`,
+      copre:(c)=>`Your voucher covers your choice in full (${c} €).`,
+      nonTrovato:'We cannot find this code. Please check it on the voucher, or write to us.',
+      scaduto:(d)=>`This voucher expired${d ? ' on ' + d : ''} — reception looks at each case, please write to us.`,
+      riscosso:(d)=>`It appears to have already been used${d ? ' on ' + d : ''}. If that is not the case, please write to us.`,
+      attesa:'This voucher is not active yet.',
+      altro:'This voucher cannot be used. Please write to us and we will check.',
+      nota:(c)=>`Buono regalo / Gift voucher: ${c}` },
     privacy:"I have read the privacy notice", privacyLink:"Read the privacy notice",
     privacyManca:"Please acknowledge the privacy notice to continue.", invia:'Send request', invio:'Sending…',
     manca:'Please fill in the required fields.',
@@ -355,6 +453,18 @@ const T = {
     nome:'Nom et prénom', email:'E-mail', tel:'Téléphone',
     note:'Remarques (facultatif)', notePh:'Tout ce qui nous aide à organiser…',
     rifOfferta:(r)=>`Rif. offerta / Réf. offre : ${r}`,
+    buono:{
+      titolo:'Votre chèque-cadeau', comprende:'Comprend :',
+      scade:(d)=>`Valable jusqu’au ${d}`,
+      differenza:(c,s,d)=>`Votre chèque couvre ${c} €. Vous avez choisi des soins pour ${s} € : à l’arrivée vous paierez la différence de ${d} €.`,
+      residuo:(c,s)=>`Votre chèque vaut ${c} €. Vous avez choisi des soins pour ${s} € : nous vous rappelons que le montant restant n’est ni remboursable ni réutilisable.`,
+      copre:(c)=>`Votre chèque couvre entièrement votre choix (${c} €).`,
+      nonTrovato:'Ce code est introuvable. Vérifiez-le sur le chèque, ou écrivez-nous.',
+      scaduto:(d)=>`Ce chèque a expiré${d ? ' le ' + d : ''} — la réception examine chaque cas, écrivez-nous.`,
+      riscosso:(d)=>`Il semble avoir déjà été utilisé${d ? ' le ' + d : ''}. Si ce n’est pas le cas, écrivez-nous.`,
+      attesa:'Ce chèque n’est pas encore actif.',
+      altro:'Ce chèque ne peut pas être utilisé. Écrivez-nous, nous vérifions.',
+      nota:(c)=>`Buono regalo / Bon cadeau : ${c}` },
     privacy:"J’ai pris connaissance de la politique de confidentialité", privacyLink:"Lire la politique de confidentialité",
     privacyManca:"Veuillez prendre connaissance de la politique de confidentialité.", invia:'Envoyer la demande', invio:'Envoi…',
     manca:'Veuillez remplir les champs obligatoires.',
@@ -485,7 +595,11 @@ function campiTipo(t) {
         <span class="contoTratt" id="contoTratt" aria-live="polite"></span>
         <span class="sommaTratt" id="sommaTratt"></span>
       </div>
-      <p class="capMsgTratt" id="capMsgTratt" hidden></p>
+      <p class="capMsgTratt" id="capMsgTratt" hidden></p>${BUONO ? `
+      <!-- la differenza sta QUI e non nel riquadro in cima: e' il punto in
+           cui l'ospite cambia scelta, ed e' li' che la cifra deve cambiarle
+           sotto gli occhi. Senza buono la riga non esiste affatto. -->
+      <p class="diffBuono" id="diffBuono" hidden></p>` : ''}
     </div>
     <div class="due" style="margin-top:16px;">
       <div><label for="fGiorno">${esc(t.giorno)}</label>
@@ -562,6 +676,9 @@ function contaTratt(t) {
   let somma = 0;
   for (const i of SCELTI_TRATT) somma += TRATTAMENTI[i].prezzo;
   $('sommaTratt').textContent = somma ? somma + ' €' : '';
+  /* stesso punto, stesso momento: se c'e' un buono, qui cambia anche la
+     differenza. Senza buono aggiornaDifferenza() esce subito. */
+  aggiornaDifferenza(t);
 }
 
 /* Chiamata una sola volta per disegno di modulo() (come attivaDate()):
@@ -569,7 +686,12 @@ function contaTratt(t) {
    attaccare due volte lo stesso ascoltatore. */
 function attivaTrattamenti(t) {
   const percorsi = percorsiTratt(t);
-  let attivo = -1;
+  /* Il gruppo da aprire: quello che contiene la prima voce gia' spuntata
+     dal buono. Senza buono non c'e' niente di spuntato e il risultato e'
+     -1, cioe' esattamente il "Scelga una categoria qui sopra" di sempre.
+     Con un buono, invece, lasciare il pannello chiuso farebbe leggere
+     «1 trattamento scelto» senza far vedere QUALE. */
+  let attivo = percorsi.findIndex((p) => p.voci.some((v) => SCELTI_TRATT.has(TRATTAMENTI.indexOf(v))));
   disegnaStradeTratt(t, percorsi, attivo);
   disegnaRisultatoTratt(t, percorsi, attivo);
   contaTratt(t);
@@ -627,11 +749,147 @@ function attivaTrattamenti(t) {
   });
 }
 
+/* ---------------- il buono regalo ----------------
+   Tutto questo pezzo vive dietro CODICE_BUONO: senza ?buono= nell'indirizzo
+   verificaBuono() esce subito (nessuna chiamata), riquadroBuono() torna
+   stringa vuota e notePrecompilate() scrive esattamente quello che scriveva
+   prima. Non c'e' nessun percorso in cui il modulo di sempre cambi.
+
+   OGNI valore che finisce nel markup passa da esc(): il contenuto del buono
+   arriva da una risposta di rete e si tratta come ostile, anche se la
+   risposta viene dal nostro server. */
+
+/* La data come la legge un ospite, nella sua lingua. Torna '' se non c'e'
+   una data vera: i messaggi qui sotto sanno cavarsela senza (un buono
+   scaduto resta scaduto anche se la colonna e' vuota). `riscosso_il` e' un
+   istante, non un giorno: si tiene solo la parte della data. LNG e' gia'
+   validato contro le quattro lingue da linguaScelta(). */
+function dataBuono(v) {
+  const s = String(v ?? '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '';
+  const d = new Date(s + 'T12:00:00');
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(LNG, { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+async function verificaBuono() {
+  if (!CODICE_BUONO) return;
+  try {
+    const r = await fetch(`${FUNZIONE_BUONI}?a=verifica&codice=${encodeURIComponent(CODICE_BUONO)}`);
+    const d = await r.json();
+    /* un 404 qui NON e' un guasto: e' la risposta vera per "non trovato",
+       e si legge come tutte le altre. Quello che non si sa leggere (nessun
+       campo `valido`) si tratta invece come "non ha risposto". */
+    if (!d || typeof d.valido !== 'boolean') {
+      console.error('verifica del buono illeggibile', r.status, d);
+      return;
+    }
+    if (d.valido) { BUONO = d; return; }
+    BUONO_DATA = d.stato === 'riscosso' ? d.riscosso_il : d.scade_il;
+    BUONO_KO = d.motivo === 'non trovato' ? 'nonTrovato'
+      : d.stato === 'scaduto' ? 'scaduto'
+      : d.stato === 'riscosso' ? 'riscosso'
+      : d.stato === 'attesa' ? 'attesa'
+      /* 'annullato', o uno stato che questa pagina non conosce ancora: si
+         dice che non e' utilizzabile e si invita a scrivere, mai a
+         indovinare il motivo */
+      : 'altro';
+  } catch (e) {
+    /* la verifica non ha risposto affatto: nessun riquadro, modulo normale,
+       codice nelle note. Meglio una richiesta senza riquadro che nessuna
+       richiesta. */
+    console.error('verifica del buono non riuscita', e);
+  }
+}
+
+function messaggioBuonoKo(t) {
+  const b = t.buono, d = dataBuono(BUONO_DATA);
+  if (BUONO_KO === 'nonTrovato') return b.nonTrovato;
+  if (BUONO_KO === 'scaduto') return b.scaduto(d);
+  if (BUONO_KO === 'riscosso') return b.riscosso(d);
+  if (BUONO_KO === 'attesa') return b.attesa;
+  return b.altro;
+}
+
+function riquadroBuono(t) {
+  if (BUONO_KO) return `<div class="buonoNo">${esc(messaggioBuonoKo(t))}</div>`;
+  if (!BUONO) return '';
+  /* il contenuto: una riga per voce, come lo compone il server
+     (componiDescrizione in buoni/acquista.ts). Il riquadro le elenca
+     TUTTE — un buono puo' contenere due cose, per esempio un ingresso Day
+     Spa e un massaggio, e chi legge deve vederle entrambe. */
+  const righe = String(BUONO.descrizione ?? '').split('\n').map((s) => s.trim()).filter(Boolean);
+  const scad = dataBuono(BUONO.scade_il);
+  /* Il numero si MOSTRA, non si chiede: e' sequenziale, chiederlo
+     aggiungerebbe un campo da digitare senza chiudere nessuna porta, e chi
+     non riconosce il proprio buono si ferma prima di compilare (specifica).
+     Oggi pero' ?a=verifica non restituisce `numero` — e la specifica dice
+     che quell'azione non va allargata — quindi si mostra il CODICE, che
+     l'ospite ha davanti sul foglio o nell'email. Se un domani la risposta
+     portasse anche il numero, comparirebbe da solo senza toccare niente. */
+  return `<div class="buono">
+      <p class="titBuono">${esc(t.buono.titolo)}</p>
+      <p class="numBuono">${esc(BUONO.numero || CODICE_BUONO)}</p>
+      ${righe.length ? `<p class="comprendeBuono">${esc(t.buono.comprende)}</p>
+      <ul>${righe.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
+      ${scad ? `<p class="scadeBuono">${esc(t.buono.scade(scad))}</p>` : ''}
+    </div>`;
+}
+
+/* Le voci del buono sono id del LISTINO dei buoni regalo; ogni voce di
+   trattamenti.js dichiara il proprio (`regalabile`). Si spuntano quelle, e
+   restano MODIFICABILI: chi ha un buono da 65 € e vuole un trattamento da
+   80 lo sceglie e paga la differenza — bloccarlo impedirebbe una vendita
+   che si farebbe volentieri (specifica).
+   Un ingresso Day Spa non ha un trattamento corrispondente qui: non si
+   spunta niente, ma resta scritto nel riquadro e nel conto. */
+function preselezionaDalBuono() {
+  if (!BUONO || TIPO !== 'trattamenti') return;
+  for (const v of Array.isArray(BUONO.voci) ? BUONO.voci : []) {
+    const id = String(v?.voce_id ?? '');
+    if (!id) continue;
+    const i = TRATTAMENTI.findIndex((x) => x.regalabile === id);
+    if (i >= 0 && SCELTI_TRATT.size < TRATT_MAX) SCELTI_TRATT.add(i);
+  }
+}
+
+/* La differenza, aggiornata mentre l'ospite cambia scelta: la chiama
+   contaTratt(), cioe' lo stesso punto che aggiorna il conto e la somma. */
+function aggiornaDifferenza(t) {
+  const box = $('diffBuono');
+  if (!box || !BUONO) return;
+  let scelto = 0;
+  for (const i of SCELTI_TRATT) scelto += TRATTAMENTI[i].prezzo;
+  const e = differenzaBuono(BUONO.valore, scelto);
+  /* 'ignoto' vuol dire "non lo sappiamo", e in quel caso `copre` e `scelto`
+     valgono 0: stamparli farebbe leggere «0 €» dove la verita' e' che il
+     conto non si puo' fare (nessun trattamento ancora scelto, o un buono
+     senza valore). Si tace — rilievo gia' segnalato sul compito 1. */
+  if (e.tipo === 'ignoto') { box.hidden = true; box.textContent = ''; return; }
+  box.textContent = e.tipo === 'differenza' ? t.buono.differenza(e.copre, e.scelto, e.differenza)
+    : e.tipo === 'residuo' ? t.buono.residuo(e.copre, e.scelto)
+    : t.buono.copre(e.copre);
+  box.hidden = false;
+}
+
+/* Le note gia' scritte: il riferimento dell'offerta (da sempre) e il codice
+   del buono, ognuno con l'etichetta italiana piu' la traduzione — e' li'
+   che li ritrova la reception, e la nota la legge una persona.
+   Il codice ci finisce SEMPRE che l'indirizzo ne porti uno: anche se la
+   verifica non ha risposto, anche se il buono non risulta valido. Meglio
+   una richiesta senza riquadro che nessuna richiesta. */
+function notePrecompilate(t) {
+  const righe = [];
+  if (DA_URL.rif) righe.push(t.rifOfferta(DA_URL.rif));
+  if (CODICE_BUONO) righe.push(t.buono.nota(CODICE_BUONO));
+  return righe.join('\n');
+}
+
 function modulo() {
   const t = T[LNG];
   $('app').innerHTML = `
     <div class="avviso">${t.avviso}</div>
-    ${OSPITE ? `<div class="noto">${esc(t.noto(OSPITE.nome || ''))}</div>` : ''}
+    ${riquadroBuono(t)}${OSPITE ? `<div class="noto">${esc(t.noto(OSPITE.nome || ''))}</div>` : ''}
     <div class="riquadro">${campiTipo(t)}</div>
     <div class="riquadro">
       <h2>${esc(t.chi)}</h2><div class="guida">${esc(t.guidaChi)}</div>
@@ -646,10 +904,11 @@ function modulo() {
           <input type="tel" id="fTel" autocomplete="tel" value="${esc(DA_URL.tel)}" /></div>
       </div>
       <label for="fNote">${esc(t.note)}</label>
-      <!-- il riferimento dell'offerta va nelle note, con un'etichetta
-           chiara: e' li' che lo ritrova la reception, non e' un campo del
-           modulo (vedi il commento in cima a ospite-url.js) -->
-      <textarea id="fNote" placeholder="${esc(t.notePh)}">${DA_URL.rif ? esc(t.rifOfferta(DA_URL.rif)) : ''}</textarea>
+      <!-- il riferimento dell'offerta e il codice del buono vanno nelle
+           note, con un'etichetta chiara: e' li' che li ritrova la
+           reception, non sono campi del modulo (vedi il commento in cima a
+           ospite-url.js e notePrecompilate qui sopra) -->
+      <textarea id="fNote" placeholder="${esc(t.notePh)}">${esc(notePrecompilate(t))}</textarea>
 
       <label class="spunta"><input type="checkbox" id="fPrivacy" />
         <span>${esc(t.privacy)} &mdash;
@@ -791,6 +1050,12 @@ async function precompila() {
 }
 
 await precompila();
+/* prima di disegnare il modulo: il riquadro e la voce preselezionata fanno
+   parte del PRIMO disegno, non di un secondo che farebbe saltare la pagina
+   sotto gli occhi. Senza ?buono= nell'indirizzo queste due righe non fanno
+   niente e non costano nemmeno una chiamata. */
+await verificaBuono();
+preselezionaDalBuono();
 testata();
 modulo();
 </script>
