@@ -19,9 +19,33 @@ import { avvisaHotel } from './email-richiesta.ts';
 import { inviaConferma } from './conferma.ts';
 import { arricchisciElenco } from './elenco.ts';
 import { componiRisposta, corpoDisponibilita } from './disponibilita.ts';
+import { esitoDisponibilita, ORIZZONTE_GIORNI } from './dayspa-disponibilita.ts';
 import { LINGUE } from './condizioni.ts';
 import { creaFrenoIp } from './limite-ip.ts';
 import { dataConsenso } from './consenso.ts';
+
+type Stagione = { chiusura: string; riapertura: string };
+
+/* Portata da buoni/index.ts, stessa forma: legge stagione_chiusura ordinata
+   per chiusura, e se la lettura fallisce prosegue senza — un ripiego onesto,
+   non bloccare la pagina del Day Spa per un guasto di lettura. */
+async function leggiStagioni(): Promise<Stagione[]> {
+  try {
+    const { data } = await db.from('stagione_chiusura')
+      .select('chiusura, riapertura').order('chiusura');
+    return (data ?? []) as Stagione[];
+  } catch (e) {
+    console.error('stagioni non lette, disponibilita day spa prosegue:', e);
+    return [];
+  }
+}
+
+/* Vero se il giorno cade fra chiusura e riapertura esclusa, per una
+   qualsiasi stagione: il confronto e' su stringhe AAAA-MM-GG, che ordinano
+   come le date perche' hanno tutte la stessa forma. */
+function aHotelChiuso(giorno: string, stagioni: Stagione[]): boolean {
+  return stagioni.some((s) => giorno >= s.chiusura && giorno < s.riapertura);
+}
 
 const testo = (v: unknown) => String(v ?? '').trim();
 
@@ -263,6 +287,33 @@ Deno.serve(async (req) => {
       return risposta({ esito: 'errore', errore: 'disponibilita non raggiungibile' }, 502);
     }
     return risposta(componiRisposta(grezzo, adulti, lingua));
+  }
+
+  /* ---------- pubblico: disponibilita' Day Spa ----------
+     L'API del sito precedente non manda CORS: il browser non puo' chiamarla.
+     Passa da qui, e da qui esce solo uno stato — mai i posti residui. */
+  if (azione === 'dayspa') {
+    const giorno = (url.searchParams.get('giorno') || '').trim();
+    const persone = (url.searchParams.get('persone') || '1').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(giorno)) {
+      return risposta({ errore: 'giorno non valido' }, 400);
+    }
+    const stagioni = await leggiStagioni();
+    const chiuso = aHotelChiuso(giorno, stagioni);
+    const giorni = Math.round(
+      (new Date(giorno + 'T12:00:00Z').getTime() - Date.now()) / 86400000,
+    );
+    let dati: unknown = null;
+    if (!chiuso && giorni <= ORIZZONTE_GIORNI) {
+      try {
+        const r = await fetch('https://www.termeleonardo.com/it/api/1/availability' +
+          `?from_date=${giorno}&to_date=${giorno}&people=${encodeURIComponent(persone)}`);
+        dati = r.ok ? await r.json() : null;
+      } catch (e) {
+        console.error('disponibilita day spa', e);
+      }
+    }
+    return risposta(esitoDisponibilita(dati, giorni, chiuso));
   }
 
   /* ---------- riservati al back office ---------- */
