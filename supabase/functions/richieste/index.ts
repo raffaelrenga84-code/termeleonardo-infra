@@ -19,16 +19,18 @@ import { avvisaHotel } from './email-richiesta.ts';
 import { inviaConferma } from './conferma.ts';
 import { arricchisciElenco } from './elenco.ts';
 import { componiRisposta, corpoDisponibilita } from './disponibilita.ts';
-import { esitoDisponibilita, ORIZZONTE_GIORNI } from './dayspa-disponibilita.ts';
+import {
+  aHotelChiuso, distanzaGiorni, esitoDisponibilita, ORIZZONTE_GIORNI, type Stagione,
+} from './dayspa-disponibilita.ts';
 import { LINGUE } from './condizioni.ts';
 import { creaFrenoIp } from './limite-ip.ts';
 import { dataConsenso } from './consenso.ts';
 
-type Stagione = { chiusura: string; riapertura: string };
-
 /* Portata da buoni/index.ts, stessa forma: legge stagione_chiusura ordinata
    per chiusura, e se la lettura fallisce prosegue senza — un ripiego onesto,
-   non bloccare la pagina del Day Spa per un guasto di lettura. */
+   non bloccare la pagina del Day Spa per un guasto di lettura.
+   `aHotelChiuso` e il calcolo dei giorni sono invece in dayspa-disponibilita.ts:
+   sono puri e collaudati li', questa funzione no perche' tocca il database. */
 async function leggiStagioni(): Promise<Stagione[]> {
   try {
     const { data } = await db.from('stagione_chiusura')
@@ -38,13 +40,6 @@ async function leggiStagioni(): Promise<Stagione[]> {
     console.error('stagioni non lette, disponibilita day spa prosegue:', e);
     return [];
   }
-}
-
-/* Vero se il giorno cade fra chiusura e riapertura esclusa, per una
-   qualsiasi stagione: il confronto e' su stringhe AAAA-MM-GG, che ordinano
-   come le date perche' hanno tutte la stessa forma. */
-function aHotelChiuso(giorno: string, stagioni: Stagione[]): boolean {
-  return stagioni.some((s) => giorno >= s.chiusura && giorno < s.riapertura);
 }
 
 const testo = (v: unknown) => String(v ?? '').trim();
@@ -138,6 +133,23 @@ async function troppeRichieste(email: string, ip: string): Promise<boolean> {
 const TETTO_DISPONIBILITA = 200;
 const FINESTRA_DISPONIBILITA_MS = 5 * 60 * 1000;
 const permessoDisponibilita = creaFrenoIp(TETTO_DISPONIBILITA, FINESTRA_DISPONIBILITA_MS);
+
+/* Freno per l'azione pubblica a=dayspa. Stesso meccanismo di
+   a=disponibilita (creaFrenoIp), soglia diversa e pensata per QUESTA
+   azione: a=disponibilita passa da check-availability, che tiene in cache
+   una sessione (cookie + token CSRF) verso termeleonardo.com per 5 minuti,
+   quindi molte chiamate ravvicinate pesano solo su quella cache. a=dayspa
+   invece chiama /it/api/1/availability DIRETTAMENTE — una fetch vera verso
+   il sito reale dell'hotel a ogni chiamata, senza nessuna cache in mezzo —
+   e la pagina ha un solo campo data (niente combinazioni di adulti e
+   bambini come per le camere), quindi un ospite vero ne fa al massimo
+   qualche decina mentre confronta i giorni. 60 chiamate ogni 5 minuti
+   reggono una decina di persone che condividono una rete (albergo, ufficio,
+   CGNAT) e provano 5-6 date ciascuna, restando comunque un freno vero
+   contro uno script che bombarda direttamente il sito reale dell'hotel. */
+const TETTO_DAYSPA = 60;
+const FINESTRA_DAYSPA_MS = 5 * 60 * 1000;
+const permessoDayspa = creaFrenoIp(TETTO_DAYSPA, FINESTRA_DAYSPA_MS);
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -293,21 +305,37 @@ Deno.serve(async (req) => {
      L'API del sito precedente non manda CORS: il browser non puo' chiamarla.
      Passa da qui, e da qui esce solo uno stato — mai i posti residui. */
   if (azione === 'dayspa') {
-    const giorno = (url.searchParams.get('giorno') || '').trim();
-    const persone = (url.searchParams.get('persone') || '1').trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(giorno)) {
-      return risposta({ errore: 'giorno non valido' }, 400);
+    /* Endpoint pubblico, senza JWT: ogni chiamata anonima costa una SELECT
+       su stagione_chiusura piu' una fetch verso il sito vero dell'hotel.
+       Il freno viene PRIMA di tutto il resto, come per a=disponibilita. */
+    if (!permessoDayspa(indirizzo(req))) {
+      return risposta({ errore: 'troppe richieste, riprova tra qualche minuto' }, 429);
     }
+
+    /* Stessa regola di una richiesta Day Spa vera (validaDati, compito 2):
+       stesso intervallo persone (1-8, PERSONE_DAYSPA_MAX) e la stessa
+       dataServizio — che accetta oggi (un ospite puo' chiedere per oggi),
+       respinge il passato e le date impossibili (9999-99-99 diventava un
+       NaN travestito da 'non-aperte' invece di un 400 onesto), e cosi' il
+       controllo di disponibilita' e l'invio della richiesta non rischiano
+       mai di dire cose diverse sulla stessa data. Riusata, non riscritta:
+       gia' collaudata in tipi.test.ts. */
+    const b = {
+      giorno: url.searchParams.get('giorno') || '',
+      persone: url.searchParams.get('persone') || '1',
+    };
+    const v = validaDati('dayspa', b, new Date());
+    if (v.errore || !v.dati) return risposta({ errore: v.errore }, 400);
+    const { giorno, persone } = v.dati as { giorno: string; persone: number };
+
     const stagioni = await leggiStagioni();
     const chiuso = aHotelChiuso(giorno, stagioni);
-    const giorni = Math.round(
-      (new Date(giorno + 'T12:00:00Z').getTime() - Date.now()) / 86400000,
-    );
+    const giorni = distanzaGiorni(giorno, new Date());
     let dati: unknown = null;
     if (!chiuso && giorni <= ORIZZONTE_GIORNI) {
       try {
         const r = await fetch('https://www.termeleonardo.com/it/api/1/availability' +
-          `?from_date=${giorno}&to_date=${giorno}&people=${encodeURIComponent(persone)}`);
+          `?from_date=${giorno}&to_date=${giorno}&people=${encodeURIComponent(String(persone))}`);
         dati = r.ok ? await r.json() : null;
       } catch (e) {
         console.error('disponibilita day spa', e);
