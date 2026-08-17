@@ -2,6 +2,9 @@ import { assertEquals } from 'jsr:@std/assert';
 import { indirizzoPerLingua, linguaScelta, PERCORSI, tipoScelto } from './percorso.js';
 
 const TIPI = ['greenfee', 'maestro', 'trattamenti'];
+/* la pagina delle richieste da oggi ne gestisce quattro: il Day Spa e' il
+   sesto tipo del server, e il quarto che questa pagina sa disegnare */
+const TIPI_OGGI = ['greenfee', 'maestro', 'trattamenti', 'dayspa'];
 
 /* Il difetto vero, visto in produzione il 14 agosto 2026: /it/trattamenti
    apriva il modulo dei green fee. La riscrittura porta ?tipo=trattamenti
@@ -22,6 +25,31 @@ Deno.test('anche maestro e green fee, in tutte le lingue', () => {
   assertEquals(tipoScelto('', '/fr/pro-de-golf', TIPI, 'greenfee'), 'maestro');
   assertEquals(tipoScelto('', '/it/green-fee', TIPI, 'greenfee'), 'greenfee');
   assertEquals(tipoScelto('', '/de/greenfee', TIPI, 'greenfee'), 'greenfee');
+});
+
+/* Il Day Spa. `day-spa` e' uguale in tutte e quattro le lingue — «Day Spa»
+   e' il nome con cui l'hotel vende l'ingresso, ed e' quello stampato sul
+   buono: tradurlo darebbe un indirizzo che non compare da nessun'altra
+   parte. Senza questa voce in PERCORSI, /it/day-spa aprirebbe il modulo
+   dei GREEN FEE — che e' esattamente il difetto visto in produzione il 14
+   agosto con /it/trattamenti. */
+Deno.test('il Day Spa si riconosce dal percorso, in tutte e quattro le lingue', () => {
+  assertEquals(tipoScelto('', '/it/day-spa', TIPI_OGGI, 'greenfee'), 'dayspa');
+  assertEquals(tipoScelto('', '/de/day-spa', TIPI_OGGI, 'greenfee'), 'dayspa');
+  assertEquals(tipoScelto('', '/en/day-spa', TIPI_OGGI, 'greenfee'), 'dayspa');
+  assertEquals(tipoScelto('', '/fr/day-spa', TIPI_OGGI, 'greenfee'), 'dayspa');
+});
+
+/* e cambiando lingua si resta sull'indirizzo tradotto, come per gli altri */
+Deno.test('cambiare lingua sul Day Spa non riporta a un indirizzo tecnico', () => {
+  assertEquals(indirizzoPerLingua('/it/day-spa', '', 'dayspa', 'de'), '/de/day-spa');
+  assertEquals(indirizzoPerLingua('/en/day-spa', '', 'dayspa', 'fr'), '/fr/day-spa');
+});
+
+/* gli altri tre non devono muoversi di un millimetro: una pagina che NON
+   gestisce il Day Spa non deve cominciare a riconoscerlo */
+Deno.test('una pagina che non gestisce il Day Spa continua a non riconoscerlo', () => {
+  assertEquals(tipoScelto('', '/it/day-spa', TIPI, 'greenfee'), 'greenfee');
 });
 
 /* gli indirizzi vecchi devono continuare a funzionare identici */

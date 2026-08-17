@@ -24,6 +24,12 @@ export const PERCORSI = {
   greenfee: { it: 'green-fee', de: 'greenfee', en: 'green-fee', fr: 'green-fee' },
   maestro: { it: 'maestro-di-golf', de: 'golflehrer', en: 'golf-pro', fr: 'pro-de-golf' },
   trattamenti: { it: 'trattamenti', de: 'behandlungen', en: 'treatments', fr: 'soins' },
+  /* «Day Spa» non si traduce: e' il nome col quale l'hotel vende l'ingresso
+     alle piscine termali, ed e' quello stampato sul buono regalo e sul
+     listino, in tutte e quattro le lingue. Un /de/tageswellness sarebbe un
+     nome che non compare da nessun'altra parte. Stesso caso di `transfer`,
+     che qui sopra e' identico in tre lingue su quattro. */
+  dayspa: { it: 'day-spa', de: 'day-spa', en: 'day-spa', fr: 'day-spa' },
   transfer: { it: 'transfer', de: 'transfer', en: 'transfer', fr: 'transfert' },
   prenota: { it: 'prenota', de: 'buchen', en: 'book', fr: 'reserver' },
   buoni: { it: 'buoni-regalo', de: 'gutscheine', en: 'gift-vouchers', fr: 'cheques-cadeaux' },

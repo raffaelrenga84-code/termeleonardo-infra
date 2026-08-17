@@ -140,6 +140,21 @@ textarea{min-height:80px;resize:vertical;}
 .buonoNo .puoInviareBuono{display:block;margin-top:6px;font-weight:600;}
 .diffBuono{margin:10px 0 0;background:var(--acqua-chiara);border-left:4px solid var(--acqua);
   padding:10px 13px;border-radius:6px;font-size:13.5px;color:var(--verde-medio);line-height:1.5;}
+
+/* -------- la riga della disponibilita' del Day Spa --------
+   Suffisso Dayspa come si e' fatto col percorso dei trattamenti: nessuna
+   di queste regole tocca un elemento che esiste gia', e senza il modulo
+   Day Spa nella pagina non c'e' niente che le raccolga.
+   NON e' rossa nemmeno quando dice «esaurito»: nessuno dei cinque stati
+   blocca l'invio — la richiesta parte comunque e la reception verifica —
+   e il rosso di .errore su questa pagina vuol dire «non puo' andare
+   avanti», che qui sarebbe falso. */
+.dispDayspa{margin:10px 0 0;padding:10px 13px;border-radius:6px;font-size:13.5px;
+  line-height:1.5;background:var(--acqua-chiara);border-left:4px solid var(--acqua);
+  color:var(--verde-medio);}
+.dispDayspa[data-stato="disponibile"]{border-left-color:var(--verde);}
+.dispDayspa[data-stato="esaurito"],
+.dispDayspa[data-stato="chiuso"]{background:#FFF6E8;border-left-color:var(--oro);color:#6B4A22;}
 </style>
 </head>
 <body>
@@ -204,7 +219,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
 
 const qs = new URLSearchParams(location.search);
 const TOKEN = qs.get('t') || '';
-const TIPI = ['greenfee','maestro','trattamenti'];
+const TIPI = ['greenfee','maestro','trattamenti','dayspa'];
 const TIPO = tipoScelto(location.search, location.pathname, TIPI, 'greenfee');
 /* normalizzaLingua copia `lang=` su `l` SOLO quando `l` manca: la `qs` qui
    sopra resta la query VERA, non tocca. Serve piu' sotto, in precompila():
@@ -265,6 +280,12 @@ const T = {
       sotto:'Sul campo pratica dell’hotel, da soli o in piccolo gruppo. Anche se non ha mai tenuto un ferro in mano.' },
     trattamenti:{ occhiello:'MASSAGGI E TRATTAMENTI', titolo:'Prenoti prima di arrivare',
       sotto:'I trattamenti più richiesti si esauriscono presto: chiedendoli ora troverà l’ora che preferisce già libera.' },
+    /* «Day Spa» resta in inglese anche qui, come sul buono e sul listino:
+       e' il nome con cui l'hotel vende l'ingresso, non una parola da
+       tradurre. Il contenuto (piscine, grotte, zona relax) e' quello
+       elencato in pagine/buoni/buono.js, COMPRENDE.dayspa. */
+    dayspa:{ occhiello:'INGRESSO DAY SPA', titolo:'Una giornata alle piscine termali',
+      sotto:'Piscine termali, centro grotte e zona relax per un giorno intero. Ci dica quando vuole venire e in quanti: i posti sono limitati, le confermiamo noi l’ingresso.' },
     avviso:'<strong>Questa è una richiesta, non una prenotazione.</strong> Le confermiamo giorno, ora e prezzo per email o telefono, di solito entro poche ore.',
     noto:(n)=>`Bentornato, ${n}. Abbiamo già i suoi dati: compili solo il resto.`,
     circolo:'Circolo', giocatori:'Giocatori', percorso:'Percorso (se lo sa)',
@@ -296,6 +317,22 @@ const T = {
     giorno:'Giorno', fascia:'Preferenza di orario',
     mattina:'Mattina', pomeriggio:'Pomeriggio', indifferente:'Indifferente',
     quando:'Giorno', ora:'Ora preferita',
+    /* I cinque stati che il ponte ?a=dayspa sa dire, e nient'altro: sono
+       le uniche cinque frasi che possono comparire sotto il campo data.
+       SEMPRE AL PRESENTE («in questo momento risulta»), perche' e' una
+       lettura di adesso e non una promessa: fra un'ora puo' essere
+       diversa, e la conferma la da' comunque la reception.
+       Oltre i sette giorni non si dice MAI «esaurito»: la disponibilita'
+       non e' ancora aperta, e confondere le due cose manda via un ospite
+       che potrebbe venire benissimo (vedi ORIZZONTE_GIORNI in
+       supabase/functions/richieste/dayspa-disponibilita.ts — il conto lo
+       fa il server, qui non si ricopia). */
+    disp:{
+      disponibile:'In questo momento risulta disponibilità.',
+      esaurito:'Quella data risulta esaurita. Ne provi un’altra.',
+      'non-aperte':'Per quella data le prenotazioni non sono ancora aperte: apriamo circa una settimana prima, anche per via del meteo.',
+      chiuso:'In quella data l’hotel è chiuso per la pausa stagionale.',
+      ignoto:'Al momento non riesco a verificare la disponibilità.' },
     chi:'I suoi dati', guidaChi:'Ci servono per confermarle la prenotazione.',
     nome:'Nome e cognome', email:'Email', tel:'Telefono',
     note:'Note (facoltative)', notePh:'Qualsiasi cosa ci aiuti a organizzare…',
@@ -344,6 +381,8 @@ const T = {
       sotto:'Auf der hoteleigenen Driving Range, allein oder in kleiner Gruppe. Auch wenn Sie noch nie einen Schläger in der Hand hatten.' },
     trattamenti:{ occhiello:'MASSAGEN & ANWENDUNGEN', titolo:'Vor der Anreise reservieren',
       sotto:'Die beliebtesten Anwendungen sind schnell ausgebucht: wer jetzt anfragt, bekommt die gewünschte Uhrzeit.' },
+    dayspa:{ occhiello:'EINTRITT DAY SPA', titolo:'Ein Tag in den Thermalbecken',
+      sotto:'Thermalbecken, Grottenbereich und Relaxbereich für einen ganzen Tag. Sagen Sie uns, wann Sie kommen möchten und zu wie vielt: die Plätze sind begrenzt, wir bestätigen Ihnen den Eintritt.' },
     avviso:'<strong>Dies ist eine Anfrage, keine Buchung.</strong> Wir bestätigen Ihnen Tag, Uhrzeit und Preis per E-Mail oder Telefon, meist innerhalb weniger Stunden.',
     noto:(n)=>`Willkommen zurück, ${n}. Ihre Daten haben wir bereits.`,
     circolo:'Golfclub', giocatori:'Spieler', percorso:'Platz (falls bekannt)',
@@ -368,6 +407,12 @@ const T = {
     giorno:'Tag', fascia:'Bevorzugte Zeit',
     mattina:'Vormittag', pomeriggio:'Nachmittag', indifferente:'Egal',
     quando:'Tag', ora:'Wunschzeit',
+    disp:{
+      disponibile:'Im Moment ist Verfügbarkeit vorhanden.',
+      esaurito:'Dieses Datum ist ausgebucht. Bitte versuchen Sie ein anderes.',
+      'non-aperte':'Für dieses Datum ist die Buchung noch nicht geöffnet: wir öffnen etwa eine Woche vorher, auch wegen des Wetters.',
+      chiuso:'An diesem Tag ist das Hotel wegen der Saisonpause geschlossen.',
+      ignoto:'Im Moment kann ich die Verfügbarkeit nicht prüfen.' },
     chi:'Ihre Daten', guidaChi:'Wir brauchen sie für die Bestätigung.',
     nome:'Vor- und Nachname', email:'E-Mail', tel:'Telefon',
     note:'Anmerkungen (optional)', notePh:'Alles, was uns bei der Organisation hilft…',
@@ -400,6 +445,8 @@ const T = {
       sotto:'On the hotel driving range, alone or in a small group. Even if you have never held a club.' },
     trattamenti:{ occhiello:'MASSAGES & TREATMENTS', titolo:'Book before you arrive',
       sotto:'The most popular treatments fill up quickly: asking now means getting the time you want.' },
+    dayspa:{ occhiello:'DAY SPA ENTRY', titolo:'A day at the thermal pools',
+      sotto:'Thermal pools, grotto centre and relax area for a whole day. Tell us when you would like to come and how many you are: places are limited, we will confirm your entry.' },
     avviso:'<strong>This is a request, not a booking.</strong> We confirm day, time and price by email or phone, usually within a few hours.',
     noto:(n)=>`Welcome back, ${n}. We already have your details.`,
     circolo:'Club', giocatori:'Players', percorso:'Course (if you know it)',
@@ -424,6 +471,12 @@ const T = {
     giorno:'Day', fascia:'Preferred time',
     mattina:'Morning', pomeriggio:'Afternoon', indifferente:'No preference',
     quando:'Day', ora:'Preferred time',
+    disp:{
+      disponibile:'At the moment there is availability.',
+      esaurito:'That date is fully booked. Please try another one.',
+      'non-aperte':'Bookings for that date are not open yet: we open about a week before, also because of the weather.',
+      chiuso:'On that date the hotel is closed for the seasonal break.',
+      ignoto:'At the moment I cannot check availability.' },
     chi:'Your details', guidaChi:'We need them to confirm the booking.',
     nome:'Full name', email:'Email', tel:'Phone',
     note:'Notes (optional)', notePh:'Anything that helps us organise…',
@@ -456,6 +509,8 @@ const T = {
       sotto:'Sur le practice de l’hôtel, seul ou en petit groupe. Même si vous n’avez jamais tenu un club.' },
     trattamenti:{ occhiello:'MASSAGES & SOINS', titolo:'Réservez avant d’arriver',
       sotto:'Les soins les plus demandés partent vite : en demandant maintenant, vous aurez l’heure que vous préférez.' },
+    dayspa:{ occhiello:'ENTRÉE DAY SPA', titolo:'Une journée aux piscines thermales',
+      sotto:'Piscines thermales, centre grottes et espace relax pour une journée entière. Dites-nous quand vous souhaitez venir et à combien : les places sont limitées, nous vous confirmons l’entrée.' },
     avviso:'<strong>Ceci est une demande, pas une réservation.</strong> Nous vous confirmons jour, heure et prix par e-mail ou téléphone, en général sous quelques heures.',
     noto:(n)=>`Bon retour, ${n}. Nous avons déjà vos coordonnées.`,
     circolo:'Club', giocatori:'Joueurs', percorso:'Parcours (si vous le savez)',
@@ -480,6 +535,12 @@ const T = {
     giorno:'Jour', fascia:'Horaire préféré',
     mattina:'Matin', pomeriggio:'Après-midi', indifferente:'Peu importe',
     quando:'Jour', ora:'Heure souhaitée',
+    disp:{
+      disponibile:'En ce moment il y a de la disponibilité.',
+      esaurito:'Cette date est complète. Essayez-en une autre.',
+      'non-aperte':'Les réservations pour cette date ne sont pas encore ouvertes : nous ouvrons environ une semaine avant, aussi à cause de la météo.',
+      chiuso:'À cette date l’hôtel est fermé pour la pause saisonnière.',
+      ignoto:'Pour le moment je ne peux pas vérifier la disponibilité.' },
     chi:'Vos coordonnées', guidaChi:'Elles nous servent pour la confirmation.',
     nome:'Nom et prénom', email:'E-mail', tel:'Téléphone',
     note:'Remarques (facultatif)', notePh:'Tout ce qui nous aide à organiser…',
@@ -633,6 +694,36 @@ function campiTipo(t) {
           <option value="esperto">${esc(t.liv3)}</option>
         </select></div>
     </div>`;
+
+  /* ---------------- Day Spa ----------------
+     Il Day Spa non e' un trattamento del reparto: e' un ingresso, e le
+     domande giuste sono due — quando, e in quanti. Non c'e' un'ora: si
+     entra al mattino e si esce quando si vuole, negli orari del listino
+     (9.00–18.30 per l'infrasettimanale e il festivo). Le note stanno gia'
+     nel riquadro dei dati, come per tutti gli altri tipi.
+
+     Sotto i due campi c'e' la riga della disponibilita': nasce VUOTA e
+     nascosta, perche' finche' l'ospite non sceglie un giorno non c'e'
+     niente da dire e non parte nessuna chiamata. `aria-live="polite"`
+     perche' compare da sola, senza che nessuno abbia toccato quel punto
+     dello schermo — chi legge con uno screen reader altrimenti non la
+     sentirebbe mai.
+
+     `value="1"` e non 2: il numero di persone entra nella domanda al
+     ponte, e con piu' persone la risposta puo' diventare «esaurito». Se si
+     deve sbagliare, si sbaglia nella direzione che NON manda via un ospite
+     — la stessa regola dichiarata per il ponte (in caso di dubbio si dice
+     disponibile, mai esaurito).
+     `max="8"` e' PERSONE_DAYSPA_MAX di tipi.ts: sopra quel numero il
+     server rifiuterebbe dopo aver fatto compilare tutto il resto. */
+  if (TIPO === 'dayspa') return `
+    <div class="due">
+      <div><label for="fGiorno">${esc(t.giorno)}</label>
+        <input type="date" id="fGiorno" ${limitiSoggiorno()} /></div>
+      <div><label for="fPersone">${esc(t.persone)}</label>
+        <input type="number" id="fPersone" min="1" max="8" value="1" /></div>
+    </div>
+    <p class="dispDayspa" id="dispDayspa" aria-live="polite" hidden></p>`;
 
   /* Il percorso guidato: prima "Cosa le farebbe piacere?" coi cinque
      gruppi (il primo e' sintetico, i piu' richiesti — un filtro sul campo
@@ -987,14 +1078,30 @@ function preselezionaDalBuono() {
     console.warn('voci del buono senza trattamento corrispondente su questo modulo:',
       ignorate.join(', '));
   }
-  if (ripetute.length) {
-    /* il buono contiene qualcosa piu' di una volta, e le caselle non hanno
-       una quantita': la richiesta parte nominando UN trattamento. Quello
-       che il modulo non sa dire lo dice la nota, con le parole del buono
-       stesso — «2 × Massaggio Shiatsu (50 min)» — cosi' chi la legge
-       prepara due turni e non uno. I ritorni a capo diventano ' · ' come
-       fa gia' il server quando deve mettere la descrizione su una riga
-       sola (vedi product_data[name] in buoni/index.ts). */
+  if (ripetute.length || ignorate.length) {
+    /* Due casi, una nota sola: quello che il modulo NON sa rappresentare
+       lo dice a parole, con le parole del buono stesso.
+
+       · `ripetute` — il buono contiene qualcosa piu' di una volta, e le
+         caselle non hanno una quantita': la richiesta parte nominando UN
+         trattamento. Senza la nota — «2 × Massaggio Shiatsu (50 min)» —
+         in reception preparerebbero un turno invece di due.
+
+       · `ignorate` — il buono contiene qualcosa che qui non ha una
+         casella, e il caso vero e' quello della specifica §4-bis: un
+         INGRESSO DAY SPA piu' un massaggio. Sono una visita sola, quindi
+         una richiesta sola, e si compila il modulo dei trattamenti: ma
+         senza questa riga la richiesta arriva in reception nominando solo
+         il massaggio, l'ingresso sparisce, e la reception richiama
+         l'ospite — cioe' la telefonata che tutto questo lavoro vuole
+         evitare.
+
+       I ritorni a capo diventano ' · ' come fa gia' il server quando deve
+       mettere la descrizione su una riga sola (vedi product_data[name] in
+       buoni/index.ts). La nota elenca TUTTO il contenuto del buono e non
+       solo il pezzo mancante: e' la stessa cosa che l'ospite vede nel
+       riquadro in cima, e chi legge in reception ha davanti il buono
+       intero senza doverlo ricostruire. */
     CONTENUTO_DA_DIRE = String(BUONO.descrizione ?? '').split('\n')
       .map((r) => r.trim()).filter(Boolean).join(' · ');
   }
@@ -1063,6 +1170,104 @@ function notePrecompilate(t) {
   return righe.join('\n');
 }
 
+/* ---------------- la disponibilita' del Day Spa ----------------
+   Vive tutta dietro il modulo dayspa: senza quel tipo #dispDayspa non
+   esiste, nessun ascoltatore viene attaccato e non parte nessuna chiamata.
+   Per gli altri sei tipi questa parte non gira mai.
+
+   IL PONTE DICE UNA PAROLA SOLA. `?a=dayspa` restituisce `{ stato: … }` e
+   nient'altro: mai i posti residui (specifica del 17 agosto). Le decisioni
+   — hotel chiuso, prenotazioni non ancora aperte oltre i sette giorni,
+   libero o pieno — le prende il SERVER, in dayspa-disponibilita.ts. Qui
+   non si ricopia niente di quel ragionamento: una seconda copia
+   dell'orizzonte di sette giorni sarebbe il difetto che questo progetto ha
+   gia' pagato quattro volte coi listini, e il giorno che l'orizzonte
+   cambiasse la pagina direbbe una cosa e il server un'altra.
+
+   NIENTE QUI BLOCCA L'INVIO. Nemmeno «esaurito»: la richiesta si manda
+   comunque e la reception verifica. Per questo `completo()` non guarda
+   nemmeno lo stato — la riga informa e basta. */
+const STATI_DAYSPA = ['disponibile', 'esaurito', 'non-aperte', 'chiuso', 'ignoto'];
+
+/* Sei secondi, lo stesso numero e per la stessa ragione di
+   ATTESA_VERIFICA: la forma piu' comune di «non risponde» e' la
+   connessione che si apre e poi tace, e quella non rigetta mai.
+   La differenza e' che qui la pagina e' GIA' disegnata e l'ospite puo'
+   compilare tutto il resto mentre aspetta: scaduti i sei secondi si dice
+   «al momento non riesco a verificare», che e' la verita', e si va avanti.
+   `segnaleConScadenza` e' lo stesso ripiego dei buoni (AbortController a
+   mano dove AbortSignal.timeout non c'e', cioe' su iOS prima della 16). */
+const ATTESA_DAYSPA = 6000;
+
+/* Quale domanda e' l'ultima partita. Chi cambia data due volte di fila
+   fa partire due chiamate, e non e' detto che tornino nell'ordine in cui
+   sono uscite: senza questo contatore la risposta VECCHIA arriverebbe per
+   ultima e scriverebbe la sua riga sopra quella giusta — l'ospite
+   leggerebbe la disponibilita' di una data che non ha piu' scelto. */
+let CHIAMATA_DAYSPA = 0;
+
+async function chiediDisponibilita(t) {
+  const box = $('dispDayspa');
+  if (!box) return;
+  const giorno = $('fGiorno') ? $('fGiorno').value.trim() : '';
+  /* campo svuotato: si torna a non dire niente, che e' la verita' */
+  if (!giorno) {
+    CHIAMATA_DAYSPA += 1;
+    box.hidden = true;
+    box.textContent = '';
+    box.removeAttribute('data-stato');
+    return;
+  }
+  const persone = $('fPersone') ? $('fPersone').value.trim() : '';
+  const mia = ++CHIAMATA_DAYSPA;
+  const { signal, ferma } = segnaleConScadenza(ATTESA_DAYSPA);
+  /* si parte da 'ignoto' e si sale solo se il ponte risponde qualcosa che
+     si sa leggere: qualunque altra strada — 400, 429 del freno, un guasto,
+     i sei secondi scaduti, o la funzione vecchia che ancora risponde
+     «azione sconosciuta» perche' ?a=dayspa non e' pubblicato — finisce
+     qui, e «non riesco a verificare» e' esatto in tutti quei casi */
+  let stato = 'ignoto';
+  try {
+    const r = await fetch(`${FUNZIONE}?a=dayspa&giorno=${encodeURIComponent(giorno)}` +
+      `&persone=${encodeURIComponent(persone || '1')}`, { signal });
+    const d = await r.json();
+    /* si accetta solo una delle cinque parole note. Il valore arriva dalla
+       rete e finisce a indicizzare T[LNG].disp: senza questo controllo una
+       risposta storta sceglierebbe una chiave qualsiasi (o una ereditata
+       da Object.prototype) e la riga uscirebbe vuota o con «undefined» */
+    if (d && STATI_DAYSPA.includes(d.stato)) stato = d.stato;
+    else console.error('disponibilita day spa illeggibile', r.status, d);
+  } catch (e) {
+    console.error('disponibilita day spa non riuscita', e);
+  } finally {
+    ferma();
+  }
+  /* nel frattempo l'ospite ha cambiato ancora: questa risposta parla di
+     una data che non e' piu' quella nel campo, e si butta */
+  if (mia !== CHIAMATA_DAYSPA) return;
+  box.dataset.stato = stato;
+  box.textContent = t.disp[stato];
+  box.hidden = false;
+}
+
+/* Come attivaTrattamenti: chiamata una volta per disegno di modulo(), che
+   ricrea #app da zero — nessun rischio di due ascoltatori sullo stesso
+   campo.
+   Anche `persone` e non solo il giorno: il ponte gira quel numero all'API
+   dell'hotel, e in sei si puo' essere pieni dove in uno c'era posto.
+   Lasciare la riga com'era dopo aver cambiato il numero vorrebbe dire
+   mostrare la risposta a una domanda che l'ospite non ha piu' fatto. */
+function attivaDayspa(t) {
+  const giorno = $('fGiorno');
+  if (!giorno) return;
+  giorno.addEventListener('change', () => chiediDisponibilita(t));
+  const persone = $('fPersone');
+  /* solo se il giorno c'e' gia': chiediDisponibilita() esce da sola col
+     campo data vuoto, quindi cambiare le persone prima di scegliere il
+     giorno non fa partire niente */
+  if (persone) persone.addEventListener('change', () => chiediDisponibilita(t));
+}
+
 function modulo() {
   const t = T[LNG];
   $('app').innerHTML = `
@@ -1122,6 +1327,7 @@ function modulo() {
      primo caricamento. */
   attivaDate();
   if (TIPO === 'trattamenti') attivaTrattamenti(t);
+  if (TIPO === 'dayspa') attivaDayspa(t);
 }
 
 function raccogli() {
@@ -1138,6 +1344,12 @@ function raccogli() {
   if (TIPO === 'maestro') return {
     data: v('fData'), ora: v('fOra'),
     persone: Number(v('fPersone') || 1), livello: v('fLivello'), note: v('fNote'),
+  };
+  /* i tre nomi sono quelli che validaDayspa si aspetta (tipi.ts): `giorno`
+     e non `data`, come per i trattamenti — e' il giorno dell'ingresso, non
+     un appuntamento a un'ora */
+  if (TIPO === 'dayspa') return {
+    giorno: v('fGiorno'), persone: Number(v('fPersone') || 1), note: v('fNote'),
   };
   /* NON `[...document.querySelectorAll('.voce:checked')]`: #risultatoTratt
      contiene solo le voci del gruppo attualmente aperto, le altre sono
@@ -1161,6 +1373,10 @@ function completo() {
   const v = (id) => ($(id) ? $(id).value.trim() : '');
   if (!v('fNome') || !v('fEmail') || !v('fTel')) return false;
   if (TIPO === 'trattamenti') return !!v('fGiorno') && SCELTI_TRATT.size > 0;
+  /* solo il giorno: le persone hanno gia' un valore, e lo STATO della
+     disponibilita' non entra qui — nessuno dei cinque blocca l'invio,
+     nemmeno «esaurito». La richiesta parte e la reception verifica. */
+  if (TIPO === 'dayspa') return !!v('fGiorno');
   return !!v('fData') && !!v('fOra');
 }
 
