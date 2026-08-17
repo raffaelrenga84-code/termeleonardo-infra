@@ -11,6 +11,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { sistema } from './sistema.ts';
+import { TIPI_RICHIESTA } from './prompt.ts';
 import { type Stagione } from './chiusura.ts';
 import {
   GIRI_MAX,
@@ -108,7 +109,11 @@ const STRUMENTI = [
       parameters: {
         type: 'object',
         properties: {
-          tipo: { type: 'string', enum: ['soggiorno', 'transfer', 'greenfee', 'maestro', 'trattamenti'] },
+          /* dalla stessa costante da cui esce la riga dei tipi nel prompt:
+             un elenco scritto a mano qui e uno la' erano gia' divergenti —
+             il prompt puo' anche nominare `dayspa`, ma se l'enum non lo
+             ammette il modello non ha modo di mandarlo (vedi prompt.ts) */
+          tipo: { type: 'string', enum: [...TIPI_RICHIESTA] },
           nome: { type: 'string' },
           email: { type: 'string', description: 'email dell ospite, se data' },
           telefono: { type: 'string', description: 'telefono dell ospite: sempre richiesto, la reception lo usa per richiamare' },

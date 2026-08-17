@@ -23,7 +23,11 @@ export const KNOWLEDGE_BASE = `# KNOWLEDGE BASE
 
 ## DAY SPA / INGRESSO PISCINE — LA REGOLA PIÙ USATA
 
-📌 Risposta standard: **"L'ingresso Day Spa si prenota esclusivamente online su termeleonardo.com, sezione Day Spa. I posti giornalieri sono limitati e la prenotazione online è l'unico modo per garantirle l'ingresso — soprattutto nei weekend e festivi."**
+📌 **Due strade diverse, e non vanno fuse: cambia in base a come si paga.**
+
+**1 · Chi paga adesso — il caso normale.** Risposta standard: **"L'ingresso Day Spa si prenota online su termeleonardo.com, sezione Day Spa. I posti giornalieri sono limitati e la prenotazione online è il modo per garantirle l'ingresso — soprattutto nei weekend e festivi."** Si paga alla prenotazione, ed è il pagamento che tiene il posto. Qui non c'è niente da registrare: non usare \`invia_richiesta\`.
+
+**2 · Chi ha già un buono regalo in mano** *(dal 17 agosto 2026)*: **non ripaga l'ingresso** e non passa da quel sito, che un buono non lo sa accettare. Prenota dal **nostro modulo di richiesta**, e il link è il pulsante «Prenota online» dentro l'email del suo buono — porta già il codice con sé. Ci dice **giorno e quante persone**, e poi **conferma la reception**: non è una prenotazione automatica, e il posto non è tenuto finché non arriva la nostra conferma. Se l'email del buono non la trova più, o preferisce fare con te: registra la richiesta (tipo \`dayspa\`) con nome, recapito, **giorno, numero di persone e numero del buono**. *(Fino al 17 agosto 2026 questa sezione diceva «esclusivamente online»: per chi aveva un buono era falso, e la telefonata che ne seguiva è quella che il modulo esiste per evitare.)*
 
 Spiega sempre il perché (posti limitati, garanzia): è un vantaggio, non un'imposizione.
 
@@ -32,7 +36,7 @@ Spiega sempre il perché (posti limitati, garanzia): è un vantaggio, non un'imp
 - **Walk-in feriale:** dal lunedì al venerdì si può anche venire direttamente, **senza garanzia di posto**. Dillo **solo se l'ospite chiede espressamente** se può venire senza prenotare.
 - Difficoltà con internet → familiare o trasferimento.
 - **Abbonati:** si gestiscono al telefono o via email, non online (vale anche per camera d'appoggio e massaggi collegati). Raccogli nome, data, recapito → inoltra.
-- **Buoni regalo: si COMPRANO ONLINE** su termeleonardo.com, sezione Buoni Regalo — vedi la sezione dedicata più sotto. *(Questa riga diceva il contrario fino al 15 agosto 2026: mandava al telefono chi poteva comprare in due minuti.)* Al telefono si gestiscono solo i buoni **già emessi** — ricerca, riscatto, problemi: raccogli nome, recapito e n. buono → inoltra.
+- **Buoni regalo: si COMPRANO ONLINE** su termeleonardo.com, sezione Buoni Regalo — vedi la sezione dedicata più sotto. *(Questa riga diceva il contrario fino al 15 agosto 2026: mandava al telefono chi poteva comprare in due minuti.)* Per i buoni **già emessi**: un ingresso Day Spa o un trattamento si prenotano dal nostro modulo (punto 2 qui sopra), oppure li registri tu; per il resto — ricerca, ristampa, problemi — raccogli nome, recapito e n. buono → inoltra.
 - Regola d'oro 1: se chiedono un "ingresso pomeridiano", prima chiarisci che il giornaliero (9:00–18:30) copre già il pomeriggio.
 
 **Buono regalo in scadenza durante la chiusura:** condizioni valide dall'acquisto — chiusura annuale per ristrutturazione; maggiore età obbligatoria; ingressi soggetti a disponibilità; importi residui non trasferibili né riutilizzabili; non utilizzabile nelle prime 48 ore dall'acquisto; non rimborsabile; validità 12 mesi; sempre con prenotazione; non valido durante la chiusura stagionale; non convertibile in denaro. Se l'ospite insiste: "Posso inoltrare la richiesta alla reception con il numero del buono."

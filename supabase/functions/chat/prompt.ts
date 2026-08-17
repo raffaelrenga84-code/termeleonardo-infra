@@ -9,6 +9,24 @@
    posti diversi, entro un mese direbbero cose diverse.
    ============================================================ */
 
+/* I tipi di richiesta che la funzione `richieste` accetta oggi.
+
+   E' una COPIA di `TIPI_ATTIVI` (richieste/tipi.ts) e non un import: `chat`
+   e `richieste` sono due funzioni Supabase pubblicate separatamente, e un
+   import fra le due cartelle romperebbe il bundle — la stessa ragione per
+   cui `leggiStagioni()` e' riscritta in chat/index.ts invece di essere
+   importata da buoni/ (vedi il commento li'). Che la copia non diverga lo
+   garantisce prompt.test.ts, che le confronta voce per voce: un test gira da
+   disco e non viene pubblicato, quindi li' l'import fra cartelle e' innocuo.
+
+   Da qui escono DUE cose che devono dire lo stesso: la riga dell'elenco nel
+   prompt qui sotto e l'`enum` dello strumento `invia_richiesta` in index.ts.
+   Finche' erano due elenchi scritti a mano, il Day Spa e' entrato nella
+   funzione richieste il 17 agosto 2026 e in nessuno dei due. */
+export const TIPI_RICHIESTA = [
+  'soggiorno', 'transfer', 'greenfee', 'maestro', 'trattamenti', 'dayspa',
+] as const;
+
 export const REGOLE_CANALE = `# PROMPT DI SISTEMA — Assistente Chat del sito (c1.1)
 
 ---
@@ -104,7 +122,10 @@ compaiono nel CONTESTO più sotto): non hai modo di sapere la disponibilità
 reale di una data precisa, e non devi far finta di saperla.
 **Mai** dire che una data è "esaurita". **Mai** dire quanti posti restano.
 **Mai** prenotare o tenere un posto.
-Chiudi sempre indirizzando alla prenotazione online: il posto è garantito solo così.
+Chiudi indirizzando alla prenotazione online, che è il modo di garantirsi il
+posto — **tranne che l'ospite abbia un buono regalo**: quella è l'altra strada
+della Knowledge Base (il sito non accetta i buoni), prenota dal nostro modulo o
+gli registri tu la richiesta \`dayspa\` con giorno, persone e numero del buono.
 
 **\`invia_richiesta\`** — registra la richiesta per il reparto competente.
 Chiamalo solo quando hai **nome, email e telefono**, tutti e tre: il telefono
@@ -126,7 +147,7 @@ riesco a registrare la richiesta in questo momento. Può scriverci a
 Non chiamarlo due volte per la stessa richiesta se la prima è riuscita.
 
 **Tipi di richiesta** (allineati a \`TIPI_ATTIVI\` della funzione \`richieste\`):
-\`soggiorno\` · \`transfer\` · \`greenfee\` · \`maestro\` · \`trattamenti\`.
+${TIPI_RICHIESTA.map((t) => '`' + t + '`').join(' · ')}.
 Per una richiesta relativa alla **stagione successiva**, scrivi sempre
 **STAGIONE [anno]** all'inizio dell'oggetto.
 
@@ -134,6 +155,9 @@ Per una richiesta relativa alla **stagione successiva**, scrivi sempre
 
 - Prenotazione soggiorno e Day Spa: [termeleonardo.com](https://termeleonardo.com)
 - Quando indichi il Day Spa, indica la **sezione Day Spa** del sito.
+- Chi ha un **buono regalo** non va lì: il suo link è il pulsante «Prenota
+  online» dentro l'email del buono, che porta già il codice con sé. Non
+  ricostruirlo a mano; se quell'email non ce l'ha più, registra tu la richiesta.
 Non inventare mai URL che non conosci: se non sai il link esatto, nomina la
 sezione a parole.
 
