@@ -71,15 +71,30 @@ font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:3px;padding:3mm 0;}
 #stampa .piega{position:absolute;top:148.5mm;left:0;right:0;height:0;border-top:1px dashed #C7C2B6;}
 #stampa .piega span{position:absolute;right:8mm;top:1.5mm;background:#FFFFFF;padding:0 2mm;
 font:8px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#B9B3A5;}
-#stampa .servizio{border-left:3px solid #C9A961;background:#FBFAF7;padding:6mm 7mm;}
+/* ⚠ I VALORI QUI SOTTO SONO MISURATI, NON SCELTI A OCCHIO — e il caso che
+   li decide e' `de-2voci-sott-prorogato` in misura-foglio.mjs: un buono a due
+   voci (Day Spa + massaggio, la §4-bis) con sottotitolo, in tedesco, con la
+   riga della proroga. Il 17 agosto 2026 quel caso TAGLIAVA 12px di
+   condizioni, e lo faceva gia' da prima: il copione rendeva un solo buono a
+   una voce con la descrizione accorciata, cioe' il caso piu' facile, e
+   diceva "ci sta". Ora rende tutti e trentadue.
+   Chi tocca una di queste righe rilancia `node pagine/buoni/misura-foglio.mjs`
+   e guarda TUTTI i casi, non il primo. */
+/* Tutto quello che si e' stretto qui sotto e' ARIA: padding e margini. Le
+   interlinee e i corpi sono rimasti quelli di prima — provato che bastasse,
+   prima di decidere: con l'aria sola il caso peggiore torna a 23px, oltre la
+   soglia di 20, e allora il testo non si tocca. (Stringendo anche le
+   interlinee di .comprende, .nota-persone e .servizio-nome si arrivava a
+   25px: due pixel non valgono un foglio piu' fitto da leggere.) */
+#stampa .servizio{border-left:3px solid #C9A961;background:#FBFAF7;padding:4.6mm 7mm;}
 #stampa .servizio-nome{font-size:18px;}
-#stampa .servizio-sotto{font:9px/1.4 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#C9A961;margin-top:2mm;}
-#stampa .comprende{margin:4mm 0 0;padding:0;list-style:none;
+#stampa .servizio-sotto{font:9px/1.4 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#C9A961;margin-top:1.5mm;}
+#stampa .comprende{margin:2.8mm 0 0;padding:0;list-style:none;
 font:11px/1.55 Arial,Helvetica,sans-serif;color:#4A5C59;}
 #stampa .comprende li::before{content:'\00b7  ';color:#C9A961;}
-#stampa .nota-persone{font:9px/1.5 Arial,Helvetica,sans-serif;color:#8A938F;margin-top:3mm;border-top:1px solid #EFEBE0;padding-top:2.5mm;}
+#stampa .nota-persone{font:9px/1.5 Arial,Helvetica,sans-serif;color:#8A938F;margin-top:2mm;border-top:1px solid #EFEBE0;padding-top:1.8mm;}
 #stampa .codice-riga{display:flex;justify-content:space-between;align-items:flex-start;
-border-top:1px solid #E6E2D8;margin-top:5mm;padding-top:4mm;}
+border-top:1px solid #E6E2D8;margin-top:3.2mm;padding-top:2.8mm;}
 #stampa .etichetta-s{font:9px/1 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#9AA9A6;}
 #stampa .codice-s{font:20px/1 'Courier New',monospace;letter-spacing:2px;margin-top:2mm;}
 #stampa .scadenza{font:11px/1 Arial,Helvetica,sans-serif;color:#C9A961;margin-top:2mm;}

@@ -558,6 +558,20 @@ Deno.test('§4-bis nell’email: Day Spa più un massaggio aprono i trattamenti,
   assertStringIncludes(buonoEmailHTML(b), 'https://www.hoteltermeleonardo.com/it/trattamenti?buono=LEO-ACDE-FGHJ');
 });
 
+/* I buoni emessi in reception (?a=nuovo) hanno una `descrizione` scritta a
+   mano e nessuna `voci`: da due righe in su la regola si fidava del solo
+   testo e mandava un ingresso Day Spa sul modulo dei trattamenti. Ora il
+   testo decide solo quando l'ha composto il server. Il confronto fra le due
+   copie della regola sta in pagine/buoni/buono.test.ts; qui si prova che
+   l'email vera porti l'indirizzo giusto. */
+Deno.test('buono di reception a più righe: comanda l’id di listino, non il testo scritto a mano', () => {
+  const b = { ...BUONO, tipo: 'servizio', voce_id: 'dayspa_fer', lingua: 'de',
+    descrizione: 'Ingresso piscine\nOmaggio compleanno' };
+  assertEquals(moduloDelBuono(b), 'dayspa');
+  assertStringIncludes(buonoEmailHTML(b), 'https://www.hoteltermeleonardo.com/de/day-spa?buono=LEO-ACDE-FGHJ');
+  assertEquals(buonoEmailHTML(b).includes('/de/behandlungen'), false);
+});
+
 Deno.test('il codice finisce nell’indirizzo passato per encodeURIComponent, non incollato così com’è', () => {
   assertStringIncludes(linkPrenota({ ...BUONO, codice: 'LEO A/B' }), '?buono=LEO%20A%2FB');
 });

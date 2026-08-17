@@ -607,11 +607,42 @@ Deno.test('il buono a importo apre i trattamenti: un importo si spende su qualun
   assertEquals(moduloDelBuono({ tipo: 'valore', voce_id: null, descrizione: '' }), 'trattamenti');
 });
 
-Deno.test('con una voce sola vince l’id di listino, non il testo: i buoni scritti a mano in reception non hanno la descrizione del listino', () => {
+Deno.test('vince l’id di listino, non il testo: i buoni scritti a mano in reception non hanno la descrizione del listino', () => {
   /* ?a=nuovo salva una `descrizione` libera e non scrive mai `voci`: se si
      credesse solo al testo, questo finirebbe sul modulo dei trattamenti */
   assertEquals(moduloDelBuono({ voce_id: 'dayspa_fer', descrizione: 'Ingresso piscine, omaggio' }), 'dayspa');
   assertEquals(moduloDelBuono({ voce_id: 'relax25', descrizione: 'Massaggio omaggio' }), 'trattamenti');
+});
+
+/* Il difetto trovato in revisione il 17 agosto 2026. L'id veniva creduto solo
+   con UNA riga; da due in su decideva il solo testo — e le descrizioni di
+   reception sono scritte a mano, quindi due righe qualunque bastavano a
+   mandare un ingresso Day Spa sul modulo dei trattamenti. Sulla carta.
+   Ora il testo decide solo quando l'ha composto il server (tutte le righe col
+   numero davanti, come le scrive componiDescrizione); altrimenti comanda l'id. */
+Deno.test('anche a più righe vince l’id, se la descrizione non è quella composta dal listino', () => {
+  assertEquals(moduloDelBuono({
+    voce_id: 'dayspa_fer', descrizione: 'Ingresso piscine\nOmaggio compleanno',
+  }), 'dayspa');
+  assertEquals(moduloDelBuono({
+    voce_id: 'shiatsu50', descrizione: 'Massaggio\nBuon compleanno, mamma',
+  }), 'trattamenti');
+  /* tre righe scritte a mano, e nemmeno una che nomini il servizio */
+  assertEquals(moduloDelBuono({
+    voce_id: 'dayspa_wknd', descrizione: 'Omaggio\nper i 40 anni\ndi Anna',
+  }), 'dayspa');
+  /* ma la descrizione composta dal server continua a comandare lei: qui le
+     due righe SONO l'elenco delle voci, ed e' il caso della §4-bis */
+  assertEquals(moduloDelBuono({
+    voce_id: 'dayspa_fer',
+    descrizione: '1 × Day Spa infrasettimanale — piscine e grotte\n1 × Massaggio Shiatsu (50 min)',
+  }), 'trattamenti');
+});
+
+Deno.test('senza id di listino resta il testo, che è l’unico segno che c’è', () => {
+  assertEquals(moduloDelBuono({ voce_id: null, descrizione: 'Ingresso Day Spa omaggio' }), 'dayspa');
+  assertEquals(moduloDelBuono({ voce_id: null, descrizione: 'Massaggio omaggio' }), 'trattamenti');
+  assertEquals(moduloDelBuono({ voce_id: null, descrizione: '' }), 'trattamenti');
 });
 
 Deno.test('il percorso è quello tradotto delle riscritture, nella lingua del buono', () => {
@@ -642,6 +673,12 @@ Deno.test('la regola e il percorso sono identici alla copia dentro email-buono.t
     { voce_id: 'dayspa_wknd', descrizione: 'Ingresso piscine, omaggio' },
     { tipo: 'valore', voce_id: null, descrizione: 'Buono valore di 100,00 €, spendibile in hotel' },
     { voce_id: '', descrizione: '' },
+    /* i buoni di reception a più righe: il difetto del 17 agosto 2026 */
+    { voce_id: 'dayspa_fer', descrizione: 'Ingresso piscine\nOmaggio compleanno' },
+    { voce_id: 'shiatsu50', descrizione: 'Massaggio\nBuon compleanno, mamma' },
+    { voce_id: 'dayspa_wknd', descrizione: 'Omaggio\nper i 40 anni\ndi Anna' },
+    { voce_id: null, descrizione: 'Ingresso Day Spa omaggio' },
+    { voce_id: 'dayspa_fer', descrizione: '2 × Day Spa festivo' },
   ];
   for (const c of CASI) {
     for (const l of LINGUE) {

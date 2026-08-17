@@ -183,9 +183,19 @@ export function categoriaBuono(b) {
    righe piu' sotto per decidere se stampare l'elenco delle piscine
    (`catComprende`) e che email-buono.ts usa in `comprende()`.
 
-   Con UNA voce sola si crede all'id di listino invece che al testo: e' piu'
-   solido, e su un buono compilato a mano in reception ("Ingresso piscine",
-   voce_id dayspa_fer) e' l'unico segno che ci sia.
+   QUANDO IL TESTO PUO' DECIDERE, E QUANDO NO. Le righe della descrizione
+   valgono come elenco di voci solo se le ha composte il server: con piu' di
+   una voce `componiDescrizione` scrive il numero su TUTTE le righe
+   ("1 × Day Spa festivo…", "1 × Massaggio Shiatsu (50 min)"), ed e' quella
+   forma che si riconosce qui. Fuori da li' comanda l'id di listino.
+
+   Non e' pignoleria: `?a=nuovo` salva una `descrizione` LIBERA, scritta a
+   mano da chi sta in reception, e non scrive mai `voci`. Fino al 17 agosto
+   2026 questa funzione, da due righe in su, si fidava del solo testo, e
+   "Ingresso piscine / Omaggio compleanno" con voce_id `dayspa_fer` finiva
+   sul modulo dei trattamenti — cioe' sbagliava proprio sulla popolazione che
+   questo ragionamento dice di voler proteggere, quella dove il testo del
+   LISTINO non c'e'. E finiva stampato sulla carta.
 
    IL BUONO A IMPORTO va ai trattamenti, e la specifica non lo dice: la §4-bis
    parla di buoni con delle voci, un importo non contiene ne' l'una ne'
@@ -201,15 +211,26 @@ export function categoriaBuono(b) {
    insieme da buono.test.ts, che le confronta caso per caso.
    ============================================================ */
 const eRigaDaySpa = (riga) => /day spa/i.test(riga);
+/* l'ha scritta componiDescrizione: piu' righe, tutte col numero davanti */
+const descrizioneComposta = (righe) =>
+  righe.length > 1 && righe.every(r => /^\d+\s*×\s*\S/.test(r));
 
 export function moduloDelBuono(b) {
   if (b?.tipo === 'valore') return 'trattamenti';
   const righe = String(b?.descrizione || '').split('\n')
     .map(r => r.trim()).filter(Boolean);
   const id = String(b?.voce_id || '');
-  if (righe.length <= 1 && id) return id.startsWith('dayspa') ? 'dayspa' : 'trattamenti';
-  if (!righe.length) return 'trattamenti';
-  return righe.some(r => !eRigaDaySpa(r)) ? 'trattamenti' : 'dayspa';
+  /* elenco di voci vero: qui il testo E' la lista, e vale la §4-bis */
+  if (descrizioneComposta(righe)) {
+    return righe.some(r => !eRigaDaySpa(r)) ? 'trattamenti' : 'dayspa';
+  }
+  /* tutto il resto (una voce sola, o un buono scritto in reception): comanda
+     l'id di listino, che e' l'unico segno affidabile che ci sia */
+  if (id) return id.startsWith('dayspa') ? 'dayspa' : 'trattamenti';
+  /* senza id resta solo il testo — meglio di niente, ed e' il caso di un
+     buono a una riga scritto a mano senza scegliere una voce */
+  if (righe.length === 1) return eRigaDaySpa(righe[0]) ? 'dayspa' : 'trattamenti';
+  return 'trattamenti';
 }
 
 /** Il percorso tradotto del modulo giusto, nella lingua del buono:

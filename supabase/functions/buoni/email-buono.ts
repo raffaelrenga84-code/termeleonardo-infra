@@ -351,15 +351,25 @@ const PERCORSI_PRENOTA: Record<string, Record<string, string>> = {
 };
 
 const eRigaDaySpa = (riga: string) => /day spa/i.test(riga);
+/* l'ha scritta componiDescrizione: piu' righe, tutte col numero davanti */
+const descrizioneComposta = (righe: string[]) =>
+  righe.length > 1 && righe.every((r) => /^\d+\s*×\s*\S/.test(r));
 
 export function moduloDelBuono(b: { tipo?: string | null; voce_id?: string | null; descrizione?: string | null }): string {
   if (b?.tipo === 'valore') return 'trattamenti';
   const righe = String(b?.descrizione || '').split('\n')
     .map((r) => r.trim()).filter(Boolean);
   const id = String(b?.voce_id || '');
-  if (righe.length <= 1 && id) return id.startsWith('dayspa') ? 'dayspa' : 'trattamenti';
-  if (!righe.length) return 'trattamenti';
-  return righe.some((r) => !eRigaDaySpa(r)) ? 'trattamenti' : 'dayspa';
+  /* elenco di voci vero: qui il testo E' la lista, e vale la §4-bis */
+  if (descrizioneComposta(righe)) {
+    return righe.some((r) => !eRigaDaySpa(r)) ? 'trattamenti' : 'dayspa';
+  }
+  /* tutto il resto (una voce sola, o un buono scritto in reception): comanda
+     l'id di listino, che e' l'unico segno affidabile che ci sia */
+  if (id) return id.startsWith('dayspa') ? 'dayspa' : 'trattamenti';
+  /* senza id resta solo il testo */
+  if (righe.length === 1) return eRigaDaySpa(righe[0]) ? 'dayspa' : 'trattamenti';
+  return 'trattamenti';
 }
 
 /** Il percorso tradotto del modulo giusto, nella lingua del buono:

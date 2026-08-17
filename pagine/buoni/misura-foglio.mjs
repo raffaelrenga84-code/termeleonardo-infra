@@ -59,14 +59,55 @@ if (!browser) {
 const { buonoStampaHTML } = await import(new URL('./buono.js', import.meta.url).href);
 const css = fs.readFileSync(path.join(QUI, 'stampa.css'), 'utf8');
 
-/* I casi che contano: le quattro lingue, con e senza la riga della proroga.
-   Il buono e' quello tipico — un Day Spa festivo con nome e sottotitolo di
-   lunghezza normale — non un caso estremo costruito apposta: se non ci sta
-   quello, non ci sta niente. */
+/* I casi che contano.
+   ------------------------------------------------------------------
+   Fino al 17 agosto 2026 qui c'era UN SOLO contenuto: un Day Spa a una voce
+   con la descrizione accorciata a mano ('Day Spa festivo'), e il commento
+   diceva «se non ci sta quello, non ci sta niente». Era falso, ed e' il modo
+   piu' pericoloso in cui un copione di misura puo' sbagliare: rendeva il caso
+   PIU' FACILE e dichiarava "ci sta" per tutti gli altri. Il foglio tagliava
+   gia' le condizioni sui buoni a due voci, e nessuno lo vedeva.
+
+   Due cose sono cambiate, tutte e due per rendere i casi VERI:
+
+   · le descrizioni sono quelle che il buono porta davvero — le voci del
+     LISTINO (supabase/functions/buoni/acquista.ts) composte da
+     componiDescrizione(), che con piu' di una voce scrive il numero su
+     TUTTE le righe. Sono ricopiate qui perche' questo copione gira in Node e
+     quelle vivono in un .ts: se il listino cambia quei due nomi, vanno
+     rifatte anche qui;
+   · c'e' il buono a DUE VOCI. Il tetto e' due (VOCI_MAX), ogni riga e' un
+     .servizio-nome da 18px che spesso va a capo, ed e' proprio il buono di
+     cui parla la specifica §4-bis — un ingresso Day Spa piu' un massaggio.
+     Non e' un caso di laboratorio: e' quello che si vende.
+
+   Il sottotitolo entra ed esce: sui buoni scritti in reception lo si compila
+   a mano, e una riga in piu' li' e' la differenza fra un foglio intero e uno
+   che taglia le condizioni. */
+
+/* i nomi veri, dal LISTINO */
+const DAYSPA = 'Day Spa festivo — piscine e grotte, sabato, domenica e festivi, 9.00–18.30';
+const MASSAGGIO = 'Massaggio Shiatsu (50 min)';
+
+const CONTENUTI = [
+  /* una voce sola: componiDescrizione non scrive il numero */
+  { nome: '1voce', descrizione: DAYSPA, sottotitolo: '' },
+  { nome: '1voce-sott', descrizione: DAYSPA, sottotitolo: 'piscine e grotte' },
+  /* due voci: il numero va su tutte e due le righe */
+  { nome: '2voci', descrizione: `1 × ${DAYSPA}\n1 × ${MASSAGGIO}`, sottotitolo: '' },
+  { nome: '2voci-sott', descrizione: `1 × ${DAYSPA}\n1 × ${MASSAGGIO}`, sottotitolo: 'piscine e grotte' },
+];
+
 const CASI = [];
 for (const lingua of ['it', 'de', 'en', 'fr']) {
-  for (const prorogato of [false, true]) {
-    CASI.push({ nome: `${lingua}-${prorogato ? 'prorogato' : 'normale'}`, lingua, prorogato });
+  for (const contenuto of CONTENUTI) {
+    for (const prorogato of [false, true]) {
+      CASI.push({
+        nome: `${lingua}-${contenuto.nome}-${prorogato ? 'prorogato' : 'normale'}`,
+        lingua, prorogato,
+        descrizione: contenuto.descrizione, sottotitolo: contenuto.sottotitolo,
+      });
+    }
   }
 }
 
@@ -77,7 +118,7 @@ for (const c of CASI) {
   const b = {
     numero: 'BR-2026-0042', codice: 'LEO-ACDE-FGHJ',
     tipo: 'servizio', voce_id: 'dayspa_wknd',
-    descrizione: 'Day Spa festivo', sottotitolo: 'piscine e grotte',
+    descrizione: c.descrizione, sottotitolo: c.sottotitolo,
     destinatario: 'Anna Mustermann', acquirente: 'Max Mustermann', dedica: '',
     lingua: c.lingua,
     scade_il: c.prorogato ? '2027-03-13' : '2027-08-15',
@@ -118,7 +159,7 @@ addEventListener('load', () => {
   const giudizio = isNaN(aria) ? 'NON MISURATO'
     : aria < 0 ? `TAGLIA ${-aria}px di condizioni`
     : aria < SOGLIA ? 'troppo al limite' : '';
-  console.log(`${c.nome.padEnd(16)} aria ${String(aria).padStart(5)}px  ${giudizio}`);
+  console.log(`${c.nome.padEnd(28)} aria ${String(aria).padStart(5)}px  ${giudizio}`);
 }
 
 fs.rmSync(tmp, { recursive: true, force: true });
