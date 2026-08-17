@@ -179,3 +179,43 @@ Deno.test('il presidio sulla preselezione guarda davvero un listino pieno', () =
   assert(daPreselezionare().length > 15, `lette solo ${daPreselezionare().length} voci di LISTINO`);
   assert(TRATTAMENTI.length > 30, `letti solo ${TRATTAMENTI.length} trattamenti`);
 });
+
+/* ---------------- l'avviso deve gridare solo quando c'e' davvero qualcosa di storto ----------------
+   Un normale buono Day Spa a una voce, aperto sul modulo Day Spa, faceva
+   scattare `console.warn('voci del buono senza trattamento corrispondente')`
+   A OGNI caricamento: `ignorate` contiene l'ingresso, che su quel modulo e'
+   il caso NORMALE. Un avviso che suona sempre non si distingue piu' dal caso
+   che deve pescare — una voce di listino che nessuno ha collegato, o un id
+   tolto dal listino dopo la vendita.
+   `sconosciute` e' `ignorate` meno gli ingressi: `ignorate` resta quello che
+   e' perche' sul modulo dei trattamenti serve intero (e' da li' che esce la
+   nota «il buono comprende anche un ingresso Day Spa»). */
+Deno.test('un ingresso Day Spa e ignorato ma non e sconosciuto: niente da gridare', () => {
+  const c = coperturaBuono({ voci: [{ voce_id: 'dayspa_fer', quantita: 1 }], valore: 35 }, TRATTAMENTI);
+  assertEquals(c.ignorate, ['dayspa_fer'], 'sul modulo dei trattamenti serve ancora saperlo');
+  assertEquals(c.sconosciute, [], 'un ingresso senza casella qui e il caso normale, non un difetto');
+});
+
+Deno.test('una voce che nessuno ha collegato resta sconosciuta: e quello l avviso vero', () => {
+  const c = coperturaBuono({ voci: [{ voce_id: 'inventato99', quantita: 1 }], valore: 50 }, TRATTAMENTI);
+  assertEquals(c.sconosciute, ['inventato99']);
+});
+
+/* il presidio che conta: con il listino di OGGI nessun buono vendibile deve
+   far scattare l'avviso. Se domani ne nasce uno che lo fa, e' un difetto
+   vero — ed e' esattamente quello che l'avviso deve pescare. */
+Deno.test('nessuna voce del LISTINO di oggi fa scattare l avviso', () => {
+  for (const id of Object.keys(LISTINO)) {
+    const c = coperturaBuono({ voci: [{ voce_id: id, quantita: 1 }], valore: 1 }, TRATTAMENTI);
+    assertEquals(c.sconosciute, [], `${id} farebbe suonare l avviso su un buono normale`);
+  }
+});
+
+Deno.test('Day Spa piu massaggio: l ingresso resta fra le ignorate, ma niente e sconosciuto', () => {
+  const c = coperturaBuono({
+    voci: [{ voce_id: 'dayspa_fer', quantita: 1 }, { voce_id: 'shiatsu50', quantita: 1 }],
+    valore: 105,
+  }, TRATTAMENTI);
+  assertEquals(c.ignorate, ['dayspa_fer']);
+  assertEquals(c.sconosciute, []);
+});

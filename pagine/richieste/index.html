@@ -287,6 +287,13 @@ const T = {
     dayspa:{ occhiello:'INGRESSO DAY SPA', titolo:'Una giornata alle piscine termali',
       sotto:'Piscine termali, centro grotte e zona relax per un giorno intero. Ci dica quando vuole venire e in quanti: i posti sono limitati, le confermiamo noi l’ingresso.' },
     avviso:'<strong>Questa è una richiesta, non una prenotazione.</strong> Le confermiamo giorno, ora e prezzo per email o telefono, di solito entro poche ore.',
+    /* Il Day Spa un'ora non ce l'ha: e' l'ingresso di una giornata (9:00–18:30).
+       Questa e' la prima frase che legge un ospite Day Spa, e promettergli
+       un'ora vuol dire promettergli una cosa che quel servizio non da'. Il
+       giorno e il prezzo invece glieli confermiamo davvero. Chiave a parte e
+       non un ramo dentro la frase: sono quattro lingue, e una frase composta
+       a pezzi si traduce peggio di una scritta intera. */
+    avvisoDayspa:'<strong>Questa è una richiesta, non una prenotazione.</strong> Le confermiamo giorno e prezzo per email o telefono, di solito entro poche ore.',
     noto:(n)=>`Bentornato, ${n}. Abbiamo già i suoi dati: compili solo il resto.`,
     circolo:'Circolo', giocatori:'Giocatori', percorso:'Percorso (se lo sa)',
     percorsoPh:'es. Rosso, Blu…', noleggi:'Serve qualcosa a noleggio?',
@@ -389,6 +396,7 @@ const T = {
     dayspa:{ occhiello:'EINTRITT DAY SPA', titolo:'Ein Tag in den Thermalbecken',
       sotto:'Thermalbecken, Grottenbereich und Relaxbereich für einen ganzen Tag. Sagen Sie uns, wann Sie kommen möchten und mit wie vielen Personen: die Plätze sind begrenzt, wir bestätigen Ihnen den Eintritt.' },
     avviso:'<strong>Dies ist eine Anfrage, keine Buchung.</strong> Wir bestätigen Ihnen Tag, Uhrzeit und Preis per E-Mail oder Telefon, meist innerhalb weniger Stunden.',
+    avvisoDayspa:'<strong>Dies ist eine Anfrage, keine Buchung.</strong> Wir bestätigen Ihnen Tag und Preis per E-Mail oder Telefon, meist innerhalb weniger Stunden.',
     noto:(n)=>`Willkommen zurück, ${n}. Ihre Daten haben wir bereits.`,
     circolo:'Golfclub', giocatori:'Spieler', percorso:'Platz (falls bekannt)',
     percorsoPh:'z. B. Rosso, Blu…', noleggi:'Brauchen Sie einen Verleih?',
@@ -456,6 +464,7 @@ const T = {
     dayspa:{ occhiello:'DAY SPA ENTRY', titolo:'A day at the thermal pools',
       sotto:'Thermal pools, grotto centre and relax area for a whole day. Tell us when you would like to come and how many you are: places are limited, we will confirm your entry.' },
     avviso:'<strong>This is a request, not a booking.</strong> We confirm day, time and price by email or phone, usually within a few hours.',
+    avvisoDayspa:'<strong>This is a request, not a booking.</strong> We confirm day and price by email or phone, usually within a few hours.',
     noto:(n)=>`Welcome back, ${n}. We already have your details.`,
     circolo:'Club', giocatori:'Players', percorso:'Course (if you know it)',
     percorsoPh:'e.g. Rosso, Blu…', noleggi:'Do you need any rentals?',
@@ -520,6 +529,7 @@ const T = {
     dayspa:{ occhiello:'ENTRÉE DAY SPA', titolo:'Une journée aux piscines thermales',
       sotto:'Piscines thermales, centre grottes et espace relax pour une journée entière. Dites-nous quand vous souhaitez venir et à combien : les places sont limitées, nous vous confirmons l’entrée.' },
     avviso:'<strong>Ceci est une demande, pas une réservation.</strong> Nous vous confirmons jour, heure et prix par e-mail ou téléphone, en général sous quelques heures.',
+    avvisoDayspa:'<strong>Ceci est une demande, pas une réservation.</strong> Nous vous confirmons jour et prix par e-mail ou téléphone, en général sous quelques heures.',
     noto:(n)=>`Bon retour, ${n}. Nous avons déjà vos coordonnées.`,
     circolo:'Club', giocatori:'Joueurs', percorso:'Parcours (si vous le savez)',
     percorsoPh:'ex. Rosso, Blu…', noleggi:'Besoin de location ?',
@@ -1080,17 +1090,22 @@ function preselezionaDalBuono() {
      si perde al massimo un avviso in console.
      (Non e' teoria: mi e' successo in prova, con una copia rimasta
      indietro, e la pagina era bianca esattamente cosi'.) */
-  const { copre = null, indici: dalBuono = [], ignorate = [], ripetute = [] } =
+  const { copre = null, indici: dalBuono = [], ignorate = [], ripetute = [], sconosciute = [] } =
     coperturaBuono(BUONO, TRATTAMENTI) || {};
-  if (ignorate.length) {
+  if (sconosciute.length) {
     /* non si perde in silenzio: se un domani il LISTINO dei buoni prendesse
        una voce nuova e nessuno la collegasse a trattamenti.js, quel buono
        arriverebbe qui e non preselezionerebbe niente. Il test
        «ogni voce del LISTINO … si puo preselezionare» lo impedisce a monte;
        questo avviso serve per quello che il test non vede — un buono
-       vecchio, un id tolto dal listino dopo la vendita. */
+       vecchio, un id tolto dal listino dopo la vendita.
+       `sconosciute` e NON `ignorate`: fra le ignorate ci sono gli ingressi
+       Day Spa, che una casella qui non ce l'hanno per costruzione. Con
+       `ignorate` un normale buono Day Spa a una voce, aperto sul suo
+       modulo, faceva suonare l'avviso A OGNI caricamento — e un avviso che
+       suona sempre non e' piu' distinguibile da quello vero. */
     console.warn('voci del buono senza trattamento corrispondente su questo modulo:',
-      ignorate.join(', '));
+      sconosciute.join(', '));
   }
   /* ---- quello che QUESTO modulo non sa rappresentare ----
      La domanda e' la stessa nei due moduli — «di questo buono, cosa non si
@@ -1358,7 +1373,7 @@ function attivaDayspa(t) {
 function modulo() {
   const t = T[LNG];
   $('app').innerHTML = `
-    <div class="avviso">${t.avviso}</div>
+    <div class="avviso">${TIPO === 'dayspa' ? t.avvisoDayspa : t.avviso}</div>
     ${riquadroBuono(t)}${OSPITE ? `<div class="noto">${esc(t.noto(OSPITE.nome || ''))}</div>` : ''}
     <div class="riquadro">${campiTipo(t)}</div>
     <div class="riquadro">

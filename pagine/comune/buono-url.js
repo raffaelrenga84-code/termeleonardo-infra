@@ -64,16 +64,30 @@ export function differenzaBuono(copre, scelto) {
    Torna { copre, indici, ignorate, ripetute }:
    · copre    quanto dire che il buono copre, o null se non si puo' dire;
    · indici   le posizioni da spuntare, nell'ordine delle voci del buono;
-   · ignorate gli id che qui non hanno un trattamento (per segnalarli: una
-              voce nuova a listino che nessuno ha collegato non deve sparire
-              in silenzio);
+   · ignorate gli id che qui non hanno un trattamento — ingressi Day Spa
+              compresi. Sul modulo dei trattamenti e' da qui che esce la nota
+              «il buono comprende anche un ingresso»: serve intero;
+   · sconosciute le stesse, MENO gli ingressi Day Spa: cioe' solo quelle che
+              non hanno un motivo dichiarato per non avere una casella. Sono
+              le sole da segnalare in console — un ingresso senza casella e'
+              il caso normale del modulo Day Spa, e un avviso che suona a
+              ogni caricamento nasconde quello vero (una voce nuova a listino
+              che nessuno ha collegato, un id tolto dopo la vendita);
    · ripetute gli id presi piu' di una volta. La richiesta che parte da
               questo modulo ne nomina UNO — le caselle non hanno quantita' —
               quindi chi la legge in reception deve trovarlo scritto nelle
               note, o preparerebbe un turno invece di due. */
+/* Gli ingressi Day Spa hanno un id che comincia per 'dayspa': stessa regola
+   del server (eIngressoDaySpa in buoni/acquista.ts), e la stessa che
+   buono-url.test.ts usa per sapere quali voci del LISTINO devono avere un
+   trattamento corrispondente. Qui serve a distinguere le due specie di voce
+   senza casella: quella che non ce l'ha PER COSTRUZIONE e quella che non
+   ce l'ha per una dimenticanza. */
+const eIngressoDaySpa = (id) => id.startsWith('dayspa');
+
 export function coperturaBuono(buono, trattamenti) {
   const voci = buono?.voci;
-  const vuoto = { copre: null, indici: [], ignorate: [], ripetute: [] };
+  const vuoto = { copre: null, indici: [], ignorate: [], ripetute: [], sconosciute: [] };
   /* niente voci: e' un buono a IMPORTO, e un importo si spende su qualunque
      trattamento — li' il conto e' esattamente il suo valore (la specifica:
      «per i buoni a importo libero il conto funziona identico») */
@@ -105,5 +119,11 @@ export function coperturaBuono(buono, trattamenti) {
     indici.push(i);
     somma += trattamenti[i].prezzo;
   }
-  return { copre: dicibile ? somma : null, indici, ignorate, ripetute };
+  return {
+    copre: dicibile ? somma : null,
+    indici,
+    ignorate,
+    ripetute,
+    sconosciute: ignorate.filter((id) => !eIngressoDaySpa(id)),
+  };
 }
