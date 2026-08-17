@@ -25,7 +25,7 @@ function senzaValoriSporchi(s: string): boolean {
 
 const trattamentiCompleti = {
   tipo: 'trattamenti',
-  dati: { voci: ['Massaggio antistress', 'Shiatzu', 'Scrub del Mar Morto'], giorno: '2026-08-21', fascia: 'mattina' },
+  dati: { voci: ['Massaggio antistress', 'Shiatsu', 'Scrub del Mar Morto'], giorno: '2026-08-21', fascia: 'mattina' },
 };
 
 Deno.test('trattamenti: dati completi danno la riga con conteggio, giorno e fascia', () => {
@@ -35,7 +35,7 @@ Deno.test('trattamenti: dati completi danno la riga con conteggio, giorno e fasc
 });
 
 Deno.test('trattamenti: un solo trattamento si dice al singolare', () => {
-  const r = riepilogoRichiesta({ tipo: 'trattamenti', dati: { voci: ['Shiatzu'], giorno: '2026-08-21', fascia: 'mattina' } });
+  const r = riepilogoRichiesta({ tipo: 'trattamenti', dati: { voci: ['Shiatsu'], giorno: '2026-08-21', fascia: 'mattina' } });
   assertEquals(r.riepilogo, '1 trattamento · 21 agosto · mattina');
 });
 
@@ -44,7 +44,7 @@ Deno.test('trattamenti: un solo trattamento si dice al singolare', () => {
    ometterla, che qui varrebbe dire "tenere per se'" un'informazione vera —
    l'ospite ha risposto "mi va bene qualunque orario", e questo si dice) */
 Deno.test('trattamenti: la fascia "indifferente" si legge per esteso, non ambigua', () => {
-  const r = riepilogoRichiesta({ tipo: 'trattamenti', dati: { voci: ['Shiatzu', 'Pindasweda'], giorno: '2026-08-21', fascia: 'indifferente' } });
+  const r = riepilogoRichiesta({ tipo: 'trattamenti', dati: { voci: ['Shiatsu', 'Pindasweda'], giorno: '2026-08-21', fascia: 'indifferente' } });
   assertEquals(r.riepilogo, '2 trattamenti · 21 agosto · orario indifferente');
 });
 
@@ -62,13 +62,13 @@ Deno.test('trattamenti: dati vuoto {} lo dice, non lascia la riga bianca', () =>
 });
 
 Deno.test('trattamenti: senza il giorno restano solo conteggio e fascia', () => {
-  const r = riepilogoRichiesta({ tipo: 'trattamenti', dati: { voci: ['Shiatzu', 'Pindasweda'], fascia: 'pomeriggio' } });
+  const r = riepilogoRichiesta({ tipo: 'trattamenti', dati: { voci: ['Shiatsu', 'Pindasweda'], fascia: 'pomeriggio' } });
   assertEquals(r.riepilogo, '2 trattamenti · pomeriggio');
   assert(senzaValoriSporchi(r.riepilogo));
 });
 
 Deno.test('trattamenti: senza la fascia restano conteggio e giorno', () => {
-  const r = riepilogoRichiesta({ tipo: 'trattamenti', dati: { voci: ['Shiatzu'], giorno: '2026-08-21' } });
+  const r = riepilogoRichiesta({ tipo: 'trattamenti', dati: { voci: ['Shiatsu'], giorno: '2026-08-21' } });
   assertEquals(r.riepilogo, '1 trattamento · 21 agosto');
 });
 

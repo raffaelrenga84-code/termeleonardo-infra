@@ -59,7 +59,7 @@ Il buono si compone: fino a **due voci diverse**, ognuna in quantità fino a
 | Hot Stone, 55 min | **65 €** |
 | Pindasweda, 55 min | **65 €** |
 | Linfodrenaggio completo, 60 min | **65 €** |
-| Shiatzu, 50 min | **70 €** |
+| Shiatsu, 50 min | **70 €** |
 
 ### Viso e corpo
 

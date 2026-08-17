@@ -33,7 +33,7 @@ non coincidono nemmeno per quelli presenti:
 | Antistress (45–55 min) | Massaggio antistress (45 min) |
 | Anti-age acido ialuronico (55 min) | Trattamento anti-age all'acido ialuronico (55 min) |
 
-Mancano fra gli altri Riflessologia plantare, Shiatzu, Pindasweda, Body
+Mancano fra gli altri Riflessologia plantare, Shiatsu, Pindasweda, Body
 Candle, lo Scrub del Mar Morto, il riducente-anticellulite e **tutti e cinque
 i Programmi benessere** — che sono anche i più cari, da 90 a 130 €.
 

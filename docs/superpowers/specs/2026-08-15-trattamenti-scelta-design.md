@@ -8,7 +8,7 @@ Il modulo delle richieste offre **otto trattamenti** come caselle da spuntare,
 senza prezzi, con un elenco scritto a mano dentro la pagina. Il reparto
 benessere ne fa **trentatré**.
 
-Mancano fra gli altri Shiatzu, Pindasweda, Body Candle, riflessologia
+Mancano fra gli altri Shiatsu, Pindasweda, Body Candle, riflessologia
 plantare, il linfodrenaggio, manicure e pedicure — e **tutti e cinque i
 Programmi benessere**, che sono anche i più cari, da 90 a 130 €. Oggi un
 ospite non può chiederli dal sito.

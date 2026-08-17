@@ -120,7 +120,9 @@ textarea{min-height:80px;resize:vertical;}
 
 <div class="testata">
   <div class="sceltaLingua" id="tLingue"></div>
-  <img src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" />
+  <a href="https://www.hoteltermeleonardo.com/" target="_blank" rel="noopener noreferrer"
+    title="Vai al sito dell'hotel">
+    <img src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" /></a>
   <div class="occhiello" style="margin-top:22px;" id="tOcchiello"></div>
   <h1 id="tTitolo"></h1>
   <p class="sotto" id="tSotto"></p>
@@ -365,7 +367,8 @@ function testata() {
   $('selLingua').onchange = (e) => { location.search = '?l=' + e.target.value; };
   $('tPie').innerHTML = `Hotel Terme Leonardo &middot; Via Monteortone 46, 35037 Monteortone di Abano Terme (PD) &middot;
     <a href="tel:+390499939200">+39 049 9939200</a> &middot;
-    <a href="mailto:info@termeleonardo.com">info@termeleonardo.com</a>`;
+    <a href="mailto:info@termeleonardo.com">info@termeleonardo.com</a> &middot;
+    <a href="https://www.hoteltermeleonardo.com/" target="_blank" rel="noopener noreferrer">hoteltermeleonardo.com</a>`;
 }
 
 function passi() {

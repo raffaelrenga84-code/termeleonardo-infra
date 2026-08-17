@@ -50,8 +50,8 @@ Deno.test('un campo tolto e una differenza, con l adesso vuoto', () => {
 /* il cuore del modulo: senza un confronto per valore ordinato, questo
    diventerebbe un falso "aveva chiesto X, ora Y" con X e Y identici */
 Deno.test('le stesse voci in ordine diverso non sono una differenza', () => {
-  const originali = { voci: ['Massaggio antistress', 'Shiatzu', 'Pindasweda'], giorno: '2026-08-21', fascia: 'mattina' };
-  const correnti = { voci: ['Pindasweda', 'Massaggio antistress', 'Shiatzu'], giorno: '2026-08-21', fascia: 'mattina' };
+  const originali = { voci: ['Massaggio antistress', 'Shiatsu', 'Pindasweda'], giorno: '2026-08-21', fascia: 'mattina' };
+  const correnti = { voci: ['Pindasweda', 'Massaggio antistress', 'Shiatsu'], giorno: '2026-08-21', fascia: 'mattina' };
   assertEquals(differenze(originali, correnti), []);
 });
 
@@ -59,12 +59,12 @@ Deno.test('le stesse voci in ordine diverso non sono una differenza', () => {
    segnalato, altrimenti il confronto per valore sarebbe diventato "sempre
    uguali" invece di "uguali solo se stesso contenuto" */
 Deno.test('un elenco di voci davvero diverso resta una differenza', () => {
-  const originali = { voci: ['Massaggio antistress', 'Shiatzu'] };
+  const originali = { voci: ['Massaggio antistress', 'Shiatsu'] };
   const correnti = { voci: ['Massaggio antistress', 'Riflessologia plantare'] };
   const d = differenze(originali, correnti);
   const riga = d.find((x: Differenza) => x.campo === 'Trattamenti scelti');
   assert(riga);
-  assertEquals(riga!.prima, 'Massaggio antistress, Shiatzu');
+  assertEquals(riga!.prima, 'Massaggio antistress, Shiatsu');
   assertEquals(riga!.adesso, 'Massaggio antistress, Riflessologia plantare');
 });
 

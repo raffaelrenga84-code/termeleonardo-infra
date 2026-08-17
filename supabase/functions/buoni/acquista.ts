@@ -22,7 +22,7 @@ export const LISTINO: Record<string, [string, number]> = {
   hotstone55: ['Massaggio Hot Stone (55 min)', 65],
   pindasweda55: ['Massaggio Pindasweda (55 min)', 65],
   linfo60: ['Linfodrenaggio completo (60 min)', 65],
-  shiatzu50: ['Massaggio Shiatzu (50 min)', 70],
+  shiatsu50: ['Massaggio Shiatsu (50 min)', 70],
   visofango25: ['Trattamento viso al fango termale con massaggio (25 min)', 44],
   pulizia55: ['Pulizia viso completa con peeling e maschera (55 min)', 60],
   ialuronico55: ['Trattamento anti-age all’acido ialuronico (55 min)', 80],

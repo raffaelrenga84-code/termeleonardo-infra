@@ -50,8 +50,8 @@ Deno.test('dati_originali diverso da dati produce la differenza vera, con prima 
 Deno.test('dati_originali uguale a dati (a parte l ordine delle voci) non produce differenze', () => {
   const r = arricchisciRiga({
     tipo: 'trattamenti',
-    dati_originali: { voci: ['Shiatzu', 'Antistress'], giorno: '2026-08-21' },
-    dati: { voci: ['Antistress', 'Shiatzu'], giorno: '2026-08-21' },
+    dati_originali: { voci: ['Shiatsu', 'Antistress'], giorno: '2026-08-21' },
+    dati: { voci: ['Antistress', 'Shiatsu'], giorno: '2026-08-21' },
   });
   assertEquals(r.differenze, []);
 });

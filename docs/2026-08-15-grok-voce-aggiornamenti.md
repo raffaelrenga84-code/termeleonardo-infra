@@ -249,7 +249,7 @@ l'ospite non sa cosa scegliere».
 
 Il prompt propone **antistress, relax al cacao, Ayurveda**. Sul listino
 stampato del centro benessere i più richiesti sono segnati col ♥, e sono
-altri: i **cinque Programmi**, il **Relax con olio di cacao**, lo **Shiatzu**,
+altri: i **cinque Programmi**, il **Relax con olio di cacao**, lo **Shiatsu**,
 **manicure** e **pedicure**. Le due liste coincidono su **una voce sola**.
 
 Il prompt dice anche «Antistress — il più richiesto», che secondo il listino
@@ -266,7 +266,7 @@ centro benessere.** ⟨verificare ogni anno col listino⟩
 - i **cinque Programmi**: Coccola 90 € · Viso Antirughe 90 € · Viso Termale
   95 € · Oriente 130 € · Antistress 130 €
 - **Massaggio Relax con olio di cacao**, 25 min, 40 €
-- **Massaggio Shiatzu**, 50 min, 70 €
+- **Massaggio Shiatsu**, 50 min, 70 €
 - **Manicure** da 30 € · **Pedicure** da 40 €
 
 **Se l'ospite non sa cosa scegliere, dinne al massimo TRE**, una riga
@@ -275,7 +275,7 @@ recitare. Scegli i tre in base a cosa ha detto:
 
 - vuole **qualcosa di veloce**, o è appena uscito dalle piscine → Relax con
   olio di cacao, venticinque minuti
-- vuole **un massaggio vero**, o parla di tensioni → Shiatzu, cinquanta minuti
+- vuole **un massaggio vero**, o parla di tensioni → Shiatsu, cinquanta minuti
 - vuole **coccolarsi**, è un regalo, o ha tempo → un Programma, dicendo cosa
   comprende
 
