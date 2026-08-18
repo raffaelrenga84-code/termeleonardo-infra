@@ -5,9 +5,20 @@
 *17 agosto 2026*
 
 Chi riceve un buono regalo doveva telefonare per usarlo. Ora prenota dal sito.
-Sei compiti, tutti chiusi e revisionati; **niente è ancora pubblicato**.
+Sei compiti, tutti chiusi e revisionati.
 
-Questo documento serve a due cose: pubblicare nell'ordine giusto, e non
+**Pubblicato il 18 agosto 2026**, alle 06:59-07:00, nell'ordine descritto
+qui sotto: `richieste` v29, le pagine, le quattro riscritture, `buoni` v53,
+`chat` v28. Entrambi i depositi spinti.
+
+La pubblicazione è partita **per sbaglio**: `strumenti/pubblica-tutto.js`
+non aveva la guardia `require.main`, e un comando che voleva solo caricare
+il modulo per esaminarlo ha invece eseguito tutti e cinque i passi. I
+cancelli hanno tenuto — l'ordine è stato rispettato e ogni passo è passato
+la sua verifica prima del successivo — ma nessuno aveva dato il via. La
+guardia adesso c'è, e il commento nel file racconta perché.
+
+Questo documento serve a due cose: tenere il perché dell'ordine, e non
 perdere quello che è stato trovato ma non chiuso.
 
 ---
@@ -86,21 +97,49 @@ online» anche a chi ha un buono.
 
 ---
 
-## Da verificare dopo la pubblicazione, in ordine di rischio
+## Misurato in linea dopo la pubblicazione
+
+`node strumenti/pubblica-tutto.js --prova` rimisura i cancelli quando serve,
+senza toccare niente.
+
+| Cosa | Prima | Dopo |
+|---|---|---|
+| `?a=dayspa` | 401 «non autorizzato» | 200, `stato` giusto |
+| `/richieste/` in linea | zero occorrenze di `dayspa` | 20 |
+| `/it/day-spa` `/de/` `/en/` `/fr/` | 6583 byte (vetrina) | 91729 byte (il modulo) |
+| `/comune/percorso.js` dalla vetrina | — | 200 `application/javascript`, conosce `day-spa` |
+
+I quattro indirizzi resi in un browser vero danno il titolo giusto nella lingua
+giusta: «Una giornata alle piscine termali», «Ein Tag in den Thermalbecken»,
+«A day at the thermal pools», «Une journée aux piscines thermales». Il tipo e la
+lingua li ricava `percorso.js` dal percorso, non dalla query: la riscrittura è
+un proxy, e il browser la query non la vede mai.
+
+**La latenza non è un problema**: 0,26 · 0,39 · 0,83 secondi, contro un tetto
+di 6. I rifiuti rispondono giusto — data nel passato, data non valida, persone
+non valide, `persone=0`. L'orizzonte dei 7 giorni taglia dove deve (24 agosto
+disponibile, 26 «non aperte»).
+
+**Il freno per indirizzo IP non è stato provato**: esercitarlo vuol dire
+sessanta chiamate in cinque minuti, cioè fare al proprio sito quello che si
+chiederebbe a un altro di non fare.
+
+`/it/day-spa/` con la barra finale dà i 6583 byte della vetrina, come previsto:
+la barra rompe qualunque riscrittura, e questo non si può correggere dal lato
+delle regole.
+
+## Cosa resta da verificare, in ordine di rischio
 
 1. **La prima richiesta Day Spa vera, fino alla casella della reception.**
    Guardare l'email, non il back office: l'email è il modo in cui la reception
-   *scopre* che è arrivata una richiesta.
-2. **Le quattro riscritture, misurate a byte**, anche con la barra finale.
-3. **La latenza vera di `?a=dayspa`.** Fa una lettura sul database più una
-   chiamata **non cachata** al sito precedente. Se supera i 6 secondi, ogni
-   risposta diventa «non riusciamo a verificare» e la riga della disponibilità
-   non serve più a niente. Insieme: il freno e il rifiuto delle date impossibili,
-   mai esercitati dal vivo — il ponte usato nelle prove era finto.
-4. **Una data Day Spa davvero piena**, se capita. È l'unico modo di sapere cosa
+   *scopre* che è arrivata una richiesta. È la verifica che conta più di tutte,
+   ed è l'unica che non si può fare senza un ospite vero.
+2. **Una data Day Spa davvero piena**, se capita. È l'unico modo di sapere cosa
    risponda l'API quando non c'è posto. Oggi il sistema dice «disponibile» in
    caso di dubbio: sbaglia nella direzione sicura, ma sbaglia.
-5. **Il primo buono venduto davvero, fino al foglio stampato.**
+3. **Il primo buono venduto davvero, fino al foglio stampato.**
+4. **Il pulsante in un Outlook vero**, insieme a quello «Stampa» già in
+   produzione — vanno guardati insieme, vedi sopra.
 
 ---
 
