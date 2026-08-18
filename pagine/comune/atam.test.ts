@@ -24,7 +24,7 @@
    quel modo continua a funzionare.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { riepilogoATAM, vociATAM } from './atam.js';
+import { datiATAM, indirizzoATAM, riepilogoATAM, vociATAM } from './atam.js';
 
 /* il formattatore di data lo passa la pagina: questo modulo non possiede il
    modo di scrivere una data, e due copie di quella regola divergerebbero */
@@ -96,4 +96,52 @@ Deno.test('il testo unito e ancora quello di prima', () => {
 Deno.test('il ritorno si segnala come nota, senza valore da copiare', () => {
   const r = { ...RICHIESTA, dati: { ...RICHIESTA.dati, ritorno: true } };
   assert(riepilogoATAM(r, dataFinta).includes('serve anche il ritorno'));
+});
+
+/* ============================================================
+   I VALORI GREZZI PER IL MODULO DEI TASSISTI.
+
+   Le voci qui sopra servono agli occhi; questi servono all'estensione,
+   che li scrive nei campi di atam.biz. Il difetto da presidiare e' che
+   qualcuno, un domani, faccia scrivere all'estensione le ETICHETTE —
+   «Data: 15 agosto 2026» dentro il campo della data — che e' esattamente
+   il guasto da cui e' nato tutto questo lavoro.
+   ============================================================ */
+Deno.test('i valori grezzi non contengono etichette ne date scritte a parole', () => {
+  const g = datiATAM(RICHIESTA);
+  assertEquals(g.data, '2026-08-15');       // ISO, non «15 agosto 2026»
+  assertEquals(g.ora, '15:30');
+  assertEquals(g.pax, '2');
+  assertEquals(g.verso, 'arrivo');
+  assertEquals(g.luogo, 'Venezia  aeroporto');   // doppio spazio conservato
+  assertEquals(g.nome, 'Raffael Renga');
+  for (const [k, v] of Object.entries(g)) {
+    assert(!/^(Data|Ora|Pax|Nome del cliente|Arrivo da|Note):/i.test(String(v)),
+      `${k} porta dentro la sua etichetta: ${v}`);
+  }
+});
+
+Deno.test('una partenza si dice partenza anche nei valori grezzi', () => {
+  const r = { ...RICHIESTA, dati: { ...RICHIESTA.dati, verso: 'partenza' } };
+  assertEquals(datiATAM(r).verso, 'partenza');
+});
+
+/* Su atam.biz il ritorno e' una seconda corsa e non ha un campo: se non
+   finisse nelle note, sparirebbe fra la richiesta e la prenotazione. */
+Deno.test('il ritorno finisce nelle note, perche altrove non c e posto', () => {
+  const r = { ...RICHIESTA, dati: { ...RICHIESTA.dati, ritorno: true } };
+  const g = datiATAM(r);
+  assert(g.note.includes('ritorno'), `note: ${g.note}`);
+  assert(g.note.includes('due valigie grandi'), 'le note dell ospite non devono sparire');
+});
+
+/* Il frammento — tutto cio' che sta dopo il # — non viene mai mandato al
+   server. Se un domani questi dati finissero nella QUERY, i nomi degli
+   ospiti arriverebbero nei log di atam.biz. */
+Deno.test('i dati viaggiano nel frammento, mai nella query', () => {
+  const u = indirizzoATAM(RICHIESTA);
+  assert(u.startsWith('https://www.atam.biz/prenotazioni/#leo='), u.slice(0, 60));
+  assert(!u.slice(0, u.indexOf('#')).includes('?'), 'c e una query: i dati uscirebbero');
+  const dentro = JSON.parse(decodeURIComponent(u.split('#leo=')[1]));
+  assertEquals(dentro.nome, 'Raffael Renga');
 });

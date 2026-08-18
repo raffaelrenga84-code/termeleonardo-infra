@@ -148,7 +148,7 @@ import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, cate
 /* stessa regola di sopra: percorso assoluto, non relativo — `/comune/date.js`,
    mai `./date.js` o `../comune/date.js`. Vedi il commento in date.js. */
 import { attivaDate } from '/comune/date.js';
-import { vociATAM, riepilogoATAM } from '/comune/atam.js';
+import { vociATAM, riepilogoATAM, indirizzoATAM } from '/comune/atam.js';
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -1350,6 +1350,16 @@ function dettaglioRichiesta(r) {
           : `<button type="button" class="copiaVoce" data-val="${esc(v.val)}">Copia</button>`}</td>
       </tr>`).join('')}</table>
       <textarea id="cAtam" rows="2" readonly hidden>${esc(riepilogoATAM(r, dataIT))}</textarea>
+      <!-- Il modulo dei tassisti si compila da solo: l'estensione legge i dati
+           dal FRAMMENTO dell'indirizzo (dopo il #), che il browser non manda
+           mai al server. Chi non ha l'estensione usa il copia qui sotto, che
+           resta. Provato che un link con la query NON funziona: la loro vista
+           Django ignora ?pax=3, i campi restano vuoti. -->
+      <a class="azione" id="bApriAtam" href="${esc(indirizzoATAM(r))}"
+        target="_blank" rel="noopener noreferrer"
+        style="display:block;text-align:center;text-decoration:none;">Apri su ATAM già compilato</a>
+      <div class="mini" style="padding-top:6px;">Serve l'estensione Offerta Leonardo.
+        Il modulo si compila da solo: <strong>Prenota lo premi tu</strong>, dopo aver riletto.</div>
       <button class="azione sec" id="bCopiaAtam">Copia tutto in blocco</button>
     </div>` : ''}
 

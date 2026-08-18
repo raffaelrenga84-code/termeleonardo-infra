@@ -36,6 +36,42 @@ export function vociATAM(r, dataIT) {
   return voci;
 }
 
+/* I valori GREZZI per il modulo dei tassisti, quelli che l'estensione scrive
+   nei campi: niente etichette, niente date scritte a parole. Le voci qui
+   sopra servono agli occhi di chi legge; questi servono a una macchina.
+
+   `ritorno` non ha un campo suo su atam.biz — li' il ritorno e' una seconda
+   corsa — quindi finisce nelle note, dov'e' l'unico posto in cui qualcuno
+   lo legge prima di prenotare. */
+export function datiATAM(r) {
+  const d = (r && r.dati) || {};
+  const note = [
+    d.ritorno ? 'Serve anche il ritorno' : '',
+    d.note ? String(d.note) : '',
+  ].filter(Boolean).join(' · ');
+  return {
+    data: String(d.quando || '').slice(0, 10),
+    ora: d.ora || '',
+    pax: d.pax == null ? '' : String(d.pax),
+    verso: d.verso === 'partenza' ? 'partenza' : 'arrivo',
+    luogo: d.luogo || '',
+    nome: (r && r.nome) || '',
+    volo: d.volo ? String(d.volo) : '',
+    note,
+  };
+}
+
+/* L'indirizzo che apre il modulo dei tassisti gia' compilato.
+   I dati viaggiano nel FRAMMENTO — tutto cio' che sta dopo il # — che il
+   browser non manda mai al server: atam.biz riceve la richiesta della
+   pagina e basta. E' lo stesso meccanismo del segnalibro «Documenti
+   Leonardo». Li legge atam-booking.js dell'estensione, che poi li toglie
+   dall'indirizzo. */
+export function indirizzoATAM(r) {
+  return 'https://www.atam.biz/prenotazioni/#leo='
+    + encodeURIComponent(JSON.stringify(datiATAM(r)));
+}
+
 /* Il blocco intero, com'era prima: c'e' chi lo incolla nelle note del modulo
    dei tassisti, ed e' legittimo. Le due forme non possono divergere perche'
    la seconda e' fatta con la prima. */
