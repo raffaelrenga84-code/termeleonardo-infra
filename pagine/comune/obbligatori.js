@@ -36,7 +36,23 @@ const PER_TIPO = {
   greenfee: GIORNO_E_ORA,
   maestro: GIORNO_E_ORA,
   soggiorno: GIORNO_E_ORA,
-  transfer: GIORNO_E_ORA,
+  /* Il transfer ha una pagina sua e nomi suoi: il giorno si chiama
+     `fQuando` e non `fData`, e in piu' c'e' la destinazione, che senza non
+     si sa nemmeno che corsa sia. Erano stati messi qui gli id degli altri
+     moduli, e su quella pagina non avrebbero trovato niente: gli asterischi
+     non sarebbero comparsi e il controllo avrebbe lasciato passare tutto,
+     tornando a far scoprire il rifiuto solo dopo l'invio. */
+  transfer: [
+    /* `mostra`: la destinazione E' una <select>, ma sta dentro un riquadro
+       chiuso (display:none) — quelle che l'ospite vede sono le dodici
+       pastiglie. Segnare di rosso un elemento invisibile e dargli il fuoco
+       non porta nessuno da nessuna parte: provato in un browser vero, il
+       fuoco restava sul nulla e il modulo diceva che manca la destinazione
+       senza mostrare dove sceglierla. */
+    { id: 'fLuogo', eti: 'luogo', mostra: 'mete' },
+    { id: 'fQuando', eti: 'quando' },
+    { id: 'fOra', eti: 'ora' },
+  ],
   trattamenti: [{ id: 'fGiorno', eti: 'giorno' }],
   dayspa: [{ id: 'fGiorno', eti: 'giorno' }],
 };
@@ -61,4 +77,67 @@ export function campiObbligatori(tipo) {
    c'e'. */
 export function mancanti(tipo, leggi) {
   return campiObbligatori(tipo).filter((c) => !String(leggi(c.id) ?? '').trim());
+}
+
+/* ---- la parte che tocca la pagina ----
+   Sta qui e non dentro i moduli perche' le pagine sono due (le richieste e
+   il transfer) e diventeranno tre: due copie di queste quindici righe sono
+   due copie che divergono. `doc` si passa per poterle provare, e perche'
+   scritto cosi' il modulo si carica anche dove `document` non esiste. */
+
+/* L'asterisco e' decorazione per chi vede: a chi usa un lettore di schermo
+   lo dice gia' aria-required, e sentirsi leggere «asterisco» dopo ogni
+   etichetta e' rumore. */
+export function segnaEtichette(tipo, doc) {
+  for (const c of campiObbligatori(tipo)) {
+    const el = doc.getElementById(c.id);
+    if (el) el.setAttribute('aria-required', 'true');
+    const eti = doc.querySelector(`label[for="${c.id}"]`);
+    if (eti && !eti.querySelector('.obb')) {
+      eti.insertAdjacentHTML('beforeend', ' <span class="obb" aria-hidden="true">*</span>');
+    }
+  }
+}
+
+/* Segna i campi vuoti e porta l'ospite sul primo. Il segno si toglie appena
+   ci scrive dentro: lasciarlo rosso mentre lo sta riempiendo e'
+   rimproverarlo due volte. Restituisce il primo campo vuoto, cosi' chi
+   chiama puo' decidere altro. */
+/* Il bersaglio e' l'elemento che l'ospite VEDE: quasi sempre il campo
+   stesso, ma quando il campo e' nascosto (la destinazione del transfer sta
+   in una <select> dentro un riquadro chiuso) e' quello che sta al suo posto
+   sullo schermo. */
+const bersaglio = (c, doc) => doc.getElementById(c.mostra || c.id);
+
+export function segnaVuoti(tipo, vuoti, doc) {
+  for (const c of campiObbligatori(tipo)) {
+    const el = bersaglio(c, doc);
+    if (el) el.classList.remove('vuoto');
+  }
+  for (const c of vuoti) {
+    const el = bersaglio(c, doc);
+    if (!el) continue;
+    el.classList.add('vuoto');
+    /* un contenitore di pastiglie non emette `input`: si ripulisce al
+       click, che li' e' il modo in cui si sceglie */
+    const quando = c.mostra ? 'click' : 'input';
+    el.addEventListener(quando, () => el.classList.remove('vuoto'), { once: true });
+  }
+  const primo = vuoti.length ? bersaglio(vuoti[0], doc) : null;
+  if (primo) {
+    primo.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    /* focus() su un <div> non fa niente se non e' raggiungibile da
+       tastiera: si prova sul primo comando che contiene */
+    const fuoco = typeof primo.focus === 'function' && primo.tabIndex >= 0
+      ? primo
+      : primo.querySelector('button, input, select, textarea, [tabindex]') || primo;
+    if (typeof fuoco.focus === 'function') fuoco.focus({ preventScroll: true });
+  }
+  return primo;
+}
+
+/* I nomi dei campi che mancano, come li legge l'ospite: «Giorno, Email».
+   `t` sono i testi tradotti della pagina. */
+export function nomiMancanti(vuoti, t) {
+  return vuoti.map((c) => t[c.eti]).join(', ');
 }

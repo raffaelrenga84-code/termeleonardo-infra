@@ -55,7 +55,7 @@ textarea{min-height:80px;resize:vertical;}
   background:var(--verde);color:var(--crema);font:600 16px inherit;cursor:pointer;}
 .invia:disabled{background:#B9BDB6;cursor:default;}
 /* L'ASTERISCO E IL CAMPO VUOTO. Le due cose nascono dalla stessa lista
-   (comune/obbligatori.js): l'asterisco lo mette segnaObbligatori(), il
+   (comune/obbligatori.js): l'asterisco lo mette segnaEtichette(), il
    bordo rosso lo mette segnalaMancanti(). Il colore non basta da solo —
    c'e' anche l'asterisco sull'etichetta e il nome del campo scritto nel
    messaggio, perche' chi non distingue il rosso deve poter capire lo
@@ -228,7 +228,7 @@ import { nomeCompleto, ORDINE_GRUPPI, prezzoTesto, SPIEGAZIONI, TRATTAMENTI } fr
    ogni caso, cosi' una divergenza diventa rossa invece di far leggere
    all'ospite una cifra sulla pagina e sentirne un'altra alla cassa. */
 import { codiceDaUrl, normalizzaCodice, coperturaBuono, differenzaBuono } from '/comune/buono-url.js';
-import { campiObbligatori, mancanti } from '/comune/obbligatori.js';
+import { mancanti, segnaEtichette, segnaVuoti, nomiMancanti } from '/comune/obbligatori.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 /* i buoni stanno su un'altra funzione: ?a=verifica e' una LETTURA pubblica
@@ -1535,7 +1535,7 @@ function modulo() {
       for (const c of box.querySelectorAll('input[type="checkbox"]')) c.checked = false;
     }
   };
-  segnaObbligatori();
+  segnaEtichette(TIPO, document);
   $('bInvia').onclick = invia;
   /* l'invito c'e' solo quando il codice non e' gia' nell'indirizzo */
   if ($('bBuonoApri')) {
@@ -1607,41 +1607,9 @@ function raccogli() {
    Questo controllo non e' una difesa: quella la fa il server (valida.ts),
    perche' il browser si aggira. Serve a non far perdere tempo a chi sta
    compilando in buona fede. */
-function segnaObbligatori() {
-  for (const c of campiObbligatori(TIPO)) {
-    const el = $(c.id);
-    if (el) el.setAttribute('aria-required', 'true');
-    const eti = document.querySelector(`label[for="${c.id}"]`);
-    /* l'asterisco e' decorazione per chi vede: a chi usa un lettore di
-       schermo lo dice gia' aria-required, e sentirsi leggere «asterisco»
-       dopo ogni etichetta e' rumore */
-    if (eti && !eti.querySelector('.obb')) {
-      eti.insertAdjacentHTML('beforeend', ' <span class="obb" aria-hidden="true">*</span>');
-    }
-  }
-}
-
-/* Il segno sul campo si toglie appena l'ospite ci scrive dentro: lasciarlo
-   rosso mentre lo sta riempiendo e' rimproverarlo due volte. */
-function togliSegno(el) {
-  if (el) el.classList.remove('vuoto');
-}
-
 function segnalaMancanti(t, vuoti) {
-  for (const c of campiObbligatori(TIPO)) togliSegno($(c.id));
-  for (const c of vuoti) {
-    const el = $(c.id);
-    if (!el) continue;
-    el.classList.add('vuoto');
-    el.addEventListener('input', () => togliSegno(el), { once: true });
-  }
-  $('esito').innerHTML =
-    `<div class="errore">${esc(t.mancaChe(vuoti.map((c) => t[c.eti]).join(', ')))}</div>`;
-  const primo = $(vuoti[0].id);
-  if (primo) {
-    primo.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    primo.focus({ preventScroll: true });
-  }
+  $('esito').innerHTML = `<div class="errore">${esc(t.mancaChe(nomiMancanti(vuoti, t)))}</div>`;
+  segnaVuoti(TIPO, vuoti, document);
 }
 
 async function invia() {

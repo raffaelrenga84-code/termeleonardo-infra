@@ -105,3 +105,53 @@ Deno.test('l elenco segue l ordine del modulo: prima il tipo, poi i contatti', (
     assert(primoContatto > 0, `${tipo}: i contatti vengono per primi, ma sul modulo stanno dopo`);
   }
 });
+
+/* ============================================================
+   E GLI ID DEVONO ESISTERE DAVVERO SULLA PAGINA.
+
+   IL DIFETTO CHE PRESIDIA. Alla prima stesura il transfer aveva qui gli id
+   degli altri moduli — `fData` invece di `fQuando` — e gli mancava la
+   destinazione. Su quella pagina non avrebbero trovato niente: nessun
+   asterisco sarebbe comparso, e il controllo prima dell'invio avrebbe
+   lasciato passare un modulo vuoto, tornando a far scoprire il rifiuto solo
+   dopo aver premuto «Invia».
+
+   Una lista di id e' una promessa su un'altra pagina, e una promessa che
+   nessuno verifica invecchia in silenzio.
+   ============================================================ */
+const PAGINA = {
+  greenfee: '../richieste/index.html',
+  maestro: '../richieste/index.html',
+  trattamenti: '../richieste/index.html',
+  dayspa: '../richieste/index.html',
+  soggiorno: '../richieste/index.html',
+  transfer: '../richieste/transfer/index.html',
+};
+
+Deno.test('ogni campo obbligatorio esiste sulla pagina che lo disegna', () => {
+  for (const tipo of TIPI_MODULO) {
+    const dove = PAGINA[tipo as keyof typeof PAGINA];
+    assert(dove, `${tipo} non dice su quale pagina vive`);
+    const sorgente = Deno.readTextFileSync(new URL(dove, import.meta.url));
+    for (const c of campiObbligatori(tipo)) {
+      assert(
+        sorgente.includes(`<label for="${c.id}">`),
+        `${tipo}: il campo ${c.id} non esiste in ${dove}`,
+      );
+      /* se un campo dice di farsi mostrare altrove, quel posto deve
+         esistere: altrimenti l'ospite non viene portato da nessuna parte */
+      if (c.mostra) {
+        assert(
+          sorgente.includes(`id="${c.mostra}"`),
+          `${tipo}: ${c.id} rimanda a #${c.mostra}, che in ${dove} non c'e'`,
+        );
+      }
+      assert(
+        /* String.raw: dentro un template normale `\b` e' il carattere
+           backspace, non il confine di parola, e la prova passava sempre */
+        new RegExp(String.raw`\bt\.${c.eti}\b`).test(sorgente),
+        `${tipo}: il nome tradotto t.${c.eti} non esiste in ${dove}`,
+      );
+    }
+  }
+});

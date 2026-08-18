@@ -72,6 +72,17 @@ textarea{min-height:84px;resize:vertical;}
 .invia{width:100%;margin-top:22px;padding:16px;border:0;border-radius:999px;
   background:var(--verde);color:var(--crema);font:600 16px inherit;cursor:pointer;}
 .invia:disabled{background:#B9BDB6;cursor:default;}
+/* L'ASTERISCO E IL CAMPO VUOTO: stessa lista del controllo prima
+   dell'invio (comune/obbligatori.js), stesso aspetto della pagina delle
+   richieste. Il colore non e' l'unico segno — c'e' l'asterisco
+   sull'etichetta e il nome del campo dentro il messaggio. */
+.obb{color:var(--allarme);font-weight:700;}
+/* la destinazione si sceglie fra le pastiglie: quando manca si segna il
+   loro riquadro, perche la <select> vera sta dentro un box chiuso */
+.mete.vuoto{outline:2px solid var(--allarme);outline-offset:6px;border-radius:10px;}
+.legenda{color:var(--grigio);font-size:12.5px;margin-top:16px;text-align:right;}
+input.vuoto,select.vuoto,textarea.vuoto{border-color:var(--allarme);background:#FDF0EE;}
+input.vuoto:focus,select.vuoto:focus,textarea.vuoto:focus{outline:2px solid var(--allarme);outline-offset:1px;}
 .errore{margin-top:14px;background:#FDF0EE;border-left:4px solid var(--allarme);
   padding:13px 15px;border-radius:6px;color:#7A2E24;font-size:14px;line-height:1.6;}
 .fatta{text-align:center;padding:40px 22px;}
@@ -111,6 +122,7 @@ import { oggiISO, attivaDate } from '/comune/date.js';
    il perche' e il contratto (ripulisce, non fa escaping: tocca comunque
    a `esc()` qui sotto, come per ogni altro campo di questa pagina). */
 import { normalizzaLingua, parametriOspite } from '/comune/ospite-url.js';
+import { mancanti, segnaEtichette, segnaVuoti, nomiMancanti } from '/comune/obbligatori.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 
@@ -159,6 +171,7 @@ const T = {
     privacy:"Ho preso atto dell’informativa sul trattamento dei dati personali", privacyLink:"Leggi l’informativa",
     privacyManca:"Per procedere deve prendere atto dell’informativa privacy.", invia:'Invia la richiesta', invio:'Invio…',
     manca:'Compili i campi obbligatori: destinazione, giorno, ora, nome, email e telefono.',
+    mancaChe:(x)=>`Manca ancora: ${x}.`, legenda:'* campo obbligatorio',
     ripiego:'Non siamo riusciti a registrare la richiesta. Ci chiami allo +39 049 9939200 o scriva a info@termeleonardo.com: rispondiamo subito.',
     grazieTit:'Richiesta ricevuta', grazieTxt:'Le confermiamo orario e prezzo al più presto.',
     rif:'Riferimento', ancora:'Fai un’altra richiesta' },
@@ -180,6 +193,7 @@ const T = {
     privacy:"Ich habe die Datenschutzerklärung zur Kenntnis genommen", privacyLink:"Datenschutzerklärung lesen",
     privacyManca:"Bitte nehmen Sie die Datenschutzerklärung zur Kenntnis.", invia:'Anfrage senden', invio:'Senden…',
     manca:'Bitte Pflichtfelder ausfüllen: Ziel, Tag, Uhrzeit, Name, E-Mail und Telefon.',
+    mancaChe:(x)=>`Es fehlt noch: ${x}.`, legenda:'* Pflichtfeld',
     ripiego:'Wir konnten die Anfrage nicht speichern. Rufen Sie uns unter +39 049 9939200 an oder schreiben Sie an info@termeleonardo.com: wir antworten sofort.',
     grazieTit:'Anfrage erhalten', grazieTxt:'Wir bestätigen Ihnen Uhrzeit und Preis so bald wie möglich.',
     rif:'Referenz', ancora:'Weitere Anfrage' },
@@ -201,6 +215,7 @@ const T = {
     privacy:"I have read the privacy notice", privacyLink:"Read the privacy notice",
     privacyManca:"Please acknowledge the privacy notice to continue.", invia:'Send request', invio:'Sending…',
     manca:'Please fill in the required fields: destination, day, time, name, email and phone.',
+    mancaChe:(x)=>`Still missing: ${x}.`, legenda:'* required field',
     ripiego:'We could not register your request. Please call +39 049 9939200 or write to info@termeleonardo.com: we will reply right away.',
     grazieTit:'Request received', grazieTxt:'We will confirm time and price as soon as possible.',
     rif:'Reference', ancora:'Make another request' },
@@ -222,6 +237,7 @@ const T = {
     privacy:"J’ai pris connaissance de la politique de confidentialité", privacyLink:"Lire la politique de confidentialité",
     privacyManca:"Veuillez prendre connaissance de la politique de confidentialité.", invia:'Envoyer la demande', invio:'Envoi…',
     manca:'Veuillez remplir les champs obligatoires : destination, jour, heure, nom, e-mail et téléphone.',
+    mancaChe:(x)=>`Il manque encore : ${x}.`, legenda:'* champ obligatoire',
     ripiego:'Nous n’avons pas pu enregistrer la demande. Appelez-nous au +39 049 9939200 ou écrivez à info@termeleonardo.com : nous répondons tout de suite.',
     grazieTit:'Demande reçue', grazieTxt:'Nous vous confirmons l’horaire et le prix au plus vite.',
     rif:'Référence', ancora:'Faire une autre demande' },
@@ -524,6 +540,7 @@ function modulo() {
             rel="noopener noreferrer">${esc(t.privacyLink)}</a></span></label>
     </div>
 
+    <div class="legenda">${esc(t.legenda)}</div>
     <button class="invia" id="bInvia">${esc(t.invia)}</button>
     <div id="esito"></div>`;
 
@@ -604,6 +621,7 @@ function modulo() {
   };
   $('bArrivo').onclick = () => scegli('arrivo');
   $('bPartenza').onclick = () => scegli('partenza');
+  segnaEtichette('transfer', document);
   $('bInvia').onclick = invia;
 
   /* la data che il modello ha appena scritto e' NOSTRA: senza ricordarla,
@@ -619,17 +637,28 @@ function modulo() {
 async function invia() {
   const t = T[LNG];
   if (INVIANDO) return;
-  const v = (id) => $(id).value.trim();
   /* il telefono e' obbligatorio quanto nome ed email: il server lo impone
      da quando esiste un solo modo per raggiungere l'ospite se la corsa va
      spostata, ed e' quello. Il controllo qui evita che l'ospite scopra il
-     rifiuto solo dopo aver premuto invia. */
-  if (!v('fLuogo') || !v('fQuando') || !v('fOra') || !v('fNome') || !v('fEmail') || !v('fTel')) {
-    $('esito').innerHTML = `<div class="errore">${esc(t.manca)}</div>`;
+     rifiuto solo dopo aver premuto invia.
+     Quali campi siano obbligatori lo dice /comune/obbligatori.js, la stessa
+     lista da cui nasce l'asterisco: il messaggio prima li elencava TUTTI e
+     SEMPRE («destinazione, giorno, ora, nome, email e telefono»), anche
+     quando ne mancava uno solo, e chi lo leggeva doveva ricontrollarli a
+     uno a uno. */
+  const vuoti = mancanti('transfer', (id) => ($(id) ? $(id).value : ''));
+  if (vuoti.length) {
+    $('esito').innerHTML = `<div class="errore">${esc(t.mancaChe(nomiMancanti(vuoti, t)))}</div>`;
+    segnaVuoti('transfer', vuoti, document);
     return;
   }
   if (!$('fPrivacy').checked) {
     $('esito').innerHTML = `<div class="errore">${esc(t.privacyManca)}</div>`;
+    const spunta = $('fPrivacy');
+    if (spunta) {
+      spunta.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      spunta.focus({ preventScroll: true });
+    }
     return;
   }
   INVIANDO = true;
