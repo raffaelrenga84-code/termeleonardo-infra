@@ -16,6 +16,7 @@ import { validaParametriDisponibilita } from './valida.ts';
 import { validaDati } from './tipi.ts';
 import { componiRichiesta, type Contatti } from './componi-richiesta.ts';
 import { avvisaHotel } from './email-richiesta.ts';
+import { inviaRicevuta } from './ricevuta.ts';
 import { inviaConferma } from './conferma.ts';
 import { arricchisciElenco } from './elenco.ts';
 import { filtroRicercaRichieste } from './ricerca.ts';
@@ -227,10 +228,24 @@ Deno.serve(async (req) => {
       return risposta({ errore: 'salvataggio non riuscito' }, 500);
     }
 
-    /* l'avviso e' un di piu': se non parte, la richiesta e' comunque
-       salvata e si ritrova nell'elenco del back office */
-    const avvisato = await avvisaHotel({ ...contatti, ...colonne, ...(propri || {}), tipo, numero: n.numero });
-    return risposta({ ok: true, numero: n.numero, avviso: avvisato });
+    /* Due email, e nessuna delle due puo' far fallire la richiesta: se non
+       partono, la richiesta e' comunque salvata e si ritrova nell'elenco del
+       back office.
+
+       L'AVVISO va alla reception. LA RICEVUTA va all'ospite, ed e' la
+       novita': prima chi mandava una richiesta non riceveva nulla — vedeva
+       il riferimento sullo schermo e poi silenzio. Chi COMPRA un buono
+       l'email l'ha sempre avuta; chi CHIEDE un trattamento no, ed e' lui
+       quello che sta aspettando una risposta.
+
+       Insieme e non in fila: sono indipendenti, e una lenta non deve far
+       aspettare l'altra ne' l'ospite davanti allo schermo. */
+    const dati = { ...contatti, ...colonne, ...(propri || {}), tipo, numero: n.numero };
+    const [avvisato, ricevuta] = await Promise.all([
+      avvisaHotel(dati),
+      inviaRicevuta({ ...dati, dati: propri ?? null }),
+    ]);
+    return risposta({ ok: true, numero: n.numero, avviso: avvisato, ricevuta });
   }
 
   /* ---------- pubblico: precompilazione da un link della nostra email ----------
