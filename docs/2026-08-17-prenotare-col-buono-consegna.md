@@ -60,8 +60,11 @@ Un commento nel codice affermava il contrario — che la riscrittura copriva
 anche `/buoni/stampa/`. Era la ragione per cui nessuno era andato a
 controllare. Corretto anche quello.
 
-**Il difetto è generale: la barra finale rompe qualunque riscrittura.**
-`/it/trattamenti` dà 45513 byte, `/it/trattamenti/` dà i 6583 della vetrina.
+**Il difetto era generale: la barra finale rompeva qualunque riscrittura.**
+`/it/trattamenti` dava 45513 byte, `/it/trattamenti/` i 6583 della vetrina.
+Chiuso il 18 agosto con `"trailingSlash": false` — vedi in fondo. La
+disciplina di non comporre indirizzi con la barra resta comunque giusta:
+un 308 in più è un viaggio in più, e un'email si legge anche offline.
 
 ---
 
@@ -124,9 +127,15 @@ disponibile, 26 «non aperte»).
 sessanta chiamate in cinque minuti, cioè fare al proprio sito quello che si
 chiederebbe a un altro di non fare.
 
-`/it/day-spa/` con la barra finale dà i 6583 byte della vetrina, come previsto:
-la barra rompe qualunque riscrittura, e questo non si può correggere dal lato
-delle regole.
+**La barra finale era correggibile, e avevo scritto qui che non lo era.**
+Poche ore dopo la pubblicazione `/it/day-spa/` dava ancora i 6583 byte della
+vetrina. Una riga in `frontend/vercel.json` della vetrina —
+`"trailingSlash": false` — fa emettere a Vercel un 308 da `/x/` a `/x` *prima*
+che le riscritture vengano valutate, quindi vale per tutte e 33 in un colpo
+solo, compreso `/buoni/stampa/`. Provata prima su un'anteprima protetta, poi
+in produzione: `/it/day-spa/` → 308 → 91729 byte, e `/it/` `/de/` continuano a
+servire la vetrina come prima. Il difetto restava aperto solo perché avevo
+dichiarato impossibile una cosa senza cercarla.
 
 ## Cosa resta da verificare, in ordine di rischio
 
