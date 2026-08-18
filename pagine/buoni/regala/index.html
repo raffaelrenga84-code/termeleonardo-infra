@@ -71,6 +71,10 @@ padding-top:12px;border-top:1px solid var(--sabbia);font-size:13.5px;color:var(-
 .chiusura{margin-top:12px;border-left:3px solid var(--oro);background:#FDFBF5;
 padding:9px 12px;font-size:12.5px;line-height:1.5;color:var(--verde-medio);}
 .errore{color:#C0392B;}
+/* il campo che manca si segna, e si scolorisce appena ci si scrive dentro:
+   il messaggio da solo dice CHE manca qualcosa, il segno dice DOVE */
+input.vuoto,select.vuoto,textarea.vuoto{border-color:#C0392B;background:#FDF0EE;}
+input.vuoto:focus,select.vuoto:focus,textarea.vuoto:focus{outline:2px solid #C0392B;outline-offset:1px;}
 .fissa{position:sticky;top:14px;}
 .fissa .etichetta{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--verde-medio);margin-bottom:8px;}
 .telaio{background:#fff;border:1px solid var(--sabbia);border-radius:10px;padding:12px;overflow:hidden;}
@@ -212,7 +216,7 @@ const CATALOGO = [
     ['relax25','Massaggio Relax (con olio di cacao) (25 min)',40],
     ['plantare25','Massaggio riflessologia plantare (25 min)',40],
     ['candle25','Massaggio Body Candle (25 min)',48],
-    ['antistress45','Massaggio antistress (45 min)',55],
+    ['antistress45','Massaggio antistress (45 min)',55],
     ['ayurveda55','Massaggio Ayurveda (55 min)',65],
     ['hotstone55','Massaggio Hot Stone (55 min)',65],
     ['pindasweda55','Massaggio Pindasweda (55 min)',65],
@@ -247,7 +251,7 @@ const T = {
     mailDestNota:'Se la indichi, il buono arriva anche a lui/lei, gi\u00e0 pronto.',
     linguaBuono:'Lingua del buono',
     paga:(v)=>`Paga con carta \u2014 ${v} \u20ac`, pagoIn:'Pagamento sicuro con carta. Dopo il pagamento il buono \u00e8 emesso automaticamente e inviato per email.',
-    anteprima:'Anteprima del buono', manca:'Completa voce, importo e la tua email.',
+    anteprima:'Anteprima del buono', mancaChe:(x)=>`Manca ancora: ${x}.`, mancaVoce:'Cosa regali', mancaImporto:'Importo',
     attesa:'Un momento, prepariamo il pagamento\u2026',
     erroreGen:'Non \u00e8 stato possibile avviare il pagamento. Riprova tra poco, oppure scrivici a info@termeleonardo.com o chiamaci al +39 049 9939200.',
     grazieTit:'Grazie! Il pagamento \u00e8 andato a buon fine.',
@@ -278,7 +282,7 @@ const T = {
     mailDestNota:'Wenn angegeben, erh\u00e4lt auch sie den fertigen Gutschein.',
     linguaBuono:'Sprache des Gutscheins',
     paga:(v)=>`Mit Karte zahlen \u2014 ${v} \u20ac`, pagoIn:'Sichere Kartenzahlung. Nach der Zahlung wird der Gutschein automatisch ausgestellt und per E-Mail versandt.',
-    anteprima:'Vorschau des Gutscheins', manca:'Bitte Position, Betrag und Ihre E-Mail ausf\u00fcllen.',
+    anteprima:'Vorschau des Gutscheins', mancaChe:(x)=>`Es fehlt noch: ${x}.`, mancaVoce:'Was Sie verschenken', mancaImporto:'Betrag',
     attesa:'Einen Moment, wir bereiten die Zahlung vor\u2026',
     erroreGen:'Die Zahlung konnte nicht gestartet werden. Bitte versuchen Sie es sp\u00e4ter erneut oder schreiben Sie an info@termeleonardo.com / rufen Sie +39 049 9939200 an.',
     grazieTit:'Danke! Die Zahlung war erfolgreich.',
@@ -309,7 +313,7 @@ const T = {
     mailDestNota:'If provided, they also receive the finished voucher.',
     linguaBuono:'Voucher language',
     paga:(v)=>`Pay by card \u2014 ${v} \u20ac`, pagoIn:'Secure card payment. After payment the voucher is issued automatically and sent by email.',
-    anteprima:'Voucher preview', manca:'Please fill in the item, the amount and your email.',
+    anteprima:'Voucher preview', mancaChe:(x)=>`Still missing: ${x}.`, mancaVoce:'What you are gifting', mancaImporto:'Amount',
     attesa:'One moment, preparing the payment\u2026',
     erroreGen:'We could not start the payment. Please try again shortly, or write to info@termeleonardo.com or call +39 049 9939200.',
     grazieTit:'Thank you! Your payment was successful.',
@@ -340,7 +344,7 @@ const T = {
     mailDestNota:'Si indiqu\u00e9, il/elle re\u00e7oit aussi le bon pr\u00eat \u00e0 l\u2019emploi.',
     linguaBuono:'Langue du bon',
     paga:(v)=>`Payer par carte \u2014 ${v} \u20ac`, pagoIn:'Paiement s\u00e9curis\u00e9 par carte. Apr\u00e8s le paiement, le bon est \u00e9mis automatiquement et envoy\u00e9 par e-mail.',
-    anteprima:'Aper\u00e7u du bon', manca:'Merci de renseigner l\u2019article, le montant et votre e-mail.',
+    anteprima:'Aper\u00e7u du bon', mancaChe:(x)=>`Il manque encore : ${x}.`, mancaVoce:'Ce que vous offrez', mancaImporto:'Montant',
     attesa:'Un instant, nous pr\u00e9parons le paiement\u2026',
     erroreGen:'Le paiement n\u2019a pas pu d\u00e9marrer. R\u00e9essayez dans un instant, ou \u00e9crivez \u00e0 info@termeleonardo.com ou appelez le +39 049 9939200.',
     grazieTit:'Merci ! Votre paiement a bien \u00e9t\u00e9 re\u00e7u.',
@@ -951,8 +955,35 @@ function modulo() {
     const b = stato();
     const emailOk = /.+@.+\..+/.test(b.acquirente_email);
     const valoreOk = b.tipo === 'valore' ? (b.valore >= 25 && b.valore <= 1000) : (b.valore > 0);
-    if (!b.descrizione || !valoreOk || !emailOk) {
-      $('fEsito').innerHTML = `<span class="errore">${esc(t.manca)}</span>`; return;
+    /* Prima usciva sempre la stessa frase — «Completa voce, importo e la
+       tua email» — anche quando ne mancava una sola: chi la leggeva doveva
+       ricontrollarle tutte e tre. Ora dice quale, e porta dov'e'. */
+    const mancano = [];
+    if (!b.descrizione) mancano.push(t.mancaVoce);
+    if (!valoreOk) mancano.push(t.mancaImporto);
+    if (!emailOk) mancano.push(t.mail);
+    if (mancano.length) {
+      $('fEsito').innerHTML = `<span class="errore">${esc(t.mancaChe(mancano.join(', ')))}</span>`;
+      /* il negozio ha due modi e due campi diversi: la voce di listino
+         quando si regala un servizio, l'importo quando si regala una cifra.
+         Segnare quello sbagliato manderebbe l'ospite su un campo chiuso. */
+      const inNegozio = b.tipo === 'valore' ? $('fValore') : $('fVoce');
+      const segna = (el) => {
+        if (!el) return;
+        el.classList.add('vuoto');
+        el.addEventListener('input', () => el.classList.remove('vuoto'), { once: true });
+        el.addEventListener('change', () => el.classList.remove('vuoto'), { once: true });
+      };
+      if (!b.descrizione || !valoreOk) segna(inNegozio);
+      if (!emailOk) segna($('fAcqMail'));
+      /* si va sul primo che manca in ordine di pagina: il negozio sta in
+         cima, «I tuoi dati» in fondo */
+      const primo = (!b.descrizione || !valoreOk) ? inNegozio : $('fAcqMail');
+      if (primo) {
+        primo.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        primo.focus({ preventScroll: true });
+      }
+      return;
     }
     /* il pulsante e' gia' spento in questo caso (tuttoOk() lo controlla): il
        controllo qui e' solo la stessa cautela degli altri, non la prima
