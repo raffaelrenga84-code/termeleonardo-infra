@@ -88,3 +88,44 @@ export function riepilogoATAM(r, dataIT) {
     .map((v) => `${v.eti}: ${v.val}`)
     .join('\n');
 }
+
+/* IL RITORNO E' UNA SECONDA PRENOTAZIONE, non un campo.
+
+   Su atam.biz non esiste un «ritorno»: si prenota da capo, con la sua data,
+   la sua ora, il suo verso e il suo servizio. Finora la richiesta portava
+   solo un booleano e una nota nelle note, e la reception ricostruiva tutto
+   a mano.
+
+   IL VERSO E' OPPOSTO. Chi arriva dall'aeroporto torna in aeroporto:
+   copiare il verso dell'andata manderebbe il tassista dalla parte
+   sbagliata.
+
+   IL SERVIZIO E' SUO. Alle 22:00 la navetta non e' in servizio, quindi un
+   ritorno puo' essere privato anche quando l'andata era condivisa.
+
+   Le note dell'andata NON si ricopiano: «serve anche il ritorno» sulla
+   prenotazione del ritorno sarebbe un'istruzione a vuoto. */
+export function datiATAMRitorno(r) {
+  const d = (r && r.dati) || {};
+  if (!d.ritorno_quando) return null;
+  return {
+    data: String(d.ritorno_quando).slice(0, 10),
+    ora: d.ritorno_ora || '',
+    pax: d.pax == null ? '' : String(d.pax),
+    verso: d.verso === 'partenza' ? 'arrivo' : 'partenza',
+    collettivo: d.ritorno_collettivo === true,
+    luogo: d.luogo || '',
+    nome: (r && r.nome) || '',
+    volo: d.ritorno_volo ? String(d.ritorno_volo) : '',
+    note: d.note ? String(d.note) : '',
+  };
+}
+
+/* L'indirizzo che apre il modulo dei tassisti gia' compilato per il
+   RITORNO. Stesso frammento, stesso meccanismo: sono due prenotazioni, e
+   quindi due indirizzi. */
+export function indirizzoATAMRitorno(r) {
+  const d = datiATAMRitorno(r);
+  if (!d) return null;
+  return 'https://www.atam.biz/prenotazioni/#leo=' + encodeURIComponent(JSON.stringify(d));
+}

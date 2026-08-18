@@ -18,7 +18,7 @@
    proprio perche' una prova non deve dipendere da che ora e'.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { navetta, ritiroPerVolo } from './navetta.js';
+import { corsaDiRitorno, navetta, ritiroPerVolo } from './navetta.js';
 
 /* il valore della meta e' quello VERO del modulo, con i DUE spazi: deve
    combaciare parola per parola con l'elenco di atam.biz */
@@ -204,4 +204,45 @@ Deno.test('un volo troppo presto o troppo tardi resta senza navetta', () => {
 Deno.test('un volo di notte non ha navetta, e nemmeno il giorno prima', () => {
   assertEquals(inFascia({ verso: 'partenza', ora: '01:00' }), null);
   assertEquals(inFascia({ verso: 'partenza', ora: '02:30' }), null);
+});
+
+/* ============================================================
+   IL RITORNO E' UNA SECONDA CORSA, NEL VERSO OPPOSTO.
+
+   IL DIFETTO CHE PRESIDIA. Chi sceglie la navetta per l'andata da' per
+   scontato che valga anche al ritorno. Ma il ritorno e' un'altra corsa, a
+   un'altra ora, e spesso nel verso opposto: chi arriva dall'aeroporto alle
+   14 torna in aeroporto, e se torna alle 22 la navetta non e' in servizio.
+
+   Il modulo deve dirlo PRIMA, non lasciarlo scoprire alla reception.
+   ============================================================ */
+Deno.test('il ritorno di un arrivo e una partenza, e viceversa', () => {
+  assertEquals(corsaDiRitorno({ verso: 'arrivo', luogo: AEROPORTO, pax: 2, ritorno_quando: '2026-08-21', ritorno_ora: '10:00' })?.verso, 'partenza');
+  assertEquals(corsaDiRitorno({ verso: 'partenza', luogo: AEROPORTO, pax: 2, ritorno_quando: '2026-08-21', ritorno_ora: '10:00' })?.verso, 'arrivo');
+});
+
+Deno.test('il ritorno tiene luogo e passeggeri dell andata', () => {
+  const r = corsaDiRitorno({ verso: 'arrivo', luogo: AEROPORTO, pax: 3, ritorno_quando: '2026-08-21', ritorno_ora: '10:00' });
+  assertEquals(r?.luogo, AEROPORTO);
+  assertEquals(r?.pax, 3);
+  assertEquals(r?.quando, '2026-08-21');
+  assertEquals(r?.ora, '10:00');
+});
+
+/* IL CASO DELLA SCHERMATA: ritorno alle 22:00. Il ritorno di un arrivo e'
+   una partenza, quindi le 22:00 sono l'ora del volo e il ritiro cadrebbe
+   alle 19:00 — dentro la fascia. Ma un ritorno alle 22 su un ARRIVO (cioe'
+   qualcuno che viene preso in aeroporto alle 22) e' fuori. */
+Deno.test('un ritorno alle 22 in partenza resta possibile: il ritiro e alle 19', () => {
+  const r = corsaDiRitorno({ verso: 'arrivo', luogo: AEROPORTO, pax: 2, ritorno_quando: FRA_TRE_GIORNI, ritorno_ora: '22:00' });
+  assert(r && navetta(r, ADESSO), 'volo alle 22, ritiro alle 19: doveva starci');
+});
+
+Deno.test('un ritorno che riporta in hotel alle 22 non ha navetta', () => {
+  const r = corsaDiRitorno({ verso: 'partenza', luogo: AEROPORTO, pax: 2, ritorno_quando: FRA_TRE_GIORNI, ritorno_ora: '22:00' });
+  assertEquals(r && navetta(r, ADESSO), null);
+});
+
+Deno.test('senza giorno del ritorno non c e nessuna corsa di ritorno', () => {
+  assertEquals(corsaDiRitorno({ verso: 'arrivo', luogo: AEROPORTO, pax: 2 }), null);
 });

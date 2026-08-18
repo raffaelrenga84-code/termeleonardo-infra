@@ -114,6 +114,9 @@ function validaTransfer(d: Record<string, unknown>, oggi: Date): Esito {
     ritornoOra = ro.valore ?? null;
   }
 
+  const ritornoVolo = testo(d.ritorno_volo);
+  if (ritornoVolo.length > 40) return { errore: 'volo del ritorno troppo lungo' };
+
   /* L'ora del VOLO, per le partenze con la navetta: il ritiro in hotel e'
      tre ore prima, e `ora` porta gia' il ritiro perche' e' quello che il
      modulo dei tassisti chiede. Ma l'ora del volo e' il dato da cui quel
@@ -150,6 +153,7 @@ function validaTransfer(d: Record<string, unknown>, oggi: Date): Esito {
       prezzo_cent: prezzoCent,
       luogo: testo(d.luogo), volo, ritorno: vuoleRitorno, note,
       ritorno_quando: ritornoQuando, ritorno_ora: ritornoOra, ora_volo: oraVolo,
+      ritorno_volo: ritornoVolo, ritorno_collettivo: d.ritorno_collettivo === true,
     },
   };
 }

@@ -131,3 +131,28 @@ export function ritiroPerVolo(oraVolo) {
   const due = (n) => String(n).padStart(2, '0');
   return { ora: `${due(Math.floor(dentro / 60))}:${due(dentro % 60)}`, giornoPrima };
 }
+
+/* IL RITORNO E' UNA SECONDA CORSA, NEL VERSO OPPOSTO.
+
+   Chi arriva dall'aeroporto torna in aeroporto: il ritorno di un arrivo e'
+   una partenza. Luogo, passeggeri e nome sono gli stessi; cambiano il
+   giorno, l'ora e il verso.
+
+   Serve perche' la navetta va giudicata sul ritorno per conto suo. Chi
+   sceglie la condivisa per l'andata da' per scontato che valga anche al
+   ritorno, ma un ritorno alle 22 in arrivo e' fuori fascia — e il modulo
+   deve dirlo prima, non lasciarlo scoprire alla reception.
+
+   Su atam.biz il ritorno e' una PRENOTAZIONE A PARTE, e vuole i suoi dati:
+   il suo volo e il suo servizio, non solo giorno e ora. */
+export function corsaDiRitorno(dati) {
+  if (!dati || !dati.ritorno_quando) return null;
+  return {
+    luogo: dati.luogo,
+    pax: dati.pax,
+    quando: dati.ritorno_quando,
+    ora: dati.ritorno_ora,
+    verso: dati.verso === 'partenza' ? 'arrivo' : 'partenza',
+    volo: dati.ritorno_volo || '',
+  };
+}

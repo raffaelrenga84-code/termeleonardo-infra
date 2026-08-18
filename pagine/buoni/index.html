@@ -148,7 +148,7 @@ import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, cate
 /* stessa regola di sopra: percorso assoluto, non relativo — `/comune/date.js`,
    mai `./date.js` o `../comune/date.js`. Vedi il commento in date.js. */
 import { attivaDate } from '/comune/date.js';
-import { vociATAM, riepilogoATAM, indirizzoATAM } from '/comune/atam.js';
+import { vociATAM, riepilogoATAM, indirizzoATAM, indirizzoATAMRitorno } from '/comune/atam.js';
 /* Il listino dei transfer: PROPONE una cifra, non la decide. La conferma
    umana e' quello che rende onesto il prezzo che arriva all'ospite — vedi
    la nota in cima a listino-transfer.js. */
@@ -1122,6 +1122,17 @@ function campiTransfer(r) {
       <div><label>Ora del ritorno</label>
         <input type="time" id="cRitornoOra" value="${esc(d.ritorno_ora || '')}" />${avevaChiesto(r, 'Ora del ritorno')}</div>
     </div>
+    <div class="due">
+      <div><label>Volo / treno del ritorno</label>
+        <input type="text" id="cRitornoVolo" value="${esc(d.ritorno_volo || '')}" />${avevaChiesto(r, 'Volo del ritorno')}</div>
+      <!-- il servizio del ritorno e' SUO: alle 22:00 la navetta non e' in
+           servizio, quindi un ritorno puo' essere privato anche quando
+           l'andata era condivisa -->
+      <div><label>Servizio del ritorno</label><select id="cRitornoCollettivo">
+        <option value="no" ${d.ritorno_collettivo ? '' : 'selected'}>Auto privata (individuale)</option>
+        <option value="si" ${d.ritorno_collettivo ? 'selected' : ''}>Navetta condivisa (collettivo)</option>
+      </select>${avevaChiesto(r, 'Servizio del ritorno')}</div>
+    </div>
     <!-- L'ora del VOLO, quando la navetta parte tre ore prima: «Ora» qui
          sopra e' gia' l'ora del RITIRO in hotel, che e' quello che chiede il
          modulo dei tassisti. Questa e' il dato da cui quel conto nasce. -->
@@ -1275,6 +1286,8 @@ function datiCorretti(r) {
       ritorno: $('cRitorno').checked, note: $('cNote').value,
       ritorno_quando: $('cRitornoQuando').value || null,
       ritorno_ora: $('cRitornoOra').value || null,
+      ritorno_volo: $('cRitornoVolo').value,
+      ritorno_collettivo: $('cRitornoCollettivo').value === 'si',
       collettivo: $('cCollettivo').value === 'si',
       /* euro a schermo, centesimi nel dato: e' il trabocchetto gia' pagato
          in email-richiesta.ts e differenze.ts. Vuoto resta null e non zero —
@@ -1436,6 +1449,19 @@ function dettaglioRichiesta(r) {
       <div class="mini" style="padding-top:6px;">Serve l'estensione Offerta Leonardo.
         Il modulo si compila da solo: <strong>Prenota lo premi tu</strong>, dopo aver riletto.</div>
       <button class="azione sec" id="bCopiaAtam">Copia tutto in blocco</button>
+      <!-- IL RITORNO E' UNA SECONDA PRENOTAZIONE. Su atam.biz non esiste un
+           campo «ritorno»: si prenota da capo, con la sua data, la sua ora e
+           il VERSO OPPOSTO — chi arriva dall'aeroporto torna in aeroporto.
+           Prima c'era solo una nota nelle note e la reception rifaceva tutto
+           a mano, indovinando il verso. -->
+      ${indirizzoATAMRitorno(r) ? `
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #F0EBE1;">
+        <div class="mini" style="padding-bottom:6px;">Il ritorno è una <strong>seconda
+          prenotazione</strong> su ATAM, nel verso opposto.</div>
+        <a class="azione" href="${esc(indirizzoATAMRitorno(r))}"
+          target="_blank" rel="noopener noreferrer"
+          style="display:block;text-align:center;text-decoration:none;">Apri il ritorno su ATAM già compilato</a>
+      </div>` : ''}
     </div>` : ''}
 
     <div class="due" style="margin-top:16px;">

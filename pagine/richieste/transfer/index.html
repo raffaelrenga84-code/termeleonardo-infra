@@ -126,7 +126,7 @@ import { mancanti, segnaEtichette, segnaVuoti, nomiMancanti } from '/comune/obbl
 /* La regola della navetta condivisa: quando si offre e cosa dice. Sta in un
    modulo suo perche' e' fatta dei numeri del listino, non di grafica, ed e'
    la parte che si prova da sola — vedi navetta.test.ts. */
-import { navetta, ritiroPerVolo } from '/comune/navetta.js';
+import { corsaDiRitorno, navetta, ritiroPerVolo } from '/comune/navetta.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 
@@ -171,6 +171,11 @@ const T = {
     ritiroGiornoPrima:(g,o)=>`La prendiamo in hotel il ${g} alle ${o} — il giorno prima del volo.`,
     ritornoTit:'Il ritorno', ritornoQuando:'Giorno del ritorno', ritornoOra:'Ora del ritorno',
     ritornoGuida:'La corsa di ritorno è una seconda corsa: ci dica quando le serve.',
+    ritornoVolo:'Volo o treno del ritorno',
+    ritornoVersoPartenza:'Il ritorno la riporta all’aeroporto o alla stazione: indichi l’ora del volo o del treno.',
+    ritornoVersoArrivo:'Il ritorno la riporta in hotel: indichi l’ora a cui atterra o arriva.',
+    ritornoPrivato:'Il ritorno sarà con auto privata: a quell’ora la navetta condivisa non è in servizio.',
+    ritornoNavetta:'Anche il ritorno può essere con navetta condivisa.',
     ritorno:'Mi serve anche il ritorno',
     servizio:'Il servizio', privata:'Auto solo per lei', privataSotto:'va diritto in hotel',
     navetta:'Navetta condivisa',
@@ -201,6 +206,11 @@ const T = {
     ritiroGiornoPrima:(g,o)=>`Wir holen Sie am ${g} um ${o} ab — am Tag vor dem Flug.`,
     ritornoTit:'Die Rückfahrt', ritornoQuando:'Tag der Rückfahrt', ritornoOra:'Uhrzeit der Rückfahrt',
     ritornoGuida:'Die Rückfahrt ist eine zweite Fahrt: sagen Sie uns, wann Sie sie brauchen.',
+    ritornoVolo:'Flug oder Zug der Rückfahrt',
+    ritornoVersoPartenza:'Die Rückfahrt bringt Sie zum Flughafen oder Bahnhof: geben Sie die Abflug- bzw. Abfahrtszeit an.',
+    ritornoVersoArrivo:'Die Rückfahrt bringt Sie zum Hotel: geben Sie die Ankunftszeit an.',
+    ritornoPrivato:'Die Rückfahrt erfolgt mit Privatwagen: zu dieser Uhrzeit fährt kein Sammeltransfer.',
+    ritornoNavetta:'Auch die Rückfahrt ist als Sammeltransfer möglich.',
     ritorno:'Ich brauche auch die Rückfahrt',
     servizio:'Der Service', privata:'Wagen nur für Sie', privataSotto:'direkt zum Hotel',
     navetta:'Sammeltransfer',
@@ -231,6 +241,11 @@ const T = {
     ritiroGiornoPrima:(g,o)=>`We pick you up on ${g} at ${o} — the day before your flight.`,
     ritornoTit:'The return trip', ritornoQuando:'Return day', ritornoOra:'Return time',
     ritornoGuida:'The return is a second journey: tell us when you need it.',
+    ritornoVolo:'Return flight or train',
+    ritornoVersoPartenza:'The return takes you to the airport or station: give us the flight or train time.',
+    ritornoVersoArrivo:'The return brings you back to the hotel: give us the arrival time.',
+    ritornoPrivato:'The return will be by private car: the shared shuttle does not run at that time.',
+    ritornoNavetta:'The return can also be by shared shuttle.',
     ritorno:'I also need the return trip',
     servizio:'The service', privata:'A car just for you', privataSotto:'straight to the hotel',
     navetta:'Shared shuttle',
@@ -261,6 +276,11 @@ const T = {
     ritiroGiornoPrima:(g,o)=>`Nous venons vous chercher le ${g} à ${o} — la veille du vol.`,
     ritornoTit:'Le retour', ritornoQuando:'Jour du retour', ritornoOra:'Heure du retour',
     ritornoGuida:'Le retour est un second trajet : dites-nous quand vous en avez besoin.',
+    ritornoVolo:'Vol ou train du retour',
+    ritornoVersoPartenza:'Le retour vous ramène à l’aéroport ou à la gare : indiquez l’heure du vol ou du train.',
+    ritornoVersoArrivo:'Le retour vous ramène à l’hôtel : indiquez l’heure d’arrivée.',
+    ritornoPrivato:'Le retour se fera en voiture privée : à cette heure-là la navette partagée ne circule pas.',
+    ritornoNavetta:'Le retour aussi peut se faire en navette partagée.',
     ritorno:'J’ai aussi besoin du retour',
     servizio:'Le service', privata:'Une voiture pour vous seul', privataSotto:'directement à l’hôtel',
     navetta:'Navette partagée',
@@ -286,6 +306,10 @@ let VERSO = 'arrivo';
    succedeva prima che la scelta esistesse, e chi non guarda deve continuare
    a ottenere il servizio di sempre. */
 let COLLETTIVO = false;
+/* Il servizio del RITORNO, che non e' quello dell'andata: alle 22:00 la
+   navetta non e' in servizio, e su atam.biz il ritorno e' una prenotazione
+   a parte con il suo pallino da riempire. */
+let RITORNO_COLLETTIVO = false;
 
 /* La data della corsa secondo il verso: il transfer di ARRIVO cade il
    giorno del check-in, quello di PARTENZA il giorno del check-out. I due
@@ -583,6 +607,16 @@ function modulo() {
           <div><label for="fRitornoOra">${esc(t.ritornoOra)}</label>
             <input type="time" id="fRitornoOra" /></div>
         </div>
+        <!-- CHE ORA E'? Il ritorno va nel verso OPPOSTO all'andata: chi
+             arriva dall'aeroporto torna in aeroporto. Senza dirlo, «Ora del
+             ritorno» non fa capire se e' l'ora del volo o quella del ritiro
+             in hotel — e le due cose distano tre ore. -->
+        <div class="guida" id="notaVersoRitorno" style="margin-top:8px;"></div>
+        <label for="fRitornoVolo">${esc(t.ritornoVolo)}</label>
+        <input type="text" id="fRitornoVolo" placeholder="${esc(t.voloPh)}" />
+        <!-- CON CHE SERVIZIO. Chi sceglie la navetta per l'andata da' per
+             scontato che valga anche al ritorno: alle 22:00 non e' cosi'. -->
+        <div class="guida" id="notaServizioRitorno" style="margin-top:8px;"></div>
       </div>
     </div>
 
@@ -722,7 +756,32 @@ function modulo() {
       : t.ritiroAlle(r.ora);
   };
 
-  const scegliServizio = (c) => { COLLETTIVO = c; aggiornaNavetta(); aggiornaRitiro(); };
+  /* IL RITORNO. Verso opposto, stesso luogo, stessi passeggeri: la corsa
+     la costruisce corsaDiRitorno(), e la navetta si giudica su quella —
+     non si eredita dalla scelta dell'andata. */
+  const aggiornaRitornoNote = () => {
+    if (!$('fRitorno').checked) return;
+    const r = corsaDiRitorno({
+      luogo: $('fLuogo').value, pax: $('fPax').value, verso: VERSO,
+      ritorno_quando: $('fRitornoQuando').value, ritorno_ora: $('fRitornoOra').value,
+    });
+    $('notaVersoRitorno').textContent = (r && r.verso === 'arrivo')
+      ? t.ritornoVersoArrivo
+      : t.ritornoVersoPartenza;
+
+    /* il servizio si dice solo a chi ha scelto la navetta per l'andata:
+       a chi ha scelto l'auto privata non interessa e sarebbe rumore */
+    if (!COLLETTIVO) { $('notaServizioRitorno').textContent = ''; RITORNO_COLLETTIVO = false; return; }
+    RITORNO_COLLETTIVO = !!(r && navetta(r, new Date()));
+    $('notaServizioRitorno').textContent = RITORNO_COLLETTIVO ? t.ritornoNavetta : t.ritornoPrivato;
+  };
+
+  const scegliServizio = (c) => {
+    COLLETTIVO = c;
+    aggiornaNavetta();
+    aggiornaRitiro();
+    aggiornaRitornoNote();
+  };
   $('bPrivata').onclick = () => scegliServizio(false);
   $('bNavetta').onclick = () => scegliServizio(true);
   for (const id of ['fLuogo', 'fPax', 'fQuando', 'fOra']) {
@@ -735,7 +794,22 @@ function modulo() {
   $('fRitorno').addEventListener('change', () => {
     $('boxRitorno').style.display = $('fRitorno').checked ? 'block' : 'none';
     aggiornaObbligatori();
+    aggiornaRitornoNote();
   });
+  /* IL RITORNO NON PUO' PRECEDERE L'ANDATA. Senza questo il calendario
+     accetta una data precedente e l'ospite lo scopre solo dopo l'invio —
+     visto succedere davvero, ritorno il 18 con andata il 19. */
+  const legaDateRitorno = () => {
+    const a = $('fQuando').value;
+    if (a) $('fRitornoQuando').min = a;
+    if (a && $('fRitornoQuando').value && $('fRitornoQuando').value < a) {
+      $('fRitornoQuando').value = a;
+    }
+  };
+  $('fQuando').addEventListener('change', legaDateRitorno);
+  for (const id of ['fRitornoQuando', 'fRitornoOra']) {
+    $(id).addEventListener('change', () => { legaDateRitorno(); aggiornaRitornoNote(); });
+  }
 
   /* le etichette dei gruppi si traducono qui: nel modello sono segnaposto */
   for (const g of $('fLuogo').querySelectorAll('optgroup')) {
@@ -866,6 +940,7 @@ async function invia() {
           pax: Number(v('fPax') || 2),
           verso: VERSO, luogo: v('fLuogo'), volo: v('fVolo'), collettivo: COLLETTIVO,
           ritorno_quando: v('fRitornoQuando'), ritorno_ora: v('fRitornoOra'),
+          ritorno_volo: v('fRitornoVolo'), ritorno_collettivo: RITORNO_COLLETTIVO,
           ritorno: $('fRitorno').checked, note: v('fNote'),
         },
       }),

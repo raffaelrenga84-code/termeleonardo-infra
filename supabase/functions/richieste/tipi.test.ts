@@ -502,3 +502,22 @@ Deno.test('senza ora del volo il campo resta nullo', () => {
 Deno.test('un ora del volo che non e un orario viene respinta', () => {
   assert(validaDati('transfer', { ...transfer, ora_volo: 'mattina' }, OGGI).errore);
 });
+
+/* Il ritorno ha un volo suo e un servizio suo: su atam.biz e' una seconda
+   prenotazione, e alle 22:00 la navetta non e' in servizio — quindi un
+   ritorno puo' essere privato anche se l'andata era condivisa. */
+Deno.test('il ritorno porta il suo volo e il suo servizio', () => {
+  const v = validaDati('transfer', {
+    ...transfer, ritorno: true, ritorno_quando: '2026-09-17', ritorno_ora: '10:00',
+    ritorno_volo: 'FR5678', ritorno_collettivo: true,
+  }, OGGI);
+  assertEquals(v.errore, undefined);
+  assertEquals(v.dati?.ritorno_volo, 'FR5678');
+  assertEquals(v.dati?.ritorno_collettivo, true);
+});
+
+Deno.test('senza indicazioni il ritorno e privato, non indeciso', () => {
+  const v = validaDati('transfer', { ...transfer, ritorno: true }, OGGI);
+  assertEquals(v.dati?.ritorno_collettivo, false);
+  assertEquals(v.dati?.ritorno_volo, '');
+});

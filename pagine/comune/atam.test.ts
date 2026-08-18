@@ -24,7 +24,9 @@
    quel modo continua a funzionare.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { datiATAM, indirizzoATAM, riepilogoATAM, vociATAM } from './atam.js';
+import {
+  datiATAM, datiATAMRitorno, indirizzoATAM, indirizzoATAMRitorno, riepilogoATAM, vociATAM,
+} from './atam.js';
 
 /* il formattatore di data lo passa la pagina: questo modulo non possiede il
    modo di scrivere una data, e due copie di quella regola divergerebbero */
@@ -192,4 +194,72 @@ Deno.test('il collettivo viaggia anche nell indirizzo', () => {
   const r = { ...RICHIESTA, dati: { ...RICHIESTA.dati, collettivo: true } };
   const dentro = JSON.parse(decodeURIComponent(indirizzoATAM(r).split('#leo=')[1]));
   assertEquals(dentro.collettivo, true);
+});
+
+/* ============================================================
+   IL RITORNO E' UNA SECONDA PRENOTAZIONE.
+
+   Su atam.biz non esiste un campo «ritorno»: il ritorno si prenota da capo,
+   con la sua data, la sua ora, il suo verso e il suo servizio. Finora la
+   richiesta portava solo un booleano e una nota nelle note — la reception
+   doveva ricostruire tutto a mano, e il verso lo doveva indovinare.
+
+   IL DIFETTO CHE PRESIDIA: il verso del ritorno e' OPPOSTO a quello
+   dell'andata. Chi arriva dall'aeroporto torna in aeroporto. Copiare il
+   verso dell'andata manderebbe il tassista dalla parte sbagliata.
+   ============================================================ */
+const CON_RITORNO = {
+  nome: 'Raffael Renga',
+  dati: {
+    quando: '2026-08-15', ora: '15:30', pax: 2, verso: 'arrivo',
+    luogo: 'Venezia  aeroporto', volo: 'FR1234', collettivo: true,
+    ritorno: true, ritorno_quando: '2026-08-22', ritorno_ora: '18:00',
+    ritorno_volo: 'FR5678', ritorno_collettivo: false, note: 'due valigie grandi',
+  },
+};
+
+Deno.test('il ritorno ha il verso opposto all andata', () => {
+  assertEquals(datiATAMRitorno(CON_RITORNO)?.verso, 'partenza');
+  const inPartenza = { ...CON_RITORNO, dati: { ...CON_RITORNO.dati, verso: 'partenza' } };
+  assertEquals(datiATAMRitorno(inPartenza)?.verso, 'arrivo');
+});
+
+Deno.test('il ritorno porta la sua data, la sua ora e il suo volo', () => {
+  const g = datiATAMRitorno(CON_RITORNO);
+  assertEquals(g?.data, '2026-08-22');
+  assertEquals(g?.ora, '18:00');
+  assertEquals(g?.volo, 'FR5678');
+});
+
+/* Il servizio del ritorno e' suo: alle 22:00 la navetta non e' in servizio,
+   quindi un ritorno puo' essere privato anche se l'andata era condivisa. */
+Deno.test('il servizio del ritorno non copia quello dell andata', () => {
+  assertEquals(datiATAM(CON_RITORNO).collettivo, true);
+  assertEquals(datiATAMRitorno(CON_RITORNO)?.collettivo, false);
+});
+
+Deno.test('luogo, passeggeri e nome restano quelli dell andata', () => {
+  const g = datiATAMRitorno(CON_RITORNO);
+  assertEquals(g?.luogo, 'Venezia  aeroporto');
+  assertEquals(g?.pax, '2');
+  assertEquals(g?.nome, 'Raffael Renga');
+});
+
+Deno.test('senza ritorno non c e niente da prenotare', () => {
+  assertEquals(datiATAMRitorno(RICHIESTA), null);
+  assertEquals(indirizzoATAMRitorno(RICHIESTA), null);
+});
+
+Deno.test('l indirizzo del ritorno usa lo stesso frammento', () => {
+  const u = indirizzoATAMRitorno(CON_RITORNO);
+  assert(u && u.startsWith('https://www.atam.biz/prenotazioni/#leo='), String(u).slice(0, 60));
+  const dentro = JSON.parse(decodeURIComponent(String(u).split('#leo=')[1]));
+  assertEquals(dentro.data, '2026-08-22');
+  assertEquals(dentro.verso, 'partenza');
+});
+
+/* Le note dell'andata parlano dell'andata: «serve anche il ritorno» sulla
+   prenotazione DEL ritorno sarebbe un'istruzione a vuoto. */
+Deno.test('la nota del ritorno non chiede un altro ritorno', () => {
+  assert(!String(datiATAMRitorno(CON_RITORNO)?.note ?? '').toLowerCase().includes('ritorno'));
 });

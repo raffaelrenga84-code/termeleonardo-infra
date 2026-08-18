@@ -10,13 +10,13 @@
    ============================================================ */
 
 import { differenze, etichettaCampo, type Differenza } from './differenze.ts';
+import {
+  CHIAVI_MOSTRATE, dettagli, esc, ETICHETTE, linguaDi, riga,
+} from './dettagli-richiesta.ts';
 
 const BASE_IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 const TELEFONO = '+39 049 9939200';
 const EMAIL_HOTEL = 'info@termeleonardo.com';
-
-const esc = (s: unknown) =>
-  String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
 
 export type Richiesta = {
   numero: string;
@@ -38,229 +38,36 @@ export type Richiesta = {
   [k: string]: unknown;
 };
 
+/* Solo i testi che sono di questa email. Le etichette dei campi stanno in
+   dettagli-richiesta.ts, e le due cose si mescolano al momento di scrivere:
+   `{ ...ETICHETTE[l], ...T[l] }`. Prima erano tutte qui, e finche' l'unica
+   email col blocco «cosa ha chiesto» era questa andava bene. */
 const T: Record<string, Record<string, string>> = {
   it: {
     occhiello: 'CONFERMA', caro: 'Gentile', titolo: 'La sua richiesta è confermata',
     intro: 'Le confermiamo quanto organizzato. Se qualcosa non torna, risponda a questa email o ci chiami: facciamo in tempo a correggere.',
     dettagli: 'Il dettaglio', saluto: 'A presto,<br />Hotel Terme Leonardo',
-    quando: 'Quando', dove: 'Dove', persone: 'Persone', volo: 'Volo / treno',
-    ritorno: 'Ritorno incluso', rif: 'Riferimento',
-        noleggi: 'Noleggi', taxi: 'Taxi dall’hotel', trattamenti: 'Trattamenti',
     oggetto: 'confermata',
-    modifiche: 'Cosa è cambiato rispetto alla richiesta',
-    chiesto: 'Aveva chiesto', confermato: 'Confermiamo',
-    servizio: 'Servizio', navetta: 'Navetta condivisa', privata: 'Auto privata',
-    prezzo: 'Prezzo', allAutista: 'da pagare direttamente all’autista', oraVolo: 'volo',
   },
   de: {
     occhiello: 'BESTÄTIGUNG', caro: 'Sehr geehrte(r)', titolo: 'Ihre Anfrage ist bestätigt',
     intro: 'Hiermit bestätigen wir das Vereinbarte. Sollte etwas nicht stimmen, antworten Sie einfach auf diese E-Mail oder rufen Sie uns an: wir können es noch ändern.',
     dettagli: 'Die Einzelheiten', saluto: 'Bis bald,<br />Hotel Terme Leonardo',
-    quando: 'Wann', dove: 'Wo', persone: 'Personen', volo: 'Flug / Zug',
-    ritorno: 'Rückfahrt inbegriffen', rif: 'Referenz',
-        noleggi: 'Verleih', taxi: 'Taxi ab Hotel', trattamenti: 'Anwendungen',
     oggetto: 'bestätigt',
-    modifiche: 'Was sich gegenüber Ihrer Anfrage geändert hat',
-    chiesto: 'Angefragt', confermato: 'Bestätigt',
-    servizio: 'Service', navetta: 'Sammeltransfer', privata: 'Privatwagen',
-    prezzo: 'Preis', allAutista: 'direkt an den Fahrer zu zahlen', oraVolo: 'Flug',
   },
   en: {
     occhiello: 'CONFIRMATION', caro: 'Dear', titolo: 'Your request is confirmed',
     intro: 'Here is what we have arranged. If anything is not right, reply to this email or call us: there is still time to change it.',
     dettagli: 'The details', saluto: 'See you soon,<br />Hotel Terme Leonardo',
-    quando: 'When', dove: 'Where', persone: 'People', volo: 'Flight / train',
-    ritorno: 'Return trip included', rif: 'Reference',
-        noleggi: 'Rentals', taxi: 'Taxi from the hotel', trattamenti: 'Treatments',
     oggetto: 'confirmed',
-    modifiche: 'What has changed from your request',
-    chiesto: 'Originally requested', confermato: 'Now confirmed',
-    servizio: 'Service', navetta: 'Shared shuttle', privata: 'Private car',
-    prezzo: 'Price', allAutista: 'to be paid directly to the driver', oraVolo: 'flight',
   },
   fr: {
     occhiello: 'CONFIRMATION', caro: 'Cher/Chère', titolo: 'Votre demande est confirmée',
     intro: 'Voici ce que nous avons organisé. Si quelque chose ne va pas, répondez à cet e-mail ou appelez-nous : il est encore temps de corriger.',
     dettagli: 'Le détail', saluto: 'À bientôt,<br />Hotel Terme Leonardo',
-    quando: 'Quand', dove: 'Où', persone: 'Personnes', volo: 'Vol / train',
-    ritorno: 'Retour inclus', rif: 'Référence',
-        noleggi: 'Locations', taxi: 'Taxi depuis l’hôtel', trattamenti: 'Soins',
     oggetto: 'confirmée',
-    modifiche: 'Ce qui a changé par rapport à votre demande',
-    chiesto: 'Demandé initialement', confermato: 'Confirmé',
-    servizio: 'Service', navetta: 'Navette partagée', privata: 'Voiture privée',
-    prezzo: 'Prix', allAutista: 'à régler directement au chauffeur', oraVolo: 'vol',
   },
 };
-
-/* l'ospite scrive 2026-09-10, ma legge 10/09/2026 */
-function data(iso: unknown): string {
-  const [a, m, g] = String(iso ?? '').split('-');
-  return g ? `${g}/${m}/${a}` : '';
-}
-
-/* `vecchio` e' quello che l'ospite AVEVA chiesto, quando la reception l'ha
-   cambiato e ha spuntato la casella. Compare accanto al valore nuovo, non in
-   coda all'email: fino al 18 agosto 2026 stava solo la' in fondo, sotto la
-   didascalia piu' pallida della pagina, mentre qui sopra il valore nuovo era
-   scritto in carattere normale — e chi si fermava ai dettagli non sapeva che
-   qualcosa era cambiato.
-
-   SBARRATO PIU' LA PAROLA. Certi programmi di posta buttano via gli stili, e
-   c'e' chi i colori li legge male: se cade la linea, «Aveva chiesto: 09:00»
-   resta comprensibile da solo. Il grassetto sul valore nuovo si accende solo
-   quando c'e' stato un cambio, cosi' le righe non toccate restano quiete. */
-function riga(
-  etichetta: string,
-  valore: string,
-  vecchio?: string | null,
-  t?: Record<string, string>,
-): string {
-  if (!valore) return '';
-  const cambio = vecchio && t
-    ? `<div style="font-size:13px;color:#8A938F;padding-top:2px;">${esc(t.chiesto)}:
-       <span style="text-decoration:line-through;">${esc(vecchio)}</span></div>`
-    : '';
-  const nuovo = cambio ? `<strong>${esc(valore)}</strong>` : esc(valore);
-  return `<tr>
-    <td style="padding:7px 16px 7px 0;color:#8A938F;font-size:13px;white-space:nowrap;vertical-align:top;">${esc(etichetta)}</td>
-    <td style="padding:7px 0;color:#1B4D4A;font-size:15px;">${nuovo}${cambio}</td>
-  </tr>`;
-}
-
-/* Le chiavi che le righe di ogni tipo leggono davvero. Serve al riquadro in
-   coda per sapere quali differenze sono gia' visibili accanto a un campo e
-   quali resterebbero altrimenti invisibili — es. le note del transfer, che
-   `tipi.ts` accetta ma la conferma non disegna. Stessa idea di
-   differenzeNonMostrate() nel back office. */
-const CHIAVI_MOSTRATE: Record<string, string[]> = {
-  transfer: [
-    'quando', 'ora', 'ora_volo', 'luogo', 'verso', 'collettivo', 'pax', 'volo',
-    'ritorno', 'ritorno_quando', 'ritorno_ora', 'prezzo_cent',
-  ],
-  greenfee: [
-    'circolo_nome', 'data', 'ora', 'giocatori', 'golfcar', 'carrello',
-    'carrello_elettrico', 'sacca', 'taxi', 'taxi_ora', 'taxi_ritorno',
-  ],
-  maestro: ['data', 'ora', 'persone'],
-  dayspa: ['giorno', 'persone'],
-  trattamenti: ['giorno', 'fascia', 'voci'],
-};
-
-/* Ogni tipo racconta le sue cose. Un tipo non ancora previsto non rompe
-   niente: mostra solo il riferimento, che e' meglio di "undefined".
-
-   Ogni voce sa CALCOLARSI da un oggetto dati qualunque. E' la riga che rende
-   possibile mostrare accanto al campo quello che l'ospite aveva chiesto:
-   la stessa `calcola` gira due volte, una sui dati definitivi e una su
-   `dati_originali`. Scrivere le due versioni a mano vorrebbe dire due
-   formattazioni della stessa cosa, e il giorno che divergono l'ospite legge
-   «aveva chiesto: 2026-09-10» accanto a «10 settembre 2026». */
-type Voce = { eti: string; calcola: (d: Record<string, unknown>) => string };
-
-function vociDettagli(tipo: string, t: Record<string, string>): Voce[] {
-  if (tipo === 'transfer') {
-    return [
-      /* con la navetta in partenza l'ora della corsa e' tre ore prima del
-         volo: vedersi confermare «11:30» senza vedere il volo delle 14:30
-         sembra uno sbaglio nostro */
-      {
-        eti: t.quando,
-        calcola: (d) =>
-          `${data(d.quando)}${d.ora ? ' · ' + String(d.ora) : ''}` +
-          (d.ora_volo ? ` (${t.oraVolo} ${String(d.ora_volo)})` : ''),
-      },
-      { eti: t.dove, calcola: (d) => `${d.verso === 'partenza' ? '→' : '←'} ${String(d.luogo ?? '')}` },
-      { eti: t.servizio, calcola: (d) => d.collettivo === true ? t.navetta : t.privata },
-      { eti: t.persone, calcola: (d) => String(d.pax ?? '') },
-      { eti: t.volo, calcola: (d) => String(d.volo ?? '') },
-      /* «✓» e basta era quello che diceva prima: l'ospite non rileggeva mai
-         il giorno e l'ora della seconda corsa, e non poteva accorgersi di un
-         errore. Le richieste vecchie hanno solo il booleano, e per quelle il
-         segno di spunta resta l'unica cosa onesta da mostrare. */
-      {
-        eti: t.ritorno,
-        calcola: (d) =>
-          d.ritorno !== true
-            ? ''
-            : (d.ritorno_quando
-              ? `${data(d.ritorno_quando)}${d.ritorno_ora ? ' · ' + String(d.ritorno_ora) : ''}`
-              : '✓'),
-      },
-      /* il prezzo lo conferma la reception: senza, la riga non c'e' —
-         «non c'e' un prezzo» e «e' gratis» sono due cose diverse */
-      { eti: t.prezzo, calcola: (d) => euro(d.prezzo_cent, t) },
-    ];
-  }
-  if (tipo === 'greenfee') {
-    return [
-      { eti: t.dove, calcola: (d) => String(d.circolo_nome ?? '') },
-      { eti: t.quando, calcola: (d) => `${data(d.data)}${d.ora ? ' · ' + String(d.ora) : ''}` },
-      { eti: t.persone, calcola: (d) => String(d.giocatori ?? '') },
-      {
-        eti: t.noleggi,
-        calcola: (d) =>
-          [
-            d.golfcar === true ? 'golf car' : '', d.carrello === true ? 'trolley' : '',
-            d.carrello_elettrico === true ? 'e-trolley' : '', d.sacca === true ? 'set' : '',
-          ].filter(Boolean).join(' · '),
-      },
-      {
-        eti: t.taxi,
-        calcola: (d) =>
-          d.taxi === true
-            ? `${String(d.taxi_ora ?? '')}${d.taxi_ritorno === true ? ' · ' + t.ritorno : ''}`
-            : '',
-      },
-    ];
-  }
-  if (tipo === 'maestro') {
-    return [
-      { eti: t.quando, calcola: (d) => `${data(d.data)}${d.ora ? ' · ' + String(d.ora) : ''}` },
-      { eti: t.persone, calcola: (d) => String(d.persone ?? '') },
-    ];
-  }
-  if (tipo === 'dayspa') {
-    return [
-      { eti: t.quando, calcola: (d) => data(d.giorno) },
-      { eti: t.persone, calcola: (d) => String(d.persone ?? '') },
-    ];
-  }
-  if (tipo === 'trattamenti') {
-    return [
-      { eti: t.quando, calcola: (d) => `${data(d.giorno)}${d.fascia ? ' · ' + String(d.fascia) : ''}` },
-      {
-        eti: t.trattamenti,
-        calcola: (d) => (Array.isArray(d.voci) ? (d.voci as string[]) : []).join(' · '),
-      },
-    ];
-  }
-  return [];
-}
-
-/* I centesimi come li legge una persona. Stesso trabocchetto gia' pagato in
-   email-richiesta.ts e in differenze.ts: 13500 sono 135 euro, e nessuno deve
-   leggerli come tredicimila. */
-function euro(v: unknown, t: Record<string, string>): string {
-  if (v === null || v === undefined || v === '') return '';
-  const n = Number(v);
-  if (!Number.isFinite(n)) return '';
-  const cifra = (n / 100).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `${cifra} € · ${t.allAutista}`;
-}
-
-function dettagli(
-  tipo: string,
-  d: Record<string, unknown>,
-  t: Record<string, string>,
-  originali?: Record<string, unknown> | null,
-): string {
-  return vociDettagli(tipo, t).map((v) => {
-    const adesso = v.calcola(d);
-    const prima = originali ? v.calcola(originali) : '';
-    return riga(v.eti, adesso, prima && prima !== adesso ? prima : null, t);
-  }).join('');
-}
 
 
 /* Le differenze compaiono SOLO se l'operatore ha spuntato la casella E ci
@@ -295,8 +102,8 @@ function boxDifferenze(diffs: Differenza[], t: Record<string, string>): string {
 }
 
 export function confermaHTML(r: Richiesta): string {
-  const l = ['it', 'de', 'en', 'fr'].includes(String(r.lingua)) ? String(r.lingua) : 'it';
-  const t = T[l];
+  const l = linguaDi(r.lingua);
+  const t = { ...ETICHETTE[l], ...T[l] };
   const d = (r.dati || {}) as Record<string, unknown>;
   const messaggio = String(r.messaggio ?? '').trim();
   const diffs = differenzeDaMostrare(r);
@@ -361,7 +168,7 @@ export async function inviaConferma(r: Richiesta): Promise<boolean> {
     console.error('conferma non inviata: RESEND_API_KEY mancante ->', r.numero);
     return false;
   }
-  const l = ['it', 'de', 'en', 'fr'].includes(String(r.lingua)) ? String(r.lingua) : 'it';
+  const l = linguaDi(r.lingua);
   try {
     const risposta = await fetch('https://api.resend.com/emails', {
       method: 'POST',
