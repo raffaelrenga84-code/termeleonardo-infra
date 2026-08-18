@@ -18,7 +18,7 @@
    proprio perche' una prova non deve dipendere da che ora e'.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { navetta } from './navetta.js';
+import { navetta, ritiroPerVolo } from './navetta.js';
 
 /* il valore della meta e' quello VERO del modulo, con i DUE spazi: deve
    combaciare parola per parola con l'elenco di atam.biz */
@@ -117,4 +117,37 @@ Deno.test('un numero di passeggeri vuoto vale come uno', () => {
   const n = navetta(corsa({ pax: '' }), ADESSO);
   assert(n, 'con il campo vuoto la navetta doveva comparire');
   assertEquals(n.nota, 'costaMeno');
+});
+
+/* ============================================================
+   LE TRE ORE PRIMA DEL VOLO.
+
+   Il servizio collettivo dall'hotel all'aeroporto parte TRE ORE prima
+   dell'ora del volo: e' la navetta che raccoglie piu' ospiti e fa fermate,
+   non un taxi che va dritto.
+
+   IL DIFETTO CHE PRESIDIA. Il modulo, per le partenze, chiede «l'ora a cui
+   vuole essere preso in hotel». Ma un ospite conosce l'ORA DEL VOLO, non
+   quella del ritiro: il conto delle tre ore lo dovrebbe fare lui, e se
+   sbaglia perde l'aereo. Lo facciamo noi.
+   ============================================================ */
+Deno.test('il ritiro e tre ore prima del volo', () => {
+  assertEquals(ritiroPerVolo('14:30'), { ora: '11:30', giornoPrima: false });
+  assertEquals(ritiroPerVolo('09:05'), { ora: '06:05', giornoPrima: false });
+  assertEquals(ritiroPerVolo('23:59'), { ora: '20:59', giornoPrima: false });
+});
+
+/* IL CASO CATTIVO: un volo notturno fa scattare il ritiro al GIORNO PRIMA.
+   Senza dirlo, l'ospite legge «22:00» e aspetta la sera sbagliata. */
+Deno.test('un volo di notte porta il ritiro al giorno prima', () => {
+  assertEquals(ritiroPerVolo('01:00'), { ora: '22:00', giornoPrima: true });
+  assertEquals(ritiroPerVolo('02:59'), { ora: '23:59', giornoPrima: true });
+  /* le 03:00 in punto sono il confine: ritiro a mezzanotte, stesso giorno */
+  assertEquals(ritiroPerVolo('03:00'), { ora: '00:00', giornoPrima: false });
+});
+
+Deno.test('un orario che non e un orario non produce un ritiro', () => {
+  for (const v of ['', 'mattina', '25:00', '12:60', null, undefined]) {
+    assertEquals(ritiroPerVolo(v as string), null, `doveva essere null: ${v}`);
+  }
 });

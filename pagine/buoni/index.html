@@ -1113,6 +1113,20 @@ function campiTransfer(r) {
         <input type="checkbox" id="cRitorno" ${d.ritorno ? 'checked' : ''}
           style="width:auto;margin:0;" /> serve anche il ritorno</label>${avevaChiesto(r, 'Ritorno incluso')}</div>
     </div>
+    <!-- IL RITORNO, con giorno e ora. Prima arrivava solo il booleano e
+         bisognava telefonare all'ospite per sapere quando. Sul modulo dei
+         tassisti il ritorno e' una SECONDA corsa, da prenotare a parte. -->
+    <div class="due">
+      <div><label>Giorno del ritorno</label>
+        <input type="date" id="cRitornoQuando" value="${esc(d.ritorno_quando || '')}" />${avevaChiesto(r, 'Giorno del ritorno')}</div>
+      <div><label>Ora del ritorno</label>
+        <input type="time" id="cRitornoOra" value="${esc(d.ritorno_ora || '')}" />${avevaChiesto(r, 'Ora del ritorno')}</div>
+    </div>
+    <!-- L'ora del VOLO, quando la navetta parte tre ore prima: «Ora» qui
+         sopra e' gia' l'ora del RITIRO in hotel, che e' quello che chiede il
+         modulo dei tassisti. Questa e' il dato da cui quel conto nasce. -->
+    ${d.ora_volo ? `<div class="mini" style="margin-top:8px;">Ora del volo dichiarata
+      dall'ospite: <strong>${esc(d.ora_volo)}</strong> — il ritiro qui sopra e' tre ore prima.</div>` : ''}
     <div class="due">
       <div><label>Servizio</label><select id="cCollettivo">
         <option value="no" ${d.collettivo ? '' : 'selected'}>Auto privata (individuale)</option>
@@ -1259,6 +1273,8 @@ function datiCorretti(r) {
       pax: Number($('cPax').value || 1), verso: $('cVerso').value,
       luogo: $('cLuogo').value, volo: $('cVolo').value,
       ritorno: $('cRitorno').checked, note: $('cNote').value,
+      ritorno_quando: $('cRitornoQuando').value || null,
+      ritorno_ora: $('cRitornoOra').value || null,
       collettivo: $('cCollettivo').value === 'si',
       /* euro a schermo, centesimi nel dato: e' il trabocchetto gia' pagato
          in email-richiesta.ts e differenze.ts. Vuoto resta null e non zero —

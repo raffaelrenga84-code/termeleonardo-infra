@@ -68,3 +68,31 @@ export function navetta(dati, adesso) {
 
   return { nota: pax >= 3 ? 'stessoPrezzo' : 'costaMeno' };
 }
+
+/* LE TRE ORE PRIMA DEL VOLO.
+
+   Il servizio collettivo dall'hotel all'aeroporto parte tre ore prima
+   dell'ora del volo: e' una navetta che raccoglie piu' ospiti e fa fermate,
+   non un taxi che va dritto.
+
+   Il modulo, per le partenze, chiede «l'ora a cui vuole essere preso in
+   hotel». Ma un ospite conosce l'ORA DEL VOLO, non quella del ritiro: il
+   conto lo dovrebbe fare lui, e se sbaglia perde l'aereo. Lo facciamo noi.
+
+   `giornoPrima` non e' un dettaglio: un volo all'una di notte fa scattare il
+   ritiro alle 22:00 del GIORNO PRIMA. Senza dirlo, l'ospite legge «22:00» e
+   aspetta la sera sbagliata. */
+export const ORE_PRIMA_DEL_VOLO = 3;
+
+export function ritiroPerVolo(oraVolo) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(oraVolo ?? '').trim());
+  if (!m) return null;
+  const o = Number(m[1]), min = Number(m[2]);
+  if (o > 23 || min > 59) return null;
+
+  const minuti = o * 60 + min - ORE_PRIMA_DEL_VOLO * 60;
+  const giornoPrima = minuti < 0;
+  const dentro = ((minuti % 1440) + 1440) % 1440;
+  const due = (n) => String(n).padStart(2, '0');
+  return { ora: `${due(Math.floor(dentro / 60))}:${due(dentro % 60)}`, giornoPrima };
+}

@@ -66,6 +66,10 @@ export function etichettaCampo(chiave: string): string {
     case 'luogo': return 'Luogo';
     case 'volo': return 'Volo';
     case 'ritorno': return 'Ritorno incluso';
+    case 'ritorno_quando': return 'Giorno del ritorno';
+    case 'ritorno_ora': return 'Ora del ritorno';
+    case 'ora_volo': return 'Ora del volo';
+    case 'collettivo': return 'Servizio';
     // ---- green fee ----
     case 'circolo': return 'Circolo';
     case 'circolo_nome': return 'Nome del circolo';

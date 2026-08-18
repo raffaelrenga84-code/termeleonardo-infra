@@ -303,3 +303,49 @@ Deno.test('senza prezzo non compare nessuna riga di prezzo', () => {
   const h = confermaHTML({ ...transfer, lingua: 'it' });
   assert(!/autista/i.test(h), 'non doveva esserci nessuna riga di prezzo');
 });
+
+/* ============================================================
+   IL RITORNO E L'ORA DEL VOLO NELLA CONFERMA.
+
+   IL DIFETTO. La conferma diceva «Ritorno incluso ✓» e basta: l'ospite non
+   rileggeva mai il giorno e l'ora che aveva chiesto per la seconda corsa,
+   quindi non aveva modo di accorgersi di un errore prima di trovarsi senza
+   taxi.
+
+   E con la navetta l'ora della corsa NON e' l'ora del volo: e' tre ore
+   prima. Vedersi confermare «11:30» senza vedere il volo delle 14:30
+   sembra uno sbaglio nostro.
+   ============================================================ */
+Deno.test('il ritorno mostra il suo giorno e la sua ora', () => {
+  const h = confermaHTML({
+    ...transfer,
+    lingua: 'it',
+    dati: { ...transfer.dati, ritorno: true, ritorno_quando: '2026-09-17', ritorno_ora: '10:00' },
+  });
+  assertStringIncludes(h, '17/09/2026');
+  assertStringIncludes(h, '10:00');
+});
+
+/* Una richiesta vecchia ha solo il booleano: deve continuare a dire che il
+   ritorno c'e', anche senza saperne il giorno. */
+Deno.test('un ritorno senza giorno resta segnalato lo stesso', () => {
+  const h = confermaHTML({
+    ...transfer, lingua: 'it', dati: { ...transfer.dati, ritorno: true },
+  });
+  assertStringIncludes(h, 'Ritorno incluso');
+});
+
+Deno.test('senza ritorno non compare nessuna riga di ritorno', () => {
+  const h = confermaHTML({ ...transfer, lingua: 'it', dati: { ...transfer.dati, ritorno: false } });
+  assert(!h.includes('Ritorno incluso'));
+});
+
+Deno.test('l ora del volo si vede accanto a quella della corsa', () => {
+  const h = confermaHTML({
+    ...transfer,
+    lingua: 'it',
+    dati: { ...transfer.dati, verso: 'partenza', collettivo: true, ora: '11:30', ora_volo: '14:30' },
+  });
+  assertStringIncludes(h, '11:30');
+  assertStringIncludes(h, '14:30');
+});

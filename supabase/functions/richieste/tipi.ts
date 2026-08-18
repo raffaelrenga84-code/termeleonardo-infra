@@ -86,6 +86,45 @@ function validaTransfer(d: Record<string, unknown>, oggi: Date): Esito {
   const note = testo(d.note);
   if (note.length > 2000) return { errore: 'note troppo lunghe' };
 
+  /* IL RITORNO, CON GIORNO E ORA. Prima la spunta mandava un booleano e
+     basta: la reception sapeva CHE serviva il ritorno, non QUANDO, e doveva
+     telefonare per chiederlo.
+
+     Restano FACOLTATIVI qui dentro anche se il modulo li pretende: le
+     richieste gia' salvate hanno solo il booleano, e `?a=conferma` rivalida
+     con queste stesse regole — pretenderli renderebbe impossibile confermare
+     una richiesta arrivata prima di oggi. */
+  const vuoleRitorno = d.ritorno === true;
+  let ritornoQuando: string | null = null;
+  let ritornoOra: string | null = null;
+
+  if (vuoleRitorno && testo(d.ritorno_quando)) {
+    const rd = dataServizio(d.ritorno_quando, oggi);
+    if (rd.errore) return { errore: `ritorno: ${rd.errore}` };
+    /* un ritorno prima dell'andata e' un errore di battitura che manderebbe
+       un tassista sotto l'hotel il giorno sbagliato */
+    if (String(rd.valore) < String(data.valore)) {
+      return { errore: 'il ritorno non puo precedere l andata' };
+    }
+    ritornoQuando = rd.valore ?? null;
+  }
+  if (vuoleRitorno && testo(d.ritorno_ora)) {
+    const ro = ora(d.ritorno_ora);
+    if (ro.errore) return { errore: `ritorno: ${ro.errore}` };
+    ritornoOra = ro.valore ?? null;
+  }
+
+  /* L'ora del VOLO, per le partenze con la navetta: il ritiro in hotel e'
+     tre ore prima, e `ora` porta gia' il ritiro perche' e' quello che il
+     modulo dei tassisti chiede. Ma l'ora del volo e' il dato da cui quel
+     conto nasce: senza, chi legge non puo' verificarlo. */
+  let oraVolo: string | null = null;
+  if (testo(d.ora_volo)) {
+    const ov = ora(d.ora_volo);
+    if (ov.errore) return { errore: `ora del volo: ${ov.errore}` };
+    oraVolo = ov.valore ?? null;
+  }
+
   /* IL PREZZO NON LO SCRIVE L'OSPITE: lo conferma la reception prima di
      mandare la conferma, e finisce nell'email come cifra da dare
      all'autista. Sta qui perche' `?a=conferma` rivalida i dati con queste
@@ -109,7 +148,8 @@ function validaTransfer(d: Record<string, unknown>, oggi: Date): Esito {
          «indovina», che e' il difetto da cui nasce questo campo. */
       collettivo: d.collettivo === true,
       prezzo_cent: prezzoCent,
-      luogo: testo(d.luogo), volo, ritorno: d.ritorno === true, note,
+      luogo: testo(d.luogo), volo, ritorno: vuoleRitorno, note,
+      ritorno_quando: ritornoQuando, ritorno_ora: ritornoOra, ora_volo: oraVolo,
     },
   };
 }

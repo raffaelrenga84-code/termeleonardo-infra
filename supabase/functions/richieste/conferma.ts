@@ -50,7 +50,7 @@ const T: Record<string, Record<string, string>> = {
     modifiche: 'Cosa è cambiato rispetto alla richiesta',
     chiesto: 'Aveva chiesto', confermato: 'Confermiamo',
     servizio: 'Servizio', navetta: 'Navetta condivisa', privata: 'Auto privata',
-    prezzo: 'Prezzo', allAutista: 'da pagare direttamente all’autista',
+    prezzo: 'Prezzo', allAutista: 'da pagare direttamente all’autista', oraVolo: 'volo',
   },
   de: {
     occhiello: 'BESTÄTIGUNG', caro: 'Sehr geehrte(r)', titolo: 'Ihre Anfrage ist bestätigt',
@@ -63,7 +63,7 @@ const T: Record<string, Record<string, string>> = {
     modifiche: 'Was sich gegenüber Ihrer Anfrage geändert hat',
     chiesto: 'Angefragt', confermato: 'Bestätigt',
     servizio: 'Service', navetta: 'Sammeltransfer', privata: 'Privatwagen',
-    prezzo: 'Preis', allAutista: 'direkt an den Fahrer zu zahlen',
+    prezzo: 'Preis', allAutista: 'direkt an den Fahrer zu zahlen', oraVolo: 'Flug',
   },
   en: {
     occhiello: 'CONFIRMATION', caro: 'Dear', titolo: 'Your request is confirmed',
@@ -76,7 +76,7 @@ const T: Record<string, Record<string, string>> = {
     modifiche: 'What has changed from your request',
     chiesto: 'Originally requested', confermato: 'Now confirmed',
     servizio: 'Service', navetta: 'Shared shuttle', privata: 'Private car',
-    prezzo: 'Price', allAutista: 'to be paid directly to the driver',
+    prezzo: 'Price', allAutista: 'to be paid directly to the driver', oraVolo: 'flight',
   },
   fr: {
     occhiello: 'CONFIRMATION', caro: 'Cher/Chère', titolo: 'Votre demande est confirmée',
@@ -89,7 +89,7 @@ const T: Record<string, Record<string, string>> = {
     modifiche: 'Ce qui a changé par rapport à votre demande',
     chiesto: 'Demandé initialement', confermato: 'Confirmé',
     servizio: 'Service', navetta: 'Navette partagée', privata: 'Voiture privée',
-    prezzo: 'Prix', allAutista: 'à régler directement au chauffeur',
+    prezzo: 'Prix', allAutista: 'à régler directement au chauffeur', oraVolo: 'vol',
   },
 };
 
@@ -134,7 +134,10 @@ function riga(
    `tipi.ts` accetta ma la conferma non disegna. Stessa idea di
    differenzeNonMostrate() nel back office. */
 const CHIAVI_MOSTRATE: Record<string, string[]> = {
-  transfer: ['quando', 'ora', 'luogo', 'verso', 'collettivo', 'pax', 'volo', 'ritorno', 'prezzo_cent'],
+  transfer: [
+    'quando', 'ora', 'ora_volo', 'luogo', 'verso', 'collettivo', 'pax', 'volo',
+    'ritorno', 'ritorno_quando', 'ritorno_ora', 'prezzo_cent',
+  ],
   greenfee: [
     'circolo_nome', 'data', 'ora', 'giocatori', 'golfcar', 'carrello',
     'carrello_elettrico', 'sacca', 'taxi', 'taxi_ora', 'taxi_ritorno',
@@ -158,12 +161,32 @@ type Voce = { eti: string; calcola: (d: Record<string, unknown>) => string };
 function vociDettagli(tipo: string, t: Record<string, string>): Voce[] {
   if (tipo === 'transfer') {
     return [
-      { eti: t.quando, calcola: (d) => `${data(d.quando)}${d.ora ? ' · ' + String(d.ora) : ''}` },
+      /* con la navetta in partenza l'ora della corsa e' tre ore prima del
+         volo: vedersi confermare «11:30» senza vedere il volo delle 14:30
+         sembra uno sbaglio nostro */
+      {
+        eti: t.quando,
+        calcola: (d) =>
+          `${data(d.quando)}${d.ora ? ' · ' + String(d.ora) : ''}` +
+          (d.ora_volo ? ` (${t.oraVolo} ${String(d.ora_volo)})` : ''),
+      },
       { eti: t.dove, calcola: (d) => `${d.verso === 'partenza' ? '→' : '←'} ${String(d.luogo ?? '')}` },
       { eti: t.servizio, calcola: (d) => d.collettivo === true ? t.navetta : t.privata },
       { eti: t.persone, calcola: (d) => String(d.pax ?? '') },
       { eti: t.volo, calcola: (d) => String(d.volo ?? '') },
-      { eti: t.ritorno, calcola: (d) => d.ritorno === true ? '✓' : '' },
+      /* «✓» e basta era quello che diceva prima: l'ospite non rileggeva mai
+         il giorno e l'ora della seconda corsa, e non poteva accorgersi di un
+         errore. Le richieste vecchie hanno solo il booleano, e per quelle il
+         segno di spunta resta l'unica cosa onesta da mostrare. */
+      {
+        eti: t.ritorno,
+        calcola: (d) =>
+          d.ritorno !== true
+            ? ''
+            : (d.ritorno_quando
+              ? `${data(d.ritorno_quando)}${d.ritorno_ora ? ' · ' + String(d.ritorno_ora) : ''}`
+              : '✓'),
+      },
       /* il prezzo lo conferma la reception: senza, la riga non c'e' —
          «non c'e' un prezzo» e «e' gratis» sono due cose diverse */
       { eti: t.prezzo, calcola: (d) => euro(d.prezzo_cent, t) },

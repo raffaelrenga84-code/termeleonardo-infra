@@ -423,3 +423,82 @@ Deno.test('un prezzo assurdo o non intero viene respinto', () => {
     assert(validaDati('transfer', { ...transfer, prezzo_cent: p }, OGGI).errore, `passato: ${p}`);
   }
 });
+
+/* ============================================================
+   IL RITORNO, CON GIORNO E ORA.
+
+   IL DIFETTO. La spunta «mi serve anche il ritorno» mandava un booleano e
+   basta: la reception sapeva CHE serviva, non QUANDO, e doveva telefonare.
+
+   Restano facoltativi qui dentro anche se il modulo li pretende: le
+   richieste gia' salvate hanno solo il booleano, e `?a=conferma` rivalida
+   con queste stesse regole — pretenderli renderebbe impossibile confermare
+   una richiesta arrivata prima di oggi.
+   ============================================================ */
+Deno.test('il ritorno porta il suo giorno e la sua ora', () => {
+  const v = validaDati('transfer', {
+    ...transfer, ritorno: true, ritorno_quando: '2026-09-17', ritorno_ora: '10:00',
+  }, OGGI);
+  assertEquals(v.errore, undefined);
+  assertEquals(v.dati?.ritorno_quando, '2026-09-17');
+  assertEquals(v.dati?.ritorno_ora, '10:00');
+});
+
+Deno.test('senza ritorno i suoi campi restano nulli', () => {
+  const v = validaDati('transfer', { ...transfer, ritorno: false }, OGGI);
+  assertEquals(v.dati?.ritorno_quando, null);
+  assertEquals(v.dati?.ritorno_ora, null);
+});
+
+/* Una richiesta vecchia ha solo il booleano: deve restare confermabile. */
+Deno.test('un ritorno senza giorno resta valido, per le richieste vecchie', () => {
+  const v = validaDati('transfer', { ...transfer, ritorno: true }, OGGI);
+  assertEquals(v.errore, undefined);
+  assertEquals(v.dati?.ritorno_quando, null);
+});
+
+Deno.test('un giorno di ritorno inesistente viene respinto', () => {
+  for (const q of ['2026-02-31', 'domani', '2026-13-01']) {
+    assert(validaDati('transfer', { ...transfer, ritorno: true, ritorno_quando: q }, OGGI).errore,
+      `passato: ${q}`);
+  }
+});
+
+/* Il ritorno viene DOPO l'andata: al contrario e' un errore di battitura che
+   manda un tassista il giorno sbagliato. */
+Deno.test('il ritorno non puo cadere prima dell andata', () => {
+  const v = validaDati('transfer', {
+    ...transfer, ritorno: true, ritorno_quando: '2026-09-09',
+  }, OGGI);
+  assert(v.errore, 'un ritorno prima dell andata doveva essere respinto');
+});
+
+Deno.test('il ritorno lo stesso giorno dell andata e legittimo', () => {
+  const v = validaDati('transfer', {
+    ...transfer, ritorno: true, ritorno_quando: transfer.quando, ritorno_ora: '22:00',
+  }, OGGI);
+  assertEquals(v.errore, undefined);
+});
+
+/* L'ORA DEL VOLO, quando la navetta parte tre ore prima.
+
+   `ora` resta l'ora del RITIRO in hotel — e' quello che chiede il modulo dei
+   tassisti — ma l'ora del volo non deve perdersi: e' il dato da cui il
+   ritiro e' stato calcolato, e senza, chi legge non puo' verificare il
+   conto. */
+Deno.test('l ora del volo si conserva accanto a quella del ritiro', () => {
+  const v = validaDati('transfer', {
+    ...transfer, verso: 'partenza', collettivo: true, ora: '11:30', ora_volo: '14:30',
+  }, OGGI);
+  assertEquals(v.errore, undefined);
+  assertEquals(v.dati?.ora, '11:30');
+  assertEquals(v.dati?.ora_volo, '14:30');
+});
+
+Deno.test('senza ora del volo il campo resta nullo', () => {
+  assertEquals(validaDati('transfer', { ...transfer }, OGGI).dati?.ora_volo, null);
+});
+
+Deno.test('un ora del volo che non e un orario viene respinta', () => {
+  assert(validaDati('transfer', { ...transfer, ora_volo: 'mattina' }, OGGI).errore);
+});

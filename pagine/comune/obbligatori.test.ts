@@ -19,7 +19,7 @@
    diversi, ed e' esattamente cosi' che divergono.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { campiObbligatori, mancanti, TIPI_MODULO } from './obbligatori.js';
+import { campiObbligatori, mancanti, segnaEtichette, TIPI_MODULO, voloRichiesto } from './obbligatori.js';
 
 /* i tipi che il modulo delle richieste sa disegnare (percorso.js), piu' il
    transfer, che ha una pagina sua ma le stesse tre righe di contatto */
@@ -133,9 +133,18 @@ Deno.test('ogni campo obbligatorio esiste sulla pagina che lo disegna', () => {
     const dove = PAGINA[tipo as keyof typeof PAGINA];
     assert(dove, `${tipo} non dice su quale pagina vive`);
     const sorgente = Deno.readTextFileSync(new URL(dove, import.meta.url));
-    for (const c of campiObbligatori(tipo)) {
+    /* anche i campi che diventano obbligatori solo in certe situazioni: il
+       volo quando la destinazione ne ha uno, giorno e ora del ritorno quando
+       la spunta e' accesa. Se non esistessero sulla pagina, l'asterisco non
+       comparirebbe e il controllo cercherebbe un campo che non c'e'. */
+    const contesto = tipo === 'transfer'
+      ? { luogo: 'Venezia  aeroporto', ritorno: true }
+      : {};
+    for (const c of campiObbligatori(tipo, contesto)) {
+      /* il prefisso e non la stringa intera: un'etichetta puo' avere altri
+         attributi (id, class) e resta la stessa etichetta */
       assert(
-        sorgente.includes(`<label for="${c.id}">`),
+        sorgente.includes(`<label for="${c.id}">`) || sorgente.includes(`<label for="${c.id}" `),
         `${tipo}: il campo ${c.id} non esiste in ${dove}`,
       );
       /* se un campo dice di farsi mostrare altrove, quel posto deve
@@ -154,4 +163,131 @@ Deno.test('ogni campo obbligatorio esiste sulla pagina che lo disegna', () => {
       );
     }
   }
+});
+
+/* ============================================================
+   IL VOLO, E IL RITORNO.
+
+   IL VOLO. Era facoltativo: senza, la reception non sa a che ora atterra
+   nessuno, e per la navetta collettiva — che parte tre ore prima del volo —
+   non c'e' proprio modo di calcolare l'orario del ritiro.
+
+   MA NON OVUNQUE. Chi va a Golf Frassanelle non ha un volo ne' un treno:
+   obbligarlo a scriverne uno vorrebbe dire farglielo inventare. Si chiede
+   dove un volo o un treno esiste davvero — aeroporti, stazioni, porto.
+
+   IL RITORNO. La spunta «mi serve anche il ritorno» mandava solo un
+   booleano: nessun giorno, nessuna ora. La reception doveva telefonare per
+   sapere quando.
+   ============================================================ */
+Deno.test('il volo si chiede dove un volo o un treno esiste', () => {
+  for (
+    const luogo of [
+      'Venezia  aeroporto', 'Treviso Aeroporto', 'Verona Aeroporto✈️',
+      'Bologna Aeroporto', 'Venezia P.le Roma', 'Venezia porto',
+      'Padova FS', 'Terme  Euganee FS', 'Mestre fs',
+    ]
+  ) {
+    const ids = campiObbligatori('transfer', { luogo }).map((c) => c.id);
+    assert(ids.includes('fVolo'), `su ${luogo} il volo doveva essere obbligatorio`);
+  }
+});
+
+Deno.test('sui golf e sui paesi vicini il volo non si chiede', () => {
+  for (const luogo of ['Golf Valsanzibio 🏌', 'Golf Montecchia🏌', 'Golf Frassanelle 🏌', 'Abano', 'Montegrotto', 'Padova città', '']) {
+    const ids = campiObbligatori('transfer', { luogo }).map((c) => c.id);
+    assert(!ids.includes('fVolo'), `su "${luogo}" il volo non doveva essere obbligatorio`);
+  }
+});
+
+Deno.test('col ritorno spuntato si chiedono giorno e ora del ritorno', () => {
+  const ids = campiObbligatori('transfer', { luogo: 'Abano', ritorno: true }).map((c) => c.id);
+  assert(ids.includes('fRitornoQuando'), 'manca il giorno del ritorno');
+  assert(ids.includes('fRitornoOra'), 'manca l ora del ritorno');
+});
+
+Deno.test('senza la spunta del ritorno non si chiede niente in piu', () => {
+  const ids = campiObbligatori('transfer', { luogo: 'Abano' }).map((c) => c.id);
+  assert(!ids.includes('fRitornoQuando'));
+  assert(!ids.includes('fRitornoOra'));
+});
+
+/* Gli altri moduli non hanno un contesto da passare: chiamare senza secondo
+   argomento deve continuare a funzionare esattamente come prima. */
+Deno.test('senza contesto l elenco resta quello di sempre', () => {
+  for (const tipo of ['transfer', 'greenfee', 'maestro', 'trattamenti', 'dayspa']) {
+    assert(campiObbligatori(tipo).length > 0, tipo);
+  }
+  assertEquals(
+    campiObbligatori('transfer').map((c) => c.id),
+    campiObbligatori('transfer', {}).map((c) => c.id),
+  );
+});
+
+/* ============================================================
+   L'ASTERISCO CHE DEVE ANCHE SPARIRE.
+
+   Con un campo obbligatorio solo in certe situazioni, segnare non basta.
+   Se l'ospite sceglie Venezia aeroporto e poi cambia idea per Golf
+   Frassanelle, l'asterisco sul volo deve andarsene: restando li' chiederebbe
+   un dato che per quella destinazione non esiste, e il messaggio direbbe
+   «manca il volo» a chi un volo non ce l'ha.
+
+   Un documento finto, con le due sole cose che segnaEtichette tocca
+   davvero: l'attributo aria-required sul campo e l'asterisco
+   nell'etichetta.
+   ============================================================ */
+function docFinto(ids: string[]) {
+  const stato: Record<string, { aria: boolean; stella: boolean }> = {};
+  for (const id of ids) stato[id] = { aria: false, stella: false };
+  return {
+    stato,
+    getElementById(id: string) {
+      if (!stato[id]) return null;
+      return {
+        setAttribute: () => { stato[id].aria = true; },
+        removeAttribute: () => { stato[id].aria = false; },
+      };
+    },
+    querySelector(sel: string) {
+      const id = /label\[for="(.+?)"\]/.exec(sel)?.[1] ?? '';
+      if (!stato[id]) return null;
+      return {
+        querySelector: () =>
+          stato[id].stella ? { remove: () => { stato[id].stella = false; } } : null,
+        insertAdjacentHTML: () => { stato[id].stella = true; },
+      };
+    },
+  };
+}
+
+const IDS = ['fLuogo', 'fQuando', 'fOra', 'fVolo', 'fNome', 'fEmail', 'fTel'];
+
+Deno.test('l asterisco compare sul volo quando la destinazione ha un volo', () => {
+  const doc = docFinto(IDS);
+  segnaEtichette('transfer', doc, { luogo: 'Venezia  aeroporto' });
+  assertEquals(doc.stato.fVolo.stella, true);
+  assertEquals(doc.stato.fVolo.aria, true);
+});
+
+Deno.test('e se ne va quando la destinazione un volo non ce l ha', () => {
+  const doc = docFinto(IDS);
+  segnaEtichette('transfer', doc, { luogo: 'Venezia  aeroporto' });
+  segnaEtichette('transfer', doc, { luogo: 'Golf Frassanelle 🏌' });
+  assertEquals(doc.stato.fVolo.stella, false, 'l asterisco non se n e andato');
+  assertEquals(doc.stato.fVolo.aria, false, 'aria-required e rimasto acceso');
+  /* gli altri non si toccano: restano obbligatori sempre */
+  assertEquals(doc.stato.fQuando.stella, true);
+});
+
+Deno.test('il controllo prima dell invio guarda lo stesso contesto', () => {
+  const valori: Record<string, string> = {
+    fLuogo: 'Venezia  aeroporto', fQuando: '2026-09-10', fOra: '14:30',
+    fVolo: '', fNome: 'A', fEmail: 'a@b.it', fTel: '333',
+  };
+  const conVolo = mancanti('transfer', (id: string) => valori[id] ?? '', { luogo: valori.fLuogo });
+  assert(conVolo.some((c) => c.id === 'fVolo'), 'il volo mancante doveva essere segnalato');
+
+  const senzaVolo = mancanti('transfer', (id: string) => valori[id] ?? '', { luogo: 'Golf Frassanelle 🏌' });
+  assert(!senzaVolo.some((c) => c.id === 'fVolo'), 'sul golf il volo non si chiede');
 });

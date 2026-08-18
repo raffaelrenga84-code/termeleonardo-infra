@@ -126,7 +126,7 @@ import { mancanti, segnaEtichette, segnaVuoti, nomiMancanti } from '/comune/obbl
 /* La regola della navetta condivisa: quando si offre e cosa dice. Sta in un
    modulo suo perche' e' fatta dei numeri del listino, non di grafica, ed e'
    la parte che si prova da sola — vedi navetta.test.ts. */
-import { navetta } from '/comune/navetta.js';
+import { navetta, ritiroPerVolo } from '/comune/navetta.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 
@@ -166,7 +166,11 @@ const T = {
     partenza:'Partenza', partenzaSotto:'parto dall’hotel',
     luogo:'Da dove / verso dove', comuni:'I più richiesti', tutte:'Tutte le destinazioni', altreMete:'Un’altra destinazione…', tornaMete:'Torna alle più richieste',
     quando:'Giorno', ora:'Ora', pax:'Passeggeri',
-    volo:'Volo o treno (facoltativo)', voloPh:'es. FR1234',
+    volo:'Volo o treno', voloPh:'es. FR1234',
+    oraVolo:'Ora del volo', ritiroAlle:(o)=>`La prendiamo in hotel alle ${o}.`,
+    ritiroGiornoPrima:(g,o)=>`La prendiamo in hotel il ${g} alle ${o} — il giorno prima del volo.`,
+    ritornoTit:'Il ritorno', ritornoQuando:'Giorno del ritorno', ritornoOra:'Ora del ritorno',
+    ritornoGuida:'La corsa di ritorno è una seconda corsa: ci dica quando le serve.',
     ritorno:'Mi serve anche il ritorno',
     servizio:'Il servizio', privata:'Auto solo per lei', privataSotto:'va diritto in hotel',
     navetta:'Navetta condivisa',
@@ -192,7 +196,11 @@ const T = {
     partenza:'Abfahrt', partenzaSotto:'vom Hotel',
     luogo:'Von wo / wohin', comuni:'Am häufigsten', tutte:'Alle Ziele', altreMete:'Ein anderes Ziel…', tornaMete:'Zurück zu den häufigsten',
     quando:'Tag', ora:'Uhrzeit', pax:'Personen',
-    volo:'Flug oder Zug (optional)', voloPh:'z. B. FR1234',
+    volo:'Flug oder Zug', voloPh:'z. B. FR1234',
+    oraVolo:'Abflugzeit', ritiroAlle:(o)=>`Wir holen Sie um ${o} am Hotel ab.`,
+    ritiroGiornoPrima:(g,o)=>`Wir holen Sie am ${g} um ${o} ab — am Tag vor dem Flug.`,
+    ritornoTit:'Die Rückfahrt', ritornoQuando:'Tag der Rückfahrt', ritornoOra:'Uhrzeit der Rückfahrt',
+    ritornoGuida:'Die Rückfahrt ist eine zweite Fahrt: sagen Sie uns, wann Sie sie brauchen.',
     ritorno:'Ich brauche auch die Rückfahrt',
     servizio:'Der Service', privata:'Wagen nur für Sie', privataSotto:'direkt zum Hotel',
     navetta:'Sammeltransfer',
@@ -218,7 +226,11 @@ const T = {
     partenza:'Departure', partenzaSotto:'leaving the hotel',
     luogo:'From / to', comuni:'Most requested', tutte:'All destinations', altreMete:'Another destination…', tornaMete:'Back to the most requested',
     quando:'Day', ora:'Time', pax:'Passengers',
-    volo:'Flight or train (optional)', voloPh:'e.g. FR1234',
+    volo:'Flight or train', voloPh:'e.g. FR1234',
+    oraVolo:'Flight time', ritiroAlle:(o)=>`We pick you up at the hotel at ${o}.`,
+    ritiroGiornoPrima:(g,o)=>`We pick you up on ${g} at ${o} — the day before your flight.`,
+    ritornoTit:'The return trip', ritornoQuando:'Return day', ritornoOra:'Return time',
+    ritornoGuida:'The return is a second journey: tell us when you need it.',
     ritorno:'I also need the return trip',
     servizio:'The service', privata:'A car just for you', privataSotto:'straight to the hotel',
     navetta:'Shared shuttle',
@@ -244,7 +256,11 @@ const T = {
     partenza:'Départ', partenzaSotto:'depuis l’hôtel',
     luogo:'D’où / vers où', comuni:'Les plus demandés', tutte:'Toutes les destinations', altreMete:'Une autre destination…', tornaMete:'Retour aux plus demandées',
     quando:'Jour', ora:'Heure', pax:'Passagers',
-    volo:'Vol ou train (facultatif)', voloPh:'ex. FR1234',
+    volo:'Vol ou train', voloPh:'ex. FR1234',
+    oraVolo:'Heure du vol', ritiroAlle:(o)=>`Nous venons vous chercher à l’hôtel à ${o}.`,
+    ritiroGiornoPrima:(g,o)=>`Nous venons vous chercher le ${g} à ${o} — la veille du vol.`,
+    ritornoTit:'Le retour', ritornoQuando:'Jour du retour', ritornoOra:'Heure du retour',
+    ritornoGuida:'Le retour est un second trajet : dites-nous quand vous en avez besoin.',
     ritorno:'J’ai aussi besoin du retour',
     servizio:'Le service', privata:'Une voiture pour vous seul', privataSotto:'directement à l’hôtel',
     navetta:'Navette partagée',
@@ -523,8 +539,13 @@ function modulo() {
       <div class="due">
         <div><label for="fQuando">${esc(t.quando)}</label>
           <input type="date" id="fQuando" min="${oggiISO()}" value="${esc(dataPerVerso())}" /></div>
-        <div><label for="fOra">${esc(t.ora)}</label>
-          <input type="time" id="fOra" /></div>
+        <div><label for="fOra" id="etiOra">${esc(t.ora)}</label>
+          <input type="time" id="fOra" />
+          <!-- LE TRE ORE. Con la navetta in partenza il campo qui sopra chiede
+               l'ORA DEL VOLO, e questa riga dice quando passiamo a prenderlo:
+               il conto non lo deve fare l'ospite, che se sbaglia perde
+               l'aereo. -->
+          <div class="mini" id="notaRitiro" style="margin-top:6px;color:#3C5346;"></div></div>
       </div>
       <div class="due">
         <div><label for="fPax">${esc(t.pax)}</label>
@@ -551,6 +572,18 @@ function modulo() {
 
       <label class="spunta"><input type="checkbox" id="fRitorno" />
         <span>${esc(t.ritorno)}</span></label>
+
+      <!-- IL RITORNO. Prima la spunta mandava un booleano e basta: la
+           reception sapeva CHE serviva, non QUANDO, e doveva telefonare. -->
+      <div id="boxRitorno" style="display:none;margin-top:6px;">
+        <div class="guida">${esc(t.ritornoGuida)}</div>
+        <div class="due">
+          <div><label for="fRitornoQuando">${esc(t.ritornoQuando)}</label>
+            <input type="date" id="fRitornoQuando" min="${oggiISO()}" /></div>
+          <div><label for="fRitornoOra">${esc(t.ritornoOra)}</label>
+            <input type="time" id="fRitornoOra" /></div>
+        </div>
+      </div>
     </div>
 
     <div class="riquadro">
@@ -653,14 +686,52 @@ function modulo() {
     $('bPrivata').classList.toggle('attivo', !COLLETTIVO);
     $('bNavetta').classList.toggle('attivo', COLLETTIVO);
   };
-  const scegliServizio = (c) => { COLLETTIVO = c; aggiornaNavetta(); };
+  /* IL CONTESTO degli obbligatori: la destinazione decide se il volo serve
+     (chi va a Golf Frassanelle non ne ha uno), la spunta decide se servono
+     giorno e ora del ritorno. Si ridisegna a ogni cambiamento, perche'
+     segnaEtichette sa anche TOGLIERE la stella. */
+  const contesto = () => ({ luogo: $('fLuogo').value, ritorno: $('fRitorno').checked });
+  const aggiornaObbligatori = () => segnaEtichette('transfer', document, contesto());
+
+  /* LE TRE ORE PRIMA DEL VOLO. Con la navetta in partenza il campo dell'ora
+     chiede l'ORA DEL VOLO, non quella del ritiro: e' quella che l'ospite
+     conosce. Il ritiro lo calcoliamo noi e glielo scriviamo sotto — e se il
+     volo e' di notte, il ritiro cade il GIORNO PRIMA, che detto male manda
+     una persona ad aspettare la sera sbagliata. */
+  const conNavettaInPartenza = () => COLLETTIVO && VERSO === 'partenza';
+
+  /* il giorno prima di una data ISO, senza fusi: mezzogiorno per non
+     inciampare nell'ora legale */
+  const giornoPrimaDi = (iso) => {
+    const d = new Date(iso + 'T12:00:00');
+    d.setDate(d.getDate() - 1);
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const aggiornaRitiro = () => {
+    const attivo = conNavettaInPartenza();
+    $('etiOra').firstChild.nodeValue = attivo ? t.oraVolo : t.ora;
+    const r = attivo ? ritiroPerVolo($('fOra').value) : null;
+    if (!r) { $('notaRitiro').textContent = ''; return; }
+    $('notaRitiro').textContent = r.giornoPrima && $('fQuando').value
+      ? t.ritiroGiornoPrima(giornoPrimaDi($('fQuando').value), r.ora)
+      : t.ritiroAlle(r.ora);
+  };
+
+  const scegliServizio = (c) => { COLLETTIVO = c; aggiornaNavetta(); aggiornaRitiro(); };
   $('bPrivata').onclick = () => scegliServizio(false);
   $('bNavetta').onclick = () => scegliServizio(true);
   for (const id of ['fLuogo', 'fPax', 'fQuando', 'fOra']) {
     $(id).addEventListener('change', aggiornaNavetta);
     $(id).addEventListener('input', aggiornaNavetta);
   }
-  $('mete').addEventListener('click', aggiornaNavetta);
+  $('mete').addEventListener('click', () => { aggiornaNavetta(); aggiornaObbligatori(); });
+  $('fLuogo').addEventListener('change', aggiornaObbligatori);
+  $('fOra').addEventListener('input', aggiornaRitiro);
+  $('fRitorno').addEventListener('change', () => {
+    $('boxRitorno').style.display = $('fRitorno').checked ? 'block' : 'none';
+    aggiornaObbligatori();
+  });
 
   /* le etichette dei gruppi si traducono qui: nel modello sono segnaposto */
   for (const g of $('fLuogo').querySelectorAll('optgroup')) {
@@ -691,7 +762,8 @@ function modulo() {
   };
   $('bArrivo').onclick = () => scegli('arrivo');
   $('bPartenza').onclick = () => scegli('partenza');
-  segnaEtichette('transfer', document);
+  segnaEtichette('transfer', document,
+    { luogo: $('fLuogo').value, ritorno: $('fRitorno').checked });
   $('bInvia').onclick = invia;
 
   /* la data che il modello ha appena scritto e' NOSTRA: senza ricordarla,
@@ -708,6 +780,35 @@ function modulo() {
   aggiornaNavetta();
 }
 
+/* Giorno e ora della corsa come la prenoteremo dai tassisti, piu' l'ora del
+   volo da cui nascono.
+
+   Con la navetta in partenza il campo dell'ora contiene l'ORA DEL VOLO —
+   e' quella che l'ospite conosce — ma la corsa parte tre ore prima. Se il
+   volo e' di notte il ritiro cade il GIORNO PRIMA, e allora arretra anche
+   la data: senza, si prenoterebbe un taxi per il giorno sbagliato.
+
+   Fuori da quel caso non cambia niente: quello che l'ospite ha scritto e'
+   gia' l'ora del ritiro, come dice la guida in cima al riquadro. */
+function corsaVera() {
+  const quando = v('fQuando');
+  const scritta = v('fOra');
+  if (!(COLLETTIVO && VERSO === 'partenza')) return { quando, ora: scritta };
+
+  const r = ritiroPerVolo(scritta);
+  if (!r) return { quando, ora: scritta };
+
+  let giorno = quando;
+  if (r.giornoPrima && quando) {
+    const d = new Date(quando + 'T12:00:00');
+    d.setDate(d.getDate() - 1);
+    giorno = d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+  return { quando: giorno, ora: r.ora, ora_volo: scritta };
+}
+
 async function invia() {
   const t = T[LNG];
   if (INVIANDO) return;
@@ -720,10 +821,11 @@ async function invia() {
      SEMPRE («destinazione, giorno, ora, nome, email e telefono»), anche
      quando ne mancava uno solo, e chi lo leggeva doveva ricontrollarli a
      uno a uno. */
-  const vuoti = mancanti('transfer', (id) => ($(id) ? $(id).value : ''));
+  const contestoOra = { luogo: v('fLuogo'), ritorno: $('fRitorno').checked };
+  const vuoti = mancanti('transfer', (id) => ($(id) ? $(id).value : ''), contestoOra);
   if (vuoti.length) {
     $('esito').innerHTML = `<div class="errore">${esc(t.mancaChe(nomiMancanti(vuoti, t)))}</div>`;
-    segnaVuoti('transfer', vuoti, document);
+    segnaVuoti('transfer', vuoti, document, contestoOra);
     return;
   }
   if (!$('fPrivacy').checked) {
@@ -749,8 +851,13 @@ async function invia() {
         privacy_presa_atto: $('fPrivacy').checked,
         lingua: LNG, token: TOKEN, origine: location.href,
         dati: {
-          quando: v('fQuando'), ora: v('fOra'), pax: Number(v('fPax') || 2),
+          /* giorno e ora NON si prendono dai campi: li da' corsaVera(), che
+             con la navetta in partenza traduce l'ora del volo nell'ora del
+             ritiro — e se il volo e' di notte arretra anche la data */
+          ...corsaVera(),
+          pax: Number(v('fPax') || 2),
           verso: VERSO, luogo: v('fLuogo'), volo: v('fVolo'), collettivo: COLLETTIVO,
+          ritorno_quando: v('fRitornoQuando'), ritorno_ora: v('fRitornoOra'),
           ritorno: $('fRitorno').checked, note: v('fNote'),
         },
       }),

@@ -66,8 +66,35 @@ export const TIPI_MODULO = Object.keys(PER_TIPO);
    averlo portato in fondo. Provato in un browser vero: con l'ordine
    sbagliato il messaggio diceva «Nome, Email, Telefono, Giorno, Ora» mentre
    sulla pagina il primo campo vuoto era il giorno, in cima. */
-export function campiObbligatori(tipo) {
-  return [...(PER_TIPO[tipo] || GIORNO_E_ORA), ...CONTATTI];
+/* Dove un volo o un treno esiste davvero. Chi va a Golf Frassanelle non ne
+   ha uno: obbligarlo a scriverne uno vorrebbe dire farglielo inventare, e un
+   campo inventato e' peggio di un campo vuoto. Aeroporti, stazioni e porto
+   si', il resto no.
+
+   `aeroporto` contiene `porto`, ed e' voluto: e' comunque un posto da cui si
+   parte con un volo. */
+export function voloRichiesto(luogo) {
+  const p = String(luogo ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+  if (!p) return false;
+  return /aeroport|\bfs\b|porto|p\.le roma/.test(p);
+}
+
+/* `contesto` e' quello che la pagina sa in questo momento — la destinazione
+   scelta, se e' spuntato il ritorno — e serve per i campi che diventano
+   obbligatori solo in certe situazioni. Chiamare senza contesto continua a
+   dare l'elenco di sempre: gli altri moduli non ne hanno bisogno. */
+export function campiObbligatori(tipo, contesto = {}) {
+  const propri = [...(PER_TIPO[tipo] || GIORNO_E_ORA)];
+  if (tipo === 'transfer') {
+    if (voloRichiesto(contesto.luogo)) propri.push({ id: 'fVolo', eti: 'volo' });
+    /* la spunta del ritorno apre due campi: senza, la reception riceve un
+       booleano e deve telefonare per sapere quando */
+    if (contesto.ritorno) {
+      propri.push({ id: 'fRitornoQuando', eti: 'ritornoQuando' });
+      propri.push({ id: 'fRitornoOra', eti: 'ritornoOra' });
+    }
+  }
+  return [...propri, ...CONTATTI];
 }
 
 /* Cio' che manca, in ordine di comparsa nel modulo — cosi' chi legge il
@@ -75,8 +102,8 @@ export function campiObbligatori(tipo) {
    modulo non tocca il DOM, e cosi' si puo' provare senza browser.
    Uno spazio non e' un valore: «   » nel telefono e' un telefono che non
    c'e'. */
-export function mancanti(tipo, leggi) {
-  return campiObbligatori(tipo).filter((c) => !String(leggi(c.id) ?? '').trim());
+export function mancanti(tipo, leggi, contesto = {}) {
+  return campiObbligatori(tipo, contesto).filter((c) => !String(leggi(c.id) ?? '').trim());
 }
 
 /* ---- la parte che tocca la pagina ----
@@ -88,8 +115,28 @@ export function mancanti(tipo, leggi) {
 /* L'asterisco e' decorazione per chi vede: a chi usa un lettore di schermo
    lo dice gia' aria-required, e sentirsi leggere «asterisco» dopo ogni
    etichetta e' rumore. */
-export function segnaEtichette(tipo, doc) {
-  for (const c of campiObbligatori(tipo)) {
+/* I campi obbligatori solo in certe situazioni. Servono per TOGLIERE
+   l'asterisco quando la situazione cambia: l'ospite sceglie Venezia
+   aeroporto, il volo diventa obbligatorio, poi cambia idea per Golf
+   Frassanelle — e la stella deve andarsene, o chiederebbe un dato che per
+   quella destinazione non esiste. Segnare senza saper desegnare lascia
+   bugie sullo schermo. */
+const CONDIZIONALI = ['fVolo', 'fRitornoQuando', 'fRitornoOra'];
+
+export function segnaEtichette(tipo, doc, contesto = {}) {
+  const richiesti = campiObbligatori(tipo, contesto);
+  const adesso = new Set(richiesti.map((c) => c.id));
+
+  for (const id of CONDIZIONALI) {
+    if (adesso.has(id)) continue;
+    const el = doc.getElementById(id);
+    if (el) el.removeAttribute('aria-required');
+    const eti = doc.querySelector(`label[for="${id}"]`);
+    const stella = eti && eti.querySelector('.obb');
+    if (stella) stella.remove();
+  }
+
+  for (const c of richiesti) {
     const el = doc.getElementById(c.id);
     if (el) el.setAttribute('aria-required', 'true');
     const eti = doc.querySelector(`label[for="${c.id}"]`);
@@ -109,8 +156,8 @@ export function segnaEtichette(tipo, doc) {
    sullo schermo. */
 const bersaglio = (c, doc) => doc.getElementById(c.mostra || c.id);
 
-export function segnaVuoti(tipo, vuoti, doc) {
-  for (const c of campiObbligatori(tipo)) {
+export function segnaVuoti(tipo, vuoti, doc, contesto = {}) {
+  for (const c of campiObbligatori(tipo, contesto)) {
     const el = bersaglio(c, doc);
     if (el) el.classList.remove('vuoto');
   }
