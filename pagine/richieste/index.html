@@ -307,6 +307,8 @@ const T = {
        non un ramo dentro la frase: sono quattro lingue, e una frase composta
        a pezzi si traduce peggio di una scritta intera. */
     avvisoDayspa:'<strong>Questa è una richiesta, non una prenotazione.</strong> Le confermiamo giorno e prezzo per email o telefono, di solito entro poche ore.',
+    avvisoBuono:'<strong>Questa è una richiesta, non una prenotazione.</strong> Le confermiamo giorno e ora per email o telefono, di solito entro poche ore.',
+    avvisoBuonoDayspa:'<strong>Questa è una richiesta, non una prenotazione.</strong> Le confermiamo il giorno per email o telefono, di solito entro poche ore.',
     noto:(n)=>`Bentornato, ${n}. Abbiamo già i suoi dati: compili solo il resto.`,
     circolo:'Circolo', giocatori:'Giocatori', percorso:'Percorso (se lo sa)',
     percorsoPh:'es. Rosso, Blu…', noleggi:'Serve qualcosa a noleggio?',
@@ -413,6 +415,8 @@ const T = {
       sotto:'Thermalbecken, Grottenbereich und Relaxbereich für einen ganzen Tag. Sagen Sie uns, wann Sie kommen möchten und mit wie vielen Personen: die Plätze sind begrenzt, wir bestätigen Ihnen den Eintritt.' },
     avviso:'<strong>Dies ist eine Anfrage, keine Buchung.</strong> Wir bestätigen Ihnen Tag, Uhrzeit und Preis per E-Mail oder Telefon, meist innerhalb weniger Stunden.',
     avvisoDayspa:'<strong>Dies ist eine Anfrage, keine Buchung.</strong> Wir bestätigen Ihnen Tag und Preis per E-Mail oder Telefon, meist innerhalb weniger Stunden.',
+    avvisoBuono:'<strong>Dies ist eine Anfrage, keine Buchung.</strong> Wir bestätigen Ihnen Tag und Uhrzeit per E-Mail oder Telefon, meist innerhalb weniger Stunden.',
+    avvisoBuonoDayspa:'<strong>Dies ist eine Anfrage, keine Buchung.</strong> Wir bestätigen Ihnen den Tag per E-Mail oder Telefon, meist innerhalb weniger Stunden.',
     noto:(n)=>`Willkommen zurück, ${n}. Ihre Daten haben wir bereits.`,
     circolo:'Golfclub', giocatori:'Spieler', percorso:'Platz (falls bekannt)',
     percorsoPh:'z. B. Rosso, Blu…', noleggi:'Brauchen Sie einen Verleih?',
@@ -484,6 +488,8 @@ const T = {
       sotto:'Thermal pools, grotto centre and relax area for a whole day. Tell us when you would like to come and how many you are: places are limited, we will confirm your entry.' },
     avviso:'<strong>This is a request, not a booking.</strong> We confirm day, time and price by email or phone, usually within a few hours.',
     avvisoDayspa:'<strong>This is a request, not a booking.</strong> We confirm day and price by email or phone, usually within a few hours.',
+    avvisoBuono:'<strong>This is a request, not a booking.</strong> We confirm the day and time by email or phone, usually within a few hours.',
+    avvisoBuonoDayspa:'<strong>This is a request, not a booking.</strong> We confirm the day by email or phone, usually within a few hours.',
     noto:(n)=>`Welcome back, ${n}. We already have your details.`,
     circolo:'Club', giocatori:'Players', percorso:'Course (if you know it)',
     percorsoPh:'e.g. Rosso, Blu…', noleggi:'Do you need any rentals?',
@@ -552,6 +558,8 @@ const T = {
       sotto:'Piscines thermales, centre grottes et espace relax pour une journée entière. Dites-nous quand vous souhaitez venir et à combien : les places sont limitées, nous vous confirmons l’entrée.' },
     avviso:'<strong>Ceci est une demande, pas une réservation.</strong> Nous vous confirmons jour, heure et prix par e-mail ou téléphone, en général sous quelques heures.',
     avvisoDayspa:'<strong>Ceci est une demande, pas une réservation.</strong> Nous vous confirmons jour et prix par e-mail ou téléphone, en général sous quelques heures.',
+    avvisoBuono:'<strong>Ceci est une demande, pas une réservation.</strong> Nous vous confirmons le jour et l’heure par e-mail ou téléphone, en général sous quelques heures.',
+    avvisoBuonoDayspa:'<strong>Ceci est une demande, pas une réservation.</strong> Nous vous confirmons le jour par e-mail ou téléphone, en général sous quelques heures.',
     noto:(n)=>`Bon retour, ${n}. Nous avons déjà vos coordonnées.`,
     circolo:'Club', giocatori:'Joueurs', percorso:'Parcours (si vous le savez)',
     percorsoPh:'ex. Rosso, Blu…', noleggi:'Besoin de location ?',
@@ -1046,6 +1054,23 @@ function messaggioBuonoKo(t) {
   return b.altro;
 }
 
+/* LA PRIMA FRASE CHE SI LEGGE, e cosa promette.
+
+   Col buono valido, del denaro parla il riquadro qui sotto: copre tutto,
+   copre in parte e la differenza si paga all'arrivo, oppure avanza. L'avviso
+   in cima non deve dire una terza cosa — e soprattutto non deve promettere
+   di confermare un PREZZO a chi l'ha gia' pagato, o a chi se l'e' visto
+   regalare da qualcun altro. Nel migliore dei casi e' un dubbio piantato
+   dove non serviva.
+
+   BUONO e' null quando il buono non e' valido — scaduto, gia' riscosso, non
+   trovato, o verifica che non ha risposto affatto: li' il prezzo torna
+   davvero da confermare, e la frase resta quella di sempre. */
+function avvisoInCima(t) {
+  if (BUONO) return TIPO === 'dayspa' ? t.avvisoBuonoDayspa : t.avvisoBuono;
+  return TIPO === 'dayspa' ? t.avvisoDayspa : t.avviso;
+}
+
 /* L'INVITO A USARE IL BUONO, per chi il codice ce l'ha ma non nell'indirizzo.
 
    Il foglio A4 stampa l'indirizzo senza codice — di proposito: si digita da
@@ -1440,7 +1465,7 @@ function attivaDayspa(t) {
 function modulo() {
   const t = T[LNG];
   $('app').innerHTML = `
-    <div class="avviso">${TIPO === 'dayspa' ? t.avvisoDayspa : t.avviso}</div>
+    <div class="avviso">${avvisoInCima(t)}</div>
     ${riquadroBuono(t)}${invitoBuono(t)}${OSPITE ? `<div class="noto">${esc(t.noto(OSPITE.nome || ''))}</div>` : ''}
     <div class="riquadro">${campiTipo(t)}</div>
     <div class="riquadro">
