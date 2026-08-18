@@ -62,11 +62,46 @@ export function navetta(dati, adesso) {
   const pax = Number(dati.pax) || 1;
   if (pax > PAX_MASSIMO) return null;
 
-  const partenza = momento(dati.quando, dati.ora);
+  /* L'ORA DELLA CORSA, che non sempre e' quella scritta nel campo.
+     In PARTENZA il campo contiene l'ora del VOLO — e' quella che l'ospite
+     conosce — e la navetta parte tre ore prima. La fascia oraria e il
+     preavviso si misurano sulla CORSA, non sul volo. */
+  const corsa = oraDellaCorsa(dati);
+  if (!corsa) return null;
+  /* senza un'ora la fascia non si puo' giudicare: non si nega per un dato
+     che l'ospite non ha ancora scritto */
+  if (corsa.ora && (corsa.ora < DALLE || corsa.ora > ALLE)) return null;
+
+  const partenza = momento(dati.quando, corsa.ora);
   if (!partenza) return null;
+  /* un ritiro il giorno prima e' un giorno indietro anche per il preavviso */
+  if (corsa.giornoPrima) partenza.setDate(partenza.getDate() - 1);
   if (partenza.getTime() - adesso.getTime() < PREAVVISO_ORE * 3600 * 1000) return null;
 
   return { nota: pax >= 3 ? 'stessoPrezzo' : 'costaMeno' };
+}
+
+/* LA FASCIA ORARIA. Il servizio collettivo va dalle 8:00 alle 20:00,
+   estremi compresi (confermato dalla proprieta' il 18 agosto 2026).
+
+   Vale sulla CORSA. Siccome per le partenze la corsa parte tre ore prima
+   del volo, di fatto restano i voli fra le 11:00 e le 23:00: un volo alle
+   6 del mattino vorrebbe un ritiro alle 3 di notte, e un volo all'una di
+   notte un ritiro alle 22:00 del giorno prima — fuori tutti e due.
+
+   Senza questa regola il modulo li avrebbe offerti lo stesso: un impegno
+   che il servizio non puo' mantenere, preso in automatico e scoperto solo
+   dalla reception, a richiesta gia' inviata. */
+export const DALLE = '08:00';
+export const ALLE = '20:00';
+
+function oraDellaCorsa(dati) {
+  if (dati.verso === 'partenza') return ritiroPerVolo(dati.ora);
+  const s = String(dati.ora ?? '').trim();
+  return /^\d{1,2}:\d{2}$/.test(s)
+    ? { ora: s.padStart(5, '0'), giornoPrima: false }
+    /* senza l'ora si giudica sull'inizio del giorno: vedi `momento()` */
+    : { ora: '', giornoPrima: false };
 }
 
 /* LE TRE ORE PRIMA DEL VOLO.

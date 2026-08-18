@@ -151,3 +151,57 @@ Deno.test('un orario che non e un orario non produce un ritiro', () => {
     assertEquals(ritiroPerVolo(v as string), null, `doveva essere null: ${v}`);
   }
 });
+
+/* ============================================================
+   LA FASCIA ORARIA: la navetta va dalle 8:00 alle 20:00.
+
+   Confermato dalla proprieta' il 18 agosto 2026. La fascia vale sulla
+   CORSA, non sul volo — e siccome per le partenze la corsa parte tre ore
+   prima, di fatto restano i voli fra le 11:00 e le 23:00.
+
+   IL DIFETTO CHE PRESIDIA. Senza questa regola il modulo offrirebbe la
+   navetta a chi ha un volo alle 6 del mattino, che vorrebbe dire un ritiro
+   alle 3 di notte: un impegno che il servizio non puo' mantenere, preso in
+   automatico e scoperto solo dalla reception, a richiesta gia' inviata.
+   ============================================================ */
+const inFascia = (extra: Record<string, unknown>) => navetta(corsa(extra), ADESSO);
+
+Deno.test('in arrivo la navetta va dalle 8 alle 20, estremi compresi', () => {
+  assert(inFascia({ verso: 'arrivo', ora: '08:00' }), 'le 8:00 in punto sono dentro');
+  assert(inFascia({ verso: 'arrivo', ora: '20:00' }), 'le 20:00 in punto sono dentro');
+  assert(inFascia({ verso: 'arrivo', ora: '13:00' }));
+});
+
+Deno.test('fuori fascia in arrivo la navetta non si offre', () => {
+  assertEquals(inFascia({ verso: 'arrivo', ora: '07:59' }), null);
+  assertEquals(inFascia({ verso: 'arrivo', ora: '20:01' }), null);
+  assertEquals(inFascia({ verso: 'arrivo', ora: '23:30' }), null);
+  assertEquals(inFascia({ verso: 'arrivo', ora: '05:00' }), null);
+});
+
+/* In PARTENZA il campo dell'ora contiene l'ora del VOLO: la corsa parte tre
+   ore prima, ed e' quella che deve stare in fascia. */
+Deno.test('in partenza la fascia si misura sulla corsa, non sul volo', () => {
+  /* volo alle 14:30 → ritiro alle 11:30: dentro */
+  assert(inFascia({ verso: 'partenza', ora: '14:30' }));
+  /* volo alle 11:00 → ritiro alle 8:00 in punto: dentro */
+  assert(inFascia({ verso: 'partenza', ora: '11:00' }));
+  /* volo alle 23:00 → ritiro alle 20:00 in punto: dentro */
+  assert(inFascia({ verso: 'partenza', ora: '23:00' }));
+});
+
+Deno.test('un volo troppo presto o troppo tardi resta senza navetta', () => {
+  /* volo alle 10:00 → ritiro alle 7:00: il servizio non e' ancora partito */
+  assertEquals(inFascia({ verso: 'partenza', ora: '10:00' }), null);
+  /* volo alle 6:00 → ritiro alle 3 di notte */
+  assertEquals(inFascia({ verso: 'partenza', ora: '06:00' }), null);
+  /* volo alle 23:30 → ritiro alle 20:30: il servizio ha gia' chiuso */
+  assertEquals(inFascia({ verso: 'partenza', ora: '23:30' }), null);
+});
+
+/* Il volo di notte: ritiro alle 22:00 del giorno prima, fuori fascia due
+   volte. Prima di questa regola la navetta gli sarebbe stata offerta. */
+Deno.test('un volo di notte non ha navetta, e nemmeno il giorno prima', () => {
+  assertEquals(inFascia({ verso: 'partenza', ora: '01:00' }), null);
+  assertEquals(inFascia({ verso: 'partenza', ora: '02:30' }), null);
+});

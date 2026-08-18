@@ -82,6 +82,25 @@ aggiornate una l'altra mente. La differenza si racconta a parole, che è quello
 che serve per decidere. L'avviso in cima dice già che orario e prezzo li
 conferma la reception.
 
+### La fascia oraria: dalle 8:00 alle 20:00
+
+Confermato dalla proprietà il 18 agosto 2026. **Vale sulla corsa, non sul
+volo** — e siccome in partenza la corsa parte tre ore prima, di fatto restano
+i **voli fra le 11:00 e le 23:00**.
+
+| caso | corsa | navetta |
+|---|---|---|
+| arrivo alle 07:59 | 07:59 | no, il servizio non è ancora partito |
+| arrivo alle 08:00 | 08:00 | sì, estremo compreso |
+| partenza, volo alle 14:30 | 11:30 | sì |
+| partenza, volo alle 10:00 | 07:00 | no |
+| partenza, volo all'01:00 | 22:00 del giorno prima | no, fuori due volte |
+
+Senza questa regola il modulo avrebbe offerto la navetta a chi vola alle 6 del
+mattino — un ritiro alle 3 di notte, cioè un impegno che il servizio non può
+mantenere, preso in automatico e scoperto solo dalla reception a richiesta già
+inviata.
+
 ### Quando compare
 
 Tutte e tre insieme:
@@ -89,7 +108,8 @@ Tutte e tre insieme:
 ```
 luogo === 'Venezia  aeroporto'      <- DUE spazi
 pax <= 3
-quando + ora >= adesso + 24 ore
+la CORSA cade fra le 08:00 e le 20:00
+la corsa e a piu di 24 ore da adesso
 ```
 
 **Il doppio spazio non è un refuso.** Il valore è `Venezia  aeroporto` perché

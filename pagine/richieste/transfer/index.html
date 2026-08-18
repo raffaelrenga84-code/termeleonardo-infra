@@ -676,6 +676,10 @@ function modulo() {
     const n = navetta({
       luogo: $('fLuogo').value, pax: $('fPax').value,
       quando: $('fQuando').value, ora: $('fOra').value,
+      /* il verso conta: in partenza il campo dell'ora contiene l'ora del
+         VOLO, e la corsa parte tre ore prima — la fascia 8-20 si misura
+         sulla corsa, non sul volo */
+      verso: VERSO,
     }, new Date());
     $('boxServizio').style.display = n ? 'block' : 'none';
     if (!n) { COLLETTIVO = false; }
@@ -743,6 +747,10 @@ function modulo() {
     VERSO = v;
     $('bArrivo').classList.toggle('attivo', v === 'arrivo');
     $('bPartenza').classList.toggle('attivo', v === 'partenza');
+    /* cambiando verso cambia il senso dell'ora: in partenza con la navetta
+       il campo diventa l'ora del volo, e la fascia si misura sulla corsa */
+    aggiornaNavetta();
+    aggiornaRitiro();
     /* La data segue il verso: il transfer di ARRIVO cade il giorno del
        check-in, quello di PARTENZA il giorno del check-out. Chi arriva
        dall'email della reception ha tutte e due le date nell'indirizzo,
