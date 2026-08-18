@@ -11,8 +11,15 @@
    La parola giusta e' quella tedesca da cui e' nata questa sezione:
    VORGEMERKT, «preso nota». Non «gebucht».
 
-   Si legge la pagina vera. Un test che controllasse una copia dei testi
-   passerebbe anche il giorno che la pagina dice altro.
+   SI LEGGE LA PAGINA CHE VIENE SERVITA, e non e' un dettaglio di stile.
+   Fino al 18 agosto 2026 di questa pagina esistevano DUE copie identiche
+   byte per byte — `arrivo/index.html` e `pagine/index.html` — e Vercel
+   pubblica la seconda. Le modifiche dei fanghi erano finite nella prima:
+   tutte le prove verdi, e in linea non era cambiato niente. Se n'e'
+   accorta solo la verifica sul sito vero.
+
+   Il doppione e' stato tolto. Questa prova sta qui, accanto al file
+   pubblicato, perche' un test che legge una copia non serve a niente.
    ============================================================ */
 import { assert } from 'jsr:@std/assert';
 
