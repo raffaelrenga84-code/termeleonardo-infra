@@ -20,6 +20,7 @@ import { inviaRicevuta } from './ricevuta.ts';
 import { inviaConferma } from './conferma.ts';
 import { arricchisciElenco } from './elenco.ts';
 import { filtroRicercaRichieste } from './ricerca.ts';
+import { type Ruolo, ruoloDi, tipiVisibili, vedeTutto } from './ruoli.ts';
 import { componiRisposta, corpoDisponibilita } from './disponibilita.ts';
 import {
   aHotelChiuso, distanzaGiorni, esitoDisponibilita, ORIZZONTE_GIORNI, type Stagione,
@@ -68,14 +69,44 @@ function indirizzo(req: Request): string {
   return f.split(',')[0].trim() || 'sconosciuto';
 }
 
-async function autorizzato(req: Request): Promise<boolean> {
+/* Chi sta chiedendo, non solo se puo' entrare: da qui in poi ogni azione
+   del back office deve sapere QUALI richieste quella persona puo' toccare.
+   `chiave` e' l'estensione, che passa il segreto condiviso e vede tutto. */
+type Accesso =
+  | { ok: true; ruolo: Ruolo | null; chiave: boolean }
+  | { ok: false };
+
+/* IL BUCO CHIUSO IL 18 AGOSTO 2026. Questa funzione finiva con
+   `return !!data?.user`: QUALUNQUE utente autenticato, senza guardare il
+   dominio. E la registrazione sul progetto era aperta — bastava iscriversi
+   con un indirizzo qualsiasi, confermarlo, e `?a=elenco` restituiva nome,
+   email, telefono e dettagli di ogni ospite che avesse scritto dal sito.
+   La funzione usa la chiave di servizio, quindi RLS non proteggeva niente.
+
+   `buoni` il controllo sul dominio ce l'aveva gia'. Questa no: la stessa
+   protezione a due livelli diversi, ed e' sempre quella piu' debole a
+   decidere quanto vale l'insieme. */
+async function autorizzato(req: Request): Promise<Accesso> {
   const attesa = Deno.env.get('HOTEL_KEY');
-  if (attesa && req.headers.get('x-hotel-key') === attesa) return true;
+  if (attesa && req.headers.get('x-hotel-key') === attesa) {
+    return { ok: true, ruolo: null, chiave: true };
+  }
   const auth = req.headers.get('authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  if (!token) return false;
+  if (!token) return { ok: false };
   const { data } = await db.auth.getUser(token);
-  return !!data?.user;
+  const ruolo = ruoloDi(data?.user?.email);
+  if (!ruolo) return { ok: false };
+  return { ok: true, ruolo, chiave: false };
+}
+
+/* Se questo accesso puo' leggere e toccare una richiesta di questo tipo.
+   La chiave condivisa e i ruoli che vedono tutto passano sempre; la spa
+   passa solo sui suoi tipi. */
+function puoToccare(a: Accesso, tipo: unknown): boolean {
+  if (!a.ok) return false;
+  if (a.chiave || vedeTutto(a.ruolo)) return true;
+  return tipiVisibili(a.ruolo).includes(String(tipo ?? ''));
 }
 
 /* Un tetto sulle mezz'ore, non sui secondi: un limite in memoria non
@@ -372,7 +403,8 @@ Deno.serve(async (req) => {
   }
 
   /* ---------- riservati al back office ---------- */
-  if (!await autorizzato(req)) return risposta({ errore: 'non autorizzato' }, 401);
+  const accesso = await autorizzato(req);
+  if (!accesso.ok) return risposta({ errore: 'non autorizzato' }, 401);
 
   if (azione === 'elenco') {
     const stato = url.searchParams.get('stato') || '';
@@ -386,6 +418,14 @@ Deno.serve(async (req) => {
        La costruzione del filtro vive in ricerca.ts, che tratta il testo
        digitato come testo e mai come sintassi. */
     if (cerca) q = q.or(filtroRicercaRichieste(cerca, new Date().getFullYear()));
+    /* La spa vede trattamenti e Day Spa e nient'altro: transfer, green fee,
+       maestro e soggiorni sono dati di ospiti che con la spa non c'entrano.
+       Il filtro sta QUI e non nella pagina: nasconderli a schermo li
+       lascerebbe comunque nella risposta, a disposizione di chiunque apra
+       gli strumenti del browser. */
+    if (!accesso.chiave && !vedeTutto(accesso.ruolo)) {
+      q = q.in('tipo', tipiVisibili(accesso.ruolo));
+    }
     const { data, error } = await q;
     if (error) return risposta({ errore: error.message }, 500);
     /* etichetta, riepilogo e differenze si calcolano QUI, non nella pagina
@@ -412,6 +452,8 @@ Deno.serve(async (req) => {
       .select('*').eq('numero', numero).maybeSingle();
     if (eSel) return risposta({ errore: eSel.message }, 500);
     if (!r) return risposta({ errore: 'richiesta non trovata' }, 404);
+    /* non si conferma una richiesta che non si potrebbe nemmeno leggere */
+    if (!puoToccare(accesso, r.tipo)) return risposta({ errore: 'non autorizzato' }, 403);
 
     /* se arrivano correzioni si rivalidano; se non arrivano si conferma
        quello che c'e' gia' */
@@ -458,6 +500,14 @@ Deno.serve(async (req) => {
     if (!['nuova', 'vista', 'risposta', 'chiusa'].includes(nuovo)) {
       return risposta({ errore: 'stato sconosciuto' }, 400);
     }
+    /* Si legge il tipo PRIMA di aggiornare. Senza, la spa potrebbe
+       chiudere un transfer che non ha nemmeno il diritto di vedere:
+       basterebbe indovinare un numero, e i numeri sono progressivi. */
+    const { data: chi } = await db.from('richiesta_sito')
+      .select('tipo').eq('numero', numero).maybeSingle();
+    if (!chi) return risposta({ errore: 'richiesta non trovata' }, 404);
+    if (!puoToccare(accesso, chi.tipo)) return risposta({ errore: 'non autorizzato' }, 403);
+
     const { error } = await db.from('richiesta_sito').update({
       stato: nuovo,
       gestita_il: new Date().toISOString(),
