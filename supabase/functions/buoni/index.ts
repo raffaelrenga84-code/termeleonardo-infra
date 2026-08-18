@@ -49,6 +49,7 @@ import { daAvvisare, type RigaBuono } from './promemoria.ts';
 import { datiStampa } from './stampa.ts';
 import { generaPngQR } from './qr.js';
 import { filtroRicercaBuoni } from './ricerca.ts';
+import { buonoDellaSpa, ruoloDi, vedeIBuoni } from './ruoli.ts';
 import { dataConsenso } from './consenso.ts';
 
 const CORS = {
@@ -686,6 +687,19 @@ Deno.serve(async (req) => {
   /* l'operatore è quello autenticato, non quello digitato a mano */
   const OPERATORE = acc.utente?.nome || null;
 
+  /* CHI STA CHIEDENDO. `acc.utente === null` con `ok` vero è la chiave
+     condivisa dell'estensione: vede tutto, come prima.
+
+     Un indirizzo del dominio giusto ma non previsto in ruoli.ts non vede
+     nessun buono. È voluto: un account nuovo non si aggiunge da solo con
+     pieni poteri sui dati di chi ha comprato. Chi resta fuori telefona, e lo
+     si aggiunge in una riga. */
+  const CON_CHIAVE = acc.utente === null;
+  const RUOLO = CON_CHIAVE ? null : ruoloDi(acc.utente?.email);
+  const VISTA = CON_CHIAVE ? 'tutti' : vedeIBuoni(RUOLO);
+  const puoVedere = (b: Record<string, unknown> | null | undefined) =>
+    VISTA === 'tutti' ? true : (VISTA === 'solo spa' ? buonoDellaSpa(b) : false);
+
   if (req.method === 'GET' && azione === 'elenco') {
     const stato = url.searchParams.get('stato') || '';
     const cerca = (url.searchParams.get('cerca') || '').trim();
@@ -696,9 +710,18 @@ Deno.serve(async (req) => {
        perché virgole, parentesi e apici non vengano letti come
        sintassi del filtro combinato — vedi il commento lì per il perché */
     if (cerca) q = q.or(filtroRicercaBuoni(cerca));
+    /* La spa non vede i buoni a IMPORTO: sono denaro, si spendono su
+       qualunque cosa e li gestisce la reception. Il filtro parte da qui, in
+       SQL, così il tetto di 200 righe conta solo i buoni che quel ruolo può
+       davvero vedere — filtrare dopo restringerebbe una finestra già presa,
+       e i buoni vecchi sparirebbero senza dirlo. */
+    if (VISTA === 'solo spa') q = q.neq('tipo', 'valore');
+    if (VISTA === 'nessuno') return risposta({ errore: 'non autorizzato' }, 403);
     const { data, error } = await q;
     if (error) return risposta({ errore: error.message }, 500);
-    return risposta({ buoni: data });
+    /* la seconda passata è sulla riga intera: il tipo da solo non dice se una
+       voce appartiene al listino della spa */
+    return risposta({ buoni: (data ?? []).filter(puoVedere) });
   }
 
   /* (il ramo ?a=promemoria sta piu' sopra, prima del controllo di accesso:
@@ -819,9 +842,14 @@ Deno.serve(async (req) => {
   if (azione === 'riscuoti' || azione === 'annulla') {
     const codice = String(b.codice || '').toUpperCase().trim();
     if (!codice) return risposta({ errore: 'codice mancante' }, 400);
+    /* si leggono anche tipo e voce_id, non il solo stato: servono a sapere
+       se questo ruolo ha il diritto di toccare questo buono. Senza, la spa
+       poteva riscuotere un buono a importo che non ha nemmeno in elenco —
+       bastava conoscerne il codice. */
     const { data: esistente } = await db.from('buono_regalo')
-      .select('stato').or(`codice.eq.${codice},numero.eq.${codice}`).maybeSingle();
+      .select('stato, tipo, voce_id').or(`codice.eq.${codice},numero.eq.${codice}`).maybeSingle();
     if (!esistente) return risposta({ errore: 'buono non trovato' }, 404);
+    if (!puoVedere(esistente)) return risposta({ errore: 'non autorizzato' }, 403);
     if (esistente.stato === 'attesa')
       return risposta({ errore: 'il buono non risulta ancora pagato' }, 409);
     if (esistente.stato !== 'pagato')
@@ -847,6 +875,9 @@ Deno.serve(async (req) => {
      non si tocca: niente qui sotto scrive sul database prima di quel
      punto. */
   if (azione === 'rimborsa') {
+    /* Un rimborso muove denaro su Stripe: non è un gesto della spa,
+       qualunque buono sia. Reception e amministrazione sì. */
+    if (VISTA !== 'tutti') return risposta({ errore: 'non autorizzato' }, 403);
     const codice = String(b.codice || '').toUpperCase().trim();
     if (!codice) return risposta({ errore: 'codice mancante' }, 400);
     const { data: esistente } = await db.from('buono_regalo')
