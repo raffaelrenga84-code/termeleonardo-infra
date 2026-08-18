@@ -1,0 +1,678 @@
+/* ============================================================
+   Offerta Leonardo — documenti di cortesia (v1.2)
+   1) Sollecito offerta: opzione in scadenza o scaduta
+   2) Info Day Spa: prezzi e istruzioni dai modelli della reception
+   Usa i saluti e i formati data dei modelli principali, che sono
+   caricati prima di questo file.
+   ============================================================ */
+
+/* la scadenza "9 Aug 2026" è già passata? */
+function scadutaExtra(s) {
+  const m = (s || '').match(/(\d{1,2})\s+([A-Za-z]{3})\s+(20\d\d)/);
+  if (!m) return false;
+  const MN = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+               Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+  const d = new Date(+m[3], MN[m[2]] ?? 0, +m[1], 23, 59, 59);
+  return d < new Date();
+}
+
+/* in italiano davanti a 8 e 11 la preposizione si elide: all'11, dall'8, l'11 */
+function elidiIT(prep, data) {
+  const g = parseInt(String(data), 10);
+  if (g === 8 || g === 11) {
+    if (prep === 'al') return `all'${data}`;
+    if (prep === 'dal') return `dall'${data}`;
+    if (prep === 'il') return `l'${data}`;
+  }
+  return `${prep} ${data}`;
+}
+
+const EXTRA_GSTC = {
+  it: '<strong style="color:#4A5636;">Primo hotel termale in Europa</strong> certificato <strong style="color:#4A5636;">GSTC Hotel Standard</strong> per la sostenibilit&agrave; &middot; ente certificatore Vireo Srl',
+  de: '<strong style="color:#4A5636;">Erstes Thermenhotel Europas</strong>, zertifiziert nach dem <strong style="color:#4A5636;">GSTC Hotel Standard</strong> f&uuml;r Nachhaltigkeit &middot; Zertifizierungsstelle Vireo Srl',
+  en: '<strong style="color:#4A5636;">First thermal hotel in Europe</strong> certified to the <strong style="color:#4A5636;">GSTC Hotel Standard</strong> for sustainability &middot; certification body Vireo Srl',
+  fr: '<strong style="color:#4A5636;">Premier h&ocirc;tel thermal d&apos;Europe</strong> certifi&eacute; <strong style="color:#4A5636;">GSTC Hotel Standard</strong> pour la durabilit&eacute; &middot; organisme certificateur Vireo Srl'
+};
+
+const EXTRA_CHIUSURA = {
+  it: { riga: 'Per qualsiasi cosa risponda pure a questa email, oppure ci chiami: siamo qui tutti i giorni.', ruolo: 'Ufficio prenotazioni' },
+  de: { riga: 'Antworten Sie einfach auf diese E-Mail oder rufen Sie uns an: wir sind jeden Tag f&uuml;r Sie da.', ruolo: 'Reservierungsb&uuml;ro' },
+  en: { riga: 'For anything at all, just reply to this email or give us a call: we are here every day.', ruolo: 'Reservations office' },
+  fr: { riga: 'Pour toute question, r&eacute;pondez simplement &agrave; cet e-mail ou appelez-nous : nous sommes l&agrave; tous les jours.', ruolo: 'Bureau des r&eacute;servations' }
+};
+
+function salutoExtra(d, o, lingua) {
+  if (lingua === 'de') return anredeDE(d.intestatario, o.genere, o.titolo);
+  if (lingua === 'en') return greetingEN(d.intestatario, o.genere, o.titolo);
+  if (lingua === 'fr') return politesseFR(d.intestatario, o.genere, o.titolo);
+  return saluto(d.intestatario, o.genere);
+}
+
+function dataExtra(giorno, mese, anno, lingua) {
+  if (lingua === 'de') return datumDE(giorno, mese, anno);
+  if (lingua === 'en') return dateEN(giorno, mese, anno);
+  if (lingua === 'fr') return dateFR(giorno, mese, anno);
+  return dataIT(giorno, mese, anno);
+}
+
+function scadenzaExtra(s, lingua) {
+  if (lingua === 'de') return fristDE(s);
+  if (lingua === 'en') return deadlineEN(s);
+  if (lingua === 'fr') return echeanceFR(s);
+  return scadenzaIT(s);
+}
+
+function corniceExtra(banda, corpo, o, lingua) {
+  const c = EXTRA_CHIUSURA[lingua] || EXTRA_CHIUSURA.it;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#EDE7DC;">
+<tr><td align="center" style="padding:24px 12px 40px 12px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background-color:#FFFFFF;">
+
+  <tr><td align="center" style="padding:26px 36px 18px 36px;">
+    <a href="https://www.hoteltermeleonardo.com" target="_blank" style="text-decoration:none;"><img src="https://www.termeleonardo.com/img/logo.png" alt="LEONARDO — TERME HOTEL ****" width="247" height="64" style="display:block;margin:0 auto;border:0;" /></a>
+  </td></tr>
+
+  <tr><td style="padding:0 36px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td width="46%" height="3" style="background-color:#1E7F88;font-size:0;line-height:0;">&nbsp;</td>
+      <td width="4%" style="font-size:0;line-height:0;">&nbsp;</td>
+      <td width="30%" height="3" style="background-color:#1E7F88;font-size:0;line-height:0;">&nbsp;</td>
+      <td width="4%" style="font-size:0;line-height:0;">&nbsp;</td>
+      <td width="16%" height="3" style="background-color:#8FC5C9;font-size:0;line-height:0;">&nbsp;</td>
+    </tr></table>
+  </td></tr>
+  <tr><td align="right" style="padding:14px 36px 0 36px;">
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.5px;color:#A79E8F;">${banda}</div>
+  </td></tr>
+
+${corpo}
+
+  <tr><td style="padding:22px 36px 0 36px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="1" style="background-color:#E4DED2;font-size:0;line-height:0;">&nbsp;</td></tr></table>
+    <p style="margin:16px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${c.riga}</p>
+    <p style="margin:16px 0 0 0;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:24px;color:#2A2E2B;">
+      ${o.firma || 'La Reception'}<br />
+      <span style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#8C8578;">${c.ruolo}</span>
+    </p>
+    <p style="margin:14px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#55524B;">
+      +39 049 9939 200 &nbsp;&middot;&nbsp; info@termeleonardo.com
+    </p>
+  </td></tr>
+
+  <tr><td align="center" style="padding:20px 36px 0 36px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="padding:9px 16px;background-color:#F1F4EA;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#5F6B44;">
+        ${EXTRA_GSTC[lingua] || EXTRA_GSTC.it}
+      </td>
+    </tr></table>
+  </td></tr>
+
+  <tr><td align="center" style="padding:20px 36px 26px 36px;">
+    <div style="font-family:Georgia,'Times New Roman',serif;font-size:15px;letter-spacing:5px;color:#2A2E2B;">TERME LEONARDO</div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:20px;color:#8C8578;padding-top:10px;">
+      Via Monteortone 46 &middot; 35037 Monteortone di Teolo (PD) &middot; <a href="https://www.hoteltermeleonardo.com" target="_blank" style="color:#8C8578;text-decoration:underline;">hoteltermeleonardo.com</a>
+    </div>
+  </td></tr>
+
+</table>
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+  <tr><td align="center" style="padding:14px 36px 0 36px;font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:17px;color:#A79E8F;">
+    Tria S.r.l. &middot; P.IVA IT 02042330288 &middot; CIN IT028089A18QYO48ED
+  </td></tr>
+</table>
+</td></tr>
+</table>`;
+}
+
+/* ============================================================
+   1) SOLLECITO OFFERTA
+   ============================================================ */
+
+const SOLLECITO_T = {
+  it: {
+    banda: (n) => `OFFERTA N. <strong style="color:#7B756A;">${n}</strong>`,
+    h1Viva: (s) => `Le teniamo la camera<br />fino ${elidiIT('al', s)}`,
+    h1Morta: 'La sua opzione &egrave; scaduta:<br />possiamo ancora aiutarla?',
+    intro: (arrivo, partenza, notti, ospiti, tot) =>
+      `Le avevamo preparato la proposta per il soggiorno <strong style="color:#2A2E2B;">${elidiIT('dal', arrivo)} ${elidiIT('al', partenza)}</strong> — ${notti} per ${ospiti}, ${tot} &euro; in totale — e non ci &egrave; ancora arrivata una sua risposta.`,
+    introDiversi: (n, ospiti, tot) =>
+      `Le avevamo preparato la proposta per il suo soggiorno — ${ospiti} in ${n} camere, con i periodi indicati nell&apos;offerta, ${tot} &euro; in totale — e non ci &egrave; ancora arrivata una sua risposta.`,
+    boxViva: (s) => `Il periodo che ha scelto &egrave; molto richiesto. L&apos;opzione resta sua fino ${elidiIT('al', s).replace(s, `<strong style="color:#0F5C64;">${s}</strong>`)}: dopo quella data la camera torna disponibile per altri ospiti.`,
+    boxMorta: (s) => `L&apos;opzione si &egrave; chiusa il <strong style="color:#0F5C64;">${s}</strong> e la camera &egrave; tornata prenotabile. Se il soggiorno le interessa ancora, risponda a questa email: verifichiamo subito la disponibilit&agrave; e, se la camera c&apos;&egrave;, gliela riserviamo di nuovo.`,
+    bottone: 'Conferma Ora',
+    pagamento: (acc, num) => `Per bloccarla basta l&apos;acconto di <strong style="color:#2A2E2B;">${acc} &euro;</strong>: con carta dal pulsante qui sopra, oppure con bonifico a Tria S.r.l. — IBAN <strong style="color:#2A2E2B;">${IBAN}</strong>, causale <strong style="color:#2A2E2B;">${num}</strong>.`,
+    pagamentoSolo: (acc, num) => `Per bloccarla basta l&apos;acconto di <strong style="color:#2A2E2B;">${acc} &euro;</strong> con bonifico a Tria S.r.l. — IBAN <strong style="color:#2A2E2B;">${IBAN}</strong>, causale <strong style="color:#2A2E2B;">${num}</strong>.`,
+    congedo: 'Se invece i suoi piani sono cambiati, ce lo dica con un semplice cenno di risposta: nessun disturbo, e liberiamo la camera per chi &egrave; in attesa.',
+    oggViva: (s, a) => `La sua opzione vale fino ${elidiIT('al', s)} — soggiorno ${elidiIT('dal', a)} · Hotel Terme Leonardo`,
+    oggMorta: (a) => `La sua offerta per ${elidiIT('il', a)} è scaduta: la riprendiamo? · Hotel Terme Leonardo`
+  },
+  de: {
+    banda: (n) => `ANGEBOT NR. <strong style="color:#7B756A;">${n}</strong>`,
+    h1Viva: (s) => `Wir halten Ihr Zimmer<br />bis zum ${s} frei`,
+    h1Morta: 'Ihre Option ist abgelaufen:<br />d&uuml;rfen wir noch etwas tun?',
+    intro: (arrivo, partenza, notti, ospiti, tot) =>
+      `Wir hatten Ihnen das Angebot f&uuml;r den Aufenthalt <strong style="color:#2A2E2B;">vom ${arrivo} bis ${partenza}</strong> vorbereitet — ${notti}, ${ospiti}, insgesamt ${tot} &euro; — und noch keine R&uuml;ckmeldung von Ihnen erhalten.`,
+    introDiversi: (n, ospiti, tot) =>
+      `Wir hatten Ihnen das Angebot f&uuml;r Ihren Aufenthalt vorbereitet — ${ospiti} in ${n} Zimmern, mit den im Angebot genannten Zeitr&auml;umen, insgesamt ${tot} &euro; — und noch keine R&uuml;ckmeldung von Ihnen erhalten.`,
+    boxViva: (s) => `Der von Ihnen gew&auml;hlte Zeitraum ist sehr gefragt. Die Option bleibt bis zum <strong style="color:#0F5C64;">${s}</strong> f&uuml;r Sie reserviert: danach wird das Zimmer wieder f&uuml;r andere G&auml;ste frei.`,
+    boxMorta: (s) => `Die Option ist am <strong style="color:#0F5C64;">${s}</strong> abgelaufen und das Zimmer wieder buchbar. Wenn Sie der Aufenthalt noch interessiert, antworten Sie einfach auf diese E-Mail: wir pr&uuml;fen sofort die Verf&uuml;gbarkeit und reservieren es Ihnen gerne erneut.`,
+    bottone: 'Jetzt best&auml;tigen',
+    pagamento: (acc, num) => `Zum Fixieren gen&uuml;gt die Anzahlung von <strong style="color:#2A2E2B;">${acc} &euro;</strong>: per Karte &uuml;ber die Schaltfl&auml;che oben oder per &Uuml;berweisung an Tria S.r.l. — IBAN <strong style="color:#2A2E2B;">${IBAN}</strong>, Verwendungszweck <strong style="color:#2A2E2B;">${num}</strong>.`,
+    pagamentoSolo: (acc, num) => `Zum Fixieren gen&uuml;gt die Anzahlung von <strong style="color:#2A2E2B;">${acc} &euro;</strong> per &Uuml;berweisung an Tria S.r.l. — IBAN <strong style="color:#2A2E2B;">${IBAN}</strong>, Verwendungszweck <strong style="color:#2A2E2B;">${num}</strong>.`,
+    congedo: 'Sollten sich Ihre Pl&auml;ne ge&auml;ndert haben, gen&uuml;gt eine kurze Antwort: gar kein Problem — dann geben wir das Zimmer f&uuml;r wartende G&auml;ste frei.',
+    oggViva: (s, a) => `Ihre Option gilt bis ${s} — Aufenthalt ab ${a} · Hotel Terme Leonardo`,
+    oggMorta: (a) => `Ihr Angebot für den ${a} ist abgelaufen — sollen wir es erneuern? · Hotel Terme Leonardo`
+  },
+  en: {
+    banda: (n) => `OFFER NO. <strong style="color:#7B756A;">${n}</strong>`,
+    h1Viva: (s) => `We are holding your room<br />until ${s}`,
+    h1Morta: 'Your option has expired:<br />can we still help?',
+    intro: (arrivo, partenza, notti, ospiti, tot) =>
+      `We had prepared your offer for the stay <strong style="color:#2A2E2B;">from ${arrivo} to ${partenza}</strong> — ${notti} for ${ospiti}, ${tot} &euro; in total — and we have not yet heard back from you.`,
+    introDiversi: (n, ospiti, tot) =>
+      `We had prepared your offer — ${ospiti} in ${n} rooms, with the dates shown in the offer, ${tot} &euro; in total — and we have not yet heard back from you.`,
+    boxViva: (s) => `The dates you chose are in high demand. The option stays yours until <strong style="color:#0F5C64;">${s}</strong>: after that, the room becomes available to other guests again.`,
+    boxMorta: (s) => `The option closed on <strong style="color:#0F5C64;">${s}</strong> and the room is bookable again. If you are still interested, just reply to this email: we will check availability right away and gladly reserve it for you again.`,
+    bottone: 'Confirm now',
+    pagamento: (acc, num) => `A deposit of <strong style="color:#2A2E2B;">${acc} &euro;</strong> is all it takes: by card via the button above, or by bank transfer to Tria S.r.l. — IBAN <strong style="color:#2A2E2B;">${IBAN}</strong>, reference <strong style="color:#2A2E2B;">${num}</strong>.`,
+    pagamentoSolo: (acc, num) => `A deposit of <strong style="color:#2A2E2B;">${acc} &euro;</strong> by bank transfer to Tria S.r.l. is all it takes — IBAN <strong style="color:#2A2E2B;">${IBAN}</strong>, reference <strong style="color:#2A2E2B;">${num}</strong>.`,
+    congedo: 'If your plans have changed, a one-line reply is all we need: no trouble at all — we will release the room to guests on our waiting list.',
+    oggViva: (s, a) => `Your option is valid until ${s} — stay from ${a} · Hotel Terme Leonardo`,
+    oggMorta: (a) => `Your offer for ${a} has expired — shall we renew it? · Hotel Terme Leonardo`
+  },
+  fr: {
+    banda: (n) => `OFFRE N&deg; <strong style="color:#7B756A;">${n}</strong>`,
+    h1Viva: (s) => `Nous gardons votre chambre<br />jusqu&apos;au ${s}`,
+    h1Morta: 'Votre option a expir&eacute; :<br />pouvons-nous encore vous aider ?',
+    intro: (arrivo, partenza, notti, ospiti, tot) =>
+      `Nous vous avions pr&eacute;par&eacute; l&apos;offre pour le s&eacute;jour <strong style="color:#2A2E2B;">du ${arrivo} au ${partenza}</strong> — ${notti} pour ${ospiti}, ${tot} &euro; au total — et nous n&apos;avons pas encore re&ccedil;u votre r&eacute;ponse.`,
+    introDiversi: (n, ospiti, tot) =>
+      `Nous vous avions pr&eacute;par&eacute; l&apos;offre pour votre s&eacute;jour — ${ospiti} en ${n} chambres, avec les p&eacute;riodes indiqu&eacute;es dans l&apos;offre, ${tot} &euro; au total — et nous n&apos;avons pas encore re&ccedil;u votre r&eacute;ponse.`,
+    boxViva: (s) => `La p&eacute;riode que vous avez choisie est tr&egrave;s demand&eacute;e. L&apos;option reste la v&ocirc;tre jusqu&apos;au <strong style="color:#0F5C64;">${s}</strong> : pass&eacute; ce d&eacute;lai, la chambre redevient disponible pour d&apos;autres h&ocirc;tes.`,
+    boxMorta: (s) => `L&apos;option s&apos;est termin&eacute;e le <strong style="color:#0F5C64;">${s}</strong> et la chambre est de nouveau r&eacute;servable. Si le s&eacute;jour vous int&eacute;resse toujours, r&eacute;pondez simplement &agrave; cet e-mail : nous v&eacute;rifions aussit&ocirc;t la disponibilit&eacute; et vous la r&eacute;servons volontiers &agrave; nouveau.`,
+    bottone: 'Je confirme',
+    pagamento: (acc, num) => `Il suffit de l&apos;acompte de <strong style="color:#2A2E2B;">${acc} &euro;</strong> : par carte via le bouton ci-dessus, ou par virement &agrave; Tria S.r.l. — IBAN <strong style="color:#2A2E2B;">${IBAN}</strong>, r&eacute;f&eacute;rence <strong style="color:#2A2E2B;">${num}</strong>.`,
+    pagamentoSolo: (acc, num) => `Il suffit de l&apos;acompte de <strong style="color:#2A2E2B;">${acc} &euro;</strong> par virement &agrave; Tria S.r.l. — IBAN <strong style="color:#2A2E2B;">${IBAN}</strong>, r&eacute;f&eacute;rence <strong style="color:#2A2E2B;">${num}</strong>.`,
+    congedo: 'Si vos projets ont chang&eacute;, un simple mot de r&eacute;ponse nous suffit : aucun souci — nous lib&eacute;rerons la chambre pour les h&ocirc;tes en attente.',
+    oggViva: (s, a) => `Votre option est valable jusqu'au ${s} — séjour à partir du ${a} · Hôtel Terme Leonardo`,
+    oggMorta: (a) => `Votre offre pour le ${a} a expiré — la renouvelons-nous ? · Hôtel Terme Leonardo`
+  }
+};
+
+const OSPITI_EXTRA = {
+  it: (a) => a === 1 ? '1 persona' : `${a} persone`,
+  de: (a) => a === 1 ? '1 Person' : `${a} Personen`,
+  en: (a) => a === 1 ? '1 guest' : `${a} guests`,
+  fr: (a) => a === 1 ? '1 personne' : `${a} personnes`
+};
+const NOTTI_EXTRA = {
+  it: (n) => n === 1 ? '1 notte' : `${n} notti`,
+  de: (n) => n === 1 ? '1 Nacht' : `${n} N\u00e4chte`,
+  en: (n) => n === 1 ? '1 night' : `${n} nights`,
+  fr: (n) => n === 1 ? '1 nuit' : `${n} nuits`
+};
+
+function costruisciSollecitoBase(d, opzioni, lingua) {
+  const o = opzioni || {};
+  const t = SOLLECITO_T[lingua] || SOLLECITO_T.it;
+  const arrivo = dataExtra(d.giornoArrivo, d.mese, d.anno, lingua);
+  const partenza = dataExtra(d.giornoPartenza, d.mesePartenza || d.mese, d.annoPartenza || d.anno, lingua);
+  const scad = scadenzaExtra(d.scadenza, lingua);
+  const morta = scadutaExtra(d.scadenza);
+  const notti = NOTTI_EXTRA[lingua](d.notti);
+  const ospiti = OSPITI_EXTRA[lingua](d.adulti + (d.bambini || 0));
+
+  const pagamento = morta ? '' : `
+  <tr><td style="padding:18px 36px 0 36px;">
+    ${d.linkPagamento ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px 0;"><tr>
+      <td align="center" bgcolor="#E8751A" style="border-radius:5px;">
+        <a href="${d.linkPagamento}" style="display:inline-block;padding:12px 30px;font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#FFFFFF;text-decoration:none;font-weight:bold;">${t.bottone}</a>
+      </td>
+    </tr></table>` : ''}
+    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:21px;color:#55524B;">
+      ${(d.linkPagamento ? t.pagamento : t.pagamentoSolo)(d.accontoFmt, d.numeroOfferta)}
+    </p>
+  </td></tr>`;
+
+  const corpo = `
+  <tr><td style="padding:16px 36px 0 36px;">
+    <p style="margin:0 0 14px 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:22px;color:#2A2E2B;">${salutoExtra(d, o, lingua)},</p>
+    <h1 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:31px;font-weight:normal;color:#2A2E2B;">
+      ${morta ? t.h1Morta : t.h1Viva(scad)}
+    </h1>
+    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+      ${periodiDiversi(d) ? t.introDiversi(d.camere.length, ospiti, d.totaleFmt) : t.intro(arrivo, partenza, notti, ospiti, d.totaleFmt)}
+    </p>
+  </td></tr>
+
+  <tr><td style="padding:18px 36px 0 36px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#E3F0F1;">
+      <tr>
+        <td width="6" style="background-color:#1E7F88;font-size:0;line-height:0;">&nbsp;</td>
+        <td style="padding:16px 20px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#3C6266;">
+          ${morta ? t.boxMorta(scad) : t.boxViva(scad)}
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+${pagamento}
+  <tr><td style="padding:18px 36px 0 36px;">
+    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.congedo}</p>
+  </td></tr>`;
+
+  return corniceExtra(t.banda(d.numeroOfferta), corpo, o, lingua);
+}
+
+function oggettoSollecitoBase(d, lingua) {
+  const t = SOLLECITO_T[lingua] || SOLLECITO_T.it;
+  const arrivo = dataExtra(d.giornoArrivo, d.mese, d.anno, lingua);
+  return scadutaExtra(d.scadenza) ? t.oggMorta(arrivo) : t.oggViva(scadenzaExtra(d.scadenza, lingua), arrivo);
+}
+
+function costruisciSollecitoIT(d, o) { return costruisciSollecitoBase(d, o, 'it'); }
+function costruisciSollecitoDE(d, o) { return costruisciSollecitoBase(d, o, 'de'); }
+function costruisciSollecitoEN(d, o) { return costruisciSollecitoBase(d, o, 'en'); }
+function costruisciSollecitoFR(d, o) { return costruisciSollecitoBase(d, o, 'fr'); }
+function oggettoSollecitoIT(d) { return oggettoSollecitoBase(d, 'it'); }
+function oggettoSollecitoDE(d) { return oggettoSollecitoBase(d, 'de'); }
+function oggettoSollecitoEN(d) { return oggettoSollecitoBase(d, 'en'); }
+function oggettoSollecitoFR(d) { return oggettoSollecitoBase(d, 'fr'); }
+
+/* ============================================================
+   2) INFO DAY SPA — prezzi e regole dai modelli della reception
+   ============================================================ */
+
+const DAYSPA_LINK = {
+  it: 'https://www.termeleonardo.com/it/day-spa/prenotazioni',
+  de: 'https://www.termeleonardo.com/de/day-spa/prenotazioni',
+  en: 'https://www.termeleonardo.com/en/day-spa/prenotazioni',
+  fr: 'https://www.termeleonardo.com/en/day-spa/prenotazioni'   /* pagina FR in costruzione */
+};
+
+const DAYSPA_T = {
+  it: {
+    banda: 'DAY SPA', h1: 'Una giornata alle nostre terme',
+    intro: 'Grazie della sua richiesta: ecco prezzi e informazioni per organizzare la sua giornata di benessere.',
+    prezziTitolo: 'Ingresso &middot; dalle 9:00 alle 18:30',
+    prezzi: [['Dal luned&igrave; al venerd&igrave;', '35,00 &euro; a persona'],
+             ['Sabato, domenica e festivi', '45,00 &euro; a persona'],
+             ['Serale — solo venerd&igrave; e sabato, 18:00&ndash;22:30', '29,00 &euro; a persona']],
+    prezziNota: 'Nei giorni di festa e negli eventi speciali i prezzi possono variare. Nessuna riduzione per i bambini da 1 anno in su; fino a 1 anno l&apos;ingresso &egrave; gratuito.',
+    prenotaTitolo: 'Come si prenota',
+    prenotaTesto: 'Il biglietto si acquista in anticipo, per tutti i giorni della settimana, dal nostro sito:',
+    prenotaBottone: 'Prenoti il suo ingresso',
+    prenotaNota: 'Un puntino rosso sul calendario significa che la data &egrave; al completo.',
+    linkNota: '',
+    compresoTitolo: 'Cosa comprende',
+    compreso: [
+      'Piscine termali di acqua calda, interna ed esterna comunicanti, e piscina esterna di acqua termale fredda con vista sui Colli Euganei',
+      'Centro grotte SPA con biosauna, bagno turco ai vapori termali, vasca idromassaggio, lettini massaggianti, cascata d&apos;acqua termale, cascata di ghiaccio e docce emozionali con aromaterapia <span style="color:#7B756A;">(solo maggiorenni)</span>'
+    ],
+    tavolaTitolo: 'A tavola',
+    tavola: [
+      ['Bistrot Bar La Piazza', 'A bordo piscina, con terrazza sul giardino. Piatti leggeri a pranzo: antipasti, pasta, carne o pesce saltati, insalate fresche. Tutti i giorni dalle 10:00 alle 14:30'],
+      ['Cena a buffet', '35,00 &euro; a persona, bevande escluse, al ristorante: insalate, antipasti caldi e freddi, primi preparati al momento, carne, pesce, frutta e dessert'],
+      ['Da fuori', 'Il pranzo al sacco non &egrave; consentito']
+    ],
+    sapereTitolo: 'Buono a sapersi',
+    sapere: [
+      ['Kit SPA', 'Accappatoio e telo in spugna a noleggio per la giornata: 19,00 &euro;'],
+      ['Camera d&apos;appoggio', '60,00 &euro;, disponibile dalle 9:00 alle 18:30: letto alla francese, bagno con doccia, TV, cassaforte, aria condizionata e Wi-Fi. Si prenota via email dopo l&apos;acquisto del biglietto'],
+      ['In piscina', 'Cuffia e ciabattine obbligatorie'],
+      ['Massaggi e trattamenti', 'Su prenotazione: conviene fissarli insieme al biglietto, gli orari migliori si esauriscono presto'],
+      ['Golf Academy', 'Lezioni su prenotazione nell&apos;area pratica di 15.000 m&sup2; accanto alle piscine: postazioni semicoperte, putting green, pitching green e bunker'],
+      ['Amici a quattro zampe', 'Purtroppo non sono ammessi nel parco e nelle piscine termali']
+    ],
+    ogg: 'Day Spa alle Terme Leonardo — prezzi e informazioni'
+  },
+  de: {
+    banda: 'DAY SPA', h1: 'Ein Tag in unseren Thermen',
+    intro: 'Vielen Dank f&uuml;r Ihre Anfrage: hier finden Sie Preise und Informationen f&uuml;r Ihren Wellnesstag.',
+    prezziTitolo: 'Eintritt &middot; von 9:00 bis 18:30 Uhr',
+    prezzi: [['Montag bis Freitag', '35,00 &euro; pro Person'],
+             ['Samstag, Sonntag und Feiertage', '45,00 &euro; pro Person'],
+             ['Abends — nur Freitag und Samstag, 18:00&ndash;22:30 Uhr', '29,00 &euro; pro Person']],
+    prezziNota: 'An Feiertagen und bei besonderen Veranstaltungen k&ouml;nnen die Preise abweichen. Keine Erm&auml;&szlig;igung f&uuml;r Kinder ab 1 Jahr; bis 1 Jahr ist der Eintritt frei.',
+    prenotaTitolo: 'So buchen Sie',
+    prenotaTesto: 'Das Ticket wird f&uuml;r alle Wochentage im Voraus &uuml;ber unsere Website gekauft:',
+    prenotaBottone: 'Eintritt buchen',
+    prenotaNota: 'Ein roter Punkt im Kalender bedeutet: an diesem Tag ausgebucht.',
+    linkNota: '',
+    compresoTitolo: 'Was enthalten ist',
+    compreso: [
+      'Verbundene Thermalpools mit warmem Wasser innen und au&szlig;en sowie ein kaltes Thermalbecken im Freien mit Blick auf die Euganeischen H&uuml;gel',
+      'SPA-Grottenzentrum mit Biosauna, Dampfbad mit Thermaldampf, Whirlpool, Massageliegen, Thermalwasserfall, Eiswasserfall und Erlebnisduschen mit Aromatherapie <span style="color:#7B756A;">(nur f&uuml;r Erwachsene)</span>'
+    ],
+    tavolaTitolo: 'Kulinarisches',
+    tavola: [
+      ['Bistrot Bar La Piazza', 'Direkt am Pool, mit Gartenterrasse. Leichte Gerichte zum Mittag: Vorspeisen, Pasta, kurzgebratenes Fleisch oder Fisch, frische Salate. T&auml;glich von 10:00 bis 14:30 Uhr'],
+      ['Abendbuffet', '35,00 &euro; pro Person, Getr&auml;nke exklusive, im Restaurant: Salate, warme und kalte Vorspeisen, frisch zubereitete Primi, Fleisch, Fisch, Obst und Desserts'],
+      ['Von drau&szlig;en', 'Mitgebrachte Speisen sind nicht gestattet']
+    ],
+    sapereTitolo: 'Gut zu wissen',
+    sapere: [
+      ['SPA-Kit', 'Bademantel und Frotteetuch zum Tagesverleih: 19,00 &euro;'],
+      ['Tageszimmer', '60,00 &euro;, verf&uuml;gbar von 9:00 bis 18:30 Uhr: franz&ouml;sisches Bett, Bad mit Dusche, TV, Safe, Klimaanlage und WLAN. Buchung per E-Mail nach dem Ticketkauf'],
+      ['Im Pool', 'Badehaube und Badeschuhe sind Pflicht'],
+      ['Massagen und Anwendungen', 'Auf Reservierung: am besten gleich mit dem Ticket festlegen, die besten Zeiten sind schnell vergeben'],
+      ['Golf Academy', 'Golfstunden auf Reservierung auf unserer 15.000-m&sup2;-&Uuml;bungsanlage neben den Thermalpools: halb&uuml;berdachte Abschl&auml;ge, Putting Green, Pitching Green und Bunker'],
+      ['Vierbeiner', 'Leider sind Hunde im Park und an den Thermalpools nicht gestattet']
+    ],
+    ogg: 'Day Spa im Hotel Terme Leonardo — Preise und Informationen'
+  },
+  en: {
+    banda: 'DAY SPA', h1: 'A day at our thermal spa',
+    intro: 'Thank you for your kind request: here are the prices and everything you need to plan your wellness day.',
+    prezziTitolo: 'Admission &middot; from 9:00 to 18:30',
+    prezzi: [['Monday to Friday', '&euro; 35.00 per person'],
+             ['Saturday, Sunday and holidays', '&euro; 45.00 per person'],
+             ['Evening — Fridays and Saturdays only, 18:00&ndash;22:30', '&euro; 29.00 per person']],
+    prezziNota: 'Prices may vary during holidays and special events. No discounts for children aged 1 year and older; infants up to 1 year enter free of charge.',
+    prenotaTitolo: 'How to book',
+    prenotaTesto: 'Tickets must be purchased in advance, for all days of the week, through our website:',
+    prenotaBottone: 'Book your admission',
+    prenotaNota: 'A red dot on the calendar means the date is fully booked.',
+    linkNota: '',
+    compresoTitolo: 'What is included',
+    compreso: [
+      'Interconnected indoor and outdoor hot thermal pools, plus an outdoor cold thermal pool with panoramic views of the Euganean Hills',
+      'SPA cave centre with bio sauna, thermal steam bath, hot tub, massage beds, thermal waterfall, ice waterfall and sensory showers with aromatherapy <span style="color:#7B756A;">(adults only)</span>'
+    ],
+    tavolaTitolo: 'Dining',
+    tavola: [
+      ['Bistrot Bar La Piazza', 'By the pool, with a garden terrace. Light lunch dishes: appetizers, pasta, saut&eacute;ed meat or fish, fresh salads. Open daily from 10:00 to 14:30'],
+      ['Dinner buffet', '&euro; 35.00 per person, drinks not included, at the restaurant: salads, hot and cold appetizers, freshly prepared first courses, meat, fish, fruit and desserts'],
+      ['From outside', 'Packed lunches are not allowed']
+    ],
+    sapereTitolo: 'Good to know',
+    sapere: [
+      ['SPA kit', 'Bathrobe and towel rental for the day: &euro; 19.00'],
+      ['Support room', '&euro; 60.00, available from 9:00 to 18:30: French bed, bathroom with shower, TV, safe, air conditioning and free Wi-Fi. Booked by email after purchasing your ticket'],
+      ['At the pool', 'Swimming cap and pool slippers are required'],
+      ['Massages and treatments', 'By reservation: best booked together with your ticket, as the best times fill up quickly'],
+      ['Golf Academy', 'Lessons by reservation at our 15,000 m&sup2; practice area next to the thermal pools: semi-covered bays, putting green, pitching green and bunker'],
+      ['Four-legged friends', 'Unfortunately dogs are not allowed in the park or at the thermal pools']
+    ],
+    ogg: 'Day Spa – Information and Prices · Hotel Terme Leonardo'
+  },
+  fr: {
+    banda: 'DAY SPA', h1: 'Une journ&eacute;e dans nos thermes',
+    intro: 'Merci pour votre demande : voici les tarifs et toutes les informations pour organiser votre journ&eacute;e de bien-&ecirc;tre.',
+    prezziTitolo: 'Entr&eacute;e &middot; de 9h00 &agrave; 18h30',
+    prezzi: [['Du lundi au vendredi', '35,00 &euro; par personne'],
+             ['Samedi, dimanche et jours f&eacute;ri&eacute;s', '45,00 &euro; par personne'],
+             ['Soir&eacute;e — vendredi et samedi uniquement, 18h00&ndash;22h30', '29,00 &euro; par personne']],
+    prezziNota: 'Les jours f&eacute;ri&eacute;s et lors d&apos;&eacute;v&eacute;nements sp&eacute;ciaux, les tarifs peuvent varier. Pas de r&eacute;duction pour les enfants &agrave; partir de 1 an ; jusqu&apos;&agrave; 1 an, l&apos;entr&eacute;e est gratuite.',
+    prenotaTitolo: 'Comment r&eacute;server',
+    prenotaTesto: 'Le billet s&apos;ach&egrave;te &agrave; l&apos;avance, pour tous les jours de la semaine, sur notre site :',
+    prenotaBottone: 'R&eacute;server votre entr&eacute;e',
+    prenotaNota: 'Un point rouge sur le calendrier signifie que la date est compl&egrave;te.',
+    linkNota: ' <span style="color:#7B756A;font-size:12px;">(page en anglais)</span>',
+    compresoTitolo: 'Ce qui est compris',
+    compreso: [
+      'Piscines thermales d&apos;eau chaude int&eacute;rieure et ext&eacute;rieure communicantes, et piscine ext&eacute;rieure d&apos;eau thermale froide avec vue sur les Collines Eugan&eacute;ennes',
+      'Centre grottes SPA avec biosauna, hammam aux vapeurs thermales, bain &agrave; remous, lits massants, cascade d&apos;eau thermale, cascade de glace et douches sensorielles avec aromath&eacute;rapie <span style="color:#7B756A;">(adultes uniquement)</span>'
+    ],
+    tavolaTitolo: '&Agrave; table',
+    tavola: [
+      ['Bistrot Bar La Piazza', 'Au bord de la piscine, avec terrasse sur le jardin. Plats l&eacute;gers &agrave; midi : antipasti, p&acirc;tes, viande ou poisson saut&eacute;s, salades fra&icirc;ches. Tous les jours de 10h00 &agrave; 14h30'],
+      ['D&icirc;ner buffet', '35,00 &euro; par personne, boissons non comprises, au restaurant : salades, antipasti chauds et froids, primi pr&eacute;par&eacute;s minute, viande, poisson, fruits et desserts'],
+      ['De l&apos;ext&eacute;rieur', 'Le pique-nique n&apos;est pas autoris&eacute;']
+    ],
+    sapereTitolo: 'Bon &agrave; savoir',
+    sapere: [
+      ['Kit SPA', 'Peignoir et serviette en location pour la journ&eacute;e : 19,00 &euro;'],
+      ['Chambre d&apos;appoint', '60,00 &euro;, disponible de 9h00 &agrave; 18h30 : lit &agrave; la fran&ccedil;aise, salle de bain avec douche, TV, coffre-fort, climatisation et Wi-Fi. &Agrave; r&eacute;server par e-mail apr&egrave;s l&apos;achat du billet'],
+      ['&Agrave; la piscine', 'Bonnet et chaussons de bain obligatoires'],
+      ['Massages et soins', 'Sur r&eacute;servation : mieux vaut les fixer avec le billet, les meilleurs horaires partent vite'],
+      ['Golf Academy', 'Le&ccedil;ons sur r&eacute;servation sur notre practice de 15 000 m&sup2; &agrave; c&ocirc;t&eacute; des piscines thermales : postes semi-couverts, putting green, pitching green et bunker'],
+      ['Amis &agrave; quatre pattes', 'Les chiens ne sont malheureusement pas admis dans le parc ni aux piscines thermales']
+    ],
+    ogg: 'Day Spa — informations et tarifs · H&ocirc;tel Terme Leonardo'
+  }
+};
+
+function costruisciDaySpaBase(d, opzioni, lingua) {
+  const o = opzioni || {};
+  const t = DAYSPA_T[lingua] || DAYSPA_T.it;
+  const link = DAYSPA_LINK[lingua] || DAYSPA_LINK.it;
+
+  const corpo = `
+  <tr><td style="padding:16px 36px 0 36px;">
+    <p style="margin:0 0 14px 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:22px;color:#2A2E2B;">${salutoExtra(d, o, lingua)},</p>
+    <h1 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:31px;font-weight:normal;color:#2A2E2B;">${t.h1}</h1>
+    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.intro}</p>
+  </td></tr>
+
+  <tr><td style="padding:18px 36px 0 36px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#E3F0F1;">
+      <tr>
+        <td width="6" style="background-color:#1E7F88;font-size:0;line-height:0;">&nbsp;</td>
+        <td style="padding:18px 20px 20px 22px;">
+          <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#1E7F88;padding-bottom:8px;">${t.prezziTitolo}</div>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#3C6266;">
+            ${t.prezzi.map(([q, p]) => `<tr><td style="padding:0 10px 6px 0;">${q}</td><td align="right" style="padding:0 0 6px 0;white-space:nowrap;"><strong style="color:#0F5C64;">${p}</strong></td></tr>`).join('')}
+          </table>
+          <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#5C7F83;padding-top:6px;">${t.prezziNota}</div>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:20px 36px 0 36px;">
+    <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">${t.prenotaTitolo}</h2>
+    <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.prenotaTesto}${t.linkNota}</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td align="center" bgcolor="#E8751A" style="border-radius:5px;">
+        <a href="${link}" style="display:inline-block;padding:12px 30px;font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#FFFFFF;text-decoration:none;font-weight:bold;">${t.prenotaBottone}</a>
+      </td>
+    </tr></table>
+    <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#7B756A;">${t.prenotaNota}</p>
+  </td></tr>
+
+  <tr><td style="padding:20px 36px 0 36px;">
+    <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">${t.compresoTitolo}</h2>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+      ${t.compreso.map(x => `<tr><td valign="top" width="16" style="padding:0 6px 7px 0;color:#1E7F88;">&#10003;</td><td style="padding:0 0 7px 0;">${x}</td></tr>`).join('')}
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:14px 36px 0 36px;">
+    <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">${t.tavolaTitolo}</h2>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      ${t.tavola.map(([tit, testo], i) => `${i ? '<tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>' : ''}
+      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+        <strong style="color:#2A2E2B;">${tit}</strong><br /><span style="color:#7B756A;font-size:13px;">${testo}</span>
+      </td></tr>`).join('')}
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:20px 36px 0 36px;">
+    <h2 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">${t.sapereTitolo}</h2>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+      ${t.sapere.map(([k, v]) => `<tr><td width="150" valign="top" style="padding:0 12px 10px 0;color:#8C8578;">${k}</td><td valign="top" style="padding:0 0 10px 0;">${v}</td></tr>`).join('')}
+    </table>
+  </td></tr>`;
+
+  return corniceExtra(t.banda, corpo, o, lingua);
+}
+
+function costruisciDaySpaIT(d, o) { return costruisciDaySpaBase(d, o, 'it'); }
+function costruisciDaySpaDE(d, o) { return costruisciDaySpaBase(d, o, 'de'); }
+function costruisciDaySpaEN(d, o) { return costruisciDaySpaBase(d, o, 'en'); }
+function costruisciDaySpaFR(d, o) { return costruisciDaySpaBase(d, o, 'fr'); }
+function oggettoDaySpaIT() { return DAYSPA_T.it.ogg; }
+function oggettoDaySpaDE() { return DAYSPA_T.de.ogg; }
+function oggettoDaySpaEN() { return DAYSPA_T.en.ogg; }
+function oggettoDaySpaFR() { return DAYSPA_T.fr.ogg.replace(/&ocirc;/g, 'ô'); }
+
+/* ============================================================
+   BUONI REGALO — modello breve (v1.9.1)
+   ------------------------------------------------------------
+   Quando arriva un'email che chiede dei buoni, la risposta e'
+   sempre la stessa: si comprano online, si pagano con carta e
+   arrivano per email. Niente listino qui dentro: i tagli e le
+   condizioni stanno sulla pagina, che e' l'unica fonte che si
+   aggiorna da sola quando cambiano.
+   ============================================================ */
+const BUONI_LINK = {
+  it: 'https://www.hoteltermeleonardo.com/it/buoni-regalo',
+  de: 'https://www.hoteltermeleonardo.com/de/gutscheine',
+  en: 'https://www.hoteltermeleonardo.com/en/gift-vouchers',
+  fr: 'https://www.hoteltermeleonardo.com/fr/cheques-cadeaux'
+};
+
+const BUONI_T = {
+  it: { ogg: 'Buoni regalo &mdash; Hotel Terme Leonardo',
+        h1: 'I nostri buoni regalo',
+        intro: 'Si acquistano direttamente online: compone il buono, paga con carta e lo riceve per email in pochi minuti, pronto da stampare o da inoltrare a chi lo ricever&agrave;.',
+        bottone: 'Componi il buono regalo',
+        comeTitolo: 'Cosa pu&ograve; regalare',
+        come: ['Un <strong style="color:#2A2E2B;">importo libero</strong> da 25 a 1.000 &euro;, spendibile in hotel.',
+               'Oppure fino a <strong style="color:#2A2E2B;">due voci</strong> scelte dal listino, ognuna in pi&ugrave; copie: ingressi Day Spa, massaggi, trattamenti viso e corpo, programmi benessere.'],
+        prezziTitolo: 'Qualche prezzo, per farsi un&rsquo;idea',
+        prezzi: [['Day Spa infrasettimanale &middot; piscine e grotte, lun&ndash;ven 9.00&ndash;18.30', '35 &euro;'],
+                 ['Day Spa festivo &middot; sabato, domenica e festivi', '45 &euro;'],
+                 ['Day Spa serale &middot; venerd&igrave; e sabato 18.00&ndash;22.30', '29 &euro;'],
+                 ['Massaggi &middot; dal relax di 25 minuti allo shiatzu', 'da 40 a 70 &euro;'],
+                 ['Viso e corpo &middot; dal viso al fango agli anti-age', 'da 44 a 80 &euro;'],
+                 ['Programmi benessere &middot; pi&ugrave; trattamenti in una volta', 'da 90 a 130 &euro;']],
+        notaSerale: 'Il Day Spa serale si pu&ograve; regalare, ma non si abbina a un trattamento nello stesso buono: di sera il centro benessere non fa trattamenti. Per regalare entrambi scelga il Day Spa infrasettimanale o festivo insieme al trattamento.',
+        validitaTitolo: 'Validit&agrave; e utilizzo',
+        validita: ['Dodici mesi dalla data di emissione. Se la scadenza cadesse durante la nostra chiusura invernale, la prolunghiamo fino a un mese dopo la riapertura: sul buono si leggono entrambe le date, non c&rsquo;&egrave; nulla da richiedere.',
+                   'Trenta giorni prima della scadenza mandiamo un promemoria.',
+                   'Il buono porta un codice e un QR: in reception basta mostrarlo. Ingressi e trattamenti su prenotazione, secondo disponibilit&agrave;.',
+                   'La fattura si pu&ograve; richiedere al momento dell&rsquo;acquisto, come privato o come azienda.'] },
+
+  de: { ogg: 'Gutscheine &mdash; Hotel Terme Leonardo',
+        h1: 'Unsere Gutscheine',
+        intro: 'Sie kaufen ihn direkt online: Gutschein zusammenstellen, mit Karte bezahlen und ihn innerhalb weniger Minuten per E-Mail erhalten &mdash; zum Ausdrucken oder Weiterleiten.',
+        bottone: 'Gutschein zusammenstellen',
+        comeTitolo: 'Was Sie verschenken k&ouml;nnen',
+        come: ['Einen <strong style="color:#2A2E2B;">frei w&auml;hlbaren Betrag</strong> von 25 bis 1.000 &euro;, im Hotel einl&ouml;sbar.',
+               'Oder bis zu <strong style="color:#2A2E2B;">zwei Leistungen</strong> aus der Preisliste, jeweils mehrfach: Day-Spa-Eintritte, Massagen, Gesichts- und K&ouml;rperbehandlungen, Wellnessprogramme.'],
+        prezziTitolo: 'Einige Preise zur Orientierung',
+        prezzi: [['Day Spa wochentags &middot; Pools und Grotten, Mo&ndash;Fr 9.00&ndash;18.30', '35 &euro;'],
+                 ['Day Spa an Sonn- und Feiertagen &middot; auch samstags', '45 &euro;'],
+                 ['Day Spa am Abend &middot; Freitag und Samstag 18.00&ndash;22.30', '29 &euro;'],
+                 ['Massagen &middot; von 25 Minuten Relax bis Shiatsu', '40 bis 70 &euro;'],
+                 ['Gesicht und K&ouml;rper &middot; von der Fangomaske bis Anti-Aging', '44 bis 80 &euro;'],
+                 ['Wellnessprogramme &middot; mehrere Behandlungen zusammen', '90 bis 130 &euro;']],
+        notaSerale: 'Den Day Spa am Abend k&ouml;nnen Sie verschenken, aber nicht zusammen mit einer Behandlung im selben Gutschein: abends f&uuml;hrt das Wellnesscenter keine Behandlungen durch. F&uuml;r beides w&auml;hlen Sie den Day Spa wochentags oder am Wochenende zusammen mit der Behandlung.',
+        validitaTitolo: 'G&uuml;ltigkeit und Einl&ouml;sung',
+        validita: ['Zw&ouml;lf Monate ab Ausstellung. F&auml;llt das Ablaufdatum in unsere Winterschlie&szlig;ung, verl&auml;ngern wir es bis einen Monat nach der Wiederer&ouml;ffnung: beide Daten stehen auf dem Gutschein, Sie m&uuml;ssen nichts beantragen.',
+                   'Drei&szlig;ig Tage vor Ablauf senden wir eine Erinnerung.',
+                   'Der Gutschein tr&auml;gt einen Code und einen QR-Code: an der Rezeption gen&uuml;gt es, ihn vorzuzeigen. Eintritte und Behandlungen nach Verf&uuml;gbarkeit und mit Voranmeldung.',
+                   'Eine Rechnung k&ouml;nnen Sie beim Kauf anfordern, privat oder als Unternehmen.'] },
+
+  en: { ogg: 'Gift vouchers &mdash; Hotel Terme Leonardo',
+        h1: 'Our gift vouchers',
+        intro: 'You can buy one online: put the voucher together, pay by card and receive it by email within minutes, ready to print or forward.',
+        bottone: 'Create a gift voucher',
+        comeTitolo: 'What you can give',
+        come: ['An <strong style="color:#2A2E2B;">open amount</strong> from 25 to 1,000 &euro;, to spend at the hotel.',
+               'Or up to <strong style="color:#2A2E2B;">two items</strong> from the price list, each more than once: Day Spa entries, massages, face and body treatments, wellness programmes.'],
+        prezziTitolo: 'A few prices, to give you an idea',
+        prezzi: [['Day Spa weekdays &middot; pools and grottoes, Mon&ndash;Fri 9.00&ndash;18.30', '&euro;35'],
+                 ['Day Spa weekends and holidays', '&euro;45'],
+                 ['Day Spa evening &middot; Friday and Saturday 18.00&ndash;22.30', '&euro;29'],
+                 ['Massages &middot; from a 25-minute relax to shiatsu', '&euro;40 to 70'],
+                 ['Face and body &middot; from thermal mud to anti-age', '&euro;44 to 80'],
+                 ['Wellness programmes &middot; several treatments together', '&euro;90 to 130']],
+        notaSerale: 'The evening Day Spa can be given as a gift, but not combined with a treatment in the same voucher: the spa does not carry out treatments in the evening. To give both, choose the weekday or weekend Day Spa together with the treatment.',
+        validitaTitolo: 'Validity and use',
+        validita: ['Twelve months from the date of issue. Should it expire during our winter closing, we extend it to one month after we reopen: both dates are printed on the voucher, with nothing to request.',
+                   'Thirty days before expiry we send a reminder.',
+                   'The voucher carries a code and a QR: showing it at reception is enough. Entries and treatments by appointment, subject to availability.',
+                   'An invoice can be requested when buying, as a private person or as a company.'] },
+
+  fr: { ogg: 'Bons cadeaux &mdash; Hotel Terme Leonardo',
+        h1: 'Nos bons cadeaux',
+        intro: 'Vous pouvez l&rsquo;acheter en ligne : composez le bon, payez par carte et recevez-le par e-mail en quelques minutes, pr&ecirc;t &agrave; imprimer ou &agrave; transf&eacute;rer.',
+        bottone: 'Composer le bon cadeau',
+        comeTitolo: 'Ce que vous pouvez offrir',
+        come: ['Un <strong style="color:#2A2E2B;">montant libre</strong> de 25 &agrave; 1 000 &euro;, &agrave; d&eacute;penser &agrave; l&rsquo;h&ocirc;tel.',
+               'Ou jusqu&rsquo;&agrave; <strong style="color:#2A2E2B;">deux prestations</strong> de la liste, chacune en plusieurs exemplaires : entr&eacute;es Day Spa, massages, soins visage et corps, programmes bien-&ecirc;tre.'],
+        prezziTitolo: 'Quelques prix, pour se faire une id&eacute;e',
+        prezzi: [['Day Spa en semaine &middot; piscines et grottes, lun&ndash;ven 9h00&ndash;18h30', '35 &euro;'],
+                 ['Day Spa week-end et jours f&eacute;ri&eacute;s', '45 &euro;'],
+                 ['Day Spa en soir&eacute;e &middot; vendredi et samedi 18h00&ndash;22h30', '29 &euro;'],
+                 ['Massages &middot; du relax de 25 minutes au shiatsu', 'de 40 &agrave; 70 &euro;'],
+                 ['Visage et corps &middot; du soin au fango aux anti-&acirc;ge', 'de 44 &agrave; 80 &euro;'],
+                 ['Programmes bien-&ecirc;tre &middot; plusieurs soins ensemble', 'de 90 &agrave; 130 &euro;']],
+        notaSerale: 'Le Day Spa en soir&eacute;e peut &ecirc;tre offert, mais pas associ&eacute; &agrave; un soin dans le m&ecirc;me bon : le soir, le centre de bien-&ecirc;tre ne pratique pas de soins. Pour offrir les deux, choisissez le Day Spa en semaine ou le week-end avec le soin.',
+        validitaTitolo: 'Validit&eacute; et utilisation',
+        validita: ['Douze mois &agrave; compter de l&rsquo;&eacute;mission. Si l&rsquo;&eacute;ch&eacute;ance tombait pendant notre fermeture hivernale, nous la prolongeons jusqu&rsquo;&agrave; un mois apr&egrave;s la r&eacute;ouverture : les deux dates figurent sur le bon, sans rien &agrave; demander.',
+                   'Trente jours avant l&rsquo;&eacute;ch&eacute;ance, nous envoyons un rappel.',
+                   'Le bon porte un code et un QR : il suffit de le pr&eacute;senter &agrave; la r&eacute;ception. Entr&eacute;es et soins sur r&eacute;servation, selon disponibilit&eacute;.',
+                   'Une facture peut &ecirc;tre demand&eacute;e lors de l&rsquo;achat, en tant que particulier ou entreprise.'] }
+};
+
+function costruisciBuoniBase(d, opzioni, lingua) {
+  const o = opzioni || {};
+  const t = BUONI_T[lingua] || BUONI_T.it;
+  const link = BUONI_LINK[lingua] || BUONI_LINK.it;
+  const pulsante = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td align="center" bgcolor="#1E7F88" style="border-radius:5px;">
+        <a href="${link}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#FFFFFF;text-decoration:none;">${t.bottone}</a>
+      </td></tr></table>`;
+
+  const corpo = `
+  <tr><td style="padding:16px 36px 0 36px;">
+    <p style="margin:0 0 14px 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:22px;color:#2A2E2B;">${salutoExtra(d, o, lingua)},</p>
+    <h1 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:31px;font-weight:normal;color:#2A2E2B;">${t.h1}</h1>
+    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.intro}</p>
+  </td></tr>
+
+  <tr><td style="padding:20px 36px 0 36px;">${pulsante}</td></tr>
+
+  <tr><td style="padding:22px 36px 0 36px;">
+    <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">${t.comeTitolo}</h2>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+      ${t.come.map(r => `<tr><td valign="top" width="14" style="padding:0 8px 6px 0;color:#B0A897;">&bull;</td><td valign="top" style="padding:0 0 6px 0;">${r}</td></tr>`).join('')}
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:18px 36px 0 36px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#E3F0F1;">
+      <tr>
+        <td width="6" style="background-color:#1E7F88;font-size:0;line-height:0;">&nbsp;</td>
+        <td style="padding:18px 20px 20px 22px;">
+          <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#1E7F88;padding-bottom:8px;">${t.prezziTitolo}</div>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#3C6266;">
+            ${t.prezzi.map(([q, p]) => `<tr><td style="padding:0 12px 6px 0;">${q}</td><td align="right" valign="top" style="padding:0 0 6px 0;white-space:nowrap;"><strong style="color:#0F5C64;">${p}</strong></td></tr>`).join('')}
+          </table>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:16px 36px 0 36px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FDF6EE;">
+      <tr>
+        <td width="6" style="background-color:#C97B2C;font-size:0;line-height:0;">&nbsp;</td>
+        <td style="padding:14px 18px;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;line-height:21px;color:#55524B;">${t.notaSerale}</td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:20px 36px 0 36px;">
+    <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">${t.validitaTitolo}</h2>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:13.5px;line-height:21px;color:#55524B;">
+      ${t.validita.map(r => `<tr><td valign="top" width="14" style="padding:0 8px 6px 0;color:#B0A897;">&bull;</td><td valign="top" style="padding:0 0 6px 0;">${r}</td></tr>`).join('')}
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:18px 36px 0 36px;">${pulsante}</td></tr>`;
+  return corniceExtra('', corpo, o, lingua);
+}
+
+function costruisciBuoniIT(d, o) { return costruisciBuoniBase(d, o, 'it'); }
+function costruisciBuoniDE(d, o) { return costruisciBuoniBase(d, o, 'de'); }
+function costruisciBuoniEN(d, o) { return costruisciBuoniBase(d, o, 'en'); }
+function costruisciBuoniFR(d, o) { return costruisciBuoniBase(d, o, 'fr'); }
+function oggettoBuoniIT() { return BUONI_T.it.ogg.replace(/&mdash;/g, '\u2014'); }
+function oggettoBuoniDE() { return BUONI_T.de.ogg.replace(/&mdash;/g, '\u2014'); }
+function oggettoBuoniEN() { return BUONI_T.en.ogg.replace(/&mdash;/g, '\u2014'); }
+function oggettoBuoniFR() { return BUONI_T.fr.ogg.replace(/&mdash;/g, '\u2014'); }

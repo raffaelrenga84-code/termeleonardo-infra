@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<style>
+  :root{
+    --acqua:#1E7F88; --acqua-chiara:#E3F0F1; --pietra:#EDE7DC;
+    --inchiostro:#2A2E2B; --grigio:#7B756A; --arancio:#E8751A; --allarme:#C0392B;
+  }
+  *{box-sizing:border-box;}
+  body{width:420px;margin:0;padding:0;background:#fff;
+       font-family:'Segoe UI',system-ui,Arial,sans-serif;font-size:13px;color:var(--inchiostro);}
+  header{padding:14px 18px;border-bottom:1px solid var(--pietra);}
+  header .t{font-size:11px;letter-spacing:3px;color:var(--grigio);}
+  header .n{font-size:16px;margin-top:2px;}
+  .corpo{padding:16px 18px;max-height:440px;overflow-y:auto;}
+  .riga{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid #F4F1E9;}
+  .riga .k{color:var(--grigio);}
+  .riga .v{text-align:right;font-weight:600;}
+  h3{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--acqua);
+     margin:18px 0 8px;font-weight:600;}
+  .box{background:var(--acqua-chiara);border-left:4px solid var(--acqua);padding:10px 12px;margin:10px 0;}
+  .errore{background:#FDEDEC;border-left:4px solid var(--allarme);padding:10px 12px;margin:10px 0;color:#922B21;}
+  .errore ul{margin:6px 0 0 16px;padding:0;}
+  label{display:block;padding:5px 0;cursor:pointer;}
+  label input{margin-right:7px;}
+  .sub{color:var(--grigio);font-size:11.5px;}
+  footer{padding:12px 18px;border-top:1px solid var(--pietra);background:#FAF8F4;}
+  button{width:100%;padding:11px;border:0;border-radius:5px;background:var(--arancio);color:#fff;
+         font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;}
+  button:disabled{background:#CFCabf;cursor:not-allowed;}
+  button.sec{background:transparent;color:var(--acqua);font-weight:500;font-size:12px;padding:7px;margin-top:5px;}
+  .esito{text-align:center;padding:8px 0 0;font-size:12px;color:var(--acqua);min-height:18px;}
+  .cam{padding:6px 0;border-bottom:1px solid #F4F1E9;}
+  .cam b{font-weight:600;}
+</style>
+</head>
+<body>
+  <header>
+    <div class="t">LEONARDO</div>
+    <div class="n" id="titolo">Lettura in corso…</div>
+  </header>
+  <div class="corpo" id="corpo"></div>
+  <footer>
+    <button id="copia" disabled>Copia e apri Outlook</button>
+    <button class="sec" id="copiaOggetto">Prepara per la risposta (poi Rispondi in Outlook)</button>
+    <div class="esito" id="esito"></div>
+  </footer>
+  <script src="template.js"></script>
+  <script src="template-de.js"></script>
+  <script src="template-conferma.js"></script>
+  <script src="template-en.js"></script>
+  <script src="template-fr.js"></script>
+  <script src="template-extra.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

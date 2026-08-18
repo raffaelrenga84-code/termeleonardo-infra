@@ -1,0 +1,114 @@
+{
+  "manifest_version": 3,
+  "name": "Offerta Leonardo",
+  "version": "2.3.0",
+  "description": "Legge l'offerta aperta in Fidra e inserisce l'email impaginata direttamente in Outlook Web.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "clipboardWrite",
+    "storage",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "https://leonardo.fidra.cloud/*",
+    "https://outlook.office.com/*",
+    "https://outlook.live.com/*",
+    "https://outlook.cloud.microsoft/*",
+    "https://mvuiuwakuseockotlcnp.supabase.co/*",
+    "https://www.atam.biz/*"
+  ],
+  "action": {
+    "default_title": "Prepara offerta",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://leonardo.fidra.cloud/customers/*/reservations/*"
+      ],
+      "js": [
+        "extractor.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://outlook.office.com/*",
+        "https://outlook.live.com/*",
+        "https://outlook.cloud.microsoft/*"
+      ],
+      "js": [
+        "template.js",
+        "template-de.js",
+        "template-en.js",
+        "template-fr.js",
+        "template-conferma.js",
+        "template-extra.js",
+        "outlook-inject.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://leonardo.fidra.cloud/booking*"
+      ],
+      "js": [
+        "fidra-booking.js",
+        "fidra-numeri-camere.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://leonardo.fidra.cloud/front-office*"
+      ],
+      "js": [
+        "fidra-scadenze.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://leonardo.fidra.cloud/*"
+      ],
+      "js": [
+        "fidra-disponibilita.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://leonardo.fidra.cloud/invoices/*"
+      ],
+      "js": [
+        "fidra-fattura-pdf.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.atam.biz/prenotazioni*"
+      ],
+      "js": [
+        "atam-booking.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "popup.html?pannello=1"
+  },
+  "commands": {
+    "apri-pannello": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+L",
+        "mac": "Command+Shift+L"
+      },
+      "description": "Apri il pannello Offerta Leonardo a lato"
+    }
+  }
+}
