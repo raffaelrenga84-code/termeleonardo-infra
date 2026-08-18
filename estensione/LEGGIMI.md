@@ -12,7 +12,7 @@ Legge la pagina che l'operatore ha gia' aperto e gli risparmia il ricopiare.
 |---|---|
 | `leonardo.fidra.cloud` | legge l'offerta aperta (`extractor.js`), le disponibilita', i numeri di camera, le scadenze, le fatture |
 | Outlook Web | inserisce l'email impaginata nelle quattro lingue (`template-*.js`) |
-| `www.atam.biz` | apre il modulo dei tassisti gia' compilato (`atam-booking.js`) |
+| `www.atam.biz` | apre il modulo dei tassisti gia' compilato, individuale/collettivo compreso (`atam-booking.js`) |
 | le nostre funzioni Supabase | crea il link «Prepara il suo arrivo» |
 
 **Non salva e non invia mai niente da sola.** L'ultimo clic — Prenota, Invia —
