@@ -55,6 +55,18 @@ table{width:100%;border-collapse:collapse;font-size:14px;}
 th{text-align:left;font-size:11px;letter-spacing:.8px;text-transform:uppercase;
 color:var(--acqua-scura);padding:8px 10px;background:#F4F1EA;}
 td{padding:9px 10px;border-top:1px solid #F0EBE1;vertical-align:top;}
+/* IL RIEPILOGO PER I TASSISTI. Una riga per campo del loro modulo, e il
+   valore da solo nella colonna di mezzo: e' quello che si copia, e non deve
+   portarsi dietro l'etichetta. Il valore e' monospaziato perche' si
+   confronta a occhio con quello che si e' appena incollato di la'. */
+.atam th{width:1%;white-space:nowrap;background:transparent;text-transform:none;
+  letter-spacing:0;font-size:12.5px;color:var(--grigio);font-weight:400;
+  padding-left:0;vertical-align:top;}
+.atam td{font-family:monospace;font-size:13px;white-space:pre-wrap;}
+.atam td:last-child{width:1%;white-space:nowrap;padding-right:0;}
+.atam .copiaVoce{border:1px solid var(--acqua);border-radius:6px;background:#fff;
+  color:var(--acqua-scura);font:600 12px inherit;padding:4px 12px;cursor:pointer;}
+.atam .copiaVoce:hover{background:var(--acqua);color:#fff;}
 .cod{font-family:monospace;font-weight:700;color:var(--acqua-scura);}
 .stato{font-size:11px;padding:2px 8px;border-radius:10px;white-space:nowrap;}
 /* i promozionali non sono un incasso: si devono riconoscere a colpo d'occhio */
@@ -136,6 +148,7 @@ import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, cate
 /* stessa regola di sopra: percorso assoluto, non relativo — `/comune/date.js`,
    mai `./date.js` o `../comune/date.js`. Vedi il commento in date.js. */
 import { attivaDate } from '/comune/date.js';
+import { vociATAM, riepilogoATAM } from '/comune/atam.js';
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -956,22 +969,11 @@ function etichetta(mappa, chiave) {
   return Object.hasOwn(mappa, chiave) ? mappa[chiave] : (chiave || '');
 }
 
-/* Il riepilogo nella forma esatta che vuole il modulo dei tassisti: si
-   incolla senza tradurre niente, e il luogo combacia parola per parola con
-   il loro elenco perche' e' da li' che l'abbiamo preso. */
-function riepilogoATAM(r) {
-  const d = r.dati || {};
-  return [
-    `Data: ${dataIT(d.quando)}`,
-    `Ora: ${d.ora || ''}`,
-    `Pax: ${d.pax || ''}`,
-    `${d.verso === 'partenza' ? 'Partenza per' : 'Arrivo da'}: ${d.luogo || ''}`,
-    `Nome del cliente: ${r.nome || ''}`,
-    d.volo ? `Dettagli arrivo: ${d.volo}` : '',
-    d.ritorno ? 'Nota: serve anche il ritorno' : '',
-    d.note ? `Note: ${d.note}` : '',
-  ].filter(Boolean).join('\n');
-}
+/* vociATAM e riepilogoATAM stanno in /comune/atam.js: e' la parte che vale
+   la pena provare da sola, e da qui si passa solo il modo di scrivere una
+   data. Il blocco a una voce sola che stava qui prometteva un incollaggio
+   che il modulo dei tassisti non poteva accettare — vedi il commento in
+   testa a quel file, e atam.test.ts. */
 
 /* Stessa lista di supabase/functions/richieste/luoghi.ts (LUOGHI_ATAM),
    copiata qui parola per parola, emoji comprese: questa pagina e' HTML
@@ -1334,11 +1336,21 @@ function dettaglioRichiesta(r) {
 
     ${r.tipo === 'transfer' ? `<div style="margin-top:18px;padding-top:16px;border-top:1px solid #E6E2D8;">
       <h2 style="font-size:18px;">Per il modulo dei tassisti</h2>
-      <div class="mini" style="padding-bottom:6px;">Da incollare su atam.biz: il luogo è
-        già scritto come nel loro elenco.</div>
-      <textarea id="cAtam" rows="6" readonly
-        style="font-family:monospace;font-size:12.5px;">${esc(riepilogoATAM(r))}</textarea>
-      <button class="azione sec" id="bCopiaAtam">Copia per ATAM</button>
+      <!-- Una riga per campo, e si copia il VALORE. Il blocco unico di prima
+           invitava a incollarlo tutto su atam.biz: finiva in un campo solo,
+           «Data: 15 agosto 2026» con dentro la parola «Data:», e il loro
+           calendario non la sapeva leggere. -->
+      <div class="mini" style="padding-bottom:8px;">Una riga per ogni campo del loro
+        modulo. Il luogo è già scritto come nel loro elenco: si copia e si incolla
+        senza toccarlo.</div>
+      <table class="atam">${vociATAM(r, dataIT).map((v) => `<tr>
+        <th>${esc(v.eti)}</th>
+        <td>${esc(v.val)}</td>
+        <td>${v.soloDaLeggere || !v.val ? ''
+          : `<button type="button" class="copiaVoce" data-val="${esc(v.val)}">Copia</button>`}</td>
+      </tr>`).join('')}</table>
+      <textarea id="cAtam" rows="2" readonly hidden>${esc(riepilogoATAM(r, dataIT))}</textarea>
+      <button class="azione sec" id="bCopiaAtam">Copia tutto in blocco</button>
     </div>` : ''}
 
     <div class="due" style="margin-top:16px;">
@@ -1400,14 +1412,33 @@ async function vistaRichieste() {
              caricamento della pagina. */
           attivaDate($('rDettaglio'));
 
+          /* un pulsante per riga: si copia il valore, mai l'etichetta */
+          for (const b of $('rDettaglio').querySelectorAll('button.copiaVoce')) {
+            b.onclick = async () => {
+              const prima = b.textContent;
+              try {
+                await navigator.clipboard.writeText(b.dataset.val);
+                b.textContent = 'Copiato';
+              } catch (e) {
+                console.error('copia non riuscita', e);
+                b.textContent = 'Non riesco';
+              }
+              setTimeout(() => { b.textContent = prima; }, 1500);
+            };
+          }
+
           const bCopia = $('bCopiaAtam');
           if (bCopia) bCopia.onclick = async () => {
             try {
               await navigator.clipboard.writeText($('cAtam').value);
               bCopia.textContent = 'Copiato';
-              setTimeout(() => { bCopia.textContent = 'Copia per ATAM'; }, 1800);
+              setTimeout(() => { bCopia.textContent = 'Copia tutto in blocco'; }, 1800);
             } catch (e) {
-              /* se la copia non passa, il testo e' comunque li' da selezionare */
+              /* se la copia non passa, il testo si mostra e si seleziona:
+                 nascosto non sarebbe selezionabile, e l'operatore resterebbe
+                 con un pulsante che non fa niente */
+              $('cAtam').hidden = false;
+              $('cAtam').rows = 8;
               $('cAtam').select();
               bCopia.textContent = 'Selezionato: premi Ctrl+C';
             }
