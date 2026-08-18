@@ -869,7 +869,15 @@ async function creaLinkArrivo(lingua) {
       data_arrivo: iso(DATI.giornoArrivo),
       data_partenza: iso(DATI.giornoPartenza),
       adulti: DATI.adulti,
-      bambini: DATI.bambini
+      bambini: DATI.bambini,
+      /* Se questo soggiorno ha le CURE. Serve alla pagina d'arrivo per
+         decidere se mostrare la domanda sul desiderio d'orario dei fanghi:
+         a chi viene per due notti di relax sarebbe rumore.
+
+         Stessa regola che decide il blocco «cure termali» nell'email
+         (deduci(d).cure): il trattamento, oppure piu' di cinque notti.
+         Una seconda regola qui divergerebbe dalla prima. */
+      cure: deduci(DATI).cure
     })
   });
   const j = await r.json().catch(() => ({}));

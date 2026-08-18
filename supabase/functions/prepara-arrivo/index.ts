@@ -9,6 +9,7 @@
 // ============================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { desiderioValido, IN_RECEPTION } from './fanghi.ts';
 
 const CHIAVE_INTERNA = Deno.env.get('HOTEL_KEY')!;        // segreto condiviso con l'estensione
 const RESEND_KEY     = Deno.env.get('RESEND_API_KEY');     // opzionale, per le notifiche
@@ -76,6 +77,13 @@ Deno.serve(async (req) => {
         data_partenza:  b.data_partenza,
         adulti:         Number(b.adulti)  || 1,
         bambini:        Number(b.bambini) || 0,
+        /* Lo sappiamo NOI, non l'ospite: ?action=crea riceve date e ospiti
+           ma non il trattamento. Il dato ce l'ha gia' l'estensione
+           (deduci(d).cure in popup.js, la stessa regola che decide se
+           mettere il blocco «cure termali» nell'email) e da qui in poi lo
+           passa. Serve a mostrare la domanda sui fanghi solo a chi le cure
+           le fa davvero: a chi viene per due notti di relax sarebbe rumore. */
+        cure:           b.cure === true,
         scade_il:       scade.toISOString()
       });
       if (error) return risposta({ errore: error.message }, 500);
@@ -103,7 +111,8 @@ Deno.serve(async (req) => {
         data_arrivo:   link.data_arrivo,
         data_partenza: link.data_partenza,
         adulti:        link.adulti,
-        bambini:       link.bambini
+        bambini:       link.bambini,
+        cure:          link.cure === true
       });
     }
 
@@ -139,6 +148,10 @@ Deno.serve(async (req) => {
         transfer_pax:    Number(b.transfer_pax) || null,
         transfer_cell:   testo(b.transfer_cell, 30),
         extra:           Array.isArray(b.extra) ? b.extra.slice(0, 10).map((e: unknown) => testo(e, 60)) : [],
+        /* elenco chiuso: il valore arriva dal browser, e senza un elenco in
+           reception arriverebbe qualunque stringa — dentro un'email col
+           nostro logo */
+        fanghi_desiderio: desiderioValido(b.fanghi_desiderio),
         note:            testo(b.note, 1000)
       });
       if (error) return risposta({ errore: error.message }, 500);
@@ -153,6 +166,13 @@ Deno.serve(async (req) => {
         if (b.fattura)      righe.push(`<b>FATTURA</b>: ${b.fatt_ragione ?? ''} · P.IVA ${b.fatt_piva ?? '—'} · SDI ${b.fatt_sdi ?? '—'} · ${b.fatt_indirizzo ?? ''}`);
         if (persone.length) righe.push(`<b>PERSONE DA AGGIUNGERE (da confermare)</b>: ${persone.map((p: {nome:string;eta:string|null}) => p.nome + (p.eta ? ' (' + p.eta + ')' : '')).join(', ')}`);
         if (b.transfer)     righe.push(`<b>TRANSFER</b>: ${b.transfer_scalo ?? ''} · ${b.transfer_tipo ?? ''} · volo ${b.transfer_volo ?? '—'} · ${b.transfer_quando ?? ''} · ${b.transfer_pax ?? '?'} pax · cell ${b.transfer_cell ?? '—'}`);
+        /* DESIDERIO, non turno: il turno lo assegna la Segreteria Cure
+           dopo la visita medica, e la riga qui deve dirlo o qualcuno la
+           leggera' come un appuntamento gia' preso. */
+        const desiderio = desiderioValido(b.fanghi_desiderio);
+        if (desiderio) {
+          righe.push(`<b>FANGHI</b> · desiderio dell'ospite: ${IN_RECEPTION[desiderio]} — il turno lo assegna la Segreteria Cure`);
+        }
         if (b.extra?.length) righe.push(`Extra richiesti: ${b.extra.join(', ')}`);
         if (b.note)         righe.push(`Note: ${b.note}`);
 

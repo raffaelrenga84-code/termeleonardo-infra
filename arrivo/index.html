@@ -121,6 +121,10 @@ const T = {
   trScalo:'Da dove? (aeroporto o stazione)', trVolo:'Numero volo o treno',
   trQuando:'Giorno e ora', trPax:'Persone', trCell:'Cellulare per l\u2019autista',
   extraT:'Piccole attenzioni', extraOpz:['Culla per neonato','Seggiolone al ristorante','Parcheggio','Cane al seguito'],
+  fanghiT:'Cure termali', fanghiD:'A che ora preferirebbe i fanghi?',
+  fanghiOpz:['Presto — dalle 5:50','Più tardi — verso le 10:00','Indifferente'],
+  fanghiNota:'Il turno lo assegna la Segreteria Cure dopo la visita medica di ammissione: qui prendiamo nota della sua preferenza.',
+  fanghiPresoAtto:'Abbiamo preso nota del suo desiderio per i fanghi.',
   noteT:'Altro da dirci', notePh:'Intolleranze, preferenze per la camera, occasioni speciali…',
   invia:'Invii alla reception', inviaNota:'Riceviamo subito noi della reception, nessuna conferma automatica.',
   attendere:'Un attimo…',
@@ -149,6 +153,10 @@ const T = {
   trScalo:'Von wo? (Flughafen oder Bahnhof)', trVolo:'Flug- oder Zugnummer',
   trQuando:'Tag und Uhrzeit', trPax:'Personen', trCell:'Handy für den Fahrer',
   extraT:'Kleine Aufmerksamkeiten', extraOpz:['Babybett','Hochstuhl im Restaurant','Parkplatz','Hund dabei'],
+  fanghiT:'Thermalkuren', fanghiD:'Wann hätten Sie die Fangopackung am liebsten?',
+  fanghiOpz:['Früh — ab 5:50 Uhr','Später — gegen 10:00 Uhr','Egal'],
+  fanghiNota:'Den Termin vergibt das Kursekretariat nach der ärztlichen Aufnahmeuntersuchung: hier merken wir uns Ihren Wunsch.',
+  fanghiPresoAtto:'Wir haben Ihren Wunschtermin für die Fangopackung vorgemerkt.',
   noteT:'Sonst noch etwas?', notePh:'Unverträglichkeiten, Zimmerwünsche, besondere Anlässe…',
   invia:'An die Rezeption senden', inviaNota:'Ihre Angaben gehen direkt an uns — keine automatische Bestätigung.',
   attendere:'Einen Moment…',
@@ -177,6 +185,10 @@ const T = {
   trScalo:'From where? (airport or station)', trVolo:'Flight or train number',
   trQuando:'Day and time', trPax:'People', trCell:'Mobile for the driver',
   extraT:'Small touches', extraOpz:['Baby cot','High chair at the restaurant','Parking','Dog coming along'],
+  fanghiT:'Thermal treatments', fanghiD:'When would you prefer your mud therapy?',
+  fanghiOpz:['Early — from 5:50','Later — around 10:00','No preference'],
+  fanghiNota:'The Cure Secretariat assigns the slot after the admission medical: here we simply note what you would prefer.',
+  fanghiPresoAtto:'We have noted your preference for the mud therapy.',
   noteT:'Anything else?', notePh:'Intolerances, room preferences, special occasions…',
   invia:'Send to reception', inviaNota:'It goes straight to us at reception — no automated reply.',
   attendere:'One moment…',
@@ -205,6 +217,10 @@ const T = {
   trScalo:'Depuis où ? (aéroport ou gare)', trVolo:'N° de vol ou de train',
   trQuando:'Jour et heure', trPax:'Personnes', trCell:'Portable pour le chauffeur',
   extraT:'Petites attentions', extraOpz:['Lit bébé','Chaise haute au restaurant','Parking','Chien accepté'],
+  fanghiT:'Cures thermales', fanghiD:'À quelle heure préféreriez-vous les boues ?',
+  fanghiOpz:['Tôt — dès 5h50','Plus tard — vers 10h00','Peu importe'],
+  fanghiNota:'Le Secrétariat des Cures attribue le créneau après la visite médicale d’admission : ici nous prenons note de votre préférence.',
+  fanghiPresoAtto:'Nous avons pris note de votre souhait pour les boues.',
   noteT:'Autre chose ?', notePh:'Intolérances, préférences de chambre, occasions spéciales…',
   invia:'Envoyer à la réception', inviaNota:'Vos indications arrivent directement à la réception — pas de réponse automatique.',
   attendere:'Un instant…',
@@ -309,6 +325,21 @@ function modulo(){
     ${t.extraOpz.map((o,i)=>`<label><input type="checkbox" class="extra" data-i="${i}" /> ${o}</label>`).join('')}
   </div>
 
+  <!-- CURE TERMALI. Compare SOLO a chi ha le cure: a chi viene per due
+       notti di relax questa domanda sarebbe rumore. Lo sa il link, non
+       l'ospite — ?action=crea riceve «cure» da chi lo crea.
+
+       E' un DESIDERIO, non un turno. Niente calendario, niente orari
+       precisi, nessuna disponibilita' mostrata: il turno lo assegna la
+       Segreteria Cure dopo la visita medica, e qualunque cosa somigli a una
+       prenotazione qui sarebbe una promessa che non possiamo mantenere. -->
+  ${DATI.cure ? `<div class="scheda spunte" id="schedaFanghi">
+    <h2>${t.fanghiT}</h2>
+    <div class="sotto-titolo">${t.fanghiD}</div>
+    ${t.fanghiOpz.map((o,i)=>`<label><input type="radio" name="fanghi" class="fanghi" data-i="${i}" /> ${o}</label>`).join('')}
+    <div class="nota-invio" style="text-align:left;margin-top:8px;">${t.fanghiNota}</div>
+  </div>` : ''}
+
   <div class="scheda">
     <h2>${t.noteT}</h2>
     <textarea id="note" rows="4" maxlength="1000" placeholder="${t.notePh}"></textarea>
@@ -367,6 +398,12 @@ async function invia(){
     transfer_pax: tr ? (Number(v('trPax')) || null) : null,
     transfer_cell: tr ? v('trCell') : null,
     extra: [...document.querySelectorAll('.extra:checked')].map(c => T[LINGUA].extraOpz[+c.dataset.i]),
+    /* i tre valori sono quelli che il server accetta (fanghi.ts, elenco
+       chiuso): l'indice della scelta, non il testo tradotto */
+    fanghi_desiderio: (()=>{
+      const s = document.querySelector('.fanghi:checked');
+      return s ? ['presto','tardi','indifferente'][+s.dataset.i] : null;
+    })(),
     note: v('note')
   };
   try {
@@ -376,7 +413,11 @@ async function invia(){
       body: JSON.stringify(corpo)
     });
     if (!r.ok) throw new Error('salvataggio');
-    stato(t.grazieT, t.grazie, '✓');
+    /* «abbiamo preso nota del suo desiderio», e nient'altro: nessun orario
+       confermato, nessun turno. Compare solo a chi una preferenza l'ha
+       davvero espressa. */
+    const scelta = document.querySelector('.fanghi:checked');
+    stato(t.grazieT, t.grazie + (scelta ? ' ' + t.fanghiPresoAtto : ''), '✓');
     window.scrollTo(0, 0);
   } catch (e) {
     document.getElementById('erroreInvio').style.display = 'block';
