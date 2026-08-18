@@ -18,6 +18,7 @@ import { componiRichiesta, type Contatti } from './componi-richiesta.ts';
 import { avvisaHotel } from './email-richiesta.ts';
 import { inviaConferma } from './conferma.ts';
 import { arricchisciElenco } from './elenco.ts';
+import { filtroRicercaRichieste } from './ricerca.ts';
 import { componiRisposta, corpoDisponibilita } from './disponibilita.ts';
 import {
   aHotelChiuso, distanzaGiorni, esitoDisponibilita, ORIZZONTE_GIORNI, type Stagione,
@@ -360,8 +361,16 @@ Deno.serve(async (req) => {
 
   if (azione === 'elenco') {
     const stato = url.searchParams.get('stato') || '';
+    const cerca = (url.searchParams.get('cerca') || '').trim();
     let q = db.from('richiesta_sito').select('*').order('creato_il', { ascending: false }).limit(200);
     if (stato) q = q.eq('stato', stato);
+    /* La ricerca sta QUI e non nella pagina: il tetto di 200 righe qui sopra
+       significa che filtrare quelle gia' caricate darebbe una risposta che
+       SEMBRA completa e non lo e'. Il caso vero e' il tassista che sposta la
+       partenza dopo la conferma, e la richiesta da correggere e' vecchia.
+       La costruzione del filtro vive in ricerca.ts, che tratta il testo
+       digitato come testo e mai come sintassi. */
+    if (cerca) q = q.or(filtroRicercaRichieste(cerca, new Date().getFullYear()));
     const { data, error } = await q;
     if (error) return risposta({ errore: error.message }, 500);
     /* etichetta, riepilogo e differenze si calcolano QUI, non nella pagina

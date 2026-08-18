@@ -85,6 +85,9 @@ Deno.test('il testo unito e ancora quello di prima', () => {
       'Data: 15 agosto 2026 [2026-08-15]',
       'Ora: 15:30',
       'Pax: 2',
+      /* riga nuova dal 18 agosto 2026: chi incolla il blocco nelle note deve
+         vedere anche se la corsa e' privata o condivisa */
+      'Servizio: Auto privata (individuale)',
       'Arrivo da: Venezia  aeroporto',
       'Nome del cliente: Raffael Renga',
       'Dettagli arrivo: FR1234',
@@ -144,4 +147,49 @@ Deno.test('i dati viaggiano nel frammento, mai nella query', () => {
   assert(!u.slice(0, u.indexOf('#')).includes('?'), 'c e una query: i dati uscirebbero');
   const dentro = JSON.parse(decodeURIComponent(u.split('#leo=')[1]));
   assertEquals(dentro.nome, 'Raffael Renga');
+});
+
+/* ============================================================
+   INDIVIDUALE O COLLETTIVO.
+
+   Sul modulo dei tassisti sono due pallini (`is_collettivo`), e finora li
+   lasciavamo in bianco perche' la richiesta non lo diceva. Adesso lo dice.
+
+   IL DIFETTO DA PRESIDIARE e' che il valore si perda per strada: la
+   richiesta porta «navetta condivisa», l'estensione riempie tutto il
+   resto, e l'ospite si trova un'auto privata a 135 € invece che una
+   navetta a 95. Il dato deve arrivare fino in fondo, e deve essere
+   distinguibile da «non lo so».
+   ============================================================ */
+Deno.test('il collettivo arriva nei valori grezzi come booleano', () => {
+  const r = { ...RICHIESTA, dati: { ...RICHIESTA.dati, collettivo: true } };
+  assertEquals(datiATAM(r).collettivo, true);
+});
+
+Deno.test('senza collettivo il valore e falso, non indefinito', () => {
+  /* l'estensione sceglie fra due pallini: `undefined` la lascerebbe a
+     indovinare, ed e' esattamente cio' che facevamo prima */
+  assertEquals(datiATAM(RICHIESTA).collettivo, false);
+});
+
+Deno.test('il collettivo si legge anche nelle voci, a parole', () => {
+  const r = { ...RICHIESTA, dati: { ...RICHIESTA.dati, collettivo: true } };
+  const v = vociATAM(r, dataFinta).find((x) => x.eti === 'Servizio');
+  assert(v, 'la voce Servizio non c e');
+  assert(/navetta|condivis/i.test(String(v.val)), `dice: ${v.val}`);
+});
+
+Deno.test('in privato la voce Servizio dice auto privata', () => {
+  const v = vociATAM(RICHIESTA, dataFinta).find((x) => x.eti === 'Servizio');
+  assert(v, 'la voce Servizio non c e');
+  assert(/privat/i.test(String(v.val)), `dice: ${v.val}`);
+});
+
+/* Il frammento porta tutto: se il collettivo restasse fuori di li',
+   l'estensione lo saprebbe dal riepilogo a schermo ma non dai dati, e
+   riempirebbe i pallini a caso. */
+Deno.test('il collettivo viaggia anche nell indirizzo', () => {
+  const r = { ...RICHIESTA, dati: { ...RICHIESTA.dati, collettivo: true } };
+  const dentro = JSON.parse(decodeURIComponent(indirizzoATAM(r).split('#leo=')[1]));
+  assertEquals(dentro.collettivo, true);
 });

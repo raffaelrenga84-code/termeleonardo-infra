@@ -54,7 +54,7 @@ function euro(v: unknown): string {
    indicizzato: una chiave come "toString" esiste su Object.prototype, e una
    lookup diretta (OGGETTO[chiave]) ci cascherebbe restituendo la funzione
    ereditata invece di sparire in un caso di riserva onesto. */
-function etichettaCampo(chiave: string): string {
+export function etichettaCampo(chiave: string): string {
   switch (chiave) {
     case 'quando': case 'data': return 'Data';
     case 'giorno': return 'Giorno';

@@ -137,7 +137,11 @@ Deno.test('con differenze vere e segnala_modifiche vero, il riquadro compare in 
     dati_originali: { ...transfer.dati, ora: '09:00' },
     dati: { ...transfer.dati, ora: '15:00' },
   });
-  assertStringIncludes(h, 'Ora');
+  /* Dal 18 agosto 2026 l'ora cambiata NON e' piu' nel riquadro in coda con
+     l'etichetta «Ora»: sta accanto al campo che la mostra, cioe' «Quando».
+     Le due cose che contano — cosa aveva chiesto e cosa gli confermiamo —
+     ci sono tutte e due, e adesso sono dove l'ospite guarda. */
+  assertStringIncludes(h, 'Quando');
   assertStringIncludes(h, '09:00');
   assertStringIncludes(h, '15:00');
 });
@@ -211,4 +215,91 @@ Deno.test('la conferma di un Day Spa ripete il giorno definitivo, non quello chi
   const h = confermaHTML({ ...ingresso, dati: { giorno: '2026-08-23', persone: 3 } });
   assertStringIncludes(h, '23/08/2026');
   assert(!h.includes('22/08/2026'), 'non deve restare il giorno chiesto in origine');
+});
+
+/* ============================================================
+   LA MODIFICA DOVE L'OSPITE GUARDA.
+
+   IL DIFETTO. Fino al 18 agosto 2026 la differenza stava SOLO in coda
+   all'email, sotto una didascalia da 12,5 px in grigio chiaro — il testo
+   piu' piccolo e piu' pallido della pagina — mentre la tabella dei
+   dettagli, piu' in alto, mostrava gia' il valore NUOVO in carattere
+   normale. Chi scorreva i dettagli e si fermava li' aveva letto le 15:00 e
+   non sapeva di aver chiesto le 9:00.
+
+   Il back office lo faceva gia' bene per l'operatore (avevaChiesto). Il
+   trattamento buono ce l'aveva chi modifica; a chi subisce la modifica
+   toccava la nota a pie' di pagina.
+   ============================================================ */
+const cambiata = {
+  ...transfer,
+  lingua: 'it',
+  segnala_modifiche: true,
+  dati_originali: { ...transfer.dati, ora: '09:00' },
+  dati: { ...transfer.dati, ora: '15:00' },
+};
+
+Deno.test('la differenza si vede ACCANTO al campo, non solo in coda', () => {
+  const h = confermaHTML(cambiata);
+  const riga = h.split('<tr>').find((x) => x.includes('15:00'));
+  assert(riga, 'nessuna riga col valore nuovo');
+  assert(riga.includes('09:00'), 'il valore vecchio non e accanto a quello nuovo');
+});
+
+/* Sbarrato PIU' la parola. Certi programmi di posta buttano via gli stili, e
+   c'e' chi i colori li legge male: se cade la linea il testo deve restare
+   comprensibile da solo. */
+Deno.test('il vecchio valore e sbarrato, e resta chiaro anche senza stili', () => {
+  const riga = confermaHTML(cambiata).split('<tr>').find((x) => x.includes('15:00'))!;
+  assert(/line-through/.test(riga), 'il vecchio valore non e sbarrato');
+  assert(/Aveva chiesto/i.test(riga), 'senza gli stili non si capirebbe piu niente');
+});
+
+/* Una differenza su un campo che quel tipo non disegna non ha un posto dove
+   stare: senza il riquadro in coda sparirebbe del tutto. */
+Deno.test('una differenza su un campo non disegnato finisce nel riquadro in coda', () => {
+  const h = confermaHTML({
+    ...transfer,
+    lingua: 'it',
+    segnala_modifiche: true,
+    dati_originali: { ...transfer.dati, note: 'due valigie' },
+    dati: { ...transfer.dati, note: 'tre valigie' },
+  });
+  assertStringIncludes(h, 'due valigie');
+  assertStringIncludes(h, 'Note');
+});
+
+Deno.test('senza la spunta niente compare, nemmeno accanto al campo', () => {
+  const h = confermaHTML({ ...cambiata, segnala_modifiche: false });
+  assert(!h.includes('09:00'), 'il valore vecchio non doveva comparire');
+  assert(!/line-through/.test(h));
+});
+
+/* ============================================================
+   IL PREZZO DA DARE ALL'AUTISTA.
+
+   Lo conferma la reception, che se lo trova proposto dal listino. Prima
+   veniva scritto a mano dentro il messaggio libero, e chi si dimenticava
+   mandava una conferma senza prezzo.
+   ============================================================ */
+Deno.test('il prezzo confermato arriva all ospite, in euro', () => {
+  const h = confermaHTML({ ...transfer, lingua: 'it', dati: { ...transfer.dati, prezzo_cent: 13500 } });
+  assertStringIncludes(h, '135,00');
+  assert(!h.includes('13500'), 'i centesimi non devono uscire cosi come sono');
+});
+
+Deno.test('il prezzo dice che si paga all autista, nelle quattro lingue', () => {
+  const con = (lingua: string) =>
+    confermaHTML({ ...transfer, lingua, dati: { ...transfer.dati, prezzo_cent: 13500 } });
+  assert(/autista/i.test(con('it')), 'it');
+  assert(/Fahrer/i.test(con('de')), 'de');
+  assert(/driver/i.test(con('en')), 'en');
+  assert(/chauffeur/i.test(con('fr')), 'fr');
+});
+
+/* Senza prezzo non si inventa una riga: «non c'e' un prezzo» e «e' gratis»
+   sono due cose diverse. */
+Deno.test('senza prezzo non compare nessuna riga di prezzo', () => {
+  const h = confermaHTML({ ...transfer, lingua: 'it' });
+  assert(!/autista/i.test(h), 'non doveva esserci nessuna riga di prezzo');
 });

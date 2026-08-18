@@ -24,6 +24,9 @@ export function vociATAM(r, dataIT) {
     { eti: 'Data', val: dataIT(d.quando || '') },
     { eti: 'Ora', val: d.ora || '' },
     { eti: 'Pax', val: d.pax === undefined || d.pax === null ? '' : String(d.pax) },
+    /* qui, e non altrove, perche' e' il posto in cui il modulo dei tassisti
+       lo chiede: fra i passeggeri e la direzione */
+    { eti: 'Servizio', val: d.collettivo ? 'Navetta condivisa (collettivo)' : 'Auto privata (individuale)' },
     { eti: d.verso === 'partenza' ? 'Partenza per' : 'Arrivo da', val: d.luogo || '' },
     { eti: 'Nome del cliente', val: (r && r.nome) || '' },
   ];
@@ -54,6 +57,10 @@ export function datiATAM(r) {
     ora: d.ora || '',
     pax: d.pax == null ? '' : String(d.pax),
     verso: d.verso === 'partenza' ? 'partenza' : 'arrivo',
+    /* SEMPRE un booleano vero, mai `undefined`. L'estensione deve scegliere
+       fra due pallini: un valore assente la lascerebbe a indovinare, ed e'
+       esattamente quello che facevamo prima di chiederlo nel modulo. */
+    collettivo: d.collettivo === true,
     luogo: d.luogo || '',
     nome: (r && r.nome) || '',
     volo: d.volo ? String(d.volo) : '',

@@ -192,6 +192,109 @@ dove stare. È esattamente la logica che il back office ha già in
 
 ---
 
+## Parte 3 — Il prezzo proposto, confermato dalla reception
+
+### Il problema
+
+Chi conferma un transfer scriveva il prezzo **a mano** dentro il messaggio
+libero: il segnaposto del campo diceva *«es. Il prezzo è di 85 € a tratta,
+pagamento diretto all'autista»*. Va cercato nel listino ogni volta, e chi se
+ne dimentica manda una conferma senza cifra — l'ospite arriva senza sapere
+quanto avrà da dare all'autista.
+
+### Cosa si fa
+
+Nella scheda del transfer il prezzo arriva **già proposto** dal listino,
+calcolato da destinazione, passeggeri, servizio e ritorno. La reception lo
+guarda, lo conferma o lo corregge; poi finisce nella conferma all'ospite come
+riga sua: **135,00 € · da pagare direttamente all'autista**, nelle quattro
+lingue.
+
+**Proporre, non decidere.** È quella occhiata umana a rendere onesta la cifra:
+il sistema non manda mai un prezzo che nessuno ha guardato.
+
+**E per questo il listino tace dove non sa.** Su Verona, Bologna, Mestre, i
+tre golf e Montegrotto il listino pubblico non dice niente: lì il campo resta
+vuoto e la nota dice «scrivi tu la cifra». Una cifra sbagliata è molto peggio
+di nessuna cifra — scritta dal sistema si legge come verificata, e chi
+conferma in fretta la lascia passare.
+
+**Il campo si aggiorna da solo solo finché è ancora nostro.** Se l'operatore
+ha scritto una cifra sua, cambiare i passeggeri non gliela cancella. È lo
+stesso criterio della data che segue il verso nel modulo pubblico.
+
+### Dove vive
+
+`pagine/comune/listino-transfer.js` — puro, provato, in centesimi come
+`prezzo_cent` e `caparra_cent` nel resto del sistema. Il campo `prezzo_cent`
+entra nei dati validati del transfer (`tipi.ts`): senza, `?a=conferma` lo
+scarterebbe in silenzio e il prezzo sparirebbe fra il «conferma» e l'email.
+
+### La copia che resta
+
+Questi numeri stanno anche sulla pagina pubblica del sito. È una seconda
+copia, inevitabile: quella pagina la legge un ospite, questa la legge un
+programma. Il freno è che qui la cifra è una **proposta** che un essere umano
+conferma — se le due copie divergono se ne accorge chi conferma, non l'ospite
+che ha già pagato.
+
+---
+
+## Parte 4 — Trovare una richiesta fra tutte
+
+### Il problema, misurato
+
+L'elenco delle richieste nel back office aveva **un filtro per stato e
+basta**, e il server ne restituisce al massimo **200** (`.limit(200)` in
+`richieste/index.ts`).
+
+Finché le richieste sono sei si scorre a occhio. Alla duecentunesima, quella
+del signore di tre settimane fa **non si trova più**, e sembra che non
+esista.
+
+Il caso vero: il tassista sposta la partenza **dopo** che l'ospite ha già
+ricevuto la conferma, e la reception deve ritrovare quella richiesta per
+correggerla — sapendo il cognome, o l'email, o il giorno dell'arrivo.
+
+L'asimmetria è la spia, di nuovo: l'elenco dei **buoni** una ricerca ce
+l'aveva già (`filtroRicercaBuoni`). Quello delle richieste no.
+
+### Cosa si fa
+
+Un campo di ricerca accanto al filtro di stato, che cerca in **numero, nome,
+email e telefono** — e, quando il testo *è* una data, anche nel **giorno del
+servizio**.
+
+**La ricerca sta sul server, non nella pagina.** Filtrare le 200 righe già
+caricate darebbe una risposta che *sembra* completa e non lo è: il modo
+peggiore di sbagliare, perché nessuno va a controllare.
+
+**«20/08/2026» diventa `2026-08-20`.** In reception si scrive così, e anche
+«20 agosto». Dentro `dati` il giorno è ISO: senza traduzione la ricerca per
+giorno non troverebbe mai niente, e nessuno capirebbe perché. Quello che non è
+una data non diventa una data — il 32 agosto e il 99/99 restano testo.
+
+**Un freno di 350 ms prima di chiedere.** Senza, ogni lettera sarebbe una
+chiamata, e le risposte tornerebbero fuori ordine: l'elenco mostrerebbe i
+risultati di «Reng» dopo quelli di «Renga».
+
+### La protezione, e la copia forzata
+
+Il testo lo digita una persona: nomi con l'apostrofo, email incollate. La
+grammatica `or()` di PostgREST usa virgola e parentesi, e senza schermo quei
+caratteri verrebbero **letti come sintassi** invece che cercati.
+
+La protezione è **ricopiata** da `buoni/ricerca.ts`, e non per pigrizia:
+`strumenti/pubblica.js` manda alla Management API soltanto i file della
+cartella della funzione, quindi `richieste/` non *può* importare da `buoni/`.
+
+Il deploy non può tenere insieme le due copie. Una **prova** sì:
+`ricerca.test.ts` importa tutte e due le funzioni e pretende che sfuggano ogni
+carattere allo stesso modo. Il giorno che una cambia senza l'altra, la prova
+diventa rossa.
+
+---
+
 ## Le prove, e il difetto che ognuna presidia
 
 | prova | il difetto che presidia |
@@ -208,6 +311,13 @@ dove stare. È esattamente la logica che il back office ha già in
 | il valore vecchio resta leggibile togliendo gli stili | il programma di posta che butta via lo sbarrato |
 | una differenza su un campo non disegnato finisce nel riquadro in coda | una modifica che sparisce del tutto |
 | senza la spunta non compare niente, nemmeno con differenze vere | la scelta dell'operatore scavalcata |
+| dove il listino tace non si propone nessuna cifra | una cifra inventata dal sistema si legge come verificata |
+| a tre persone navetta e privato propongono la stessa cifra | la coincidenza da cui nasce tutto, messa nero su bianco |
+| col ritorno il totale raddoppia | il listino e a tratta: mezzo prezzo all autista |
+| il prezzo esce in euro, mai in centesimi | 13500 letto come tredicimila |
+| la protezione della ricerca e identica a quella dei buoni | due copie che divergono, e un nome con l apostrofo letto come sintassi |
+| «20/08/2026» e «20 agosto» diventano la data ISO | la ricerca per giorno che non trova mai niente, senza dire perche |
+| cercando un nome non si frugano le date | una ricerca che allarga i risultati a righe che non c entrano |
 
 ---
 

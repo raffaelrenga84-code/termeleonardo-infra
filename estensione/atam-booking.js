@@ -19,8 +19,8 @@
 
    REGOLE DI SICUREZZA, le stesse di fidra-booking.js:
    - non preme MAI Prenota: l'ultimo clic e' dell'operatore
-   - non sceglie MAI cio' che la richiesta non dice (individuale o
-     collettivo, il pagamento): restano come li trova
+   - non sceglie MAI cio' che la richiesta non dice (il pagamento):
+     resta come lo trova
    - dopo aver compilato rilegge il modulo e dichiara l'esito
    ============================================================ */
 
@@ -91,6 +91,21 @@
       if (r) { r.click(); esiti.verso = r.checked; } else esiti.verso = false;
     }
 
+    /* INDIVIDUALE O COLLETTIVO. Fino al 18 agosto 2026 questi due pallini
+       restavano in bianco, e il commento diceva «la richiesta non lo dice,
+       sceglierlo sarebbe indovinare». Adesso la richiesta lo dice: il modulo
+       del sito chiede se serve l'auto privata o la navetta condivisa, e
+       `datiATAM()` porta sempre un booleano vero — mai `undefined`.
+
+       Stesso meccanismo di is_arrivo: i valori sono le stringhe True e
+       False, e True vuol dire collettivo. */
+    if (d.collettivo !== undefined) {
+      const cercato = d.collettivo ? 'True' : 'False';
+      const r = [...document.querySelectorAll('input[name="is_collettivo"]')]
+        .find((x) => x.value === cercato);
+      if (r) { r.click(); esiti.collettivo = r.checked; } else esiti.collettivo = false;
+    }
+
     /* IL LUOGO. Si cerca per testo, ma il confronto ESATTO non basta:
        `option.text` comprime i doppi spazi, e mezzo elenco dei tassisti
        ne ha uno dentro — «Venezia  aeroporto», «Terme  Euganee FS».
@@ -121,8 +136,11 @@
     /* Cosa NON si tocca, di proposito:
        · pagamento — resta come lo trova (il loro predefinito e' Diretto,
          che e' anche il nostro caso normale: «pagamento diretto all'autista»)
-       · is_collettivo — la richiesta non lo dice, sceglierlo sarebbe indovinare
-       · Prenota — l'ultimo clic e' dell'operatore */
+       · Prenota — l'ultimo clic e' dell'operatore
+
+       is_collettivo NON e' piu' in questo elenco: dal 18 agosto 2026 il
+       modulo del sito chiede se serve l'auto privata o la navetta
+       condivisa, e la richiesta lo dice. */
     return esiti;
   }
 
@@ -159,6 +177,7 @@
       ${riga('Data', esc(esiti.dataValore || d.data), esiti.data)}
       ${riga('Ora', esc(d.ora), esiti.ora)}
       ${riga('Pax', esc(d.pax), esiti.pax)}
+      ${riga('Servizio', d.collettivo ? 'Navetta condivisa' : 'Auto privata', esiti.collettivo)}
       ${riga(d.verso === 'partenza' ? 'Partenza per' : 'Arrivo da', esc(esiti.luogoTesto || d.luogo), esiti.luogo)}
       ${riga('Nome del cliente', esc(d.nome), esiti.nome)}
       ${d.camera ? riga('Numero di camera', esc(d.camera), esiti.camera) : ''}
@@ -169,8 +188,7 @@
         «${esc(esiti.luogoTesto || d.luogo)}» non è nell'elenco dei tassisti: scegli tu la voce
         giusta dalla tendina.</div>` : ''}
       <div style="margin-top:9px;padding:7px 9px;background:#F4F1EA;font-size:12px;color:#55524B;">
-        <strong>Pagamento</strong> e <strong>individuale/collettivo</strong> non li tocco: la
-        richiesta non li dice.<br />
+        <strong>Il pagamento</strong> non lo tocco: la richiesta non lo dice.<br />
         <strong>Prenota lo premi tu</strong>, dopo aver riletto.
       </div>
       ${mancano.length ? `<div style="margin-top:8px;font-size:12px;color:#7A2E24;">

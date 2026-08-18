@@ -149,6 +149,10 @@ import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, cate
    mai `./date.js` o `../comune/date.js`. Vedi il commento in date.js. */
 import { attivaDate } from '/comune/date.js';
 import { vociATAM, riepilogoATAM, indirizzoATAM } from '/comune/atam.js';
+/* Il listino dei transfer: PROPONE una cifra, non la decide. La conferma
+   umana e' quello che rende onesto il prezzo che arriva all'ospite — vedi
+   la nota in cima a listino-transfer.js. */
+import { prezzoTransfer } from '/comune/listino-transfer.js';
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -1109,7 +1113,55 @@ function campiTransfer(r) {
         <input type="checkbox" id="cRitorno" ${d.ritorno ? 'checked' : ''}
           style="width:auto;margin:0;" /> serve anche il ritorno</label>${avevaChiesto(r, 'Ritorno incluso')}</div>
     </div>
+    <div class="due">
+      <div><label>Servizio</label><select id="cCollettivo">
+        <option value="no" ${d.collettivo ? '' : 'selected'}>Auto privata (individuale)</option>
+        <option value="si" ${d.collettivo ? 'selected' : ''}>Navetta condivisa (collettivo)</option>
+      </select>${avevaChiesto(r, 'Servizio')}</div>
+      <!-- IL PREZZO. Prima si scriveva a mano dentro il messaggio libero, e
+           chi se ne dimenticava mandava una conferma senza cifra. Qui arriva
+           gia' proposto dal listino, e chi conferma lo guarda: e' quella
+           occhiata a renderlo onesto. Dove il listino tace resta vuoto —
+           una cifra inventata dal sistema si legge come verificata. -->
+      <div><label>Prezzo da confermare (€)</label>
+        <input type="number" id="cPrezzo" step="0.01" min="0"
+          value="${d.prezzo_cent != null ? (d.prezzo_cent / 100).toFixed(2) : ''}" />
+        <div class="mini" id="cPrezzoNota"></div>${avevaChiesto(r, 'Prezzo')}</div>
+    </div>
     <label>Note</label><textarea id="cNote">${esc(d.note || '')}</textarea>${avevaChiesto(r, 'Note')}`;
+}
+
+/* La proposta del listino, ricalcolata dai campi come stanno adesso: se
+   l'operatore cambia meta, passeggeri, servizio o ritorno, la cifra
+   proposta cambia con loro.
+
+   Il campo si aggiorna da solo SOLO se contiene ancora quello che avevamo
+   proposto noi: se l'operatore ha scritto una cifra sua, non si tocca. E'
+   lo stesso criterio della data che segue il verso nel modulo pubblico. */
+let prezzoNostro = null;
+
+function aggiornaPrezzoTransfer() {
+  if (!$('cPrezzo')) return;
+  const proposta = prezzoTransfer({
+    luogo: $('cLuogo').value,
+    pax: Number($('cPax').value || 1),
+    collettivo: $('cCollettivo').value === 'si',
+    ritorno: $('cRitorno').checked,
+  });
+  const campo = $('cPrezzo');
+  if (!proposta) {
+    $('cPrezzoNota').textContent = 'Il listino non copre questa destinazione: scrivi tu la cifra.';
+    return;
+  }
+  const tratta = (proposta.trattaCent / 100).toFixed(2);
+  const totale = (proposta.totaleCent / 100).toFixed(2);
+  $('cPrezzoNota').textContent = proposta.corse === 2
+    ? `Listino: ${tratta} € a tratta × 2 corse = ${totale} €`
+    : `Listino: ${tratta} € a tratta`;
+  if (campo.value === '' || campo.value === prezzoNostro) {
+    campo.value = totale;
+    prezzoNostro = totale;
+  }
 }
 
 function campiGreenfee(r) {
@@ -1207,6 +1259,13 @@ function datiCorretti(r) {
       pax: Number($('cPax').value || 1), verso: $('cVerso').value,
       luogo: $('cLuogo').value, volo: $('cVolo').value,
       ritorno: $('cRitorno').checked, note: $('cNote').value,
+      collettivo: $('cCollettivo').value === 'si',
+      /* euro a schermo, centesimi nel dato: e' il trabocchetto gia' pagato
+         in email-richiesta.ts e differenze.ts. Vuoto resta null e non zero —
+         «non c'e' un prezzo» e «e' gratis» sono due cose diverse. */
+      prezzo_cent: $('cPrezzo').value === ''
+        ? null
+        : Math.round(Number($('cPrezzo').value) * 100),
     };
     case 'greenfee': return {
       ...base,
@@ -1384,6 +1443,14 @@ async function vistaRichieste() {
         <option value="risposta">Con risposta data</option>
         <option value="chiusa">Chiuse</option>
       </select></div>
+      <!-- LA RICERCA. Il server ne restituisce al massimo 200: con sei
+           richieste si scorre a occhio, alla duecentunesima quella del
+           signore di tre settimane fa non si trova piu'. Il caso vero e' il
+           tassista che sposta la partenza dopo la conferma. Cerca sul
+           SERVER (ricerca.ts), non fra le righe gia' caricate: filtrare
+           quelle darebbe una risposta che sembra completa e non lo e'. -->
+      <div><label>Cerca</label>
+        <input id="rCerca" type="search" placeholder="cognome, email, telefono, numero o giorno" /></div>
     </div>
     <div class="esito" id="rEsito">Carico…</div>
     <div class="mini" style="padding-bottom:6px;">Clicca una richiesta per vedere tutto,
@@ -1396,7 +1463,7 @@ async function vistaRichieste() {
     $('rEsito').textContent = 'Carico…';
     $('rDettaglio').innerHTML = '';
     try {
-      const j = await chiama(`?a=elenco&stato=${encodeURIComponent($('rStato').value)}`,
+      const j = await chiama(`?a=elenco&stato=${encodeURIComponent($('rStato').value)}&cerca=${encodeURIComponent($('rCerca').value.trim())}`,
         {}, FUNZIONE_RICHIESTE);
       CARICATE = j.richieste || [];
       $('rEsito').textContent = CARICATE.length
@@ -1421,6 +1488,16 @@ async function vistaRichieste() {
              aperta: riattivarlo in questo punto, non solo al primo
              caricamento della pagina. */
           attivaDate($('rDettaglio'));
+
+          /* Il prezzo proposto dal listino, subito e a ogni cambiamento dei
+             campi che lo determinano: meta, passeggeri, servizio, ritorno.
+             Senza il primo giro la cifra comparirebbe solo dopo che
+             l'operatore ha toccato qualcosa. */
+          prezzoNostro = null;
+          aggiornaPrezzoTransfer();
+          for (const id of ['cLuogo', 'cPax', 'cCollettivo', 'cRitorno']) {
+            if ($(id)) $(id).addEventListener('change', aggiornaPrezzoTransfer);
+          }
 
           /* un pulsante per riga: si copia il valore, mai l'etichetta */
           for (const b of $('rDettaglio').querySelectorAll('button.copiaVoce')) {
@@ -1503,6 +1580,18 @@ async function vistaRichieste() {
     } catch (e) { $('rEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
   };
   $('rStato').onchange = carica;
+  /* Un freno prima di chiedere: senza, ogni lettera digitata sarebbe una
+     chiamata al server, e le risposte tornerebbero fuori ordine — l'elenco
+     finirebbe per mostrare i risultati di «Reng» dopo quelli di «Renga».
+     Invio cerca subito, per chi ha gia' finito di scrivere. */
+  let attesa;
+  $('rCerca').addEventListener('input', () => {
+    clearTimeout(attesa);
+    attesa = setTimeout(carica, 350);
+  });
+  $('rCerca').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { clearTimeout(attesa); carica(); }
+  });
   carica();
 }
 

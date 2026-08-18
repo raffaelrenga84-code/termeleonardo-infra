@@ -123,6 +123,10 @@ import { oggiISO, attivaDate } from '/comune/date.js';
    a `esc()` qui sotto, come per ogni altro campo di questa pagina). */
 import { normalizzaLingua, parametriOspite } from '/comune/ospite-url.js';
 import { mancanti, segnaEtichette, segnaVuoti, nomiMancanti } from '/comune/obbligatori.js';
+/* La regola della navetta condivisa: quando si offre e cosa dice. Sta in un
+   modulo suo perche' e' fatta dei numeri del listino, non di grafica, ed e'
+   la parte che si prova da sola — vedi navetta.test.ts. */
+import { navetta } from '/comune/navetta.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 
@@ -164,6 +168,10 @@ const T = {
     quando:'Giorno', ora:'Ora', pax:'Passeggeri',
     volo:'Volo o treno (facoltativo)', voloPh:'es. FR1234',
     ritorno:'Mi serve anche il ritorno',
+    servizio:'Il servizio', privata:'Auto solo per lei', privataSotto:'va diritto in hotel',
+    navetta:'Navetta condivisa',
+    navettaCostaMeno:'si divide l’auto con altri ospiti, e costa meno',
+    navettaStessoPrezzo:'si divide l’auto con altri ospiti; a tre persone costa come il taxi privato',
     chi:'I suoi dati', guidaChi:'Ci servono per confermarle la corsa.',
     nome:'Nome e cognome', email:'Email', tel:'Telefono',
     note:'Note (facoltative)', notePh:'Bagagli ingombranti, seggiolino per bambini, altro…',
@@ -186,6 +194,10 @@ const T = {
     quando:'Tag', ora:'Uhrzeit', pax:'Personen',
     volo:'Flug oder Zug (optional)', voloPh:'z. B. FR1234',
     ritorno:'Ich brauche auch die Rückfahrt',
+    servizio:'Der Service', privata:'Wagen nur für Sie', privataSotto:'direkt zum Hotel',
+    navetta:'Sammeltransfer',
+    navettaCostaMeno:'Sie teilen den Wagen mit anderen Gästen und zahlen weniger',
+    navettaStessoPrezzo:'Sie teilen den Wagen mit anderen Gästen; zu dritt kostet er gleich viel wie das Privattaxi',
     chi:'Ihre Daten', guidaChi:'Wir brauchen sie für die Bestätigung.',
     nome:'Vor- und Nachname', email:'E-Mail', tel:'Telefon',
     note:'Anmerkungen (optional)', notePh:'Sperriges Gepäck, Kindersitz, Sonstiges…',
@@ -208,6 +220,10 @@ const T = {
     quando:'Day', ora:'Time', pax:'Passengers',
     volo:'Flight or train (optional)', voloPh:'e.g. FR1234',
     ritorno:'I also need the return trip',
+    servizio:'The service', privata:'A car just for you', privataSotto:'straight to the hotel',
+    navetta:'Shared shuttle',
+    navettaCostaMeno:'you share the car with other guests, and it costs less',
+    navettaStessoPrezzo:'you share the car with other guests; for three people it costs the same as the private taxi',
     chi:'Your details', guidaChi:'We need them to confirm the ride.',
     nome:'Full name', email:'Email', tel:'Phone',
     note:'Notes (optional)', notePh:'Bulky luggage, child seat, anything else…',
@@ -230,6 +246,10 @@ const T = {
     quando:'Jour', ora:'Heure', pax:'Passagers',
     volo:'Vol ou train (facultatif)', voloPh:'ex. FR1234',
     ritorno:'J’ai aussi besoin du retour',
+    servizio:'Le service', privata:'Une voiture pour vous seul', privataSotto:'directement à l’hôtel',
+    navetta:'Navette partagée',
+    navettaCostaMeno:'vous partagez la voiture avec d’autres clients, et cela coûte moins cher',
+    navettaStessoPrezzo:'vous partagez la voiture avec d’autres clients ; à trois, le prix est le même que le taxi privé',
     chi:'Vos coordonnées', guidaChi:'Elles nous servent pour la confirmation.',
     nome:'Nom et prénom', email:'E-mail', tel:'Téléphone',
     note:'Remarques (facultatif)', notePh:'Bagages encombrants, siège enfant, autre…',
@@ -246,6 +266,10 @@ const T = {
 const BANDIERE = { it:'🇮🇹', de:'🇩🇪', en:'🇬🇧', fr:'🇫🇷' };
 
 let VERSO = 'arrivo';
+/* Auto privata o navetta condivisa. Parte da privata: e' quello che
+   succedeva prima che la scelta esistesse, e chi non guarda deve continuare
+   a ottenere il servizio di sempre. */
+let COLLETTIVO = false;
 
 /* La data della corsa secondo il verso: il transfer di ARRIVO cade il
    giorno del check-in, quello di PARTENZA il giorno del check-out. I due
@@ -509,6 +533,22 @@ function modulo() {
           <input type="text" id="fVolo" placeholder="${esc(t.voloPh)}" /></div>
       </div>
 
+      <!-- LA NAVETTA CONDIVISA. Compare solo dove conviene davvero: la regola
+           sta in /comune/navetta.js, che conosce il listino. Qui c'e' solo il
+           disegno. Sta dopo i passeggeri perche' e' li' che si sa tutto quello
+           che serve per deciderlo — meta, quante persone, quando. -->
+      <div id="boxServizio" style="display:none;">
+        <label>${esc(t.servizio)}</label>
+        <div class="scelte">
+          <button type="button" id="bPrivata" class="attivo">
+            <strong>${esc(t.privata)}</strong>
+            <div style="font-weight:400;font-size:12.5px;">${esc(t.privataSotto)}</div></button>
+          <button type="button" id="bNavetta">
+            <strong>${esc(t.navetta)}</strong>
+            <div style="font-weight:400;font-size:12.5px;" id="navettaNota"></div></button>
+        </div>
+      </div>
+
       <label class="spunta"><input type="checkbox" id="fRitorno" />
         <span>${esc(t.ritorno)}</span></label>
     </div>
@@ -592,6 +632,36 @@ function modulo() {
     }
   });
 
+  /* LA NAVETTA. Si ricalcola a ogni cambiamento di meta, passeggeri,
+     giorno e ora, perche' tutti e quattro entrano nella regola.
+
+     SE LE CONDIZIONI CADONO LA SCELTA TORNA A PRIVATA: l'ospite sceglie la
+     navetta in tre, poi diventano quattro e il pulsante sparisce — senza
+     questo azzeramento la richiesta viaggerebbe marcata «condivisa» con una
+     scelta che lui non ha piu' davanti agli occhi. */
+  const aggiornaNavetta = () => {
+    const n = navetta({
+      luogo: $('fLuogo').value, pax: $('fPax').value,
+      quando: $('fQuando').value, ora: $('fOra').value,
+    }, new Date());
+    $('boxServizio').style.display = n ? 'block' : 'none';
+    if (!n) { COLLETTIVO = false; }
+    else {
+      $('navettaNota').textContent =
+        n.nota === 'stessoPrezzo' ? t.navettaStessoPrezzo : t.navettaCostaMeno;
+    }
+    $('bPrivata').classList.toggle('attivo', !COLLETTIVO);
+    $('bNavetta').classList.toggle('attivo', COLLETTIVO);
+  };
+  const scegliServizio = (c) => { COLLETTIVO = c; aggiornaNavetta(); };
+  $('bPrivata').onclick = () => scegliServizio(false);
+  $('bNavetta').onclick = () => scegliServizio(true);
+  for (const id of ['fLuogo', 'fPax', 'fQuando', 'fOra']) {
+    $(id).addEventListener('change', aggiornaNavetta);
+    $(id).addEventListener('input', aggiornaNavetta);
+  }
+  $('mete').addEventListener('click', aggiornaNavetta);
+
   /* le etichette dei gruppi si traducono qui: nel modello sono segnaposto */
   for (const g of $('fLuogo').querySelectorAll('optgroup')) {
     if (g.label === '__COMUNI__') g.label = t.comuni;
@@ -632,6 +702,10 @@ function modulo() {
   /* #fQuando e' ricreato qui a ogni disegno di modulo(): riattivarlo in
      questo punto, non solo al primo caricamento. */
   attivaDate();
+
+  /* chi arriva dall'email della reception ha gia' meta e date nell'indirizzo:
+     la navetta deve essere gia' al posto giusto, non comparire al primo tocco */
+  aggiornaNavetta();
 }
 
 async function invia() {
@@ -676,7 +750,7 @@ async function invia() {
         lingua: LNG, token: TOKEN, origine: location.href,
         dati: {
           quando: v('fQuando'), ora: v('fOra'), pax: Number(v('fPax') || 2),
-          verso: VERSO, luogo: v('fLuogo'), volo: v('fVolo'),
+          verso: VERSO, luogo: v('fLuogo'), volo: v('fVolo'), collettivo: COLLETTIVO,
           ritorno: $('fRitorno').checked, note: v('fNote'),
         },
       }),

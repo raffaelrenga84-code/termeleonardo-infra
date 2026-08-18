@@ -91,7 +91,7 @@ const COLONNE_RICERCA = [
    mangiato da PostgREST, uno per Postgres), ma applicata al backslash
    stesso, che per Postgres segue la sua propria regola («per matchare
    l'escape, scrivilo doppio»): due backslash raddoppiati, quattro. */
-function sfuggiValoreRicerca(testo: string): string {
+export function sfuggiValoreRicerca(testo: string): string {
   const bs = (n: number) => '\\'.repeat(n);
   return testo
     .replace(/\\/g, bs(4))          // backslash letterale: quattro, per primo (vedi sopra)

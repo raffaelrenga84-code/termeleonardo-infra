@@ -86,9 +86,29 @@ function validaTransfer(d: Record<string, unknown>, oggi: Date): Esito {
   const note = testo(d.note);
   if (note.length > 2000) return { errore: 'note troppo lunghe' };
 
+  /* IL PREZZO NON LO SCRIVE L'OSPITE: lo conferma la reception prima di
+     mandare la conferma, e finisce nell'email come cifra da dare
+     all'autista. Sta qui perche' `?a=conferma` rivalida i dati con queste
+     stesse regole: un campo non previsto verrebbe scartato in silenzio, e
+     il prezzo sparirebbe fra il «conferma» e l'email, senza un errore.
+
+     Assente resta `null` e non 0: «non c'e' un prezzo» e «e' gratis» sono
+     due cose diverse, e la conferma deve poterle distinguere. */
+  let prezzoCent: number | null = null;
+  if (d.prezzo_cent !== undefined && d.prezzo_cent !== null && d.prezzo_cent !== '') {
+    prezzoCent = intero(d.prezzo_cent, 0, 200000);
+    if (prezzoCent === null) return { errore: 'prezzo non valido' };
+  }
+
   return {
     dati: {
       quando: data.valore, ora: o.valore, pax, verso,
+      /* auto privata o navetta condivisa: lo sceglie l'ospite nel modulo, e
+         l'estensione ci riempie is_collettivo su atam.biz. Sempre un
+         booleano vero, mai assente: l'assenza tornerebbe a essere
+         «indovina», che e' il difetto da cui nasce questo campo. */
+      collettivo: d.collettivo === true,
+      prezzo_cent: prezzoCent,
       luogo: testo(d.luogo), volo, ritorno: d.ritorno === true, note,
     },
   };

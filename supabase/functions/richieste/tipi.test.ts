@@ -1,7 +1,7 @@
 /* Test della validazione per tipo di richiesta.
    La data di riferimento arriva da fuori: legata a new Date() questi test
    comincerebbero a fallire da soli col passare del tempo. */
-import { assertEquals, assertNotEquals } from 'jsr:@std/assert';
+import { assert, assertEquals, assertNotEquals } from 'jsr:@std/assert';
 import { TIPI_ATTIVI, validaDati } from './tipi.ts';
 import { CAMERE } from './camere.ts';
 
@@ -380,4 +380,46 @@ Deno.test('lo switch di validaDati e TIPI_ATTIVI dicono gli stessi tipi, nessuno
     [...TIPI_ATTIVI].sort(),
     'un tipo e stato aggiunto o tolto in un posto solo: l elenco dichiarato e quello vero divergono',
   );
+});
+
+/* ============================================================
+   TRANSFER: IL SERVIZIO E IL PREZZO CONFERMATO.
+
+   `collettivo` lo sceglie l'ospite nel modulo (auto privata o navetta
+   condivisa) e serve all'estensione per riempire is_collettivo su
+   atam.biz. `prezzo_cent` non lo scrive l'ospite: lo conferma la
+   reception, e finisce nella conferma come cifra da dare all'autista.
+
+   IL DIFETTO CHE PRESIDIA: `?a=conferma` rivalida i dati con queste stesse
+   regole. Un campo non previsto qui verrebbe scartato in silenzio al primo
+   salvataggio — la reception conferma il prezzo, preme invia, e il prezzo
+   sparisce senza un errore.
+   ============================================================ */
+Deno.test('il transfer conserva la scelta fra auto privata e navetta', () => {
+  const v = validaDati('transfer', { ...transfer, collettivo: true }, OGGI);
+  assertEquals(v.errore, undefined);
+  assertEquals(v.dati?.collettivo, true);
+});
+
+Deno.test('senza la scelta il transfer vale come auto privata', () => {
+  const v = validaDati('transfer', { ...transfer }, OGGI);
+  assertEquals(v.dati?.collettivo, false);
+});
+
+Deno.test('il prezzo confermato dalla reception sopravvive alla validazione', () => {
+  const v = validaDati('transfer', { ...transfer, prezzo_cent: 13500 }, OGGI);
+  assertEquals(v.errore, undefined);
+  assertEquals(v.dati?.prezzo_cent, 13500);
+});
+
+/* Senza prezzo la conferma non deve mostrarne uno: `null` dice «non c'e'»,
+   uno zero direbbe «gratis». */
+Deno.test('senza prezzo il campo e nullo, non zero', () => {
+  assertEquals(validaDati('transfer', { ...transfer }, OGGI).dati?.prezzo_cent, null);
+});
+
+Deno.test('un prezzo assurdo o non intero viene respinto', () => {
+  for (const p of [-100, 1.5, 1e9, 'centoventi']) {
+    assert(validaDati('transfer', { ...transfer, prezzo_cent: p }, OGGI).errore, `passato: ${p}`);
+  }
 });
