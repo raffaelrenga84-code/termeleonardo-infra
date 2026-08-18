@@ -49,7 +49,7 @@ import { daAvvisare, type RigaBuono } from './promemoria.ts';
 import { datiStampa } from './stampa.ts';
 import { generaPngQR } from './qr.js';
 import { filtroRicercaBuoni } from './ricerca.ts';
-import { buonoDellaSpa, ruoloDi, vedeIBuoni } from './ruoli.ts';
+import { buonoDellaSpa, puoScrivereBuoni, ruoloDi, vedeIBuoni } from './ruoli.ts';
 import { dataConsenso } from './consenso.ts';
 
 const CORS = {
@@ -697,6 +697,10 @@ Deno.serve(async (req) => {
   const CON_CHIAVE = acc.utente === null;
   const RUOLO = CON_CHIAVE ? null : ruoloDi(acc.utente?.email);
   const VISTA = CON_CHIAVE ? 'tutti' : vedeIBuoni(RUOLO);
+  /* SCRIVERE non e' LEGGERE. La spa riscuote i buoni che le portano al
+     banco, ma non ne emette: deciso dalla proprieta' il 18 agosto 2026.
+     La chiave condivisa dell'estensione resta fuori dal blocco. */
+  const PUO_SCRIVERE = CON_CHIAVE || puoScrivereBuoni(RUOLO);
   const puoVedere = (b: Record<string, unknown> | null | undefined) =>
     VISTA === 'tutti' ? true : (VISTA === 'solo spa' ? buonoDellaSpa(b) : false);
 
@@ -736,6 +740,9 @@ Deno.serve(async (req) => {
   catch { return risposta({ errore: 'corpo non leggibile' }, 400); }
 
   if (azione === 'crea') {
+    /* emettere, incassare e rimandare il link riguardano il denaro: non
+       sono gesti della spa */
+    if (!PUO_SCRIVERE) return risposta({ errore: 'non autorizzato' }, 403);
     const valore = Number(b.valore);
     if (!b.descrizione || !isFinite(valore) || valore <= 0)
       return risposta({ errore: 'servono descrizione e valore' }, 400);
@@ -805,6 +812,9 @@ Deno.serve(async (req) => {
 
   /* ---------- l'incasso è arrivato: si emette il codice ---------- */
   if (azione === 'pagato') {
+    /* emettere, incassare e rimandare il link riguardano il denaro: non
+       sono gesti della spa */
+    if (!PUO_SCRIVERE) return risposta({ errore: 'non autorizzato' }, 403);
     const numero = String(b.numero || '').toUpperCase().trim();
     if (!numero) return risposta({ errore: 'numero mancante' }, 400);
     const { data: esistente } = await db.from('buono_regalo')
@@ -825,6 +835,9 @@ Deno.serve(async (req) => {
 
   /* ---------- prepara il link di pagamento per un buono in attesa ---------- */
   if (azione === 'link') {
+    /* emettere, incassare e rimandare il link riguardano il denaro: non
+       sono gesti della spa */
+    if (!PUO_SCRIVERE) return risposta({ errore: 'non autorizzato' }, 403);
     const numero = String(b.numero || '').toUpperCase().trim();
     const { data: buono } = await db.from('buono_regalo')
       .select('numero, descrizione, valore, stato, acquirente_email').eq('numero', numero).maybeSingle();

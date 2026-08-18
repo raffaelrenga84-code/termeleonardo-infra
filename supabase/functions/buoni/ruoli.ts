@@ -100,3 +100,16 @@ export function vedeIBuoni(ruolo: Ruolo | null): Vista {
   if (!ruolo) return 'nessuno';
   return ruolo === 'spa' ? 'solo spa' : 'tutti';
 }
+
+/* CHI SCRIVE I BUONI. Deciso dalla proprietà il 18 agosto 2026: la spa no.
+
+   Emettere un buono, segnarlo pagato e rimandare il link sono gesti che
+   riguardano il denaro incassato e chi l'ha versato: stanno alla reception e
+   all'amministrazione.
+
+   LEGGERE E SCRIVERE NON SONO LO STESSO PERMESSO, ed è il punto. La spa deve
+   poter RISCUOTERE un buono che l'ospite le presenta al banco — altrimenti
+   non può servirlo — e questo non le dà il diritto di emetterne uno nuovo. */
+export function puoScrivereBuoni(ruolo: Ruolo | null): boolean {
+  return ruolo === 'reception' || ruolo === 'amministrazione';
+}

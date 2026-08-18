@@ -19,7 +19,7 @@
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { LISTINO } from './acquista.ts';
-import { buonoDellaSpa, FAMIGLIE_SPA, ruoloDi, vedeIBuoni } from './ruoli.ts';
+import { buonoDellaSpa, FAMIGLIE_SPA, puoScrivereBuoni, ruoloDi, vedeIBuoni } from './ruoli.ts';
 
 /* ---------- la guardia sul listino ---------- */
 
@@ -91,4 +91,31 @@ Deno.test('un estraneo e un indirizzo non previsto non hanno ruolo', () => {
 
 Deno.test('senza ruolo non si vede nessun buono', () => {
   assertEquals(vedeIBuoni(null), 'nessuno');
+});
+
+/* ============================================================
+   CHI SCRIVE I BUONI.
+
+   Deciso dalla proprieta' il 18 agosto 2026: la spa NON scrive buoni.
+   Emetterli, segnarli pagati e rimandare il link sono gesti da reception e
+   amministrazione — riguardano il denaro incassato e chi lo ha versato.
+
+   IL DIFETTO CHE PRESIDIA: leggere e scrivere non sono lo stesso permesso.
+   La spa deve poter riscuotere un buono che l'ospite le presenta al banco,
+   e questo non le da' il diritto di emetterne uno nuovo.
+   ============================================================ */
+Deno.test('solo reception e amministrazione scrivono buoni', () => {
+  assert(puoScrivereBuoni(ruoloDi('reception@termeleonardo.com')));
+  assert(puoScrivereBuoni(ruoloDi('amministrazione@termeleonardo.com')));
+  assertEquals(puoScrivereBuoni(ruoloDi('spa@termeleonardo.com')), false);
+});
+
+Deno.test('senza ruolo non si scrive niente', () => {
+  assertEquals(puoScrivereBuoni(null), false);
+});
+
+/* La spa LEGGE e RISCUOTE i suoi buoni: chiudere anche quello vorrebbe dire
+   non poter servire chi si presenta al banco col buono in mano. */
+Deno.test('la spa legge i suoi buoni anche se non li scrive', () => {
+  assertEquals(vedeIBuoni(ruoloDi('spa@termeleonardo.com')), 'solo spa');
 });
