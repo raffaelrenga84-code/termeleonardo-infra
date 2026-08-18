@@ -1,5 +1,5 @@
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { codiceDaUrl } from './buono-url.js';
+import { codiceDaUrl, normalizzaCodice } from './buono-url.js';
 import { differenzaBuono as dalServer } from '../../supabase/functions/richieste/differenza-buono.ts';
 import { coperturaBuono, differenzaBuono as dallaPagina } from './buono-url.js';
 import { TRATTAMENTI } from './trattamenti.js';
@@ -218,4 +218,44 @@ Deno.test('Day Spa piu massaggio: l ingresso resta fra le ignorate, ma niente e 
   }, TRATTAMENTI);
   assertEquals(c.ignorate, ['dayspa_fer']);
   assertEquals(c.sconosciute, []);
+});
+
+/* ============================================================
+   IL CODICE SCRITTO A MANO.
+
+   IL DIFETTO CHE PRESIDIA. Il foglio A4 stampa l'indirizzo SENZA il codice
+   — di proposito: e' un indirizzo che si digita da un foglio di carta, e
+   ogni carattere in piu' e' un carattere in piu' da sbagliare. Il modulo,
+   pero', leggeva il codice solo da `?buono=` nell'indirizzo. Le due
+   decisioni sono giuste ognuna per conto suo e insieme non lasciavano
+   nessuna strada: chi digitava l'indirizzo dal foglio arrivava su un modulo
+   che il suo buono non poteva accettarlo, compilava una richiesta normale, e
+   in reception non arrivava nessun segno del buono.
+
+   Da qui in poi il codice puo' anche essere scritto a mano, e passa dalla
+   STESSA ripulitura di quello che arriva dall'indirizzo: due ripuliture
+   diverse vorrebbero dire che un codice accettato per una via viene
+   rifiutato per l'altra.
+   ============================================================ */
+Deno.test('un codice scritto a mano si ripulisce come quello dell indirizzo', () => {
+  for (const grezzo of ['leo-abc-123', '  LEO-ABC-123  ', 'Leo-Abc-123']) {
+    assertEquals(normalizzaCodice(grezzo), 'LEO-ABC-123', grezzo);
+  }
+});
+
+Deno.test('a mano si scarta esattamente cio che si scarta dall indirizzo', () => {
+  /* la stessa lista dei casi rifiutati piu' sopra, senza il guscio `?buono=` */
+  for (const grezzo of ['', '   ', '<script>', 'A'.repeat(41), 'LEO ABC', 'LEO_ABC']) {
+    assertEquals(normalizzaCodice(grezzo), '', JSON.stringify(grezzo));
+  }
+});
+
+Deno.test('le due vie non possono divergere: codiceDaUrl usa la stessa regola', () => {
+  for (const grezzo of ['leo-abc-123', 'LEO-ABC-123', '<script>', 'A'.repeat(41), 'LEO_ABC', 'x']) {
+    assertEquals(
+      codiceDaUrl('?buono=' + encodeURIComponent(grezzo)),
+      normalizzaCodice(grezzo),
+      grezzo,
+    );
+  }
 });

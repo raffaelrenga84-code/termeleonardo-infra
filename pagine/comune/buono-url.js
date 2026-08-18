@@ -8,13 +8,21 @@
 
 const CODICE_MAX = 40;
 
-export function codiceDaUrl(ricerca) {
-  const v = new URLSearchParams(ricerca || '').get('buono') || '';
-  const pulito = v.trim().toUpperCase();
+/* Un codice, da qualunque parte arrivi: dall'indirizzo o scritto a mano nel
+   modulo. La ripulitura sta qui una volta sola perche' due ripuliture diverse
+   vorrebbero dire che un codice accettato per una via viene rifiutato per
+   l'altra — e chi digita dal foglio stampato non ha modo di capire perche'.
+   Restituisce '' per tutto cio' che un codice non e'. */
+export function normalizzaCodice(grezzo) {
+  const pulito = String(grezzo ?? '').trim().toUpperCase();
   /* solo lettere, cifre e trattini: il codice non contiene altro, e cosi'
      un tentativo di iniezione non arriva nemmeno al server */
   if (!pulito || pulito.length > CODICE_MAX || !/^[A-Z0-9-]+$/.test(pulito)) return '';
   return pulito;
+}
+
+export function codiceDaUrl(ricerca) {
+  return normalizzaCodice(new URLSearchParams(ricerca || '').get('buono') || '');
 }
 
 const numero = (v) => {

@@ -116,6 +116,19 @@ textarea{min-height:80px;resize:vertical;}
    Nessuna di queste regole tocca qualcosa che esiste gia': si applicano
    solo a elementi che nascono quando l'indirizzo porta un ?buono=. Senza
    quel parametro la pagina non ne disegna nessuno. */
+/* L'INVITO A USARE UN BUONO. Stessa famiglia del riquadro del buono vero —
+   il filo d'oro a sinistra — ma senza il suo peso: qui il buono non c'e'
+   ancora, c'e' solo la domanda. Il pulsante e' vuoto e non pieno, perche'
+   non e' l'azione della pagina: quella resta «Invia la richiesta». */
+.invitoBuono{border-left:4px solid var(--oro);}
+.invitoBuono .apri{width:100%;padding:13px 18px;border:1px solid var(--verde);
+  border-radius:999px;background:#fff;color:var(--verde);font:600 15px inherit;
+  cursor:pointer;white-space:nowrap;}
+.invitoBuono .apri:hover{background:var(--verde);color:var(--crema);}
+/* il campo del codice si legge lettera per lettera: chi lo confronta con un
+   foglio stampato deve poter dire se e' una O o uno zero */
+.invitoBuono #fBuonoCodice{font-family:"Courier New",monospace;letter-spacing:.5px;
+  text-transform:uppercase;}
 .buono{background:#fff;border:1px solid #E5E0D8;border-left:4px solid var(--oro);
   border-radius:10px;padding:15px 17px;margin-bottom:18px;}
 .buono .titBuono{font:600 15px inherit;color:var(--verde);margin:0;}
@@ -204,7 +217,7 @@ import { nomeCompleto, ORDINE_GRUPPI, prezzoTesto, SPIEGAZIONI, TRATTAMENTI } fr
    Deno, da qui non si importa): buono-url.test.ts confronta le due su
    ogni caso, cosi' una divergenza diventa rossa invece di far leggere
    all'ospite una cifra sulla pagina e sentirne un'altra alla cassa. */
-import { codiceDaUrl, coperturaBuono, differenzaBuono } from '/comune/buono-url.js';
+import { codiceDaUrl, normalizzaCodice, coperturaBuono, differenzaBuono } from '/comune/buono-url.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 /* i buoni stanno su un'altra funzione: ?a=verifica e' una LETTURA pubblica
@@ -359,6 +372,9 @@ const T = {
        detta nel momento in cui l'ospite sceglie, invece che al banco
        quando ormai e' un reclamo. */
     buono:{
+      invitoTit:'Ha un buono regalo?', invitoApri:'Usa il buono',
+      invitoGuida:'Inserisca il codice stampato sul buono: le mostriamo cosa comprende e cosa è già pagato.',
+      invitoVuoto:'Scriva il codice del buono, come è stampato.',
       titolo:'Il suo buono regalo', codice:'Codice del buono', comprende:'Comprende:',
       scade:(d)=>`Valido fino al ${d}`,
       puoInviare:'Può inviare la richiesta lo stesso: la controlliamo noi.',
@@ -434,6 +450,9 @@ const T = {
     note:'Anmerkungen (optional)', notePh:'Alles, was uns bei der Organisation hilft…',
     rifOfferta:(r)=>`Rif. offerta / Angebotsreferenz: ${r}`,
     buono:{
+      invitoTit:'Haben Sie einen Gutschein?', invitoApri:'Gutschein verwenden',
+      invitoGuida:'Geben Sie den aufgedruckten Code ein: wir zeigen Ihnen, was er umfasst und was bereits bezahlt ist.',
+      invitoVuoto:'Bitte geben Sie den Gutscheincode so ein, wie er aufgedruckt ist.',
       titolo:'Ihr Gutschein', codice:'Gutscheincode', comprende:'Enthält:',
       scade:(d)=>`Gültig bis ${d}`,
       puoInviare:'Sie können die Anfrage trotzdem senden: wir prüfen sie.',
@@ -499,6 +518,9 @@ const T = {
     note:'Notes (optional)', notePh:'Anything that helps us organise…',
     rifOfferta:(r)=>`Rif. offerta / Offer reference: ${r}`,
     buono:{
+      invitoTit:'Do you have a gift voucher?', invitoApri:'Use the voucher',
+      invitoGuida:'Enter the code printed on it: we will show what it covers and what is already paid.',
+      invitoVuoto:'Please type the voucher code exactly as printed.',
       titolo:'Your gift voucher', codice:'Voucher code', comprende:'Includes:',
       scade:(d)=>`Valid until ${d}`,
       puoInviare:'You can send the request anyway: we will check it.',
@@ -564,6 +586,9 @@ const T = {
     note:'Remarques (facultatif)', notePh:'Tout ce qui nous aide à organiser…',
     rifOfferta:(r)=>`Rif. offerta / Réf. offre : ${r}`,
     buono:{
+      invitoTit:'Vous avez un bon cadeau ?', invitoApri:'Utiliser le bon',
+      invitoGuida:'Saisissez le code inscrit sur le bon : nous vous montrons ce qu’il comprend et ce qui est déjà payé.',
+      invitoVuoto:'Saisissez le code du bon, tel qu’il est imprimé.',
       titolo:'Votre chèque-cadeau', codice:'Code du chèque', comprende:'Comprend :',
       scade:(d)=>`Valable jusqu’au ${d}`,
       puoInviare:'Vous pouvez envoyer la demande quand même : nous la vérifions.',
@@ -1021,6 +1046,48 @@ function messaggioBuonoKo(t) {
   return b.altro;
 }
 
+/* L'INVITO A USARE IL BUONO, per chi il codice ce l'ha ma non nell'indirizzo.
+
+   Il foglio A4 stampa l'indirizzo senza codice — di proposito: si digita da
+   un foglio di carta, e ogni carattere in piu' e' un carattere in piu' da
+   sbagliare. Prima di questo invito, chi lo digitava arrivava su un modulo
+   dove il buono non si poteva nominare.
+
+   Chi scrive il codice qui NON prende una seconda strada: si torna allo
+   stesso indirizzo con `?buono=` dentro, e da li' gira esattamente il codice
+   che gira gia' — verifica, riquadro, preselezione, note precompilate,
+   cambio lingua che si porta dietro il codice. Una ricarica in piu' costa
+   meno di due percorsi da tenere allineati. */
+function invitoBuono(t) {
+  if (CODICE_BUONO) return '';
+  return `
+    <div class="riquadro invitoBuono">
+      <h2>${esc(t.buono.invitoTit)}</h2>
+      <div class="guida">${esc(t.buono.invitoGuida)}</div>
+      <div class="due">
+        <div><label for="fBuonoCodice">${esc(t.buono.codice)}</label>
+          <input type="text" id="fBuonoCodice" autocomplete="off" spellcheck="false"
+            inputmode="latin" placeholder="LEO-XXXX-XXXX" /></div>
+        <div style="display:flex;align-items:flex-end;">
+          <button type="button" class="apri" id="bBuonoApri">${esc(t.buono.invitoApri)}</button></div>
+      </div>
+      <div id="esitoBuonoMano"></div>
+    </div>`;
+}
+
+/* Il campo accetta anche il codice incollato con dentro l'indirizzo intero
+   (succede: si copia il link dall'email invece del solo codice). */
+function apriColBuono(t) {
+  const scritto = $('fBuonoCodice').value;
+  const codice = normalizzaCodice(scritto) || codiceDaUrl((String(scritto).split('?')[1] || ''));
+  if (!codice) {
+    $('esitoBuonoMano').innerHTML = `<div class="errore">${esc(t.buono.invitoVuoto)}</div>`;
+    $('fBuonoCodice').focus();
+    return;
+  }
+  location.href = conParametro(location.href, 'buono', codice);
+}
+
 function riquadroBuono(t) {
   /* nessuna di queste vie d'uscita blocca l'invio — ma l'ospite non ha modo
      di saperlo, e chi si ferma davanti al riquadro rosso non ce lo viene a
@@ -1374,7 +1441,7 @@ function modulo() {
   const t = T[LNG];
   $('app').innerHTML = `
     <div class="avviso">${TIPO === 'dayspa' ? t.avvisoDayspa : t.avviso}</div>
-    ${riquadroBuono(t)}${OSPITE ? `<div class="noto">${esc(t.noto(OSPITE.nome || ''))}</div>` : ''}
+    ${riquadroBuono(t)}${invitoBuono(t)}${OSPITE ? `<div class="noto">${esc(t.noto(OSPITE.nome || ''))}</div>` : ''}
     <div class="riquadro">${campiTipo(t)}</div>
     <div class="riquadro">
       <h2>${esc(t.chi)}</h2><div class="guida">${esc(t.guidaChi)}</div>
@@ -1423,6 +1490,15 @@ function modulo() {
     }
   };
   $('bInvia').onclick = invia;
+  /* l'invito c'e' solo quando il codice non e' gia' nell'indirizzo */
+  if ($('bBuonoApri')) {
+    $('bBuonoApri').onclick = () => apriColBuono(t);
+    $('fBuonoCodice').addEventListener('keydown', (e) => {
+      /* Invio dentro un campo di testo: chi digita da un foglio finisce col
+         tasto Invio, non cercando il pulsante col mouse. */
+      if (e.key === 'Enter') { e.preventDefault(); apriColBuono(t); }
+    });
+  }
 
   /* i campi data (#fData o #fGiorno, secondo il tipo) sono ricreati qui a
      ogni disegno di modulo(): riattivarli in questo punto, non solo al
