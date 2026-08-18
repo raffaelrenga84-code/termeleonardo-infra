@@ -75,3 +75,24 @@ export function attivaDate(radice = document) {
   const p = radice.querySelector('#fPartenza');
   if (a && p) collegaArrivoPartenza(a, p);
 }
+
+/* IL PREAVVISO DEI TRATTAMENTI: 48 ore, decise dalla proprieta' il 18 agosto
+   2026. Un giorno e una fascia (mattina/pomeriggio) non permettono di
+   contare le ore, quindi il giorno del servizio deve cadere almeno DUE
+   giorni dopo oggi — mai meno di 24 ore reali, nel caso peggiore 48 piene.
+
+   ⚠ Lo stesso numero vive in supabase/functions/richieste/preavviso.ts, che
+   e' dove il server rifiuta: `strumenti/pubblica.js` manda alla Management
+   API solo i file della cartella della funzione, quindi quel modulo non puo'
+   importare questo. Le due copie sono tenute insieme da una prova
+   (preavviso-coerenza.test.ts): se una cambia senza l'altra, diventa rossa.
+
+   Il server e' l'unico che decide davvero. Questo serve a non far scegliere
+   all'ospite una data che verrebbe respinta dopo che ha compilato tutto. */
+export const PREAVVISO_GIORNI_TRATTAMENTI = 2;
+
+export function primoGiornoUtileTrattamenti(oggi = new Date()) {
+  let g = oggiISO(oggi);
+  for (let i = 0; i < PREAVVISO_GIORNI_TRATTAMENTI; i++) g = giornoDopo(g);
+  return g;
+}

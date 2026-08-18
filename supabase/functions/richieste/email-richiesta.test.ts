@@ -230,3 +230,39 @@ Deno.test('l avviso di un Day Spa porta la sua etichetta, non quella del soggior
 Deno.test('l avviso di un Day Spa per una persona sola si legge in italiano', () => {
   assertStringIncludes(richiestaHTML({ ...ingresso, persone: 1 } as never), '1 persona');
 });
+
+/* ============================================================
+   POCO PREAVVISO — il riquadro rosso.
+
+   Decisione della proprieta' del 18 agosto 2026: una richiesta di
+   trattamenti con meno di 48 ore NON si rifiuta. Bloccare vorrebbe dire
+   rifiutare al posto della reception una richiesta che lei accetterebbe, e
+   perdere insieme la vendita e l'informazione — chi viene respinto non
+   scrive piu'.
+
+   IL DIFETTO CHE PRESIDIA: se l'avviso lo legge solo l'ospite, in reception
+   quella richiesta arriva IDENTICA a una per il mese prossimo e finisce in
+   fondo alla casella come le altre. Ed e' la piu' urgente che ci sia.
+   ============================================================ */
+Deno.test('col poco preavviso il riquadro compare e dice di guardarla per prima', () => {
+  const h = richiestaHTML({ ...r, tipo: 'trattamenti', poco_preavviso: true } as never);
+  assertStringIncludes(h, 'Poco preavviso');
+  assertStringIncludes(h, 'per prima');
+  assertStringIncludes(h, '48 ore');
+});
+
+Deno.test('senza poco preavviso il riquadro non c e', () => {
+  const h = richiestaHTML({ ...r, tipo: 'trattamenti' } as never);
+  assert(!h.includes('Poco preavviso'), 'il riquadro non doveva comparire');
+  /* e nemmeno con un valore che non e' esattamente `true` */
+  const q = richiestaHTML({ ...r, tipo: 'trattamenti', poco_preavviso: 'si' } as never);
+  assert(!q.includes('Poco preavviso'), 'una stringa non e un booleano vero');
+});
+
+/* Il riquadro dice alla reception cosa abbiamo promesso all'ospite —
+   niente — perche' se poi lei promette altro le due cose divergono davanti
+   alla stessa persona. */
+Deno.test('il riquadro dichiara che all ospite non abbiamo promesso niente', () => {
+  const h = richiestaHTML({ ...r, tipo: 'trattamenti', poco_preavviso: true } as never);
+  assertStringIncludes(h, 'nessuna promessa');
+});

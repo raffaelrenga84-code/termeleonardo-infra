@@ -169,6 +169,22 @@ export function richiestaHTML(r: ConNumero): string {
   <div style="font-size:22px;color:#1B4D4A;margin-top:6px;font-family:Georgia,serif;">${esc(r.nome)}</div>
   <div style="font-size:12px;color:#9AA9A6;margin-top:3px;">${esc(r.numero)}</div>
 
+  <!-- POCO PREAVVISO: da guardare per prima. Senza questo riquadro una
+       richiesta per domani arriva identica a una per il mese prossimo, e
+       finisce in fondo alla casella come le altre.
+
+       NON È UN RIFIUTO: la decisione se accontentare l'ospite resta della
+       reception. Il modulo non blocca niente — bloccare vorrebbe dire
+       rifiutare al posto vostro una richiesta che accettereste, e perdere
+       insieme la vendita e l'informazione. -->
+  ${r.poco_preavviso === true ? `<div style="margin-top:14px;background:#FDF0EE;
+    border-left:4px solid #C0392B;padding:11px 14px;border-radius:6px;
+    font-size:14px;line-height:1.55;color:#7A2E24;">
+    <strong>Poco preavviso — da guardare per prima.</strong><br />
+    Chiede meno di 48 ore. All'ospite abbiamo scritto che faremo il possibile e
+    che le risponderemo al più presto: nient'altro, nessuna promessa.
+  </div>` : ''}
+
   <table cellpadding="0" cellspacing="0" border="0" width="100%"
     style="margin-top:20px;border-collapse:collapse;border-top:1px solid #E6E2D8;">
     ${(() => {

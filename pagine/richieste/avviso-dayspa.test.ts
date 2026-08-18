@@ -18,8 +18,13 @@ const LINGUE = 4;
 
 /* le frasi arrivano con gli apici tipografici dentro (’), quindi si prende
    tutto fino all'apice dritto che chiude la stringa JavaScript */
+/* La chiave si cerca INTERA, non come pezzo di un'altra: senza il confine
+   davanti, `frasi('avviso')` pescava anche `pocoPreavviso:'…'` — che contiene
+   la stringa `avviso:` dentro — e contava otto frasi dove ce ne sono quattro.
+   Trovato il 18 agosto 2026 aggiungendo proprio quella chiave. */
 const frasi = (chiave: string): string[] =>
-  [...SORGENTE.matchAll(new RegExp(`${chiave}:'([^']*(?:’[^']*)*)'`, 'g'))].map((m) => m[1]);
+  [...SORGENTE.matchAll(new RegExp(`(?<![A-Za-z])${chiave}:'([^']*(?:’[^']*)*)'`, 'g'))]
+    .map((m) => m[1]);
 
 /* La promessa, come e' scritta nelle quattro lingue. Si guarda la promessa
    intera e non la sola parola «ora»: la frase finisce con «di solito entro

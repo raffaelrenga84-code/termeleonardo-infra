@@ -541,3 +541,4 @@ export function buonoStampaHTML(b, bozza) {
   <div class="pieded">TERME LEONARDO &middot; ${s.rif} ${esc(b.numero || '')}</div>
 </div>`;
 }
+

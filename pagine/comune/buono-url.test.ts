@@ -1,5 +1,5 @@
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { codiceDaUrl, normalizzaCodice } from './buono-url.js';
+import { codiceDaUrl, contieneDaySpa, normalizzaCodice } from './buono-url.js';
 import { differenzaBuono as dalServer } from '../../supabase/functions/richieste/differenza-buono.ts';
 import { coperturaBuono, differenzaBuono as dallaPagina } from './buono-url.js';
 import { TRATTAMENTI } from './trattamenti.js';
@@ -258,4 +258,47 @@ Deno.test('le due vie non possono divergere: codiceDaUrl usa la stessa regola', 
       grezzo,
     );
   }
+});
+
+/* ============================================================
+   CONTIENE UN DAY SPA?
+
+   Domanda diversa da «dove si prenota». Su un buono MISTO — Day Spa piu' un
+   massaggio — moduloDelBuono() risponde `trattamenti`, perche' i massaggi si
+   devono poter spuntare; ma la piscina c'e' comunque, e la sua
+   disponibilita' va mostrata.
+
+   IL DIFETTO CHE PRESIDIA: senza questa distinzione chi ha un buono misto
+   prenota alla cieca sulla piscina. E se la piscina e' piena, il massaggio
+   da solo non lo voleva — e' la ragione per cui questa parte esiste.
+   ============================================================ */
+Deno.test('un buono misto contiene un Day Spa, anche se si prenota sui trattamenti', () => {
+  const misto = {
+    tipo: 'voce', voce_id: 'dayspa_fer',
+    descrizione: '1 × Day Spa infrasettimanale — piscine e grotte\n1 × Massaggio Shiatsu (50 min)',
+  };
+  assertEquals(contieneDaySpa(misto), true);
+});
+
+Deno.test('un buono di soli trattamenti non contiene Day Spa', () => {
+  const soloTratt = {
+    tipo: 'voce', voce_id: 'shiatsu50',
+    descrizione: '1 × Massaggio Shiatsu (50 min)\n1 × Pulizia viso completa',
+  };
+  assertEquals(contieneDaySpa(soloTratt), false);
+});
+
+Deno.test('un buono di solo Day Spa lo contiene', () => {
+  assertEquals(contieneDaySpa({ tipo: 'voce', voce_id: 'dayspa_sera', descrizione: '1 × Day Spa serale' }), true);
+});
+
+/* Un buono scritto in reception non ha voce di listino: comanda il testo. */
+Deno.test('anche un buono scritto a mano si riconosce dal testo', () => {
+  assertEquals(contieneDaySpa({ tipo: 'voce', descrizione: 'Ingresso Day Spa omaggio' }), true);
+  assertEquals(contieneDaySpa({ tipo: 'voce', descrizione: 'Massaggio omaggio compleanno' }), false);
+});
+
+Deno.test('un buono a importo non contiene niente di preciso', () => {
+  assertEquals(contieneDaySpa({ tipo: 'valore' }), false);
+  assertEquals(contieneDaySpa(null), false);
 });

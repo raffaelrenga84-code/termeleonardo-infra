@@ -135,3 +135,33 @@ export function coperturaBuono(buono, trattamenti) {
     sconosciute: ignorate.filter((id) => !eIngressoDaySpa(id)),
   };
 }
+
+/* ============================================================
+   Se un buono comprende un ingresso DAY SPA, oltre a quello che c'è d'altro.
+
+   NON è «dove si prenota». Quella la decide moduloDelBuono() in
+   pagine/buoni/buono.js, e su un buono MISTO — Day Spa più un massaggio —
+   risponde `trattamenti`, perché i massaggi si devono poter spuntare.
+   Questa risponde a un'altra domanda: fra le voci c'è anche la piscina?
+
+   A COSA SERVE: a mostrare la disponibilità del Day Spa anche sul modulo dei
+   trattamenti. Senza, chi ha un buono misto prenota alla cieca sulla
+   piscina — e se la piscina è piena, il massaggio da solo non lo voleva. È
+   la ragione per cui questa funzione esiste.
+
+   STA QUI E NON IN buono.js perché la pagina delle richieste importa già
+   questo modulo (7 KB) e non quello (40 KB): caricare quaranta chilobyte su
+   ogni modulo di richiesta per una funzione sola non si fa.
+
+   Il segno è "Day Spa", che sta letteralmente in tutte e tre le voci
+   dayspa_* del listino — ed è in italiano qualunque sia la lingua del buono.
+   ============================================================ */
+const eRigaDaySpa = (riga) => /day spa/i.test(riga);
+
+export function contieneDaySpa(b) {
+  if (!b) return false;
+  if (String(b.voce_id || '').startsWith('dayspa')) return true;
+  return String(b.descrizione || '').split('\n')
+    .map((r) => r.trim()).filter(Boolean)
+    .some(eRigaDaySpa);
+}

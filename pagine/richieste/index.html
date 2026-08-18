@@ -204,7 +204,7 @@ input.vuoto:focus,select.vuoto:focus,textarea.vuoto:focus{outline:2px solid var(
    si risolve contro l'indirizzo che vede l'ospite, non contro la cartella
    del file, e sotto un indirizzo tradotto la pagina resta bianca — vedi il
    commento in prenota/index.html e in date.js per il dettaglio. */
-import { oggiISO, attivaDate } from '/comune/date.js';
+import { oggiISO, attivaDate, primoGiornoUtileTrattamenti } from '/comune/date.js';
 /* Tipo e lingua vanno letti anche dal PERCORSO, non solo dalla query: sotto
    un indirizzo tradotto come /it/trattamenti la query della riscrittura non
    arriva alla pagina, e leggendo solo location.search questa pagina apriva
@@ -227,7 +227,7 @@ import { nomeCompleto, ORDINE_GRUPPI, prezzoTesto, SPIEGAZIONI, TRATTAMENTI } fr
    Deno, da qui non si importa): buono-url.test.ts confronta le due su
    ogni caso, cosi' una divergenza diventa rossa invece di far leggere
    all'ospite una cifra sulla pagina e sentirne un'altra alla cassa. */
-import { codiceDaUrl, normalizzaCodice, coperturaBuono, differenzaBuono } from '/comune/buono-url.js';
+import { codiceDaUrl, normalizzaCodice, coperturaBuono, differenzaBuono, contieneDaySpa } from '/comune/buono-url.js';
 import { mancanti, segnaEtichette, segnaVuoti, nomiMancanti } from '/comune/obbligatori.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
@@ -349,6 +349,7 @@ const T = {
       massimo:'Può scegliere al massimo otto trattamenti: ne tolga uno per aggiungerne un altro.' },
     giorno:'Giorno', fascia:'Preferenza di orario',
     mattina:'Mattina', pomeriggio:'Pomeriggio', indifferente:'Indifferente',
+      pocoPreavviso:'Ci ha dato poco preavviso. Di solito per i trattamenti chiediamo almeno 48 ore: faremo il possibile e le rispondiamo al più presto.',
     quando:'Giorno', ora:'Ora preferita',
     /* I cinque stati che il ponte ?a=dayspa sa dire, e nient'altro: sono
        le uniche cinque frasi che possono comparire sotto il campo data.
@@ -452,6 +453,7 @@ const T = {
       massimo:'Sie können höchstens acht Anwendungen wählen: entfernen Sie eine, um eine andere hinzuzufügen.' },
     giorno:'Tag', fascia:'Bevorzugte Zeit',
     mattina:'Vormittag', pomeriggio:'Nachmittag', indifferente:'Egal',
+      pocoPreavviso:'Sie haben uns wenig Vorlauf gegeben. Für Anwendungen bitten wir normalerweise um mindestens 48 Stunden: wir tun unser Möglichstes und antworten Ihnen so schnell wie möglich.',
     quando:'Tag', ora:'Wunschzeit',
     disp:{
       disponibile:'Im Moment ist Verfügbarkeit vorhanden.',
@@ -527,6 +529,7 @@ const T = {
       massimo:'You can choose up to eight treatments: remove one to add another.' },
     giorno:'Day', fascia:'Preferred time',
     mattina:'Morning', pomeriggio:'Afternoon', indifferente:'No preference',
+      pocoPreavviso:'That is short notice. For treatments we usually ask for at least 48 hours: we will do our best and reply as soon as we can.',
     quando:'Day', ora:'Preferred time',
     disp:{
       disponibile:'At the moment there is availability.',
@@ -599,6 +602,7 @@ const T = {
       massimo:'Vous pouvez choisir huit soins au maximum : retirez-en un pour en ajouter un autre.' },
     giorno:'Jour', fascia:'Horaire préféré',
     mattina:'Matin', pomeriggio:'Après-midi', indifferente:'Peu importe',
+      pocoPreavviso:'Le délai est court. Pour les soins nous demandons habituellement au moins 48 heures : nous ferons notre possible et vous répondrons au plus vite.',
     quando:'Jour', ora:'Heure souhaitée',
     disp:{
       disponibile:'Actuellement, nous avons de la disponibilité.',
@@ -829,7 +833,21 @@ function campiTipo(t) {
           <option value="mattina">${esc(t.mattina)}</option>
           <option value="pomeriggio">${esc(t.pomeriggio)}</option>
         </select></div>
-    </div>`;
+    </div>
+    <!-- POCO PREAVVISO. Non blocca niente: la richiesta si manda comunque e
+         la reception decide. Bloccare vorrebbe dire rifiutare al posto suo
+         una richiesta che accetterebbe, e perdere insieme la vendita e
+         l'informazione. Compare mentre l'ospite sceglie la data, non dopo
+         aver premuto invia. -->
+    <p class="dispDayspa" id="avvisoPreavviso" aria-live="polite" hidden></p>
+    <!-- LA PISCINA, ma solo se il buono comprende anche un Day Spa. Un buono
+         misto si prenota da qui — i massaggi si devono poter spuntare — e
+         senza questa riga l'ospite prenoterebbe alla cieca sulla piscina: se
+         la piscina è piena, il massaggio da solo non lo voleva.
+         Il resto del meccanismo esiste già e si accende da sé: attivaDayspa()
+         chiede solo che ci sia il campo data, e programmaDisponibilita() esce
+         da sola se questo riquadro non c'è. -->
+    ${BUONO && contieneDaySpa(BUONO) ? '<p class="dispDayspa" id="dispDayspa" aria-live="polite" hidden></p>' : ''}`;
 }
 
 /* ---------------- trattamenti: percorso guidato ----------------
@@ -1552,7 +1570,30 @@ function modulo() {
      primo caricamento. */
   attivaDate();
   if (TIPO === 'trattamenti') attivaTrattamenti(t);
-  if (TIPO === 'dayspa') attivaDayspa(t);
+  /* La disponibilità della piscina serve al Day Spa e ai trattamenti con un
+     buono che comprende anche un ingresso: in quel secondo caso il riquadro
+     esiste nel markup, e senza di lui attivaDayspa() non farebbe niente. */
+  if (TIPO === 'dayspa' || $('dispDayspa')) attivaDayspa(t);
+
+  /* L'AVVISO DELLE 48 ORE, sui soli trattamenti. Si aggiorna mentre l'ospite
+     sceglie: scoprire il preavviso corto dopo aver compilato tutto sarebbe
+     lo stesso difetto che questa riga esiste per evitare. Il campo NON ha un
+     `min` che impedisca la scelta — la richiesta è legittima e va accettata. */
+  if (TIPO === 'trattamenti') {
+    const box = $('avvisoPreavviso');
+    const giorno = $('fGiorno');
+    const guarda = () => {
+      if (!box || !giorno) return;
+      const scelto = giorno.value.trim();
+      const corto = !!scelto && scelto < primoGiornoUtileTrattamenti();
+      box.hidden = !corto;
+      box.textContent = corto ? t.pocoPreavviso : '';
+      if (corto) box.setAttribute('data-stato', 'esaurito');
+      else box.removeAttribute('data-stato');
+    };
+    if (giorno) giorno.addEventListener('change', guarda);
+    guarda();
+  }
 }
 
 function raccogli() {

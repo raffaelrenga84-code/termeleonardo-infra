@@ -21,6 +21,7 @@ import { inviaConferma } from './conferma.ts';
 import { arricchisciElenco } from './elenco.ts';
 import { filtroRicercaRichieste } from './ricerca.ts';
 import { type Ruolo, ruoloDi, tipiVisibili, vedeTutto } from './ruoli.ts';
+import { pocoPreavviso } from './preavviso.ts';
 import { componiRisposta, corpoDisponibilita } from './disponibilita.ts';
 import {
   aHotelChiuso, distanzaGiorni, esitoDisponibilita, ORIZZONTE_GIORNI, type Stagione,
@@ -215,6 +216,7 @@ Deno.serve(async (req) => {
     if (composta.errore || !composta.contatti || !composta.colonne) {
       return risposta({ errore: composta.errore }, 400);
     }
+
     const tipo = composta.tipo!;
     const contatti: Contatti = composta.contatti;
     const colonne = composta.colonne;
@@ -271,7 +273,13 @@ Deno.serve(async (req) => {
 
        Insieme e non in fila: sono indipendenti, e una lenta non deve far
        aspettare l'altra ne' l'ospite davanti allo schermo. */
-    const dati = { ...contatti, ...colonne, ...(propri || {}), tipo, numero: n.numero };
+    /* POCO PREAVVISO: non rifiuta niente (vedi preavviso.ts), ma la
+       reception deve saperlo — quella e' la richiesta piu' urgente della
+       casella, e senza un segno sembra identica alle altre. Si calcola qui e
+       non si salva: e' deducibile da quando e' arrivata e da che giorno
+       chiede, e un dato copiato in colonna divergerebbe. */
+    const urgente = pocoPreavviso(tipo, propri, new Date());
+    const dati = { ...contatti, ...colonne, ...(propri || {}), tipo, numero: n.numero, poco_preavviso: urgente };
     const [avvisato, ricevuta] = await Promise.all([
       avvisaHotel(dati),
       inviaRicevuta({ ...dati, dati: propri ?? null }),
