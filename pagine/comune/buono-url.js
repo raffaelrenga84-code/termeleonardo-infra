@@ -165,3 +165,29 @@ export function contieneDaySpa(b) {
     .map((r) => r.trim()).filter(Boolean)
     .some(eRigaDaySpa);
 }
+
+/* ============================================================
+   SU QUALI MODULI un buono regalo si può usare.
+
+   Il listino dei buoni è INTERAMENTE spa — programmi, massaggi, viso, corpo
+   e i tre ingressi Day Spa. Un buono non paga un green fee, non paga una
+   lezione col maestro e non paga un taxi: su quei moduli il riquadro
+   «Ha un buono regalo?» chiede una cosa che non serve a niente.
+
+   E NON È SOLO INUTILE, È DANNOSO. `avvisoInCima()` toglie la promessa del
+   prezzo quando c'è un buono valido — regola giusta, scritta per non
+   promettere un prezzo a chi l'ha già pagato. Ma su un green fee il buono
+   NON ha pagato niente, e quella frase si legge come «è già a posto».
+   Bastava aprire /it/green-fee e digitare il codice di un buono valido.
+
+   Restano i due moduli che un buono lo sanno raccontare: i trattamenti, dove
+   le voci si spuntano e la copertura si calcola, e il Day Spa. Il soggiorno
+   no: là non c'è nessun riquadro che dica quanto il buono copre, quindi
+   togliere la promessa del prezzo lascerebbe l'ospite senza nessuna
+   informazione al suo posto — lo stesso difetto del green fee.
+   ============================================================ */
+export const TIPI_COL_BUONO = ['trattamenti', 'dayspa'];
+
+export function buonoUsabileSu(tipo) {
+  return TIPI_COL_BUONO.includes(String(tipo ?? ''));
+}

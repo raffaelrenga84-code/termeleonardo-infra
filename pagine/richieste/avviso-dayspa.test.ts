@@ -143,3 +143,38 @@ Deno.test('e la pagina sceglie la frase giusta solo quando il buono e valido', (
     'l avviso non viene prima del riquadro del buono',
   );
 });
+
+/* ============================================================
+   IL BUONO SOLO DOVE PAGA QUALCOSA.
+
+   IL DIFETTO, trovato il 18 agosto 2026 guardando /it/green-fee: il riquadro
+   «Ha un buono regalo?» compariva su tutti e sei i moduli. Il listino dei
+   buoni e' interamente spa — un buono non paga un green fee, non paga una
+   lezione col maestro, non paga un taxi.
+
+   E non era solo inutile. Con un codice valido `avvisoInCima()` restituisce
+   `avvisoBuono`, cioe' la frase SENZA la promessa del prezzo — giusta per
+   chi il prezzo l'ha gia' pagato col buono, falsa su un green fee, dove si
+   legge come «e' gia' a posto». Bastava aprire quella pagina e digitare un
+   codice.
+
+   Tre cancelli, e devono restare tutti e tre: se ne cade uno, il difetto
+   torna da quella parte.
+   ============================================================ */
+Deno.test('il buono si verifica solo dove si puo usare', () => {
+  assert(
+    /async function verificaBuono\(\)[\s\S]{0,600}?buonoUsabileSu\(TIPO\)/.test(SORGENTE),
+    'verificaBuono non controlla il tipo: su un green fee il buono verrebbe verificato',
+  );
+});
+
+Deno.test('il riquadro e l invito non si disegnano dove il buono non paga', () => {
+  assert(
+    /function invitoBuono\([\s\S]{0,400}?buonoUsabileSu\(TIPO\)/.test(SORGENTE),
+    'invitoBuono non controlla il tipo',
+  );
+  assert(
+    /function riquadroBuono\([\s\S]{0,400}?buonoUsabileSu\(TIPO\)/.test(SORGENTE),
+    'riquadroBuono non controlla il tipo',
+  );
+});

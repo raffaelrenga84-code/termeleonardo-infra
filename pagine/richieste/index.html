@@ -227,7 +227,7 @@ import { nomeCompleto, ORDINE_GRUPPI, prezzoTesto, SPIEGAZIONI, TRATTAMENTI } fr
    Deno, da qui non si importa): buono-url.test.ts confronta le due su
    ogni caso, cosi' una divergenza diventa rossa invece di far leggere
    all'ospite una cifra sulla pagina e sentirne un'altra alla cassa. */
-import { codiceDaUrl, normalizzaCodice, coperturaBuono, differenzaBuono, contieneDaySpa } from '/comune/buono-url.js';
+import { codiceDaUrl, normalizzaCodice, coperturaBuono, differenzaBuono, contieneDaySpa, buonoUsabileSu } from '/comune/buono-url.js';
 import { mancanti, segnaEtichette, segnaVuoti, nomiMancanti } from '/comune/obbligatori.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
@@ -1051,6 +1051,13 @@ function segnaleConScadenza(ms) {
 
 async function verificaBuono() {
   if (!CODICE_BUONO) return;
+  /* IL CANCELLO. Su green fee, maestro, transfer e soggiorno un buono non
+     paga niente — il listino e' tutto spa — e verificarlo comunque faceva
+     danno: con BUONO valorizzato, avvisoInCima() toglie la promessa del
+     prezzo, che e' la frase per chi il prezzo l'ha gia' pagato. Su un green
+     fee si legge come «e' gia' a posto», e non lo e'.
+     Uscendo qui, BUONO resta null e l'avviso resta quello giusto. */
+  if (!buonoUsabileSu(TIPO)) return;
   const { signal, ferma } = segnaleConScadenza(ATTESA_VERIFICA);
   try {
     const r = await fetch(`${FUNZIONE_BUONI}?a=verifica&codice=${encodeURIComponent(CODICE_BUONO)}`,
@@ -1123,6 +1130,9 @@ function avvisoInCima(t) {
    meno di due percorsi da tenere allineati. */
 function invitoBuono(t) {
   if (CODICE_BUONO) return '';
+  /* chiedere un buono dove non serve a niente e' far digitare un codice per
+     poi non poterne fare nulla */
+  if (!buonoUsabileSu(TIPO)) return '';
   return `
     <div class="riquadro invitoBuono">
       <h2>${esc(t.buono.invitoTit)}</h2>
@@ -1152,6 +1162,9 @@ function apriColBuono(t) {
 }
 
 function riquadroBuono(t) {
+  /* stesso cancello di verificaBuono(): senza, un codice nell'indirizzo
+     disegnerebbe un riquadro su un modulo che col buono non c'entra */
+  if (!buonoUsabileSu(TIPO)) return '';
   /* nessuna di queste vie d'uscita blocca l'invio — ma l'ospite non ha modo
      di saperlo, e chi si ferma davanti al riquadro rosso non ce lo viene a
      dire: glielo si scrive */

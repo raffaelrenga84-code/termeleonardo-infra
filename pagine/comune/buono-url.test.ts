@@ -1,5 +1,5 @@
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { codiceDaUrl, contieneDaySpa, normalizzaCodice } from './buono-url.js';
+import { buonoUsabileSu, codiceDaUrl, contieneDaySpa, normalizzaCodice, TIPI_COL_BUONO } from './buono-url.js';
 import { differenzaBuono as dalServer } from '../../supabase/functions/richieste/differenza-buono.ts';
 import { coperturaBuono, differenzaBuono as dallaPagina } from './buono-url.js';
 import { TRATTAMENTI } from './trattamenti.js';
@@ -301,4 +301,32 @@ Deno.test('anche un buono scritto a mano si riconosce dal testo', () => {
 Deno.test('un buono a importo non contiene niente di preciso', () => {
   assertEquals(contieneDaySpa({ tipo: 'valore' }), false);
   assertEquals(contieneDaySpa(null), false);
+});
+
+/* ============================================================
+   SU QUALI MODULI si può usare un buono.
+
+   IL DIFETTO CHE PRESIDIA, e non è cosmetico. Il riquadro del buono
+   compariva su tutti e sei i moduli, green fee e maestro e transfer
+   compresi. Su quelli un buono non paga niente — il listino è tutto spa —
+   ma bastava digitare un codice valido perché `avvisoInCima()` togliesse la
+   promessa del prezzo, che è la frase scritta per chi il prezzo l'ha già
+   pagato. Su un green fee si legge come «è già a posto», e non lo è.
+   ============================================================ */
+Deno.test('il buono si usa sui trattamenti e sul Day Spa', () => {
+  assert(buonoUsabileSu('trattamenti'));
+  assert(buonoUsabileSu('dayspa'));
+});
+
+Deno.test('non si usa dove non paga niente', () => {
+  for (const tipo of ['greenfee', 'maestro', 'transfer', 'soggiorno', '', null, undefined]) {
+    assertEquals(buonoUsabileSu(tipo), false, `${tipo} non doveva accettare un buono`);
+  }
+});
+
+/* I due moduli ammessi sono quelli che un buono lo sanno RACCONTARE: i
+   trattamenti calcolano la copertura, il Day Spa mostra cosa comprende.
+   Aggiungerne un terzo senza quel riquadro rifarebbe il difetto. */
+Deno.test('i moduli ammessi sono due, e sono quelli', () => {
+  assertEquals(TIPI_COL_BUONO, ['trattamenti', 'dayspa']);
 });
