@@ -1,6 +1,6 @@
-<title>Sessanta pagine, guardate una per una</title>
+<title>Cinquanta pagine, guardate una per una</title>
 
-# Sessanta pagine, guardate una per una
+# Cinquanta pagine, guardate una per una
 
 *19 agosto 2026*
 
@@ -42,6 +42,11 @@ prenotazioni sul vecchio (`data.js`: `DAYSPA_URL` punta a `termeleonardo.com`).
 | cinque `h1` per pagina | su `/it/cure-termali` e `/it/golf` |
 | titoli con refusi | «Hotel 4 Stelle  con Cure Termali», con il doppio spazio dentro |
 | le lingue non hanno le stesse pagine | in tedesco mancano **day spa** e **driving range**; in italiano mancano quattro delle sei offerte tedesche |
+| inglese e francese hanno la vetrina delle offerte **vuota** | `/en/offers` e `/fr/offres` esistono e non contengono nessuna offerta: le dieci pagine offerta stanno solo in italiano e tedesco |
+
+Gli indirizzi di contenuto sono **50**: diciassette in italiano, quindici in
+tedesco, nove in inglese, nove in francese. Contati dai menu delle quattro
+lingue e dalle pagine delle offerte, il 19 agosto 2026.
 
 **E non abbiamo occhi.** Sulla home non c'è né Google Analytics né una verifica
 di Search Console: solo PostHog, arrivato con l'impianto di emergent.sh, che
@@ -94,7 +99,7 @@ Per ogni indirizzo raccoglie:
 
 **Più un controllo che non è meccanico:** la lingua di `title` e `description`
 combacia con quella dichiarata? È il controllo che ha trovato il francese, e va
-automatizzato perché a mano su sessanta pagine non lo rifà nessuno. Si fa con
+automatizzato perché a mano su cinquanta pagine non lo rifà nessuno. Si fa con
 l'euristica a parole spia già scritta in `estensione/outlook-inject.js`
 (`linguaTesto`), che riconosce italiano, tedesco, inglese e francese contando
 parole comuni. Sbaglia sui testi cortissimi, e infatti il suo esito si chiama
@@ -109,8 +114,8 @@ ricaviamo una volta dai menu delle quattro lingue e sta in un file accanto allo
 strumento, dove si legge e si corregge.
 
 **Una richiesta alla volta, con una pausa fra l'una e l'altra**, e uno
-`User-Agent` che dice chi siamo. Sessanta pagine in un minuto non fanno male a
-nessuno; sessanta pagine tutte insieme, contro il server che vende, sono una
+`User-Agent` che dice chi siamo. Cinquanta pagine in un minuto non fanno male a
+nessuno; cinquanta pagine tutte insieme, contro il server che vende, sono una
 cosa che non si fa.
 
 ### Dove finisce quello che raccoglie
@@ -131,7 +136,7 @@ chiave, nessun dato di ospite. Va bene che stia in un repo pubblico.
 **Lo strumento produce la tabella, non le liste.** Le due liste le scrive una
 persona leggendo la tabella, ed è giusto così: il titolo nuovo di
 `/de/thermal-kur` lo può proporre solo qualcuno che sa cosa vende quell'hotel e
-a chi. Un generatore automatico di title darebbe sessanta righe plausibili e
+a chi. Un generatore automatico di title darebbe cinquanta righe plausibili e
 nessuna vera.
 
 ### La lista A — quello che carica la reception
