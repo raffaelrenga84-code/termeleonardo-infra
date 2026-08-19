@@ -314,6 +314,76 @@ Deno.test('senza EMAIL_SPA un trattamento non porta nessun cc, e nemmeno uno inv
   }
 });
 
+/* ---------------- check-in online e fattura (Task 5, arrivo-invio.ts) ----------------
+   Prima di questo giro di correzione i due tipi non avevano un ramo qui:
+   ETICHETTA aveva sei voci, non otto, quindi `arrivo` e `fattura`
+   ricadevano sull'etichetta e sulle righe del soggiorno — "RICHIESTA DAL
+   SITO | Soggiorno | undefined notti · undefined ospiti", perche' ne'
+   l'uno ne' l'altra hanno notti o ospiti. La reception riceveva un
+   check-in senza ora ne' mezzo, e una fattura senza ragione sociale ne'
+   partita IVA: peggio dell'email scritta a mano che questo compito
+   sostituisce. */
+const checkin = {
+  numero: 'RS-2026-0041', tipo: 'arrivo',
+  nome: 'Bianchi Mario', email: 'mario@example.it', telefono: '+39 333 1234567',
+  lingua: 'it',
+  ora_arrivo: '16:30', mezzo: 'auto', attenzioni: ['culla', 'cane'],
+  fanghi_desiderio: 'presto',
+  persone_extra: [{ nome: 'Bianchi Luca', eta: '12' }],
+  persone_confermate: false, note: 'Arriviamo dopo cena.',
+};
+
+Deno.test('il check-in online porta ora, mezzo e attenzioni, non le righe del soggiorno', () => {
+  const h = richiestaHTML(checkin as never);
+  assertStringIncludes(h, '16:30');
+  assertStringIncludes(h, 'auto');
+  assertStringIncludes(h, 'culla');
+  assertStringIncludes(h, 'cane');
+  assertStringIncludes(h, 'presto');
+  assertStringIncludes(h, 'Bianchi Luca');
+  assert(!h.includes('notti'), 'un check-in non ha notti da contare');
+});
+
+/* il difetto in una riga sola: e' esattamente l'"undefined" contro cui
+   mette in guardia il commento sopra ETICHETTA */
+Deno.test('l avviso di un check-in online non contiene la parola undefined', () => {
+  const h = richiestaHTML(checkin as never);
+  assert(!h.includes('undefined'), 'un campo assente non deve mai arrivare in reception cosi');
+});
+
+Deno.test('il check-in online porta la sua etichetta, non quella del soggiorno', () => {
+  const h = richiestaHTML(checkin as never);
+  assertStringIncludes(h, 'CHECK-IN ONLINE');
+  assert(!h.includes('RICHIESTA DAL SITO'), 'l etichetta del soggiorno qui e sbagliata');
+});
+
+const fattura = {
+  numero: 'RS-2026-0043', tipo: 'fattura',
+  nome: 'Bianchi Mario', email: 'mario@example.it', telefono: '+39 333 1234567',
+  lingua: 'it',
+  ragione: 'Bianchi S.r.l.', indirizzo: 'Via Roma 1, Padova',
+  piva: 'IT02042330288', cf: '', sdi: 'M5UXCR1', pec: '',
+};
+
+Deno.test('la fattura porta ragione sociale, indirizzo e partita IVA', () => {
+  const h = richiestaHTML(fattura as never);
+  assertStringIncludes(h, 'Bianchi S.r.l.');
+  assertStringIncludes(h, 'Via Roma 1, Padova');
+  assertStringIncludes(h, 'IT02042330288');
+  assertStringIncludes(h, 'M5UXCR1');
+});
+
+Deno.test('l avviso di una fattura non contiene la parola undefined', () => {
+  const h = richiestaHTML(fattura as never);
+  assert(!h.includes('undefined'), 'un campo assente non deve mai arrivare in reception cosi');
+});
+
+Deno.test('la fattura porta la sua etichetta, non quella del soggiorno', () => {
+  const h = richiestaHTML(fattura as never);
+  assertStringIncludes(h, 'RICHIESTA FATTURA');
+  assert(!h.includes('RICHIESTA DAL SITO'), 'l etichetta del soggiorno qui e sbagliata');
+});
+
 Deno.test('una fattura arriva in copia all amministrazione', async () => {
   Deno.env.set('RESEND_API_KEY', 'finta');
   Deno.env.set('EMAIL_AMMINISTRAZIONE', 'amministrazione@termeleonardo.com');

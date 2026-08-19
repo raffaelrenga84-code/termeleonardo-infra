@@ -36,7 +36,16 @@ export function pezziDaArrivo(corpo: Record<string, unknown>, oggi: Date = new D
   /* l'arrivo c'e' sempre: anche chi non spunta niente ha detto qualcosa
      compilando (o non compilando) l'ora, e quella riga e' la scheda
      dell'arrivo */
-  const a = validaDati('arrivo', corpo, oggi);
+  /* persone_confermate FORZATO A FALSO qui, prima di validare: quel campo
+     esiste in validaArrivo per sopravvivere a ?a=conferma, cioe' per
+     essere scritto dalla RECEPTION quando ha davvero risposto. `arrivo`
+     non sta in TIPI_ATTIVI: questa azione e' l'UNICA porta pubblica su
+     quel campo, quindi un ospite che manda persone_confermate:true insieme
+     alle persone da aggiungere disinnescherebbe da solo la garanzia che
+     qualcuno le ha viste. Il corpo del browser non decide mai questo
+     valore: qui si sovrascrive PRIMA di passare la mano a validaDati, cosi'
+     resta falso qualunque cosa arrivi da fuori. */
+  const a = validaDati('arrivo', { ...corpo, persone_confermate: false }, oggi);
   if (a.errore || !a.dati) return { errore: a.errore ?? 'arrivo non valido' };
   pezzi.push({ tipo: 'arrivo', dati: a.dati });
 
@@ -53,4 +62,74 @@ export function pezziDaArrivo(corpo: Record<string, unknown>, oggi: Date = new D
   }
 
   return { pezzi };
+}
+
+/* ============================================================
+   Dalla validazione all'inserimento: la parte che decide COME SI SCRIVONO
+   le righe e COSA ARRIVA nell'avviso e' logica pura come sopra — dati
+   dentro, dati fuori, nessun database — e va provata come tale.
+   index.ts resta responsabile solo della sequenza che ha davvero bisogno
+   della rete: token, "gia' mandato", numerazione, insert.
+   ============================================================ */
+
+export type LinkArrivo = { intestatario: string; email: string; lingua: string | null };
+export type NumeroRichiesta = { anno: number; progressivo: number; numero: string };
+export type ContestoInvio = { token: string; telefono: string; ip: string; adesso: string };
+
+export type RigaRichiesta = {
+  anno: number; progressivo: number; numero: string;
+  tipo: Pezzo['tipo'];
+  nome: string; email: string; telefono: string | null; lingua: string;
+  dati: Record<string, unknown>; dati_originali: Record<string, unknown>;
+  arrivo_token: string; origine: string; ip: string; privacy_il: string;
+};
+
+/* Una riga per pezzo, pronta per un solo `insert`. `numeri[i]` e' chiesto
+   PRIMA a database (index.ts) e passato qui gia' pronto: questa funzione
+   non parla con niente, si limita a ricopiare. I dati restano ANNIDATI
+   sotto `dati`: e' la forma della colonna jsonb, ed e' anche quella che si
+   aspetta inviaRicevutaArrivo() (Task 6) via riepilogoRichiesta(). */
+export function righeDaArrivo(
+  link: LinkArrivo,
+  pezzi: Pezzo[],
+  numeri: NumeroRichiesta[],
+  contesto: ContestoInvio,
+): RigaRichiesta[] {
+  return pezzi.map((p, i) => ({
+    anno: numeri[i].anno, progressivo: numeri[i].progressivo, numero: numeri[i].numero,
+    tipo: p.tipo,
+    nome: link.intestatario, email: link.email,
+    telefono: contesto.telefono.slice(0, 40) || null,
+    lingua: link.lingua || 'it',
+    dati: p.dati,
+    dati_originali: p.dati,
+    arrivo_token: contesto.token,
+    origine: 'check-in online',
+    ip: contesto.ip,
+    privacy_il: contesto.adesso,
+  }));
+}
+
+/* Il carico per avvisaHotel(): STESO, non annidato. richiestaHTML() in
+   email-richiesta.ts legge i campi propri del tipo — luogo, quando,
+   ragione, ora_arrivo... — direttamente sull'oggetto, esattamente come fa
+   il percorso pubblico del sito (componiRichiesta produce
+   {...contatti, ...colonne, ...propri} in index.ts). Passare `dati: r.dati`
+   annidato qui sarebbe il difetto opposto e silenzioso di righeDaArrivo:
+   l'avviso arriverebbe in reception con ogni campo proprio a "undefined". */
+export function carichiAvviso(
+  righe: RigaRichiesta[],
+): (Record<string, unknown> & { numero: string; nome: string; email: string })[] {
+  return righe.map((r) => ({
+    ...r.dati,
+    tipo: r.tipo,
+    numero: r.numero,
+    nome: r.nome,
+    email: r.email,
+    /* r.telefono e' `string | null` (la colonna lo ammette assente);
+       avvisaHotel lo vuole `string | undefined` — null diventa undefined,
+       e non cambia niente per l'email, che una riga vuota la salta */
+    telefono: r.telefono ?? undefined,
+    lingua: r.lingua,
+  }));
 }

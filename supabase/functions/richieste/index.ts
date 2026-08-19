@@ -30,7 +30,7 @@ import {
 import { LINGUE } from './condizioni.ts';
 import { creaFrenoIp } from './limite-ip.ts';
 import { dataConsenso } from './consenso.ts';
-import { pezziDaArrivo } from './arrivo-invio.ts';
+import { carichiAvviso, type NumeroRichiesta, pezziDaArrivo, righeDaArrivo } from './arrivo-invio.ts';
 import { inviaRicevutaArrivo } from './ricevuta-arrivo.ts';
 
 /* Portata da buoni/index.ts, stessa forma: legge stagione_chiusura ordinata
@@ -341,23 +341,12 @@ Deno.serve(async (req) => {
       return risposta({ errore: 'scaduto' }, 410);
     }
 
-    /* GIA' MANDATO. Senza questo controllo, chi ricarica la pagina e
-       rimanda crea tre richieste nuove con tre numeri nuovi e riceve una
-       seconda ricevuta per cose gia' in lavorazione — peggio di prima, non
-       meglio. Per cambiare qualcosa si scrive, e la correzione la fa la
-       reception sulla richiesta con ?a=conferma. */
-    const { data: gia } = await db.from('richiesta_sito')
-      .select('numero, tipo').eq('arrivo_token', t);
-    if (gia && gia.length > 0) {
-      return risposta({ errore: 'gia inviato', richieste: gia }, 409);
-    }
-
     const { errore, pezzi } = pezziDaArrivo(corpo, new Date());
     if (errore || !pezzi) return risposta({ errore }, 400);
 
     /* un numero per pezzo, chiesti PRIMA: se poi l'inserimento fallisce
        restano numeri saltati, che e' innocuo. Una riga orfana no. */
-    const numeri: { anno: number; progressivo: number; numero: string }[] = [];
+    const numeri: NumeroRichiesta[] = [];
     for (let i = 0; i < pezzi.length; i++) {
       const { data: n, error: eN } = await db.rpc('prossimo_numero_richiesta');
       if (eN || !n?.[0]) {
@@ -367,20 +356,41 @@ Deno.serve(async (req) => {
       numeri.push(n[0]);
     }
 
-    const adesso = new Date().toISOString();
-    const righe = pezzi.map((p, i) => ({
-      anno: numeri[i].anno, progressivo: numeri[i].progressivo, numero: numeri[i].numero,
-      tipo: p.tipo,
-      nome: link.intestatario, email: link.email,
-      telefono: testo(corpo.telefono).slice(0, 40) || null,
-      lingua: link.lingua || 'it',
-      dati: p.dati,
-      dati_originali: p.dati,
-      arrivo_token: t,
-      origine: 'check-in online',
-      ip: indirizzo(req),
-      privacy_il: adesso,
-    }));
+    /* GIA' MANDATO — controllata QUI, il piu' tardi possibile: dopo la
+       validazione e la numerazione, appena prima dell'insert. Senza questo
+       controllo, chi ricarica la pagina e rimanda crea tre richieste nuove
+       con tre numeri nuovi e riceve una seconda ricevuta per cose gia' in
+       lavorazione — peggio di prima, non meglio. Per cambiare qualcosa si
+       scrive, e la correzione la fa la reception sulla richiesta con
+       ?a=conferma.
+
+       Un errore di lettura NON e' "non ce ne sono": e' "non posso
+       verificare", e si rifiuta — come fa gia' ?a=precompila sullo stesso
+       errore sulla stessa tabella. Restano numeri saltati (innocuo, vedi
+       sopra).
+
+       LA CORSA RESTA POSSIBILE, RISTRETTA E NON CHIUSA. Un indice unico su
+       arrivo_token non si puo' mettere: un invio riuscito lascia gia' fino
+       a tre righe con lo stesso token, una per pezzo. Mettendo il
+       controllo qui, invece che prima della numerazione, la finestra fra
+       la lettura e il prossimo insert non contiene piu' nessun'altra
+       chiamata di rete in mezzo: e' la piu' stretta ottenibile senza quel
+       vincolo. */
+    const { data: gia, error: eGia } = await db.from('richiesta_sito')
+      .select('numero, tipo').eq('arrivo_token', t);
+    if (eGia) {
+      console.error('controllo duplicati fallito:', eGia);
+      return risposta({ errore: 'salvataggio non riuscito' }, 500);
+    }
+    if (gia && gia.length > 0) {
+      return risposta({ errore: 'gia inviato', richieste: gia }, 409);
+    }
+
+    const righe = righeDaArrivo(
+      { intestatario: link.intestatario, email: link.email, lingua: link.lingua },
+      pezzi, numeri,
+      { token: t, telefono: testo(corpo.telefono), ip: indirizzo(req), adesso: new Date().toISOString() },
+    );
 
     /* UN SOLO insert, con tutte le righe: e' una sola istruzione, quindi
        non puo' restarne mezza */
@@ -392,23 +402,17 @@ Deno.serve(async (req) => {
 
     /* un avviso per richiesta — ognuno col suo numero e col "rispondi a"
        dell'ospite — e UNA sola ricevuta, perche' l'ospite ha compilato un
-       modulo solo */
+       modulo solo. carichiAvviso() STENDE i campi propri sull'oggetto
+       (arrivo-invio.ts): avvisaHotel/richiestaHTML li leggono cosi', non
+       annidati sotto `dati` — la ricevuta invece li vuole annidati, ed e'
+       per questo che usa `righe` e non `carichiAvviso(righe)`. */
     const ospite = {
       nome: link.intestatario as string,
       email: link.email as string,
       lingua: (link.lingua as string) || 'it',
     };
     await Promise.all([
-      /* un avviso per richiesta: ognuno porta il suo numero e il
-         "rispondi a" dell'ospite, ed e' quello che oggi manca */
-      /* r.telefono e' `string | null` (la colonna lo ammette assente);
-         ConNumero lo vuole `string | undefined` — null diventa undefined
-         qui, non cambia niente per Resend, che una riga vuota la salta
-         comunque */
-      ...righe.map((r) => avvisaHotel({
-        numero: r.numero, tipo: r.tipo, nome: r.nome,
-        email: r.email, telefono: r.telefono ?? undefined, lingua: r.lingua, dati: r.dati,
-      })),
+      ...carichiAvviso(righe).map((c) => avvisaHotel(c)),
       inviaRicevutaArrivo(ospite, righe.map((r) => ({
         numero: r.numero, tipo: r.tipo, dati: r.dati,
       }))),
