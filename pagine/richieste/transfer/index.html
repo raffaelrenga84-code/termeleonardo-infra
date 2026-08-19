@@ -51,7 +51,7 @@ textarea{min-height:84px;resize:vertical;}
 .scelte button{padding:13px;border:1.5px solid #DCD6CB;background:#fff;border-radius:10px;
   cursor:pointer;font:600 14px inherit;color:var(--verde-medio);}
 .scelte button.attivo{border-color:var(--verde);color:var(--verde);background:var(--acqua-chiara);}
-/* Le otto destinazioni piu' richieste, fuori dalla tendina. Nove ospiti
+/* Le dodici destinazioni piu' richieste, fuori dalla tendina. Nove ospiti
    su dieci vanno in uno di quei posti: oggi devono aprire un elenco di 191
    voci per trovarlo. */
 .mete{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;}
@@ -127,14 +127,13 @@ import { mancanti, segnaEtichette, segnaVuoti, nomiMancanti } from '/comune/obbl
    modulo suo perche' e' fatta dei numeri del listino, non di grafica, ed e'
    la parte che si prova da sola — vedi navetta.test.ts. */
 import { corsaDiRitorno, navetta, ritiroPerVolo } from '/comune/navetta.js';
-import { LUOGHI_ATAM } from '/comune/luoghi.js';
+/* PIU_RICHIESTI e' una curatela (i punti da cui un ospite ARRIVA — aeroporti,
+   stazioni, il porto — piu' i tre golf), non le prime N voci di LUOGHI_ATAM:
+   vedi il commento in cima a quell'elenco in luoghi.js e la prova che lo
+   tiene fermo in luoghi.test.ts. */
+import { LUOGHI_ATAM, PIU_RICHIESTI } from '/comune/luoghi.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
-
-/* Le prime otto voci di LUOGHI_ATAM sono le piu' richieste e stanno in
-   testa all'elenco apposta (vedi luoghi.ts): il gruppo si taglia da li',
-   non si riscrive a mano — una lista a parte diventerebbe la quinta copia. */
-const COMUNI = 8;
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
@@ -469,16 +468,19 @@ function modulo() {
   /* ---------- le opzioni della tendina, da LUOGHI_ATAM ----------
      Erano 189 <option> scritti a mano qui dentro: la terza copia dello
      stesso elenco, e quella che divergeva di piu' (vedi luoghi.js e
-     luoghi.test.ts). Le prime COMUNI voci sono le piu' richieste, e stanno
-     in testa all'elenco apposta — vedi il commento su COMUNI qui sopra. */
+     luoghi.test.ts). Il gruppo "piu' richiesti" e' PIU_RICHIESTI (una
+     curatela, non le prime N voci — vedi il commento sull'import qui
+     sopra); "tutte le destinazioni" e' il resto di LUOGHI_ATAM, filtrato
+     e non riscritto, cosi' nessuna voce compare due volte e nessuna
+     sparisce se l'elenco cambia. */
   const opzLuogo = (voci) => voci.map((l) =>
     `<option value="${esc(l)}">${esc(l)}</option>`).join('');
   $('fLuogo').querySelector('optgroup[label="__COMUNI__"]').innerHTML =
-    opzLuogo(LUOGHI_ATAM.slice(0, COMUNI));
+    opzLuogo(PIU_RICHIESTI);
   $('fLuogo').querySelector('optgroup[label="__TUTTE__"]').innerHTML =
-    opzLuogo(LUOGHI_ATAM.slice(COMUNI));
+    opzLuogo(LUOGHI_ATAM.filter((l) => !PIU_RICHIESTI.includes(l)));
 
-  /* ---------- le otto piu' richieste, fuori dalla tendina ----------
+  /* ---------- le dodici piu' richieste, fuori dalla tendina ----------
      Le pastiglie si COSTRUISCONO DALLA TENDINA STESSA, leggendo il primo
      optgroup: cosi' l'elenco resta uno solo. Scriverne un secondo qui
      sarebbe la quinta copia di una lista in questo progetto, e la prima a

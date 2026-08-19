@@ -199,3 +199,32 @@ export const LUOGHI_ATAM = [
   "Zurigo",
   "civitavecchia",
 ];
+
+/* Le dodici voci che il modulo transfer del sito mette in prima fila,
+   fuori dalla tendina — NON le prime dodici di LUOGHI_ATAM: sono una
+   curatela, non un taglio meccanico dell'elenco. Sono i punti da cui un
+   ospite ARRIVA (aeroporti, stazioni, il porto) piu' i tre campi da golf
+   convenzionati, perche' sono le destinazioni piu' richieste davvero. Chi
+   in futuro la vede corta non deve "completarla" fino a farla combaciare
+   con LUOGHI_ATAM: le prime otto di quell'elenco cominciano con
+   Montegrotto e Padova città, che sono a due passi dall'hotel e non sono
+   punti di arrivo per un ospite.
+
+   Ogni voce qui sotto DEVE esistere anche in LUOGHI_ATAM, parola per
+   parola: lo tiene fermo luoghi.test.ts. Se i tassisti rinominano una di
+   queste destinazioni, la voce sparirebbe in silenzio dal gruppo in
+   prima fila — la prova lo scopre invece. */
+export const PIU_RICHIESTI = [
+  "Venezia  aeroporto",
+  "Treviso Aeroporto",
+  "Verona Aeroporto✈️",
+  "Bologna Aeroporto",
+  "Venezia P.le Roma",
+  "Venezia porto",
+  "Padova FS",
+  "Terme  Euganee FS",
+  "Mestre fs",
+  "Golf Valsanzibio 🏌",
+  "Golf Montecchia🏌",
+  "Golf Frassanelle 🏌",
+];

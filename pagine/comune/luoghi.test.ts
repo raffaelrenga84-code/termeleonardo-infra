@@ -18,9 +18,18 @@ import { LUOGHI_ATAM as ORIGINALE } from '../../supabase/functions/richieste/luo
 
 const SORGENTE = Deno.readTextFileSync(new URL('luoghi.js', import.meta.url));
 
+/* Il modulo esporta due elenchi (LUOGHI_ATAM e PIU_RICHIESTI): si
+   sostituiscono TUTTI gli `export const`, non solo il primo, o il secondo
+   resterebbe con una sintassi che `new Function` non accetta fuori da un
+   modulo. */
+function modulo(): { LUOGHI_ATAM: string[]; PIU_RICHIESTI: string[] } {
+  const corpo = SORGENTE.replace(/export const/g, 'const') +
+    '\nreturn { LUOGHI_ATAM, PIU_RICHIESTI };';
+  return new Function(corpo)();
+}
+
 function copia(): string[] {
-  const corpo = SORGENTE.replace('export const', 'const') + '\nreturn LUOGHI_ATAM;';
-  return new Function(corpo)() as string[];
+  return modulo().LUOGHI_ATAM;
 }
 
 /* senza questa, le due prove sotto potrebbero confrontare due array vuoti */
@@ -39,6 +48,23 @@ Deno.test('i doppi spazi sopravvivono alla copia', () => {
   const c = copia();
   assert(c.includes('Venezia  aeroporto'), 'il doppio spazio di Venezia e sparito');
   assert(c.includes('Terme  Euganee FS'), 'il doppio spazio di Terme Euganee e sparito');
+});
+
+/* PIU_RICHIESTI e' una curatela (i punti di arrivo piu' i tre golf), non
+   le prime N voci di LUOGHI_ATAM: senza questa prova, un domani in cui
+   qualcuno la "sistema" tagliandola dall'inizio dell'elenco passerebbe
+   inosservato. */
+Deno.test('i piu richiesti sono dodici, non un taglio dei primi N', () => {
+  const { PIU_RICHIESTI } = modulo();
+  assertEquals(PIU_RICHIESTI.length, 12,
+    `PIU_RICHIESTI ha ${PIU_RICHIESTI.length} voci, non dodici: la prova sotto girerebbe a vuoto o a meta`);
+});
+
+Deno.test('ogni voce dei piu richiesti esiste in LUOGHI_ATAM, parola per parola', () => {
+  const { LUOGHI_ATAM: tutte, PIU_RICHIESTI } = modulo();
+  for (const l of PIU_RICHIESTI) {
+    assert(tutte.includes(l), `"${l}" non e in LUOGHI_ATAM: si e disallineata, forse i tassisti l hanno rinominata`);
+  }
 });
 
 Deno.test('nessuna pagina tiene piu una copia sua', () => {
