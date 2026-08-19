@@ -377,8 +377,10 @@ Deno.test('lo switch di validaDati e TIPI_ATTIVI dicono gli stessi tipi, nessuno
   const casi = [...corpo![1].matchAll(/case '([a-z]+)':/g)].map((m) => m[1]);
   /* arrivo e fattura sono l'eccezione voluta: nascono dal check-in online,
      non dal modulo pubblico, quindi stanno nello switch di proposito senza
-     stare in TIPI_ATTIVI (e' il test qui sopra a presidiare proprio questo).
-     Tolti loro, lo switch e TIPI_ATTIVI devono restare identici come prima. */
+     stare in TIPI_ATTIVI — e' il test «i due tipi nuovi NON sono creabili
+     dal modulo pubblico» a presidiare proprio questo, non serve ripeterlo
+     qui. Tolti loro, lo switch e TIPI_ATTIVI devono restare identici come
+     prima. */
   const NON_PUBBLICI = ['arrivo', 'fattura'];
   const casiPubblici = casi.filter((c) => !NON_PUBBLICI.includes(c));
   assertEquals(
@@ -570,6 +572,19 @@ Deno.test('le persone senza nome non contano, e non se ne prendono piu di sei', 
   assertEquals((validaDati('arrivo', { persone_extra: tante }).dati?.persone_extra as unknown[]).length, 6);
   assertEquals((validaDati('arrivo', { persone_extra: [{ nome: '', eta: '9' }] })
     .dati?.persone_extra as unknown[]).length, 0);
+});
+
+/* Il tetto di sei deve contare PERSONE VERE, non posizioni nell'elenco: se
+   lo scarto dei nomi vuoti venisse dopo il taglio a sei, tre voci vuote in
+   testa a otto ne lascerebbero passare solo tre valide invece delle cinque
+   che l'ospite ha davvero scritto. */
+Deno.test('il tetto di sei conta le persone vere, non le posizioni', () => {
+  const otto = [
+    { nome: '', eta: '' }, { nome: '', eta: '' }, { nome: '', eta: '' },
+    ...Array.from({ length: 5 }, (_, i) => ({ nome: `Tizio ${i}`, eta: '30' })),
+  ];
+  const persone = validaDati('arrivo', { persone_extra: otto }).dati?.persone_extra as unknown[];
+  assertEquals(persone.length, 5);
 });
 
 /* Il segno che dice "qualcuno ha risposto". Deve sopravvivere alla

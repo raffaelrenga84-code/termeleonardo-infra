@@ -400,11 +400,15 @@ function validaArrivo(d: Record<string, unknown>): Esito {
   const desiderio = testo(d.fanghi_desiderio);
   const fanghi = (DESIDERI_FANGHI as readonly string[]).includes(desiderio) ? desiderio : null;
 
+  /* prima si scartano le voci senza nome, POI si taglia a sei: al contrario,
+     otto voci di cui le prime tre vuote lascerebbero passare solo tre
+     persone vere invece delle cinque che l'ospite ha davvero scritto — il
+     tetto deve contare persone vere, non posizioni nell'elenco */
   const persone = Array.isArray(d.persone_extra)
-    ? d.persone_extra.slice(0, 6).map((p) => {
+    ? d.persone_extra.map((p) => {
         const o = (p && typeof p === 'object') ? p as Record<string, unknown> : {};
         return { nome: testo(o.nome).slice(0, 80), eta: testo(o.eta).slice(0, 10) };
-      }).filter((p) => p.nome)
+      }).filter((p) => p.nome).slice(0, 6)
     : [];
 
   const note = testo(d.note);

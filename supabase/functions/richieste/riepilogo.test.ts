@@ -339,12 +339,22 @@ Deno.test('l arrivo si legge in elenco', () => {
   assert(r.riepilogo.includes('fanghi'), r.riepilogo);
 });
 
+/* La riga in elenco serve a RICONOSCERE di chi e' la fattura, non a
+   leggerne i dati fiscali di sfuggita passando davanti allo schermo della
+   reception: mostra ragione sociale e partita IVA (quanto basta per capire
+   il destinatario), e nient'altro. SDI, codice fiscale e PEC restano nella
+   scheda, non nella riga. */
 Deno.test('la fattura si legge in elenco senza mostrare tutto', () => {
   const r = riepilogoRichiesta({ tipo: 'fattura', dati: {
-    ragione: 'Bianchi S.r.l.', piva: 'IT02042330288', sdi: 'M5UXCR1',
+    ragione: 'Bianchi S.r.l.', piva: 'IT02042330288',
+    sdi: 'M5UXCR1', cf: 'BNCMRA80A01G224X', pec: 'b@pec-mail.it',
   } });
   assertEquals(r.etichetta, 'Fattura');
   assert(r.riepilogo.includes('Bianchi S.r.l.'), r.riepilogo);
+  assert(r.riepilogo.includes('IT02042330288'), r.riepilogo);
+  assert(!r.riepilogo.includes('M5UXCR1'), r.riepilogo);
+  assert(!r.riepilogo.includes('BNCMRA80A01G224X'), r.riepilogo);
+  assert(!r.riepilogo.includes('b@pec-mail.it'), r.riepilogo);
 });
 
 /* Una riga d'arrivo senza niente dentro non deve leggersi come un guasto:
