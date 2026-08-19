@@ -14,6 +14,7 @@ const PAGINA = `<!doctype html>
   <link href="https://www.termeleonardo.com/fr" rel="canonical">
   <link rel="alternate" hreflang="it" href="/it">
   <link rel="alternate" hreflang="de" href="/de">
+  <link rel="alternate" hreflang="en" href="https://www.termeleonardo.com/en">
   <style>.a{color:rosso}</style>
   <script>var nascosto = "parolaDiScript";</script>
 </head>
@@ -47,7 +48,27 @@ Deno.test('trova la description anche con gli attributi in ordine rovesciato', (
 Deno.test('canonical e hreflang', () => {
   const c = leggiPagina(PAGINA);
   assertEquals(c.canonical, 'https://www.termeleonardo.com/fr');
-  assertEquals(c.hreflang, ['it', 'de']);
+  assertEquals(c.hreflang, ['it', 'de', 'en']);
+});
+
+/* IL DIFETTO VERO DI QUESTO SITO. La mappa delle lingue e' costruita bene —
+   ogni pagina punta alla sua equivalente, e reciprocamente — ma gli
+   indirizzi sono relativi, e Google in quel caso ignora l'intero blocco.
+   Novanta per cento di lavoro fatto bene che non produce alcun effetto.
+   Senza questo conteggio il rapporto direbbe «hreflang: 5» e sembrerebbe
+   tutto a posto: un via libera falso e' peggio di un controllo che manca. */
+Deno.test('conta gli hreflang con indirizzo relativo, che Google ignora', () => {
+  const c = leggiPagina(PAGINA);
+  assertEquals(c.hreflangRelativi, 2, 'due su tre sono relativi');
+});
+
+Deno.test('un hreflang tutto assoluto non e un difetto', () => {
+  const c = leggiPagina(
+    '<html lang="it"><link rel="alternate" hreflang="de" ' +
+      'href="https://www.termeleonardo.com/de"></html>',
+  );
+  assertEquals(c.hreflang, ['de']);
+  assertEquals(c.hreflangRelativi, 0);
 });
 
 /* Cinque h1 sono il difetto vero di /it/cure-termali e /it/golf: qui ne
@@ -70,6 +91,23 @@ Deno.test('le parole degli script e degli stili non sono contenuto', () => {
   const c = leggiPagina(PAGINA);
   assert(c.parole > 0, 'non ha contato niente');
   assert(!/parolaDiScript/.test(JSON.stringify(c)), 'ha letto dentro lo script');
+});
+
+/* IL TITOLO SI LEGGE COM'E', GLI SPAZI COMPRESI. Il titolo vero di
+   /it/cure-termali ha un doppio spazio dentro: se in lettura lo si
+   normalizza, il controllo sul doppio spazio non puo' scattare mai e il
+   difetto resta invisibile per sempre. Le andate a capo si', quelle
+   diventano spazi — altrimenti spezzerebbero la tabella del rapporto. */
+Deno.test('il titolo conserva il doppio spazio, che e un difetto vero', () => {
+  const c = leggiPagina(
+    '<title>Cure ad Abano Terme Hotel 4 Stelle  con Cure Termali</title>',
+  );
+  assertEquals(c.titolo, 'Cure ad Abano Terme Hotel 4 Stelle  con Cure Termali');
+});
+
+Deno.test('ma un titolo scritto su piu righe diventa una riga sola', () => {
+  const c = leggiPagina('<title>\n  Hotel Terme Leonardo\n</title>');
+  assertEquals(c.titolo, 'Hotel Terme Leonardo');
 });
 
 Deno.test('le entita si sciolgono', () => {

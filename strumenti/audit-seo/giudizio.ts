@@ -53,7 +53,17 @@ export function sospetti(r: Riga): string[] {
   else if (r.h1.length > 1) s.push(`${r.h1.length} h1 nella stessa pagina`);
 
   if (!r.canonical) s.push('nessun canonical');
-  if (r.hreflang.length === 0) s.push('nessun hreflang, e le lingue sono quattro');
+  if (r.hreflang.length === 0) {
+    s.push('nessun hreflang, e le lingue sono quattro');
+  } else if (r.hreflangRelativi > 0) {
+    /* Non e' un dettaglio di forma: Google vuole l'indirizzo completo, e
+       davanti a uno relativo scarta il blocco intero. Una mappa delle
+       lingue giusta al 90% vale come non averla. */
+    s.push(
+      `${r.hreflangRelativi} hreflang su ${r.hreflang.length} con indirizzo relativo: ` +
+        `Google li ignora, va messo davanti https://www.termeleonardo.com`,
+    );
+  }
 
   if (r.senzaAlt > 0) s.push(`${r.senzaAlt} immagini su ${r.immagini} senza alt`);
 

@@ -14,6 +14,12 @@ export type Campi = {
   h1: string[];
   canonical: string;
   hreflang: string[];
+  /* Quanti di quegli hreflang portano un indirizzo relativo. Google vuole
+     l'indirizzo completo, protocollo compreso: se e' relativo ignora il
+     blocco intero, e una mappa delle lingue costruita bene non produce
+     nessun effetto. Contarli e' l'unico modo perche' il rapporto non dia
+     un via libera falso dicendo soltanto «hreflang: 5». */
+  hreflangRelativi: number;
   robots: string;
   parole: number;
   immagini: number;
@@ -50,6 +56,15 @@ export function decodifica(s: string): string {
 
 const pulisci = (s: string): string => decodifica(s).replace(/\s+/g, ' ').trim();
 
+/* Il titolo si legge com'e', gli spazi in mezzo compresi: il titolo vero di
+   /it/cure-termali ne ha due di fila, ed e' un difetto da segnalare.
+   Normalizzarlo qui renderebbe il controllo sul doppio spazio incapace di
+   scattare — un controllo che non puo' scattare e' peggio che non averlo,
+   perche' fa credere che sia stato guardato. Le andate a capo diventano
+   spazi: quelle spezzerebbero la tabella del rapporto. */
+const pulisciTitolo = (s: string): string =>
+  decodifica(s).replace(/[\r\n\t]+/g, ' ').replace(/^ +| +$/g, '');
+
 export function attributi(tag: string): Record<string, string> {
   const out: Record<string, string> = {};
   const re = /([a-zA-Z][a-zA-Z0-9-]*)\s*=\s*("([^"]*)"|'([^']*)'|([^\s">]+))/g;
@@ -67,7 +82,7 @@ export function leggiPagina(html: string): Campi {
   const testo = String(html ?? '');
 
   const mTitolo = testo.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  const titolo = mTitolo ? pulisci(mTitolo[1]) : '';
+  const titolo = mTitolo ? pulisciTitolo(mTitolo[1]) : '';
 
   const mHtml = testo.match(/<html\b[^>]*>/i);
   const lang = mHtml ? (attributi(mHtml[0]).lang ?? '') : '';
@@ -83,11 +98,15 @@ export function leggiPagina(html: string): Campi {
 
   let canonical = '';
   const hreflang: string[] = [];
+  let hreflangRelativi = 0;
   for (const t of tagsDi(testo, 'link')) {
     const a = attributi(t);
     const rel = (a.rel ?? '').toLowerCase();
     if (rel === 'canonical') canonical = a.href ?? '';
-    if (rel === 'alternate' && a.hreflang) hreflang.push(a.hreflang);
+    if (rel === 'alternate' && a.hreflang) {
+      hreflang.push(a.hreflang);
+      if (!/^https?:\/\//i.test(a.href ?? '')) hreflangRelativi++;
+    }
   }
 
   const h1 = [...testo.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)]
@@ -112,6 +131,7 @@ export function leggiPagina(html: string): Campi {
     h1,
     canonical,
     hreflang,
+    hreflangRelativi,
     robots,
     parole,
     immagini: immagini.length,

@@ -20,6 +20,15 @@ function cella(s: string, max = 55): string {
   return t.length <= max ? t : t.slice(0, max - 1) + '…';
 }
 
+/* «5» in colonna, quando quei cinque hanno l'indirizzo relativo, si legge
+   come «a posto»: chi scorre la tabella si ferma li'. La colonna deve dire
+   quanti non contano. */
+function cellaHreflang(r: Riga): string {
+  if (r.hreflang.length === 0) return '—';
+  if (r.hreflangRelativi === 0) return String(r.hreflang.length);
+  return `${r.hreflang.length} (${r.hreflangRelativi} relativi)`;
+}
+
 export function tabella(righe: Riga[], quando: string): string {
   const guardate = righe.map((r) => ({ r, s: sospetti(r) }));
   const conProblemi = guardate
@@ -46,7 +55,7 @@ export function tabella(righe: Riga[], quando: string): string {
     .map((r) =>
       `| ${cella(r.url, 40)} | ${r.stato} | ${cella(r.titolo)} | ${r.titolo.length}` +
       ` | ${cella(r.descrizione)} | ${r.descrizione.length} | ${r.h1.length}` +
-      ` | ${r.canonical ? 'sì' : '—'} | ${r.hreflang.length || '—'} | ${r.parole} |`
+      ` | ${r.canonical ? 'sì' : '—'} | ${cellaHreflang(r)} | ${r.parole} |`
     )
     .join('\n');
 

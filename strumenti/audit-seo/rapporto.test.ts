@@ -15,6 +15,7 @@ const base: Riga = {
   h1: ['Day Spa'],
   canonical: 'https://www.termeleonardo.com/it/day-spa',
   hreflang: ['it', 'de', 'en', 'fr'],
+  hreflangRelativi: 0,
   robots: '',
   parole: 800,
   immagini: 10,
@@ -50,6 +51,21 @@ Deno.test('i sospetti finiscono in cima, non sepolti nella tabella', () => {
   const iTabella = t.indexOf('Tutte le pagine');
   assert(iProblemi > 0 && iTabella > iProblemi, 'i problemi non vengono prima');
   assert(t.slice(iProblemi, iTabella).includes('canonical'), 'il difetto non e elencato');
+});
+
+/* La colonna hreflang non deve dire «5» quando quei cinque sono relativi e
+   Google li scarta: chi scorre la tabella si fermerebbe li' convinto che
+   vada bene, ed e' il difetto contro cui esiste tutto il controllo. */
+Deno.test('la colonna hreflang non dice cinque quando cinque non contano', () => {
+  const rotti: Riga = {
+    ...base,
+    hreflang: ['x-default', 'de', 'en', 'fr', 'it'],
+    hreflangRelativi: 5,
+  };
+  const riga = tabella([rotti], '19 agosto 2026')
+    .split('\n')
+    .filter((r) => r.startsWith('| /it/day-spa'))[0];
+  assert(/5 relativi/.test(riga), riga);
 });
 
 Deno.test('la data compare nel rapporto', () => {

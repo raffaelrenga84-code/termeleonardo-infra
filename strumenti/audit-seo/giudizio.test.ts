@@ -14,6 +14,7 @@ const SANA: Riga = {
   h1: ['Day Spa'],
   canonical: 'https://www.termeleonardo.com/it/day-spa',
   hreflang: ['it', 'de', 'en', 'fr'],
+  hreflangRelativi: 0,
   robots: '',
   parole: 800,
   immagini: 10,
@@ -41,6 +42,21 @@ Deno.test('vede il canonical che manca su tutto il sito', () => {
 
 Deno.test('vede l hreflang che manca, con quattro lingue vive', () => {
   assert(sospetti({ ...SANA, hreflang: [] }).some((s) => /hreflang/.test(s)));
+});
+
+/* La mappa delle lingue di questo sito e' costruita bene e non funziona:
+   gli indirizzi sono relativi e Google ignora il blocco intero. Il rapporto
+   deve dirlo, altrimenti «hreflang: 5» si legge come un via libera. */
+Deno.test('vede gli hreflang relativi, che Google ignora', () => {
+  const r = { ...SANA, hreflangRelativi: 5, hreflang: ['x-default', 'de', 'en', 'fr', 'it'] };
+  const s = sospetti(r);
+  assert(s.some((x) => /relativ/.test(x)), s.join(' · '));
+  assert(s.some((x) => /5/.test(x)), s.join(' · '));
+});
+
+/* E una mappa con gli indirizzi completi non deve essere accusata. */
+Deno.test('un hreflang assoluto non e un sospetto', () => {
+  assertEquals(sospetti({ ...SANA, hreflangRelativi: 0 }), []);
 });
 
 /* Il doppio spazio dentro «Hotel 4 Stelle  con Cure Termali» e' vero e
