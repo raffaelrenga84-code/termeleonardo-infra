@@ -51,7 +51,7 @@ textarea{min-height:84px;resize:vertical;}
 .scelte button{padding:13px;border:1.5px solid #DCD6CB;background:#fff;border-radius:10px;
   cursor:pointer;font:600 14px inherit;color:var(--verde-medio);}
 .scelte button.attivo{border-color:var(--verde);color:var(--verde);background:var(--acqua-chiara);}
-/* Le dodici destinazioni piu' richieste, fuori dalla tendina. Nove ospiti
+/* Le otto destinazioni piu' richieste, fuori dalla tendina. Nove ospiti
    su dieci vanno in uno di quei posti: oggi devono aprire un elenco di 191
    voci per trovarlo. */
 .mete{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;}
@@ -127,8 +127,14 @@ import { mancanti, segnaEtichette, segnaVuoti, nomiMancanti } from '/comune/obbl
    modulo suo perche' e' fatta dei numeri del listino, non di grafica, ed e'
    la parte che si prova da sola — vedi navetta.test.ts. */
 import { corsaDiRitorno, navetta, ritiroPerVolo } from '/comune/navetta.js';
+import { LUOGHI_ATAM } from '/comune/luoghi.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
+
+/* Le prime otto voci di LUOGHI_ATAM sono le piu' richieste e stanno in
+   testa all'elenco apposta (vedi luoghi.ts): il gruppo si taglia da li',
+   non si riscrive a mano — una lista a parte diventerebbe la quinta copia. */
+const COMUNI = 8;
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
@@ -364,199 +370,8 @@ function modulo() {
       <div id="boxAltre" style="display:none;">
       <select id="fLuogo">
         <option value="">—</option>
-      <optgroup label="__COMUNI__">
-        <option value="Venezia  aeroporto">Venezia  aeroporto</option>
-        <option value="Treviso Aeroporto">Treviso Aeroporto</option>
-        <option value="Verona Aeroporto✈️">Verona Aeroporto✈️</option>
-        <option value="Bologna Aeroporto">Bologna Aeroporto</option>
-        <option value="Venezia P.le Roma">Venezia P.le Roma</option>
-        <option value="Venezia porto">Venezia porto</option>
-        <option value="Padova FS">Padova FS</option>
-        <option value="Terme  Euganee FS">Terme  Euganee FS</option>
-        <option value="Mestre fs">Mestre fs</option>
-        <option value="Golf Valsanzibio 🏌">Golf Valsanzibio 🏌</option>
-        <option value="Golf Montecchia🏌">Golf Montecchia🏌</option>
-        <option value="Golf Frassanelle 🏌">Golf Frassanelle 🏌</option>
-      </optgroup>
-      <optgroup label="__TUTTE__">
-        <option value="Montegrotto">Montegrotto</option>
-        <option value="Padova città">Padova città</option>
-        <option value="Abano">Abano</option>
-        <option value="Abano - Montegrotto">Abano - Montegrotto</option>
-        <option value="Abano F.S">Abano F.S</option>
-        <option value="Aeroporto Roma fiumicino">Aeroporto Roma fiumicino</option>
-        <option value="Agugliaro">Agugliaro</option>
-        <option value="Albignasego">Albignasego</option>
-        <option value="Anguillara">Anguillara</option>
-        <option value="Ariano ferrarese">Ariano ferrarese</option>
-        <option value="Arquà Petrarca">Arquà Petrarca</option>
-        <option value="Arzergrande">Arzergrande</option>
-        <option value="Ascona">Ascona</option>
-        <option value="Asiago">Asiago</option>
-        <option value="Asolo">Asolo</option>
-        <option value="Assenza corte">Assenza corte</option>
-        <option value="Assenza lunghe">Assenza lunghe</option>
-        <option value="Bad KleinKircheim">Bad KleinKircheim</option>
-        <option value="Badia Polesine">Badia Polesine</option>
-        <option value="Bagnoli di Sopra">Bagnoli di Sopra</option>
-        <option value="Baone">Baone</option>
-        <option value="Bassano del Grappa">Bassano del Grappa</option>
-        <option value="Bastia">Bastia</option>
-        <option value="Battaglia Terme">Battaglia Terme</option>
-        <option value="Belluno">Belluno</option>
-        <option value="Bergamo aeroporto✈️">Bergamo aeroporto✈️</option>
-        <option value="Bologna città🎯">Bologna città🎯</option>
-        <option value="Bolzano">Bolzano</option>
-        <option value="Bovolenta">Bovolenta</option>
-        <option value="Brendola (VI)">Brendola (VI)</option>
-        <option value="Brescia">Brescia</option>
-        <option value="Brindisi">Brindisi</option>
-        <option value="Cadoneghe">Cadoneghe</option>
-        <option value="Cagliari">Cagliari</option>
-        <option value="Campodarsego">Campodarsego</option>
-        <option value="Camposampiero">Camposampiero</option>
-        <option value="Cartura">Cartura</option>
-        <option value="Casalserugo">Casalserugo</option>
-        <option value="Caselle di Selvazzano">Caselle di Selvazzano</option>
-        <option value="Castelfranco">Castelfranco</option>
-        <option value="Castello del Catajo">Castello del Catajo</option>
-        <option value="Cervarese Santa Croce">Cervarese Santa Croce</option>
-        <option value="Cesena">Cesena</option>
-        <option value="Chiasso">Chiasso</option>
-        <option value="Chiasso (ch)">Chiasso (ch)</option>
-        <option value="Chioggia-Sottomarina">Chioggia-Sottomarina</option>
-        <option value="Cinto Euganeo">Cinto Euganeo</option>
-        <option value="Cittadella">Cittadella</option>
-        <option value="Como">Como</option>
-        <option value="Conegliano">Conegliano</option>
-        <option value="Conselve">Conselve</option>
-        <option value="Cortina D'ampezzo">Cortina D'ampezzo</option>
-        <option value="Courmayeur">Courmayeur</option>
-        <option value="Cremona">Cremona</option>
-        <option value="Due Carrare">Due Carrare</option>
-        <option value="Este">Este</option>
-        <option value="Ferrara">Ferrara</option>
-        <option value="Firenze">Firenze</option>
-        <option value="Folgaria">Folgaria</option>
-        <option value="Formigine">Formigine</option>
-        <option value="Galzignano">Galzignano</option>
-        <option value="Galzignano e Galz Hotels">Galzignano e Galz Hotels</option>
-        <option value="Gardone Riviera">Gardone Riviera</option>
-        <option value="Genova">Genova</option>
-        <option value="Giro Colli 2 ore🖼">Giro Colli 2 ore🖼</option>
-        <option value="Giro Colli 3 ore🖼">Giro Colli 3 ore🖼</option>
-        <option value="Giro Colli 4 ore🖼">Giro Colli 4 ore🖼</option>
-        <option value="Gorizia">Gorizia</option>
-        <option value="Grado">Grado</option>
-        <option value="Grisignano">Grisignano</option>
-        <option value="Imola">Imola</option>
-        <option value="Imperia">Imperia</option>
-        <option value="Innsbruck">Innsbruck</option>
-        <option value="Ipercity-Albignasego">Ipercity-Albignasego</option>
-        <option value="Jesolo⛱">Jesolo⛱</option>
-        <option value="La Spezia">La Spezia</option>
-        <option value="Legnaro">Legnaro</option>
-        <option value="Lignano Sabbiadoro⛱">Lignano Sabbiadoro⛱</option>
-        <option value="Limena">Limena</option>
-        <option value="Luvigliano">Luvigliano</option>
-        <option value="Mandria opera immacolata">Mandria opera immacolata</option>
-        <option value="Mantova">Mantova</option>
-        <option value="Marchirolo">Marchirolo</option>
-        <option value="Marostica">Marostica</option>
-        <option value="Maserà">Maserà</option>
-        <option value="Mentone">Mentone</option>
-        <option value="Merano">Merano</option>
-        <option value="Mercato Abano">Mercato Abano</option>
-        <option value="Mercato Montegrotto">Mercato Montegrotto</option>
-        <option value="Mestrino">Mestrino</option>
-        <option value="Milano Città🎯">Milano Città🎯</option>
-        <option value="Milano Malpensa✈️">Milano Malpensa✈️</option>
-        <option value="Milano Marittima">Milano Marittima</option>
-        <option value="Milano-Linate">Milano-Linate</option>
-        <option value="Mira-Dolo">Mira-Dolo</option>
-        <option value="Modena">Modena</option>
-        <option value="Monselice">Monselice</option>
-        <option value="Montagnana">Montagnana</option>
-        <option value="Montegaldella">Montegaldella</option>
-        <option value="Montemerlo">Montemerlo</option>
-        <option value="Noventa Padovana">Noventa Padovana</option>
-        <option value="Noventa di Piave👔">Noventa di Piave👔</option>
-        <option value="Noventa vicentina">Noventa vicentina</option>
-        <option value="Occhiobello">Occhiobello</option>
-        <option value="Ortisei">Ortisei</option>
-        <option value="Outlet Noventa 3 ore">Outlet Noventa 3 ore</option>
-        <option value="Outlet Noventa 4 ore">Outlet Noventa 4 ore</option>
-        <option value="Palmanova">Palmanova</option>
-        <option value="Parco dei Tigli">Parco dei Tigli</option>
-        <option value="Parma">Parma</option>
-        <option value="Pavia">Pavia</option>
-        <option value="Pernumia">Pernumia</option>
-        <option value="Perugia">Perugia</option>
-        <option value="Pesaro - Urbino">Pesaro - Urbino</option>
-        <option value="Pescara">Pescara</option>
-        <option value="Peschiera del Garda">Peschiera del Garda</option>
-        <option value="Piacenza">Piacenza</option>
-        <option value="Piazzola sul Brenta">Piazzola sul Brenta</option>
-        <option value="Piove di Sacco">Piove di Sacco</option>
-        <option value="Pisa">Pisa</option>
-        <option value="Pordenone">Pordenone</option>
-        <option value="Porto Sant' Elpidio">Porto Sant' Elpidio</option>
-        <option value="Pozzonovo">Pozzonovo</option>
-        <option value="Praglia⛪️">Praglia⛪️</option>
-        <option value="Prato">Prato</option>
-        <option value="Princ. di Monaco">Princ. di Monaco</option>
-        <option value="Ravenna">Ravenna</option>
-        <option value="Reggio Emilia">Reggio Emilia</option>
-        <option value="Rimini">Rimini</option>
-        <option value="Riva del Garda">Riva del Garda</option>
-        <option value="Roma">Roma</option>
-        <option value="Rovigo">Rovigo</option>
-        <option value="Rovolon">Rovolon</option>
-        <option value="Rubano">Rubano</option>
-        <option value="Saccolongo">Saccolongo</option>
-        <option value="Sacile">Sacile</option>
-        <option value="San Daniele ⛪️">San Daniele ⛪️</option>
-        <option value="San Pietro viminario">San Pietro viminario</option>
-        <option value="Santa Giustina in Colle">Santa Giustina in Colle</option>
-        <option value="Saonara">Saonara</option>
-        <option value="Sarmeola di Rubano">Sarmeola di Rubano</option>
-        <option value="Sassuolo">Sassuolo</option>
-        <option value="Schiavonia">Schiavonia</option>
-        <option value="Schio">Schio</option>
-        <option value="Selvazzano">Selvazzano</option>
-        <option value="Sermide">Sermide</option>
-        <option value="Siena">Siena</option>
-        <option value="Sirmione">Sirmione</option>
-        <option value="Solesino">Solesino</option>
-        <option value="Stanghella">Stanghella</option>
-        <option value="Stra">Stra</option>
-        <option value="Tencarola">Tencarola</option>
-        <option value="Teolo">Teolo</option>
-        <option value="Terassa padovana">Terassa padovana</option>
-        <option value="Terradura">Terradura</option>
-        <option value="Torino">Torino</option>
-        <option value="Torre di Quartesolo">Torre di Quartesolo</option>
-        <option value="Torreglia">Torreglia</option>
-        <option value="Tortona">Tortona</option>
-        <option value="Trento">Trento</option>
-        <option value="Tribano">Tribano</option>
-        <option value="Trieste">Trieste</option>
-        <option value="Udine">Udine</option>
-        <option value="Val Badia">Val Badia</option>
-        <option value="Valsanzibio">Valsanzibio</option>
-        <option value="Varese">Varese</option>
-        <option value="Verona Arena🌛">Verona Arena🌛</option>
-        <option value="Verona città🎯">Verona città🎯</option>
-        <option value="Vicenza Fiera">Vicenza Fiera</option>
-        <option value="Vicenza città🎯">Vicenza città🎯</option>
-        <option value="Vienna">Vienna</option>
-        <option value="Vigonovo">Vigonovo</option>
-        <option value="Vigonza">Vigonza</option>
-        <option value="Villafranca Padovana">Villafranca Padovana</option>
-        <option value="Vo">Vo</option>
-        <option value="Zurigo">Zurigo</option>
-        <option value="civitavecchia">civitavecchia</option>
-      </optgroup>
+      <optgroup label="__COMUNI__"></optgroup>
+      <optgroup label="__TUTTE__"></optgroup>
       </select>
       </div>
 
@@ -651,7 +466,19 @@ function modulo() {
     <button class="invia" id="bInvia">${esc(t.invia)}</button>
     <div id="esito"></div>`;
 
-  /* ---------- le dodici piu' richieste, fuori dalla tendina ----------
+  /* ---------- le opzioni della tendina, da LUOGHI_ATAM ----------
+     Erano 189 <option> scritti a mano qui dentro: la terza copia dello
+     stesso elenco, e quella che divergeva di piu' (vedi luoghi.js e
+     luoghi.test.ts). Le prime COMUNI voci sono le piu' richieste, e stanno
+     in testa all'elenco apposta — vedi il commento su COMUNI qui sopra. */
+  const opzLuogo = (voci) => voci.map((l) =>
+    `<option value="${esc(l)}">${esc(l)}</option>`).join('');
+  $('fLuogo').querySelector('optgroup[label="__COMUNI__"]').innerHTML =
+    opzLuogo(LUOGHI_ATAM.slice(0, COMUNI));
+  $('fLuogo').querySelector('optgroup[label="__TUTTE__"]').innerHTML =
+    opzLuogo(LUOGHI_ATAM.slice(COMUNI));
+
+  /* ---------- le otto piu' richieste, fuori dalla tendina ----------
      Le pastiglie si COSTRUISCONO DALLA TENDINA STESSA, leggendo il primo
      optgroup: cosi' l'elenco resta uno solo. Scriverne un secondo qui
      sarebbe la quinta copia di una lista in questo progetto, e la prima a

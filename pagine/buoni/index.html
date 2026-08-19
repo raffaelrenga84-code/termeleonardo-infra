@@ -149,6 +149,7 @@ import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, cate
    mai `./date.js` o `../comune/date.js`. Vedi il commento in date.js. */
 import { attivaDate } from '/comune/date.js';
 import { vociATAM, riepilogoATAM, indirizzoATAM, indirizzoATAMRitorno } from '/comune/atam.js';
+import { LUOGHI_ATAM } from '/comune/luoghi.js';
 /* Il listino dei transfer: PROPONE una cifra, non la decide. La conferma
    umana e' quello che rende onesto il prezzo che arriva all'ospite — vedi
    la nota in cima a listino-transfer.js. */
@@ -979,57 +980,6 @@ function etichetta(mappa, chiave) {
    data. Il blocco a una voce sola che stava qui prometteva un incollaggio
    che il modulo dei tassisti non poteva accettare — vedi il commento in
    testa a quel file, e atam.test.ts. */
-
-/* Stessa lista di supabase/functions/richieste/luoghi.ts (LUOGHI_ATAM),
-   copiata qui parola per parola, emoji comprese: questa pagina e' HTML
-   statico, non puo' importare un modulo Deno. Deve restare IDENTICA — la
-   conferma del server la rivalida (luogoValido in tipi.ts) e un valore che
-   non combacia si rifiuta con "luogo non in elenco". Stessa scelta gia'
-   fatta in pagine/richieste/transfer/index.html, che la duplica allo stesso
-   modo per il modulo pubblico. */
-const LUOGHI_ATAM = [
-  "Montegrotto", "Padova FS", "Padova città", "Terme  Euganee FS",
-  "Treviso Aeroporto", "Venezia  aeroporto", "Venezia P.le Roma", "Venezia porto",
-  "Abano", "Abano - Montegrotto", "Abano F.S", "Aeroporto Roma fiumicino",
-  "Agugliaro", "Albignasego", "Anguillara", "Ariano ferrarese", "Arquà Petrarca",
-  "Arzergrande", "Ascona", "Asiago", "Asolo", "Assenza corte", "Assenza lunghe",
-  "Bad KleinKircheim", "Badia Polesine", "Bagnoli di Sopra", "Baone",
-  "Bassano del Grappa", "Bastia", "Battaglia Terme", "Belluno",
-  "Bergamo aeroporto✈️", "Bologna Aeroporto", "Bologna città🎯", "Bolzano",
-  "Bovolenta", "Brendola (VI)", "Brescia", "Brindisi", "Cadoneghe", "Cagliari",
-  "Campodarsego", "Camposampiero", "Cartura", "Casalserugo",
-  "Caselle di Selvazzano", "Castelfranco", "Castello del Catajo",
-  "Cervarese Santa Croce", "Cesena", "Chiasso", "Chiasso (ch)",
-  "Chioggia-Sottomarina", "Cinto Euganeo", "Cittadella", "Como", "Conegliano",
-  "Conselve", "Cortina D'ampezzo", "Courmayeur", "Cremona", "Due Carrare",
-  "Este", "Ferrara", "Firenze", "Folgaria", "Formigine", "Galzignano",
-  "Galzignano e Galz Hotels", "Gardone Riviera", "Genova", "Giro Colli 2 ore🖼",
-  "Giro Colli 3 ore🖼", "Giro Colli 4 ore🖼", "Golf Frassanelle 🏌",
-  "Golf Montecchia🏌", "Golf Valsanzibio 🏌", "Gorizia", "Grado", "Grisignano",
-  "Imola", "Imperia", "Innsbruck", "Ipercity-Albignasego", "Jesolo⛱",
-  "La Spezia", "Legnaro", "Lignano Sabbiadoro⛱", "Limena", "Luvigliano",
-  "Mandria opera immacolata", "Mantova", "Marchirolo", "Marostica", "Maserà",
-  "Mentone", "Merano", "Mercato Abano", "Mercato Montegrotto", "Mestre fs",
-  "Mestrino", "Milano Città🎯", "Milano Malpensa✈️", "Milano Marittima",
-  "Milano-Linate", "Mira-Dolo", "Modena", "Monselice", "Montagnana",
-  "Montegaldella", "Montemerlo", "Noventa Padovana", "Noventa di Piave👔",
-  "Noventa vicentina", "Occhiobello", "Ortisei", "Outlet Noventa 3 ore",
-  "Outlet Noventa 4 ore", "Palmanova", "Parco dei Tigli", "Parma", "Pavia",
-  "Pernumia", "Perugia", "Pesaro - Urbino", "Pescara", "Peschiera del Garda",
-  "Piacenza", "Piazzola sul Brenta", "Piove di Sacco", "Pisa", "Pordenone",
-  "Porto Sant' Elpidio", "Pozzonovo", "Praglia⛪️", "Prato", "Princ. di Monaco",
-  "Ravenna", "Reggio Emilia", "Rimini", "Riva del Garda", "Roma", "Rovigo",
-  "Rovolon", "Rubano", "Saccolongo", "Sacile", "San Daniele ⛪️",
-  "San Pietro viminario", "Santa Giustina in Colle", "Saonara",
-  "Sarmeola di Rubano", "Sassuolo", "Schiavonia", "Schio", "Selvazzano",
-  "Sermide", "Siena", "Sirmione", "Solesino", "Stanghella", "Stra",
-  "Tencarola", "Teolo", "Terassa padovana", "Terradura", "Torino",
-  "Torre di Quartesolo", "Torreglia", "Tortona", "Trento", "Tribano",
-  "Trieste", "Udine", "Val Badia", "Valsanzibio", "Varese",
-  "Verona Aeroporto✈️", "Verona Arena🌛", "Verona città🎯", "Vicenza Fiera",
-  "Vicenza città🎯", "Vienna", "Vigonovo", "Vigonza", "Villafranca Padovana",
-  "Vo", "Zurigo", "civitavecchia",
-];
 
 /* Stessi tre circoli di CIRCOLI_GOLF in luoghi.ts: qui serve solo la chiave
    (quella che tipi.ts controlla con Object.hasOwn) e il nome da mostrare —
