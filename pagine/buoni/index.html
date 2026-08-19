@@ -298,11 +298,12 @@ function disegna() {
     <button data-v="elenco" class="${VISTA==='elenco'?'attiva':''}">Buoni emessi</button>
     <button data-v="verifica" class="${VISTA==='verifica'?'attiva':''}">Verifica / riscuoti</button>
     <button data-v="richieste" class="${VISTA==='richieste'?'attiva':''}">Richieste dal sito</button>
+    <button data-v="arrivi" class="${VISTA==='arrivi'?'attiva':''}">Arrivi del giorno</button>
   </div><div id="vista"></div>`;
   document.querySelectorAll('.schede button').forEach(b =>
     b.onclick = () => { VISTA = b.dataset.v; disegna(); });
   ({ emetti: vistaEmetti, elenco: vistaElenco, verifica: vistaVerifica,
-     richieste: vistaRichieste })[VISTA]();
+     richieste: vistaRichieste, arrivi: vistaArrivi })[VISTA]();
 }
 
 /* ---------- 1. emissione ---------- */
@@ -1725,6 +1726,104 @@ $('esci').onclick = async (ev) => {
   await esci();
   chiediAccesso('');
 };
+
+/* ---------- 5. gli arrivi di un giorno ----------
+   SOLA LETTURA. Da qui non si conferma e non si corregge niente: e' la
+   schermata che mancava, non un secondo posto dove modificare le stesse
+   cose. Quello che l'ospite scrive nel «Prepara il suo arrivo» finiva in
+   un'email nella casella info@ e in una riga che nessuna schermata
+   leggeva; se l'email si perdeva, il dato c'era e non si poteva guardare.
+
+   CHI VEDE COSA LO DECIDE IL SERVER (arrivi.ts, perRuolo). Alla Segreteria
+   Cure arrivano i fanghi e non la partita IVA — e non perche' qui si
+   nascondano delle caselle, ma perche' quei campi non partono proprio.
+   Questa pagina disegna quello che riceve: se un campo non c'e', non c'e'
+   la riga. */
+
+/* Le tre fasce, come si leggono qui. Sono le stesse di
+   supabase/functions/prepara-arrivo/fanghi.ts (IN_RECEPTION): una pagina
+   HTML non puo' importare un modulo Deno, e la copia e' tenuta ferma da
+   pagine/buoni/fanghi-copie.test.ts. */
+const DESIDERIO_IN_PAGINA = {
+  presto: 'presto — dalle 5:50',
+  tardi: 'più tardi — verso le 10:00',
+  indifferente: 'indifferente'
+};
+
+const oggiISO = () => {
+  const d = new Date();
+  const due = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + due(d.getMonth() + 1) + '-' + due(d.getDate());
+};
+
+function vistaArrivi() {
+  $('vista').innerHTML = `<div class="riquadro">
+    <div class="due">
+      <div><label>Giorno di arrivo</label><input id="aGiorno" type="date" value="${oggiISO()}" /></div>
+      <div style="align-self:end;"><button id="aVai" class="primario">Guarda</button></div>
+    </div>
+    <div class="esito" id="aEsito">Carico…</div>
+    <div id="aTab"></div>
+    <div id="aTratt"></div></div>`;
+
+  const carica = async () => {
+    $('aEsito').textContent = 'Carico…';
+    $('aTab').innerHTML = '';
+    $('aTratt').innerHTML = '';
+    try {
+      const j = await chiama('?a=arrivi&giorno=' + encodeURIComponent($('aGiorno').value),
+        {}, FUNZIONE_RICHIESTE);
+      const arrivi = j.arrivi || [];
+      const tratt = j.trattamenti || [];
+      $('aEsito').textContent = arrivi.length
+        ? arrivi.length + (arrivi.length === 1 ? ' arrivo' : ' arrivi')
+        : 'Nessun arrivo registrato per questo giorno.';
+
+      if (arrivi.length) {
+        $('aTab').innerHTML = `<table>
+          <tr><th>Ospite</th><th>Soggiorno</th><th>Arrivo previsto</th><th>Cure e fanghi</th><th>Altro</th></tr>`
+          + arrivi.map(a => `<tr>
+            <td>${esc(a.intestatario || '')}${a.numero ? `<div class="mini cod">${esc(a.numero)}</div>` : ''}</td>
+            <td class="mini">${dataIT(a.data_arrivo)} → ${dataIT(a.data_partenza)}
+              <div>${a.adulti || 1} ad.${a.bambini ? ' · ' + a.bambini + ' bamb.' : ''}</div></td>
+            <td>${a.compilazioni === 0
+                  ? '<span class="mini">non ha ancora compilato</span>'
+                  : esc(a.ora_arrivo || '—') + (a.mezzo ? ` <span class="mini">(${esc(a.mezzo)})</span>` : '')}
+              ${a.compilazioni > 1
+                  ? `<div class="mini errore">ha compilato ${a.compilazioni} volte: controllare</div>`
+                  : ''}</td>
+            <td>${a.cure ? '<span class="badge-tipo">cure termali</span>' : ''}
+              ${a.fanghi_desiderio
+                  ? `<div class="mini">fanghi, desiderio: <b>${esc(DESIDERIO_IN_PAGINA[a.fanghi_desiderio] || a.fanghi_desiderio)}</b>
+                       <br />il turno lo assegna la Segreteria Cure</div>`
+                  : ''}</td>
+            <td class="mini">${a.transfer ? '<span class="badge-tipo">transfer</span> ' : ''}${esc(a.note || '')}</td>
+          </tr>`).join('') + `</table>`;
+      }
+
+      /* L'altra meta': i trattamenti chiesti PER quel giorno. Non sono gli
+         stessi ospiti — sono anche i clienti esterni del Day Spa — ed e'
+         quello che la spa deve sapere per sapere cosa la aspetta. */
+      $('aTratt').innerHTML = tratt.length ? `<div style="margin-top:18px;">
+        <div class="mini" style="padding-bottom:6px;">Richieste di trattamenti e Day Spa per questo giorno
+          (per rispondere: scheda «Richieste dal sito»).</div>
+        <table><tr><th>Numero</th><th>Ospite</th><th>Richiesta</th></tr>`
+        + tratt.map(r => `<tr>
+          <td class="cod">${esc(r.numero)}</td>
+          <td>${esc(r.nome)}<div class="mini">${esc(r.email || '')}</div></td>
+          <td><span class="badge-tipo">${esc(r.etichetta || 'Richiesta')}</span>
+            <div class="mini">${esc(r.riepilogo || '')}</div></td>
+        </tr>`).join('') + `</table></div>`
+        : '<div class="mini" style="margin-top:18px;">Nessuna richiesta di trattamenti per questo giorno.</div>';
+    } catch (e) {
+      $('aEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
+    }
+  };
+
+  $('aVai').onclick = carica;
+  $('aGiorno').onchange = carica;
+  carica();
+}
 
 (async () => {
   try {

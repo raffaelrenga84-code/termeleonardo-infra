@@ -20,6 +20,7 @@ import { inviaRicevuta } from './ricevuta.ts';
 import { inviaConferma } from './conferma.ts';
 import { arricchisciElenco } from './elenco.ts';
 import { filtroRicercaRichieste } from './ricerca.ts';
+import { giornoValido, perRuolo, perToken, tipiCura } from './arrivi.ts';
 import { type Ruolo, ruoloDi, tipiVisibili, vedeTutto } from './ruoli.ts';
 import { pocoPreavviso } from './preavviso.ts';
 import { componiRisposta, corpoDisponibilita } from './disponibilita.ts';
@@ -443,6 +444,95 @@ Deno.serve(async (req) => {
        gia' pagato coi prezzi del listino, i testi dei buoni, l'indirizzo,
        i trattamenti. */
     return risposta({ ok: true, richieste: arricchisciElenco(data ?? []) });
+  }
+
+  /* ---------- gli arrivi di un giorno ----------
+     PERCHE' STA QUI e non in prepara-arrivo: il cancello dei ruoli e' qui.
+     prepara-arrivo parla con l'ospite e conosce solo il suo token; mettere
+     la' dentro una terza copia di ruoli.ts vorrebbe dire tre scritture
+     della stessa regola, e la piu' debole delle tre decide.
+
+     PERCHE' ESISTE. Tutto quello che l'ospite scrive nel «Prepara il suo
+     arrivo» oggi vive in un'email nella casella info@ e in una riga che
+     nessuna schermata legge: se quell'email si perde, il dato c'e' e non
+     si puo' guardare. E il desiderio dei fanghi serve alla Segreteria Cure,
+     che non e' chi apre quella casella.
+
+     SOLA LETTURA: da qui non si conferma e non si corregge niente.
+     La riga si compone da due tabelle — arrivo_link, che sa chi arriva e
+     quando, e arrivo_richiesta, che sa cosa ha scritto — e poi passa da
+     perRuolo(), che decide cosa parte davvero. */
+  if (azione === 'arrivi') {
+    const giorno = giornoValido(url.searchParams.get('giorno'));
+    if (!giorno) return risposta({ errore: 'giorno mancante o non valido' }, 400);
+
+    const { data: link, error: eLink } = await db.from('arrivo_link')
+      .select('token, numero_pratica, intestatario, data_arrivo, data_partenza, adulti, bambini, cure')
+      .eq('data_arrivo', giorno)
+      .order('intestatario');
+    if (eLink) return risposta({ errore: eLink.message }, 500);
+
+    const token = (link ?? []).map((l: Record<string, unknown>) => l.token as string);
+    let compilate: Record<string, { riga: Record<string, unknown>; compilazioni: number }> = {};
+    if (token.length) {
+      const { data: ric, error: eRic } = await db.from('arrivo_richiesta')
+        .select('*').in('token', token);
+      if (eRic) return risposta({ errore: eRic.message }, 500);
+      /* prepara-arrivo fa un insert, non un upsert: chi rimanda il modulo
+         lascia due righe. perToken() tiene la piu' recente e dice quante
+         erano — il conteggio e' la parte che non puo' mentire. */
+      compilate = perToken((ric ?? []) as Record<string, unknown>[]);
+    }
+
+    /* token e id sono chiavi interne: non servono a chi guarda, e il token
+       e' la chiave con cui si apre la pagina di quell'ospite */
+    const senzaInterni = (o: Record<string, unknown>) =>
+      Object.fromEntries(Object.entries(o).filter(([k]) => k !== 'token' && k !== 'id'));
+
+    const arrivi = (link ?? [])
+      .map((l: Record<string, unknown>) => {
+        const c = compilate[l.token as string];
+        const riga = {
+          ...senzaInterni(c?.riga ?? {}),
+          ...senzaInterni(l),
+          numero: (l.numero_pratica as string) ?? '',
+          /* 0 = non ha ancora compilato; 2 o piu' = c'e' da guardare */
+          compilazioni: c?.compilazioni ?? 0,
+        };
+        delete (riga as Record<string, unknown>).numero_pratica;
+        return perRuolo(riga, accesso.ruolo, accesso.chiave);
+      })
+      .filter(Boolean);
+
+    /* E i trattamenti chiesti per quello stesso giorno: e' l'altra meta' di
+       quello che la spa deve sapere per sapere cosa la aspetta.
+
+       UN CAMPO SOLO, E VERIFICATO. Il giorno del servizio ha tre nomi
+       diversi secondo il tipo di richiesta — sono i CAMPI_DATA di
+       ricerca.ts: `quando` per il transfer, `data` per il maestro,
+       `giorno` per i trattamenti e il Day Spa. Qui il tipo e' gia'
+       ristretto a quei due (tipiCura), quindi il nome giusto e' uno solo, e
+       cercare anche negli altri due non sarebbe prudenza: sarebbe un
+       filtro che non puo' combaciare, cioe' un pezzo di codice che sembra
+       proteggere e non protegge. Chi cerca per tutti e tre e' la ricerca
+       libera, che non conosce il tipo in anticipo. */
+    const tipi = tipiCura(accesso.ruolo, accesso.chiave === true);
+    const { data: tratt, error: eT } = tipi.length === 0
+      ? { data: [], error: null }
+      : await db.from('richiesta_sito')
+      .select('*')
+      .in('tipo', tipi)
+      .eq('dati->>giorno', giorno)
+      .order('creato_il', { ascending: false })
+      .limit(200);
+    if (eT) return risposta({ errore: eT.message }, 500);
+
+    return risposta({
+      ok: true,
+      giorno,
+      arrivi,
+      trattamenti: arricchisciElenco(tratt ?? []),
+    });
   }
 
   /* ---------- conferma all'ospite ----------
