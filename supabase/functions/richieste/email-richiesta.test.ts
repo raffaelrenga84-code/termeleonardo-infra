@@ -266,3 +266,67 @@ Deno.test('il riquadro dichiara che all ospite non abbiamo promesso niente', () 
   const h = richiestaHTML({ ...r, tipo: 'trattamenti', poco_preavviso: true } as never);
   assertStringIncludes(h, 'nessuna promessa');
 });
+
+/* ============================================================
+   LA COPIA IN CC — spa e amministrazione.
+
+   Le righe che scelgono il `cc` dentro avvisaHotel (EMAIL_SPA o
+   EMAIL_AMMINISTRAZIONE secondo casellaInCopia(r.tipo)) non erano toccate
+   da nessuna prova sopra: quelle usano `r`, che non ha `tipo`, quindi
+   casellaInCopia rispondeva sempre null e il ramo del cc non veniva mai
+   percorso. Un nome di variabile sbagliato, un ternario invertito o un cc
+   che non arriva nel corpo passerebbero comunque a prove verdi.
+   ============================================================ */
+Deno.test('con EMAIL_SPA impostata, un trattamento arriva in copia alla spa', async () => {
+  Deno.env.set('RESEND_API_KEY', 'finta');
+  Deno.env.set('EMAIL_SPA', 'spa@termeleonardo.com');
+  const i = intercetta();
+  try {
+    const esito = await avvisaHotel({ ...r, tipo: 'trattamenti' } as never);
+    assertEquals(esito, true);
+    assertEquals(i.spedite.length, 1);
+    const m = i.spedite[0] as Record<string, unknown>;
+    assertEquals(m.cc, ['spa@termeleonardo.com']);
+  } finally {
+    i.ripristina();
+    Deno.env.delete('RESEND_API_KEY');
+    Deno.env.delete('EMAIL_SPA');
+  }
+});
+
+Deno.test('senza EMAIL_SPA un trattamento non porta nessun cc, e nemmeno uno inventato', async () => {
+  Deno.env.set('RESEND_API_KEY', 'finta');
+  Deno.env.delete('EMAIL_SPA');
+  const zitto = console.error; console.error = () => {};
+  const i = intercetta();
+  try {
+    const esito = await avvisaHotel({ ...r, tipo: 'trattamenti' } as never);
+    assertEquals(esito, true);
+    assertEquals(i.spedite.length, 1);
+    const m = i.spedite[0] as Record<string, unknown>;
+    /* sull'assenza della chiave, non solo su un valore diverso: un
+       indirizzo di riserva inventato avrebbe comunque una chiave `cc` */
+    assertEquals(Object.hasOwn(m, 'cc'), false);
+  } finally {
+    i.ripristina();
+    console.error = zitto;
+    Deno.env.delete('RESEND_API_KEY');
+  }
+});
+
+Deno.test('una fattura arriva in copia all amministrazione', async () => {
+  Deno.env.set('RESEND_API_KEY', 'finta');
+  Deno.env.set('EMAIL_AMMINISTRAZIONE', 'amministrazione@termeleonardo.com');
+  const i = intercetta();
+  try {
+    const esito = await avvisaHotel({ ...r, tipo: 'fattura' } as never);
+    assertEquals(esito, true);
+    assertEquals(i.spedite.length, 1);
+    const m = i.spedite[0] as Record<string, unknown>;
+    assertEquals(m.cc, ['amministrazione@termeleonardo.com']);
+  } finally {
+    i.ripristina();
+    Deno.env.delete('RESEND_API_KEY');
+    Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  }
+});

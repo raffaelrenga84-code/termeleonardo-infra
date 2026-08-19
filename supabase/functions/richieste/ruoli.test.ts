@@ -119,8 +119,9 @@ Deno.test('ogni tipo che la spa legge le arriva anche in copia', () => {
 });
 
 Deno.test('e alla spa non arriva niente che non possa leggere', () => {
-  for (const [tipo, chi] of Object.entries(CASELLA_IN_COPIA)) {
-    if (chi !== 'spa') continue;
+  const perSpa = Object.entries(CASELLA_IN_COPIA).filter(([, chi]) => chi === 'spa');
+  assert(perSpa.length > 0, 'nessun tipo va in copia alla spa: la prova girerebbe a vuoto');
+  for (const [tipo] of perSpa) {
     assert(tipiVisibili('spa').includes(tipo),
       `"${tipo}" arriva alla spa e la spa non puo aprirlo in back office`);
   }
