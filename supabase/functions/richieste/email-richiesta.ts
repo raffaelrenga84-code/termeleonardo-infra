@@ -8,6 +8,7 @@
    ============================================================ */
 
 import type { Richiesta } from './valida.ts';
+import { casellaInCopia } from './ruoli.ts';
 
 /* I tipi diversi dal soggiorno portano campi propri, che arrivano qui
    insieme ai contatti: il tipo resta aperto invece di elencarli tutti. */
@@ -246,6 +247,19 @@ export async function avvisaHotel(r: ConNumero): Promise<boolean> {
     return false;
   }
   const a = Deno.env.get('EMAIL_HOTEL') || 'info@termeleonardo.com';
+  /* LA COPIA. Non un secondo invio: cosi' la reception VEDE che la spa e'
+     in copia. Con due email separate nessuno dei due sa che l'altro l'ha
+     ricevuta, e ci si telefona per chiedere "l'hai vista?".
+     Se la variabile non c'e' la copia non parte: si scrive nel registro,
+     perche' un destinatario mancante in silenzio e' come non averlo
+     deciso. */
+  const chi = casellaInCopia(r.tipo);
+  const copia = chi === 'spa'
+    ? Deno.env.get('EMAIL_SPA')
+    : chi === 'amministrazione'
+    ? Deno.env.get('EMAIL_AMMINISTRAZIONE')
+    : undefined;
+  if (chi && !copia) console.error(`copia non inviata: manca l'indirizzo per ${chi} ->`, r.numero);
   try {
     const risposta = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -253,6 +267,7 @@ export async function avvisaHotel(r: ConNumero): Promise<boolean> {
       body: JSON.stringify({
         from: Deno.env.get('MITTENTE_EMAIL') || 'Hotel Terme Leonardo <noreply@hoteltermeleonardo.com>',
         to: a,
+        ...(copia ? { cc: [copia] } : {}),
         reply_to: r.email,
         subject: `${r.numero} · richiesta dal sito · ${r.nome}`,
         html: richiestaHTML(r),
