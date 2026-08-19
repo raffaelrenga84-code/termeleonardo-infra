@@ -30,6 +30,8 @@ import {
 import { LINGUE } from './condizioni.ts';
 import { creaFrenoIp } from './limite-ip.ts';
 import { dataConsenso } from './consenso.ts';
+import { pezziDaArrivo } from './arrivo-invio.ts';
+import { inviaRicevutaArrivo } from './ricevuta-arrivo.ts';
 
 /* Portata da buoni/index.ts, stessa forma: legge stagione_chiusura ordinata
    per chiusura, e se la lettura fallisce prosegue senza — un ripiego onesto,
@@ -315,6 +317,104 @@ Deno.serve(async (req) => {
         adulti: data.adulti, bambini: data.bambini, pratica: data.numero_pratica,
       },
     });
+  }
+
+  /* ---------- pubblico: il check-in online ----------
+     LA PORTA E' QUESTA E NON PIU' prepara-arrivo. Quella funzione parla con
+     l'ospite e sa aprire il suo link; questa sa fare le richieste — numero,
+     ricevuta, prezzo, conferma, ruoli. Mettere la creazione delle richieste
+     anche la' vorrebbe dire due implementazioni della stessa cosa.
+
+     L'AUTENTICAZIONE E' IL TOKEN, come in ?a=precompila: chi ha il link
+     dell'arrivo l'ha ricevuto in una nostra email. */
+  if (azione === 'invia-arrivo') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const corpo = await req.json().catch(() => ({})) as Record<string, unknown>;
+    const t = testo(corpo.token);
+    if (!t) return risposta({ errore: 'token mancante' }, 400);
+
+    const { data: link } = await db.from('arrivo_link')
+      .select('token, numero_pratica, intestatario, email, lingua, data_arrivo, scade_il')
+      .eq('token', t).maybeSingle();
+    if (!link) return risposta({ errore: 'link non valido' }, 404);
+    if (link.scade_il && new Date(link.scade_il).getTime() < Date.now()) {
+      return risposta({ errore: 'scaduto' }, 410);
+    }
+
+    /* GIA' MANDATO. Senza questo controllo, chi ricarica la pagina e
+       rimanda crea tre richieste nuove con tre numeri nuovi e riceve una
+       seconda ricevuta per cose gia' in lavorazione — peggio di prima, non
+       meglio. Per cambiare qualcosa si scrive, e la correzione la fa la
+       reception sulla richiesta con ?a=conferma. */
+    const { data: gia } = await db.from('richiesta_sito')
+      .select('numero, tipo').eq('arrivo_token', t);
+    if (gia && gia.length > 0) {
+      return risposta({ errore: 'gia inviato', richieste: gia }, 409);
+    }
+
+    const { errore, pezzi } = pezziDaArrivo(corpo, new Date());
+    if (errore || !pezzi) return risposta({ errore }, 400);
+
+    /* un numero per pezzo, chiesti PRIMA: se poi l'inserimento fallisce
+       restano numeri saltati, che e' innocuo. Una riga orfana no. */
+    const numeri: { anno: number; progressivo: number; numero: string }[] = [];
+    for (let i = 0; i < pezzi.length; i++) {
+      const { data: n, error: eN } = await db.rpc('prossimo_numero_richiesta');
+      if (eN || !n?.[0]) {
+        console.error('numerazione fallita:', eN);
+        return risposta({ errore: 'salvataggio non riuscito' }, 500);
+      }
+      numeri.push(n[0]);
+    }
+
+    const adesso = new Date().toISOString();
+    const righe = pezzi.map((p, i) => ({
+      anno: numeri[i].anno, progressivo: numeri[i].progressivo, numero: numeri[i].numero,
+      tipo: p.tipo,
+      nome: link.intestatario, email: link.email,
+      telefono: testo(corpo.telefono).slice(0, 40) || null,
+      lingua: link.lingua || 'it',
+      dati: p.dati,
+      dati_originali: p.dati,
+      arrivo_token: t,
+      origine: 'check-in online',
+      ip: indirizzo(req),
+      privacy_il: adesso,
+    }));
+
+    /* UN SOLO insert, con tutte le righe: e' una sola istruzione, quindi
+       non puo' restarne mezza */
+    const { error: eIns } = await db.from('richiesta_sito').insert(righe);
+    if (eIns) {
+      console.error('inserimento fallito:', eIns);
+      return risposta({ errore: 'salvataggio non riuscito' }, 500);
+    }
+
+    /* un avviso per richiesta — ognuno col suo numero e col "rispondi a"
+       dell'ospite — e UNA sola ricevuta, perche' l'ospite ha compilato un
+       modulo solo */
+    const ospite = {
+      nome: link.intestatario as string,
+      email: link.email as string,
+      lingua: (link.lingua as string) || 'it',
+    };
+    await Promise.all([
+      /* un avviso per richiesta: ognuno porta il suo numero e il
+         "rispondi a" dell'ospite, ed e' quello che oggi manca */
+      /* r.telefono e' `string | null` (la colonna lo ammette assente);
+         ConNumero lo vuole `string | undefined` — null diventa undefined
+         qui, non cambia niente per Resend, che una riga vuota la salta
+         comunque */
+      ...righe.map((r) => avvisaHotel({
+        numero: r.numero, tipo: r.tipo, nome: r.nome,
+        email: r.email, telefono: r.telefono ?? undefined, lingua: r.lingua, dati: r.dati,
+      })),
+      inviaRicevutaArrivo(ospite, righe.map((r) => ({
+        numero: r.numero, tipo: r.tipo, dati: r.dati,
+      }))),
+    ]);
+
+    return risposta({ ok: true, numeri: numeri.map((n) => n.numero) });
   }
 
   /* ---------- pubblico: disponibilita' camere ----------
