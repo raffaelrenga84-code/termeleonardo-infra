@@ -50,6 +50,18 @@ const PACCHETTI = {
     prezzoSpeciale: false,
     lingue: ['de', 'en', 'fr']
   },
+  /* La Spezial di febbraio, giugno e novembre e' il Dolce Vita piu' il
+     Wohlfuehlprogramm. La chiave sta PRIMA di 'dolce vita' perche' la
+     ricerca prende la prima che combacia, e "Dolce Vita Spezial" contiene
+     entrambe le parole. Lo tiene fermo estensione/pacchetti.test.ts. */
+  'spezial': {
+    it: 'Mezza pensione con cena &middot; pacchetto salute: {N} fanghi naturali con bagno termale all&rsquo;ozono, {N} massaggi di reazione, {N} inalazioni o aerosol &middot; visita medica di ammissione inclusa. A fine soggiorno riceve la fattura separata delle cure. &middot; In pi&ugrave;, il programma benessere Spezial: aperitivo di benvenuto &middot; Diner du Patron, men&ugrave; di sei portate con vini abbinati, a lume di candela e con pianoforte &middot; vini da tavola liberi al ristorante, con una selezione di grandi etichette italiane &middot; uso libero del campo pratica golf e delle biciclette.',
+    de: 'Halbpension mit Abendessen &middot; Gesundheitspaket: {N} Naturfangopackungen mit Ozon-Thermalbad, {N} Reaktionsmassagen, {N} Inhalationen oder Aerosol &middot; &auml;rztliche Anfangsuntersuchung inklusive. Am Ende des Aufenthalts erhalten Sie eine separate Rechnung der Anwendungen zur Vorlage bei Ihrer Krankenkasse. &middot; Dazu das Wohlf&uuml;hlprogramm Spezial: Aperitivempfang &middot; Dinner du Patron, 6-Gang-Men&uuml; mit dazu passenden Weinen bei Kerzenschein und Klaviermusik &middot; freie Tischweine im Restaurant mit einer Auswahl von italienischen Topweinen &middot; freie Ben&uuml;tzung der Driving Range und der Fahrr&auml;der.',
+    en: 'Half board with dinner &middot; health package: {N} natural mud packs with ozone thermal bath, {N} reaction massages, {N} inhalations or aerosol &middot; medical admission examination included. A separate invoice for the treatments is issued at the end of your stay. &middot; Plus the Spezial wellbeing programme: welcome aperitif &middot; Dinner du Patron, six-course menu with paired wines, by candlelight with piano music &middot; complimentary table wines at the restaurant, with a selection of top Italian labels &middot; free use of the driving range and the bicycles.',
+    fr: 'Demi-pension avec d&icirc;ner &middot; forfait sant&eacute; : {N} applications de fango naturel avec bain thermal &agrave; l&rsquo;ozone, {N} massages de r&eacute;action, {N} inhalations ou a&eacute;rosols &middot; visite m&eacute;dicale d&rsquo;admission incluse. Une facture s&eacute;par&eacute;e des soins vous est remise en fin de s&eacute;jour. &middot; En plus, le programme bien-&ecirc;tre Spezial : ap&eacute;ritif de bienvenue &middot; Dinner du Patron, menu de six plats avec vins accord&eacute;s, aux chandelles et au piano &middot; vins de table offerts au restaurant, avec une s&eacute;lection de grands vins italiens &middot; libre utilisation du practice de golf et des v&eacute;los.',
+    prezzoSpeciale: true,
+    lingue: ['de', 'en', 'fr']
+  },
   'dolce vita': {
     it: 'Mezza pensione con cena &middot; pacchetto salute: fango naturale con bagno termale all&rsquo;ozono, massaggio di reazione, inalazione o aerosol &middot; visita medica di ammissione inclusa.',
     de: 'Halbpension mit Abendessen &middot; Gesundheitspaket: Naturfangopackung mit Ozon-Thermalbad, Reaktionsmassage, Inhalation oder Aerosol &middot; &auml;rztliche Anfangsuntersuchung inklusive. Am Ende des Aufenthalts erhalten Sie eine separate Rechnung der Anwendungen zur Vorlage bei Ihrer Krankenkasse.',
@@ -588,9 +600,16 @@ function notaPacchetto(trattamento, lingua) {
   const chiave = Object.keys(PACCHETTI).find(k => (trattamento || '').toLowerCase().includes(k));
   if (!chiave) return '';
   const p = PACCHETTI[chiave];
+  /* QUANTE APPLICAZIONI. "Spezial 10 cure" e "Spezial 5 cure" sono lo stesso
+     pacchetto col ciclo raddoppiato, e la descrizione deve dirlo: il numero
+     si legge dal nome della tariffa. Se non c'e', il segnaposto sparisce
+     insieme allo spazio che lo segue e resta la frase generica - mai un
+     "{N}" che arriva all'ospite. */
+  const quante = ((trattamento || '').match(/(\d+)\s*(?:cure|anwendungen|treatments|soins)/i) || [])[1];
   // pacchetti riservati ad alcune lingue: fuori da quelle, nessuna didascalia
   if (Array.isArray(p.lingue) && !p.lingue.includes(lingua)) return '';
-  const testo = p[lingua];
+  let testo = p[lingua];
+  if (testo) testo = quante ? testo.split('{N}').join(quante) : testo.replace(/\{N\}\s*/g, '');
   if (!testo && !p.prezzoSpeciale) return '';
   let righe = '';
   if (testo) {
