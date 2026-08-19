@@ -55,6 +55,19 @@ Deno.test('in tedesco non risponde in italiano', () => {
   assert(!h.includes('Abbiamo ricevuto'), 'la ricevuta tedesca e in italiano');
 });
 
+/* Una lookup diretta TESTI[o.lingua] e' il difetto che riepilogo.ts (riga
+   151 circa) documenta e schiva con uno switch: un valore ereditato da
+   Object.prototype ('toString', 'constructor', 'valueOf'...) e' verita
+   per il ||, quindi il ripiego non scatta mai. 'es' prova il caso innocuo
+   (una lingua vera ma non supportata), 'toString' il caso pericoloso. In
+   nessuno dei due casi deve uscire un errore: deve uscire l'italiano. */
+Deno.test('una lingua sconosciuta o ereditata da Object.prototype ricade sull italiano, senza esplodere', () => {
+  for (const lingua of ['es', 'toString', 'constructor', 'valueOf']) {
+    const h = ricevutaArrivoHTML({ ...OSPITE, lingua }, RIGHE);
+    assert(h.includes('Gentile Rossi Mario'), `lingua "${lingua}": non e ricaduta sull italiano`);
+  }
+});
+
 /* Il nome arriva da una prenotazione, ma niente vieta che contenga un
    apostrofo o un segno di minore: la stessa cura di ogni altra email. */
 Deno.test('il nome non puo iniettare markup', () => {
