@@ -373,6 +373,84 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
   };
 }
 
+/* ---------------- arrivo (dal check-in online) ---------------- */
+/* Le attenzioni arrivano come CHIAVI e non come testo: la pagina d'arrivo
+   parla quattro lingue, e "Culla per neonato" in back office andrebbe
+   letto da chi in quel momento aveva davanti "Babybett". E' la stessa
+   scelta gia' fatta per il desiderio dei fanghi. */
+const ATTENZIONI = ['culla', 'seggiolone', 'parcheggio', 'cane'] as const;
+
+/* COPIA di DESIDERI in prepara-arrivo/fanghi.ts: le funzioni si pubblicano
+   una cartella per volta e non possono importarsi fra loro. La tiene ferma
+   supabase/functions/richieste/copie.test.ts. */
+const DESIDERI_FANGHI = ['presto', 'tardi', 'indifferente'] as const;
+
+function validaArrivo(d: Record<string, unknown>): Esito {
+  const oraArrivo = testo(d.ora_arrivo);
+  if (oraArrivo.length > 30) return { errore: 'ora di arrivo troppo lunga' };
+
+  const mezzo = testo(d.mezzo);
+  if (mezzo.length > 20) return { errore: 'mezzo troppo lungo' };
+
+  const attenzioni = Array.isArray(d.attenzioni)
+    ? d.attenzioni.map((a) => testo(a))
+        .filter((a) => (ATTENZIONI as readonly string[]).includes(a))
+    : [];
+
+  const desiderio = testo(d.fanghi_desiderio);
+  const fanghi = (DESIDERI_FANGHI as readonly string[]).includes(desiderio) ? desiderio : null;
+
+  const persone = Array.isArray(d.persone_extra)
+    ? d.persone_extra.slice(0, 6).map((p) => {
+        const o = (p && typeof p === 'object') ? p as Record<string, unknown> : {};
+        return { nome: testo(o.nome).slice(0, 80), eta: testo(o.eta).slice(0, 10) };
+      }).filter((p) => p.nome)
+    : [];
+
+  const note = testo(d.note);
+  if (note.length > 2000) return { errore: 'note troppo lunghe' };
+
+  /* IL SEGNO CHE QUALCUNO HA RISPOSTO. Sta qui e non altrove per lo stesso
+     motivo di prezzo_cent nel transfer: ?a=conferma rivalida i dati con
+     queste regole, e un campo non previsto verrebbe scartato in silenzio —
+     la richiesta tornerebbe bloccata dopo che il lavoro era stato fatto. */
+  const persone_confermate = d.persone_confermate === true;
+
+  return {
+    dati: {
+      ora_arrivo: oraArrivo, mezzo, attenzioni,
+      fanghi_desiderio: fanghi, persone_extra: persone, persone_confermate, note,
+    },
+  };
+}
+
+/* ---------------- fattura (dal check-in online) ---------------- */
+function validaFattura(d: Record<string, unknown>): Esito {
+  const ragione = testo(d.ragione);
+  if (!ragione) return { errore: 'ragione sociale mancante' };
+  if (ragione.length > 160) return { errore: 'ragione sociale troppo lunga' };
+
+  const indirizzo = testo(d.indirizzo);
+  if (indirizzo.length > 200) return { errore: 'indirizzo troppo lungo' };
+
+  const piva = testo(d.piva);
+  if (piva.length > 20) return { errore: 'partita IVA troppo lunga' };
+  const cf = testo(d.cf);
+  if (cf.length > 20) return { errore: 'codice fiscale troppo lungo' };
+
+  /* senza uno dei due non si emette niente: accettarla vorrebbe dire
+     mettere in coda all'amministrazione una richiesta che non puo'
+     lavorare, e scoprirlo al check-out */
+  if (!piva && !cf) return { errore: 'serve la partita IVA o il codice fiscale' };
+
+  const sdi = testo(d.sdi);
+  if (sdi.length > 10) return { errore: 'codice SDI troppo lungo' };
+  const pec = testo(d.pec);
+  if (pec.length > 160) return { errore: 'PEC troppo lunga' };
+
+  return { dati: { ragione, indirizzo, piva, cf, sdi, pec } };
+}
+
 export function validaDati(
   tipo: string,
   d: Record<string, unknown>,
@@ -385,6 +463,8 @@ export function validaDati(
     case 'maestro': return validaMaestro(d || {}, oggi);
     case 'trattamenti': return validaTrattamenti(d || {}, oggi);
     case 'dayspa': return validaDayspa(d || {}, oggi);
+    case 'arrivo': return validaArrivo(d || {});
+    case 'fattura': return validaFattura(d || {});
     default: return { errore: 'tipo di richiesta sconosciuto' };
   }
 }

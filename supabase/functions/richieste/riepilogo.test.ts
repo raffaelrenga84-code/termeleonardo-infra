@@ -327,3 +327,28 @@ Deno.test('un tipo assente (undefined) e trattato come sconosciuto, e lo dice', 
   assertEquals(r.etichetta, 'Richiesta');
   assertEquals(r.riepilogo, NESSUN_DETTAGLIO);
 });
+
+/* ---------------- arrivo / fattura (dal check-in online) ---------------- */
+
+Deno.test('l arrivo si legge in elenco', () => {
+  const r = riepilogoRichiesta({ tipo: 'arrivo', dati: {
+    ora_arrivo: '16:30', mezzo: 'auto', attenzioni: ['culla'], fanghi_desiderio: 'presto',
+  } });
+  assertEquals(r.etichetta, 'Arrivo');
+  assert(r.riepilogo.includes('16:30'), r.riepilogo);
+  assert(r.riepilogo.includes('fanghi'), r.riepilogo);
+});
+
+Deno.test('la fattura si legge in elenco senza mostrare tutto', () => {
+  const r = riepilogoRichiesta({ tipo: 'fattura', dati: {
+    ragione: 'Bianchi S.r.l.', piva: 'IT02042330288', sdi: 'M5UXCR1',
+  } });
+  assertEquals(r.etichetta, 'Fattura');
+  assert(r.riepilogo.includes('Bianchi S.r.l.'), r.riepilogo);
+});
+
+/* Una riga d'arrivo senza niente dentro non deve leggersi come un guasto:
+   vale la stessa regola gia' in piedi per gli altri tipi. */
+Deno.test('un arrivo vuoto lo dice', () => {
+  assertEquals(riepilogoRichiesta({ tipo: 'arrivo', dati: {} }).riepilogo, 'nessun dettaglio indicato');
+});

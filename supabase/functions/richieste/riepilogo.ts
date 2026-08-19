@@ -214,6 +214,32 @@ export function riepilogoRichiesta(r: Richiesta): Riga {
       break;
     }
 
+    case 'arrivo': {
+      const attenzioni = Array.isArray(d.attenzioni) ? d.attenzioni : [];
+      const persone = Array.isArray(d.persone_extra) ? d.persone_extra : [];
+      const fanghi = typeof d.fanghi_desiderio === 'string' ? d.fanghi_desiderio : '';
+      etichetta = 'Arrivo';
+      riepilogo = [
+        typeof d.ora_arrivo === 'string' && d.ora_arrivo ? `arrivo ${d.ora_arrivo}` : '',
+        typeof d.mezzo === 'string' ? d.mezzo : '',
+        attenzioni.length > 0 ? attenzioni.join(', ') : '',
+        fanghi ? `fanghi: ${fanghi}` : '',
+        /* le persone da aggiungere si dicono SEMPRE, anche in elenco:
+           sono la parte che aspetta una risposta */
+        persone.length > 0 ? conPlurale(persone.length, 'persona da aggiungere', 'persone da aggiungere') : '',
+      ].filter(Boolean).join(' · ');
+      break;
+    }
+
+    case 'fattura': {
+      etichetta = 'Fattura';
+      riepilogo = [
+        typeof d.ragione === 'string' ? d.ragione : '',
+        typeof d.piva === 'string' && d.piva ? `P.IVA ${d.piva}` : '',
+      ].filter(Boolean).join(' · ');
+      break;
+    }
+
     case 'soggiorno':
       etichetta = 'Soggiorno';
       riepilogo = riepilogoSoggiorno(r);
