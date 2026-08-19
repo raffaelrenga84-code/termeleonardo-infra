@@ -85,6 +85,17 @@ statiche su Vercel, Resend per le email, `jsr:@std/assert` per le prove.
 
 ---
 
+## L'ordine di esecuzione
+
+I numeri restano quelli scritti qui, ma **il Task 6 si esegue prima del
+Task 5**: l'azione `?a=invia-arrivo` chiama `inviaRicevutaArrivo`, e
+costruire prima l'azione vorrebbe dire scrivere un abbozzo che non manda
+niente — codice morto che qualcuno potrebbe dimenticare pieno a meta'.
+
+Ordine: **1 · 2 · 3 · 4 · 6 · 5 · 7 · 8 · 9**
+
+---
+
 ## Task 1: L'elenco dei luoghi in un modulo solo
 
 **Perché per primo:** senza, la pagina d'arrivo diventerebbe la **quarta**
@@ -1124,9 +1135,8 @@ import { pezziDaArrivo } from './arrivo-invio.ts';
 import { inviaRicevutaArrivo } from './ricevuta-arrivo.ts';
 ```
 
-> `inviaRicevutaArrivo` arriva col Task 6. Per far compilare questo passo
-> subito, crearla come funzione che restituisce `false` e non manda niente,
-> e riempirla nel Task 6.
+> `inviaRicevutaArrivo` e `ricevuta-arrivo.ts` esistono gia': il Task 6 si
+> esegue PRIMA di questo. Vedi la nota sull'ordine in cima ai compiti.
 
 - [ ] **Passo 6: controllare i tipi e lanciare tutto**
 
