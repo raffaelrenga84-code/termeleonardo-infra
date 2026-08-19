@@ -656,22 +656,41 @@ Deno.test('il riepilogo d’acquisto non porta il pulsante di prenotazione: non 
    identificativo inventato farebbe rispondere false a buonoDellaSpa() e la
    prova passerebbe per il motivo sbagliato — cioe' non proverebbe niente.
    ============================================================ */
+
+/* piccolo aiuto: imposta EMAIL_SPA e restituisce come rimetterla esattamente
+   com'era, non solo come cancellarla — cosi' la prova non presume di essere
+   la sola a interessarsi di questa variabile nel processo. `valore` null
+   vale "assente": cancella invece di settare. */
+function conEmailSpa(valore: string | null) {
+  const precedente = Deno.env.get('EMAIL_SPA');
+  if (valore === null) Deno.env.delete('EMAIL_SPA'); else Deno.env.set('EMAIL_SPA', valore);
+  return () => {
+    if (precedente === undefined) Deno.env.delete('EMAIL_SPA'); else Deno.env.set('EMAIL_SPA', precedente);
+  };
+}
+
 Deno.test('un buono con un trattamento va in copia alla spa', () => {
-  Deno.env.set('EMAIL_SPA', 'spa@esempio.test');
-  const c = destinatariInCopia({ tipo: 'servizio', voce_id: 'antistress45' });
-  assert(c.includes('spa@esempio.test'), `copia a: ${JSON.stringify(c)}`);
+  const ripristina = conEmailSpa('spa@esempio.test');
+  try {
+    const c = destinatariInCopia({ tipo: 'servizio', voce_id: 'antistress45' });
+    assert(c.includes('spa@esempio.test'), `copia a: ${JSON.stringify(c)}`);
+  } finally { ripristina(); }
 });
 
 Deno.test('un buono a importo no', () => {
-  Deno.env.set('EMAIL_SPA', 'spa@esempio.test');
-  assertEquals(destinatariInCopia({ tipo: 'valore', valore: 200 }), []);
+  const ripristina = conEmailSpa('spa@esempio.test');
+  try {
+    assertEquals(destinatariInCopia({ tipo: 'valore', valore: 200 }), []);
+  } finally { ripristina(); }
 });
 
 /* Senza la variabile non si inventa un destinatario: la copia non parte, e
    si scrive nel registro. */
 Deno.test('senza EMAIL_SPA non arriva a nessuno', () => {
-  Deno.env.delete('EMAIL_SPA');
-  assertEquals(destinatariInCopia({ tipo: 'servizio', voce_id: 'antistress45' }), []);
+  const ripristina = conEmailSpa(null);
+  try {
+    assertEquals(destinatariInCopia({ tipo: 'servizio', voce_id: 'antistress45' }), []);
+  } finally { ripristina(); }
 });
 
 /* La copia e' un cc sullo STESSO invio, non un secondo invio: con due email
