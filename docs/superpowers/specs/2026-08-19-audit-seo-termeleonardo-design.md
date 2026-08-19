@@ -35,8 +35,9 @@ prenotazioni sul vecchio (`data.js`: `DAYSPA_URL` punta a `termeleonardo.com`).
 
 | difetto | come si vede |
 |---|---|
-| nessun `canonical` su nessuna pagina | `/it` non ne ha uno |
-| nessun `hreflang`, con quattro lingue vive | idem |
+| nessun `canonical` su nessuna pagina | 50 su 50 |
+| l'`hreflang` c'è, mappato bene, e **non funziona** | 49 pagine su 50 lo dichiarano, ogni pagina punta alla sua equivalente e reciprocamente — ma gli `href` sono **relativi** (`href="/de"`), e Google davanti a un indirizzo non completo scarta il blocco intero |
+| il menu francese ha un link rotto | `/fr/contactez-nous` è nel menu di ogni pagina francese e risponde **404**: le altre tre lingue la pagina contatti ce l'hanno |
 | `sitemap.xml` risponde **404** | e il `robots.txt` ne dichiara una su `hldv.com`, che è **404** anche lei |
 | il francese ha i meta in inglese | `/fr`: `lang="fr"`, corpo francese, `title` e `description` inglesi, e un `h2` che dice «FAQ - Domande frequenti» |
 | cinque `h1` per pagina | su `/it/cure-termali` e `/it/golf` |
@@ -47,6 +48,15 @@ prenotazioni sul vecchio (`data.js`: `DAYSPA_URL` punta a `termeleonardo.com`).
 Gli indirizzi di contenuto sono **50**: diciassette in italiano, quindici in
 tedesco, nove in inglese, nove in francese. Contati dai menu delle quattro
 lingue e dalle pagine delle offerte, il 19 agosto 2026.
+
+> **Una correzione a questa stessa specifica, e come è successa.** La prima
+> stesura diceva «nessun `hreflang` su nessuna pagina». Era falso: l'avevo
+> cercato con `grep`, che lavora **riga per riga**, e su quel sito i tag
+> `<link>` sono scritti spezzati su più righe. Lo strumento, che legge il
+> documento intero, ne ha trovati 49 su 50. Vale la pena tenerlo scritto:
+> l'errore non è stato guardare male, è stato guardare con uno strumento che
+> non poteva vedere — ed è esattamente il motivo per cui l'audit è un
+> programma con dei test e non un pomeriggio di `grep`.
 
 **E non abbiamo occhi.** Sulla home non c'è né Google Analytics né una verifica
 di Search Console: solo PostHog, arrivato con l'impianto di emergent.sh, che
