@@ -4,6 +4,8 @@
    tabelle HTML perché Outlook non regge i layout moderni.
    ============================================================ */
 
+import { buonoDellaSpa } from './ruoli.ts';
+
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
 const eur = (n: number) => Number(n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 });
@@ -438,7 +440,14 @@ function avvolgi(caro: string, corpo: string, saluto: string, buono: string, bot
   <p>${saluto}<br /><span style="color:#7B756A;font-size:13px;">+39 049 9939200 &middot; info@termeleonardo.com</span></p></div>`;
 }
 
-async function invia(a: string, oggetto: string, html: string) {
+/* `cc` e' facoltativo e di default vuoto: dei tre punti che chiamano
+   `invia` (acquirente, destinatario, riepilogo per la ricevuta) nessuno lo
+   passa — sono email che arrivano all'ospite o a chi tiene la contabilita',
+   e non devono portare in copia nessun indirizzo interno. Solo l'avviso
+   interno (avvisaAmministrazione, qui sotto) lo usa, per mettere la spa in
+   copia sullo STESSO invio: due invii separati non direbbero a nessuno dei
+   due che l'altro l'ha ricevuto. */
+async function invia(a: string, oggetto: string, html: string, cc: string[] = []) {
   const chiave = Deno.env.get('RESEND_API_KEY');
   if (!chiave) { console.error('email non inviata: RESEND_API_KEY mancante ->', a, oggetto); return false; }
   const r = await fetch('https://api.resend.com/emails', {
@@ -446,7 +455,8 @@ async function invia(a: string, oggetto: string, html: string) {
     headers: { authorization: `Bearer ${chiave}`, 'content-type': 'application/json' },
     body: JSON.stringify({
       from: Deno.env.get('MITTENTE_EMAIL') || 'Hotel Terme Leonardo <noreply@hoteltermeleonardo.com>',
-      to: [a], subject: oggetto, html
+      to: [a], subject: oggetto, html,
+      ...(cc.length ? { cc } : {})
     })
   });
   if (!r.ok) console.error('Resend', r.status, await r.text());
@@ -508,6 +518,26 @@ export function ricevutaEmailHTML(b: any): string {
   </div>`;
 }
 
+/* Chi riceve copia di questo buono, oltre ai destinatari di sempre.
+ * Esportata perche' si possa provare senza mandare niente.
+ *
+ * La regola "questo buono e' della spa?" e' buonoDellaSpa() in ruoli.ts,
+ * e non si riscrive qui: e' la stessa domanda che decide cosa vede la spa
+ * nel back office, e chi lo vede sullo schermo e chi lo riceve per email
+ * devono essere decisi dalla stessa riga.
+ *
+ * Senza EMAIL_SPA non si inventa un indirizzo di riserva: la copia non
+ * parte, e si scrive nel registro perche' la reception possa accorgersene. */
+export function destinatariInCopia(b: Record<string, unknown>): string[] {
+  if (!buonoDellaSpa(b)) return [];
+  const a = Deno.env.get('EMAIL_SPA');
+  if (!a) {
+    console.error('copia alla spa non inviata: manca EMAIL_SPA ->', b.numero);
+    return [];
+  }
+  return [a];
+}
+
 /* il solo avviso interno: serve anche per i buoni emessi in reception,
    che non passano dal webhook e altrimenti non lascerebbero traccia —
    il promozionale, che non ha un incasso da riconciliare, in testa */
@@ -526,7 +556,8 @@ export async function avvisaAmministrazione(b: any): Promise<boolean> {
     <p style="font-family:Arial;font-size:14px;">Buono <strong>${esc(b.numero)}</strong> · codice <strong>${esc(b.codice)}</strong><br />
     ${String(b.descrizione ?? '').split('\n').map((r: string) => esc(r)).join('<br />')} · ${eur(b.valore)} € · ${esc(b.pagamento || '')} ${esc(b.pagamento_rif || '')}<br />
     Acquirente: ${esc(b.acquirente || '')} &lt;${esc(b.acquirente_email || '')}&gt;<br />
-    Origine: ${esc(b.creato_da || '')}</p>`);
+    Origine: ${esc(b.creato_da || '')}</p>`,
+    destinatariInCopia(b));
 }
 
 export type EsitoConsegna = 'inviato' | 'fallito' | 'senza-indirizzo';
