@@ -443,7 +443,7 @@ function costruisciConfermaEN(d, opzioni) {
       </td></tr>
       <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-        <strong style="color:#2A2E2B;">Airport transfer</strong> &middot; Venice, shared shuttle from €65<br /><span style="color:#7B756A;font-size:13px;">Send us your flight number and time. To be booked at least 24 hours ahead</span>
+        <strong style="color:#2A2E2B;">Airport transfer</strong> &middot; Venice, shared shuttle from €65<br /><span style="color:#7B756A;font-size:13px;">Send us your flight number and time. To be booked at least 24 hours ahead</span>${bottoneServizio('transfer', d, 'en')}
       </td></tr>
       <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
@@ -452,7 +452,7 @@ function costruisciConfermaEN(d, opzioni) {
       <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
         <strong style="color:#2A2E2B;">Early Bird Swimming</strong>: €20 per person<br /><span style="color:#7B756A;font-size:13px;">Pools from 9:00 on arrival day. Please request it now, not on arrival</span>
-      </td></tr>
+      </td></tr>${rigaPrepara('A gift voucher', 'spa and treatments for someone you choose', 'We prepare it with your message and send it to you by email, ready to give', bottoneServizio('buoni', d, 'en'))}${rigaGolf(d, 'en')}${rigaFanghi(d, o, 'en')}
     </table>
   </td></tr>
 ${extra.join('')}

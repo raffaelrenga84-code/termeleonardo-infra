@@ -364,6 +364,83 @@ const TESTI_MODULI = {
                  en: 'Request the golf pro',        fr: 'Demander le moniteur de golf' }
 };
 
+/* ============================================================
+   v2.7 — LE RIGHE CHE COMPAIONO SOLO A CHI SERVONO.
+
+   La conferma finisce con un elenco di cose da chiedere prima di arrivare,
+   ed e' gia' lungo. Due pulsanti in piu' per tutti valgono meno di due
+   pulsanti giusti per chi li usa: il green fee e il maestro non riguardano
+   chi viene per i fanghi, e la preferenza sull'orario dei fanghi non
+   riguarda chi viene per il golf.
+
+   SCRITTE UNA VOLTA SOLA. La conferma esiste in quattro lingue e in tre
+   file diversi, ed e' cosi' che il transfer e il buono regalo sono spariti
+   dall'inglese e dal francese senza che nessuno se ne accorgesse: chi
+   scrive in italiano non legge mai la conferma francese. Qui il markup sta
+   in un posto e le lingue sono solo testo, cosi' una riga aggiunta domani
+   nasce gia' in quattro lingue. Lo tiene fermo estensione/pulsanti.test.ts.
+   ============================================================ */
+
+/** Se questo soggiorno comprende il golf. Lo dice la tariffa della camera —
+ *  la stessa cosa che notaPacchetto() legge gia' per la descrizione. */
+function haGolf(d) {
+  return (d.camere || []).some(c => /golf/i.test(c.trattamento || ''));
+}
+
+/* Una riga dell'elenco, nello stesso stile delle altre. Lo spaziatore sta
+   davanti perche' queste righe si aggiungono sempre in fondo. */
+function rigaPrepara(titolo, dettaglio, sotto, coda) {
+  return `
+      <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+        <strong style="color:#2A2E2B;">${titolo}</strong>${dettaglio ? ' &middot; ' + dettaglio : ''}<br /><span style="color:#7B756A;font-size:13px;">${sotto}</span>${coda || ''}
+      </td></tr>`;
+}
+
+const TESTI_GOLF = {
+  it: { t: 'Green fee e maestro', d: 'il suo pacchetto comprende il golf',
+        s: 'Le prenotiamo la partenza al Frassanelle o alla Montecchia, e se vuole un&rsquo;ora con il maestro. Meglio ora: nel fine settimana i campi si riempiono' },
+  de: { t: 'Greenfee und Golflehrer', d: 'Ihr Paket enth&auml;lt Golf',
+        s: 'Wir reservieren Ihre Startzeit in Frassanelle oder Montecchia und, wenn Sie m&ouml;chten, eine Stunde mit dem Golflehrer. Am besten jetzt: am Wochenende sind die Pl&auml;tze voll' },
+  en: { t: 'Green fee and golf pro', d: 'your package includes golf',
+        s: 'We can book your tee time at Frassanelle or Montecchia and, if you like, an hour with the pro. Better now: the courses fill up at weekends' },
+  fr: { t: 'Green fee et professeur', d: 'votre forfait comprend le golf',
+        s: 'Nous r&eacute;servons votre d&eacute;part &agrave; Frassanelle ou &agrave; la Montecchia et, si vous le souhaitez, une heure avec le professeur. Mieux vaut maintenant : le week-end les parcours se remplissent' }
+};
+
+/** Green fee e maestro, solo a chi ha il golf. */
+function rigaGolf(d, lingua) {
+  if (!haGolf(d)) return '';
+  const t = TESTI_GOLF[lingua] || TESTI_GOLF.it;
+  return rigaPrepara(t.t, t.d, t.s,
+    bottoneServizio('greenfee', d, lingua) + bottoneServizio('golf', d, lingua));
+}
+
+/* IL TURNO NON SI PROMETTE. Lo assegna la Segreteria Cure dopo la visita
+   medica di ammissione: qui si dice soltanto che la preferenza si puo'
+   dire ORA. Finisce in arrivo_richiesta.fanghi_desiderio, e da li' la
+   scheda «Arrivi» del back office la fa leggere alla Segreteria Cure —
+   prima viveva solo dentro un'email nella casella info@. */
+const TESTI_FANGHI = {
+  it: { t: 'I fanghi: preferisce presto o pi&ugrave; tardi?', d: '',
+        s: 'I turni sono al mattino, dalle 5:50 alle 10:30. Ce lo dica dalla pagina qui sopra: l&rsquo;orario esatto glielo assegna la Segreteria Cure dopo la visita di ammissione' },
+  de: { t: 'Fango: lieber fr&uuml;h oder sp&auml;ter?', d: '',
+        s: 'Die Anwendungen sind vormittags, von 5:50 bis 10:30 Uhr. Sagen Sie es uns &uuml;ber die Seite oben: die genaue Uhrzeit teilt Ihnen das Kurb&uuml;ro nach der Aufnahmeuntersuchung zu' },
+  en: { t: 'The mud treatments: early or later?', d: '',
+        s: 'Sessions are in the morning, from 5:50 to 10:30. Tell us from the page above: the exact time is assigned by the Spa Office after the admission examination' },
+  fr: { t: 'Le fango : plut&ocirc;t t&ocirc;t ou plus tard ?', d: '',
+        s: 'Les s&eacute;ances ont lieu le matin, de 5:50 &agrave; 10:30. Dites-le nous depuis la page ci-dessus : l&rsquo;horaire exact est attribu&eacute; par le Secr&eacute;tariat des Cures apr&egrave;s la visite d&rsquo;admission' }
+};
+
+/** La preferenza sull'orario dei fanghi, solo a chi ha le cure — e solo se
+ *  ha una pagina d'arrivo dove dirla: chiedere una preferenza senza dare
+ *  il modo di esprimerla e' peggio del silenzio. */
+function rigaFanghi(d, o, lingua) {
+  if (!(o || {}).cure || !d.linkArrivo) return '';
+  const t = TESTI_FANGHI[lingua] || TESTI_FANGHI.it;
+  return rigaPrepara(t.t, t.d, t.s, '');
+}
+
 function bottoneServizio(chiave, d, lingua) {
   const t = TESTI_MODULI[chiave];
   return pulsanteModulo(chiave, (t && (t[lingua] || t.it)) || '', d, lingua);

@@ -249,7 +249,7 @@ ${blocchi.join('')}
       <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
         <strong style="color:#2A2E2B;">Un buono regalo</strong> &middot; terme e trattamenti per chi vuole lei<br /><span style="color:#7B756A;font-size:13px;">Lo prepariamo con il suo messaggio e glielo mandiamo per email, pronto da consegnare</span>${typeof bottoneServizio === 'function' ? bottoneServizio('buoni', d, 'it') : ''}
-      </td></tr>
+      </td></tr>${typeof rigaGolf === 'function' ? rigaGolf(d, 'it') : ''}${typeof rigaFanghi === 'function' ? rigaFanghi(d, o, 'it') : ''}
     </table>
   </td></tr>
   <tr><td style="padding:22px 36px 0 36px;">
@@ -495,7 +495,7 @@ ${blocchi.join('')}
       <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
         <strong style="color:#2A2E2B;">Ein Gutschein</strong> &middot; Therme und Behandlungen zum Verschenken<br /><span style="color:#7B756A;font-size:13px;">Wir gestalten ihn mit Ihrer pers&ouml;nlichen Widmung und senden ihn Ihnen per E-Mail, fertig zum &Uuml;berreichen</span>${typeof bottoneServizio === 'function' ? bottoneServizio('buoni', d, 'de') : ''}
-      </td></tr>
+      </td></tr>${typeof rigaGolf === 'function' ? rigaGolf(d, 'de') : ''}${typeof rigaFanghi === 'function' ? rigaFanghi(d, o, 'de') : ''}
     </table>
   </td></tr>
   <tr><td style="padding:22px 36px 0 36px;">

@@ -423,7 +423,7 @@ function costruisciConfermaFR(d, opzioni) {
       </td></tr>
       <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-        <strong style="color:#2A2E2B;">Transfert depuis l'aéroport</strong> &middot; Venise, navette partagée à partir de 65 €<br /><span style="color:#7B756A;font-size:13px;">Indiquez-nous le numéro de vol et l'horaire. À réserver au moins 24 heures à l'avance</span>
+        <strong style="color:#2A2E2B;">Transfert depuis l'aéroport</strong> &middot; Venise, navette partagée à partir de 65 €<br /><span style="color:#7B756A;font-size:13px;">Indiquez-nous le numéro de vol et l'horaire. À réserver au moins 24 heures à l'avance</span>${bottoneServizio('transfer', d, 'fr')}
       </td></tr>
       <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
@@ -432,7 +432,7 @@ function costruisciConfermaFR(d, opzioni) {
       <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
         <strong style="color:#2A2E2B;">Early Bird Swimming</strong> &middot; 20 € par personne<br /><span style="color:#7B756A;font-size:13px;">Piscines dès 9h00 le jour de l'arrivée. À demander maintenant, pas sur place</span>
-      </td></tr>
+      </td></tr>${rigaPrepara('Un bon cadeau', 'thermes et soins pour la personne de votre choix', 'Nous le pr&eacute;parons avec votre message et vous l&rsquo;envoyons par email, pr&ecirc;t &agrave; offrir', bottoneServizio('buoni', d, 'fr'))}${rigaGolf(d, 'fr')}${rigaFanghi(d, o, 'fr')}
     </table>
   </td></tr>
 ${extra.join('')}
