@@ -310,7 +310,7 @@ const DAYSPA_T = {
     ],
     tavolaTitolo: 'A tavola',
     tavola: [
-      ['Bistrot Bar La Piazza', 'A bordo piscina, con terrazza sul giardino. Piatti leggeri a pranzo: antipasti, pasta, carne o pesce saltati, insalate fresche. Tutti i giorni dalle 10:00 alle 14:30'],
+      ['Bistrot Bar La Piazza', 'A bordo piscina, con terrazza sul giardino. Piatti leggeri a pranzo: antipasti, pasta, carne o pesce saltati, insalate fresche. Tutti i giorni dalle 10:00 alle 23:00: pranzo dalle 12:30 alle 14:30, spuntini fino alle 17:30'],
       ['Cena a buffet', '35,00 &euro; a persona, bevande escluse, al ristorante: insalate, antipasti caldi e freddi, primi preparati al momento, carne, pesce, frutta e dessert'],
       ['Da fuori', 'Il pranzo al sacco non &egrave; consentito']
     ],
@@ -345,7 +345,7 @@ const DAYSPA_T = {
     ],
     tavolaTitolo: 'Kulinarisches',
     tavola: [
-      ['Bistrot Bar La Piazza', 'Direkt am Pool, mit Gartenterrasse. Leichte Gerichte zum Mittag: Vorspeisen, Pasta, kurzgebratenes Fleisch oder Fisch, frische Salate. T&auml;glich von 10:00 bis 14:30 Uhr'],
+      ['Bistrot Bar La Piazza', 'Direkt am Pool, mit Gartenterrasse. Leichte Gerichte zum Mittag: Vorspeisen, Pasta, kurzgebratenes Fleisch oder Fisch, frische Salate. T&auml;glich von 10:00 bis 23:00 Uhr: Mittagessen von 12:30 bis 14:30 Uhr, kleine Gerichte bis 17:30 Uhr'],
       ['Abendbuffet', '35,00 &euro; pro Person, Getr&auml;nke exklusive, im Restaurant: Salate, warme und kalte Vorspeisen, frisch zubereitete Primi, Fleisch, Fisch, Obst und Desserts'],
       ['Von drau&szlig;en', 'Mitgebrachte Speisen sind nicht gestattet']
     ],
@@ -380,7 +380,7 @@ const DAYSPA_T = {
     ],
     tavolaTitolo: 'Dining',
     tavola: [
-      ['Bistrot Bar La Piazza', 'By the pool, with a garden terrace. Light lunch dishes: appetizers, pasta, saut&eacute;ed meat or fish, fresh salads. Open daily from 10:00 to 14:30'],
+      ['Bistrot Bar La Piazza', 'By the pool, with a garden terrace. Light lunch dishes: appetizers, pasta, saut&eacute;ed meat or fish, fresh salads. Open daily from 10:00 to 23:00: lunch 12:30&ndash;14:30, light bites until 17:30'],
       ['Dinner buffet', '&euro; 35.00 per person, drinks not included, at the restaurant: salads, hot and cold appetizers, freshly prepared first courses, meat, fish, fruit and desserts'],
       ['From outside', 'Packed lunches are not allowed']
     ],
@@ -415,7 +415,7 @@ const DAYSPA_T = {
     ],
     tavolaTitolo: '&Agrave; table',
     tavola: [
-      ['Bistrot Bar La Piazza', 'Au bord de la piscine, avec terrasse sur le jardin. Plats l&eacute;gers &agrave; midi : antipasti, p&acirc;tes, viande ou poisson saut&eacute;s, salades fra&icirc;ches. Tous les jours de 10h00 &agrave; 14h30'],
+      ['Bistrot Bar La Piazza', 'Au bord de la piscine, avec terrasse sur le jardin. Plats l&eacute;gers &agrave; midi : antipasti, p&acirc;tes, viande ou poisson saut&eacute;s, salades fra&icirc;ches. Tous les jours de 10h00 &agrave; 23h00 : d&eacute;jeuner de 12h30 &agrave; 14h30, en-cas jusqu&rsquo;&agrave; 17h30'],
       ['D&icirc;ner buffet', '35,00 &euro; par personne, boissons non comprises, au restaurant : salades, antipasti chauds et froids, primi pr&eacute;par&eacute;s minute, viande, poisson, fruits et desserts'],
       ['De l&apos;ext&eacute;rieur', 'Le pique-nique n&apos;est pas autoris&eacute;']
     ],

@@ -462,7 +462,7 @@ ${extra.join('')}
       <tr><td width="130" valign="top" style="padding:0 12px 9px 0;color:#8C8578;">Pools</td><td valign="top" style="padding:0 0 9px 0;">Open from 8:00 to 19:30, until 22:30 on Fridays and Saturdays &middot; swimming cap required, on sale at reception for &euro;3</td></tr>
       <tr><td valign="top" style="padding:8px 12px 0 0;color:#8C8578;">Smoking</td><td valign="top" style="padding:8px 0 0 0;">Non-smoking hotel: not in the rooms, on the balcony yes</td></tr>
       <tr><td valign="top" style="padding:0 12px 9px 0;color:#8C8578;">Dinner</td><td valign="top" style="padding:0 0 9px 0;">From 19:30, last entry 20:20. If you arrive later, let us know: we will leave a plate in your room</td></tr>
-      <tr><td valign="top" style="padding:0 12px 9px 0;color:#8C8578;">Lunch</td><td valign="top" style="padding:0 0 9px 0;">At Bistrot La Piazza, bathrobes welcome, 12:30&ndash;14:30</td></tr>
+      <tr><td valign="top" style="padding:0 12px 9px 0;color:#8C8578;">Lunch</td><td valign="top" style="padding:0 0 9px 0;">At Bistrot La Piazza, bathrobes welcome: open 10:00&ndash;23:00, lunch 12:30&ndash;14:30, light bites until 17:30</td></tr>
       <tr><td valign="top" style="padding:0 12px 9px 0;color:#8C8578;">Departure day</td><td valign="top" style="padding:0 0 9px 0;">Pools included until 11:00. You can extend until 18:30 for €30 per person — just ask at check-out</td></tr>
       <tr><td valign="top" style="padding:0 12px 0 0;color:#8C8578;">Electric car</td><td valign="top" style="padding:0;">Eight 11 kW charging points, managed via the <em>Next charge</em> or <em>My wallbox</em> app: please bring your own cable</td></tr>
     </table>

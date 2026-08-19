@@ -355,7 +355,7 @@ ${d.linkPagamento ? `      <p style="margin:0 0 9px 0;font-family:Arial,Helvetic
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
       <tr><td width="130" valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Check-in</td><td valign="top" style="padding:0 0 10px 0;">Ab 15:00 Uhr &middot; Check-out bis 11:00 Uhr</td></tr>
       <tr><td valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Kurtaxe</td><td valign="top" style="padding:0 0 10px 0;">1,50 &euro; pro Person und Tag, max. 7 Tage. Vor Ort zu zahlen. Befreit sind Kinder bis zur Vollendung des 13. Lebensjahres sowie Personen mit Behinderung</td></tr>
-      <tr><td valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Mittagessen</td><td valign="top" style="padding:0 0 10px 0;">Bistrot La Piazza direkt am Pool, täglich 10:00&ndash;14:30 Uhr, à la carte</td></tr>
+      <tr><td valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Mittagessen</td><td valign="top" style="padding:0 0 10px 0;">Bistrot La Piazza direkt am Pool, täglich 10:00&ndash;23:00 Uhr, à la carte &middot; Mittagessen 12:30&ndash;14:30 Uhr, kleine Gerichte bis 17:30 Uhr</td></tr>
       <tr><td valign="top" style="padding:0 12px 0 0;color:#8C8578;">Pools</td><td valign="top" style="padding:0;">Ge&ouml;ffnet von 8:00 bis 19:30 Uhr, freitags und samstags bis 22:30 Uhr &middot; Badekappe erforderlich, an der Rezeption f&uuml;r 3 &euro; erh&auml;ltlich</td></tr>
       <tr><td valign="top" style="padding:8px 12px 0 0;color:#8C8578;">Rauchen</td><td valign="top" style="padding:8px 0 0 0;">Nichtraucherhotel: im Zimmer wird nicht geraucht, auf dem Balkon schon</td></tr>
     </table>
