@@ -89,6 +89,11 @@ const VOCI_ALTRUI = [
     file: '../../estensione/template-extra.js',
     cosa: 'i modelli dell estensione: finirebbe nelle offerte mandate agli ospiti',
   },
+  {
+    file: '../../docs/agente-vocale/prompt.txt',
+    cosa: 'il prompt dell agente vocale: lo direbbe al telefono, ed e la sola ' +
+      'copia che una persona deve ricopiare a mano su x.ai',
+  },
 ];
 
 /* Le note storiche NON sono un'offerta, sono il contrario: «lo Shiatsu non
@@ -101,13 +106,20 @@ const VOCI_ALTRUI = [
    Il segno è quello che kb.ts usa già: un paragrafo in corsivo che comincia
    con una data. Niente espressioni regolari — si guarda l'inizio del
    paragrafo, che è esattamente quello che il segno vuol dire. */
+/* Nel prompt le note storiche sono il changelog in cima, dove ogni riga
+   comincia con «>». Anche li' dire «lo Shiatsu non si fa più» e' giusto: e'
+   il posto dove si scrive che una cosa e cambiata. */
 const notaStorica = (par: string) =>
-  par.trimStart().startsWith('*Dal ') || par.trimStart().startsWith('*Fino al ');
+  par.trimStart().startsWith('*Dal ') || par.trimStart().startsWith('*Fino al ') ||
+  par.trimStart().startsWith('>');
 
 function senzaNoteStoriche(src: string, file: string) {
-  const netto = src.split('\n\n').filter((p) => !notaStorica(p)).join('\n\n');
+  /* i file a fine riga di Windows separano i paragrafi con \r\n\r\n: senza
+     normalizzare, il file intero e' un paragrafo solo e non si toglie niente */
+  const righe = src.split('\r\n').join('\n');
+  const netto = righe.split('\n\n').filter((p) => !notaStorica(p)).join('\n\n');
   assert(
-    netto.length > src.length * 0.8,
+    netto.length > righe.length * 0.8,
     file + ': le note storiche coprono più di un quinto del file. Il ritaglio ' +
       'sta mangiando testo vero e il presidio non guarda quasi niente.',
   );
