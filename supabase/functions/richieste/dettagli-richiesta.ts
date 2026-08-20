@@ -24,6 +24,7 @@ export const esc = (s: unknown) =>
    mescola con le sue: `{ ...ETICHETTE[l], ...MIE[l] }`. */
 export const ETICHETTE: Record<string, Record<string, string>> = {
   it: {
+    periodo: 'Periodo', camera: 'Camera', pacchetto: 'Pacchetto', trattamento: 'Trattamento', caparra: 'Caparra indicata',
     quando: 'Quando', dove: 'Dove', persone: 'Persone', volo: 'Volo / treno',
     ritorno: 'Ritorno incluso', rif: 'Riferimento',
     noleggi: 'Noleggi', taxi: 'Taxi dall’hotel', trattamenti: 'Trattamenti',
@@ -33,6 +34,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     chiesto: 'Aveva chiesto', confermato: 'Confermiamo',
   },
   de: {
+    periodo: 'Zeitraum', camera: 'Zimmer', pacchetto: 'Paket', trattamento: 'Verpflegung', caparra: 'Angegebene Anzahlung',
     quando: 'Wann', dove: 'Wo', persone: 'Personen', volo: 'Flug / Zug',
     ritorno: 'Rückfahrt inbegriffen', rif: 'Referenz',
     noleggi: 'Verleih', taxi: 'Taxi ab Hotel', trattamenti: 'Anwendungen',
@@ -42,6 +44,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     chiesto: 'Angefragt', confermato: 'Bestätigt',
   },
   en: {
+    periodo: 'Dates', camera: 'Room', pacchetto: 'Package', trattamento: 'Board', caparra: 'Deposit indicated',
     quando: 'When', dove: 'Where', persone: 'People', volo: 'Flight / train',
     ritorno: 'Return trip included', rif: 'Reference',
     noleggi: 'Rentals', taxi: 'Taxi from the hotel', trattamenti: 'Treatments',
@@ -51,6 +54,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     chiesto: 'Originally requested', confermato: 'Now confirmed',
   },
   fr: {
+    periodo: 'Dates', camera: 'Chambre', pacchetto: 'Forfait', trattamento: 'Pension', caparra: 'Acompte indiqué',
     quando: 'Quand', dove: 'Où', persone: 'Personnes', volo: 'Vol / train',
     ritorno: 'Retour inclus', rif: 'Référence',
     noleggi: 'Locations', taxi: 'Taxi depuis l’hôtel', trattamenti: 'Soins',
@@ -201,6 +205,27 @@ function vociDettagli(tipo: string, t: Record<string, string>): Voce[] {
       { eti: t.persone, calcola: (d) => String(d.persone ?? '') },
     ];
   }
+  /* LA RICHIESTA DI UNA CAMERA. Mancava, e l'ospite riceveva un'email che
+     annunciava il riepilogo e poi mostrava il solo riferimento. I dati
+     c'erano tutti — l'avviso alla reception li stampa da sempre: erano
+     solo le colonne, che qui non arrivavano. */
+  if (tipo === 'soggiorno') {
+    return [
+      {
+        eti: t.periodo,
+        calcola: (d) => [data(d.check_in), data(d.check_out)].filter(Boolean).join(" → "),
+      },
+      { eti: t.persone, calcola: (d) => String(d.ospiti ?? "") },
+      { eti: t.camera, calcola: (d) => String(d.tipo_camera ?? "") },
+      { eti: t.pacchetto, calcola: (d) => String(d.pacchetto ?? d.tariffa ?? "") },
+      { eti: t.trattamento, calcola: (d) => String(d.trattamento ?? "") },
+      { eti: t.prezzo, calcola: (d) => cifra(d.prezzo_cent) },
+      /* la caparra non c'e' sempre: dove manca la riga non compare, perche
+         «0,00 €» stampato si legge come una promessa di gratuita' */
+      { eti: t.caparra, calcola: (d) => cifra(d.caparra_cent) },
+    ];
+  }
+
   if (tipo === 'trattamenti') {
     return [
       { eti: t.quando, calcola: (d) => `${data(d.giorno)}${d.fascia ? ' · ' + String(d.fascia) : ''}` },
@@ -216,6 +241,15 @@ function vociDettagli(tipo: string, t: Record<string, string>): Voce[] {
 /* I centesimi come li legge una persona. Stesso trabocchetto gia' pagato in
    email-richiesta.ts e in differenze.ts: 13500 sono 135 euro, e nessuno deve
    leggerli come tredicimila. */
+/* Una cifra e basta: `euro()` ci attacca «da pagare all'autista», che vale
+   per il transfer e non per una camera. */
+function cifra(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "";
+  const n = Number(v);
+  if (!Number.isFinite(n) || n === 0) return "";
+  return `${(n / 100).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+}
+
 function euro(v: unknown, t: Record<string, string>): string {
   if (v === null || v === undefined || v === '') return '';
   const n = Number(v);

@@ -88,7 +88,14 @@ const T: Record<string, Record<string, string>> = {
 export function ricevutaHTML(r: Richiesta): string {
   const l = linguaDi(r.lingua);
   const t = { ...ETICHETTE[l], ...T[l] };
-  const d = (r.dati || {}) as Record<string, unknown>;
+  /* IL RIEPILOGO VEDE ANCHE LE COLONNE. Per il transfer o i trattamenti
+     tutto quello che serve sta in `dati`; per una richiesta di camera no:
+     le date, la camera e il pacchetto sono COLONNE della tabella, e
+     passando solo `dati` il riepilogo restava vuoto — l'email annunciava
+     «Ecco cosa ci ha chiesto» e mostrava il solo numero. `r` porta gia'
+     dentro anche i campi di `dati` appiattiti, quindi per gli altri tipi
+     non cambia niente: gli stessi valori, dalla stessa fonte. */
+  const d = { ...r, ...((r.dati || {}) as Record<string, unknown>) } as Record<string, unknown>;
 
   return `<table cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:100%;
   border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;background:#FFFFFF;">
@@ -127,7 +134,7 @@ export function ricevutaHTML(r: Richiesta): string {
 
   <div style="border-top:1px solid #E6E2D8;margin-top:20px;padding-top:14px;
     font-size:12.5px;color:#8A938F;line-height:1.6;">
-    Hotel Terme Leonardo · Via Tiro a Segno 6, 35031 Abano Terme (PD)<br />
+    Hotel Terme Leonardo · Via Monteortone 46, 35037 Monteortone di Abano Terme (PD)<br />
     ${TELEFONO} · ${EMAIL_HOTEL}
   </div>
 </td></tr></table>`;

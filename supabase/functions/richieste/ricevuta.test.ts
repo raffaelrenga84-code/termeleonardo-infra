@@ -19,6 +19,7 @@
    che puo' essere scambiata per un impegno.
    ============================================================ */
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
+import { TIPI_ATTIVI } from './tipi.ts';
 import { inviaRicevuta, ricevutaHTML } from './ricevuta.ts';
 
 const RICHIESTA = {
@@ -103,19 +104,70 @@ Deno.test('la ricevuta non promette tempi, prezzi ne disponibilita', () => {
 
 /* Il Day Spa arrivo' in reception come «undefined notti · undefined ospiti»:
    un tipo nuovo si dimentica sempre da qualche parte. */
+/* Il soggiorno non c'era in questo elenco, e per questo l'email diceva
+   «Ecco cosa ci ha chiesto» seguito dal solo riferimento: chi prenotava una
+   camera riceveva una promessa e nient'altro. La prova si chiamava «tutti i
+   tipi» e ne provava cinque su sei — il nome era piu' largo di quello che
+   faceva, ed e' cosi' che il difetto e' passato.
+   Ora l'elenco non si scrive a mano: si prende da TIPI_ATTIVI, e un tipo
+   aggiunto domani senza il suo caso fa fallire questa prova invece di
+   scivolare via. */
+const CASI: Record<string, { colonne?: Record<string, unknown>; dati: Record<string, unknown> }> = {
+  transfer: { dati: { quando: '2026-09-10', ora: '14:30', pax: 2, verso: 'arrivo', luogo: 'Venezia  aeroporto' } },
+  greenfee: { dati: { circolo_nome: 'Golf Montecchia', data: '2026-09-10', ora: '09:30', giocatori: 2 } },
+  maestro: { dati: { data: '2026-09-10', ora: '10:00', persone: 2 } },
+  dayspa: { dati: { giorno: '2026-09-10', persone: 2 } },
+  trattamenti: { dati: { giorno: '2026-09-10', fascia: 'mattina', voci: ['Massaggio'] } },
+  soggiorno: {
+    colonne: {
+      check_in: '2026-09-10', check_out: '2026-09-12',
+      tipo_camera: 'Junior Suite Abano', pacchetto: 'Thermal Escape', ospiti: 2,
+    },
+    dati: {
+      tariffa: 'Thermal Escape', trattamento: 'Mezza Pensione',
+      prezzo_cent: 66000, adulti: 2, bambini: 0, caparra_cent: 15000,
+    },
+  },
+};
+
+Deno.test('ogni tipo attivo ha un caso di prova, senza eccezioni scritte a mano', () => {
+  for (const tipo of TIPI_ATTIVI) {
+    assert(CASI[tipo], `il tipo ${tipo} non ha un caso: la prova sotto non lo guarderebbe`);
+  }
+});
+
 Deno.test('tutti i tipi mostrano un blocco dettagli non vuoto', () => {
-  const casi: Record<string, Record<string, unknown>> = {
-    transfer: { quando: '2026-09-10', ora: '14:30', pax: 2, verso: 'arrivo', luogo: 'Venezia  aeroporto' },
-    greenfee: { circolo_nome: 'Golf Montecchia', data: '2026-09-10', ora: '09:30', giocatori: 2 },
-    maestro: { data: '2026-09-10', ora: '10:00', persone: 2 },
-    dayspa: { giorno: '2026-09-10', persone: 2 },
-    trattamenti: { giorno: '2026-09-10', fascia: 'mattina', voci: ['Massaggio'] },
-  };
-  for (const [tipo, dati] of Object.entries(casi)) {
-    const h = ricevutaHTML({ ...RICHIESTA, tipo, dati });
+  assert(Object.keys(CASI).length >= 6, 'meno di sei casi: la prova gira quasi a vuoto');
+  for (const [tipo, caso] of Object.entries(CASI)) {
+    const h = ricevutaHTML({ ...RICHIESTA, tipo, ...(caso.colonne ?? {}), dati: caso.dati });
     assertStringIncludes(h, '10/09/2026');
     assert(!h.includes('undefined'), `${tipo}: c e un undefined a video`);
   }
+});
+
+/* Il difetto vero, visto in produzione il 20 agosto: la ricevuta di una
+   richiesta di camera annunciava il riepilogo e mostrava solo il numero. */
+Deno.test('la ricevuta di un soggiorno dice cosa e stato chiesto', () => {
+  const c = CASI.soggiorno;
+  const h = ricevutaHTML({ ...RICHIESTA, tipo: 'soggiorno', ...c.colonne, dati: c.dati });
+  for (const atteso of ['10/09/2026', '12/09/2026', 'Junior Suite Abano', 'Mezza Pensione', '660,00']) {
+    assertStringIncludes(h, atteso);
+  }
+});
+
+/* «0,00 €» stampato e' una promessa di gratuita': dove la caparra non c'e'
+   la riga non deve comparire affatto. */
+Deno.test('senza caparra non compare una caparra da zero', () => {
+  const c = CASI.soggiorno;
+  const senza = { ...c.dati };
+  delete senza.caparra_cent;
+  const h = ricevutaHTML({ ...RICHIESTA, tipo: 'soggiorno', ...c.colonne, dati: senza });
+  /* NON si cerca la stringa "0,00": «660,00» la contiene, e la prova
+     fallirebbe sul prezzo invece che sulla caparra — l'ho scoperto
+     facendola fallire. Si guarda l'etichetta: dove la caparra non c'e',
+     la sua riga non deve esserci affatto. */
+  assert(!h.includes('Caparra'), 'la riga della caparra compare senza una caparra');
+  assertStringIncludes(h, '660,00');
 });
 
 Deno.test('il riferimento c e sempre, perche e l unica cosa che l ospite puo citare', () => {
