@@ -43,6 +43,15 @@ function copione(html: string): string {
    una chiamata a `antistress()`, ma a una ricerca per testo lo sembra.
    Dentro gli apici inversi il codice c'e' davvero, nei ${...}: quelli si
    tengono, il testo attorno si butta. */
+/* Gli a-capo si conservano. Buttare via una stringa vuol dire buttare via
+   anche gli a-capo che conteneva, e allora una dichiarazione scritta a
+   inizio riga smette di sembrarlo — `dichiara()` la cerca con `^`. E'
+   successo davvero: la pagina d'arrivo dichiara `stato` a inizio riga e
+   questa prova la dava per mancante. */
+const A_CAPO = String.fromCharCode(10);
+/** Tanti a-capo quanti ne conteneva il pezzo buttato via. */
+const aCapo = (s: string) => s.split(A_CAPO).slice(1).map(() => A_CAPO).join("");
+
 function soloCodice(s: string): string {
   let fuori = '';
   let i = 0;
@@ -51,8 +60,9 @@ function soloCodice(s: string): string {
     if (c === '/' && d === '/') { while (i < s.length && s[i] !== '\n') i++; continue; }
     if (c === '/' && d === '*') {
       i += 2;
+      const daC = i;
       while (i < s.length && !(s[i] === '*' && s[i + 1] === '/')) i++;
-      i += 2; continue;
+      i += 2; fuori += aCapo(s.slice(daC, i)); continue;
     }
     if (c === "'" || c === '"') {
       const apice = c; i++;
@@ -60,7 +70,7 @@ function soloCodice(s: string): string {
       i++; fuori += '""'; continue;
     }
     if (c === '`') {
-      i++;
+      const daT = i; i++;
       while (i < s.length) {
         if (s[i] === '\\') { i += 2; continue; }
         if (s[i] === '`') { i++; break; }
@@ -77,7 +87,7 @@ function soloCodice(s: string): string {
         }
         i++;
       }
-      fuori += '""'; continue;
+      fuori += '""' + aCapo(s.slice(daT, i)); continue;
     }
     fuori += c; i++;
   }
@@ -123,11 +133,12 @@ function pagine(): string[] {
   return fuori;
 }
 
-function conCopione(): { percorso: string; codice: string; html: string }[] {
+function conCopione(): { percorso: string; codice: string; grezzo: string; html: string }[] {
   return pagine()
     .map((p) => {
       const html = Deno.readTextFileSync(new URL(p, import.meta.url));
-      return { percorso: p, html, codice: soloCodice(copione(html)) };
+      const grezzo = copione(html);
+      return { percorso: p, html, grezzo, codice: soloCodice(grezzo) };
     })
     .filter((x) => x.codice.length > 0);
 }
@@ -149,9 +160,20 @@ Deno.test('gli aiutanti sono davvero usati da qualche parte', () => {
 
 Deno.test('chi chiama un aiutante di casa lo scrive anche', () => {
   const mancanti: string[] = [];
-  for (const { percorso, codice, html } of conCopione()) {
+  for (const { percorso, codice, grezzo, html } of conCopione()) {
     for (const a of AIUTANTI) {
-      if (chiama(codice, a) && !dichiara(codice, a) && !importa(html, a)) {
+      /* LE CHIAMATE si cercano nel codice ripulito dalle frasi, o
+         «Massaggio antistress (45 minuti)» sembrerebbe una chiamata.
+         LA DICHIARAZIONE si cerca nel testo GREZZO, e non e' una
+         distrazione: ripulire le stringhe vuol dire riconoscere dove
+         cominciano e dove finiscono, e un apice dentro un'espressione
+         regolare basta a far perdere il segno — e' successo, e questa
+         prova dava per mancante una funzione dichiarata a riga 320.
+         Sbagliare qui in eccesso (vedere una dichiarazione dentro una
+         frase) fa tacere la prova su un caso raro; sbagliare in difetto
+         la fa gridare su codice sano, e una prova che grida sempre non
+         la guarda piu' nessuno. */
+      if (chiama(codice, a) && !dichiara(grezzo, a) && !importa(html, a)) {
         mancanti.push(`${percorso}: chiama ${a}() e non lo definisce ne lo importa`);
       }
     }
