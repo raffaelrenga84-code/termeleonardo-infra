@@ -1016,6 +1016,7 @@ const ETICHETTE_CAMPO_PER_TIPO = {
   greenfee: ['Circolo', 'Data', 'Ora', 'Giocatori', 'Percorso', 'Tessera', 'Taxi al campo', 'Ora del taxi', 'Note'],
   maestro: ['Data', 'Ora', 'Persone', 'Livello', 'Note'],
   trattamenti: ['Trattamenti scelti', 'Giorno', 'Fascia oraria', 'Note'],
+  arrivo: ['Persone da aggiungere confermate'],
 };
 
 function differenzeNonMostrate(r) {
@@ -1206,6 +1207,108 @@ function campiTrattamenti(r) {
     <label>Note</label><textarea id="cNote">${esc(d.note || '')}</textarea>${avevaChiesto(r, 'Note')}`;
 }
 
+/* Le chiavi delle attenzioni e del desiderio dei fanghi arrivano dal
+   database COME CHIAVI, non come testo: la pagina d'arrivo parla quattro
+   lingue e "Culla per neonato" sarebbe stato scritto da chi in quel momento
+   aveva davanti "Babybett". Qui si rimettono in italiano, che e' la lingua
+   di questa schermata. Uno switch e non un OGGETTO[chiave], per lo stesso
+   motivo di campiModificabili qui sotto. */
+function nomeAttenzione(k) {
+  switch (k) {
+    case 'culla': return 'culla';
+    case 'seggiolone': return 'seggiolone';
+    case 'parcheggio': return 'parcheggio';
+    case 'cane': return 'cane al seguito';
+    default: return '';
+  }
+}
+
+function nomeFanghi(k) {
+  switch (k) {
+    case 'presto': return 'presto — dalle 5:50';
+    case 'tardi': return 'più tardi — verso le 10:00';
+    case 'indifferente': return 'indifferente';
+    default: return '';
+  }
+}
+
+/* «Elena (12) · Marco»: il nome c'e' sempre, l'età no. Le voci senza nome
+   non arrivano (validaArrivo le scarta), ma una riga vecchia puo' averle:
+   una voce vuota qui sarebbe un «(undefined)» a schermo. */
+function elencoPersoneArrivo(v) {
+  return (Array.isArray(v) ? v : []).map((p) => {
+    const nome = String((p && p.nome) || '').trim();
+    const eta = String((p && p.eta) || '').trim();
+    return nome ? (eta ? `${nome} (${eta})` : nome) : '';
+  }).filter(Boolean).join(' · ');
+}
+
+/* QUELLO CHE L'OSPITE HA SCRITTO, e i dati per fatturare.
+   Questa scheda disegnava solo le colonne del soggiorno, che per un arrivo
+   e per una fattura sono vuote: le note dell'ospite e i nomi delle persone
+   da aggiungere non comparivano su NESSUNA schermata — vivevano soltanto
+   nell'email arrivata a info@, e se quella si perdeva il dato c'era e non
+   si poteva piu' guardare. Messo insieme al blocco della chiusura, voleva
+   dire che la reception non poteva chiudere una richiesta il cui contenuto
+   bloccante non poteva nemmeno leggere.
+
+   E l'amministrazione non poteva fatturare dallo schermo: il riepilogo dice
+   «Bianchi S.r.l. · P.IVA …», ma indirizzo, codice fiscale, SDI e PEC
+   stavano solo nell'email in copia. */
+function righeCheckIn(r, riga) {
+  const d = r.dati || {};
+  if (r.tipo === 'arrivo') {
+    const attenzioni = (Array.isArray(d.attenzioni) ? d.attenzioni : [])
+      .map(nomeAttenzione).filter(Boolean).join(' · ');
+    const persone = elencoPersoneArrivo(d.persone_extra);
+    return riga('Arrivo previsto', esc(d.ora_arrivo || '')) +
+      riga('Mezzo', esc(d.mezzo || '')) +
+      riga('Piccole attenzioni', esc(attenzioni)) +
+      riga('Desiderio fanghi', esc(nomeFanghi(d.fanghi_desiderio))) +
+      riga('Persone da aggiungere', persone
+        ? `<strong>${esc(persone)}</strong> <span class="mini">· ${
+            d.persone_confermate === true ? 'confermate' : 'in attesa di risposta'}</span>`
+        : '') +
+      riga('Note dell’ospite', d.note
+        ? `<span style="white-space:pre-line;">${esc(d.note)}</span>` : '');
+  }
+  if (r.tipo === 'fattura') {
+    /* il grassetto si accende SOLO se c'e' qualcosa da scrivere: un
+       `<strong></strong>` e' una stringa non vuota, e riga() lo
+       disegnerebbe come una riga vuota invece di saltarla */
+    return riga('Intestazione', d.ragione ? `<strong>${esc(d.ragione)}</strong>` : '') +
+      riga('Indirizzo', esc(d.indirizzo || '')) +
+      riga('Partita IVA', esc(d.piva || '')) +
+      riga('Codice fiscale', esc(d.cf || '')) +
+      riga('Codice SDI', esc(d.sdi || '')) +
+      riga('PEC', esc(d.pec || ''));
+  }
+  return '';
+}
+
+/* LA CASELLA CHE SBLOCCA LA CHIUSURA. puoChiudere()
+   (supabase/functions/richieste/arrivi.ts) rifiuta di portare a «chiusa»
+   una richiesta d'arrivo con persone da aggiungere finche' nessuno ha
+   risposto, e il segno che qualcuno ha risposto e' `persone_confermate`.
+   I due inserimenti pubblici lo forzano a falso apposta — e' la porta
+   dell'ospite — quindi l'unica via per metterlo a vero e' ?a=conferma. Ma
+   nessuna schermata gliene mandava uno: la reception confermava, riprovava
+   a chiudere, e leggeva lo stesso rifiuto. Per sempre.
+
+   COMPARE SOLO SE C'E' QUALCUNO DA CONFERMARE: senza persone da aggiungere
+   la chiusura non e' bloccata, e una spunta che non sblocca niente si
+   legge come un adempimento da fare sempre. */
+function campiArrivo(r) {
+  const d = r.dati || {};
+  if (!elencoPersoneArrivo(d.persone_extra)) return '';
+  return `<label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:400;">
+      <input type="checkbox" id="cPersoneOk" ${d.persone_confermate === true ? 'checked' : ''}
+        style="width:auto;margin:0;" /> ho confermato disponibilità e prezzo delle persone da
+      aggiungere</label>${avevaChiesto(r, 'Persone da aggiungere confermate')}
+    <div class="mini">Finché questa casella è vuota la richiesta non si può chiudere. Scrivi il
+      prezzo nel messaggio qui sotto, spunta, e premi «Conferma e avvisa l’ospite».</div>`;
+}
+
 /* Elenco chiuso via switch, mai un OGGETTO[tipo]: il tipo arriva dal
    database, e una chiave come "toString" esiste su Object.prototype. Un
    tipo non riconosciuto non offre campi: non sappiamo la sua forma, e un
@@ -1217,6 +1320,7 @@ function campiModificabili(r) {
     case 'greenfee': return campiGreenfee(r);
     case 'maestro': return campiMaestro(r);
     case 'trattamenti': return campiTrattamenti(r);
+    case 'arrivo': return campiArrivo(r);
     default: return '';
   }
 }
@@ -1264,6 +1368,19 @@ function datiCorretti(r) {
       ...base,
       voci: $('cVoci').value.split('\n').map((s) => s.trim()).filter(Boolean),
       giorno: $('cGiorno').value, fascia: $('cFascia').value, note: $('cNote').value,
+    };
+    /* L'UNICO campo che questa scheda scrive su un arrivo: il segno che
+       qualcuno ha risposto sulle persone da aggiungere. Tutto il resto
+       resta com'e' — ora e mezzo arrivano nella lingua dell'ospite e non
+       si riscrivono da qui.
+       SE LA CASELLA NON C'E' (nessuna persona da aggiungere: campiArrivo
+       non la disegna) si tiene il valore che c'era, mai un `false` scritto
+       solo perche' il modulo non l'ha mandato. */
+    case 'arrivo': return {
+      ...base,
+      persone_confermate: $('cPersoneOk')
+        ? $('cPersoneOk').checked
+        : base.persone_confermate === true,
     };
     /* soggiorno (mai passato qui: il pannello di conferma non si mostra
        per lui) o un tipo non riconosciuto: nessuna correzione da mandare,
@@ -1349,6 +1466,7 @@ function dettaglioRichiesta(r) {
       ${riga('Camera', esc(r.tipo_camera || (r.dati && r.dati.nome_camera) || ''))}
       ${riga('Pacchetto', esc(r.pacchetto || ''))}
       ${righeSceltaSoggiorno(r, riga)}
+      ${righeCheckIn(r, riga)}
       ${riga('Gestita da', r.gestita_da ? esc(r.gestita_da) + ' · ' + quandoIT(r.gestita_il) : '')}
     </table>
     ${r.messaggio ? `<div style="border-left:3px solid var(--oro);background:#FBFAF7;padding:12px 14px;

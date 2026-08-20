@@ -32,6 +32,12 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     prezzo: 'Prezzo', allAutista: 'da pagare direttamente all’autista', oraVolo: 'volo',
     modifiche: 'Cosa è cambiato rispetto alla richiesta',
     chiesto: 'Aveva chiesto', confermato: 'Confermiamo',
+    oraArrivo: 'Arrivo previsto', mezzo: 'Come arriva', attenzioni: 'Piccole attenzioni',
+    fanghi: 'Fanghi', personeAgg: 'Persone da aggiungere', note: 'Note',
+    attCulla: 'Culla', attSeggiolone: 'Seggiolone', attParcheggio: 'Parcheggio', attCane: 'Cane al seguito',
+    fanghiPresto: 'Presto', fanghiTardi: 'Più tardi', fanghiIndifferente: 'Indifferente',
+    ragione: 'Intestazione', indirizzo: 'Indirizzo', piva: 'Partita IVA',
+    cf: 'Codice fiscale', sdi: 'Codice SDI', pec: 'PEC',
   },
   de: {
     periodo: 'Zeitraum', camera: 'Zimmer', pacchetto: 'Paket', trattamento: 'Verpflegung', caparra: 'Angegebene Anzahlung',
@@ -42,6 +48,12 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     prezzo: 'Preis', allAutista: 'direkt an den Fahrer zu zahlen', oraVolo: 'Flug',
     modifiche: 'Was sich gegenüber Ihrer Anfrage geändert hat',
     chiesto: 'Angefragt', confermato: 'Bestätigt',
+    oraArrivo: 'Voraussichtliche Ankunft', mezzo: 'Anreise mit', attenzioni: 'Kleine Aufmerksamkeiten',
+    fanghi: 'Fangopackung', personeAgg: 'Weitere Personen', note: 'Anmerkungen',
+    attCulla: 'Babybett', attSeggiolone: 'Hochstuhl', attParcheggio: 'Parkplatz', attCane: 'Hund dabei',
+    fanghiPresto: 'Früh', fanghiTardi: 'Später', fanghiIndifferente: 'Egal',
+    ragione: 'Rechnungsempfänger', indirizzo: 'Adresse', piva: 'USt-IdNr.',
+    cf: 'Steuernummer', sdi: 'SDI-Code', pec: 'PEC',
   },
   en: {
     periodo: 'Dates', camera: 'Room', pacchetto: 'Package', trattamento: 'Board', caparra: 'Deposit indicated',
@@ -52,6 +64,12 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     prezzo: 'Price', allAutista: 'to be paid directly to the driver', oraVolo: 'flight',
     modifiche: 'What has changed from your request',
     chiesto: 'Originally requested', confermato: 'Now confirmed',
+    oraArrivo: 'Expected arrival', mezzo: 'Travelling by', attenzioni: 'Small touches',
+    fanghi: 'Mud therapy', personeAgg: 'People to add', note: 'Notes',
+    attCulla: 'Baby cot', attSeggiolone: 'High chair', attParcheggio: 'Parking', attCane: 'Dog coming along',
+    fanghiPresto: 'Early', fanghiTardi: 'Later', fanghiIndifferente: 'No preference',
+    ragione: 'Billed to', indirizzo: 'Address', piva: 'VAT number',
+    cf: 'Tax code', sdi: 'SDI code', pec: 'PEC',
   },
   fr: {
     periodo: 'Dates', camera: 'Chambre', pacchetto: 'Forfait', trattamento: 'Pension', caparra: 'Acompte indiqué',
@@ -62,6 +80,12 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     prezzo: 'Prix', allAutista: 'à régler directement au chauffeur', oraVolo: 'vol',
     modifiche: 'Ce qui a changé par rapport à votre demande',
     chiesto: 'Demandé initialement', confermato: 'Confirmé',
+    oraArrivo: 'Arrivée prévue', mezzo: 'Moyen de transport', attenzioni: 'Petites attentions',
+    fanghi: 'Boues', personeAgg: 'Personnes à ajouter', note: 'Remarques',
+    attCulla: 'Lit bébé', attSeggiolone: 'Chaise haute', attParcheggio: 'Parking', attCane: 'Chien accepté',
+    fanghiPresto: 'Tôt', fanghiTardi: 'Plus tard', fanghiIndifferente: 'Peu importe',
+    ragione: 'Facturé à', indirizzo: 'Adresse', piva: 'N° TVA',
+    cf: 'Code fiscal', sdi: 'Code SDI', pec: 'PEC',
   },
 };
 
@@ -124,7 +148,63 @@ export const CHIAVI_MOSTRATE: Record<string, string[]> = {
   maestro: ['data', 'ora', 'persone'],
   dayspa: ['giorno', 'persone'],
   trattamenti: ['giorno', 'fascia', 'voci'],
+  /* persone_confermate NON e' in questo elenco apposta: e' la casella che
+     la reception spunta quando ha risposto sulle persone da aggiungere, non
+     un campo disegnato qui sopra. Tenendola fuori, se l'operatore chiede di
+     segnalare i cambiamenti, l'ospite la legge nel riquadro in coda invece
+     che sparire. */
+  arrivo: ['ora_arrivo', 'mezzo', 'attenzioni', 'fanghi_desiderio', 'persone_extra', 'note'],
+  fattura: ['ragione', 'indirizzo', 'piva', 'cf', 'sdi', 'pec'],
 };
+
+/* ============================================================
+   LE CHIAVI CHE DIVENTANO PAROLE.
+
+   Le attenzioni e il desiderio dei fanghi viaggiano come CHIAVI e non come
+   testo (tipi.ts, ATTENZIONI e DESIDERI_FANGHI): la pagina d'arrivo parla
+   quattro lingue e «Culla per neonato» finirebbe in back office letto da
+   chi in quel momento aveva davanti «Babybett». Qui si fa il giro opposto,
+   perche' questa email la rilegge l'ospite nella SUA lingua.
+
+   Uno switch e non un OGGETTO[chiave]: e' la stessa cautela di
+   riepilogo.ts e differenze.ts — una chiave come «toString» esiste su
+   Object.prototype, e una lookup diretta restituirebbe la funzione
+   ereditata invece di sparire. Una chiave sconosciuta sparisce: stampare
+   all'ospite il nome interno di un campo e' il parente stretto di
+   «undefined».
+   ============================================================ */
+function attenzione(chiave: string, t: Record<string, string>): string {
+  switch (chiave) {
+    case 'culla': return t.attCulla;
+    case 'seggiolone': return t.attSeggiolone;
+    case 'parcheggio': return t.attParcheggio;
+    case 'cane': return t.attCane;
+    default: return '';
+  }
+}
+
+function desiderioFanghi(chiave: string, t: Record<string, string>): string {
+  switch (chiave) {
+    case 'presto': return t.fanghiPresto;
+    case 'tardi': return t.fanghiTardi;
+    case 'indifferente': return t.fanghiIndifferente;
+    default: return '';
+  }
+}
+
+/* «Elena (12) · Marco»: il nome e' obbligatorio, l'eta' no. Le voci senza
+   nome non esistono gia' a monte (validaArrivo le scarta), ma un elenco
+   letto da una riga vecchia puo' averle: una voce vuota qui e' un
+   «(undefined)» in meno nell'email dell'ospite. */
+function elencoPersone(v: unknown): string {
+  if (!Array.isArray(v)) return '';
+  return v.map((p) => {
+    const o = (p && typeof p === 'object') ? p as Record<string, unknown> : {};
+    const nome = String(o.nome ?? '').trim();
+    const eta = String(o.eta ?? '').trim();
+    return nome ? (eta ? `${nome} (${eta})` : nome) : '';
+  }).filter(Boolean).join(' · ');
+}
 
 /* Ogni tipo racconta le sue cose. Un tipo non ancora previsto non rompe
    niente: mostra solo il riferimento, che e' meglio di "undefined".
@@ -233,6 +313,47 @@ function vociDettagli(tipo: string, t: Record<string, string>): Voce[] {
         eti: t.trattamenti,
         calcola: (d) => (Array.isArray(d.voci) ? (d.voci as string[]) : []).join(' · '),
       },
+    ];
+  }
+
+  /* IL CHECK-IN ONLINE. Mancava, e l'unica email con cui la reception puo'
+     rispondere sulle persone da aggiungere annunciava «Il dettaglio:» e poi
+     mostrava il solo numero. Le persone e le note dell'ospite vivevano solo
+     nella casella info@: qui tornano dove le legge chi le ha scritte.
+
+     `ora_arrivo` e `mezzo` NON si traducono: la pagina d'arrivo li manda
+     gia' come testo scelto dall'ospite nella sua lingua (le <option> di
+     pagine/index.html non hanno un value), quindi tradurli qui vorrebbe
+     dire indovinare da quale delle quattro liste viene la stringa. Le
+     attenzioni e il desiderio dei fanghi invece sono chiavi, e si traducono
+     (vedi attenzione() e desiderioFanghi() sopra). */
+  if (tipo === 'arrivo') {
+    return [
+      { eti: t.oraArrivo, calcola: (d) => String(d.ora_arrivo ?? '') },
+      { eti: t.mezzo, calcola: (d) => String(d.mezzo ?? '') },
+      {
+        eti: t.attenzioni,
+        calcola: (d) => (Array.isArray(d.attenzioni) ? d.attenzioni : [])
+          .map((a) => attenzione(String(a ?? ''), t)).filter(Boolean).join(' · '),
+      },
+      { eti: t.fanghi, calcola: (d) => desiderioFanghi(String(d.fanghi_desiderio ?? ''), t) },
+      { eti: t.personeAgg, calcola: (d) => elencoPersone(d.persone_extra) },
+      { eti: t.note, calcola: (d) => String(d.note ?? '') },
+    ];
+  }
+
+  /* LA FATTURA. L'amministrazione la riceve in copia, ma la conferma che
+     rilegge l'ospite deve ripetere quello che ci ha dato: e' l'unico modo
+     che ha di accorgersi di una partita IVA sbagliata PRIMA che il
+     documento sia emesso. */
+  if (tipo === 'fattura') {
+    return [
+      { eti: t.ragione, calcola: (d) => String(d.ragione ?? '') },
+      { eti: t.indirizzo, calcola: (d) => String(d.indirizzo ?? '') },
+      { eti: t.piva, calcola: (d) => String(d.piva ?? '') },
+      { eti: t.cf, calcola: (d) => String(d.cf ?? '') },
+      { eti: t.sdi, calcola: (d) => String(d.sdi ?? '') },
+      { eti: t.pec, calcola: (d) => String(d.pec ?? '') },
     ];
   }
   return [];

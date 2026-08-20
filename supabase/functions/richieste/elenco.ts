@@ -34,10 +34,20 @@ export type RigaGrezza = {
 
 export type RigaArricchita = RigaGrezza & Riga & { differenze: Differenza[] };
 
+/* IL TOKEN DELL'ARRIVO NON ESCE DA QUI. `arrivo_token` e' la chiave con cui
+   si apre la pagina di compilazione di quell'ospite: chi la leggesse nella
+   risposta potrebbe entrarci senz'altra autenticazione, vedere il suo
+   soggiorno e mandare richieste a suo nome. Lo spread di tutta la riga la
+   faceva uscire da DUE porte — ?a=elenco, e l'array `trattamenti` di
+   ?a=arrivi, l'unico posto dove arriviDelGiorno() si era preso la briga di
+   toglierla. Tolta qui, dove passano tutte le righe, sono chiuse tutte e
+   due; e il giorno che nasce una terza porta, e' gia' chiusa anche quella. */
+const SEGRETI = ['arrivo_token'];
+
 export function arricchisciRiga(r: RigaGrezza): RigaArricchita {
   const { etichetta, riepilogo } = riepilogoRichiesta(r);
   return {
-    ...r,
+    ...Object.fromEntries(Object.entries(r).filter(([k]) => !SEGRETI.includes(k))),
     etichetta,
     riepilogo,
     /* dati_originali puo' mancare o essere null sulle righe piu' vecchie:

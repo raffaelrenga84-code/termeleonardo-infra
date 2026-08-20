@@ -30,7 +30,9 @@ import {
 import { LINGUE } from './condizioni.ts';
 import { creaFrenoIp } from './limite-ip.ts';
 import { dataConsenso } from './consenso.ts';
-import { carichiAvviso, type NumeroRichiesta, pezziDaArrivo, righeDaArrivo } from './arrivo-invio.ts';
+import {
+  arrivoGiaInviato, carichiAvviso, type NumeroRichiesta, pezziDaArrivo, righeDaArrivo,
+} from './arrivo-invio.ts';
 import { inviaRicevutaArrivo } from './ricevuta-arrivo.ts';
 
 /* Portata da buoni/index.ts, stessa forma: legge stagione_chiusura ordinata
@@ -364,6 +366,12 @@ Deno.serve(async (req) => {
        scrive, e la correzione la fa la reception sulla richiesta con
        ?a=conferma.
 
+       LA DOMANDA E' «C'E' GIA' UN ARRIVO?», NON «C'E' GIA' UNA RIGA?»:
+       arrivoGiaInviato() in arrivo-invio.ts, dove sta scritto perche'.
+       Contare le righe chiudeva fuori dal check-in chi aveva usato un
+       modulo del sito con lo stesso token — quei moduli scrivono
+       arrivo_token anche loro.
+
        Un errore di lettura NON e' "non ce ne sono": e' "non posso
        verificare", e si rifiuta — come fa gia' ?a=precompila sullo stesso
        errore sulla stessa tabella. Restano numeri saltati (innocuo, vedi
@@ -382,7 +390,7 @@ Deno.serve(async (req) => {
       console.error('controllo duplicati fallito:', eGia);
       return risposta({ errore: 'salvataggio non riuscito' }, 500);
     }
-    if (gia && gia.length > 0) {
+    if (arrivoGiaInviato(gia)) {
       return risposta({ errore: 'gia inviato', richieste: gia }, 409);
     }
 
@@ -419,6 +427,42 @@ Deno.serve(async (req) => {
     ]);
 
     return risposta({ ok: true, numeri: numeri.map((n) => n.numero) });
+  }
+
+  /* ---------- pubblico: questo check-in e' gia' stato mandato? ----------
+     LA STESSA DOMANDA DEL 409, ALL'APERTURA DELLA PAGINA E NON DOPO.
+     Prima, lo stato «gia inviato» esisteva solo come risposta a un invio:
+     chi riapriva il link per correggere il numero del volo ricompilava
+     tutto — ora, transfer, partita IVA — premeva Invia e si sentiva dire
+     che avevamo gia' tutto. Le sue correzioni si perdevano.
+
+     PERCHE' QUI E NON IN prepara-arrivo, che la pagina interroga gia'.
+     La regola su COSA conta come «gia' mandato» (arrivoGiaInviato) e la
+     tabella su cui si legge vivono in questa funzione, ed e' questa
+     funzione a decidere il 409. Le funzioni si pubblicano una cartella per
+     volta e non possono importarsi fra loro (vedi copie.test.ts): metterla
+     anche la' vorrebbe dire la stessa regola scritta due volte in due
+     funzioni che non possono guardarsi — e a decidere sarebbe la piu'
+     debole delle due.
+
+     L'AUTENTICAZIONE E' IL TOKEN, come in ?a=precompila e in
+     ?a=invia-arrivo: chi ha il link l'ha ricevuto in una nostra email. Ne
+     escono solo numero e tipo — mai i dati di nessuno.
+
+     UN ERRORE DI LETTURA NON E' «non ce n'e'»: si risponde 500 e la pagina
+     mostra il modulo, come farebbe senza questa chiamata. A proteggere dal
+     doppio invio resta il controllo di ?a=invia-arrivo, che sull'errore di
+     lettura rifiuta. */
+  if (azione === 'arrivo-inviato') {
+    const t = testo(url.searchParams.get('t'));
+    if (!t) return risposta({ errore: 'token mancante' }, 400);
+    const { data, error } = await db.from('richiesta_sito')
+      .select('numero, tipo').eq('arrivo_token', t);
+    if (error) {
+      console.error('lettura stato arrivo fallita:', error);
+      return risposta({ errore: 'stato non verificabile' }, 500);
+    }
+    return risposta({ ok: true, inviato: arrivoGiaInviato(data), richieste: data ?? [] });
   }
 
   /* ---------- pubblico: disponibilita' camere ----------

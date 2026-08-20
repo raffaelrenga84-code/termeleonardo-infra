@@ -629,3 +629,85 @@ Deno.test('la pagina non accusa piu il modulo transfer di un guasto gia riparato
   assert(/\n\s*const v = /.test(TRANSFER),
     'il modulo transfer del sito non definisce piu `v`: e il commento accanto a corsaVeraTr() andrebbe riscritto');
 });
+
+/* ============================================================
+   REVISIONE FINALE — il pulsante prometteva che non sarebbe arrivato
+   niente, e adesso arriva.
+
+   La novita' principale di questo ramo per l'ospite e' proprio la RICEVUTA
+   automatica (ricevuta-arrivo.ts). Chi legge sotto il pulsante «nessuna
+   conferma automatica» non la cerca, e non si accorge se finisce nello
+   spam — che e' l'unico segnale che gli direbbe che l'invio e' andato a
+   buon fine.
+   ============================================================ */
+Deno.test('il pulsante non promette piu che non arrivera nessuna risposta', () => {
+  const negazioni = [
+    /nessuna conferma automatica/i,
+    /keine automatische Best/i,
+    /no automated reply/i,
+    /pas de r[ée]ponse automatique/i,
+  ];
+  for (const n of negazioni) {
+    assert(!n.test(SORGENTE),
+      `la pagina promette ancora che non ci sara nessuna risposta automatica: ${n}`);
+  }
+});
+
+Deno.test('la nota sotto il pulsante annuncia la ricevuta, in tutte e quattro le lingue', () => {
+  const note = [...SORGENTE.matchAll(/inviaNota\s*:\s*'([^']*)'/g)].map((m) => m[1]);
+  assertEquals(note.length, 4, `trovate ${note.length} note, servono 4 (una per lingua)`);
+  /* la parola che regge il peso in ognuna delle quattro: se manca, l'ospite
+     non sa che gli arrivera' qualcosa da cercare */
+  const attese = [/email/i, /E-Mail/i, /email/i, /e-mail/i];
+  for (let i = 0; i < 4; i++) {
+    assert(attese[i].test(note[i]),
+      `la nota ${i + 1} non dice che arrivera una ricevuta via email: «${note[i]}»`);
+  }
+});
+
+/* ============================================================
+   REVISIONE FINALE — lo stato «gia inviato» compariva solo DOPO che
+   l'ospite aveva ricompilato tutto.
+
+   La specifica dice: «la pagina d'arrivo, se per quel token esistono gia'
+   delle richieste, mostra quello che e' stato mandato con i suoi numeri».
+   Quello che c'era lo mostrava solo come risposta a un invio: chi riapriva
+   il link per correggere il numero del volo ricompilava tutto — ora,
+   transfer, partita IVA — premeva Invia, e si sentiva dire che avevamo gia'
+   tutto. Le correzioni si perdevano.
+   ============================================================ */
+Deno.test('la pagina sa chiedere al server se il check-in e gia stato mandato', () => {
+  assert(SORGENTE.includes('a=arrivo-inviato'),
+    'la pagina non interroga ?a=arrivo-inviato: non puo sapere cosa e gia stato mandato');
+  assert(/function statoInvio\s*\(/.test(SORGENTE), 'statoInvio() non c e piu');
+});
+
+/* Il ramo deve stare PRIMA di modulo(), o il modulo si disegna comunque e
+   l'ospite ricompila come prima. E deve uscire: senza il `return` la
+   schermata verrebbe subito ricoperta dal modulo. */
+Deno.test('lo stato "gia inviato" si mostra all apertura, prima del modulo', () => {
+  const i = SORGENTE.indexOf('async function avvia(');
+  assert(i > 0, 'la funzione avvia() non si trova');
+  const avvia = SORGENTE.slice(i);
+  const chiede = avvia.indexOf('statoInvio(');
+  const disegna = avvia.indexOf('modulo();');
+  assert(chiede > 0, 'avvia() non chiama statoInvio()');
+  assert(disegna > 0, 'avvia() non chiama piu modulo()');
+  assert(chiede < disegna,
+    'la domanda arriva dopo che il modulo e gia disegnato: l ospite ricompila comunque');
+  assert(/inviato\s*===\s*true[\s\S]{0,120}?giaInviato\([\s\S]{0,40}?return/.test(avvia),
+    'il ramo "gia inviato" all apertura non porta a giaInviato() e non esce prima del modulo');
+});
+
+/* UN GUASTO DI LETTURA NON DEVE CHIUDERE IL MODULO: chi non riesce a
+   sapere se ha gia' mandato deve poter compilare. A proteggere dal doppio
+   invio resta il controllo del server, che sull'errore di lettura rifiuta. */
+Deno.test('se la domanda non riceve risposta, il modulo si apre lo stesso', () => {
+  const i = SORGENTE.indexOf('function statoInvio(');
+  const fine = SORGENTE.indexOf('\n}', i);
+  const corpo = SORGENTE.slice(i, fine);
+  assert(/if\s*\(\s*!r\.ok\s*\)\s*return null/.test(corpo),
+    'una risposta non ok non torna null: la pagina la leggerebbe come "gia inviato" o esploderebbe');
+  assert(/catch[\s\S]{0,60}return null/.test(corpo),
+    'un guasto di rete non torna null: la pagina resterebbe sulla schermata di caricamento');
+});

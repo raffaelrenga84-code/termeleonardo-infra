@@ -155,7 +155,7 @@ const T = {
   fanghiNota:'Il turno lo assegna la Segreteria Cure dopo la visita medica di ammissione: qui prendiamo nota della sua preferenza.',
   fanghiPresoAtto:'Abbiamo preso nota del suo desiderio per i fanghi.',
   noteT:'Altro da dirci', notePh:'Intolleranze, preferenze per la camera, occasioni speciali…',
-  invia:'Invii alla reception', inviaNota:'Riceviamo subito noi della reception, nessuna conferma automatica.',
+  invia:'Invii alla reception', inviaNota:'Riceviamo subito noi della reception, e le arriva una ricevuta via email.',
   attendere:'Un attimo…',
   erroreInvio:'Non siamo riusciti a salvare. Riprovi tra un momento, o ci scriva a info@termeleonardo.com.',
   grazieT:'Grazie, è tutto pronto', grazie:'Abbiamo ricevuto le sue indicazioni: la reception le legge oggi stesso. A prestissimo alle terme.',
@@ -201,7 +201,7 @@ const T = {
   fanghiNota:'Den Termin vergibt das Kursekretariat nach der ärztlichen Aufnahmeuntersuchung: hier merken wir uns Ihren Wunsch.',
   fanghiPresoAtto:'Wir haben Ihren Wunschtermin für die Fangopackung vorgemerkt.',
   noteT:'Sonst noch etwas?', notePh:'Unverträglichkeiten, Zimmerwünsche, besondere Anlässe…',
-  invia:'An die Rezeption senden', inviaNota:'Ihre Angaben gehen direkt an uns — keine automatische Bestätigung.',
+  invia:'An die Rezeption senden', inviaNota:'Ihre Angaben gehen direkt an uns — die Eingangsbestätigung erhalten Sie per E-Mail.',
   attendere:'Einen Moment…',
   erroreInvio:'Speichern nicht möglich. Versuchen Sie es gleich noch einmal oder schreiben Sie an info@termeleonardo.com.',
   grazieT:'Danke, alles bereit', grazie:'Wir haben Ihre Angaben erhalten: die Rezeption liest sie noch heute. Bis bald in den Thermen.',
@@ -244,7 +244,7 @@ const T = {
   fanghiNota:'The Cure Secretariat assigns the slot after the admission medical: here we simply note what you would prefer.',
   fanghiPresoAtto:'We have noted your preference for the mud therapy.',
   noteT:'Anything else?', notePh:'Intolerances, room preferences, special occasions…',
-  invia:'Send to reception', inviaNota:'It goes straight to us at reception — no automated reply.',
+  invia:'Send to reception', inviaNota:'It goes straight to us at reception — and you get a receipt by email.',
   attendere:'One moment…',
   erroreInvio:'We couldn\u2019t save your details. Please try again shortly, or write to info@termeleonardo.com.',
   grazieT:'Thank you, all set', grazie:'We\u2019ve received your details: reception reads them today. See you very soon at the thermal pools.',
@@ -287,7 +287,7 @@ const T = {
   fanghiNota:'Le Secrétariat des Cures attribue le créneau après la visite médicale d’admission : ici nous prenons note de votre préférence.',
   fanghiPresoAtto:'Nous avons pris note de votre souhait pour les boues.',
   noteT:'Autre chose ?', notePh:'Intolérances, préférences de chambre, occasions spéciales…',
-  invia:'Envoyer à la réception', inviaNota:'Vos indications arrivent directement à la réception — pas de réponse automatique.',
+  invia:'Envoyer à la réception', inviaNota:'Vos indications arrivent directement à la réception — et vous recevez un accusé de réception par e-mail.',
   attendere:'Un instant…',
   erroreInvio:'Enregistrement impossible. Réessayez dans un instant ou écrivez à info@termeleonardo.com.',
   grazieT:'Merci, tout est prêt', grazie:'Nous avons bien reçu vos indications : la réception les lit aujourd\u2019hui même. À très bientôt aux thermes.',
@@ -722,6 +722,25 @@ function giaInviato(t, richieste){
   stato(t.giaInviatoT, t.giaInviato, '✓', elencoNumeri(numeri) + `<p>${esc(t.perCambiare)}</p>`);
 }
 
+/* LO STESSO STATO, ALL'APERTURA. Prima esisteva solo come risposta a un
+   invio: chi riapriva il link per correggere il numero del volo
+   ricompilava tutto — ora, transfer, partita IVA — premeva Invia e si
+   sentiva dire che avevamo gia' tutto. Le correzioni si perdevano.
+
+   UN GUASTO QUI NON CHIUDE IL MODULO: si torna `null` e la pagina fa
+   quello che faceva prima, cioe' mostra il modulo. A proteggere dal doppio
+   invio resta il controllo del server, che sull'errore di lettura
+   rifiuta. */
+async function statoInvio(){
+  try {
+    const r = await fetch(`${FUNZIONE_RICHIESTE}?a=arrivo-inviato&t=${encodeURIComponent(TOKEN)}`);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) {
+    return null;
+  }
+}
+
 async function invia(){
   const t = T[LINGUA];
   const b = document.getElementById('invia');
@@ -872,6 +891,11 @@ async function invia(){
     DATI = await r.json();
     LINGUA = ['it','de','en','fr'].includes(DATI.lingua) ? DATI.lingua : 'it';
     document.documentElement.lang = LINGUA;
+    /* DOPO la lingua, perche' questa schermata la parla; PRIMA del modulo,
+       perche' e' il modulo che non deve nemmeno comparire a chi ha gia'
+       mandato tutto. */
+    const gia = await statoInvio();
+    if (gia && gia.inviato === true) { giaInviato(T[LINGUA], gia.richieste); return; }
     modulo();
   } catch (e) {
     stato(T.it.nonValidoT, T.it.nonValido, '·');

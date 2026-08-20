@@ -7,7 +7,7 @@
    argomenti passati a differenze() sia quello giusto (originali, poi
    correnti) — uno scambio sarebbe invisibile se il test guardasse solo la
    lunghezza dell'elenco, quindi si controllano anche prima/adesso. */
-import { assertEquals } from 'jsr:@std/assert';
+import { assert, assertEquals } from 'jsr:@std/assert';
 import { arricchisciRiga, arricchisciElenco } from './elenco.ts';
 
 Deno.test('aggiunge etichetta e riepilogo alla riga, presi da riepilogo.ts', () => {
@@ -70,4 +70,35 @@ Deno.test('arricchisciElenco arricchisce ogni riga dell elenco, nell ordine rice
   assertEquals(righe.length, 2);
   assertEquals(righe[0].etichetta, 'Green fee');
   assertEquals(righe[1].etichetta, 'Maestro');
+});
+
+/* ============================================================
+   IL TOKEN DELL'ARRIVO NON ESCE DA QUESTA PORTA.
+
+   arrivo_token e' la chiave con cui si apre la pagina di compilazione di
+   quell'ospite: chi la leggesse nella risposta potrebbe entrarci senz'altra
+   autenticazione, vedere il suo soggiorno e mandare richieste a suo nome.
+   Lo spread di tutta la riga la faceva uscire da DUE porte — ?a=elenco, e
+   l'array `trattamenti` di ?a=arrivi — mentre arriviDelGiorno() se l'era
+   presa la briga di toglierla solo dalla terza.
+   ============================================================ */
+Deno.test('arricchisciRiga non lascia uscire arrivo_token', () => {
+  const r = arricchisciRiga({
+    numero: 'C26/19131', tipo: 'transfer', arrivo_token: 'tok-segreto',
+    dati: { luogo: 'Padova FS' },
+  });
+  assert(!Object.hasOwn(r, 'arrivo_token'), 'il token dell arrivo esce dall elenco');
+  assert(!JSON.stringify(r).includes('tok-segreto'), 'il token dell arrivo esce sotto un altro nome');
+  /* e il resto della riga resta intatto: togliere il token non deve
+     svuotare la risposta */
+  assertEquals(r.numero, 'C26/19131');
+  assertEquals(r.etichetta, 'Transfer');
+});
+
+Deno.test('nemmeno una riga sola di un elenco lo lascia uscire', () => {
+  const righe = arricchisciElenco([
+    { tipo: 'trattamenti', dati: { voci: ['Shiatsu'] }, arrivo_token: 'tok-segreto' },
+    { tipo: 'dayspa', dati: { persone: 2 }, arrivo_token: 'tok-segreto' },
+  ]);
+  assert(!JSON.stringify(righe).includes('tok-segreto'), 'il token esce dall elenco arricchito');
 });

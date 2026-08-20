@@ -125,6 +125,37 @@ export function righeDaArrivo(
   }));
 }
 
+/* ============================================================
+   «L'HA GIA' MANDATO?» SI CHIEDE AL TIPO, NON AL CONTEGGIO.
+
+   IL DIFETTO CHE QUESTA FUNZIONE CHIUDE. Il controllo cercava QUALUNQUE
+   riga con quell'arrivo_token. Ma l'arrivo_token lo scrivono anche i moduli
+   pubblici del sito (index.ts, blocco `!azione`): la reception manda
+   .../richieste/transfer?t=TOK, l'ospite prenota il taxi da Venezia
+   aeroporto, e nasce una richiesta di transfer con quel token. Tre giorni
+   dopo lo stesso ospite apre «Prepari il suo arrivo», scrive l'ora, la
+   culla, la figlia da aggiungere e la partita IVA, e preme Invia: il
+   controllo trovava la richiesta del TAXI e rispondeva 409 «abbiamo gia'
+   ricevuto i suoi dati» col numero del taxi. Non si salvava niente, non
+   partiva nessuna email, e in reception non arrivava ne' l'ora ne' la
+   figlia. Peggio di prima del ramo, che almeno una riga la scriveva.
+
+   PERCHE' IL TIPO E' UN SEGNO AFFIDABILE. `arrivo` e' l'unico tipo che
+   ?a=invia-arrivo crea sempre (pezziDaArrivo: l'arrivo c'e' anche quando
+   non si spunta niente), e sta FUORI da TIPI_ATTIVI apposta — nessun modulo
+   pubblico del sito puo' produrlo. Quindi «esiste una richiesta di tipo
+   arrivo con questo token» vuol dire «questo check-in e' gia' stato
+   mandato», e nient'altro.
+   ============================================================ */
+/* Il tipo e' quello che serve, il resto della riga passa senza essere
+   guardato: chi chiama arriva da un `select('numero, tipo')` e non deve
+   ritagliare le sue righe per farle entrare qui. */
+export type RigaConTipo = { tipo?: unknown; [altro: string]: unknown };
+
+export function arrivoGiaInviato(righe: RigaConTipo[] | null | undefined): boolean {
+  return (righe ?? []).some((r) => String(r?.tipo ?? '') === 'arrivo');
+}
+
 /* Il carico per avvisaHotel(): STESO, non annidato. richiestaHTML() in
    email-richiesta.ts legge i campi propri del tipo — luogo, quando,
    ragione, ora_arrivo... — direttamente sull'oggetto, esattamente come fa

@@ -3,6 +3,33 @@
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
 import { avvisaHotel, richiestaHTML } from './email-richiesta.ts';
 
+/* ============================================================
+   IL VALORE DENTRO LA SUA RIGA, non da qualche parte nell'HTML.
+
+   Fino al 20 agosto 2026 le prove del check-in dicevano
+   assertStringIncludes(h, 'auto') e assertStringIncludes(h, 'presto'). Ma
+   `height:auto` sta nello stile del logo e «al piu' presto» nel piede
+   fisso: sono in OGNI avviso mai generato. Cancellando del tutto le righe
+   del mezzo e del desiderio fanghi da righeArrivo(), quelle asserzioni
+   restavano verdi — cioe' proprio il difetto che erano state scritte per
+   sorvegliare, e per giunta dentro la prova che si chiama «non contiene
+   mai la parola undefined».
+
+   Questa isola la cella del VALORE accanto alla cella dell'ETICHETTA — la
+   forma che riga() produce qui sotto — e guarda dentro quella. La stessa
+   funzione, per la stessa ragione, sta in arrivo-invio.test.ts: e'
+   impalcatura di prova, e due file di prova non possono importarsi senza
+   far girare due volte le prove dell'altro.
+   ============================================================ */
+function valoreDiRiga(h: string, etichetta: string): string | null {
+  const re = new RegExp(
+    '<td[^>]*>' + etichetta.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
+      '</td>\\s*<td[^>]*>([\\s\\S]*?)</td>',
+  );
+  const m = re.exec(h);
+  return m ? m[1].trim() : null;
+}
+
 const r = {
   numero: 'RS-2026-0007',
   nome: 'Mario Rossi',
@@ -335,12 +362,12 @@ const checkin = {
 
 Deno.test('il check-in online porta ora, mezzo e attenzioni, non le righe del soggiorno', () => {
   const h = richiestaHTML(checkin as never);
-  assertStringIncludes(h, '16:30');
-  assertStringIncludes(h, 'auto');
-  assertStringIncludes(h, 'culla');
-  assertStringIncludes(h, 'cane');
-  assertStringIncludes(h, 'presto');
-  assertStringIncludes(h, 'Bianchi Luca');
+  /* ognuno accanto alla SUA etichetta: vedi valoreDiRiga() in cima al file */
+  assertEquals(valoreDiRiga(h, 'Arrivo previsto'), '16:30');
+  assertEquals(valoreDiRiga(h, 'Mezzo'), 'auto');
+  assertEquals(valoreDiRiga(h, 'Attenzioni'), 'culla · cane');
+  assertEquals(valoreDiRiga(h, 'Desiderio fanghi'), 'presto');
+  assertEquals(valoreDiRiga(h, 'Altre persone'), 'Bianchi Luca (12)');
   assert(!h.includes('notti'), 'un check-in non ha notti da contare');
 });
 
@@ -367,10 +394,10 @@ const fattura = {
 
 Deno.test('la fattura porta ragione sociale, indirizzo e partita IVA', () => {
   const h = richiestaHTML(fattura as never);
-  assertStringIncludes(h, 'Bianchi S.r.l.');
-  assertStringIncludes(h, 'Via Roma 1, Padova');
-  assertStringIncludes(h, 'IT02042330288');
-  assertStringIncludes(h, 'M5UXCR1');
+  assertEquals(valoreDiRiga(h, 'Ragione sociale'), 'Bianchi S.r.l.');
+  assertEquals(valoreDiRiga(h, 'Indirizzo'), 'Via Roma 1, Padova');
+  assertEquals(valoreDiRiga(h, 'Partita IVA'), 'IT02042330288');
+  assertEquals(valoreDiRiga(h, 'Codice SDI'), 'M5UXCR1');
 });
 
 Deno.test('l avviso di una fattura non contiene la parola undefined', () => {

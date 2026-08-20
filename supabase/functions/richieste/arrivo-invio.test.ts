@@ -11,9 +11,36 @@
    listino non la riconoscerebbe e la reception tornerebbe a scrivere i
    prezzi a mano.
    ============================================================ */
-import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
-import { carichiAvviso, pezziDaArrivo, righeDaArrivo } from './arrivo-invio.ts';
+import { assert, assertEquals } from 'jsr:@std/assert';
+import { arrivoGiaInviato, carichiAvviso, pezziDaArrivo, righeDaArrivo } from './arrivo-invio.ts';
 import { richiestaHTML } from './email-richiesta.ts';
+
+/* ============================================================
+   IL VALORE DENTRO LA SUA RIGA, non da qualche parte nell'HTML.
+
+   Fino al 20 agosto 2026 la prova qui sotto diceva
+   assertStringIncludes(h, 'auto') per dire «c'e' il mezzo». Ma
+   `height:auto` sta nello stile del logo, cioe' in OGNI avviso mai
+   generato: cancellando del tutto la riga del mezzo da righeArrivo() la
+   prova restava verde. Lo stesso per 'presto', che il piede fisso porta
+   sempre dentro «al piu' presto».
+
+   Una prova che non fallisce quando il difetto c'e' e' peggio di nessuna
+   prova, perche' rassicura. Questa isola la cella del VALORE accanto alla
+   cella dell'ETICHETTA — la forma che riga() produce in
+   email-richiesta.ts — e guarda dentro quella. La stessa funzione, per la
+   stessa ragione, sta in email-richiesta.test.ts: e' impalcatura di prova,
+   e i due file non possono importarsi senza far girare due volte le prove
+   dell'altro.
+   ============================================================ */
+function valoreDiRiga(h: string, etichetta: string): string | null {
+  const re = new RegExp(
+    '<td[^>]*>' + etichetta.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
+      '</td>\\s*<td[^>]*>([\\s\\S]*?)</td>',
+  );
+  const m = re.exec(h);
+  return m ? m[1].trim() : null;
+}
 
 const OGGI = new Date('2026-09-01T12:00:00Z');
 
@@ -205,8 +232,14 @@ Deno.test('l HTML dell avviso per un arrivo non contiene mai la parola undefined
   assert(a, 'nessun carico di tipo arrivo');
   const h = richiestaHTML(a as never);
   assert(!h.includes('undefined'), `l'avviso arrivo contiene undefined:\n${h}`);
-  assertStringIncludes(h, '16:30');
-  assertStringIncludes(h, 'auto');
+  /* accanto alla LORO etichetta, non da qualche parte nell'HTML: vedi
+     valoreDiRiga() in cima al file — 'auto' da solo lo porta gia'
+     `height:auto` del logo, in ogni avviso mai generato */
+  assertEquals(valoreDiRiga(h, 'Arrivo previsto'), '16:30');
+  assertEquals(valoreDiRiga(h, 'Mezzo'), 'auto');
+  assertEquals(valoreDiRiga(h, 'Desiderio fanghi'), 'presto');
+  assertEquals(valoreDiRiga(h, 'Attenzioni'), 'culla · cane');
+  assertEquals(valoreDiRiga(h, 'Altre persone'), 'Bianchi Luca (12)');
 });
 
 Deno.test('l HTML dell avviso per una fattura non contiene mai la parola undefined', () => {
@@ -217,6 +250,73 @@ Deno.test('l HTML dell avviso per una fattura non contiene mai la parola undefin
   assert(f, 'nessun carico di tipo fattura');
   const h = richiestaHTML(f as never);
   assert(!h.includes('undefined'), `l'avviso fattura contiene undefined:\n${h}`);
-  assertStringIncludes(h, 'Bianchi S.r.l.');
-  assertStringIncludes(h, 'IT02042330288');
+  assertEquals(valoreDiRiga(h, 'Ragione sociale'), 'Bianchi S.r.l.');
+  assertEquals(valoreDiRiga(h, 'Partita IVA'), 'IT02042330288');
+  assertEquals(valoreDiRiga(h, 'Indirizzo'), 'Via Roma 1, Padova');
+  assertEquals(valoreDiRiga(h, 'Codice SDI'), 'M5UXCR1');
+});
+
+/* ============================================================
+   «L'HA GIA' MANDATO?» — LA DOMANDA CHE CHIUDEVA FUORI CHI AVEVA GIA'
+   USATO UN MODULO DEL SITO.
+
+   La signora Keller prenota per il 12 settembre. La reception le manda
+   .../richieste/transfer?t=TOK e lei prenota il taxi da Venezia aeroporto:
+   nasce una richiesta di TRANSFER con quel token, perche' anche i moduli
+   pubblici del sito scrivono arrivo_token. Tre giorni dopo apre «Prepari
+   il suo arrivo», scrive l'ora, la culla, la figlia da aggiungere e la
+   partita IVA, e preme Invia.
+
+   Col controllo sul CONTEGGIO delle righe il server trovava la richiesta
+   del taxi e rispondeva 409 «abbiamo gia' ricevuto i suoi dati» col numero
+   del suo taxi: niente salvato, nessuna email, e in reception ne' l'ora
+   ne' la figlia ne' i dati per la fattura. Lei credeva di aver finito.
+   ============================================================ */
+Deno.test('una richiesta del sito con lo stesso token non chiude fuori dal check-in', () => {
+  /* i tipi che i moduli pubblici del sito sanno creare, uno per uno */
+  for (const tipo of ['transfer', 'trattamenti', 'dayspa', 'greenfee', 'maestro', 'soggiorno']) {
+    assertEquals(
+      arrivoGiaInviato([{ numero: 'RS-2026-0041', tipo }]),
+      false,
+      `una richiesta di tipo ${tipo} col suo token blocca il check-in`,
+    );
+  }
+});
+
+Deno.test('piu richieste del sito insieme non bastano comunque', () => {
+  assertEquals(arrivoGiaInviato([
+    { numero: 'RS-2026-0041', tipo: 'transfer' },
+    { numero: 'RS-2026-0042', tipo: 'trattamenti' },
+  ]), false);
+});
+
+Deno.test('un check-in gia mandato invece si riconosce, anche in mezzo agli altri', () => {
+  assertEquals(arrivoGiaInviato([{ numero: 'RS-2026-0041', tipo: 'arrivo' }]), true);
+  assertEquals(arrivoGiaInviato([
+    { numero: 'RS-2026-0041', tipo: 'transfer' },
+    { numero: 'RS-2026-0042', tipo: 'arrivo' },
+    { numero: 'RS-2026-0043', tipo: 'fattura' },
+  ]), true);
+});
+
+Deno.test('nessuna riga, o nessuna lettura, non e un check-in gia mandato', () => {
+  assertEquals(arrivoGiaInviato([]), false);
+  assertEquals(arrivoGiaInviato(null), false);
+  assertEquals(arrivoGiaInviato(undefined), false);
+});
+
+/* LA RIGA CHE FA SCATTARE IL 409 E' QUELLA CHE QUESTA AZIONE CREA SEMPRE:
+   pezziDaArrivo mette `arrivo` in cima anche a una compilazione minima. Se
+   un domani smettesse di farlo, il controllo sul tipo non troverebbe piu'
+   niente e il doppio invio tornerebbe possibile — questa prova lega le due
+   cose invece di lasciarle d'accordo per caso. */
+Deno.test('cio che il check-in scrive e cio che il controllo cerca sono la stessa cosa', () => {
+  for (const corpo of [MINIMO, COMPLETO]) {
+    const righe = righeDaArrivo(LINK, pezziDaArrivo(corpo, OGGI).pezzi!, NUMERI, CONTESTO);
+    assertEquals(
+      arrivoGiaInviato(righe),
+      true,
+      'le righe appena scritte dal check-in non farebbero scattare il controllo del doppio invio',
+    );
+  }
 });
