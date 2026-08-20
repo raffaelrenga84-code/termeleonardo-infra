@@ -1223,13 +1223,20 @@ function nomeAttenzione(k) {
   }
 }
 
+/* UNA TABELLA SOLA. Le tre fasce stavano scritte due volte in questo
+   stesso file: qui e in DESIDERIO_IN_PAGINA, che e' l'unica tenuta ferma
+   da pagine/buoni/fanghi-copie.test.ts contro il testo delle email.
+   Cambiando una fascia domani, la prova avrebbe costretto quella a
+   seguire e lasciato indietro questa: la scheda di una richiesta e la
+   scheda «Arrivi del giorno» avrebbero detto due cose diverse sullo
+   stesso ospite, con la suite verde.
+
+   Object.hasOwn e non una ricerca diretta: una chiave come «toString»
+   esiste su Object.prototype e tornerebbe una funzione al posto di una
+   fascia. */
 function nomeFanghi(k) {
-  switch (k) {
-    case 'presto': return 'presto — dalle 5:50';
-    case 'tardi': return 'più tardi — verso le 10:00';
-    case 'indifferente': return 'indifferente';
-    default: return '';
-  }
+  const chiave = String(k ?? '');
+  return Object.hasOwn(DESIDERIO_IN_PAGINA, chiave) ? DESIDERIO_IN_PAGINA[chiave] : '';
 }
 
 /* «Elena (12) · Marco»: il nome c'e' sempre, l'età no. Le voci senza nome
@@ -1871,7 +1878,7 @@ function vistaArrivi() {
                   : ''}</td>
             <td>${a.cure ? '<span class="badge-tipo">cure termali</span>' : ''}
               ${a.fanghi_desiderio
-                  ? `<div class="mini">fanghi, desiderio: <b>${esc(DESIDERIO_IN_PAGINA[a.fanghi_desiderio] || a.fanghi_desiderio)}</b>
+                  ? `<div class="mini">fanghi, desiderio: <b>${esc(nomeFanghi(a.fanghi_desiderio) || a.fanghi_desiderio)}</b>
                        <br />il turno lo assegna la Segreteria Cure</div>`
                   : ''}</td>
             <td class="mini">${a.transfer ? '<span class="badge-tipo">transfer</span> ' : ''}${esc(a.note || '')}${righeRichieste(a)}</td>

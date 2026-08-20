@@ -73,7 +73,14 @@ type Modulo = {
 
 /** Le funzioni della pagina, vive, con un `$` che pesca da `caselle`. */
 function moduloBackOffice(caselle: Record<string, { checked: boolean }>): Modulo {
-  const fonti = NOMI.map(fonteDi).join('\n\n');
+  /* Le funzioni non bastano: `nomeFanghi` legge DESIDERIO_IN_PAGINA, che
+     e' una costante e non una funzione, ed e' l'unica tabella delle tre
+     fasce da quando le due copie sono state unificate. Senza, qui dentro
+     verrebbe «DESIDERIO_IN_PAGINA is not defined»: la prova fallirebbe per
+     una dipendenza mancante invece che per un difetto. */
+  const tabella = SORGENTE.match(/const DESIDERIO_IN_PAGINA = \{[^}]*\};/);
+  assert(tabella, 'DESIDERIO_IN_PAGINA non si trova: la pagina e cambiata');
+  const fonti = [tabella![0], ...NOMI.map(fonteDi)].join('\n\n');
   const esc = (s: unknown) => String(s ?? '')
     .replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
   const dollaro = (id: string) => Object.hasOwn(caselle, id) ? caselle[id] : null;
