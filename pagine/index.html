@@ -130,6 +130,10 @@ const T = {
   trTipo:'Per', trTipi:['L\u2019arrivo','La partenza'],
   trLuogo:'Da dove / verso dove', trVolo:'Numero volo o treno',
   trQuando:'Giorno', trOra:'Ora', trPax:'Persone', trCell:'Cellulare per l\u2019autista',
+  trServizio:'Il servizio', trPrivata:'Auto solo per lei', trNavetta:'Navetta condivisa',
+  trRitorno:'Mi serve anche il ritorno',
+  trRitornoQuando:'Giorno del ritorno', trRitornoOra:'Ora del ritorno',
+  trRitornoManca:'Indichi anche il giorno e l\u2019ora del ritorno.',
   extraT:'Piccole attenzioni', extraOpz:['Culla per neonato','Seggiolone al ristorante','Parcheggio','Cane al seguito'],
   fanghiT:'Cure termali', fanghiD:'A che ora preferirebbe i fanghi?',
   fanghiOpz:['Presto — dalle 5:50','Più tardi — verso le 10:00','Indifferente'],
@@ -141,8 +145,8 @@ const T = {
   erroreInvio:'Non siamo riusciti a salvare. Riprovi tra un momento, o ci scriva a info@termeleonardo.com.',
   grazieT:'Grazie, è tutto pronto', grazie:'Abbiamo ricevuto le sue indicazioni: la reception le legge oggi stesso. A prestissimo alle terme.',
   /* NON UN ERRORE ROSSO: succede a chi ricarica la pagina o riapre il link
-     dopo aver gia\u2019 inviato. Mostriamo i numeri gia\u2019 ricevuti, cosi\u2019 l\u2019ospite
-     vede che il suo invio c\u2019e\u2019 gia\u2019, e non ne nasce una seconda serie. */
+     dopo aver gia' inviato. Mostriamo i numeri gia' ricevuti, cosi' l'ospite
+     vede che il suo invio c'e' gia', e non ne nasce una seconda serie. */
   giaInviatoT:'Le abbiamo già ricevute', giaInviato:'Abbiamo già ricevuto le sue indicazioni per questo soggiorno.',
   perCambiare:'Per cambiare qualcosa ci scriva a info@termeleonardo.com.',
   nonValidoT:'Questo link non è più attivo', nonValido:'Il collegamento non risulta valido. Controlli di aver aperto l\u2019ultimo link ricevuto, o ci scriva a info@termeleonardo.com.',
@@ -167,6 +171,10 @@ const T = {
   trTipo:'Für', trTipi:['Die Anreise','Die Abreise'],
   trLuogo:'Von wo / wohin', trVolo:'Flug- oder Zugnummer',
   trQuando:'Tag', trOra:'Uhrzeit', trPax:'Personen', trCell:'Handy für den Fahrer',
+  trServizio:'Der Service', trPrivata:'Wagen nur für Sie', trNavetta:'Sammeltransfer',
+  trRitorno:'Ich brauche auch die Rückfahrt',
+  trRitornoQuando:'Tag der Rückfahrt', trRitornoOra:'Uhrzeit der Rückfahrt',
+  trRitornoManca:'Bitte geben Sie auch Tag und Uhrzeit der Rückfahrt an.',
   extraT:'Kleine Aufmerksamkeiten', extraOpz:['Babybett','Hochstuhl im Restaurant','Parkplatz','Hund dabei'],
   fanghiT:'Thermalkuren', fanghiD:'Wann hätten Sie die Fangopackung am liebsten?',
   fanghiOpz:['Früh — ab 5:50 Uhr','Später — gegen 10:00 Uhr','Egal'],
@@ -201,6 +209,10 @@ const T = {
   trTipo:'For', trTipi:['Arrival','Departure'],
   trLuogo:'From / to', trVolo:'Flight or train number',
   trQuando:'Day', trOra:'Time', trPax:'People', trCell:'Mobile for the driver',
+  trServizio:'The service', trPrivata:'A car just for you', trNavetta:'Shared shuttle',
+  trRitorno:'I also need the return trip',
+  trRitornoQuando:'Return day', trRitornoOra:'Return time',
+  trRitornoManca:'Please also give the day and time of the return.',
   extraT:'Small touches', extraOpz:['Baby cot','High chair at the restaurant','Parking','Dog coming along'],
   fanghiT:'Thermal treatments', fanghiD:'When would you prefer your mud therapy?',
   fanghiOpz:['Early — from 5:50','Later — around 10:00','No preference'],
@@ -235,6 +247,10 @@ const T = {
   trTipo:'Pour', trTipi:['L\u2019arrivée','Le départ'],
   trLuogo:'D\u2019où / vers où', trVolo:'N° de vol ou de train',
   trQuando:'Jour', trOra:'Heure', trPax:'Personnes', trCell:'Portable pour le chauffeur',
+  trServizio:'Le service', trPrivata:'Une voiture pour vous seul', trNavetta:'Navette partagée',
+  trRitorno:'J\u2019ai aussi besoin du retour',
+  trRitornoQuando:'Jour du retour', trRitornoOra:'Heure du retour',
+  trRitornoManca:'Veuillez indiquer aussi le jour et l\u2019heure du retour.',
   extraT:'Petites attentions', extraOpz:['Lit bébé','Chaise haute au restaurant','Parking','Chien accepté'],
   fanghiT:'Cures thermales', fanghiD:'À quelle heure préféreriez-vous les boues ?',
   fanghiOpz:['Tôt — dès 5h50','Plus tard — vers 10h00','Peu importe'],
@@ -271,9 +287,19 @@ function dataBella(iso, lingua){
   return `${g} ${m} ${a}`;
 }
 
-function stato(titolo, testo, segno){
+function stato(titolo, testo, segno, extra){
   app.innerHTML = `<div class="stato"><div class="segno">${segno}</div>
-    <h1>${esc(titolo)}</h1><p>${esc(testo)}</p></div>`;
+    <h1>${esc(titolo)}</h1><p>${esc(testo)}</p>${extra || ''}</div>`;
+}
+
+/* L'elenco dei numeri, come lo mostrano sia la conferma appena inviata sia
+   lo stato "gia inviato": stessa forma, perche' sono la stessa cosa vista
+   in due momenti diversi. */
+function elencoNumeri(numeri){
+  const puliti = (Array.isArray(numeri) ? numeri : []).map(esc).filter(Boolean);
+  return puliti.length
+    ? `<p style="font-family:'Courier New',monospace;letter-spacing:1px;">${puliti.join(' · ')}</p>`
+    : '';
 }
 
 function selettoreLingue(){
@@ -335,8 +361,11 @@ function modulo(){
            tipi.ts) confronta la stringa lettera per lettera, e "L'arrivo"
            o "Die Anreise" non passerebbero mai — ogni richiesta di
            transfer da questa pagina verrebbe rifiutata, in tutte le
-           lingue. "Andata e ritorno" sparisce per lo stesso motivo: il
-           server non ha un verso che valga per tutte e due le corse. -->
+           lingue. Il ritorno (l'ex "Andata e ritorno") non e' un terzo
+           valore qui: e' la sua spunta piu' sotto, con giorno e ora suoi —
+           validaTransfer li accetta come campi a parte (ritorno,
+           ritorno_quando, ritorno_ora), esattamente come nel modulo
+           transfer del sito. -->
       <select id="trTipo">${t.trTipi.map((o,i)=>`<option value="${['arrivo','partenza'][i]}">${o}</option>`).join('')}</select>
       <label>${t.trLuogo}</label>
       <select id="trLuogo"></select>
@@ -347,6 +376,29 @@ function modulo(){
       <div class="due">
         <div><label>${t.trVolo}</label><input type="text" id="trVolo" maxlength="40" /></div>
         <div><label>${t.trPax}</label><input type="number" id="trPax" min="1" max="8" value="${Math.min(DATI.adulti + DATI.bambini, 8)}" /></div>
+      </div>
+      <!-- LA SCELTA CHE MANCAVA: senza chiederla, ogni transfer nasce
+           "auto privata" (validaTransfer risolve collettivo a false se il
+           corpo non lo manda) e quel dettaglio finisce COSI' com'e'
+           nell'email di conferma che legge l'ospite — mai offerta la
+           navetta condivisa, che su molte tratte costa meno. -->
+      <label>${t.trServizio}</label>
+      <select id="trServizio">
+        <option value="0">${t.trPrivata}</option>
+        <option value="1">${t.trNavetta}</option>
+      </select>
+      <label class="interruttore" style="font-size:15px;margin-top:14px;">
+        <input type="checkbox" id="trRitorno" /> ${t.trRitorno}
+      </label>
+      <!-- SOLO CON GIORNO E ORA, mai un "ritorno:true" muto: il
+           validatore lo accetterebbe (resta per le righe vecchie), ma e'
+           esattamente il difetto per cui esistono questi due campi — la
+           reception saprebbe CHE serve il ritorno e non QUANDO, e
+           dovrebbe telefonare. invia() blocca l'invio se la spunta e'
+           attiva e uno dei due campi e' vuoto. -->
+      <div class="due" id="trBoxRitorno" style="display:none;margin-top:6px;">
+        <div><label>${t.trRitornoQuando}</label><input type="date" id="trRitornoQuando" /></div>
+        <div><label>${t.trRitornoOra}</label><input type="time" id="trRitornoOra" /></div>
       </div>
       <label>${t.trCell}</label><input type="tel" id="trCell" maxlength="30" />
     </div>
@@ -392,6 +444,12 @@ function modulo(){
     '<option value=""></option>' + LUOGHI_ATAM.map((l) =>
       `<option value="${l.replace(/"/g, '&quot;')}">${l}</option>`).join('');
 
+  /* la spunta mostra i suoi due campi solo quando serve: 'flex' e non
+     'block', perche' .due e' gia' un flex layout (vedi CSS) */
+  document.getElementById('trRitorno').addEventListener('change', (e) => {
+    document.getElementById('trBoxRitorno').style.display = e.target.checked ? 'flex' : 'none';
+  });
+
   document.querySelectorAll('.lingue button').forEach(b =>
     b.addEventListener('click', () => { LINGUA = b.dataset.l; modulo(); }));
   ['schedaFatt','schedaTr'].forEach(id => {
@@ -418,13 +476,8 @@ function modulo(){
    Mostriamo i numeri gia' ricevuti e diciamo di scrivere per cambiare
    qualcosa — mai una seconda serie di richieste. */
 function giaInviato(t, richieste){
-  const numeri = (Array.isArray(richieste) ? richieste : [])
-    .map(r => esc(r?.numero)).filter(Boolean);
-  app.innerHTML = `<div class="stato"><div class="segno">✓</div>
-    <h1>${esc(t.giaInviatoT)}</h1>
-    <p>${esc(t.giaInviato)}</p>
-    ${numeri.length ? `<p style="font-family:'Courier New',monospace;letter-spacing:1px;">${numeri.join(' · ')}</p>` : ''}
-    <p>${esc(t.perCambiare)}</p></div>`;
+  const numeri = (Array.isArray(richieste) ? richieste : []).map(r => r?.numero);
+  stato(t.giaInviatoT, t.giaInviato, '✓', elencoNumeri(numeri) + `<p>${esc(t.perCambiare)}</p>`);
 }
 
 async function invia(){
@@ -436,6 +489,20 @@ async function invia(){
   const v = id => document.getElementById(id)?.value?.trim() || null;
   const fatt = document.getElementById('fattura').checked;
   const tr = document.getElementById('transfer').checked;
+  const ritorno = tr && document.getElementById('trRitorno').checked;
+
+  /* MAI "ritorno:true" SENZA GIORNO E ORA: il validatore lo accetterebbe
+     comunque (resta per le richieste vecchie), ma e' esattamente il
+     difetto per cui esistono questi due campi — la reception saprebbe
+     CHE serve il ritorno e non QUANDO, e dovrebbe telefonare. Si blocca
+     l'invio qui, prima ancora di chiamare il server. */
+  if (ritorno && (!v('trRitornoQuando') || !v('trRitornoOra'))) {
+    box.textContent = t.trRitornoManca;
+    box.style.display = 'block';
+    b.disabled = false; b.textContent = t.invia;
+    return;
+  }
+
   const corpo = {
     token: TOKEN,
     /* IL TELEFONO IN CIMA AL CORPO, non dentro transfer_dati: e' li' che
@@ -460,7 +527,16 @@ async function invia(){
     transfer: tr,
     transfer_dati: tr ? {
       verso: v('trTipo'), luogo: v('trLuogo'), quando: v('trQuando'), ora: v('trOra'),
-      pax: Number(v('trPax')) || 1, volo: v('trVolo')
+      pax: Number(v('trPax')) || 1, volo: v('trVolo'),
+      /* SENZA QUESTO IL TRANSFER NASCE SEMPRE "AUTO PRIVATA": validaTransfer
+         risolve collettivo a false se il corpo non lo manda, e quella non
+         e' una scelta neutra — finisce cosi' com'e' nel dettaglio della
+         richiesta e nell'email di conferma che legge l'ospite, che non ha
+         mai visto l'alternativa piu' economica. */
+      collettivo: v('trServizio') === '1',
+      ritorno,
+      ritorno_quando: ritorno ? v('trRitornoQuando') : null,
+      ritorno_ora: ritorno ? v('trRitornoOra') : null
     } : null,
     fattura: fatt,
     fattura_dati: fatt ? {
@@ -476,6 +552,14 @@ async function invia(){
     });
     const d = await r.json().catch(() => ({}));
     if (r.status === 409) { giaInviato(t, d.richieste); window.scrollTo(0, 0); return; }
+    /* 404 E 410 SONO GLI STESSI CASI DEL CARICAMENTO (link non valido,
+       soggiorno scaduto), stavolta scoperti al momento dell'invio invece
+       che all'apertura — puo' succedere se il link scade mentre l'ospite
+       sta ancora compilando. Le schermate tradotte esistono gia' per
+       questi due casi: non c'e' motivo di mostrarli come un rifiuto in
+       italiano dentro il riquadro rosso. */
+    if (r.status === 404) { stato(t.nonValidoT, t.nonValido, '·'); return; }
+    if (r.status === 410) { stato(t.scadutoT, t.scaduto, '·'); return; }
     if (!r.ok) {
       /* IL MESSAGGIO DEL SERVER VA MOSTRATO: e' lui che dice «luogo non in
          elenco» o «serve la partita IVA o il codice fiscale», e
@@ -492,7 +576,10 @@ async function invia(){
        confermato, nessun turno. Compare solo a chi una preferenza l'ha
        davvero espressa. */
     const scelta = document.querySelector('.fanghi:checked');
-    stato(t.grazieT, t.grazie + (scelta ? ' ' + t.fanghiPresoAtto : ''), '✓');
+    /* I NUMERI, SUBITO: senza mostrarli qui l'ospite li scopre solo
+       ricaricando (e finendo nel 409) — la stessa lista, mostrata al primo
+       giro invece che al secondo. */
+    stato(t.grazieT, t.grazie + (scelta ? ' ' + t.fanghiPresoAtto : ''), '✓', elencoNumeri(d.numeri));
     window.scrollTo(0, 0);
   } catch (e) {
     box.textContent = t.erroreInvio;
