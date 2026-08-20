@@ -19,7 +19,7 @@
    diversi, ed e' esattamente cosi' che divergono.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { campiObbligatori, mancanti, segnaEtichette, TIPI_MODULO, voloRichiesto } from './obbligatori.js';
+import { campiObbligatori, mancanti, segnaEtichette, TIPI_MODULO, voloRichiesto , nomiMancanti } from './obbligatori.js';
 
 /* i tipi che il modulo delle richieste sa disegnare (percorso.js), piu' il
    transfer, che ha una pagina sua ma le stesse tre righe di contatto */
@@ -102,7 +102,16 @@ Deno.test('l elenco segue l ordine del modulo: prima il tipo, poi i contatti', (
         `${tipo}: un contatto e finito prima dei campi del tipo`,
       );
     }
-    assert(primoContatto > 0, `${tipo}: i contatti vengono per primi, ma sul modulo stanno dopo`);
+    /* Su quasi tutti i moduli i campi del tipo stanno PRIMA dei contatti,
+       e l'elenco deve seguire quell'ordine. Il modulo delle camere e'
+       l'eccezione vera: le date e la camera si scelgono nei passi
+       precedenti, e la schermata dei dati ha solo i contatti — quindi li
+       nomina per primi perche' sono i primi che si vedono. */
+    if (campiObbligatori(tipo).length > 3) {
+      assert(primoContatto > 0, `${tipo}: i contatti vengono per primi, ma sul modulo stanno dopo`);
+    } else {
+      assertEquals(primoContatto, 0, `${tipo}: ha solo i contatti e non li mette per primi`);
+    }
   }
 });
 
@@ -126,6 +135,7 @@ const PAGINA = {
   dayspa: '../richieste/index.html',
   soggiorno: '../richieste/index.html',
   transfer: '../richieste/transfer/index.html',
+  prenota: '../prenota/index.html',
 };
 
 Deno.test('ogni campo obbligatorio esiste sulla pagina che lo disegna', () => {
@@ -290,4 +300,49 @@ Deno.test('il controllo prima dell invio guarda lo stesso contesto', () => {
 
   const senzaVolo = mancanti('transfer', (id: string) => valori[id] ?? '', { luogo: 'Golf Frassanelle 🏌' });
   assert(!senzaVolo.some((c) => c.id === 'fVolo'), 'sul golf il volo non si chiede');
+});
+
+
+/* ============================================================
+   IL MODULO DELLE CAMERE.
+
+   Visto in produzione il 20 agosto 2026: mancava il telefono, e il
+   messaggio diceva «Compili nome ed email» — cioe' nominava due campi
+   pieni e taceva quello vuoto. Era scritto a mano nella pagina, in quattro
+   lingue, e nessuno l'aveva aggiornato quando il telefono e' diventato
+   obbligatorio. In piu' compariva in fondo, piccolo, senza portare l'ospite
+   sul campo da riempire.
+
+   Il sistema per farlo bene esisteva gia' e lo usa il transfer: l'asterisco
+   sulle etichette obbligatorie, l'elenco di cio' che manca DAVVERO, e il
+   fuoco sul primo campo vuoto. Questa e' la prova che il modulo delle
+   camere ci sta dentro anche lui.
+   ============================================================ */
+Deno.test('il modulo delle camere e fra i moduli che sanno cosa e obbligatorio', () => {
+  assert(TIPI_MODULO.includes('prenota'), 'prenota non e fra i tipi');
+});
+
+Deno.test('col telefono vuoto il messaggio nomina il telefono, non nome ed email', () => {
+  const pieni: Record<string, string> = { fNome: 'Raffael Renga', fEmail: 'r@esempio.it', fTel: '' };
+  const vuoti = mancanti('prenota', (id: string) => pieni[id] ?? '');
+  assertEquals(vuoti.map((c) => c.id), ['fTel'], 'non ha visto che manca il telefono');
+
+  const t = { nome: 'Nome e cognome', email: 'Email', tel: 'Telefono' };
+  const detto = nomiMancanti(vuoti, t);
+  assertEquals(detto, 'Telefono');
+  assert(!detto.includes('Email'), 'nomina un campo che e pieno');
+});
+
+Deno.test('e se manca tutto li nomina tutti, nell ordine del modulo', () => {
+  const vuoti = mancanti('prenota', () => '');
+  assertEquals(vuoti.map((c) => c.id), ['fNome', 'fEmail', 'fTel']);
+});
+
+/* Il messaggio scritto a mano non deve sopravvivere accanto a quello
+   giusto: due messaggi divergono, e il vecchio e' quello sbagliato. */
+Deno.test('la pagina non tiene piu un messaggio scritto a mano', () => {
+  const sorgente = Deno.readTextFileSync(new URL('../prenota/index.html', import.meta.url));
+  assert(!sorgente.includes('mancaDati'), 'la pagina ha ancora il messaggio scritto a mano');
+  assert(sorgente.includes("mancanti('prenota'"), 'la pagina non usa il sistema condiviso');
+  assert(sorgente.includes("segnaEtichette('prenota'"), 'la pagina non mette gli asterischi');
 });

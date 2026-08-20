@@ -114,6 +114,8 @@ textarea{min-height:80px;resize:vertical;}
 .caparra{background:var(--acqua-chiara);border-left:4px solid var(--acqua);
   padding:13px 15px;border-radius:6px;font-size:13.5px;color:var(--verde-medio);
   margin-top:16px;line-height:1.6;}
+.obb{color:var(--allarme);font-weight:700;}
+.legenda{color:var(--grigio);font-size:12.5px;margin-top:16px;text-align:right;}
 </style>
 </head>
 <body>
@@ -158,6 +160,10 @@ textarea{min-height:80px;resize:vertical;}
    percorsi-web.test.ts, cosi' non torna con la prossima pagina che
    qualcuno divide in due file. */
 import { componiCorpo, euroDaCentesimi, linguaScelta } from '/prenota/logica.js';
+/* Lo stesso sistema del modulo transfer: l'asterisco sui campi
+   obbligatori, l'elenco di cio' che manca DAVVERO, e il fuoco sul primo
+   campo vuoto. Vive in un posto solo perche' le pagine sono tre. */
+import { mancanti, nomiMancanti, segnaEtichette, segnaVuoti } from '/comune/obbligatori.js';
 
 /* Stessa regola di sopra, stesso motivo: PERCORSO ASSOLUTO. `/comune/date.js`,
    mai un percorso relativo — vedi il commento di date.js per il dettaglio. */
@@ -230,7 +236,7 @@ const T = {
     privacyManca:"Per procedere deve prendere atto dell’informativa privacy.",
     indietroCamere:'← Cambi camera',
     invia:'Invia la richiesta', invio:'Invio…',
-    mancaDati:'Compili nome ed email.',
+    mancaChe:(x)=>`Manca ancora: ${x}.`, legenda:'* campo obbligatorio',
     ripiego:'Non siamo riusciti a registrare la richiesta. Ci chiami allo +39 049 9939200 o scriva a info@termeleonardo.com: rispondiamo subito.',
     // chiusura
     grazieTit:'Richiesta inviata',
@@ -266,7 +272,7 @@ const T = {
     privacyManca:"Bitte nehmen Sie die Datenschutzerklärung zur Kenntnis.",
     indietroCamere:'← Zimmer ändern',
     invia:'Anfrage senden', invio:'Senden…',
-    mancaDati:'Bitte Name und E-Mail ausfüllen.',
+    mancaChe:(x)=>`Es fehlt noch: ${x}.`, legenda:'* Pflichtfeld',
     ripiego:'Wir konnten die Anfrage nicht speichern. Rufen Sie uns unter +39 049 9939200 an oder schreiben Sie an info@termeleonardo.com: wir antworten sofort.',
     grazieTit:'Anfrage gesendet',
     grazieTxt:'Die Rezeption antwortet Ihnen innerhalb weniger Stunden mit der Bestätigung und den Hinweisen zur Anzahlung.',
@@ -301,7 +307,7 @@ const T = {
     privacyManca:"Please acknowledge the privacy notice to continue.",
     indietroCamere:'← Change room',
     invia:'Send request', invio:'Sending…',
-    mancaDati:'Please fill in name and email.',
+    mancaChe:(x)=>`Still missing: ${x}.`, legenda:'* required field',
     ripiego:'We could not register your request. Please call +39 049 9939200 or write to info@termeleonardo.com: we will reply right away.',
     grazieTit:'Request sent',
     grazieTxt:'Reception will reply within a few hours with the confirmation and instructions for the deposit.',
@@ -336,7 +342,7 @@ const T = {
     privacyManca:"Veuillez prendre connaissance de la politique de confidentialité.",
     indietroCamere:'← Changer de chambre',
     invia:'Envoyer la demande', invio:'Envoi…',
-    mancaDati:'Veuillez renseigner le nom et l’e-mail.',
+    mancaChe:(x)=>`Il manque encore : ${x}.`, legenda:'* champ obligatoire',
     ripiego:'Nous n’avons pas pu enregistrer la demande. Appelez-nous au +39 049 9939200 ou écrivez à info@termeleonardo.com : nous répondons tout de suite.',
     grazieTit:'Demande envoyée',
     grazieTxt:'La réception vous répond sous quelques heures avec la confirmation et les indications pour les arrhes.',
@@ -599,10 +605,14 @@ function schermaDati() {
             rel="noopener noreferrer">${esc(t.privacyLink)}</a></span></label>
     </div>
     <button class="invia" id="bInvia">${esc(t.invia)}</button>
+    <div class="legenda">${esc(t.legenda)}</div>
     <div id="esitoDati"></div>`;
 
   $('bIndietroCamere').onclick = () => { STATO = 'camere'; disegna(); };
   $('bInvia').onclick = inviaRichiesta;
+  /* le stelle si mettono qui, non nel markup: cosi' l'elenco di cosa e'
+     obbligatorio sta in un posto solo e le etichette lo seguono */
+  segnaEtichette('prenota', document);
 }
 
 async function inviaRichiesta() {
@@ -617,8 +627,14 @@ async function inviaRichiesta() {
      da quando esiste un solo modo per raggiungere l'ospite se la richiesta
      va cambiata, ed e' quello. Il controllo qui evita che l'ospite scopra
      il rifiuto solo dopo aver premuto invia. */
-  if (!nome || !email || !telefono) {
-    $('esitoDati').innerHTML = `<div class="errore">${esc(t.mancaDati)}</div>`;
+  /* NON «compili nome ed email»: l'elenco di cio' che manca si calcola, e
+     nomina i campi vuoti — visto in produzione il 20 agosto, il messaggio
+     nominava due campi pieni e taceva il telefono, che era quello vuoto.
+     segnaVuoti porta anche il fuoco sul primo campo da riempire. */
+  const vuoti = mancanti('prenota', (id) => ($(id) ? $(id).value : ''));
+  if (vuoti.length) {
+    $('esitoDati').innerHTML = `<div class="errore">${esc(t.mancaChe(nomiMancanti(vuoti, t)))}</div>`;
+    segnaVuoti('prenota', vuoti, document);
     return;
   }
   if (!$('fPrivacy').checked) {

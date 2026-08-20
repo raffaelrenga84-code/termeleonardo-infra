@@ -136,6 +136,13 @@ import { LUOGHI_ATAM, PIU_RICHIESTI } from '/comune/luoghi.js';
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 
 const $ = (id) => document.getElementById(id);
+/* IL VALORE DI UN CAMPO. Cancellata per sbaglio il 18 agosto 2026 da una
+   modifica che aggiungeva i messaggi sui campi mancanti: le nove chiamate
+   sono rimaste, il file restava valido, tutte le prove verdi, la pagina si
+   apriva — e all'invio si fermava con «v is not defined». L'ospite vedeva
+   il riquadro rosso e in hotel non arrivava niente. Due giorni cosi'.
+   La tiene ferma pagine/aiutanti.test.ts. */
+const v = (id) => $(id).value.trim();
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
   c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 

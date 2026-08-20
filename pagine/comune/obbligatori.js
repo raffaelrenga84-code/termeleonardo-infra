@@ -36,6 +36,12 @@ const PER_TIPO = {
   greenfee: GIORNO_E_ORA,
   maestro: GIORNO_E_ORA,
   soggiorno: GIORNO_E_ORA,
+  /* Il modulo delle camere (/prenota) e' un'altra pagina e un altro giro:
+     le date e la camera si scelgono nei passi precedenti, quindi qui non
+     c'e' niente di proprio da chiedere. Restano i contatti, che li'
+     mancavano del tutto: il messaggio era scritto a mano e diceva «nome
+     ed email» anche quando il campo vuoto era il telefono. */
+  prenota: [],
   /* Il transfer ha una pagina sua e nomi suoi: il giorno si chiama
      `fQuando` e non `fData`, e in piu' c'e' la destinazione, che senza non
      si sa nemmeno che corsa sia. Erano stati messi qui gli id degli altri
