@@ -20,9 +20,7 @@ import { inviaRicevuta } from './ricevuta.ts';
 import { inviaConferma } from './conferma.ts';
 import { arricchisciElenco } from './elenco.ts';
 import { filtroRicercaRichieste } from './ricerca.ts';
-import {
-  giornoValido, perRuolo, perToken, puoChiudere, richiestePerRuolo, tipiCura,
-} from './arrivi.ts';
+import { arriviDelGiorno, giornoValido, puoChiudere, tipiCura } from './arrivi.ts';
 import { type Ruolo, ruoloDi, tipiVisibili, vedeTutto } from './ruoli.ts';
 import { pocoPreavviso } from './preavviso.ts';
 import { componiRisposta, corpoDisponibilita } from './disponibilita.ts';
@@ -558,23 +556,31 @@ Deno.serve(async (req) => {
      la' dentro una terza copia di ruoli.ts vorrebbe dire tre scritture
      della stessa regola, e la piu' debole delle tre decide.
 
-     PERCHE' ESISTE. Tutto quello che l'ospite scrive nel check-in online
-     nasce come richiesta vera (Task 8 del giro "strada unica"): con
-     numero, ricevuta e una riga che questa schermata legge. Prima viveva
-     solo dentro un'email nella casella info@, e se quell'email si perdeva
-     il dato non si poteva piu' guardare. E il desiderio dei fanghi serve
-     alla Segreteria Cure, che non e' chi apre quella casella.
+     PERCHE' ESISTE. Prima che questa schermata nascesse, tutto quello che
+     l'ospite scriveva nel «Prepara il suo arrivo» viveva in un'email nella
+     casella info@ e in una riga di arrivo_richiesta che nessuna schermata
+     leggeva: se quell'email si perdeva, il dato c'era e non si poteva piu'
+     guardare. Da quando esiste, e' lei a leggerlo — prima solo da
+     arrivo_richiesta; da qui in poi (Task 8 del giro "strada unica") anche
+     dalle richieste vere che nascono dal check-in online, con numero e
+     ricevuta. Le righe scritte prima del cambio restano in
+     arrivo_richiesta, e questa schermata le legge ancora (vedi «LE RIGHE
+     VECCHIE» piu' sotto). E il desiderio dei fanghi serve alla Segreteria
+     Cure, che non e' chi apre la casella info@.
 
      SOLA LETTURA: da qui non si conferma e non si corregge niente. Le
      richieste (transfer, fattura...) si toccano dalla scheda «Richieste dal
      sito», dove la conferma e il prezzo vivono gia' — due posti dove
      rispondere sarebbero due macchine da tenere allineate.
 
-     La riga si compone da due tabelle — arrivo_link, che sa chi arriva e
-     quando, e le richieste col suo arrivo_token, che sanno cosa ha
-     scritto — e poi passa da perRuolo() per la scheda piatta e da
-     richiestePerRuolo() per l'elenco delle sue richieste: due regole
-     diverse, la seconda presa da ruoli.ts e non riscritta qui. */
+     La riga si compone da TRE tabelle — arrivo_link, che sa chi arriva e
+     quando; le richieste col loro arrivo_token, che sanno cosa ha scritto
+     chi e' passato dal check-in nuovo; e arrivo_richiesta, che sa cosa ha
+     scritto chi ha compilato prima del cambio — e poi passa da
+     arriviDelGiorno() (arrivi.ts, logica pura e provata la'), che applica
+     perRuolo() alla scheda piatta e richiestePerRuolo() all'elenco delle
+     sue richieste: due regole diverse, prese da ruoli.ts e non riscritte
+     qui. */
   if (azione === 'arrivi') {
     const giorno = giornoValido(url.searchParams.get('giorno'));
     if (!giorno) return risposta({ errore: 'giorno mancante o non valido' }, 400);
@@ -586,14 +592,13 @@ Deno.serve(async (req) => {
     if (eLink) return risposta({ errore: eLink.message }, 500);
 
     const token = (link ?? []).map((l: Record<string, unknown>) => l.token as string);
-    let compilate: Record<string, { riga: Record<string, unknown>; compilazioni: number }> = {};
-    /* le richieste vere di ciascun ospite, raggruppate per arrivo_token —
-       quelle che il passo 5 mostra sotto la scheda, col numero */
-    const richiestePerToken: Record<string, Record<string, unknown>[]> = {};
+    let vecchie: Record<string, unknown>[] = [];
+    let nuove: Record<string, unknown>[] = [];
     if (token.length) {
-      const { data: nuove, error: eNuove } = await db.from('richiesta_sito')
+      const { data: n, error: eNuove } = await db.from('richiesta_sito')
         .select('*').in('arrivo_token', token);
       if (eNuove) return risposta({ errore: eNuove.message }, 500);
+      nuove = (n ?? []) as Record<string, unknown>[];
 
       /* LE RIGHE VECCHIE. Chi ha compilato prima del cambio ha i suoi dati
          in arrivo_richiesta e non in una richiesta: non si migra niente —
@@ -601,64 +606,20 @@ Deno.serve(async (req) => {
          ma finche' quegli arrivi non sono passati devono vedersi. Quando la
          data d'arrivo piu' lontana fra quelle righe e' alle spalle, questa
          lettura si puo' togliere. */
-      const { data: vecchie, error: eVecchie } = await db.from('arrivo_richiesta')
+      const { data: v, error: eVecchie } = await db.from('arrivo_richiesta')
         .select('*').in('token', token);
       if (eVecchie) return risposta({ errore: eVecchie.message }, 500);
-
-      /* La scheda piatta (CAMPI_SPA) prende l'ora, il mezzo, il desiderio
-         dei fanghi e le note dalla richiesta di tipo `arrivo`: sono
-         esattamente i campi che validaArrivo() scrive in `dati` (tipi.ts).
-         Appiattita cosi', si mescola con le righe vecchie — che li avevano
-         gia' piatti — e perToken() sotto non deve sapere da dove viene
-         ciascuna. */
-      const arriviAppiattiti = (nuove ?? [])
-        .filter((r: Record<string, unknown>) => r.tipo === 'arrivo')
-        .map((r: Record<string, unknown>) => ({
-          ...(r.dati && typeof r.dati === 'object' ? r.dati as Record<string, unknown> : {}),
-          token: r.arrivo_token,
-          creato_il: r.creato_il,
-        }));
-      /* prepara-arrivo (e prima ancora la vecchia tabella) fa un insert, non
-         un upsert: chi rimanda il modulo lascia due righe. perToken() tiene
-         la piu' recente e dice quante erano — il conteggio e' la parte che
-         non puo' mentire. */
-      compilate = perToken([...(vecchie ?? []), ...arriviAppiattiti] as Record<string, unknown>[]);
-
-      for (const r of (nuove ?? []) as Record<string, unknown>[]) {
-        const t = String(r.arrivo_token ?? '');
-        if (!t) continue;
-        (richiestePerToken[t] ??= []).push(r);
-      }
+      vecchie = (v ?? []) as Record<string, unknown>[];
     }
 
-    /* token e id sono chiavi interne: non servono a chi guarda, e il token
-       e' la chiave con cui si apre la pagina di quell'ospite */
-    const senzaInterni = (o: Record<string, unknown>) =>
-      Object.fromEntries(Object.entries(o).filter(([k]) => k !== 'token' && k !== 'id'));
-
-    const arrivi = (link ?? [])
-      .map((l: Record<string, unknown>) => {
-        const c = compilate[l.token as string];
-        const riga = {
-          ...senzaInterni(c?.riga ?? {}),
-          ...senzaInterni(l),
-          numero: (l.numero_pratica as string) ?? '',
-          /* 0 = non ha ancora compilato; 2 o piu' = c'e' da guardare */
-          compilazioni: c?.compilazioni ?? 0,
-        };
-        delete (riga as Record<string, unknown>).numero_pratica;
-        const vista = perRuolo(riga, accesso.ruolo, accesso.chiave);
-        if (!vista) return null;
-        /* le richieste sono un elenco a parte, filtrato dalla SUA regola
-           (richiestePerRuolo, cioe' ruoli.ts) e non da CAMPI_SPA: la spa non
-           deve perdere le sue solo perche' 'richieste' non e' nell'elenco
-           chiuso della scheda piatta. */
-        const sue = richiestePerRuolo(
-          richiestePerToken[l.token as string] ?? [], accesso.ruolo, accesso.chiave,
-        );
-        return { ...vista, richieste: arricchisciElenco(sue) };
-      })
-      .filter(Boolean);
+    /* L'appiattimento della richiesta `arrivo`, il perToken() fra vecchie e
+       nuove, il raggruppamento delle richieste per ospite e i due filtri
+       di ruolo (perRuolo/richiestePerRuolo) sono logica pura in arrivi.ts:
+       provata li', non qui — index.ts resta responsabile solo della
+       sequenza che ha davvero bisogno della rete. */
+    const arrivi = arriviDelGiorno(
+      (link ?? []) as Record<string, unknown>[], vecchie, nuove, accesso.ruolo, accesso.chiave,
+    );
 
     /* E i trattamenti chiesti per quello stesso giorno: e' l'altra meta' di
        quello che la spa deve sapere per sapere cosa la aspetta.

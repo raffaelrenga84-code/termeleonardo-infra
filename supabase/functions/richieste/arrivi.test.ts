@@ -19,7 +19,8 @@
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 import {
-  CAMPI_SPA, giornoValido, perRuolo, perToken, puoChiudere, richiestePerRuolo, tipiCura,
+  arriviDelGiorno, CAMPI_SPA, giornoValido, perRuolo, perToken, puoChiudere, richiestePerRuolo,
+  tipiCura,
 } from './arrivi.ts';
 import { tipiVisibili } from './ruoli.ts';
 
@@ -336,4 +337,143 @@ Deno.test('ma la scheda dell arrivo le porta ancora i fanghi', () => {
   }, 'spa', false);
   assert(r);
   assertEquals(r.fanghi_desiderio, 'presto');
+});
+
+/* ============================================================
+   GIRO DI CORREZIONE 1 — LA COMPOSIZIONE, NON PIU' IN LINEA IN index.ts.
+
+   arriviDelGiorno() e' la parte che prima viveva dentro l'azione ?a=arrivi
+   di index.ts: l'appiattimento della richiesta `arrivo`, il perToken() fra
+   righe vecchie e nuove, il raggruppamento delle richieste per ospite, e i
+   due filtri di ruolo. Il revisore ha segnalato che, in linea in index.ts,
+   NESSUNA prova la copriva: ne' un elenco di richieste attaccato senza
+   filtrarlo (fattura e transfer alla spa), ne' una chiave sbagliata
+   nell'appiattimento (l'ospite mostrato come "non ha ancora compilato"
+   anche se ha compilato). Queste prove esercitano esattamente quei due
+   modi di rompersi.
+   ============================================================ */
+
+/* Due ospiti dello stesso giorno: uno arrivato dal check-in nuovo (con
+   arrivo, transfer, fattura e trattamenti — quattro richieste vere), uno
+   che ha compilato prima del cambio ed esiste solo nella vecchia tabella. */
+const LINK_NUOVO = {
+  token: 'tok-nuovo', numero_pratica: 'PR-100', intestatario: 'Bianchi Maria',
+  data_arrivo: '2026-09-12', data_partenza: '2026-09-19', adulti: 2, bambini: 0, cure: true,
+};
+const LINK_VECCHIO = {
+  token: 'tok-vecchio', numero_pratica: 'PR-200', intestatario: 'Rossi Paolo',
+  data_arrivo: '2026-09-12', data_partenza: '2026-09-14', adulti: 1, bambini: 0, cure: false,
+};
+
+const NUOVE_ARRIVO_NUOVO = [
+  {
+    numero: 'C26/501', tipo: 'arrivo', arrivo_token: 'tok-nuovo', creato_il: '2026-09-01T10:00:00Z',
+    dati: { ora_arrivo: '16:30', mezzo: 'auto', fanghi_desiderio: 'presto', note: 'prova' },
+  },
+  {
+    numero: 'C26/502', tipo: 'transfer', arrivo_token: 'tok-nuovo', creato_il: '2026-09-01T10:00:00Z',
+    dati: { luogo: 'Venezia  aeroporto' },
+  },
+  {
+    numero: 'C26/503', tipo: 'fattura', arrivo_token: 'tok-nuovo', creato_il: '2026-09-01T10:00:00Z',
+    dati: { ragione: 'Bianchi S.r.l.', piva: 'IT02042330288' },
+  },
+  {
+    numero: 'C26/504', tipo: 'trattamenti', arrivo_token: 'tok-nuovo', creato_il: '2026-09-01T10:00:00Z',
+    dati: { voci: ['Massaggio antistress'] },
+  },
+];
+
+const VECCHIE_ARRIVO_VECCHIO = [
+  { token: 'tok-vecchio', ora_arrivo: '09:00', mezzo: 'treno', fanghi_desiderio: 'tardi', note: '' },
+];
+
+Deno.test('la reception vede la scheda e tutte le richieste di ogni ospite', () => {
+  const arrivi = arriviDelGiorno(
+    [LINK_NUOVO, LINK_VECCHIO], VECCHIE_ARRIVO_VECCHIO, NUOVE_ARRIVO_NUOVO, 'reception', false,
+  );
+  assertEquals(arrivi.length, 2);
+
+  const nuovo = arrivi.find((a) => a.intestatario === 'Bianchi Maria');
+  assert(nuovo, 'l ospite del check-in nuovo non compare');
+  assertEquals(nuovo.ora_arrivo, '16:30');
+  assert(Array.isArray(nuovo.richieste));
+  assertEquals((nuovo.richieste as unknown[]).length, 4, 'non tutte le richieste sono arrivate alla reception');
+
+  const vecchio = arrivi.find((a) => a.intestatario === 'Rossi Paolo');
+  assert(vecchio, 'l ospite della vecchia tabella non compare: non deve sparire dalla schermata');
+  assertEquals(vecchio.ora_arrivo, '09:00');
+  assertEquals((vecchio.richieste as unknown[]).length, 0, 'una richiesta inventata per un ospite senza richieste');
+});
+
+/* IL CASO CHE IL REVISORE HA NOMINATO (1 di 2): un elenco di richieste
+   attaccato senza filtrarlo manderebbe fattura e transfer alla spa. Con
+   richiestePerRuolo() chiamata dentro arriviDelGiorno(), qui deve restare
+   filtrato — e il controllo e' lo stesso di sempre: non "manca il campo",
+   ma quella stringa non compare da nessuna parte in quello che parte,
+   NE' nella scheda piatta NE' nell'elenco delle richieste. */
+Deno.test('alla spa non arriva ne la fattura ne il transfer, ne dalla scheda ne dall elenco', () => {
+  const arrivi = arriviDelGiorno(
+    [LINK_NUOVO, LINK_VECCHIO], VECCHIE_ARRIVO_VECCHIO, NUOVE_ARRIVO_NUOVO, 'spa', false,
+  );
+  const nuovo = arrivi.find((a) => a.intestatario === 'Bianchi Maria');
+  assert(nuovo, 'la spa non vede la scheda: dovrebbe vederla, coi fanghi');
+
+  const tutto = JSON.stringify(nuovo);
+  assert(!tutto.includes('IT02042330288'), 'la partita IVA e nella risposta alla spa');
+  assert(!tutto.includes('Venezia'), 'il transfer e nella risposta alla spa');
+
+  const sue = nuovo.richieste as Array<{ tipo: string }>;
+  assertEquals(sue.map((r) => r.tipo), ['trattamenti'], 'la spa vede tipi che non sono i suoi');
+  assertEquals(nuovo.fanghi_desiderio, 'presto', 'ma i fanghi, dalla scheda piatta, le devono arrivare');
+});
+
+/* IL CASO CHE IL REVISORE HA NOMINATO (2 di 2): una chiave sbagliata
+   nell'appiattimento della richiesta `arrivo` (per esempio scrivere
+   `token: r.token` invece di `token: r.arrivo_token` — richiesta_sito non
+   ha una colonna `token`) farebbe fallire silenziosamente il match con
+   perToken(): l'ospite che HA compilato apparirebbe come se non avesse
+   compilato affatto. */
+Deno.test('una chiave giusta nell appiattimento: chi ha compilato non appare "non ha compilato"', () => {
+  const arrivi = arriviDelGiorno([LINK_NUOVO], [], NUOVE_ARRIVO_NUOVO, 'reception', false);
+  const nuovo = arrivi.find((a) => a.intestatario === 'Bianchi Maria');
+  assert(nuovo);
+  assertEquals(nuovo.compilazioni, 1, 'compilazioni a 0: la chiave dell appiattimento non ha agganciato la riga');
+  assertEquals(nuovo.ora_arrivo, '16:30');
+});
+
+/* Il token e' la chiave con cui si apre la pagina di compilazione di
+   quell'ospite: non deve comparire ne' sulla scheda piatta (gia' vero
+   prima), ne' — questo e' il punto nuovo — dentro le righe delle sue
+   richieste, dove arriva come `arrivo_token` e la vecchia senzaInterni()
+   non lo vedrebbe. */
+Deno.test('il token non compare ne sulla scheda ne dentro le sue richieste', () => {
+  const arrivi = arriviDelGiorno([LINK_NUOVO], [], NUOVE_ARRIVO_NUOVO, 'reception', false);
+  const nuovo = arrivi.find((a) => a.intestatario === 'Bianchi Maria');
+  assert(nuovo);
+  assert(!('token' in nuovo), 'il token e sulla scheda piatta');
+  assert(!('id' in nuovo), 'l id e sulla scheda piatta');
+  const tutto = JSON.stringify(nuovo.richieste);
+  assert(!tutto.includes('tok-nuovo'), 'il token e dentro le richieste attaccate alla scheda');
+  assert(!tutto.includes('arrivo_token'), 'la chiave arrivo_token e ancora nelle richieste attaccate');
+});
+
+/* Con la chiave interna dell'estensione si vede come la reception: stessa
+   copertura totale, sia sulla scheda sia sull'elenco delle richieste. */
+Deno.test('con la chiave interna, arriviDelGiorno vede tutto come la reception', () => {
+  const arrivi = arriviDelGiorno(
+    [LINK_NUOVO], VECCHIE_ARRIVO_VECCHIO, NUOVE_ARRIVO_NUOVO, null, true,
+  );
+  const nuovo = arrivi.find((a) => a.intestatario === 'Bianchi Maria');
+  assert(nuovo);
+  assertEquals((nuovo.richieste as unknown[]).length, 4);
+});
+
+/* Un ospite del giorno che nessun ruolo puo' vedere (senza ruolo e senza
+   chiave) non deve comparire affatto: perRuolo() gia' lo esclude, e
+   arriviDelGiorno() non deve reintrodurlo per sbaglio mentre attacca le
+   richieste. */
+Deno.test('senza ruolo e senza chiave non compare nessun arrivo', () => {
+  const arrivi = arriviDelGiorno([LINK_NUOVO, LINK_VECCHIO], VECCHIE_ARRIVO_VECCHIO, NUOVE_ARRIVO_NUOVO, null, false);
+  assertEquals(arrivi.length, 0);
 });
