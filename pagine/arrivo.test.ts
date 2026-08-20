@@ -362,3 +362,270 @@ Deno.test('prima di partire, l ora del volo si converte nell ora di ritiro', () 
   assert(/ora_volo:\s*corsaTr\.ora_volo/.test(td[1]),
     'transfer_dati non manda ora_volo: chi legge in reception non puo verificare la conversione');
 });
+
+/* ============================================================
+   GIRO DI CORREZIONE 4 — l'etichetta e la nota tornano indietro.
+
+   Il cancello (aggiornaServizioTr) e l'etichetta (aggiornaRitiroTr) sono
+   due funzioni distinte, e fino a qui la seconda non veniva richiamata
+   quando la prima chiudeva il cancello. Il seguito era questo:
+
+     partenza · Venezia aeroporto · 2 persone · ora 22:00 · navetta scelta
+       -> etichetta «Ora del volo», nota «La prendiamo in hotel alle 19:00.»
+     poi l'ospite alza i passeggeri a cinque
+       -> il blocco sparisce e il servizio torna «auto privata» (giusto),
+          MA l'etichetta resta «Ora del volo» e la nota resta «alle 19:00»
+
+   L'ospite legge che lo prendiamo alle 19:00; alla reception, e al
+   tassista, arriva 22:00. Due ragioni, tutte e due chiuse dalla
+   correzione: trLuogo e trPax erano legati soltanto al cancello, e
+   forzare trServizio.value da codice NON fa scattare l'evento 'change' a
+   cui aggiornaRitiroTr era appesa.
+
+   Queste prove non leggono il sorgente: lo ESEGUONO. Estraggono le
+   funzioni vere dalla pagina e le montano su un DOM finto che si comporta
+   come quello vero nel punto che conta — assegnare .value da codice non
+   scatena nessun evento — poi guardano quello che legge l'ospite.
+   ============================================================ */
+import { navetta as navettaVera, ritiroPerVolo } from './comune/navetta.js';
+
+/* un nodo finto: quel tanto di DOM che queste cinque funzioni toccano */
+class CampoFinto {
+  value = '';
+  textContent = '';
+  min = '';
+  style: { display: string } = { display: '' };
+  firstChild: { nodeValue: string } = { nodeValue: '' };
+  ascolti: Record<string, Array<() => void>> = {};
+  addEventListener(tipo: string, f: () => void) {
+    (this.ascolti[tipo] = this.ascolti[tipo] || []).push(f);
+  }
+  /* scatena solo cio' che e' stato registrato: e' l'unico modo in cui il
+     DOM vero fa partire un ricalcolo, e infatti .value = '0' non lo fa */
+  scatena(tipo: string) { for (const f of this.ascolti[tipo] || []) f(); }
+}
+
+const NODI_TR = ['trLuogo', 'trPax', 'trQuando', 'trOra', 'trTipo', 'trServizio',
+  'trBoxServizio', 'trNavettaNota', 'trEtiOra', 'trNotaRitiro',
+  'trRitorno', 'trBoxRitorno', 'trRitornoQuando', 'trRitornoOra'];
+
+/* la tabella dei testi vera: le frasi che l'ospite legge devono essere
+   quelle della pagina, non dei segnaposto scritti dalla prova */
+function testiDellaPagina(): string {
+  const m = SORGENTE.match(/\nconst T = \{[\s\S]*?\n\};/);
+  assert(m, 'la tabella dei testi T non si trova per intero');
+  return m[0];
+}
+
+function funzioneDellaPagina(nome: string): string {
+  const m = SORGENTE.match(new RegExp('\\nfunction ' + nome + '\\([^)]*\\)\\{[\\s\\S]*?\\n\\}'));
+  assert(m, 'la funzione ' + nome + '() non si trova per intero nella pagina');
+  return m[0] + '\n';
+}
+
+/* il pezzo di modulo() che collega i campi ai ricalcoli: va eseguito
+   com'e', altrimenti la prova collauderebbe un cablaggio inventato da lei */
+function cablaggioDellaPagina(): string {
+  const m = SORGENTE.match(/\n +\['trLuogo'[\s\S]*?\n +aggiornaRitiroTr\(\);/);
+  assert(m, 'il blocco che collega i campi ai ricalcoli non si trova');
+  return m[0] + '\n';
+}
+
+interface ScenaTr {
+  campo: (id: string) => CampoFinto;
+  etichetta: () => string;
+  nota: () => string;
+  visibile: () => boolean;
+  servizio: () => string;
+  chiamateNavetta: () => number;
+}
+
+/* Monta le funzioni vere su nodi finti e fa girare il cablaggio vero.
+   `lingua` serve solo all'ultima prova; le altre restano in italiano. */
+function scenaTr(iniziali: Record<string, string>, lingua = 'it'): ScenaTr {
+  const nodi = new Map<string, CampoFinto>();
+  for (const id of NODI_TR) nodi.set(id, new CampoFinto());
+  for (const [id, valore] of Object.entries(iniziali)) {
+    const n = nodi.get(id);
+    assert(n, 'campo finto mancante nella scena: ' + id);
+    n.value = valore;
+  }
+  const documentoFinto = { getElementById: (id: string) => nodi.get(id) ?? null };
+
+  /* contatore: se aggiornaRitiroTr richiamasse il cancello si vedrebbe
+     qui, prima ancora di finire nello stack overflow */
+  let chiamate = 0;
+  const navettaContata = (dati: unknown, adesso: Date) => {
+    chiamate++;
+    assert(chiamate < 50,
+      'navetta() richiamata ' + chiamate + ' volte: ricorsione fra cancello ed etichetta');
+    return navettaVera(dati as Parameters<typeof navettaVera>[0], adesso);
+  };
+
+  const copione = testiDellaPagina() + '\n' +
+    funzioneDellaPagina('conNavettaInPartenzaTr') +
+    funzioneDellaPagina('giornoPrimaDiTr') +
+    funzioneDellaPagina('aggiornaServizioTr') +
+    funzioneDellaPagina('legaRitornoTr') +
+    funzioneDellaPagina('aggiornaRitiroTr') +
+    cablaggioDellaPagina() +
+    '\nreturn { aggiornaServizioTr, aggiornaRitiroTr };';
+
+  const fabbrica = new Function('document', 'navetta', 'ritiroPerVolo', 'LINGUA', copione) as (
+    d: unknown, n: unknown, r: unknown, l: string,
+  ) => { aggiornaServizioTr: () => void; aggiornaRitiroTr: () => void };
+  fabbrica(documentoFinto, navettaContata, ritiroPerVolo, lingua);
+
+  const preso = (id: string) => {
+    const n = nodi.get(id);
+    assert(n, 'campo finto mancante: ' + id);
+    return n;
+  };
+  return {
+    campo: preso,
+    etichetta: () => preso('trEtiOra').firstChild.nodeValue,
+    nota: () => preso('trNotaRitiro').textContent,
+    visibile: () => preso('trBoxServizio').style.display !== 'none',
+    servizio: () => preso('trServizio').value,
+    chiamateNavetta: () => chiamate,
+  };
+}
+
+function fraGiorni(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') +
+    '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/* una partenza da Venezia aeroporto in due, volo alle 22:00, fra un mese:
+   ritiro alle 19:00, dentro la fascia 08:00-20:00, preavviso abbondante —
+   navetta offerta. E' il caso illustrato dal revisore. */
+const PARTENZA_CON_NAVETTA = {
+  trTipo: 'partenza', trLuogo: 'Venezia  aeroporto', trPax: '2',
+  trQuando: fraGiorni(30), trOra: '22:00', trServizio: '0',
+};
+
+/* l'ospite sceglie davvero la navetta: e' un `change` fatto da lui, quello
+   a cui aggiornaRitiroTr e' sempre stata appesa */
+function scegliNavetta(s: ScenaTr) {
+  assert(s.visibile(),
+    'la scena di partenza non offre nemmeno la navetta: la prova girerebbe a vuoto');
+  s.campo('trServizio').value = '1';
+  s.campo('trServizio').scatena('change');
+  assertEquals(s.etichetta(), 'Ora del volo',
+    'scegliendo la navetta l etichetta non e diventata "Ora del volo"');
+  assertEquals(s.nota(), 'La prendiamo in hotel alle 19:00.',
+    'la nota non dice l orario di ritiro vero');
+}
+
+/* IL DIFETTO, per intero. Non basta che il cancello si chiuda: quello gia'
+   funzionava. Deve tornare indietro anche cio' che l'ospite LEGGE. */
+Deno.test('alzando i passeggeri, l etichetta e la nota tornano allo stato normale', () => {
+  const s = scenaTr(PARTENZA_CON_NAVETTA);
+  scegliNavetta(s);
+
+  s.campo('trPax').value = '5';
+  s.campo('trPax').scatena('input');
+
+  assert(!s.visibile(), 'il blocco del servizio e rimasto visibile a cinque passeggeri');
+  assertEquals(s.servizio(), '0', 'il servizio non e tornato ad "auto privata"');
+  assertEquals(s.etichetta(), 'Ora',
+    'l etichetta e rimasta "Ora del volo" dopo che la navetta e sparita: l ospite legge un orario che non prenotiamo');
+  assertEquals(s.nota(), '',
+    'la nota promette ancora un ritiro alle 19:00 mentre alla reception arriva 22:00');
+});
+
+/* Stessa classe di difetto per la meta: trLuogo era legato soltanto al
+   cancello, esattamente come trPax. */
+Deno.test('cambiando la meta, l etichetta e la nota tornano allo stato normale', () => {
+  const s = scenaTr(PARTENZA_CON_NAVETTA);
+  scegliNavetta(s);
+
+  s.campo('trLuogo').value = 'Treviso  aeroporto';
+  s.campo('trLuogo').scatena('change');
+
+  assert(!s.visibile(), 'il blocco del servizio e rimasto visibile su una meta senza navetta');
+  assertEquals(s.servizio(), '0', 'il servizio non e tornato ad "auto privata"');
+  assertEquals(s.etichetta(), 'Ora',
+    'l etichetta e rimasta "Ora del volo" su una meta dove la navetta non esiste');
+  assertEquals(s.nota(), '', 'la nota promette ancora un ritiro che non prenotiamo');
+});
+
+/* Il giorno e l'ora fanno sparire la navetta come la meta e i passeggeri:
+   un volo alle 09:00 vorrebbe il ritiro alle 06:00, fuori fascia. */
+Deno.test('spostando l ora fuori fascia, l etichetta e la nota tornano allo stato normale', () => {
+  const s = scenaTr(PARTENZA_CON_NAVETTA);
+  scegliNavetta(s);
+
+  s.campo('trOra').value = '09:00';
+  s.campo('trOra').scatena('input');
+
+  assert(!s.visibile(), 'il blocco del servizio e rimasto visibile per un ritiro alle 06:00');
+  assertEquals(s.servizio(), '0', 'il servizio non e tornato ad "auto privata"');
+  assertEquals(s.etichetta(), 'Ora', 'l etichetta e rimasta "Ora del volo" con la navetta sparita');
+  assertEquals(s.nota(), '', 'la nota promette ancora un ritiro che non prenotiamo');
+});
+
+/* La correzione non deve costare una ricorsione: aggiornaRitiroTr scrive
+   solo su trEtiOra e trNotaRitiro, due nodi che nessuno ascolta, e non
+   assegna nessun .value. Verificato eseguendo, non leggendo. */
+Deno.test('il ritorno dell etichetta non fa rimbalzare il cancello all infinito', () => {
+  const s = scenaTr(PARTENZA_CON_NAVETTA);
+  const alMontaggio = s.chiamateNavetta();
+  assert(alMontaggio >= 1 && alMontaggio <= 3,
+    'navetta() chiamata ' + alMontaggio + ' volte al solo montaggio: il cancello rimbalza');
+  scegliNavetta(s);
+  s.campo('trPax').value = '5';
+  s.campo('trPax').scatena('input');
+  const dopo = s.chiamateNavetta() - alMontaggio;
+  assert(dopo <= 4,
+    'navetta() chiamata ' + dopo + ' volte per un solo cambiamento: il cancello rimbalza');
+});
+
+/* Le frasi tornano al posto giusto in tutte e quattro le lingue, non solo
+   in italiano: il difetto stava nel cablaggio, ma quello che si vede e'
+   un'etichetta, e ogni lingua ha la sua. */
+Deno.test('l etichetta torna indietro in tutte e quattro le lingue', () => {
+  const attese: Record<string, [string, string]> = {
+    it: ['Ora del volo', 'Ora'],
+    de: ['Abflugzeit', 'Uhrzeit'],
+    en: ['Flight time', 'Time'],
+    fr: ['Heure du vol', 'Heure'],
+  };
+  for (const [lingua, [volo, normale]] of Object.entries(attese)) {
+    const s = scenaTr(PARTENZA_CON_NAVETTA, lingua);
+    s.campo('trServizio').value = '1';
+    s.campo('trServizio').scatena('change');
+    assertEquals(s.etichetta(), volo, 'in ' + lingua + ' l etichetta non diventa quella del volo');
+    assert(s.nota().length > 0, 'in ' + lingua + ' la nota del ritiro resta vuota');
+    s.campo('trPax').value = '5';
+    s.campo('trPax').scatena('input');
+    assertEquals(s.etichetta(), normale, 'in ' + lingua + ' l etichetta non torna indietro');
+    assertEquals(s.nota(), '', 'in ' + lingua + ' la nota del ritiro non si cancella');
+  }
+});
+
+/* GIRO DI CORREZIONE 4, punto 2. Un commento invecchiato che accusa un
+   altro file di essere rotto e' peggio di nessun commento: chi lo legge
+   fra sei mesi va a cercare un guasto che non c'e'.
+
+   Quando e' stato scritto era vero. Il 18 agosto una modifica al modulo
+   transfer del sito cancello' la riga che definiva `v` lasciando in piedi
+   tredici chiamate, e il modulo si rompeva alla pressione di «Invia». La
+   riga e' stata rimessa il 20 agosto e pagine/aiutanti.test.ts la
+   sorveglia. Il commento accanto a corsaVeraTr() dava ancora il guasto
+   per presente, e il rapporto lo girava al proprietario come difetto in
+   produzione. */
+Deno.test('la pagina non accusa piu il modulo transfer di un guasto gia riparato', () => {
+  assert(!/ReferenceError/.test(SORGENTE),
+    'la pagina afferma ancora che il modulo transfer del sito lancerebbe ReferenceError: quel difetto e stato riparato il 20 agosto');
+  assert(!/sia mai definita in quel file/.test(SORGENTE),
+    'la pagina afferma ancora che nel modulo transfer del sito una `v` non e mai definita');
+  /* e infatti la definisce: verificato leggendo il file, non a memoria.
+     Se un giorno questa riga sparisse di nuovo, la prova qui sotto dice
+     di riscrivere il commento — non di cancellare la prova. */
+  const TRANSFER = Deno.readTextFileSync(new URL('richieste/transfer/index.html', import.meta.url));
+  assert(/\n\s*const v = /.test(TRANSFER),
+    'il modulo transfer del sito non definisce piu `v`: e il commento accanto a corsaVeraTr() andrebbe riscritto');
+});

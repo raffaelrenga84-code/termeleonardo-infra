@@ -359,6 +359,35 @@ function aggiornaServizioTr(){
     document.getElementById('trNavettaNota').textContent =
       n.nota === 'stessoPrezzo' ? t.trNavettaStessoPrezzo : t.trNavettaCostaMeno;
   }
+  /* E QUI L'ETICHETTA SEGUE IL CANCELLO, sempre, non solo quando l'ospite
+     tocca il servizio di persona. Due buchi, uno dentro l'altro:
+
+     · assegnare `trServizio.value = '0'` da codice NON fa scattare
+       `change` — e' la regola del DOM, non un caso — quindi il listener
+       che due righe di cablaggio piu' sotto appende aggiornaRitiroTr a
+       quel campo non parte mai quando siamo NOI a riportare il servizio
+       ad "auto privata";
+     · trLuogo e trPax erano legati soltanto a questa funzione, non
+       all'etichetta: cambiare meta o passeggeri chiudeva il cancello e
+       lasciava scritto "Ora del volo" sopra il campo.
+
+     Il seguito era: partenza condivisa con volo alle 22:00 (etichetta
+     "Ora del volo", nota "la prendiamo in hotel alle 19:00"), poi
+     l'ospite alza i passeggeri a cinque — la navetta sparisce, il
+     servizio torna privato, e il corpo parte giustamente con le 22:00
+     che l'ospite ha scritto. Ma lui aveva letto 19:00. Chiamandola da
+     qui, l'etichetta e la nota tornano indietro insieme al cancello, e
+     trLuogo/trPax ci arrivano per questa strada senza un secondo
+     listener.
+
+     Nessuna ricorsione: aggiornaRitiroTr legge il DOM e scrive soltanto
+     su trEtiOra e trNotaRitiro, due nodi che nessuno ascolta, e non
+     assegna nessun `.value` — non puo' rientrare qui. Verificato
+     eseguendo, non a occhio: la prova "il ritorno dell etichetta non fa
+     rimbalzare il cancello all infinito" conta le chiamate a navetta().
+     Le altre chiamate ad aggiornaRitiroTr (trOra, trQuando, trTipo,
+     trServizio) restano: sono il caso in cui il cancello non cambia. */
+  aggiornaRitiroTr();
 }
 
 /* IL PAVIMENTO DEL RITORNO: la data del ritorno non puo' precedere quella
@@ -429,15 +458,26 @@ function aggiornaRitiroTr(){
 /* Giorno e ora della corsa come la manda il corpo, piu' l'ora del volo da
    cui nascono quando serve convertire. Fuori dal caso partenza+condivisa
    non cambia niente: quello che l'ospite ha scritto e' gia' l'ora del
-   ritiro, come dice l'etichetta. Prende `v` (il lettore di campi gia'
-   definito dentro invia()) come parametro invece di presupporlo in scope:
-   il modulo transfer del sito lo chiama cosi' com'e' (`v('fOra')`) senza
-   che una `v` sia mai definita in quel file — un riferimento a niente che
-   lancerebbe ReferenceError alla prima corsa in partenza con la navetta
-   condivisa selezionata. Non l'ho copiato: e' un difetto di quel file, non
-   di questa regola, e non tocca ne' navetta.js ne' la conversione stessa
-   (vedi il rapporto). Stessa forma di corsaVera() nel modulo transfer del
-   sito, solo con `v` esplicito. */
+   ritiro, come dice l'etichetta.
+
+   PRENDE `v` COME PARAMETRO, non dallo scope. Il modulo transfer del sito
+   scrive la stessa aritmetica dentro corsaVera(), che chiama `v('fOra')`
+   contando su una `v` definita altrove nel file — e quel modo di legarsi
+   allo scope e' costato due giorni: il 18 agosto una modifica ha
+   cancellato la riga che definiva `v` lasciando in piedi tredici
+   chiamate, il file restava valido, le prove restavano verdi, e il
+   modulo si rompeva soltanto quando l'ospite premeva «Invia». La riga e'
+   stata rimessa il 20 agosto (commit «Il modulo transfer non si poteva
+   inviare: rimessa la riga cancellata») e adesso pagine/aiutanti.test.ts
+   sorveglia che `v`, `esc`, `$` e `stato` restino definite: quel file
+   oggi e' a posto, e questo commento non lo accusa di niente.
+
+   Il parametro esplicito resta la scelta giusta lo stesso, per la ragione
+   opposta a un sospetto: non perche' `v` manchi da qualche parte, ma
+   perche' cosi' questa funzione non dipende da dove viene chiamata — si
+   estrae e si esegue da sola in una prova, che e' esattamente come le
+   prove del giro 4 la collaudano. Stessa forma di corsaVera() nel modulo
+   transfer del sito, solo con `v` esplicito. */
 function corsaVeraTr(v){
   const quando = v('trQuando');
   const scritta = v('trOra');
