@@ -52,7 +52,7 @@ export const TRATTAMENTI = [
   { nome: 'Programma Oriente', durata: '', prezzo: 130, gruppo: 'programmi', chiave: 'progOriente', da: false, cuore: true, regalabile: 'progOriente' },
   { nome: 'Programma Antistress', durata: '', prezzo: 130, gruppo: 'programmi', chiave: 'progAnti', da: false, cuore: true, regalabile: 'progAntistress' },
 
-  /* ---- Massaggi corpo (17) ---- */
+  /* ---- Massaggi corpo (16) ---- */
   { nome: 'Massaggio Relax (con olio di cacao)', durata: '25 min', prezzo: 40, gruppo: 'massaggi', chiave: 'cacao', da: false, cuore: true, regalabile: 'relax25' },
   { nome: 'Massaggio nutriente al burro', durata: '25 min', prezzo: 40, gruppo: 'massaggi', chiave: 'burro', da: false, cuore: false, regalabile: null },
   { nome: 'Massaggio riflessologia plantare', durata: '25 min', prezzo: 40, gruppo: 'massaggi', chiave: 'plantare', da: false, cuore: false, regalabile: 'plantare25' },
@@ -67,7 +67,6 @@ export const TRATTAMENTI = [
   { nome: 'Massaggio Hot Stone', durata: '55 min', prezzo: 65, gruppo: 'massaggi', chiave: 'hotstone', da: false, cuore: false, regalabile: 'hotstone55' },
   { nome: 'Linfodrenaggio completo', durata: '60 min', prezzo: 65, gruppo: 'massaggi', chiave: 'linfo', da: false, cuore: false, regalabile: 'linfo60' },
   { nome: 'Massaggio anticellulite con fiala', durata: '50 min', prezzo: 70, gruppo: 'massaggi', chiave: 'fiala', da: false, cuore: false, regalabile: null },
-  { nome: 'Massaggio Shiatsu', durata: '50 min', prezzo: 70, gruppo: 'massaggi', chiave: 'shiatsu', da: false, cuore: true, regalabile: 'shiatsu50' },
   { nome: 'Linfodrenaggio parziale', durata: '30 min', prezzo: 40, gruppo: 'massaggi', chiave: 'linfo', da: false, cuore: false, regalabile: null },
 
   /* ---- Trattamenti viso (5) ---- */
@@ -119,7 +118,6 @@ export const SPIEGAZIONI = {
     ayurveda: 'Tecnica indiana con olio caldo e movimenti lunghi e continui, su tutto il corpo.',
     hotstone: 'Pietre laviche calde appoggiate sulla schiena e fatte scorrere: il calore fa il lavoro.',
     pindasweda: 'Tamponi di erbe caldi, picchiettati e fatti scorrere sul corpo.',
-    shiatsu: 'Pressioni con i pollici lungo linee precise. Si riceve vestiti, senza olio.',
     candle: 'Cera di una candela vegetale, sciolta a bassa temperatura e usata come olio.',
     plantare: 'Pressioni su punti precisi della pianta del piede.',
     linfo: 'Movimenti molto leggeri e ritmici, nel verso della circolazione linfatica.',
@@ -149,7 +147,6 @@ export const SPIEGAZIONI = {
     ayurveda: 'Indische Technik mit warmem Öl und langen, fließenden Bewegungen über den ganzen Körper.',
     hotstone: 'Heiße Lavasteine, auf dem Rücken aufgelegt und geführt: die Wärme übernimmt die Arbeit.',
     pindasweda: 'Warme Kräuterstempel, die geklopft und über den Körper geführt werden.',
-    shiatsu: 'Druck mit den Daumen entlang bestimmter Linien. Man bleibt bekleidet, ohne Öl.',
     candle: 'Wachs einer pflanzlichen Kerze, bei niedriger Temperatur geschmolzen und wie Öl verwendet.',
     plantare: 'Druck auf bestimmte Punkte der Fußsohle.',
     linfo: 'Sehr leichte, rhythmische Bewegungen in Richtung des Lymphflusses.',
@@ -179,7 +176,6 @@ export const SPIEGAZIONI = {
     ayurveda: 'Indian technique with warm oil and long, continuous movements over the whole body.',
     hotstone: 'Hot volcanic stones placed on the back and glided over it: the heat does the work.',
     pindasweda: 'Warm herbal pouches, tapped and glided over the body.',
-    shiatsu: 'Thumb pressure along precise lines. Received fully clothed, without oil.',
     candle: 'Wax from a plant-based candle, melted at low temperature and used like oil.',
     plantare: 'Pressure on precise points on the sole of the foot.',
     linfo: 'Very light, rhythmic movements, following the direction of lymphatic flow.',
@@ -209,7 +205,6 @@ export const SPIEGAZIONI = {
     ayurveda: 'Technique indienne à l’huile chaude, mouvements longs et continus sur tout le corps.',
     hotstone: 'Pierres volcaniques chaudes posées sur le dos et glissées : c’est la chaleur qui agit.',
     pindasweda: 'Pochons d’herbes chauds, tamponnés et glissés sur le corps.',
-    shiatsu: 'Pressions des pouces le long de lignes précises. Se reçoit habillé, sans huile.',
     candle: 'Cire d’une bougie végétale, fondue à basse température et utilisée comme une huile.',
     plantare: 'Pressions sur des points précis de la plante du pied.',
     linfo: 'Mouvements très légers et rythmés, dans le sens de la circulation lymphatique.',

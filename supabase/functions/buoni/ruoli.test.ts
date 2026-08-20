@@ -37,7 +37,7 @@ Deno.test('ogni voce del listino appartiene a una famiglia della spa', () => {
 /* ---------- cosa vede la spa ---------- */
 
 Deno.test('un buono con una voce di listino e della spa', () => {
-  for (const voce_id of ['shiatsu50', 'dayspa_fer', 'progCoccola', 'scrubmar40']) {
+  for (const voce_id of ['hotstone55', 'dayspa_fer', 'progCoccola', 'scrubmar40']) {
     assert(buonoDellaSpa({ tipo: 'voce', voce_id }), voce_id);
   }
 });
@@ -48,7 +48,7 @@ Deno.test('un buono con una voce di listino e della spa', () => {
 Deno.test('un buono a importo non e della spa', () => {
   assertEquals(buonoDellaSpa({ tipo: 'valore', importo_cent: 10000 }), false);
   /* nemmeno se per qualche ragione porta anche una voce */
-  assertEquals(buonoDellaSpa({ tipo: 'valore', voce_id: 'shiatsu50' }), false);
+  assertEquals(buonoDellaSpa({ tipo: 'valore', voce_id: 'hotstone55' }), false);
 });
 
 /* Un buono scritto a mano in reception non ha una voce di listino: non si

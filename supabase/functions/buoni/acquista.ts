@@ -22,7 +22,6 @@ export const LISTINO: Record<string, [string, number]> = {
   hotstone55: ['Massaggio Hot Stone (55 min)', 65],
   pindasweda55: ['Massaggio Pindasweda (55 min)', 65],
   linfo60: ['Linfodrenaggio completo (60 min)', 65],
-  shiatsu50: ['Massaggio Shiatsu (50 min)', 70],
   visofango25: ['Trattamento viso al fango termale con massaggio (25 min)', 44],
   pulizia55: ['Pulizia viso completa con peeling e maschera (55 min)', 60],
   ialuronico55: ['Trattamento anti-age all’acido ialuronico (55 min)', 80],
@@ -74,6 +73,21 @@ export interface DatiAcquisto {
   fattura: DatiFattura;
 }
 
+/* LE VOCI TOLTE DAL LISTINO. Non si vendono piu' — non sono in LISTINO, e
+   validaAcquisto le rifiuta come qualunque identificativo sconosciuto — ma
+   un buono venduto PRIMA resta valido e va ancora smistato al reparto che
+   lo esegue.
+
+   Senza questo elenco le due cose erano la stessa: buonoDellaSpa() chiede a
+   LISTINO se conosce l'identificativo, e togliendo la voce il buono gia'
+   venduto sparirebbe dall'elenco della spa in silenzio. L'ospite si
+   presenta e nessuno lo aspetta.
+
+   Si toglie una riga da qui solo quando l'ultimo buono con quella voce e'
+   scaduto. */
+export const TOLTI_DAL_LISTINO: Record<string, [string, number, string]> = {
+  shiatsu50: ['Massaggio Shiatsu (50 min)', 70, 'tolto il 20 agosto 2026'],
+};
 export type Voce = { voce_id: string; quantita: number };
 
 /* Due voci al massimo: sotto le voci, sul foglio del buono, c'e' la

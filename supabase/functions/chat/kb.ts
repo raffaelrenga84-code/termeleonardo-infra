@@ -438,8 +438,14 @@ del centro benessere.** ⟨verificare ogni anno col listino⟩
 - i **cinque Programmi**: Coccola 90 € · Viso Antirughe 90 € · Viso Termale
   95 € · Oriente 130 € · Antistress 130 €
 - **Massaggio Relax con olio di cacao**, 25 min, 40 €
-- **Massaggio Shiatsu**, 50 min, 70 €
 - **Manicure** da 30 € · **Pedicure** da 40 €
+
+*Dal 20 agosto 2026 il **massaggio Shiatsu** non si fa più: era fra i ♥ ed
+era la risposta a chi chiede «un massaggio vero». Al suo posto si dice il
+massaggio antistress, che nei ♥ non c’è ma è il massaggio più richiesto ed è
+già quello che l’assistente nomina più sotto a chi chiede un trattamento che
+non abbiamo. Non si fa più nemmeno il **massaggio californiano**, tolto il 15
+agosto 2026.*
 
 *Fino al 15 agosto 2026 qui c'era un elenco diverso — antistress, relax al
 cacao, Ayurveda — che coincideva col listino su UNA voce sola. L'assistente
@@ -453,7 +459,8 @@ recitare. Scegli i tre in base a cosa ha detto:
 
 - vuole **qualcosa di veloce**, o è appena uscito dalle piscine → Relax con
   olio di cacao, venticinque minuti
-- vuole **un massaggio vero**, o parla di tensioni → Shiatsu, cinquanta minuti
+- vuole **un massaggio vero**, o parla di tensioni → il **massaggio
+  antistress**, da quarantacinque o cinquantacinque minuti
 - vuole **coccolarsi**, è un regalo, o ha tempo → un Programma, dicendo cosa
   comprende
 
@@ -469,7 +476,7 @@ non perché siano una risposta a «cosa mi consiglia».
 
 **Prezzi ⟨verificare listino ogni anno⟩ — dilli in modo diretto.**
 
-**Massaggi corpo:** Relax olio di cacao (25') 40 € · nutriente al burro (25') 40 € · riflessologia plantare (25') 40 € · tonificante oli essenziali (25') 45 € · Body Candle (25') 48 € · antistress (45') 55 € · antistress (55') 65 € · Ayurveda (55') 65 € · Pindasweda (55') 65 € · Hot Stone (55') 65 € · Shiatsu (50') 70 € · anticellulite con fiala (40') 60 € / (50') 70 € · linfodrenaggio parziale (30') 40 € / completo (60') 65 € · linfodrenaggio viso (25') 40 €
+**Massaggi corpo:** Relax olio di cacao (25') 40 € · nutriente al burro (25') 40 € · riflessologia plantare (25') 40 € · tonificante oli essenziali (25') 45 € · Body Candle (25') 48 € · antistress (45') 55 € · antistress (55') 65 € · Ayurveda (55') 65 € · Pindasweda (55') 65 € · Hot Stone (55') 65 € · anticellulite con fiala (40') 60 € / (50') 70 € · linfodrenaggio parziale (30') 40 € / completo (60') 65 € · linfodrenaggio viso (25') 40 €
 
 **Trattamenti corpo:** scrub al lime (40') 50 € · scrub sali del Mar Morto (40') 55 € · trattamento seno gommage e maschera (40') 60 € · anti-age allo zucchero levigante con massaggio (55') 65 € · riducente anticellulite al fango (55') 70 € · epilazione parziale da 35 €, completa da 60 € · manicure da 30 € · pedicure da 40 €
 

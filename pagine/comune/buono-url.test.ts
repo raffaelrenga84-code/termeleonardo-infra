@@ -72,44 +72,44 @@ const indiceDi = (id: string) => TRATTAMENTI.findIndex((t) => t.regalabile === i
 const prezzoDi = (id: string) => LISTINO[id][1];
 
 Deno.test('un buono di un solo trattamento: copre il prezzo di listino, e la voce si preseleziona', () => {
-  const c = coperturaBuono({ voci: [{ voce_id: 'shiatsu50', quantita: 1 }], valore: 70 }, TRATTAMENTI);
-  assertEquals(c.copre, prezzoDi('shiatsu50'));
-  assertEquals(c.indici, [indiceDi('shiatsu50')]);
+  const c = coperturaBuono({ voci: [{ voce_id: 'hotstone55', quantita: 1 }], valore: 65 }, TRATTAMENTI);
+  assertEquals(c.copre, prezzoDi('hotstone55'));
+  assertEquals(c.indici, [indiceDi('hotstone55')]);
   assertEquals(c.ignorate, []);
 });
 
 Deno.test('Day Spa piu massaggio: il massaggio si preseleziona, ma la differenza si tace', () => {
   const c = coperturaBuono({
-    voci: [{ voce_id: 'dayspa_fer', quantita: 1 }, { voce_id: 'shiatsu50', quantita: 1 }],
-    valore: 105,
+    voci: [{ voce_id: 'dayspa_fer', quantita: 1 }, { voce_id: 'hotstone55', quantita: 1 }],
+    valore: 100,
   }, TRATTAMENTI);
   /* i 35 € dell'ingresso Day Spa NON sono un residuo che l'ospite perde:
      sono un ingresso che si tiene. Dirgli «residuo non rimborsabile»
      sarebbe falso, quindi non si dice niente. */
   assertEquals(c.copre, null);
-  assertEquals(c.indici, [indiceDi('shiatsu50')]);
+  assertEquals(c.indici, [indiceDi('hotstone55')]);
   assertEquals(c.ignorate, ['dayspa_fer']);
 });
 
 Deno.test('due volte lo stesso trattamento: una casella sola non lo sa dire, e si tace', () => {
-  const c = coperturaBuono({ voci: [{ voce_id: 'shiatsu50', quantita: 2 }], valore: 140 }, TRATTAMENTI);
+  const c = coperturaBuono({ voci: [{ voce_id: 'hotstone55', quantita: 2 }], valore: 130 }, TRATTAMENTI);
   assertEquals(c.copre, null);
   /* la casella si spunta lo stesso, una volta: e' il massimo che il modulo
      sa rappresentare, e il riquadro scrive comunque «2 ×» */
-  assertEquals(c.indici, [indiceDi('shiatsu50')]);
+  assertEquals(c.indici, [indiceDi('hotstone55')]);
   /* e la quantita' va DETTA, perche' la richiesta che parte da qui parla di
      un massaggio solo: senza questo in reception preparerebbero un turno
      invece di due, e nessuno se ne accorgerebbe prima dell'arrivo */
-  assertEquals(c.ripetute, ['shiatsu50']);
+  assertEquals(c.ripetute, ['hotstone55']);
 });
 
 Deno.test('senza quantita ripetute non c e niente da segnalare', () => {
   for (const voci of [
-    [{ voce_id: 'shiatsu50', quantita: 1 }],
-    [{ voce_id: 'dayspa_fer', quantita: 1 }, { voce_id: 'shiatsu50', quantita: 1 }],
+    [{ voce_id: 'hotstone55', quantita: 1 }],
+    [{ voce_id: 'dayspa_fer', quantita: 1 }, { voce_id: 'hotstone55', quantita: 1 }],
     null,
   ]) {
-    assertEquals(coperturaBuono({ voci, valore: 70 }, TRATTAMENTI).ripetute, [],
+    assertEquals(coperturaBuono({ voci, valore: 65 }, TRATTAMENTI).ripetute, [],
       `voci ${JSON.stringify(voci)}`);
   }
 });
@@ -117,7 +117,7 @@ Deno.test('senza quantita ripetute non c e niente da segnalare', () => {
 /* anche un ingresso Day Spa preso due volte va detto: qui non ha una
    casella, ma la reception deve sapere che gli ingressi sono due */
 Deno.test('la quantita si segnala anche su una voce che il modulo non sa spuntare', () => {
-  const c = coperturaBuono({ voci: [{ voce_id: 'dayspa_fer', quantita: 2 }], valore: 70 }, TRATTAMENTI);
+  const c = coperturaBuono({ voci: [{ voce_id: 'dayspa_fer', quantita: 2 }], valore: 65 }, TRATTAMENTI);
   assertEquals(c.copre, null);
   assertEquals(c.indici, []);
   assertEquals(c.ripetute, ['dayspa_fer']);
@@ -213,8 +213,8 @@ Deno.test('nessuna voce del LISTINO di oggi fa scattare l avviso', () => {
 
 Deno.test('Day Spa piu massaggio: l ingresso resta fra le ignorate, ma niente e sconosciuto', () => {
   const c = coperturaBuono({
-    voci: [{ voce_id: 'dayspa_fer', quantita: 1 }, { voce_id: 'shiatsu50', quantita: 1 }],
-    valore: 105,
+    voci: [{ voce_id: 'dayspa_fer', quantita: 1 }, { voce_id: 'hotstone55', quantita: 1 }],
+    valore: 100,
   }, TRATTAMENTI);
   assertEquals(c.ignorate, ['dayspa_fer']);
   assertEquals(c.sconosciute, []);
@@ -275,15 +275,15 @@ Deno.test('le due vie non possono divergere: codiceDaUrl usa la stessa regola', 
 Deno.test('un buono misto contiene un Day Spa, anche se si prenota sui trattamenti', () => {
   const misto = {
     tipo: 'voce', voce_id: 'dayspa_fer',
-    descrizione: '1 × Day Spa infrasettimanale — piscine e grotte\n1 × Massaggio Shiatsu (50 min)',
+    descrizione: '1 × Day Spa infrasettimanale — piscine e grotte\n1 × Massaggio Hot Stone (55 min)',
   };
   assertEquals(contieneDaySpa(misto), true);
 });
 
 Deno.test('un buono di soli trattamenti non contiene Day Spa', () => {
   const soloTratt = {
-    tipo: 'voce', voce_id: 'shiatsu50',
-    descrizione: '1 × Massaggio Shiatsu (50 min)\n1 × Pulizia viso completa',
+    tipo: 'voce', voce_id: 'hotstone55',
+    descrizione: '1 × Massaggio Hot Stone (55 min)\n1 × Pulizia viso completa',
   };
   assertEquals(contieneDaySpa(soloTratt), false);
 });

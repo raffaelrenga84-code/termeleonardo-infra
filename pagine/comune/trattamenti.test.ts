@@ -83,15 +83,16 @@ Deno.test('il nome delle voci regalabili combacia col LISTINO dei buoni, salvo l
   }
 });
 
-/* il presidio deve guardare qualcosa di vero: le 20 voci regalabili sono
-   note dalla specifica di design (erano 21 fino al 15 agosto 2026: il massaggio californiano e' stato
-   tolto dal listino su richiesta della proprieta'), e le eccezioni sul nome non
+/* il presidio deve guardare qualcosa di vero: le 19 voci regalabili sono
+   note dalla specifica di design (erano 21 fino al 15 agosto 2026, quando e' uscito il massaggio
+   californiano, e 20 fino al 20 agosto 2026, quando e' uscito anche lo Shiatsu:
+   tutte e due su decisione della proprieta'), e le eccezioni sul nome non
    devono coprire più di quelle tre righe — altrimenti il test qui sopra
    passerebbe senza aver confrontato niente, come temuto in
    listino-copie.test.ts */
 Deno.test('il presidio guarda davvero le voci regalabili, non un elenco vuoto o tutto in eccezione', () => {
   const voci = regalabili();
-  assertEquals(voci.length, 20, `attese 20 voci regalabili, trovate ${voci.length}`);
+  assertEquals(voci.length, 19, `attese 19 voci regalabili, trovate ${voci.length}`);
   /* Le eccezioni sono zero, e devono restare zero. Se qualcuno ne aggiunge
      una, questa riga diventa rossa e lo costringe a scriverla qui insieme al
      motivo: una divergenza fra il listino del reparto e quello che si stampa

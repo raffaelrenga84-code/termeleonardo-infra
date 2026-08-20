@@ -27,7 +27,7 @@
    deve cambiarlo anche là.
    ============================================================ */
 
-import { LISTINO } from './acquista.ts';
+import { LISTINO, TOLTI_DAL_LISTINO } from './acquista.ts';
 
 /* Le famiglie di identificativi del listino, per prefisso. Sono le stesse
    che categoriaBuono() conosce in pagine/buoni/buono.js. */
@@ -59,7 +59,9 @@ export function buonoDellaSpa(b: Record<string, unknown> | null | undefined): bo
 
   const id = String(b.voce_id ?? '').trim();
   if (!id) return true; // scritto in reception: si mostra
-  if (!Object.hasOwn(LISTINO, id)) return false;
+  /* anche le voci tolte dal listino: un buono venduto prima resta valido,
+     e la spa e' il reparto che lo eseguira' */
+  if (!Object.hasOwn(LISTINO, id) && !Object.hasOwn(TOLTI_DAL_LISTINO, id)) return false;
   return FAMIGLIE_SPA.some((f) => id.startsWith(f));
 }
 
