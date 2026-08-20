@@ -86,6 +86,8 @@ textarea{min-height:80px;resize:vertical;}
 /* ---- le camere proposte, raggruppate per camera: una scheda per proposta ---- */
 .gruppoCamera{margin-bottom:16px;}
 .gruppoCamera:last-child{margin-bottom:0;}
+.gruppoCamera .foto{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;
+  border-radius:10px;margin-bottom:8px;background:#F0EDE6;}
 .gruppoCamera h3{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;
   font-size:19px;color:var(--verde);margin:0 0 2px;}
 .gruppoCamera .descrizione{color:var(--grigio);font-size:13px;margin-bottom:8px;}
@@ -160,6 +162,7 @@ textarea{min-height:80px;resize:vertical;}
    percorsi-web.test.ts, cosi' non torna con la prossima pagina che
    qualcuno divide in due file. */
 import { componiCorpo, euroDaCentesimi, linguaScelta } from '/prenota/logica.js';
+import { fotoDi } from '/prenota/foto.js';
 /* Lo stesso sistema del modulo transfer: l'asterisco sui campi
    obbligatori, l'elenco di cio' che manca DAVVERO, e il fuoco sul primo
    campo vuoto. Vive in un posto solo perche' le pagine sono tre. */
@@ -527,6 +530,10 @@ function schermaCamere() {
       <h2>${esc(t.cameraTit)}</h2><div class="guida">${esc(t.cameraGuida)}</div>
       ${gruppi.map(g => `
         <div class="gruppoCamera">
+          ${fotoDi(g.camera_id)
+            ? `<img class="foto" src="${esc(fotoDi(g.camera_id))}" alt="${esc(g.nome)}"
+                 width="800" height="500" loading="lazy" decoding="async">`
+            : ''}
           <h3>${esc(g.nome)}</h3>
           ${g.descrizione ? `<div class="descrizione">${esc(g.descrizione)}</div>` : ''}
           ${g.max_adulti ? `<div class="maxAdulti">${esc(t.finoAdulti(g.max_adulti))}</div>` : ''}
