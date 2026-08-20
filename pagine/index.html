@@ -36,7 +36,7 @@
      font-weight:600;margin:0 0 14px;}
   label{display:block;font-size:13px;color:var(--grigio);margin:12px 0 5px;}
   input[type=text],input[type=tel],input[type=email],input[type=number],
-  input[type=datetime-local],select,textarea{
+  input[type=datetime-local],input[type=date],input[type=time],select,textarea{
      width:100%;padding:12px;border:1px solid #D8D2C4;border-radius:6px;
      font:16px Arial;color:var(--inchiostro);background:#fff;}
   input:focus,select:focus,textarea:focus{outline:2px solid var(--acqua);outline-offset:1px;}
@@ -96,8 +96,18 @@
   +39 049 9939200 · info@termeleonardo.com
 </footer>
 
-<script>
-const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/prepara-arrivo';
+<script type="module">
+/* PERCORSO ASSOLUTO, non relativo: sotto un indirizzo tradotto (o dietro un
+   proxy) un percorso relativo si risolverebbe contro la cartella sbagliata
+   e la pagina resterebbe bianca — vedi lo stesso commento in
+   pagine/richieste/transfer/index.html. */
+import { LUOGHI_ATAM } from '/comune/luoghi.js';
+
+/* La lettura del soggiorno resta su prepara-arrivo (il link che l'ospite
+   riceve in email); l'invio va su richieste, ?a=invia-arrivo — quella
+   funzione fa nascere richieste vere: numero, ricevuta, prezzo, conferma. */
+const FUNZIONE_ARRIVO = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/prepara-arrivo';
+const FUNZIONE_RICHIESTE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 
 /* ---------- dizionario ---------- */
 const T = {
@@ -117,9 +127,9 @@ const T = {
   ragione:'Intestazione / ragione sociale', indirizzo:'Indirizzo completo',
   piva:'Partita IVA', cf:'Codice fiscale', sdi:'Codice SDI', pec:'PEC',
   transferT:'Transfer', transferI:'Vorrei un transfer',
-  trTipo:'Per', trTipi:['L\u2019arrivo','La partenza','Andata e ritorno'],
-  trScalo:'Da dove? (aeroporto o stazione)', trVolo:'Numero volo o treno',
-  trQuando:'Giorno e ora', trPax:'Persone', trCell:'Cellulare per l\u2019autista',
+  trTipo:'Per', trTipi:['L\u2019arrivo','La partenza'],
+  trLuogo:'Da dove / verso dove', trVolo:'Numero volo o treno',
+  trQuando:'Giorno', trOra:'Ora', trPax:'Persone', trCell:'Cellulare per l\u2019autista',
   extraT:'Piccole attenzioni', extraOpz:['Culla per neonato','Seggiolone al ristorante','Parcheggio','Cane al seguito'],
   fanghiT:'Cure termali', fanghiD:'A che ora preferirebbe i fanghi?',
   fanghiOpz:['Presto — dalle 5:50','Più tardi — verso le 10:00','Indifferente'],
@@ -130,6 +140,11 @@ const T = {
   attendere:'Un attimo…',
   erroreInvio:'Non siamo riusciti a salvare. Riprovi tra un momento, o ci scriva a info@termeleonardo.com.',
   grazieT:'Grazie, è tutto pronto', grazie:'Abbiamo ricevuto le sue indicazioni: la reception le legge oggi stesso. A prestissimo alle terme.',
+  /* NON UN ERRORE ROSSO: succede a chi ricarica la pagina o riapre il link
+     dopo aver gia\u2019 inviato. Mostriamo i numeri gia\u2019 ricevuti, cosi\u2019 l\u2019ospite
+     vede che il suo invio c\u2019e\u2019 gia\u2019, e non ne nasce una seconda serie. */
+  giaInviatoT:'Le abbiamo già ricevute', giaInviato:'Abbiamo già ricevuto le sue indicazioni per questo soggiorno.',
+  perCambiare:'Per cambiare qualcosa ci scriva a info@termeleonardo.com.',
   nonValidoT:'Questo link non è più attivo', nonValido:'Il collegamento non risulta valido. Controlli di aver aperto l\u2019ultimo link ricevuto, o ci scriva a info@termeleonardo.com.',
   scadutoT:'Soggiorno già concluso', scaduto:'Questo link era legato a un soggiorno ormai passato. Per una nuova prenotazione ci trova a info@termeleonardo.com.'
  },
@@ -149,9 +164,9 @@ const T = {
   ragione:'Firmenname / Rechnungsempfänger', indirizzo:'Vollständige Adresse',
   piva:'USt-IdNr.', cf:'Steuernummer', sdi:'SDI-Code (Italien)', pec:'PEC / E-Mail',
   transferT:'Transfer', transferI:'Ich möchte einen Transfer',
-  trTipo:'Für', trTipi:['Die Anreise','Die Abreise','Hin und zurück'],
-  trScalo:'Von wo? (Flughafen oder Bahnhof)', trVolo:'Flug- oder Zugnummer',
-  trQuando:'Tag und Uhrzeit', trPax:'Personen', trCell:'Handy für den Fahrer',
+  trTipo:'Für', trTipi:['Die Anreise','Die Abreise'],
+  trLuogo:'Von wo / wohin', trVolo:'Flug- oder Zugnummer',
+  trQuando:'Tag', trOra:'Uhrzeit', trPax:'Personen', trCell:'Handy für den Fahrer',
   extraT:'Kleine Aufmerksamkeiten', extraOpz:['Babybett','Hochstuhl im Restaurant','Parkplatz','Hund dabei'],
   fanghiT:'Thermalkuren', fanghiD:'Wann hätten Sie die Fangopackung am liebsten?',
   fanghiOpz:['Früh — ab 5:50 Uhr','Später — gegen 10:00 Uhr','Egal'],
@@ -162,6 +177,8 @@ const T = {
   attendere:'Einen Moment…',
   erroreInvio:'Speichern nicht möglich. Versuchen Sie es gleich noch einmal oder schreiben Sie an info@termeleonardo.com.',
   grazieT:'Danke, alles bereit', grazie:'Wir haben Ihre Angaben erhalten: die Rezeption liest sie noch heute. Bis bald in den Thermen.',
+  giaInviatoT:'Wir haben sie bereits erhalten', giaInviato:'Wir haben Ihre Angaben für diesen Aufenthalt bereits erhalten.',
+  perCambiare:'Um etwas zu ändern, schreiben Sie uns bitte an info@termeleonardo.com.',
   nonValidoT:'Dieser Link ist nicht mehr aktiv', nonValido:'Der Link ist ungültig. Öffnen Sie bitte den zuletzt erhaltenen Link oder schreiben Sie an info@termeleonardo.com.',
   scadutoT:'Aufenthalt bereits beendet', scaduto:'Dieser Link gehörte zu einem vergangenen Aufenthalt. Für eine neue Buchung: info@termeleonardo.com.'
  },
@@ -181,9 +198,9 @@ const T = {
   ragione:'Company / billing name', indirizzo:'Full address',
   piva:'VAT number', cf:'Tax code', sdi:'SDI code (Italy)', pec:'PEC / email',
   transferT:'Transfer', transferI:'I\u2019d like a transfer',
-  trTipo:'For', trTipi:['Arrival','Departure','Both ways'],
-  trScalo:'From where? (airport or station)', trVolo:'Flight or train number',
-  trQuando:'Day and time', trPax:'People', trCell:'Mobile for the driver',
+  trTipo:'For', trTipi:['Arrival','Departure'],
+  trLuogo:'From / to', trVolo:'Flight or train number',
+  trQuando:'Day', trOra:'Time', trPax:'People', trCell:'Mobile for the driver',
   extraT:'Small touches', extraOpz:['Baby cot','High chair at the restaurant','Parking','Dog coming along'],
   fanghiT:'Thermal treatments', fanghiD:'When would you prefer your mud therapy?',
   fanghiOpz:['Early — from 5:50','Later — around 10:00','No preference'],
@@ -194,6 +211,8 @@ const T = {
   attendere:'One moment…',
   erroreInvio:'We couldn\u2019t save your details. Please try again shortly, or write to info@termeleonardo.com.',
   grazieT:'Thank you, all set', grazie:'We\u2019ve received your details: reception reads them today. See you very soon at the thermal pools.',
+  giaInviatoT:'We already have this', giaInviato:'We\u2019ve already received your details for this stay.',
+  perCambiare:'To change anything, please write to info@termeleonardo.com.',
   nonValidoT:'This link is no longer active', nonValido:'The link isn\u2019t valid. Please open the most recent link you received, or write to info@termeleonardo.com.',
   scadutoT:'Stay already ended', scaduto:'This link belonged to a past stay. For a new booking: info@termeleonardo.com.'
  },
@@ -213,9 +232,9 @@ const T = {
   ragione:'Raison sociale', indirizzo:'Adresse complète',
   piva:'N° TVA', cf:'Code fiscal', sdi:'Code SDI (Italie)', pec:'PEC / e-mail',
   transferT:'Transfert', transferI:'Je souhaite un transfert',
-  trTipo:'Pour', trTipi:['L\u2019arrivée','Le départ','Aller-retour'],
-  trScalo:'Depuis où ? (aéroport ou gare)', trVolo:'N° de vol ou de train',
-  trQuando:'Jour et heure', trPax:'Personnes', trCell:'Portable pour le chauffeur',
+  trTipo:'Pour', trTipi:['L\u2019arrivée','Le départ'],
+  trLuogo:'D\u2019où / vers où', trVolo:'N° de vol ou de train',
+  trQuando:'Jour', trOra:'Heure', trPax:'Personnes', trCell:'Portable pour le chauffeur',
   extraT:'Petites attentions', extraOpz:['Lit bébé','Chaise haute au restaurant','Parking','Chien accepté'],
   fanghiT:'Cures thermales', fanghiD:'À quelle heure préféreriez-vous les boues ?',
   fanghiOpz:['Tôt — dès 5h50','Plus tard — vers 10h00','Peu importe'],
@@ -226,6 +245,8 @@ const T = {
   attendere:'Un instant…',
   erroreInvio:'Enregistrement impossible. Réessayez dans un instant ou écrivez à info@termeleonardo.com.',
   grazieT:'Merci, tout est prêt', grazie:'Nous avons bien reçu vos indications : la réception les lit aujourd\u2019hui même. À très bientôt aux thermes.',
+  giaInviatoT:'Nous les avons déjà reçues', giaInviato:'Nous avons déjà reçu vos indications pour ce séjour.',
+  perCambiare:'Pour changer quelque chose, écrivez-nous à info@termeleonardo.com.',
   nonValidoT:'Ce lien n\u2019est plus actif', nonValido:'Le lien n\u2019est pas valide. Ouvrez le dernier lien reçu ou écrivez à info@termeleonardo.com.',
   scadutoT:'Séjour déjà terminé', scaduto:'Ce lien concernait un séjour passé. Pour une nouvelle réservation : info@termeleonardo.com.'
  }
@@ -309,13 +330,24 @@ function modulo(){
     <label class="interruttore"><input type="checkbox" id="transfer" /> ${t.transferI}</label>
     <div class="ripiega">
       <label>${t.trTipo}</label>
-      <select id="trTipo">${t.trTipi.map(o=>`<option>${o}</option>`).join('')}</select>
-      <label>${t.trScalo}</label><input type="text" id="trScalo" maxlength="40" />
+      <!-- I VALORI SONO QUELLI DEL SERVER ('arrivo'/'partenza'), non il
+           testo tradotto: validaTransfer (supabase/functions/richieste/
+           tipi.ts) confronta la stringa lettera per lettera, e "L'arrivo"
+           o "Die Anreise" non passerebbero mai — ogni richiesta di
+           transfer da questa pagina verrebbe rifiutata, in tutte le
+           lingue. "Andata e ritorno" sparisce per lo stesso motivo: il
+           server non ha un verso che valga per tutte e due le corse. -->
+      <select id="trTipo">${t.trTipi.map((o,i)=>`<option value="${['arrivo','partenza'][i]}">${o}</option>`).join('')}</select>
+      <label>${t.trLuogo}</label>
+      <select id="trLuogo"></select>
       <div class="due">
-        <div><label>${t.trVolo}</label><input type="text" id="trVolo" maxlength="20" /></div>
-        <div><label>${t.trPax}</label><input type="number" id="trPax" min="1" max="9" value="${DATI.adulti + DATI.bambini}" /></div>
+        <div><label>${t.trQuando}</label><input type="date" id="trQuando" /></div>
+        <div><label>${t.trOra}</label><input type="time" id="trOra" /></div>
       </div>
-      <label>${t.trQuando}</label><input type="datetime-local" id="trQuando" />
+      <div class="due">
+        <div><label>${t.trVolo}</label><input type="text" id="trVolo" maxlength="40" /></div>
+        <div><label>${t.trPax}</label><input type="number" id="trPax" min="1" max="8" value="${Math.min(DATI.adulti + DATI.bambini, 8)}" /></div>
+      </div>
       <label>${t.trCell}</label><input type="tel" id="trCell" maxlength="30" />
     </div>
   </div>
@@ -347,7 +379,18 @@ function modulo(){
 
   <button class="invia" id="invia">${t.invia}</button>
   <div class="nota-invio">${t.inviaNota}</div>
-  <div class="esito-errore" id="erroreInvio">${t.erroreInvio}</div>`;
+  <!-- vuoto qui: il testo lo scrive invia(), perche' puo' essere il nostro
+       messaggio generico o quello preciso arrivato dal server (vedi invia()) -->
+  <div class="esito-errore" id="erroreInvio"></div>`;
+
+  /* Le voci NON si traducono e NON si riordinano: la reception le ricopia
+     nel modulo dei tassisti, e devono combaciare parola per parola. E'
+     anche il motivo per cui questa e' una <select> e non piu' una casella
+     di testo: "Venezia", "aeroporto di Venezia" e "VCE" non sono nessuna
+     delle 189 voci. */
+  document.getElementById('trLuogo').innerHTML =
+    '<option value=""></option>' + LUOGHI_ATAM.map((l) =>
+      `<option value="${l.replace(/"/g, '&quot;')}">${l}</option>`).join('');
 
   document.querySelectorAll('.lingue button').forEach(b =>
     b.addEventListener('click', () => { LINGUA = b.dataset.l; modulo(); }));
@@ -370,49 +413,81 @@ function modulo(){
   document.getElementById('invia').addEventListener('click', invia);
 }
 
+/* GIA' INVIATO (409). Non e' un errore rosso: e' normale, capita a chi
+   ricarica la pagina o riapre l'ultimo link dopo aver gia' compilato.
+   Mostriamo i numeri gia' ricevuti e diciamo di scrivere per cambiare
+   qualcosa — mai una seconda serie di richieste. */
+function giaInviato(t, richieste){
+  const numeri = (Array.isArray(richieste) ? richieste : [])
+    .map(r => esc(r?.numero)).filter(Boolean);
+  app.innerHTML = `<div class="stato"><div class="segno">✓</div>
+    <h1>${esc(t.giaInviatoT)}</h1>
+    <p>${esc(t.giaInviato)}</p>
+    ${numeri.length ? `<p style="font-family:'Courier New',monospace;letter-spacing:1px;">${numeri.join(' · ')}</p>` : ''}
+    <p>${esc(t.perCambiare)}</p></div>`;
+}
+
 async function invia(){
   const t = T[LINGUA];
   const b = document.getElementById('invia');
+  const box = document.getElementById('erroreInvio');
   b.disabled = true; b.textContent = t.attendere;
-  document.getElementById('erroreInvio').style.display = 'none';
+  box.style.display = 'none';
   const v = id => document.getElementById(id)?.value?.trim() || null;
   const fatt = document.getElementById('fattura').checked;
   const tr = document.getElementById('transfer').checked;
   const corpo = {
+    token: TOKEN,
+    /* IL TELEFONO IN CIMA AL CORPO, non dentro transfer_dati: e' li' che
+       ?a=invia-arrivo lo cerca (index.ts) e da li' finisce su ogni pezzo
+       della richiesta — non solo sul transfer. Dentro transfer_dati si
+       perderebbe in silenzio: validaTransfer non legge "cell", e la
+       reception si ritroverebbe un taxi da chiamare senza nessun numero,
+       peggio di prima che l'email lo stampava. */
+    telefono: v('trCell'),
     ora_arrivo: v('ora'), mezzo: v('mezzo'),
+    /* le attenzioni partono come CHIAVI, non come testo tradotto: la
+       pagina parla quattro lingue, il back office una sola, e "Culla per
+       neonato" andrebbe letto da chi aveva davanti "Babybett" */
+    attenzioni: [...document.querySelectorAll('.extra:checked')]
+      .map(c => ['culla','seggiolone','parcheggio','cane'][+c.dataset.i]),
+    fanghi_desiderio: (()=>{ const s = document.querySelector('.fanghi:checked');
+      return s ? ['presto','tardi','indifferente'][+s.dataset.i] : null; })(),
     persone_extra: [...document.querySelectorAll('.persona')].map(p => ({
       nome: p.children[0].value.trim(), eta: p.children[1].value.trim()
     })).filter(p => p.nome),
-    fattura: fatt,
-    fatt_ragione: fatt ? v('fRagione') : null,
-    fatt_indirizzo: fatt ? v('fIndirizzo') : null,
-    fatt_piva: fatt ? v('fPiva') : null,
-    fatt_cf: fatt ? v('fCf') : null,
-    fatt_sdi: fatt ? v('fSdi') : null,
-    fatt_pec: fatt ? v('fPec') : null,
+    note: v('note'),
     transfer: tr,
-    transfer_tipo: tr ? v('trTipo') : null,
-    transfer_scalo: tr ? v('trScalo') : null,
-    transfer_volo: tr ? v('trVolo') : null,
-    transfer_quando: tr ? v('trQuando') : null,
-    transfer_pax: tr ? (Number(v('trPax')) || null) : null,
-    transfer_cell: tr ? v('trCell') : null,
-    extra: [...document.querySelectorAll('.extra:checked')].map(c => T[LINGUA].extraOpz[+c.dataset.i]),
-    /* i tre valori sono quelli che il server accetta (fanghi.ts, elenco
-       chiuso): l'indice della scelta, non il testo tradotto */
-    fanghi_desiderio: (()=>{
-      const s = document.querySelector('.fanghi:checked');
-      return s ? ['presto','tardi','indifferente'][+s.dataset.i] : null;
-    })(),
-    note: v('note')
+    transfer_dati: tr ? {
+      verso: v('trTipo'), luogo: v('trLuogo'), quando: v('trQuando'), ora: v('trOra'),
+      pax: Number(v('trPax')) || 1, volo: v('trVolo')
+    } : null,
+    fattura: fatt,
+    fattura_dati: fatt ? {
+      ragione: v('fRagione'), indirizzo: v('fIndirizzo'), piva: v('fPiva'),
+      cf: v('fCf'), sdi: v('fSdi'), pec: v('fPec')
+    } : null
   };
   try {
-    const r = await fetch(`${FUNZIONE}?token=${encodeURIComponent(TOKEN)}`, {
+    const r = await fetch(`${FUNZIONE_RICHIESTE}?a=invia-arrivo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(corpo)
     });
-    if (!r.ok) throw new Error('salvataggio');
+    const d = await r.json().catch(() => ({}));
+    if (r.status === 409) { giaInviato(t, d.richieste); window.scrollTo(0, 0); return; }
+    if (!r.ok) {
+      /* IL MESSAGGIO DEL SERVER VA MOSTRATO: e' lui che dice «luogo non in
+         elenco» o «serve la partita IVA o il codice fiscale», e
+         nasconderlo lascerebbe l'ospite davanti a un rifiuto muto. Il
+         server non traduce i suoi errori: arrivano in italiano anche a
+         chi legge la pagina in un'altra lingua, e non c'e' altro modo di
+         dirli. */
+      box.textContent = d.errore || t.erroreInvio;
+      box.style.display = 'block';
+      b.disabled = false; b.textContent = t.invia;
+      return;
+    }
     /* «abbiamo preso nota del suo desiderio», e nient'altro: nessun orario
        confermato, nessun turno. Compare solo a chi una preferenza l'ha
        davvero espressa. */
@@ -420,7 +495,8 @@ async function invia(){
     stato(t.grazieT, t.grazie + (scelta ? ' ' + t.fanghiPresoAtto : ''), '✓');
     window.scrollTo(0, 0);
   } catch (e) {
-    document.getElementById('erroreInvio').style.display = 'block';
+    box.textContent = t.erroreInvio;
+    box.style.display = 'block';
     b.disabled = false; b.textContent = t.invia;
   }
 }
@@ -429,7 +505,7 @@ async function invia(){
   TOKEN = new URLSearchParams(location.search).get('t');
   if (!TOKEN) { stato(T.it.nonValidoT, T.it.nonValido, '·'); return; }
   try {
-    const r = await fetch(`${FUNZIONE}?token=${encodeURIComponent(TOKEN)}`);
+    const r = await fetch(`${FUNZIONE_ARRIVO}?token=${encodeURIComponent(TOKEN)}`);
     if (r.status === 410) {
       const l = LINGUA; stato(T[l].scadutoT, T[l].scaduto, '·'); return;
     }
