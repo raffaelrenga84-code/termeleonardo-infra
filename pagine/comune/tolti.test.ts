@@ -91,9 +91,32 @@ const VOCI_ALTRUI = [
   },
 ];
 
+/* Le note storiche NON sono un'offerta, sono il contrario: «lo Shiatsu non
+   si fa più» è proprio la frase che impedisce all'assistente di proporlo, e
+   se un ospite lo chiede per nome deve saper rispondere. Si tolgono prima di
+   cercare, o questo presidio vieterebbe di scrivere perché una cosa è stata
+   tolta — e chi legge il file fra un anno non saprebbe che la decisione è
+   stata presa: rimetterebbe il trattamento credendo a una dimenticanza.
+
+   Il segno è quello che kb.ts usa già: un paragrafo in corsivo che comincia
+   con una data. Niente espressioni regolari — si guarda l'inizio del
+   paragrafo, che è esattamente quello che il segno vuol dire. */
+const notaStorica = (par: string) =>
+  par.trimStart().startsWith('*Dal ') || par.trimStart().startsWith('*Fino al ');
+
+function senzaNoteStoriche(src: string, file: string) {
+  const netto = src.split('\n\n').filter((p) => !notaStorica(p)).join('\n\n');
+  assert(
+    netto.length > src.length * 0.8,
+    file + ': le note storiche coprono più di un quinto del file. Il ritaglio ' +
+      'sta mangiando testo vero e il presidio non guarda quasi niente.',
+  );
+  return netto;
+}
+
 Deno.test('ne l assistente ne l estensione nominano piu cio che e stato tolto', () => {
   for (const v of VOCI_ALTRUI) {
-    const src = testo(v.file);
+    const src = senzaNoteStoriche(testo(v.file), v.file);
     assert(src.length > 500, `${v.file} non si legge: la prova girerebbe a vuoto`);
     for (const t of TOLTI) {
       const righe = src.split('\n')
