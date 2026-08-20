@@ -115,7 +115,7 @@ const NUMERI = [
 ];
 const CONTESTO = {
   token: 'tok-abc123', telefono: '+39 333 1234567',
-  ip: '1.2.3.4', adesso: '2026-09-01T12:00:00.000Z',
+  ip: '1.2.3.4',
 };
 
 Deno.test('persone_confermate mandato dal browser non sopravvive alla validazione', () => {
@@ -150,8 +150,26 @@ Deno.test('righeDaArrivo fa una riga per pezzo, coi dati ancora annidati e il co
     assertEquals(r.arrivo_token, CONTESTO.token);
     assertEquals(r.origine, 'check-in online');
     assertEquals(r.ip, CONTESTO.ip);
-    assertEquals(r.privacy_il, CONTESTO.adesso);
     assertEquals(r.telefono, CONTESTO.telefono);
+  }
+});
+
+/* GIRO DI CORREZIONE 2 — decisione del proprietario.
+   Il check-in online non chiede nessun consenso nuovo: l'ospite ha gia'
+   prenotato, e il consenso che ha dato allora resta registrato dov'e'
+   stato raccolto. Una data qui direbbe che ha prestato consenso in un
+   momento preciso ATTRAVERSO QUESTO MODULO, e non sarebbe vero —
+   consenso.ts esiste apposta per impedirlo ("una data scritta senza un
+   vero consenso e' una prova FALSA, peggio di nessuna prova"). Per questo
+   una riga nata dal check-in non porta MAI una data di consenso, a
+   differenza del modulo pubblico del sito (index.ts, `!azione`), che la
+   scrive perche' li' la casella c'e' davvero e l'ospite la spunta. */
+Deno.test('le righe del check in non portano mai una data di consenso', () => {
+  const pezzi = pezziDaArrivo(COMPLETO, OGGI).pezzi!;
+  const righe = righeDaArrivo(LINK, pezzi, NUMERI, CONTESTO);
+  assert(righe.length > 0, 'nessuna riga costruita');
+  for (const r of righe) {
+    assertEquals(r.privacy_il, null);
   }
 });
 

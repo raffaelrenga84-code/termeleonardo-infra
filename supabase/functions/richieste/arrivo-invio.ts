@@ -74,21 +74,36 @@ export function pezziDaArrivo(corpo: Record<string, unknown>, oggi: Date = new D
 
 export type LinkArrivo = { intestatario: string; email: string; lingua: string | null };
 export type NumeroRichiesta = { anno: number; progressivo: number; numero: string };
-export type ContestoInvio = { token: string; telefono: string; ip: string; adesso: string };
+export type ContestoInvio = { token: string; telefono: string; ip: string };
 
 export type RigaRichiesta = {
   anno: number; progressivo: number; numero: string;
   tipo: Pezzo['tipo'];
   nome: string; email: string; telefono: string | null; lingua: string;
   dati: Record<string, unknown>; dati_originali: Record<string, unknown>;
-  arrivo_token: string; origine: string; ip: string; privacy_il: string;
+  arrivo_token: string; origine: string; ip: string; privacy_il: string | null;
 };
 
 /* Una riga per pezzo, pronta per un solo `insert`. `numeri[i]` e' chiesto
    PRIMA a database (index.ts) e passato qui gia' pronto: questa funzione
    non parla con niente, si limita a ricopiare. I dati restano ANNIDATI
    sotto `dati`: e' la forma della colonna jsonb, ed e' anche quella che si
-   aspetta inviaRicevutaArrivo() (Task 6) via riepilogoRichiesta(). */
+   aspetta inviaRicevutaArrivo() (Task 6) via riepilogoRichiesta().
+
+   privacy_il RESTA SEMPRE NULLO: decisione del proprietario (giro di
+   correzione 2). Il check-in online non chiede nessun consenso nuovo —
+   l'ospite ha gia' prenotato, e il consenso che ha dato allora resta
+   registrato dov'e' stato raccolto, non qui. Scrivere una data in questa
+   colonna direbbe che ha prestato consenso in un momento preciso
+   ATTRAVERSO QUESTO MODULO, e non sarebbe vero: consenso.ts esiste apposta
+   per impedirlo ("una data scritta senza un vero consenso e' una prova
+   FALSA, peggio di nessuna prova"). Una colonna vuota e' la verita': da
+   qui non e' stato raccolto niente.
+
+   QUESTO E' L'OPPOSTO del modulo pubblico del sito (index.ts, blocco
+   `!azione`), che quella data la scrive con dataConsenso(): non e' una
+   dimenticanza da "sistemare" — li' la casella di consenso c'e' davvero e
+   l'ospite la spunta, qui la casella non esiste. */
 export function righeDaArrivo(
   link: LinkArrivo,
   pezzi: Pezzo[],
@@ -106,7 +121,7 @@ export function righeDaArrivo(
     arrivo_token: contesto.token,
     origine: 'check-in online',
     ip: contesto.ip,
-    privacy_il: contesto.adesso,
+    privacy_il: null,
   }));
 }
 

@@ -389,7 +389,7 @@ Deno.serve(async (req) => {
     const righe = righeDaArrivo(
       { intestatario: link.intestatario, email: link.email, lingua: link.lingua },
       pezzi, numeri,
-      { token: t, telefono: testo(corpo.telefono), ip: indirizzo(req), adesso: new Date().toISOString() },
+      { token: t, telefono: testo(corpo.telefono), ip: indirizzo(req) },
     );
 
     /* UN SOLO insert, con tutte le righe: e' una sola istruzione, quindi
