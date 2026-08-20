@@ -120,20 +120,77 @@ Deno.test('il corpo ha il token dentro di se e transfer_dati/fattura_dati annida
 /* GIRO DI CORREZIONE 1, punto 1. Senza mandare "collettivo" il validatore
    lo risolve a false: ogni transfer nasce "auto privata" e quel dettaglio
    finisce cosi' com'e' nell'email di conferma, senza che l'ospite abbia
-   mai visto l'alternativa (spesso piu' economica) della navetta condivisa. */
-Deno.test('la scelta fra auto privata e navetta condivisa parte con la richiesta', () => {
+   mai visto l'alternativa (su Venezia aeroporto, entro tre passeggeri)
+   piu' economica.
+
+   GIRO DI CORREZIONE 2: la prova qui sotto controllava solo che la parola
+   "collettivo" comparisse — sarebbe passata anche con `collettivo: false`
+   scritto a mano. Ora pretende che il valore venga da trServizio (non un
+   letterale fisso) e che transfer_dati non lo sovrascriva con true/false. */
+Deno.test('collettivo riflette davvero la scelta del servizio, non un valore fisso', () => {
+  assert(/const collettivo\s*=\s*v\(\s*['"]trServizio['"]\s*\)\s*===\s*['"]1['"]/.test(SORGENTE),
+    'collettivo non e calcolato dal campo trServizio: potrebbe essere un valore fisso');
   const m = SORGENTE.match(/transfer_dati:\s*tr\s*\?\s*\{([\s\S]*?)\}\s*:\s*null/);
   assert(m, 'non si trova transfer_dati nel corpo');
-  assert(/collettivo\s*:/.test(m[1]), 'transfer_dati non manda "collettivo": ogni transfer nasce privato, senza che sia stato chiesto');
+  /* "(?<!ritorno_)" esclude ritorno_collettivo: questa prova riguarda solo
+     il campo "collettivo", non il suo omonimo del ritorno (che ha la sua
+     prova a parte, piu' sotto) */
+  assert(/(?<!ritorno_)\bcollettivo\b\s*(,|:\s*collettivo\b)/.test(m[1]),
+    'transfer_dati non manda la variabile collettivo calcolata sopra');
+  assert(!/(?<!ritorno_)\bcollettivo\b\s*:\s*(true|false)\b/.test(m[1]),
+    'collettivo e scritto come true/false fisso dentro transfer_dati, non calcolato');
   assert((SORGENTE.match(/trServizio\s*:/g) || []).length === 4,
     'l etichetta del servizio (privata/condivisa) non e in tutte e quattro le lingue');
+});
+
+/* La navetta condivisa NON e' un'opzione sempre valida: navetta.js mette
+   quattro condizioni (solo Venezia aeroporto, al massimo tre passeggeri,
+   corsa fra le 08:00 e le 20:00, ventiquattro ore di preavviso) e
+   validaTransfer non ne controlla nessuna — si fida del corpo. Una select
+   sempre visibile lascerebbe scegliere "condivisa" per Treviso in cinque
+   alle sei del mattino, e la conferma scritta all'ospite direbbe una cosa
+   falsa: lo stesso difetto della correzione precedente, girato al
+   contrario. */
+Deno.test('la scelta del servizio compare solo quando navetta() la permette, e si ricalcola', () => {
+  assert(/id="trBoxServizio"[^>]*style="display:\s*none/.test(SORGENTE),
+    'il blocco del servizio non parte nascosto');
+  assert(/from ['"]\/comune\/navetta\.js['"]/.test(SORGENTE),
+    'la pagina non importa la regola della navetta da /comune/navetta.js');
+  const m = SORGENTE.match(/function aggiornaServizioTr\(\)\{([\s\S]*?)\n\}/);
+  assert(m, 'aggiornaServizioTr() non si trova per intero');
+  const corpoFn = m[1];
+  assert(/navetta\(\{/.test(corpoFn), 'aggiornaServizioTr non chiama navetta()');
+  assert(/trLuogo/.test(corpoFn) && /trPax/.test(corpoFn) && /trQuando/.test(corpoFn)
+    && /trOra/.test(corpoFn) && /trTipo/.test(corpoFn),
+    'aggiornaServizioTr non guarda tutti e cinque i campi da cui dipende navetta()');
+  assert(/trServizio['"]\)\.value\s*=\s*['"]0['"]/.test(corpoFn),
+    'quando navetta() nega, il servizio non torna forzato a "auto privata"');
+  /* deve ricalcolarsi da sola quando l'ospite cambia meta, passeggeri,
+     giorno, ora o verso — non solo al primo caricamento */
+  assert(/\[\s*['"]trLuogo['"]\s*,\s*['"]trPax['"]\s*,\s*['"]trQuando['"]\s*,\s*['"]trOra['"]\s*,\s*['"]trTipo['"]\s*\]/.test(SORGENTE),
+    'non tutti i campi che decidono la navetta sono collegati a un ricalcolo');
+  assert(/addEventListener\(['"]change['"]\s*,\s*aggiornaServizioTr\)/.test(SORGENTE),
+    'aggiornaServizioTr non e collegata a nessun cambiamento');
+});
+
+/* Il commento doveva spiegare perche' la scelta vale la pena di chiederla,
+   non promettere una tratta che non c'e': la navetta condivisa si vende
+   solo su Venezia aeroporto, non "su molte tratte". */
+Deno.test('il commento sulla navetta non promette piu tratte di quante ce ne siano', () => {
+  assert(!/molte tratte/.test(SORGENTE), 'il commento dice ancora "molte tratte": e una tratta sola, Venezia aeroporto');
 });
 
 /* GIRO DI CORREZIONE 1, punto 2. Il ritorno torna, ma con le sue date: il
    validatore accetta "ritorno:true" senza giorno ne' ora (per compatibilita'
    con le righe vecchie), ed e' esattamente il difetto che quei due campi
    esistono per uccidere — la reception saprebbe CHE serve il ritorno e non
-   QUANDO, e dovrebbe telefonare. */
+   QUANDO, e dovrebbe telefonare.
+
+   GIRO DI CORREZIONE 2: la prova qui sotto controllava solo che la
+   CONDIZIONE `if (ritorno && ...)` esistesse, non il suo corpo — cancellando
+   il `return;` (e lasciando passare il carico proibito) la prova restava
+   verde lo stesso. Ora pretende anche il contenuto del blocco: il
+   messaggio mostrato e il `return` che blocca davvero l'invio. */
 Deno.test('il ritorno porta sempre giorno e ora, mai un booleano muto', () => {
   const m = SORGENTE.match(/transfer_dati:\s*tr\s*\?\s*\{([\s\S]*?)\}\s*:\s*null/);
   assert(m, 'non si trova transfer_dati nel corpo');
@@ -141,14 +198,60 @@ Deno.test('il ritorno porta sempre giorno e ora, mai un booleano muto', () => {
     'ritorno_quando non e condizionato al ritorno: rischia di partire vuoto');
   assert(/ritorno_ora\s*:\s*ritorno\s*\?\s*v\(\s*['"]trRitornoOra['"]\s*\)\s*:\s*null/.test(m[1]),
     'ritorno_ora non e condizionato al ritorno: rischia di partire vuoto');
-  /* la scorciatoia vietata: mandare "true" senza controllare che le due date
-     ci siano davvero, prima ancora di chiamare il server */
-  assert(/if\s*\(\s*ritorno\s*&&\s*\(!v\(\s*['"]trRitornoQuando['"]\s*\)\s*\|\|\s*!v\(\s*['"]trRitornoOra['"]\s*\)\s*\)\s*\)/.test(SORGENTE),
-    'manca il controllo che blocca l invio se manca giorno o ora del ritorno');
+
+  /* la scorciatoia vietata: mandare "true" senza controllare che le due
+     date ci siano davvero, prima ancora di chiamare il server — e non solo
+     controllarlo, ma FERMARE l'invio quando manca qualcosa */
+  const guardia = SORGENTE.match(
+    /if\s*\(\s*ritorno\s*&&\s*\(!v\(\s*['"]trRitornoQuando['"]\s*\)\s*\|\|\s*!v\(\s*['"]trRitornoOra['"]\s*\)\s*\)\s*\)\s*\{([^}]*)\}/,
+  );
+  assert(guardia, 'la guardia del ritorno non si trova (o non e piu un blocco { } semplice)');
+  assert(/return\s*;/.test(guardia[1]),
+    'la guardia controlla la condizione ma non blocca piu l invio: manca il "return" prima di costruire il corpo');
+  assert(/box\.textContent\s*=\s*t\.trRitornoManca/.test(guardia[1]),
+    'la guardia non mostra piu il messaggio "manca giorno/ora del ritorno" prima di fermarsi');
+
   assert((SORGENTE.match(/trRitornoQuando\s*:/g) || []).length === 4,
     'l etichetta del giorno di ritorno non e in tutte e quattro le lingue');
   assert((SORGENTE.match(/trRitornoOra\s*:/g) || []).length === 4,
     'l etichetta dell ora di ritorno non e in tutte e quattro le lingue');
+});
+
+/* La data di ritorno copiava la casella del modulo del sito ma non il suo
+   legame col minimo: il modulo lega fRitornoQuando.min alla data d'andata
+   apposta perche' l'inversione e' stata VISTA SUCCEDERE DAVVERO (ritorno il
+   18 con andata il 19, vedi legaDateRitorno() in
+   pagine/richieste/transfer/index.html). Senza quel legame l'inversione
+   arriva al server, che la rifiuta con una frase italiana secca — la
+   stessa classe di problema per cui il punto 5 del giro precedente ha
+   spostato 404/410 sulle schermate tradotte, stavolta per un errore che si
+   poteva evitare invece di tradurre. */
+Deno.test('la data di ritorno non puo cadere prima di quella di andata', () => {
+  const m = SORGENTE.match(/function legaRitornoTr\(\)\{([\s\S]*?)\n\}/);
+  assert(m, 'legaRitornoTr() non si trova per intero');
+  assert(/rq\.min\s*=\s*a/.test(m[1]),
+    'legaRitornoTr non impone il minimo sulla data di ritorno');
+  assert(/rq\.value\s*=\s*a/.test(m[1]),
+    'legaRitornoTr non corregge una data di ritorno gia scritta prima del minimo');
+  assert(/trQuando['"]\)\.addEventListener\(\s*['"]change['"]\s*,\s*legaRitornoTr\)/.test(SORGENTE),
+    'legaRitornoTr non e collegata al cambiamento della data di andata');
+});
+
+/* GIRO DI CORREZIONE 2, punto 3. Senza ricalcolare ritorno_collettivo sulla
+   corsa di ritorno, il server lo risolve a false (assente = false) e il
+   modulo che prepara la prenotazione dai tassisti legge "privata": un
+   ospite che ha chiesto la navetta per il ritorno si vedrebbe prenotare un
+   taxi privato. Niente di falso stampato per l'ospite, ma quello che si
+   prenota diverge da quello che e' stato chiesto. */
+Deno.test('il ritorno eredita "collettivo" solo se la sua corsa lo permette davvero', () => {
+  assert(/corsaDiRitorno\(\{/.test(SORGENTE),
+    'la pagina non calcola la corsa di ritorno: ritorno_collettivo non puo dipendere da niente');
+  const m = SORGENTE.match(/transfer_dati:\s*tr\s*\?\s*\{([\s\S]*?)\}\s*:\s*null/);
+  assert(m, 'non si trova transfer_dati nel corpo');
+  assert(/ritorno_collettivo\s*(,|:\s*ritornoCollettivo\b)/.test(m[1]),
+    'transfer_dati non manda ritorno_collettivo calcolato sulla corsa di ritorno');
+  assert(!/ritorno_collettivo\s*:\s*(true|false)\b/.test(m[1]),
+    'ritorno_collettivo e scritto come true/false fisso, non calcolato');
 });
 
 /* GIRO DI CORREZIONE 1, punto 6. Il server risponde {ok:true, numeri:[...]}

@@ -102,6 +102,16 @@
    e la pagina resterebbe bianca — vedi lo stesso commento in
    pagine/richieste/transfer/index.html. */
 import { LUOGHI_ATAM } from '/comune/luoghi.js';
+/* La regola della navetta condivisa: quando si offre e cosa dice. Sta in un
+   modulo suo perche' e' fatta dei numeri del listino (solo Venezia
+   aeroporto, al massimo tre passeggeri, corsa fra le 08:00 e le 20:00,
+   ventiquattro ore di preavviso), non di grafica — e perche' e' la stessa
+   regola gia' provata da pagine/comune/navetta.test.ts e gia' usata da
+   pagine/richieste/transfer/index.html. validaTransfer (server) non la
+   applica: si fida di quello che il corpo manda, quindi la scelta deve
+   comparire SOLO quando e' vera, o l'ospite riceve una conferma scritta
+   per un servizio che non possiamo dargli. */
+import { corsaDiRitorno, navetta } from '/comune/navetta.js';
 
 /* La lettura del soggiorno resta su prepara-arrivo (il link che l'ospite
    riceve in email); l'invio va su richieste, ?a=invia-arrivo — quella
@@ -131,6 +141,8 @@ const T = {
   trLuogo:'Da dove / verso dove', trVolo:'Numero volo o treno',
   trQuando:'Giorno', trOra:'Ora', trPax:'Persone', trCell:'Cellulare per l\u2019autista',
   trServizio:'Il servizio', trPrivata:'Auto solo per lei', trNavetta:'Navetta condivisa',
+  trNavettaCostaMeno:'Si divide l\u2019auto con altri ospiti, e costa meno.',
+  trNavettaStessoPrezzo:'Si divide l\u2019auto con altri ospiti; a tre persone costa come il taxi privato.',
   trRitorno:'Mi serve anche il ritorno',
   trRitornoQuando:'Giorno del ritorno', trRitornoOra:'Ora del ritorno',
   trRitornoManca:'Indichi anche il giorno e l\u2019ora del ritorno.',
@@ -172,6 +184,8 @@ const T = {
   trLuogo:'Von wo / wohin', trVolo:'Flug- oder Zugnummer',
   trQuando:'Tag', trOra:'Uhrzeit', trPax:'Personen', trCell:'Handy für den Fahrer',
   trServizio:'Der Service', trPrivata:'Wagen nur für Sie', trNavetta:'Sammeltransfer',
+  trNavettaCostaMeno:'Sie teilen den Wagen mit anderen Gästen und zahlen weniger.',
+  trNavettaStessoPrezzo:'Sie teilen den Wagen mit anderen Gästen; zu dritt kostet er gleich viel wie das Privattaxi.',
   trRitorno:'Ich brauche auch die Rückfahrt',
   trRitornoQuando:'Tag der Rückfahrt', trRitornoOra:'Uhrzeit der Rückfahrt',
   trRitornoManca:'Bitte geben Sie auch Tag und Uhrzeit der Rückfahrt an.',
@@ -210,6 +224,8 @@ const T = {
   trLuogo:'From / to', trVolo:'Flight or train number',
   trQuando:'Day', trOra:'Time', trPax:'People', trCell:'Mobile for the driver',
   trServizio:'The service', trPrivata:'A car just for you', trNavetta:'Shared shuttle',
+  trNavettaCostaMeno:'You share the car with other guests, and it costs less.',
+  trNavettaStessoPrezzo:'You share the car with other guests; for three people it costs the same as the private taxi.',
   trRitorno:'I also need the return trip',
   trRitornoQuando:'Return day', trRitornoOra:'Return time',
   trRitornoManca:'Please also give the day and time of the return.',
@@ -248,6 +264,8 @@ const T = {
   trLuogo:'D\u2019où / vers où', trVolo:'N° de vol ou de train',
   trQuando:'Jour', trOra:'Heure', trPax:'Personnes', trCell:'Portable pour le chauffeur',
   trServizio:'Le service', trPrivata:'Une voiture pour vous seul', trNavetta:'Navette partagée',
+  trNavettaCostaMeno:'Vous partagez la voiture avec d\u2019autres clients, et cela coûte moins cher.',
+  trNavettaStessoPrezzo:'Vous partagez la voiture avec d\u2019autres clients ; à trois, le prix est le même que le taxi privé.',
   trRitorno:'J\u2019ai aussi besoin du retour',
   trRitornoQuando:'Jour du retour', trRitornoOra:'Heure du retour',
   trRitornoManca:'Veuillez indiquer aussi le jour et l\u2019heure du retour.',
@@ -300,6 +318,52 @@ function elencoNumeri(numeri){
   return puliti.length
     ? `<p style="font-family:'Courier New',monospace;letter-spacing:1px;">${puliti.join(' · ')}</p>`
     : '';
+}
+
+/* MOSTRA O NASCONDE LA SCELTA DEL SERVIZIO, e la forza a "auto privata"
+   quando la sparisce: stessa regola e stesso momento del modulo transfer
+   del sito (aggiornaNavetta() in pagine/richieste/transfer/index.html),
+   letta dal DOM invece che da variabili di stato perche' qui il servizio
+   e' una <select> vera, non due pulsanti — il valore della select E' lo
+   stato. Chiamata a ogni cambio di meta, passeggeri, giorno, ora o verso:
+   un ospite che diventa "fuori regola" cambiando uno di questi campi non
+   deve restare con "navetta condivisa" ancora selezionata sotto un blocco
+   che sta per sparire. */
+function aggiornaServizioTr(){
+  const t = T[LINGUA];
+  const box = document.getElementById('trBoxServizio');
+  if (!box) return;
+  const n = navetta({
+    luogo: document.getElementById('trLuogo').value,
+    pax: document.getElementById('trPax').value,
+    quando: document.getElementById('trQuando').value,
+    ora: document.getElementById('trOra').value,
+    verso: document.getElementById('trTipo').value,
+  }, new Date());
+  box.style.display = n ? 'block' : 'none';
+  if (!n) {
+    document.getElementById('trServizio').value = '0';
+  } else {
+    document.getElementById('trNavettaNota').textContent =
+      n.nota === 'stessoPrezzo' ? t.trNavettaStessoPrezzo : t.trNavettaCostaMeno;
+  }
+}
+
+/* IL PAVIMENTO DEL RITORNO: la data del ritorno non puo' precedere quella
+   dell'andata. Il server la rifiuta comunque ("il ritorno non puo
+   precedere l'andata", tipi.ts), ma solo dopo l'invio, e in un italiano
+   che un ospite tedesco leggerebbe come un rifiuto muto — la stessa cosa
+   per cui il punto 5 del giro precedente ha spostato 404/410 sulle
+   schermate tradotte. Legare il minimo qui evita che l'errore nasca:
+   vista succedere davvero sul modulo transfer del sito (ritorno il 18 con
+   andata il 19), da cui questa stessa regola e' ricopiata
+   (legaDateRitorno()). */
+function legaRitornoTr(){
+  const a = document.getElementById('trQuando')?.value;
+  const rq = document.getElementById('trRitornoQuando');
+  if (!rq) return;
+  if (a) rq.min = a;
+  if (a && rq.value && rq.value < a) rq.value = a;
 }
 
 function selettoreLingue(){
@@ -377,16 +441,27 @@ function modulo(){
         <div><label>${t.trVolo}</label><input type="text" id="trVolo" maxlength="40" /></div>
         <div><label>${t.trPax}</label><input type="number" id="trPax" min="1" max="8" value="${Math.min(DATI.adulti + DATI.bambini, 8)}" /></div>
       </div>
-      <!-- LA SCELTA CHE MANCAVA: senza chiederla, ogni transfer nasce
-           "auto privata" (validaTransfer risolve collettivo a false se il
-           corpo non lo manda) e quel dettaglio finisce COSI' com'e'
-           nell'email di conferma che legge l'ospite — mai offerta la
-           navetta condivisa, che su molte tratte costa meno. -->
-      <label>${t.trServizio}</label>
-      <select id="trServizio">
-        <option value="0">${t.trPrivata}</option>
-        <option value="1">${t.trNavetta}</option>
-      </select>
+      <!-- LA SCELTA COMPARE SOLO QUANDO E' VERA. navetta.js mette quattro
+           condizioni — solo Venezia aeroporto, al massimo tre passeggeri,
+           corsa fra le 08:00 e le 20:00, ventiquattro ore di preavviso — e
+           validaTransfer non ne controlla nessuna: si fida di quello che
+           il corpo manda. Un blocco sempre visibile, accanto a 189 mete e
+           un campo pax che arriva a otto, lascerebbe scegliere "navetta
+           condivisa" a chi non puo' averla, e la conferma scritta
+           all'ospite direbbe una cosa falsa — lo stesso difetto di prima,
+           girato al contrario. aggiornaServizioTr() nasconde il blocco e
+           forza "auto privata" (value="0") ogni volta che meta,
+           passeggeri, giorno, ora o verso cambiano, non solo al primo
+           caricamento — esattamente come aggiornaNavetta() nel modulo
+           transfer del sito. -->
+      <div id="trBoxServizio" style="display:none;">
+        <label>${t.trServizio}</label>
+        <select id="trServizio">
+          <option value="0">${t.trPrivata}</option>
+          <option value="1">${t.trNavetta}</option>
+        </select>
+        <div class="nota-invio" style="text-align:left;margin-top:4px;" id="trNavettaNota"></div>
+      </div>
       <label class="interruttore" style="font-size:15px;margin-top:14px;">
         <input type="checkbox" id="trRitorno" /> ${t.trRitorno}
       </label>
@@ -445,10 +520,28 @@ function modulo(){
       `<option value="${l.replace(/"/g, '&quot;')}">${l}</option>`).join('');
 
   /* la spunta mostra i suoi due campi solo quando serve: 'flex' e non
-     'block', perche' .due e' gia' un flex layout (vedi CSS) */
+     'block', perche' .due e' gia' un flex layout (vedi CSS). Quando si
+     apre, il minimo del giorno di ritorno va legato subito: senza,
+     l'ospite potrebbe scegliere una data prima ancora che trQuando gliela
+     abbia impedito. */
   document.getElementById('trRitorno').addEventListener('change', (e) => {
     document.getElementById('trBoxRitorno').style.display = e.target.checked ? 'flex' : 'none';
+    if (e.target.checked) legaRitornoTr();
   });
+
+  /* LA SCELTA DEL SERVIZIO si ricalcola a ogni cambiamento di meta,
+     passeggeri, giorno, ora e verso, perche' tutti e cinque entrano nella
+     regola di navetta.js — e una volta alla fine, sul disegno appena
+     fatto, cosi' chi arriva gia' con una meta e un pax fuori dai limiti
+     (dal token, o riaprendo la lingua) non vede il blocco comparire senza
+     motivo. */
+  ['trLuogo','trPax','trQuando','trOra','trTipo'].forEach((id) => {
+    const el = document.getElementById(id);
+    el.addEventListener('change', aggiornaServizioTr);
+    el.addEventListener('input', aggiornaServizioTr);
+  });
+  aggiornaServizioTr();
+  document.getElementById('trQuando').addEventListener('change', legaRitornoTr);
 
   document.querySelectorAll('.lingue button').forEach(b =>
     b.addEventListener('click', () => { LINGUA = b.dataset.l; modulo(); }));
@@ -503,6 +596,22 @@ async function invia(){
     return;
   }
 
+  const collettivo = v('trServizio') === '1';
+  /* IL RITORNO SI GIUDICA DA SOLO. Chi sceglie la navetta per l'andata da'
+     per scontato che valga anche al ritorno, ma un ritorno alle 22:00 in
+     arrivo e' fuori fascia (navetta.js, DALLE/ALLE): senza ricalcolarlo,
+     il modulo che prepara la prenotazione dai tassisti leggerebbe
+     ritorno_collettivo assente (il server lo risolve a false) e
+     prenoterebbe in privata un ritorno che l'ospite ha chiesto condiviso —
+     niente di falso stampato per l'ospite, ma quello che si prenota
+     divergerebbe da quello che e' stato chiesto. Stessa regola del modulo
+     transfer del sito (corsaDiRitorno() + navetta(), aggiornaRitornoNote()). */
+  const corsaRitorno = ritorno ? corsaDiRitorno({
+    luogo: v('trLuogo'), pax: Number(v('trPax')) || 1, verso: v('trTipo'),
+    ritorno_quando: v('trRitornoQuando'), ritorno_ora: v('trRitornoOra'),
+  }) : null;
+  const ritornoCollettivo = collettivo && !!(corsaRitorno && navetta(corsaRitorno, new Date()));
+
   const corpo = {
     token: TOKEN,
     /* IL TELEFONO IN CIMA AL CORPO, non dentro transfer_dati: e' li' che
@@ -532,11 +641,13 @@ async function invia(){
          risolve collettivo a false se il corpo non lo manda, e quella non
          e' una scelta neutra — finisce cosi' com'e' nel dettaglio della
          richiesta e nell'email di conferma che legge l'ospite, che non ha
-         mai visto l'alternativa piu' economica. */
-      collettivo: v('trServizio') === '1',
+         mai visto l'alternativa (su Venezia aeroporto, entro tre
+         passeggeri) piu' economica. */
+      collettivo,
       ritorno,
       ritorno_quando: ritorno ? v('trRitornoQuando') : null,
-      ritorno_ora: ritorno ? v('trRitornoOra') : null
+      ritorno_ora: ritorno ? v('trRitornoOra') : null,
+      ritorno_collettivo: ritornoCollettivo
     } : null,
     fattura: fatt,
     fattura_dati: fatt ? {
