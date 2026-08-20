@@ -111,7 +111,7 @@ import { LUOGHI_ATAM } from '/comune/luoghi.js';
    applica: si fida di quello che il corpo manda, quindi la scelta deve
    comparire SOLO quando e' vera, o l'ospite riceve una conferma scritta
    per un servizio che non possiamo dargli. */
-import { corsaDiRitorno, navetta } from '/comune/navetta.js';
+import { corsaDiRitorno, navetta, ritiroPerVolo } from '/comune/navetta.js';
 
 /* La lettura del soggiorno resta su prepara-arrivo (il link che l'ospite
    riceve in email); l'invio va su richieste, ?a=invia-arrivo — quella
@@ -143,6 +143,9 @@ const T = {
   trServizio:'Il servizio', trPrivata:'Auto solo per lei', trNavetta:'Navetta condivisa',
   trNavettaCostaMeno:'Si divide l\u2019auto con altri ospiti, e costa meno.',
   trNavettaStessoPrezzo:'Si divide l\u2019auto con altri ospiti; a tre persone costa come il taxi privato.',
+  trOraVolo:'Ora del volo',
+  trRitiroAlle:(o)=>`La prendiamo in hotel alle ${o}.`,
+  trRitiroGiornoPrima:(g,o)=>`La prendiamo in hotel il ${g} alle ${o} \u2014 il giorno prima del volo.`,
   trRitorno:'Mi serve anche il ritorno',
   trRitornoQuando:'Giorno del ritorno', trRitornoOra:'Ora del ritorno',
   trRitornoManca:'Indichi anche il giorno e l\u2019ora del ritorno.',
@@ -186,6 +189,9 @@ const T = {
   trServizio:'Der Service', trPrivata:'Wagen nur für Sie', trNavetta:'Sammeltransfer',
   trNavettaCostaMeno:'Sie teilen den Wagen mit anderen Gästen und zahlen weniger.',
   trNavettaStessoPrezzo:'Sie teilen den Wagen mit anderen Gästen; zu dritt kostet er gleich viel wie das Privattaxi.',
+  trOraVolo:'Abflugzeit',
+  trRitiroAlle:(o)=>`Wir holen Sie um ${o} am Hotel ab.`,
+  trRitiroGiornoPrima:(g,o)=>`Wir holen Sie am ${g} um ${o} ab — am Tag vor dem Flug.`,
   trRitorno:'Ich brauche auch die Rückfahrt',
   trRitornoQuando:'Tag der Rückfahrt', trRitornoOra:'Uhrzeit der Rückfahrt',
   trRitornoManca:'Bitte geben Sie auch Tag und Uhrzeit der Rückfahrt an.',
@@ -226,6 +232,9 @@ const T = {
   trServizio:'The service', trPrivata:'A car just for you', trNavetta:'Shared shuttle',
   trNavettaCostaMeno:'You share the car with other guests, and it costs less.',
   trNavettaStessoPrezzo:'You share the car with other guests; for three people it costs the same as the private taxi.',
+  trOraVolo:'Flight time',
+  trRitiroAlle:(o)=>`We pick you up at the hotel at ${o}.`,
+  trRitiroGiornoPrima:(g,o)=>`We pick you up on ${g} at ${o} — the day before your flight.`,
   trRitorno:'I also need the return trip',
   trRitornoQuando:'Return day', trRitornoOra:'Return time',
   trRitornoManca:'Please also give the day and time of the return.',
@@ -266,6 +275,9 @@ const T = {
   trServizio:'Le service', trPrivata:'Une voiture pour vous seul', trNavetta:'Navette partagée',
   trNavettaCostaMeno:'Vous partagez la voiture avec d\u2019autres clients, et cela coûte moins cher.',
   trNavettaStessoPrezzo:'Vous partagez la voiture avec d\u2019autres clients ; à trois, le prix est le même que le taxi privé.',
+  trOraVolo:'Heure du vol',
+  trRitiroAlle:(o)=>`Nous venons vous chercher à l\u2019hôtel à ${o}.`,
+  trRitiroGiornoPrima:(g,o)=>`Nous venons vous chercher le ${g} à ${o} — la veille du vol.`,
   trRitorno:'J\u2019ai aussi besoin du retour',
   trRitornoQuando:'Jour du retour', trRitornoOra:'Heure du retour',
   trRitornoManca:'Veuillez indiquer aussi le jour et l\u2019heure du retour.',
@@ -366,6 +378,85 @@ function legaRitornoTr(){
   if (a && rq.value && rq.value < a) rq.value = a;
 }
 
+/* L'UNICO CASO IN CUI "ORA" CAMBIA SIGNIFICATO: partenza scelta come
+   navetta condivisa. navetta.js (oraDellaCorsa) tratta SEMPRE il campo
+   "ora" di una partenza come l'ora del volo quando giudica se offrire la
+   navetta — anche prima che l'ospite abbia scelto il servizio, perche'
+   aggiornaServizioTr() deve poter rispondere "se fosse condivisa,
+   andrebbe bene?" senza ancora saperlo. Ma il valore SPEDITO al server
+   (validaTransfer, tipi.ts) e' gia' l'orario della corsa, non il volo: le
+   due letture combaciano solo se, quando l'ospite conferma la scelta
+   condivisa, il campo si etichetta "ora del volo" e il valore si converte
+   prima di partire — altrimenti un ospite con ritiro alle 22:00 vede
+   offrirsi una navetta che a quell'ora non esiste, e uno con ritiro alle
+   9:00 se la vede negare per errore. Stessa forma di
+   conNavettaInPartenza() nel modulo transfer del sito. */
+function conNavettaInPartenzaTr(){
+  return document.getElementById('trServizio').value === '1'
+    && document.getElementById('trTipo').value === 'partenza';
+}
+
+/* il giorno prima di una data ISO, come GG/MM, senza fusi (mezzogiorno per
+   non inciampare nell'ora legale) — copia di giornoPrimaDi() nel modulo
+   transfer del sito */
+function giornoPrimaDiTr(iso){
+  const d = new Date(iso + 'T12:00:00');
+  d.setDate(d.getDate() - 1);
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/* Cambia l'etichetta del campo e mostra sotto l'orario di ritiro vero,
+   cosi' l'ospite legge a che ora passiamo a prenderlo invece di doverlo
+   calcolare da solo. Va richiamata a ogni cambio che tocca la domanda
+   "e' partenza+condivisa?" o il suo risultato: servizio, verso, ora,
+   giorno (per la nota "il giorno prima del volo"). Stessa forma di
+   aggiornaRitiro() nel modulo transfer del sito. */
+function aggiornaRitiroTr(){
+  const t = T[LINGUA];
+  const eti = document.getElementById('trEtiOra');
+  const nota = document.getElementById('trNotaRitiro');
+  if (!eti || !nota) return;
+  const attivo = conNavettaInPartenzaTr();
+  eti.firstChild.nodeValue = attivo ? t.trOraVolo : t.trOra;
+  const r = attivo ? ritiroPerVolo(document.getElementById('trOra').value) : null;
+  if (!r) { nota.textContent = ''; return; }
+  const quando = document.getElementById('trQuando').value;
+  nota.textContent = r.giornoPrima && quando
+    ? t.trRitiroGiornoPrima(giornoPrimaDiTr(quando), r.ora)
+    : t.trRitiroAlle(r.ora);
+}
+
+/* Giorno e ora della corsa come la manda il corpo, piu' l'ora del volo da
+   cui nascono quando serve convertire. Fuori dal caso partenza+condivisa
+   non cambia niente: quello che l'ospite ha scritto e' gia' l'ora del
+   ritiro, come dice l'etichetta. Prende `v` (il lettore di campi gia'
+   definito dentro invia()) come parametro invece di presupporlo in scope:
+   il modulo transfer del sito lo chiama cosi' com'e' (`v('fOra')`) senza
+   che una `v` sia mai definita in quel file — un riferimento a niente che
+   lancerebbe ReferenceError alla prima corsa in partenza con la navetta
+   condivisa selezionata. Non l'ho copiato: e' un difetto di quel file, non
+   di questa regola, e non tocca ne' navetta.js ne' la conversione stessa
+   (vedi il rapporto). Stessa forma di corsaVera() nel modulo transfer del
+   sito, solo con `v` esplicito. */
+function corsaVeraTr(v){
+  const quando = v('trQuando');
+  const scritta = v('trOra');
+  if (!conNavettaInPartenzaTr()) return { quando, ora: scritta };
+
+  const r = ritiroPerVolo(scritta);
+  if (!r) return { quando, ora: scritta };
+
+  let giorno = quando;
+  if (r.giornoPrima && quando) {
+    const d = new Date(quando + 'T12:00:00');
+    d.setDate(d.getDate() - 1);
+    giorno = d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+  return { quando: giorno, ora: r.ora, ora_volo: scritta };
+}
+
 function selettoreLingue(){
   return `<div class="lingue">${['it','de','en','fr'].map(l =>
     `<button type="button" data-l="${l}" class="${l===LINGUA?'attiva':''}">${l.toUpperCase()}</button>`).join('')}</div>`;
@@ -435,7 +526,15 @@ function modulo(){
       <select id="trLuogo"></select>
       <div class="due">
         <div><label>${t.trQuando}</label><input type="date" id="trQuando" /></div>
-        <div><label>${t.trOra}</label><input type="time" id="trOra" /></div>
+        <!-- L'ETICHETTA E LA NOTA CAMBIANO SOLO con partenza + navetta
+             condivisa: e' l'unico caso in cui "Ora" smette di essere
+             l'orario della corsa e diventa l'ora del volo, da cui il
+             ritiro si ricava (navetta.js, ritiroPerVolo). Vedi
+             aggiornaRitiroTr() e corsaVeraTr() piu' sotto — stessa forma
+             di aggiornaRitiro()/corsaVera() nel modulo transfer del sito. -->
+        <div><label id="trEtiOra">${t.trOra}</label><input type="time" id="trOra" />
+          <div class="nota-invio" style="text-align:left;margin-top:4px;" id="trNotaRitiro"></div>
+        </div>
       </div>
       <div class="due">
         <div><label>${t.trVolo}</label><input type="text" id="trVolo" maxlength="40" /></div>
@@ -543,6 +642,16 @@ function modulo(){
   aggiornaServizioTr();
   document.getElementById('trQuando').addEventListener('change', legaRitornoTr);
 
+  /* L'ETICHETTA E LA NOTA DEL RITIRO seguono la stessa domanda del
+     cancello (partenza+condivisa?), ma la risposta cambia anche quando
+     cambiano il verso o il servizio da soli — non solo meta/pax/giorno/
+     ora, che gia' fanno ricalcolare l'eleggibilita' sopra. */
+  document.getElementById('trOra').addEventListener('input', aggiornaRitiroTr);
+  document.getElementById('trQuando').addEventListener('change', aggiornaRitiroTr);
+  document.getElementById('trTipo').addEventListener('change', aggiornaRitiroTr);
+  document.getElementById('trServizio').addEventListener('change', aggiornaRitiroTr);
+  aggiornaRitiroTr();
+
   document.querySelectorAll('.lingue button').forEach(b =>
     b.addEventListener('click', () => { LINGUA = b.dataset.l; modulo(); }));
   ['schedaFatt','schedaTr'].forEach(id => {
@@ -597,6 +706,12 @@ async function invia(){
   }
 
   const collettivo = v('trServizio') === '1';
+  /* GIORNO E ORA VERI DELLA CORSA, non necessariamente quello che l'ospite
+     ha scritto: con partenza+condivisa il campo contiene l'ora del volo, e
+     corsaVeraTr() la converte nell'ora di ritiro (arretrando la data se il
+     ritiro cade il giorno prima) prima che parta qualunque cosa. Fuori da
+     quel caso non cambia niente. */
+  const corsaTr = tr ? corsaVeraTr(v) : null;
   /* IL RITORNO SI GIUDICA DA SOLO. Chi sceglie la navetta per l'andata da'
      per scontato che valga anche al ritorno, ma un ritorno alle 22:00 in
      arrivo e' fuori fascia (navetta.js, DALLE/ALLE): senza ricalcolarlo,
@@ -635,7 +750,13 @@ async function invia(){
     note: v('note'),
     transfer: tr,
     transfer_dati: tr ? {
-      verso: v('trTipo'), luogo: v('trLuogo'), quando: v('trQuando'), ora: v('trOra'),
+      verso: v('trTipo'), luogo: v('trLuogo'), quando: corsaTr.quando, ora: corsaTr.ora,
+      /* IL DATO DA CUI NASCE LA CONVERSIONE: senza, chi legge "ora" in
+         reception vede solo l'orario di ritiro e non puo' verificare da
+         quale volo viene ne' correggerlo se il volo cambia. Assente (non
+         partenza+condivisa) resta null, come prezzo_cent: "non c'e'" e
+         "e' zero" sono due cose diverse. */
+      ora_volo: corsaTr.ora_volo || null,
       pax: Number(v('trPax')) || 1, volo: v('trVolo'),
       /* SENZA QUESTO IL TRANSFER NASCE SEMPRE "AUTO PRIVATA": validaTransfer
          risolve collettivo a false se il corpo non lo manda, e quella non

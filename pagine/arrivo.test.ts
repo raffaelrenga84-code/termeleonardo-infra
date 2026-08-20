@@ -163,6 +163,13 @@ Deno.test('la scelta del servizio compare solo quando navetta() la permette, e s
   assert(/trLuogo/.test(corpoFn) && /trPax/.test(corpoFn) && /trQuando/.test(corpoFn)
     && /trOra/.test(corpoFn) && /trTipo/.test(corpoFn),
     'aggiornaServizioTr non guarda tutti e cinque i campi da cui dipende navetta()');
+  /* GIRO DI CORREZIONE 3: la prova non collegava mai la VISIBILITA' al
+     risultato di navetta() — sostituendo l'assegnazione condizionale con
+     `box.style.display = 'block'` fisso, tutte le prove restavano verdi e
+     il menu tornava sempre visibile (il punto 1 del giro precedente, di
+     nuovo). Ora pretende l'assegnazione condizionata sul risultato `n`. */
+  assert(/box\.style\.display\s*=\s*n\s*\?\s*['"]block['"]\s*:\s*['"]none['"]/.test(corpoFn),
+    'la visibilita del blocco non segue piu il risultato di navetta(): potrebbe essere un valore fisso');
   assert(/trServizio['"]\)\.value\s*=\s*['"]0['"]/.test(corpoFn),
     'quando navetta() nega, il servizio non torna forzato a "auto privata"');
   /* deve ricalcolarsi da sola quando l'ospite cambia meta, passeggeri,
@@ -246,6 +253,16 @@ Deno.test('la data di ritorno non puo cadere prima di quella di andata', () => {
 Deno.test('il ritorno eredita "collettivo" solo se la sua corsa lo permette davvero', () => {
   assert(/corsaDiRitorno\(\{/.test(SORGENTE),
     'la pagina non calcola la corsa di ritorno: ritorno_collettivo non puo dipendere da niente');
+  /* GIRO DI CORREZIONE 3: la prova pretendeva che corsaDiRitorno() venisse
+     chiamata da qualche parte, ma non che il suo risultato tornasse
+     davanti a navetta() per un secondo giudizio. Togliendo la chiamata a
+     navetta() e lasciando `!!corsaRitorno` da solo, il ritorno erediterebbe
+     in silenzio la scelta dell'andata — il punto 3 del giro precedente, di
+     nuovo — e questa prova restava verde lo stesso. Ora pretende che
+     ritornoCollettivo nasca da `navetta(corsaRitorno, ...)`, non dalla sola
+     presenza della corsa. */
+  assert(/const ritornoCollettivo\s*=\s*collettivo\s*&&\s*!!\(\s*corsaRitorno\s*&&\s*navetta\(\s*corsaRitorno\s*,/.test(SORGENTE),
+    'ritornoCollettivo non ripassa la corsa di ritorno per navetta(): il ritorno erediterebbe la scelta dell andata senza controllo');
   const m = SORGENTE.match(/transfer_dati:\s*tr\s*\?\s*\{([\s\S]*?)\}\s*:\s*null/);
   assert(m, 'non si trova transfer_dati nel corpo');
   assert(/ritorno_collettivo\s*(,|:\s*ritornoCollettivo\b)/.test(m[1]),
@@ -270,4 +287,78 @@ Deno.test('link non valido e soggiorno scaduto restano schermate tradotte, non u
     'il 404 sull invio non porta piu alla schermata "link non valido"');
   assert(/status\s*===\s*410[\s\S]{0,80}?scadutoT/.test(SORGENTE),
     'il 410 sull invio non porta piu alla schermata "soggiorno scaduto"');
+});
+
+/* ============================================================
+   GIRO DI CORREZIONE 3 — punto 1: partenza + navetta condivisa.
+
+   navetta.js tratta SEMPRE il campo "ora" di una partenza come l'ora del
+   volo (per giudicare se offrire la navetta), ma validaTransfer (server)
+   lo documenta come gia' l'orario della corsa: le due letture si
+   contraddicono, e la contraddizione e' stata VERIFICATA ESEGUENDO
+   navetta() sul modulo vero — partenza 09:00 negata (il ritiro vero
+   sarebbe dentro la fascia), partenza 22:00 offerta (il ritiro vero cade
+   due ore fuori servizio). Senza riconciliarle, un ospite con ritiro alle
+   22:00 riceve una conferma scritta per una corsa che la navetta non fa a
+   quell'ora.
+   ============================================================ */
+
+/* L'etichetta e la nota cambiano solo quando SERVE davvero: partenza
+   scelta come navetta condivisa. In ogni altro caso (arrivo, o partenza
+   con auto privata) "ora" resta quello che l'ospite legge da sempre. */
+Deno.test('l etichetta "ora" diventa "ora del volo" solo con partenza e navetta condivisa', () => {
+  assert(/from ['"]\/comune\/navetta\.js['"]/.test(SORGENTE) && /ritiroPerVolo/.test(SORGENTE),
+    'la pagina non importa ritiroPerVolo da /comune/navetta.js');
+  const fn = SORGENTE.match(/function conNavettaInPartenzaTr\(\)\{([\s\S]*?)\n\}/);
+  assert(fn, 'conNavettaInPartenzaTr() non si trova per intero');
+  assert(/trServizio['"]\)\.value\s*===\s*['"]1['"]/.test(fn[1])
+    && /trTipo['"]\)\.value\s*===\s*['"]partenza['"]/.test(fn[1])
+    && /&&/.test(fn[1]),
+    'conNavettaInPartenzaTr non pretende ENTRAMBE le condizioni (servizio condiviso E partenza): un arrivo o una partenza privata cambierebbero etichetta senza motivo');
+
+  const ag = SORGENTE.match(/function aggiornaRitiroTr\(\)\{([\s\S]*?)\n\}/);
+  assert(ag, 'aggiornaRitiroTr() non si trova per intero');
+  assert(/conNavettaInPartenzaTr\(\)/.test(ag[1]), 'aggiornaRitiroTr non controlla conNavettaInPartenzaTr()');
+  assert(/getElementById\(\s*['"]trEtiOra['"]\s*\)/.test(ag[1]),
+    'aggiornaRitiroTr non legge l etichetta trEtiOra');
+  assert(/firstChild\.nodeValue\s*=\s*\w+\s*\?\s*t\.trOraVolo\s*:\s*t\.trOra\b/.test(ag[1]),
+    'aggiornaRitiroTr non scambia l etichetta fra "Ora" e "Ora del volo"');
+  assert(/ritiroPerVolo\(/.test(ag[1]), 'aggiornaRitiroTr non calcola il ritiro vero da ritiroPerVolo()');
+
+  /* niente \s* prima dei due punti: senza, "t.trOraVolo : t.trOra" nel
+     ternario di aggiornaRitiroTr() conterebbe come una quinta "definizione" */
+  assert((SORGENTE.match(/trOraVolo:/g) || []).length === 4,
+    'l etichetta "ora del volo" non e in tutte e quattro le lingue');
+  assert((SORGENTE.match(/trRitiroAlle:/g) || []).length === 4,
+    'la nota del ritiro non e in tutte e quattro le lingue');
+});
+
+/* Il valore che PARTE deve essere gia' convertito, non solo l etichetta che
+   lo introduce: altrimenti il server riceve ancora l ora del volo scambiata
+   per orario della corsa, ed e' esattamente il difetto che l etichetta da
+   sola non basta a chiudere. */
+Deno.test('prima di partire, l ora del volo si converte nell ora di ritiro', () => {
+  const fn = SORGENTE.match(/function corsaVeraTr\(v\)\{([\s\S]*?)\n\}/);
+  assert(fn, 'corsaVeraTr() non si trova per intero');
+  assert(/conNavettaInPartenzaTr\(\)/.test(fn[1]),
+    'corsaVeraTr non controlla conNavettaInPartenzaTr(): potrebbe convertire anche gli arrivi o le partenze private');
+  assert(/ritiroPerVolo\(/.test(fn[1]), 'corsaVeraTr non chiama ritiroPerVolo()');
+  /* IL GIORNO PRIMA: un volo notturno fa arretrare la data, o si prenota un
+     taxi per il giorno sbagliato — il punto su cui il messaggio di
+     revisione chiedeva di fermarsi e chiedere invece di indovinare. */
+  assert(/giornoPrima/.test(fn[1]) && /setDate\(.*-\s*1\)/.test(fn[1]),
+    'corsaVeraTr non arretra la data quando il ritiro cade il giorno prima del volo');
+  assert(/ora_volo:\s*scritta/.test(fn[1]),
+    'corsaVeraTr non porta con se ora_volo, il dato da cui nasce la conversione');
+
+  const corpo = SORGENTE.match(/const corpo = \{[\s\S]*?\n  \};/);
+  assert(corpo, 'non si trova la costruzione del corpo in invia()');
+  assert(/const corsaTr\s*=\s*tr\s*\?\s*corsaVeraTr\(v\)\s*:\s*null/.test(SORGENTE),
+    'invia() non calcola corsaTr con corsaVeraTr(v) prima di costruire il corpo');
+  const td = SORGENTE.match(/transfer_dati:\s*tr\s*\?\s*\{([\s\S]*?)\}\s*:\s*null/);
+  assert(td, 'non si trova transfer_dati nel corpo');
+  assert(/quando:\s*corsaTr\.quando/.test(td[1]) && /ora:\s*corsaTr\.ora/.test(td[1]),
+    'transfer_dati manda ancora il valore grezzo di trQuando/trOra invece del risultato di corsaVeraTr()');
+  assert(/ora_volo:\s*corsaTr\.ora_volo/.test(td[1]),
+    'transfer_dati non manda ora_volo: chi legge in reception non puo verificare la conversione');
 });
