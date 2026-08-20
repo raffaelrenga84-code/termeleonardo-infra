@@ -166,15 +166,15 @@ Deno.test('un orario che non e un orario non produce un ritiro', () => {
    ============================================================ */
 const inFascia = (extra: Record<string, unknown>) => navetta(corsa(extra), ADESSO);
 
-Deno.test('in arrivo la navetta va dalle 8 alle 20, estremi compresi', () => {
-  assert(inFascia({ verso: 'arrivo', ora: '08:00' }), 'le 8:00 in punto sono dentro');
-  assert(inFascia({ verso: 'arrivo', ora: '20:00' }), 'le 20:00 in punto sono dentro');
+Deno.test('in arrivo la navetta va dalle 9 alle 18, estremi compresi', () => {
+  assert(inFascia({ verso: 'arrivo', ora: '09:00' }), 'le 9:00 in punto sono dentro');
+  assert(inFascia({ verso: 'arrivo', ora: '18:00' }), 'le 18:00 in punto sono dentro');
   assert(inFascia({ verso: 'arrivo', ora: '13:00' }));
 });
 
 Deno.test('fuori fascia in arrivo la navetta non si offre', () => {
-  assertEquals(inFascia({ verso: 'arrivo', ora: '07:59' }), null);
-  assertEquals(inFascia({ verso: 'arrivo', ora: '20:01' }), null);
+  assertEquals(inFascia({ verso: 'arrivo', ora: '08:59' }), null);
+  assertEquals(inFascia({ verso: 'arrivo', ora: '18:01' }), null);
   assertEquals(inFascia({ verso: 'arrivo', ora: '23:30' }), null);
   assertEquals(inFascia({ verso: 'arrivo', ora: '05:00' }), null);
 });
@@ -186,8 +186,10 @@ Deno.test('in partenza la fascia si misura sulla corsa, non sul volo', () => {
   assert(inFascia({ verso: 'partenza', ora: '14:30' }));
   /* volo alle 11:00 → ritiro alle 8:00 in punto: dentro */
   assert(inFascia({ verso: 'partenza', ora: '11:00' }));
-  /* volo alle 23:00 → ritiro alle 20:00 in punto: dentro */
-  assert(inFascia({ verso: 'partenza', ora: '23:00' }));
+  /* volo alle 20:00 → ritiro alle 17:00 in punto: dentro, e' l'ultimo */
+  assert(inFascia({ verso: 'partenza', ora: '20:00' }));
+  /* e mezz'ora dopo no: il ritiro sarebbe alle 17:30, il servizio ha chiuso */
+  assertEquals(inFascia({ verso: 'partenza', ora: '20:30' }), null);
 });
 
 Deno.test('un volo troppo presto o troppo tardi resta senza navetta', () => {
@@ -231,11 +233,23 @@ Deno.test('il ritorno tiene luogo e passeggeri dell andata', () => {
 
 /* IL CASO DELLA SCHERMATA: ritorno alle 22:00. Il ritorno di un arrivo e'
    una partenza, quindi le 22:00 sono l'ora del volo e il ritiro cadrebbe
-   alle 19:00 — dentro la fascia. Ma un ritorno alle 22 su un ARRIVO (cioe'
-   qualcuno che viene preso in aeroporto alle 22) e' fuori. */
-Deno.test('un ritorno alle 22 in partenza resta possibile: il ritiro e alle 19', () => {
+   alle 19:00.
+
+   Con la fascia unica 8-20 ci stava, e questa prova lo pretendeva. Con le
+   due fasce vere non ci sta piu': in partenza il servizio chiude alle
+   17:00. Il caso resta interessante — e' quello che aveva fatto scrivere
+   la prova — ma l'esito si ribalta, e la ragione va scritta o il prossimo
+   che la legge pensera' a una regressione. */
+Deno.test('un ritorno alle 22 non ha navetta: il ritiro sarebbe alle 19', () => {
   const r = corsaDiRitorno({ verso: 'arrivo', luogo: AEROPORTO, pax: 2, ritorno_quando: FRA_TRE_GIORNI, ritorno_ora: '22:00' });
-  assert(r && navetta(r, ADESSO), 'volo alle 22, ritiro alle 19: doveva starci');
+  assert(r, 'la corsa di ritorno non e stata costruita');
+  assertEquals(navetta(r!, ADESSO), null, 'ritiro alle 19:00: il servizio ha chiuso alle 17:00');
+});
+
+/* E il ritorno che invece ci sta: volo alle 19:00, ritiro alle 16:00. */
+Deno.test('un ritorno alle 19 ha la navetta: il ritiro e alle 16', () => {
+  const r = corsaDiRitorno({ verso: 'arrivo', luogo: AEROPORTO, pax: 2, ritorno_quando: FRA_TRE_GIORNI, ritorno_ora: '19:00' });
+  assert(r && navetta(r, ADESSO), 'volo alle 19, ritiro alle 16: doveva starci');
 });
 
 Deno.test('un ritorno che riporta in hotel alle 22 non ha navetta', () => {
@@ -245,4 +259,67 @@ Deno.test('un ritorno che riporta in hotel alle 22 non ha navetta', () => {
 
 Deno.test('senza giorno del ritorno non c e nessuna corsa di ritorno', () => {
   assertEquals(corsaDiRitorno({ verso: 'arrivo', luogo: AEROPORTO, pax: 2 }), null);
+});
+
+
+/* ============================================================
+   DUE FASCE, NON UNA — confermato dalla proprieta' il 20 agosto 2026.
+
+       partenze   dalle 8:00 alle 17:00
+       arrivi     dalle 9:00 alle 18:00
+
+   Prima ce n'era una sola, 8:00-20:00, e valeva per tutti e due i versi.
+   Era piu' larga del servizio vero in partenza (di tre ore) e piu' larga di
+   un'ora in arrivo: il modulo offriva corse che i tassisti non fanno, e
+   l'ospite se lo sentiva dire dalla reception a richiesta gia' mandata.
+
+   E l'agente vocale diceva la cosa giusta mentre il sito ne diceva
+   un'altra: e' cosi' che la divergenza e' saltata fuori.
+
+   LA FASCIA VALE SULLA CORSA, non su quello che l'ospite scrive. In
+   partenza il campo contiene l'ora del VOLO e la corsa parte tre ore prima,
+   quindi restano i voli fra le 11:00 e le 20:00.
+   ============================================================ */
+
+Deno.test('in partenza la corsa delle 17 si offre, quella delle 17:30 no', () => {
+  /* il campo porta l'ora del volo: la corsa e' tre ore prima */
+  const alle17 = navetta(corsa({ verso: 'partenza', ora: '20:00' }), ADESSO);
+  const alle1730 = navetta(corsa({ verso: 'partenza', ora: '20:30' }), ADESSO);
+  assert(alle17, 'la corsa delle 17:00 e stata negata');
+  assertEquals(alle1730, null, 'la corsa delle 17:30 e stata offerta');
+});
+
+Deno.test('in partenza la corsa delle 8 si offre, quella delle 7:30 no', () => {
+  assert(navetta(corsa({ verso: 'partenza', ora: '11:00' }), ADESSO), 'le 8:00 negate');
+  assertEquals(navetta(corsa({ verso: 'partenza', ora: '10:30' }), ADESSO), null,
+    'le 7:30 offerte');
+});
+
+Deno.test('in arrivo la fascia e piu tarda: fino alle 18, non alle 17', () => {
+  assert(navetta(corsa({ verso: 'arrivo', ora: '18:00' }), ADESSO), 'le 18:00 negate');
+  assertEquals(navetta(corsa({ verso: 'arrivo', ora: '18:30' }), ADESSO), null,
+    'le 18:30 offerte');
+});
+
+Deno.test('in arrivo comincia piu tardi: le 9, non le 8', () => {
+  assert(navetta(corsa({ verso: 'arrivo', ora: '09:00' }), ADESSO), 'le 9:00 negate');
+  assertEquals(navetta(corsa({ verso: 'arrivo', ora: '08:30' }), ADESSO), null,
+    'le 8:30 offerte');
+});
+
+/* La prova che distingue le due fasce da una sola: c'e' un'ora che va bene
+   in un verso e non nell'altro, in tutti e due i sensi. Con una fascia
+   unica questa non potrebbe passare. */
+Deno.test('la stessa ora vale in un verso e non nell altro', () => {
+  /* le 8:30: buone in partenza (dentro 8-17), fuori in arrivo (comincia alle 9) */
+  assert(navetta(corsa({ verso: 'partenza', ora: '11:30' }), ADESSO),
+    'corsa delle 8:30 in partenza: dovrebbe andare');
+  assertEquals(navetta(corsa({ verso: 'arrivo', ora: '08:30' }), ADESSO), null,
+    'corsa delle 8:30 in arrivo: non dovrebbe andare');
+
+  /* le 17:30: fuori in partenza (finisce alle 17), buone in arrivo (fino alle 18) */
+  assertEquals(navetta(corsa({ verso: 'partenza', ora: '20:30' }), ADESSO), null,
+    'corsa delle 17:30 in partenza: non dovrebbe andare');
+  assert(navetta(corsa({ verso: 'arrivo', ora: '17:30' }), ADESSO),
+    'corsa delle 17:30 in arrivo: dovrebbe andare');
 });

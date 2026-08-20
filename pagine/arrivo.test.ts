@@ -370,14 +370,14 @@ Deno.test('prima di partire, l ora del volo si converte nell ora di ritiro', () 
    due funzioni distinte, e fino a qui la seconda non veniva richiamata
    quando la prima chiudeva il cancello. Il seguito era questo:
 
-     partenza · Venezia aeroporto · 2 persone · ora 22:00 · navetta scelta
-       -> etichetta «Ora del volo», nota «La prendiamo in hotel alle 19:00.»
+     partenza · Venezia aeroporto · 2 persone · ora 19:00 · navetta scelta
+       -> etichetta «Ora del volo», nota «La prendiamo in hotel alle 16:00.»
      poi l'ospite alza i passeggeri a cinque
        -> il blocco sparisce e il servizio torna «auto privata» (giusto),
-          MA l'etichetta resta «Ora del volo» e la nota resta «alle 19:00»
+          MA l'etichetta resta «Ora del volo» e la nota resta «alle 16:00»
 
-   L'ospite legge che lo prendiamo alle 19:00; alla reception, e al
-   tassista, arriva 22:00. Due ragioni, tutte e due chiuse dalla
+   L'ospite legge che lo prendiamo alle 16:00; alla reception, e al
+   tassista, arriva 19:00. Due ragioni, tutte e due chiuse dalla
    correzione: trLuogo e trPax erano legati soltanto al cancello, e
    forzare trServizio.value da codice NON fa scattare l'evento 'change' a
    cui aggiornaRitiroTr era appesa.
@@ -498,12 +498,16 @@ function fraGiorni(n: number): string {
     '-' + String(d.getDate()).padStart(2, '0');
 }
 
-/* una partenza da Venezia aeroporto in due, volo alle 22:00, fra un mese:
-   ritiro alle 19:00, dentro la fascia 08:00-20:00, preavviso abbondante —
+/* una partenza da Venezia aeroporto in due, volo alle 19:00, fra un mese:
+   ritiro alle 16:00, dentro la fascia delle partenze 08:00-17:00, preavviso abbondante —
    navetta offerta. E' il caso illustrato dal revisore. */
 const PARTENZA_CON_NAVETTA = {
   trTipo: 'partenza', trLuogo: 'Venezia  aeroporto', trPax: '2',
-  trQuando: fraGiorni(30), trOra: '22:00', trServizio: '0',
+  /* volo alle 19:00 -> ritiro alle 16:00: dentro la fascia delle
+     partenze (8:00-17:00). Prima qui c'erano le 22:00, che col ritiro alle
+     19:00 stavano nella vecchia fascia unica 8-20 e adesso sono fuori: la
+     guardia di non-vacuita di queste prove l'ha detto subito. */
+  trQuando: fraGiorni(30), trOra: '19:00', trServizio: '0',
 };
 
 /* l'ospite sceglie davvero la navetta: e' un `change` fatto da lui, quello
@@ -515,7 +519,7 @@ function scegliNavetta(s: ScenaTr) {
   s.campo('trServizio').scatena('change');
   assertEquals(s.etichetta(), 'Ora del volo',
     'scegliendo la navetta l etichetta non e diventata "Ora del volo"');
-  assertEquals(s.nota(), 'La prendiamo in hotel alle 19:00.',
+  assertEquals(s.nota(), 'La prendiamo in hotel alle 16:00.',
     'la nota non dice l orario di ritiro vero');
 }
 
@@ -533,7 +537,7 @@ Deno.test('alzando i passeggeri, l etichetta e la nota tornano allo stato normal
   assertEquals(s.etichetta(), 'Ora',
     'l etichetta e rimasta "Ora del volo" dopo che la navetta e sparita: l ospite legge un orario che non prenotiamo');
   assertEquals(s.nota(), '',
-    'la nota promette ancora un ritiro alle 19:00 mentre alla reception arriva 22:00');
+    'la nota promette ancora un ritiro alle 16:00 mentre alla reception arriva 19:00');
 });
 
 /* Stessa classe di difetto per la meta: trLuogo era legato soltanto al

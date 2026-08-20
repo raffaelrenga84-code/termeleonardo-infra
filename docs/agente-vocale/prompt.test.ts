@@ -62,29 +62,35 @@ function costante(percorso: string, nome: string): string {
 /* Il prompt dichiara una fascia oraria a parole; navetta.js e' quello che
    decide davvero se il modulo del sito la offre. Se divergono, l'agente
    nega al telefono una corsa che il sito accetta. */
-Deno.test('la fascia oraria della navetta e quella vera', () => {
-  const p = prompt();
-  if (!p) return; // lo dice gia' la prova sopra
-  const dalle = costante('../../pagine/comune/navetta.js', 'DALLE');
-  const alle = costante('../../pagine/comune/navetta.js', 'ALLE');
-  assertEquals([dalle, alle], ['08:00', '20:00'], 'navetta.js e cambiata: aggiornare questa prova');
+Deno.test('le due fasce della navetta sono quelle vere', () => {
+  const testoPrompt = prompt();
+  if (!testoPrompt) return; // lo dice gia la prova sopra
+
+  /* le fasce vere, lette dal modulo che governa i moduli del sito */
+  const modulo = testo('../../pagine/comune/navetta.js');
+  const m = modulo.match(/partenza: \{ dalle: '([^']+)', alle: '([^']+)' \},\s*arrivo: \{ dalle: '([^']+)', alle: '([^']+)' \}/);
+  assert(m, 'FASCE non si trova in navetta.js: la regola e cambiata forma');
+  const [, pDalle, pAlle, aDalle, aAlle] = m!;
 
   /* nel prompt gli orari sono scritti in lettere */
-  const inLettere: Record<string, string[]> = {
-    '08:00': ['otto'],
-    '20:00': ['venti', 'venti e trenta'],
+  const inLettere: Record<string, string> = {
+    '08:00': 'otto', '09:00': 'nove', '17:00': 'diciassette', '18:00': 'diciotto',
   };
-  const fasciaNelPrompt = p.match(/navetta[\s\S]{0,400}?fra le ([a-z ]+?) e le ([a-z ]+?)[\s,.]/i);
-  assert(fasciaNelPrompt, 'la fascia oraria della navetta non si trova nel prompt');
-  const [, da, a] = fasciaNelPrompt!;
-  assert(
-    inLettere['08:00'].some((x) => da.trim().startsWith(x)),
-    `il prompt fa partire la navetta «${da.trim()}», navetta.js dice ${dalle}`,
+  for (const ora of [pDalle, pAlle, aDalle, aAlle]) {
+    assert(inLettere[ora],
+      `la fascia ${ora} non ha una forma in lettere: aggiornare questa prova`);
+  }
+
+  const riga = testoPrompt.match(
+    /partenze fra le ([a-z ]+?) e le ([a-z ]+?) e arrivi fra le ([a-z ]+?) e le ([a-z ]+?)\*\*/i,
   );
-  assert(
-    inLettere['20:00'].some((x) => a.trim().startsWith(x)),
-    `il prompt fa finire la navetta «${a.trim()}», navetta.js dice ${alle}`,
-  );
+  assert(riga, 'la fascia oraria della navetta non si trova nel prompt');
+  const dette = [riga![1], riga![2], riga![3], riga![4]].map((x) => x.trim());
+  const attese = [pDalle, pAlle, aDalle, aAlle].map((x) => inLettere[x]);
+
+  assertEquals(dette, attese,
+    'il prompt e navetta.js dicono due fasce diverse: al telefono si sente ' +
+      'una cosa e sul sito se ne vede un altra');
 });
 
 /* ---------- le categorie di camera ---------- */

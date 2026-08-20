@@ -70,7 +70,8 @@ export function navetta(dati, adesso) {
   if (!corsa) return null;
   /* senza un'ora la fascia non si puo' giudicare: non si nega per un dato
      che l'ospite non ha ancora scritto */
-  if (corsa.ora && (corsa.ora < DALLE || corsa.ora > ALLE)) return null;
+  const fascia = fasciaDi(dati.verso);
+  if (corsa.ora && (corsa.ora < fascia.dalle || corsa.ora > fascia.alle)) return null;
 
   const partenza = momento(dati.quando, corsa.ora);
   if (!partenza) return null;
@@ -81,19 +82,38 @@ export function navetta(dati, adesso) {
   return { nota: pax >= 3 ? 'stessoPrezzo' : 'costaMeno' };
 }
 
-/* LA FASCIA ORARIA. Il servizio collettivo va dalle 8:00 alle 20:00,
-   estremi compresi (confermato dalla proprieta' il 18 agosto 2026).
+/* LE FASCE ORARIE — DUE, NON UNA (confermate dalla proprieta' il 20 agosto
+   2026, estremi compresi):
 
-   Vale sulla CORSA. Siccome per le partenze la corsa parte tre ore prima
-   del volo, di fatto restano i voli fra le 11:00 e le 23:00: un volo alle
-   6 del mattino vorrebbe un ritiro alle 3 di notte, e un volo all'una di
-   notte un ritiro alle 22:00 del giorno prima — fuori tutti e due.
+       partenze   dalle 8:00 alle 17:00
+       arrivi     dalle 9:00 alle 18:00
 
-   Senza questa regola il modulo li avrebbe offerti lo stesso: un impegno
-   che il servizio non puo' mantenere, preso in automatico e scoperto solo
-   dalla reception, a richiesta gia' inviata. */
-export const DALLE = '08:00';
-export const ALLE = '20:00';
+   Prima qui ce n'era una sola, 8:00-20:00, buona per tutti e due i versi.
+   Era piu' larga del servizio vero: tre ore in partenza e un'ora in arrivo.
+   Il modulo offriva corse che i tassisti non fanno, e l'ospite lo scopriva
+   dalla reception a richiesta gia' mandata.
+
+   E' saltata fuori confrontando questo file col prompt dell'agente vocale,
+   che le due fasce le diceva giuste: al telefono si sentiva una cosa e sul
+   sito se ne vedeva un'altra. Adesso docs/agente-vocale/prompt.test.ts
+   confronta i due testi a ogni giro di prove.
+
+   VALGONO SULLA CORSA, non su quello che l'ospite scrive. In partenza il
+   campo contiene l'ora del VOLO e la corsa parte tre ore prima: di fatto
+   restano i voli fra le 11:00 e le 20:00. Un volo alle 6 del mattino
+   vorrebbe un ritiro alle 3 di notte, e uno all'una di notte un ritiro
+   alle 22:00 del giorno prima: fuori tutti e due. */
+export const FASCE = {
+  partenza: { dalle: '08:00', alle: '17:00' },
+  arrivo: { dalle: '09:00', alle: '18:00' },
+};
+
+/** La fascia che vale per questo verso. Tutto cio' che non e' «partenza»
+ *  e' un arrivo: e' la stessa lettura che fa oraDellaCorsa qui sotto, e le
+ *  due non devono poter divergere. */
+export function fasciaDi(verso) {
+  return verso === 'partenza' ? FASCE.partenza : FASCE.arrivo;
+}
 
 function oraDellaCorsa(dati) {
   if (dati.verso === 'partenza') return ritiroPerVolo(dati.ora);
