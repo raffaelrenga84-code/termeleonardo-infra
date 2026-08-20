@@ -375,8 +375,16 @@ Deno.test('lo switch di validaDati e TIPI_ATTIVI dicono gli stessi tipi, nessuno
   const corpo = /export function validaDati\([\s\S]*?switch \(tipo\) \{([\s\S]*?)\n  \}/.exec(SORGENTE_TIPI);
   assertNotEquals(corpo, null, 'lo switch di validaDati non si trova piu: e cambiata la forma?');
   const casi = [...corpo![1].matchAll(/case '([a-z]+)':/g)].map((m) => m[1]);
+  /* arrivo e fattura sono l'eccezione voluta: nascono dal check-in online,
+     non dal modulo pubblico, quindi stanno nello switch di proposito senza
+     stare in TIPI_ATTIVI — e' il test «i due tipi nuovi NON sono creabili
+     dal modulo pubblico» a presidiare proprio questo, non serve ripeterlo
+     qui. Tolti loro, lo switch e TIPI_ATTIVI devono restare identici come
+     prima. */
+  const NON_PUBBLICI = ['arrivo', 'fattura'];
+  const casiPubblici = casi.filter((c) => !NON_PUBBLICI.includes(c));
   assertEquals(
-    casi.sort(),
+    casiPubblici.sort(),
     [...TIPI_ATTIVI].sort(),
     'un tipo e stato aggiunto o tolto in un posto solo: l elenco dichiarato e quello vero divergono',
   );
@@ -520,4 +528,89 @@ Deno.test('senza indicazioni il ritorno e privato, non indeciso', () => {
   const v = validaDati('transfer', { ...transfer, ritorno: true }, OGGI);
   assertEquals(v.dati?.ritorno_collettivo, false);
   assertEquals(v.dati?.ritorno_volo, '');
+});
+
+/* ============================================================
+   I DUE TIPI CHE NASCONO DAL CHECK-IN ONLINE.
+
+   Non stanno in TIPI_ATTIVI apposta: dal modulo pubblico non si possono
+   creare. Esistono in validaDati perche' li crea ?a=invia-arrivo, che
+   pretende un token valido, e perche' ?a=conferma rivalida con le stesse
+   regole — un campo non previsto qui sparirebbe in silenzio fra il
+   "conferma" e l'email, che e' il difetto gia' documentato per
+   prezzo_cent del transfer.
+   ============================================================ */
+Deno.test('i due tipi nuovi NON sono creabili dal modulo pubblico', () => {
+  assert(!TIPI_ATTIVI.includes('arrivo' as never), 'arrivo e finito in TIPI_ATTIVI');
+  assert(!TIPI_ATTIVI.includes('fattura' as never), 'fattura e finito in TIPI_ATTIVI');
+});
+
+Deno.test('un arrivo minimo passa', () => {
+  const v = validaDati('arrivo', { ora_arrivo: '16:30', mezzo: 'auto' });
+  assert(!v.errore, v.errore);
+  assertEquals(v.dati?.ora_arrivo, '16:30');
+  assertEquals(v.dati?.attenzioni, []);
+  assertEquals(v.dati?.fanghi_desiderio, null);
+});
+
+/* Le attenzioni arrivano come CHIAVI, non come testo tradotto: la pagina
+   parla quattro lingue e "Culla per neonato" in back office andrebbe
+   letto da chi ha davanti "Babybett". E' la stessa scelta gia' fatta per
+   il desiderio dei fanghi. */
+Deno.test('le attenzioni fuori elenco cadono', () => {
+  const v = validaDati('arrivo', { attenzioni: ['culla', 'elicottero', 'cane'] });
+  assertEquals(v.dati?.attenzioni, ['culla', 'cane']);
+});
+
+Deno.test('il desiderio dei fanghi fuori elenco diventa null', () => {
+  assertEquals(validaDati('arrivo', { fanghi_desiderio: 'alle 7' }).dati?.fanghi_desiderio, null);
+  assertEquals(validaDati('arrivo', { fanghi_desiderio: 'presto' }).dati?.fanghi_desiderio, 'presto');
+});
+
+Deno.test('le persone senza nome non contano, e non se ne prendono piu di sei', () => {
+  const tante = Array.from({ length: 9 }, (_, i) => ({ nome: `Tizio ${i}`, eta: '30' }));
+  assertEquals((validaDati('arrivo', { persone_extra: tante }).dati?.persone_extra as unknown[]).length, 6);
+  assertEquals((validaDati('arrivo', { persone_extra: [{ nome: '', eta: '9' }] })
+    .dati?.persone_extra as unknown[]).length, 0);
+});
+
+/* Il tetto di sei deve contare PERSONE VERE, non posizioni nell'elenco: se
+   lo scarto dei nomi vuoti venisse dopo il taglio a sei, tre voci vuote in
+   testa a otto ne lascerebbero passare solo tre valide invece delle cinque
+   che l'ospite ha davvero scritto. */
+Deno.test('il tetto di sei conta le persone vere, non le posizioni', () => {
+  const otto = [
+    { nome: '', eta: '' }, { nome: '', eta: '' }, { nome: '', eta: '' },
+    ...Array.from({ length: 5 }, (_, i) => ({ nome: `Tizio ${i}`, eta: '30' })),
+  ];
+  const persone = validaDati('arrivo', { persone_extra: otto }).dati?.persone_extra as unknown[];
+  assertEquals(persone.length, 5);
+});
+
+/* Il segno che dice "qualcuno ha risposto". Deve sopravvivere alla
+   rivalidazione, o ?a=conferma lo perderebbe e la richiesta tornerebbe
+   bloccata dopo che il lavoro era stato fatto. */
+Deno.test('persone_confermate sopravvive alla rivalidazione', () => {
+  assertEquals(validaDati('arrivo', { persone_confermate: true }).dati?.persone_confermate, true);
+  assertEquals(validaDati('arrivo', {}).dati?.persone_confermate, false);
+});
+
+Deno.test('una fattura senza ragione sociale e rifiutata', () => {
+  assert(validaDati('fattura', { piva: 'IT02042330288' }).errore);
+});
+
+/* Senza partita IVA ne' codice fiscale non si emette niente: accettarla
+   vorrebbe dire mettere in coda all'amministrazione una richiesta che non
+   puo' lavorare, e scoprirlo al check-out. */
+Deno.test('una fattura senza piva ne codice fiscale e rifiutata', () => {
+  assert(validaDati('fattura', { ragione: 'Bianchi S.r.l.' }).errore);
+});
+
+Deno.test('una fattura completa passa', () => {
+  const v = validaDati('fattura', {
+    ragione: 'Bianchi S.r.l.', indirizzo: 'Via Roma 1, Padova',
+    piva: 'IT02042330288', cf: 'BNCMRA80A01G224X', sdi: 'M5UXCR1', pec: 'b@pec.it',
+  });
+  assert(!v.errore, v.errore);
+  assertEquals(v.dati?.piva, 'IT02042330288');
 });

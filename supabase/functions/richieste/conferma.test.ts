@@ -349,3 +349,168 @@ Deno.test('l ora del volo si vede accanto a quella della corsa', () => {
   assertStringIncludes(h, '11:30');
   assertStringIncludes(h, '14:30');
 });
+
+/* ============================================================
+   IL CHECK-IN ONLINE E LA FATTURA.
+
+   IL DIFETTO. vociDettagli() restituiva `[]` per tutti e due: l'ospite
+   riceveva «Le confermiamo quanto organizzato. Il dettaglio:» seguito dal
+   SOLO numero. Ed e' proprio questa l'email con cui la reception risponde
+   sulle persone da aggiungere — l'unica cosa che non poteva mancarci.
+
+   E' lo stesso difetto gia' pagato dal tipo `soggiorno`, che annunciava il
+   riepilogo e mostrava il riferimento: un tipo nuovo si dimentica sempre
+   da qualche parte.
+   ============================================================ */
+const arrivo = {
+  numero: 'C26/19130', tipo: 'arrivo',
+  nome: 'Rossi Marco', email: 'marco@example.it', lingua: 'it',
+  dati: {
+    ora_arrivo: 'Tra le 15:00 e le 18:00', mezzo: 'Auto',
+    attenzioni: ['culla', 'cane'], fanghi_desiderio: 'presto',
+    persone_extra: [{ nome: 'Rossi Elena', eta: '12' }],
+    persone_confermate: false,
+    note: 'Siamo intolleranti al lattosio.',
+  },
+};
+
+/* IL VALORE ACCANTO ALLA SUA ETICHETTA, e non da qualche parte nell'HTML:
+   e' lo stesso presidio di valoreDiRiga() in email-richiesta.test.ts, nato
+   perche' tre asserzioni «assertStringIncludes(h, 'auto')» restavano verdi
+   grazie a `height:auto` nello stile del logo. La forma della riga qui e'
+   quella di riga() in dettagli-richiesta.ts, e la cella del valore puo'
+   contenere <strong> e la nota del «aveva chiesto»: la si prende intera. */
+function valoreDiRiga(h: string, etichetta: string): string | null {
+  const re = new RegExp(
+    '<td[^>]*>' + etichetta.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
+      '</td>\\s*<td[^>]*>([\\s\\S]*?)</td>',
+  );
+  const m = re.exec(h);
+  return m ? m[1].trim() : null;
+}
+
+Deno.test('la conferma di un arrivo dice ora, mezzo, attenzioni, fanghi, persone e note', () => {
+  const h = confermaHTML(arrivo);
+  assertEquals(valoreDiRiga(h, 'Arrivo previsto'), 'Tra le 15:00 e le 18:00');
+  assertEquals(valoreDiRiga(h, 'Come arriva'), 'Auto');
+  assertEquals(valoreDiRiga(h, 'Piccole attenzioni'), 'Culla · Cane al seguito');
+  assertEquals(valoreDiRiga(h, 'Fanghi'), 'Presto');
+  assertEquals(valoreDiRiga(h, 'Persone da aggiungere'), 'Rossi Elena (12)');
+  assertEquals(valoreDiRiga(h, 'Note'), 'Siamo intolleranti al lattosio.');
+});
+
+/* IL CASO PER CUI QUESTA EMAIL ESISTE: la reception risponde sulle persone
+   da aggiungere, e chi legge deve ritrovarci il NOME che aveva scritto. */
+Deno.test('il nome di chi si aggiunge arriva all ospite, non solo il conteggio', () => {
+  const h = confermaHTML({ ...arrivo, messaggio: 'Per Elena sono 45 € a notte.' });
+  assertStringIncludes(h, 'Rossi Elena');
+  assertStringIncludes(h, '45 €');
+});
+
+Deno.test('la conferma di un arrivo non contiene mai la parola undefined', () => {
+  assert(!confermaHTML(arrivo).includes('undefined'));
+  /* nemmeno quando i campi facoltativi non ci sono affatto */
+  assert(!confermaHTML({ ...arrivo, dati: { ora_arrivo: 'Dopo le 18:00' } }).includes('undefined'));
+  assert(!confermaHTML({ ...arrivo, dati: {} }).includes('undefined'));
+});
+
+/* Le attenzioni e il desiderio dei fanghi viaggiano come CHIAVI: senza una
+   traduzione l'ospite tedesco leggerebbe «culla», e un domani una chiave
+   nuova gli farebbe leggere il nome interno del campo. */
+Deno.test('la conferma di un arrivo parla le quattro lingue, chiavi comprese', () => {
+  const atteso = {
+    it: { eti: 'Piccole attenzioni', att: 'Culla · Cane al seguito', fan: 'Presto' },
+    de: { eti: 'Kleine Aufmerksamkeiten', att: 'Babybett · Hund dabei', fan: 'Früh' },
+    en: { eti: 'Small touches', att: 'Baby cot · Dog coming along', fan: 'Early' },
+    fr: { eti: 'Petites attentions', att: 'Lit bébé · Chien accepté', fan: 'Tôt' },
+  } as Record<string, { eti: string; att: string; fan: string }>;
+  for (const [l, a] of Object.entries(atteso)) {
+    const h = confermaHTML({ ...arrivo, lingua: l });
+    assertEquals(valoreDiRiga(h, a.eti), a.att, `${l}: le attenzioni non sono tradotte`);
+    assertStringIncludes(h, a.fan);
+    assert(!h.includes('undefined'), `${l}: c e un undefined a video`);
+  }
+});
+
+/* Una chiave che questo modulo non conosce (una riga vecchia, o una voce
+   aggiunta a tipi.ts e dimenticata qui) SPARISCE: stampare all'ospite il
+   nome interno di un campo e' il parente stretto di «undefined». */
+Deno.test('una chiave sconosciuta non arriva all ospite come nome tecnico', () => {
+  const h = confermaHTML({
+    ...arrivo,
+    dati: { ...arrivo.dati, attenzioni: ['culla', 'monopattino'], fanghi_desiderio: 'alba' },
+  });
+  assertEquals(valoreDiRiga(h, 'Piccole attenzioni'), 'Culla');
+  assert(!h.includes('monopattino'), 'una chiave sconosciuta e finita nell email dell ospite');
+  assert(!h.includes('alba'), 'un desiderio sconosciuto e finito nell email dell ospite');
+  assert(!h.includes('Fanghi'), 'la riga dei fanghi compare senza un desiderio da mostrare');
+});
+
+const fattura = {
+  numero: 'C26/19132', tipo: 'fattura',
+  nome: 'Bianchi Mario', email: 'mario@example.it', lingua: 'it',
+  dati: {
+    ragione: 'Bianchi S.r.l.', indirizzo: 'Via Roma 1, Padova',
+    piva: 'IT02042330288', cf: 'BNCMRA80A01G224X', sdi: 'M5UXCR1', pec: 'bianchi@pec.it',
+  },
+};
+
+/* L'OSPITE E' L'UNICO CHE PUO' ACCORGERSI DI UNA PARTITA IVA SBAGLIATA
+   prima che il documento sia emesso: la conferma deve ripetergli quello
+   che ci ha dato, non il solo riferimento. */
+Deno.test('la conferma di una fattura ripete tutti i dati per fatturare', () => {
+  const h = confermaHTML(fattura);
+  assertEquals(valoreDiRiga(h, 'Intestazione'), 'Bianchi S.r.l.');
+  assertEquals(valoreDiRiga(h, 'Indirizzo'), 'Via Roma 1, Padova');
+  assertEquals(valoreDiRiga(h, 'Partita IVA'), 'IT02042330288');
+  assertEquals(valoreDiRiga(h, 'Codice fiscale'), 'BNCMRA80A01G224X');
+  assertEquals(valoreDiRiga(h, 'Codice SDI'), 'M5UXCR1');
+  assertEquals(valoreDiRiga(h, 'PEC'), 'bianchi@pec.it');
+});
+
+Deno.test('la conferma di una fattura non contiene mai la parola undefined', () => {
+  assert(!confermaHTML(fattura).includes('undefined'));
+  /* senza codice fiscale ne PEC: sono facoltativi, e la riga non compare */
+  const h = confermaHTML({ ...fattura, dati: { ragione: 'Bianchi S.r.l.', piva: 'IT02042330288' } });
+  assert(!h.includes('undefined'));
+  assert(!h.includes('Codice fiscale'), 'compare la riga di un codice fiscale che non c e');
+});
+
+Deno.test('la conferma di una fattura parla le quattro lingue', () => {
+  const etichette: Record<string, string> = {
+    it: 'Partita IVA', de: 'USt-IdNr.', en: 'VAT number', fr: 'N° TVA',
+  };
+  for (const [l, eti] of Object.entries(etichette)) {
+    const h = confermaHTML({ ...fattura, lingua: l });
+    assertEquals(valoreDiRiga(h, eti), 'IT02042330288', `${l}: la partita IVA non si trova`);
+  }
+});
+
+/* IL PRESIDIO CHE VALE PER TUTTI I TIPI, non uno per volta. `soggiorno`
+   mancava e nessuno se n'era accorto finche' un ospite non ha ricevuto
+   un'email vuota; poi e' toccato ad `arrivo` e a `fattura`. Un tipo
+   aggiunto domani senza il suo ramo in vociDettagli() fa fallire QUESTA,
+   invece di scivolare via fino alla casella di un ospite. */
+const CASI_DETTAGLI: Record<string, Record<string, unknown>> = {
+  transfer: { quando: '2026-09-10', ora: '14:30', pax: 2, verso: 'arrivo', luogo: 'Venezia  aeroporto' },
+  greenfee: { circolo_nome: 'Golf Montecchia', data: '2026-09-10', ora: '09:30', giocatori: 2 },
+  maestro: { data: '2026-09-10', ora: '10:00', persone: 2 },
+  dayspa: { giorno: '2026-09-10', persone: 2 },
+  trattamenti: { giorno: '2026-09-10', fascia: 'mattina', voci: ['Massaggio'] },
+  soggiorno: { tipo_camera: 'Junior Suite', trattamento: 'Mezza Pensione', prezzo_cent: 66000 },
+  arrivo: arrivo.dati,
+  fattura: fattura.dati,
+};
+
+Deno.test('nessun tipo riceve una conferma col solo riferimento dentro', () => {
+  for (const [tipo, dati] of Object.entries(CASI_DETTAGLI)) {
+    const h = confermaHTML({ ...transfer, tipo, dati, lingua: 'it' });
+    /* la tabella dei dettagli e' quella che finisce con la riga del
+       riferimento: se il tipo non disegna niente, li' dentro c'e' UNA
+       riga sola, ed e' esattamente l'email vuota che questo presidio
+       impedisce */
+    const righe = (h.match(/<tr>\s*<td style="padding:7px 16px 7px 0;/g) || []).length;
+    assert(righe >= 2, `il tipo ${tipo} manda una conferma col solo riferimento (${righe} riga)`);
+    assert(!h.includes('undefined'), `${tipo}: c e un undefined a video`);
+  }
+});

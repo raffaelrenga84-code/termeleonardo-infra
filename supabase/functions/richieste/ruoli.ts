@@ -98,3 +98,29 @@ export function tipiVisibili(ruolo: Ruolo | null): string[] {
   const t = TIPI_PER_RUOLO[ruolo];
   return t === 'tutto' ? [] : [...t];
 }
+
+/* ============================================================
+   CHI RICEVE COPIA DI COSA.
+
+   Oltre alla casella dell'hotel, che continua a ricevere tutto come oggi.
+   Sta qui, accanto a TIPI_PER_RUOLO, perche' e' la stessa decisione detta
+   due volte: chi puo' leggere una cosa in back office, quella cosa deve
+   anche riceverla. Metterla in email-richiesta.ts vorrebbe dire due
+   elenchi che divergono, e a decidere sarebbe il piu' debole.
+
+   Qui ci sono i NOMI dei destinatari, non gli indirizzi: l'indirizzo vero
+   sta in una variabile d'ambiente e lo legge chi manda l'email, cosi'
+   questo modulo resta puro e collaudabile.
+   ============================================================ */
+export const CASELLA_IN_COPIA: Record<string, 'spa' | 'amministrazione'> = {
+  trattamenti: 'spa',
+  dayspa: 'spa',
+  fattura: 'amministrazione',
+};
+
+/** Chi riceve copia di questo tipo, oltre alla casella dell'hotel. */
+export function casellaInCopia(tipo: unknown): 'spa' | 'amministrazione' | null {
+  const t = String(tipo ?? '');
+  /* mai CASELLA_IN_COPIA[t] diretto: "toString" esiste su Object.prototype */
+  return Object.hasOwn(CASELLA_IN_COPIA, t) ? CASELLA_IN_COPIA[t] : null;
+}

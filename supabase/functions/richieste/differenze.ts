@@ -102,6 +102,20 @@ export function etichettaCampo(chiave: string): string {
     case 'caparra_cent': return 'Caparra';
     case 'adulti': return 'Adulti';
     case 'bambini': return 'Bambini';
+    // ---- arrivo (check-in online) ----
+    case 'ora_arrivo': return 'Arrivo previsto';
+    case 'mezzo': return 'Mezzo';
+    case 'attenzioni': return 'Piccole attenzioni';
+    case 'fanghi_desiderio': return 'Desiderio fanghi';
+    case 'persone_extra': return 'Persone da aggiungere';
+    case 'persone_confermate': return 'Persone da aggiungere confermate';
+    // ---- fattura ----
+    case 'ragione': return 'Ragione sociale';
+    case 'indirizzo': return 'Indirizzo';
+    case 'piva': return 'Partita IVA';
+    case 'cf': return 'Codice fiscale';
+    case 'sdi': return 'Codice SDI';
+    case 'pec': return 'PEC';
     default:
       /* un campo non ancora previsto qui non deve far sparire la
          differenza: meglio il nome tecnico capitalizzato che niente */
@@ -109,12 +123,29 @@ export function etichettaCampo(chiave: string): string {
   }
 }
 
+/* Una voce di elenco come la legge una persona. Le persone da aggiungere
+   (persone_extra, check-in online) sono OGGETTI e non stringhe: String() su
+   un oggetto da' «[object Object]», che in questa colonna e' l'equivalente
+   esatto dell'«undefined» contro cui e' costruito tutto il resto del
+   modulo. Serve in DUE punti — a stampare il valore e a confrontarlo — e la
+   stessa funzione li tiene d'accordo: normalizzare in un modo e stampare in
+   un altro vorrebbe dire due elenchi di persone diversi giudicati uguali. */
+function voceElenco(x: unknown): string {
+  if (x && typeof x === 'object') {
+    const o = x as Record<string, unknown>;
+    const nome = String(o.nome ?? '').trim();
+    const eta = String(o.eta ?? '').trim();
+    return nome ? (eta ? `${nome} (${eta})` : nome) : '';
+  }
+  return String(x ?? '').trim();
+}
+
 function formattaValore(chiave: string, v: unknown): string {
   if (v === null || v === undefined) return '';
   if (CAMPI_DATA.has(chiave)) return dataEstesa(v);
   if (CAMPI_CENTESIMI.has(chiave)) return euro(v);
   if (typeof v === 'boolean') return v ? 'Sì' : 'No';
-  if (Array.isArray(v)) return v.map((x) => String(x ?? '').trim()).filter(Boolean).join(', ');
+  if (Array.isArray(v)) return v.map(voceElenco).filter(Boolean).join(', ');
   return String(v).trim();
 }
 
@@ -128,8 +159,12 @@ function ugualiValori(a: unknown, b: unknown): boolean {
     const aa = Array.isArray(a) ? a : [];
     const bb = Array.isArray(b) ? b : [];
     if (aa.length !== bb.length) return false;
-    const na = aa.map((x) => String(x ?? '')).sort();
-    const nb = bb.map((x) => String(x ?? '')).sort();
+    /* voceElenco e non String(): due elenchi di PERSONE diversi darebbero
+       entrambi «[object Object]» a ogni posizione, e due famiglie diverse
+       della stessa misura risulterebbero identiche — una modifica della
+       reception che sparisce senza lasciare traccia. */
+    const na = aa.map(voceElenco).sort();
+    const nb = bb.map(voceElenco).sort();
     return na.every((v, i) => v === nb[i]);
   }
   return a === b;

@@ -3,6 +3,33 @@
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
 import { avvisaHotel, richiestaHTML } from './email-richiesta.ts';
 
+/* ============================================================
+   IL VALORE DENTRO LA SUA RIGA, non da qualche parte nell'HTML.
+
+   Fino al 20 agosto 2026 le prove del check-in dicevano
+   assertStringIncludes(h, 'auto') e assertStringIncludes(h, 'presto'). Ma
+   `height:auto` sta nello stile del logo e «al piu' presto» nel piede
+   fisso: sono in OGNI avviso mai generato. Cancellando del tutto le righe
+   del mezzo e del desiderio fanghi da righeArrivo(), quelle asserzioni
+   restavano verdi — cioe' proprio il difetto che erano state scritte per
+   sorvegliare, e per giunta dentro la prova che si chiama «non contiene
+   mai la parola undefined».
+
+   Questa isola la cella del VALORE accanto alla cella dell'ETICHETTA — la
+   forma che riga() produce qui sotto — e guarda dentro quella. La stessa
+   funzione, per la stessa ragione, sta in arrivo-invio.test.ts: e'
+   impalcatura di prova, e due file di prova non possono importarsi senza
+   far girare due volte le prove dell'altro.
+   ============================================================ */
+function valoreDiRiga(h: string, etichetta: string): string | null {
+  const re = new RegExp(
+    '<td[^>]*>' + etichetta.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
+      '</td>\\s*<td[^>]*>([\\s\\S]*?)</td>',
+  );
+  const m = re.exec(h);
+  return m ? m[1].trim() : null;
+}
+
 const r = {
   numero: 'RS-2026-0007',
   nome: 'Mario Rossi',
@@ -265,4 +292,138 @@ Deno.test('senza poco preavviso il riquadro non c e', () => {
 Deno.test('il riquadro dichiara che all ospite non abbiamo promesso niente', () => {
   const h = richiestaHTML({ ...r, tipo: 'trattamenti', poco_preavviso: true } as never);
   assertStringIncludes(h, 'nessuna promessa');
+});
+
+/* ============================================================
+   LA COPIA IN CC — spa e amministrazione.
+
+   Le righe che scelgono il `cc` dentro avvisaHotel (EMAIL_SPA o
+   EMAIL_AMMINISTRAZIONE secondo casellaInCopia(r.tipo)) non erano toccate
+   da nessuna prova sopra: quelle usano `r`, che non ha `tipo`, quindi
+   casellaInCopia rispondeva sempre null e il ramo del cc non veniva mai
+   percorso. Un nome di variabile sbagliato, un ternario invertito o un cc
+   che non arriva nel corpo passerebbero comunque a prove verdi.
+   ============================================================ */
+Deno.test('con EMAIL_SPA impostata, un trattamento arriva in copia alla spa', async () => {
+  Deno.env.set('RESEND_API_KEY', 'finta');
+  Deno.env.set('EMAIL_SPA', 'spa@termeleonardo.com');
+  const i = intercetta();
+  try {
+    const esito = await avvisaHotel({ ...r, tipo: 'trattamenti' } as never);
+    assertEquals(esito, true);
+    assertEquals(i.spedite.length, 1);
+    const m = i.spedite[0] as Record<string, unknown>;
+    assertEquals(m.cc, ['spa@termeleonardo.com']);
+  } finally {
+    i.ripristina();
+    Deno.env.delete('RESEND_API_KEY');
+    Deno.env.delete('EMAIL_SPA');
+  }
+});
+
+Deno.test('senza EMAIL_SPA un trattamento non porta nessun cc, e nemmeno uno inventato', async () => {
+  Deno.env.set('RESEND_API_KEY', 'finta');
+  Deno.env.delete('EMAIL_SPA');
+  const zitto = console.error; console.error = () => {};
+  const i = intercetta();
+  try {
+    const esito = await avvisaHotel({ ...r, tipo: 'trattamenti' } as never);
+    assertEquals(esito, true);
+    assertEquals(i.spedite.length, 1);
+    const m = i.spedite[0] as Record<string, unknown>;
+    /* sull'assenza della chiave, non solo su un valore diverso: un
+       indirizzo di riserva inventato avrebbe comunque una chiave `cc` */
+    assertEquals(Object.hasOwn(m, 'cc'), false);
+  } finally {
+    i.ripristina();
+    console.error = zitto;
+    Deno.env.delete('RESEND_API_KEY');
+  }
+});
+
+/* ---------------- check-in online e fattura (Task 5, arrivo-invio.ts) ----------------
+   Prima di questo giro di correzione i due tipi non avevano un ramo qui:
+   ETICHETTA aveva sei voci, non otto, quindi `arrivo` e `fattura`
+   ricadevano sull'etichetta e sulle righe del soggiorno — "RICHIESTA DAL
+   SITO | Soggiorno | undefined notti · undefined ospiti", perche' ne'
+   l'uno ne' l'altra hanno notti o ospiti. La reception riceveva un
+   check-in senza ora ne' mezzo, e una fattura senza ragione sociale ne'
+   partita IVA: peggio dell'email scritta a mano che questo compito
+   sostituisce. */
+const checkin = {
+  numero: 'RS-2026-0041', tipo: 'arrivo',
+  nome: 'Bianchi Mario', email: 'mario@example.it', telefono: '+39 333 1234567',
+  lingua: 'it',
+  ora_arrivo: '16:30', mezzo: 'auto', attenzioni: ['culla', 'cane'],
+  fanghi_desiderio: 'presto',
+  persone_extra: [{ nome: 'Bianchi Luca', eta: '12' }],
+  persone_confermate: false, note: 'Arriviamo dopo cena.',
+};
+
+Deno.test('il check-in online porta ora, mezzo e attenzioni, non le righe del soggiorno', () => {
+  const h = richiestaHTML(checkin as never);
+  /* ognuno accanto alla SUA etichetta: vedi valoreDiRiga() in cima al file */
+  assertEquals(valoreDiRiga(h, 'Arrivo previsto'), '16:30');
+  assertEquals(valoreDiRiga(h, 'Mezzo'), 'auto');
+  assertEquals(valoreDiRiga(h, 'Attenzioni'), 'culla · cane');
+  assertEquals(valoreDiRiga(h, 'Desiderio fanghi'), 'presto');
+  assertEquals(valoreDiRiga(h, 'Altre persone'), 'Bianchi Luca (12)');
+  assert(!h.includes('notti'), 'un check-in non ha notti da contare');
+});
+
+/* il difetto in una riga sola: e' esattamente l'"undefined" contro cui
+   mette in guardia il commento sopra ETICHETTA */
+Deno.test('l avviso di un check-in online non contiene la parola undefined', () => {
+  const h = richiestaHTML(checkin as never);
+  assert(!h.includes('undefined'), 'un campo assente non deve mai arrivare in reception cosi');
+});
+
+Deno.test('il check-in online porta la sua etichetta, non quella del soggiorno', () => {
+  const h = richiestaHTML(checkin as never);
+  assertStringIncludes(h, 'CHECK-IN ONLINE');
+  assert(!h.includes('RICHIESTA DAL SITO'), 'l etichetta del soggiorno qui e sbagliata');
+});
+
+const fattura = {
+  numero: 'RS-2026-0043', tipo: 'fattura',
+  nome: 'Bianchi Mario', email: 'mario@example.it', telefono: '+39 333 1234567',
+  lingua: 'it',
+  ragione: 'Bianchi S.r.l.', indirizzo: 'Via Roma 1, Padova',
+  piva: 'IT02042330288', cf: '', sdi: 'M5UXCR1', pec: '',
+};
+
+Deno.test('la fattura porta ragione sociale, indirizzo e partita IVA', () => {
+  const h = richiestaHTML(fattura as never);
+  assertEquals(valoreDiRiga(h, 'Ragione sociale'), 'Bianchi S.r.l.');
+  assertEquals(valoreDiRiga(h, 'Indirizzo'), 'Via Roma 1, Padova');
+  assertEquals(valoreDiRiga(h, 'Partita IVA'), 'IT02042330288');
+  assertEquals(valoreDiRiga(h, 'Codice SDI'), 'M5UXCR1');
+});
+
+Deno.test('l avviso di una fattura non contiene la parola undefined', () => {
+  const h = richiestaHTML(fattura as never);
+  assert(!h.includes('undefined'), 'un campo assente non deve mai arrivare in reception cosi');
+});
+
+Deno.test('la fattura porta la sua etichetta, non quella del soggiorno', () => {
+  const h = richiestaHTML(fattura as never);
+  assertStringIncludes(h, 'RICHIESTA FATTURA');
+  assert(!h.includes('RICHIESTA DAL SITO'), 'l etichetta del soggiorno qui e sbagliata');
+});
+
+Deno.test('una fattura arriva in copia all amministrazione', async () => {
+  Deno.env.set('RESEND_API_KEY', 'finta');
+  Deno.env.set('EMAIL_AMMINISTRAZIONE', 'amministrazione@termeleonardo.com');
+  const i = intercetta();
+  try {
+    const esito = await avvisaHotel({ ...r, tipo: 'fattura' } as never);
+    assertEquals(esito, true);
+    assertEquals(i.spedite.length, 1);
+    const m = i.spedite[0] as Record<string, unknown>;
+    assertEquals(m.cc, ['amministrazione@termeleonardo.com']);
+  } finally {
+    i.ripristina();
+    Deno.env.delete('RESEND_API_KEY');
+    Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  }
 });

@@ -21,6 +21,7 @@
    ============================================================ */
 import { tipiVisibili, vedeTutto } from './ruoli.ts';
 import type { Ruolo } from './ruoli.ts';
+import { arricchisciElenco } from './elenco.ts';
 
 export type Riga = Record<string, unknown>;
 
@@ -139,4 +140,160 @@ export function tipiCura(ruolo: Ruolo | null, conChiave: boolean): string[] {
   if (conChiave || vedeTutto(ruolo)) return [...CURA];
   const suoi = tipiVisibili(ruolo);
   return CURA.filter((t) => suoi.includes(t));
+}
+
+/* ============================================================
+   QUALI RICHIESTE DI UN ARRIVO PUO' VEDERE CHI GUARDA.
+
+   Una riga piatta si filtra campo per campo (CAMPI_SPA). Una richiesta no:
+   o la si vede o non la si vede, e a deciderlo e' il tipo — che e'
+   esattamente la domanda a cui ruoli.ts risponde gia' per l'elenco delle
+   richieste. Qui non si riscrive: si chiama.
+
+   Percio' la spa vede la richiesta `arrivo`? NO. Vede solo trattamenti e
+   Day Spa, come sullo schermo delle richieste. Il desiderio dei fanghi le
+   arriva dalla SCHEDA dell'arrivo (CAMPI_SPA, che lo contiene), non dalla
+   richiesta: e' il dato che le serve, senza la fatturazione che le sta
+   accanto.
+   ============================================================ */
+export function richiestePerRuolo(
+  richieste: Riga[],
+  ruolo: Ruolo | null,
+  conChiave: boolean,
+): Riga[] {
+  if (conChiave || vedeTutto(ruolo)) return richieste;
+  const suoi = tipiVisibili(ruolo);
+  return richieste.filter((r) => suoi.includes(String(r.tipo ?? '')));
+}
+
+/* ============================================================
+   DAL LINK, DALLE RIGHE VECCHIE E DALLE RICHIESTE, ALLA SCHEDA DI OGNI
+   OSPITE DEL GIORNO.
+
+   QUI E NON IN index.ts. arrivo-invio.ts lo dice gia' per lo stesso motivo,
+   su un altro pezzo di questa stessa funzionalita': "la parte che decide
+   come si scrivono le righe e' logica pura come sopra — dati dentro, dati
+   fuori, nessun database — e va provata come tale. index.ts resta
+   responsabile solo della sequenza che ha davvero bisogno della rete."
+   Lasciare l'appiattimento, il raggruppamento e i due filtri di ruolo in
+   linea in index.ts vuol dire che nessuna prova li tocca: ne' un elenco di
+   richieste attaccato senza filtrarlo (fattura e transfer alla spa), ne'
+   una chiave sbagliata nell'appiattimento (ogni ospite mostrato come "non
+   ha ancora compilato") farebbero fallire niente. Qui invece si provano.
+
+   TRE FONTI, UNA RIGA A OSPITE:
+   - `link`    arrivo_link — chi arriva e quando, sempre presente
+   - `vecchie` arrivo_richiesta — chi ha compilato prima del cambio del
+               Task 9 di "strada unica", gia' piatta
+   - `nuove`   richiesta_sito filtrata per arrivo_token — chi e' passato
+               dal check-in nuovo (Task 8), con `dati` annidato e un `tipo`
+
+   La richiesta di tipo `arrivo` fra le nuove porta esattamente i campi
+   della scheda piatta (ora, mezzo, fanghi, note — validaArrivo() in
+   tipi.ts): appiattita cosi', si mescola con le righe vecchie nello stesso
+   perToken(), che non deve sapere da dove viene ciascuna riga.
+
+   perRuolo() decide la scheda piatta; richiestePerRuolo() — la regola di
+   ruoli.ts, non una seconda scritta qui — decide l'elenco delle sue
+   richieste: due regole diverse, chiamate insieme qui e in nessun altro
+   punto del codice.
+   ============================================================ */
+
+/* token e id sono chiavi interne: non servono a chi guarda, e il token
+   e' la chiave con cui si apre la pagina di compilazione di quell'ospite */
+const senzaInterni = (o: Riga): Riga =>
+  Object.fromEntries(Object.entries(o).filter(([k]) => k !== 'token' && k !== 'id'));
+
+/* La stessa cautela, ma su una richiesta: la colonna si chiama
+   arrivo_token e non token, quindi senzaInterni() sopra non la vedrebbe.
+   Ed e' lo STESSO segreto di l.token: chi lo leggesse nell'elenco delle
+   richieste potrebbe aprire la pagina di compilazione di quell'ospite
+   senz'altra autenticazione — lo stesso dato, la stessa fuga, un varco
+   diverso. */
+const senzaTokenArrivo = (o: Riga): Riga =>
+  Object.fromEntries(Object.entries(o).filter(([k]) => k !== 'arrivo_token'));
+
+/** La scheda di ogni ospite del giorno: la riga piatta che perRuolo()
+ *  lascia passare, con le sue richieste (richiestePerRuolo() + etichetta e
+ *  riepilogo gia' pronti) attaccate — o niente, per chi non deve vedere
+ *  nemmeno la scheda. */
+export function arriviDelGiorno(
+  link: Riga[],
+  vecchie: Riga[],
+  nuove: Riga[],
+  ruolo: Ruolo | null,
+  conChiave: boolean,
+): Riga[] {
+  const arriviAppiattiti = nuove
+    .filter((r) => r.tipo === 'arrivo')
+    .map((r) => ({
+      ...(r.dati && typeof r.dati === 'object' ? r.dati as Record<string, unknown> : {}),
+      token: r.arrivo_token,
+      creato_il: r.creato_il,
+    }));
+  /* prepara-arrivo (e prima ancora la vecchia tabella) fa un insert, non
+     un upsert: chi rimanda il modulo lascia due righe. perToken() tiene
+     la piu' recente e dice quante erano — il conteggio e' la parte che
+     non puo' mentire. */
+  const compilate = perToken([...vecchie, ...arriviAppiattiti]);
+
+  /* le richieste vere di ciascun ospite, raggruppate per arrivo_token */
+  const richiestePerToken: Record<string, Riga[]> = {};
+  for (const r of nuove) {
+    const t = String(r.arrivo_token ?? '');
+    if (!t) continue;
+    (richiestePerToken[t] ??= []).push(r);
+  }
+
+  const fuori: Riga[] = [];
+  for (const l of link) {
+    const tok = String(l.token ?? '');
+    const c = compilate[tok];
+    const riga: Record<string, unknown> = {
+      ...senzaInterni(c?.riga ?? {}),
+      ...senzaInterni(l),
+      numero: (l.numero_pratica as string) ?? '',
+      /* 0 = non ha ancora compilato; 2 o piu' = c'e' da guardare */
+      compilazioni: c?.compilazioni ?? 0,
+    };
+    delete riga.numero_pratica;
+
+    const vista = perRuolo(riga, ruolo, conChiave);
+    if (!vista) continue;
+
+    /* le richieste sono un elenco a parte, filtrato dalla SUA regola
+       (richiestePerRuolo, cioe' ruoli.ts) e non da CAMPI_SPA: la spa non
+       deve perdere le sue solo perche' 'richieste' non e' nell'elenco
+       chiuso della scheda piatta. */
+    const sue = richiestePerRuolo(richiestePerToken[tok] ?? [], ruolo, conChiave)
+      .map(senzaTokenArrivo);
+    fuori.push({ ...vista, richieste: arricchisciElenco(sue) });
+  }
+  return fuori;
+}
+
+/* ============================================================
+   UNA RICHIESTA D'ARRIVO CON GENTE DA AGGIUNGERE NON SI CHIUDE.
+
+   Chi ha scritto "si aggiunge mia figlia" sta aspettando di sapere se c'e'
+   posto e quanto costa. Una richiesta d'arrivo si chiude in fretta, perche'
+   quasi sempre non c'e' niente da rispondere: e' esattamente il caso in cui
+   una riga si perde.
+
+   Il segno che qualcuno ha risposto e' persone_confermate, che validaArrivo
+   conserva apposta attraverso ?a=conferma: la porta pubblica del check-in
+   lo forza sempre a falso, quindi solo la reception puo' metterlo a vero.
+   ============================================================ */
+/** Se questa richiesta si puo' portare allo stato «chiusa». */
+export function puoChiudere(riga: Riga): { ok: boolean; perche?: string } {
+  if (String(riga?.tipo ?? '') !== 'arrivo') return { ok: true };
+  const d = (riga.dati && typeof riga.dati === 'object')
+    ? riga.dati as Record<string, unknown> : {};
+  const persone = Array.isArray(d.persone_extra) ? d.persone_extra : [];
+  if (persone.length === 0 || d.persone_confermate === true) return { ok: true };
+  return {
+    ok: false,
+    perche: 'ci sono persone da aggiungere in attesa di risposta: ' +
+      'confermi disponibilita e prezzo prima di chiudere',
+  };
 }

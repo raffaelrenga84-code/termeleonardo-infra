@@ -20,7 +20,7 @@ import { inviaRicevuta } from './ricevuta.ts';
 import { inviaConferma } from './conferma.ts';
 import { arricchisciElenco } from './elenco.ts';
 import { filtroRicercaRichieste } from './ricerca.ts';
-import { giornoValido, perRuolo, perToken, tipiCura } from './arrivi.ts';
+import { arriviDelGiorno, giornoValido, puoChiudere, tipiCura } from './arrivi.ts';
 import { type Ruolo, ruoloDi, tipiVisibili, vedeTutto } from './ruoli.ts';
 import { pocoPreavviso } from './preavviso.ts';
 import { componiRisposta, corpoDisponibilita } from './disponibilita.ts';
@@ -30,6 +30,10 @@ import {
 import { LINGUE } from './condizioni.ts';
 import { creaFrenoIp } from './limite-ip.ts';
 import { dataConsenso } from './consenso.ts';
+import {
+  arrivoGiaInviato, carichiAvviso, type NumeroRichiesta, pezziDaArrivo, righeDaArrivo,
+} from './arrivo-invio.ts';
+import { inviaRicevutaArrivo } from './ricevuta-arrivo.ts';
 
 /* Portata da buoni/index.ts, stessa forma: legge stagione_chiusura ordinata
    per chiusura, e se la lettura fallisce prosegue senza — un ripiego onesto,
@@ -317,6 +321,150 @@ Deno.serve(async (req) => {
     });
   }
 
+  /* ---------- pubblico: il check-in online ----------
+     LA PORTA E' QUESTA E NON PIU' prepara-arrivo. Quella funzione parla con
+     l'ospite e sa aprire il suo link; questa sa fare le richieste — numero,
+     ricevuta, prezzo, conferma, ruoli. Mettere la creazione delle richieste
+     anche la' vorrebbe dire due implementazioni della stessa cosa.
+
+     L'AUTENTICAZIONE E' IL TOKEN, come in ?a=precompila: chi ha il link
+     dell'arrivo l'ha ricevuto in una nostra email. */
+  if (azione === 'invia-arrivo') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const corpo = await req.json().catch(() => ({})) as Record<string, unknown>;
+    const t = testo(corpo.token);
+    if (!t) return risposta({ errore: 'token mancante' }, 400);
+
+    const { data: link } = await db.from('arrivo_link')
+      .select('token, numero_pratica, intestatario, email, lingua, data_arrivo, scade_il')
+      .eq('token', t).maybeSingle();
+    if (!link) return risposta({ errore: 'link non valido' }, 404);
+    if (link.scade_il && new Date(link.scade_il).getTime() < Date.now()) {
+      return risposta({ errore: 'scaduto' }, 410);
+    }
+
+    const { errore, pezzi } = pezziDaArrivo(corpo, new Date());
+    if (errore || !pezzi) return risposta({ errore }, 400);
+
+    /* un numero per pezzo, chiesti PRIMA: se poi l'inserimento fallisce
+       restano numeri saltati, che e' innocuo. Una riga orfana no. */
+    const numeri: NumeroRichiesta[] = [];
+    for (let i = 0; i < pezzi.length; i++) {
+      const { data: n, error: eN } = await db.rpc('prossimo_numero_richiesta');
+      if (eN || !n?.[0]) {
+        console.error('numerazione fallita:', eN);
+        return risposta({ errore: 'salvataggio non riuscito' }, 500);
+      }
+      numeri.push(n[0]);
+    }
+
+    /* GIA' MANDATO — controllata QUI, il piu' tardi possibile: dopo la
+       validazione e la numerazione, appena prima dell'insert. Senza questo
+       controllo, chi ricarica la pagina e rimanda crea tre richieste nuove
+       con tre numeri nuovi e riceve una seconda ricevuta per cose gia' in
+       lavorazione — peggio di prima, non meglio. Per cambiare qualcosa si
+       scrive, e la correzione la fa la reception sulla richiesta con
+       ?a=conferma.
+
+       LA DOMANDA E' «C'E' GIA' UN ARRIVO?», NON «C'E' GIA' UNA RIGA?»:
+       arrivoGiaInviato() in arrivo-invio.ts, dove sta scritto perche'.
+       Contare le righe chiudeva fuori dal check-in chi aveva usato un
+       modulo del sito con lo stesso token — quei moduli scrivono
+       arrivo_token anche loro.
+
+       Un errore di lettura NON e' "non ce ne sono": e' "non posso
+       verificare", e si rifiuta — come fa gia' ?a=precompila sullo stesso
+       errore sulla stessa tabella. Restano numeri saltati (innocuo, vedi
+       sopra).
+
+       LA CORSA RESTA POSSIBILE, RISTRETTA E NON CHIUSA. Un indice unico su
+       arrivo_token non si puo' mettere: un invio riuscito lascia gia' fino
+       a tre righe con lo stesso token, una per pezzo. Mettendo il
+       controllo qui, invece che prima della numerazione, la finestra fra
+       la lettura e il prossimo insert non contiene piu' nessun'altra
+       chiamata di rete in mezzo: e' la piu' stretta ottenibile senza quel
+       vincolo. */
+    const { data: gia, error: eGia } = await db.from('richiesta_sito')
+      .select('numero, tipo').eq('arrivo_token', t);
+    if (eGia) {
+      console.error('controllo duplicati fallito:', eGia);
+      return risposta({ errore: 'salvataggio non riuscito' }, 500);
+    }
+    if (arrivoGiaInviato(gia)) {
+      return risposta({ errore: 'gia inviato', richieste: gia }, 409);
+    }
+
+    const righe = righeDaArrivo(
+      { intestatario: link.intestatario, email: link.email, lingua: link.lingua },
+      pezzi, numeri,
+      { token: t, telefono: testo(corpo.telefono), ip: indirizzo(req) },
+    );
+
+    /* UN SOLO insert, con tutte le righe: e' una sola istruzione, quindi
+       non puo' restarne mezza */
+    const { error: eIns } = await db.from('richiesta_sito').insert(righe);
+    if (eIns) {
+      console.error('inserimento fallito:', eIns);
+      return risposta({ errore: 'salvataggio non riuscito' }, 500);
+    }
+
+    /* un avviso per richiesta — ognuno col suo numero e col "rispondi a"
+       dell'ospite — e UNA sola ricevuta, perche' l'ospite ha compilato un
+       modulo solo. carichiAvviso() STENDE i campi propri sull'oggetto
+       (arrivo-invio.ts): avvisaHotel/richiestaHTML li leggono cosi', non
+       annidati sotto `dati` — la ricevuta invece li vuole annidati, ed e'
+       per questo che usa `righe` e non `carichiAvviso(righe)`. */
+    const ospite = {
+      nome: link.intestatario as string,
+      email: link.email as string,
+      lingua: (link.lingua as string) || 'it',
+    };
+    await Promise.all([
+      ...carichiAvviso(righe).map((c) => avvisaHotel(c)),
+      inviaRicevutaArrivo(ospite, righe.map((r) => ({
+        numero: r.numero, tipo: r.tipo, dati: r.dati,
+      }))),
+    ]);
+
+    return risposta({ ok: true, numeri: numeri.map((n) => n.numero) });
+  }
+
+  /* ---------- pubblico: questo check-in e' gia' stato mandato? ----------
+     LA STESSA DOMANDA DEL 409, ALL'APERTURA DELLA PAGINA E NON DOPO.
+     Prima, lo stato «gia inviato» esisteva solo come risposta a un invio:
+     chi riapriva il link per correggere il numero del volo ricompilava
+     tutto — ora, transfer, partita IVA — premeva Invia e si sentiva dire
+     che avevamo gia' tutto. Le sue correzioni si perdevano.
+
+     PERCHE' QUI E NON IN prepara-arrivo, che la pagina interroga gia'.
+     La regola su COSA conta come «gia' mandato» (arrivoGiaInviato) e la
+     tabella su cui si legge vivono in questa funzione, ed e' questa
+     funzione a decidere il 409. Le funzioni si pubblicano una cartella per
+     volta e non possono importarsi fra loro (vedi copie.test.ts): metterla
+     anche la' vorrebbe dire la stessa regola scritta due volte in due
+     funzioni che non possono guardarsi — e a decidere sarebbe la piu'
+     debole delle due.
+
+     L'AUTENTICAZIONE E' IL TOKEN, come in ?a=precompila e in
+     ?a=invia-arrivo: chi ha il link l'ha ricevuto in una nostra email. Ne
+     escono solo numero e tipo — mai i dati di nessuno.
+
+     UN ERRORE DI LETTURA NON E' «non ce n'e'»: si risponde 500 e la pagina
+     mostra il modulo, come farebbe senza questa chiamata. A proteggere dal
+     doppio invio resta il controllo di ?a=invia-arrivo, che sull'errore di
+     lettura rifiuta. */
+  if (azione === 'arrivo-inviato') {
+    const t = testo(url.searchParams.get('t'));
+    if (!t) return risposta({ errore: 'token mancante' }, 400);
+    const { data, error } = await db.from('richiesta_sito')
+      .select('numero, tipo').eq('arrivo_token', t);
+    if (error) {
+      console.error('lettura stato arrivo fallita:', error);
+      return risposta({ errore: 'stato non verificabile' }, 500);
+    }
+    return risposta({ ok: true, inviato: arrivoGiaInviato(data), richieste: data ?? [] });
+  }
+
   /* ---------- pubblico: disponibilita' camere ----------
      La pagina non deve conoscere la chiave del proxy: e' questa funzione
      che chiama check-availability con PROXY_KEY dal proprio ambiente. */
@@ -452,16 +600,31 @@ Deno.serve(async (req) => {
      la' dentro una terza copia di ruoli.ts vorrebbe dire tre scritture
      della stessa regola, e la piu' debole delle tre decide.
 
-     PERCHE' ESISTE. Tutto quello che l'ospite scrive nel «Prepara il suo
-     arrivo» oggi vive in un'email nella casella info@ e in una riga che
-     nessuna schermata legge: se quell'email si perde, il dato c'e' e non
-     si puo' guardare. E il desiderio dei fanghi serve alla Segreteria Cure,
-     che non e' chi apre quella casella.
+     PERCHE' ESISTE. Prima che questa schermata nascesse, tutto quello che
+     l'ospite scriveva nel «Prepara il suo arrivo» viveva in un'email nella
+     casella info@ e in una riga di arrivo_richiesta che nessuna schermata
+     leggeva: se quell'email si perdeva, il dato c'era e non si poteva piu'
+     guardare. Da quando esiste, e' lei a leggerlo — prima solo da
+     arrivo_richiesta; da qui in poi (Task 8 del giro "strada unica") anche
+     dalle richieste vere che nascono dal check-in online, con numero e
+     ricevuta. Le righe scritte prima del cambio restano in
+     arrivo_richiesta, e questa schermata le legge ancora (vedi «LE RIGHE
+     VECCHIE» piu' sotto). E il desiderio dei fanghi serve alla Segreteria
+     Cure, che non e' chi apre la casella info@.
 
-     SOLA LETTURA: da qui non si conferma e non si corregge niente.
-     La riga si compone da due tabelle — arrivo_link, che sa chi arriva e
-     quando, e arrivo_richiesta, che sa cosa ha scritto — e poi passa da
-     perRuolo(), che decide cosa parte davvero. */
+     SOLA LETTURA: da qui non si conferma e non si corregge niente. Le
+     richieste (transfer, fattura...) si toccano dalla scheda «Richieste dal
+     sito», dove la conferma e il prezzo vivono gia' — due posti dove
+     rispondere sarebbero due macchine da tenere allineate.
+
+     La riga si compone da TRE tabelle — arrivo_link, che sa chi arriva e
+     quando; le richieste col loro arrivo_token, che sanno cosa ha scritto
+     chi e' passato dal check-in nuovo; e arrivo_richiesta, che sa cosa ha
+     scritto chi ha compilato prima del cambio — e poi passa da
+     arriviDelGiorno() (arrivi.ts, logica pura e provata la'), che applica
+     perRuolo() alla scheda piatta e richiestePerRuolo() all'elenco delle
+     sue richieste: due regole diverse, prese da ruoli.ts e non riscritte
+     qui. */
   if (azione === 'arrivi') {
     const giorno = giornoValido(url.searchParams.get('giorno'));
     if (!giorno) return risposta({ errore: 'giorno mancante o non valido' }, 400);
@@ -473,36 +636,34 @@ Deno.serve(async (req) => {
     if (eLink) return risposta({ errore: eLink.message }, 500);
 
     const token = (link ?? []).map((l: Record<string, unknown>) => l.token as string);
-    let compilate: Record<string, { riga: Record<string, unknown>; compilazioni: number }> = {};
+    let vecchie: Record<string, unknown>[] = [];
+    let nuove: Record<string, unknown>[] = [];
     if (token.length) {
-      const { data: ric, error: eRic } = await db.from('arrivo_richiesta')
+      const { data: n, error: eNuove } = await db.from('richiesta_sito')
+        .select('*').in('arrivo_token', token);
+      if (eNuove) return risposta({ errore: eNuove.message }, 500);
+      nuove = (n ?? []) as Record<string, unknown>[];
+
+      /* LE RIGHE VECCHIE. Chi ha compilato prima del cambio ha i suoi dati
+         in arrivo_richiesta e non in una richiesta: non si migra niente —
+         inventare numeri a posteriori sarebbe rischio in cambio di niente —
+         ma finche' quegli arrivi non sono passati devono vedersi. Quando la
+         data d'arrivo piu' lontana fra quelle righe e' alle spalle, questa
+         lettura si puo' togliere. */
+      const { data: v, error: eVecchie } = await db.from('arrivo_richiesta')
         .select('*').in('token', token);
-      if (eRic) return risposta({ errore: eRic.message }, 500);
-      /* prepara-arrivo fa un insert, non un upsert: chi rimanda il modulo
-         lascia due righe. perToken() tiene la piu' recente e dice quante
-         erano — il conteggio e' la parte che non puo' mentire. */
-      compilate = perToken((ric ?? []) as Record<string, unknown>[]);
+      if (eVecchie) return risposta({ errore: eVecchie.message }, 500);
+      vecchie = (v ?? []) as Record<string, unknown>[];
     }
 
-    /* token e id sono chiavi interne: non servono a chi guarda, e il token
-       e' la chiave con cui si apre la pagina di quell'ospite */
-    const senzaInterni = (o: Record<string, unknown>) =>
-      Object.fromEntries(Object.entries(o).filter(([k]) => k !== 'token' && k !== 'id'));
-
-    const arrivi = (link ?? [])
-      .map((l: Record<string, unknown>) => {
-        const c = compilate[l.token as string];
-        const riga = {
-          ...senzaInterni(c?.riga ?? {}),
-          ...senzaInterni(l),
-          numero: (l.numero_pratica as string) ?? '',
-          /* 0 = non ha ancora compilato; 2 o piu' = c'e' da guardare */
-          compilazioni: c?.compilazioni ?? 0,
-        };
-        delete (riga as Record<string, unknown>).numero_pratica;
-        return perRuolo(riga, accesso.ruolo, accesso.chiave);
-      })
-      .filter(Boolean);
+    /* L'appiattimento della richiesta `arrivo`, il perToken() fra vecchie e
+       nuove, il raggruppamento delle richieste per ospite e i due filtri
+       di ruolo (perRuolo/richiestePerRuolo) sono logica pura in arrivi.ts:
+       provata li', non qui — index.ts resta responsabile solo della
+       sequenza che ha davvero bisogno della rete. */
+    const arrivi = arriviDelGiorno(
+      (link ?? []) as Record<string, unknown>[], vecchie, nuove, accesso.ruolo, accesso.chiave,
+    );
 
     /* E i trattamenti chiesti per quello stesso giorno: e' l'altra meta' di
        quello che la spa deve sapere per sapere cosa la aspetta.
@@ -600,11 +761,17 @@ Deno.serve(async (req) => {
     }
     /* Si legge il tipo PRIMA di aggiornare. Senza, la spa potrebbe
        chiudere un transfer che non ha nemmeno il diritto di vedere:
-       basterebbe indovinare un numero, e i numeri sono progressivi. */
+       basterebbe indovinare un numero, e i numeri sono progressivi.
+       Si legge anche dati: serve a puoChiudere per vedere se ci sono
+       persone da aggiungere ancora senza risposta. */
     const { data: chi } = await db.from('richiesta_sito')
-      .select('tipo').eq('numero', numero).maybeSingle();
+      .select('tipo, dati').eq('numero', numero).maybeSingle();
     if (!chi) return risposta({ errore: 'richiesta non trovata' }, 404);
     if (!puoToccare(accesso, chi.tipo)) return risposta({ errore: 'non autorizzato' }, 403);
+    if (nuovo === 'chiusa') {
+      const c = puoChiudere(chi);
+      if (!c.ok) return risposta({ errore: c.perche }, 409);
+    }
 
     const { error } = await db.from('richiesta_sito').update({
       stato: nuovo,

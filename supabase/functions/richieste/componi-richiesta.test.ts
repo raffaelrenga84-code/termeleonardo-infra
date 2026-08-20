@@ -7,8 +7,9 @@
    Non importa index.ts: chiama Deno.serve in cima al file e avvierebbe un
    server vero durante il test — vedi la stessa nota in
    disponibilita-azione.test.ts. */
-import { assertEquals } from 'jsr:@std/assert';
+import { assert, assertEquals } from 'jsr:@std/assert';
 import { componiRichiesta } from './componi-richiesta.ts';
+import { TIPI_ATTIVI } from './tipi.ts';
 
 const CONTATTI_BASE = {
   nome: 'Anna Bianchi', email: 'anna@example.com', telefono: '333 1234567',
@@ -102,4 +103,59 @@ Deno.test('origine qualsiasi, stesso esito: nessun canale e piu esentato', () =>
     ...CONTATTI_BASE, telefono: '', origine: 'https://www.termeleonardo.com/it/prenota', tipo: 'soggiorno',
   });
   assertEquals(r.errore, 'telefono mancante');
+});
+
+
+/* ============================================================
+   IL TIPO ARRIVA DAL BROWSER, E FINORA NESSUNO LO GUARDAVA.
+
+   TIPI_ATTIVI e' l'elenco dei tipi che il pubblico puo' creare, e tutto il
+   piano si e' appoggiato a quell'elenco: `arrivo` e `fattura` stanno fuori
+   APPOSTA, perche' li crea solo ?a=invia-arrivo, che pretende il token del
+   link mandato per email.
+
+   Ma era un invariante ASSERITO, non IMPOSTO: nessuna riga lo controllava a
+   tempo di esecuzione. componiRichiesta passava il tipo dritto a validaDati,
+   il cui switch conosce anche quei due. E la guardia sul doppio invio guarda
+   proprio le righe di tipo `arrivo`: chi avesse il token di un ospite poteva
+   crearne una e chiuderlo fuori dal proprio check-in.
+
+   Serve gia' avere quel token — lo stesso segreto con cui si compilerebbe il
+   modulo direttamente — quindi per chi attacca non c'e' guadagno. Ma la
+   correttezza di quella guardia non deve appoggiarsi a una promessa: qui
+   diventa un cancello.
+   ============================================================ */
+Deno.test('i tipi che il pubblico non puo creare sono rifiutati', () => {
+  for (const tipo of ['arrivo', 'fattura']) {
+    const c = componiRichiesta({ tipo, nome: 'Rossi Mario', email: 'r@esempio.it', telefono: '+39 333 1234567', lingua: 'it', privacy_presa_atto: true, dati: {}, });
+    assert(c.errore, `il tipo ${tipo} e passato dal modulo pubblico`);
+    assert(!c.tipo, `il tipo ${tipo} ha prodotto una richiesta`);
+  }
+});
+
+/* Un nome ereditato da Object.prototype non e' un tipo: e' il difetto gia'
+   pagato coi circoli del golf, e la difesa e' includes() su un elenco, non
+   una ricerca dentro un oggetto. */
+Deno.test('un nome ereditato non e un tipo', () => {
+  for (const tipo of ['toString', 'constructor']) {
+    const c = componiRichiesta({ tipo, nome: 'Rossi Mario', email: 'r@esempio.it', telefono: '+39 333 1234567', lingua: 'it', privacy_presa_atto: true, dati: {}, });
+    assert(c.errore, `il tipo ${tipo} e passato`);
+  }
+});
+
+/* Senza questa, le due prove sopra passerebbero anche se il cancello
+   rifiutasse TUTTO — cioe' se il modulo pubblico smettesse di funzionare.
+   Qui non si pretende che la richiesta sia valida: si pretende che a
+   fermarla non sia IL CANCELLO. */
+Deno.test('i sei tipi pubblici non li ferma il cancello', () => {
+  assert(TIPI_ATTIVI.length === 6,
+    `i tipi pubblici sono ${TIPI_ATTIVI.length}: aggiornare questa prova`);
+  for (const tipo of TIPI_ATTIVI) {
+    const c = componiRichiesta({ tipo, nome: 'Rossi Mario', email: 'r@esempio.it', telefono: '+39 333 1234567', lingua: 'it', privacy_presa_atto: true, dati: {}, });
+    /* il messaggio ESATTO del cancello: «circolo sconosciuto» di
+       validaGreenfee contiene la stessa parola, e con una regex larga
+       questa prova falliva su un tipo perfettamente pubblico */
+    assert(c.errore !== 'tipo di richiesta sconosciuto',
+      `il cancello ferma ${tipo}, che e pubblico`);
+  }
 });

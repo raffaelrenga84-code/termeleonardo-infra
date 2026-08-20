@@ -1,7 +1,7 @@
 /* Test del modulo email: il buono in HTML e le tre spedizioni
    (acquirente, destinatario, amministrazione) via Resend. */
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
-import { avvisaAmministrazione, buonoEmailHTML, fotoBuono, inviaBuonoEmesso, linkPrenota, linkQr, linkStampa, moduloDelBuono, ricevutaEmailHTML, statoConsegna } from './email-buono.ts';
+import { avvisaAmministrazione, buonoEmailHTML, destinatariInCopia, fotoBuono, inviaBuonoEmesso, linkPrenota, linkQr, linkStampa, moduloDelBuono, ricevutaEmailHTML, statoConsegna } from './email-buono.ts';
 
 const IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
@@ -636,4 +636,119 @@ Deno.test('il riepilogo d’acquisto non porta il pulsante di prenotazione: non 
   const html = ricevutaEmailHTML(BUONO);
   assertEquals(html.includes('?buono='), false);
   assertEquals(html.includes('Online reservieren'), false);
+});
+
+/* ============================================================
+   IL BUONO CON TRATTAMENTI ARRIVA ANCHE ALLA SPA.
+
+   Il predicato esiste gia' e decide una vista del back office:
+   buonoDellaSpa() dice che un buono a IMPORTO non e' della spa (e' denaro,
+   si spende su tutto), che una voce del listino si', e che un buono
+   scritto a mano in reception si' — perche' non si sa classificare, e
+   nasconderlo impedirebbe di riscuoterlo al banco della spa.
+
+   Qui lo si RIUSA per la posta. Riscrivere la regola vorrebbe dire due
+   risposte diverse alla stessa domanda: chi lo vede sullo schermo e chi lo
+   riceve per email.
+
+   voce_id qui sotto e' 'antistress45', una voce vera del LISTINO
+   (supabase/functions/buoni/acquista.ts) della famiglia 'antistress': un
+   identificativo inventato farebbe rispondere false a buonoDellaSpa() e la
+   prova passerebbe per il motivo sbagliato — cioe' non proverebbe niente.
+   ============================================================ */
+
+/* piccolo aiuto: imposta EMAIL_SPA e restituisce come rimetterla esattamente
+   com'era, non solo come cancellarla — cosi' la prova non presume di essere
+   la sola a interessarsi di questa variabile nel processo. `valore` null
+   vale "assente": cancella invece di settare. */
+function conEmailSpa(valore: string | null) {
+  const precedente = Deno.env.get('EMAIL_SPA');
+  if (valore === null) Deno.env.delete('EMAIL_SPA'); else Deno.env.set('EMAIL_SPA', valore);
+  return () => {
+    if (precedente === undefined) Deno.env.delete('EMAIL_SPA'); else Deno.env.set('EMAIL_SPA', precedente);
+  };
+}
+
+Deno.test('un buono con un trattamento va in copia alla spa', () => {
+  const ripristina = conEmailSpa('spa@esempio.test');
+  try {
+    const c = destinatariInCopia({ tipo: 'servizio', voce_id: 'antistress45' });
+    assert(c.includes('spa@esempio.test'), `copia a: ${JSON.stringify(c)}`);
+  } finally { ripristina(); }
+});
+
+Deno.test('un buono a importo no', () => {
+  const ripristina = conEmailSpa('spa@esempio.test');
+  try {
+    assertEquals(destinatariInCopia({ tipo: 'valore', valore: 200 }), []);
+  } finally { ripristina(); }
+});
+
+/* Senza la variabile non si inventa un destinatario: la copia non parte, e
+   si scrive nel registro. */
+Deno.test('senza EMAIL_SPA non arriva a nessuno', () => {
+  const ripristina = conEmailSpa(null);
+  try {
+    assertEquals(destinatariInCopia({ tipo: 'servizio', voce_id: 'antistress45' }), []);
+  } finally { ripristina(); }
+});
+
+/* La copia e' un cc sullo STESSO invio, non un secondo invio: con due email
+   separate ne' l'amministrazione ne' la spa saprebbero che l'altra l'ha
+   ricevuta. Si prova sull'invio vero (avvisaAmministrazione), non solo
+   sulla funzione pura qui sopra: e' la sola prova che la funzione sia
+   davvero collegata a `invia`. */
+Deno.test('l’avviso all’amministrazione mette la spa in copia quando il buono è un trattamento', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.set('EMAIL_AMMINISTRAZIONE', 'amministrazione@termeleonardo.com');
+  Deno.env.set('EMAIL_SPA', 'spa@esempio.test');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    const esito = await avvisaAmministrazione({ ...BUONO,
+      tipo: 'servizio', voce_id: 'antistress45', pagamento: 'stripe' });
+    assertEquals(esito, true);
+    assertEquals(spedite.length, 1);
+    assertEquals(spedite[0].to[0], 'amministrazione@termeleonardo.com');
+    assertEquals((spedite[0] as unknown as { cc?: string[] }).cc, ['spa@esempio.test']);
+  } finally {
+    ripristina();
+    Deno.env.delete('RESEND_API_KEY'); Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+    Deno.env.delete('EMAIL_SPA');
+  }
+});
+
+Deno.test('l’avviso all’amministrazione non mette nessuno in copia per un buono a importo', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.set('EMAIL_AMMINISTRAZIONE', 'amministrazione@termeleonardo.com');
+  Deno.env.set('EMAIL_SPA', 'spa@esempio.test');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    await avvisaAmministrazione({ ...BUONO, tipo: 'valore' });
+    assertEquals(spedite.length, 1);
+    assertEquals((spedite[0] as unknown as { cc?: string[] }).cc, undefined);
+  } finally {
+    ripristina();
+    Deno.env.delete('RESEND_API_KEY'); Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+    Deno.env.delete('EMAIL_SPA');
+  }
+});
+
+/* Chi riceve il buono vero (acquirente e destinatario) non deve MAI vedere
+   un indirizzo interno in copia: la spa entra in copia solo sull'avviso
+   interno, mai sull'email che arriva all'ospite. */
+Deno.test('l’ospite non riceve mai la spa in copia', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.set('EMAIL_SPA', 'spa@esempio.test');
+  Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    await inviaBuonoEmesso({ ...BUONO, tipo: 'servizio', voce_id: 'antistress45' });
+    assertEquals(spedite.length, 2);
+    for (const s of spedite) {
+      assertEquals((s as unknown as { cc?: string[] }).cc, undefined);
+    }
+  } finally {
+    ripristina();
+    Deno.env.delete('RESEND_API_KEY'); Deno.env.delete('EMAIL_SPA');
+  }
 });

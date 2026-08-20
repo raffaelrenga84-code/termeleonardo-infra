@@ -8,6 +8,7 @@
    ============================================================ */
 
 import type { Richiesta } from './valida.ts';
+import { casellaInCopia } from './ruoli.ts';
 
 /* I tipi diversi dal soggiorno portano campi propri, che arrivano qui
    insieme ai contatti: il tipo resta aperto invece di elencarli tutti. */
@@ -77,6 +78,8 @@ const ETICHETTA: Record<string, string> = {
   maestro: 'LEZIONE CON IL MAESTRO',
   trattamenti: 'RICHIESTA TRATTAMENTI',
   dayspa: 'INGRESSO DAY SPA',
+  arrivo: 'CHECK-IN ONLINE',
+  fattura: 'RICHIESTA FATTURA',
 };
 
 function righeTransfer(r: Record<string, unknown>, riga: (e: string, v: string, f?: boolean) => string): string {
@@ -142,6 +145,44 @@ function righeDayspa(r: Record<string, unknown>, riga: (e: string, v: string, f?
   ].join('');
 }
 
+/* Il check-in online (Task 5, arrivo-invio.ts): niente notti ne' ospiti da
+   contare, e' la scheda che l'ospite compila prima di arrivare. La nota
+   libera (r.note) la stampa gia' il blocco generico piu' sotto in
+   richiestaHTML, come per gli altri tipi: non si ripete qui. */
+function righeArrivo(r: Record<string, unknown>, riga: (e: string, v: string, f?: boolean) => string): string {
+  const attenzioni = Array.isArray(r.attenzioni) ? (r.attenzioni as unknown[]).map(String) : [];
+  const persone = Array.isArray(r.persone_extra) ? (r.persone_extra as Record<string, unknown>[]) : [];
+  const elencoPersone = persone
+    .map((p) => {
+      const nome = String(p?.nome ?? '');
+      const eta = String(p?.eta ?? '');
+      return nome ? `${nome}${eta ? ` (${eta})` : ''}` : '';
+    })
+    .filter(Boolean)
+    .join(' · ');
+  return [
+    riga('Arrivo previsto', String(r.ora_arrivo ?? ''), true),
+    riga('Mezzo', String(r.mezzo ?? '')),
+    riga('Attenzioni', attenzioni.join(' · ')),
+    riga('Desiderio fanghi', String(r.fanghi_desiderio ?? '')),
+    riga('Altre persone', elencoPersone),
+  ].join('');
+}
+
+/* La fattura (Task 5, arrivo-invio.ts): arriva in copia all'amministrazione
+   (casellaInCopia in ruoli.ts), che e' chi deve emetterla — la reception
+   deve comunque vedere che l'ospite l'ha chiesta. */
+function righeFattura(r: Record<string, unknown>, riga: (e: string, v: string, f?: boolean) => string): string {
+  return [
+    riga('Ragione sociale', String(r.ragione ?? ''), true),
+    riga('Indirizzo', String(r.indirizzo ?? '')),
+    riga('Partita IVA', String(r.piva ?? '')),
+    riga('Codice fiscale', String(r.cf ?? '')),
+    riga('Codice SDI', String(r.sdi ?? '')),
+    riga('PEC', String(r.pec ?? '')),
+  ].join('');
+}
+
 export function richiestaHTML(r: ConNumero): string {
   /* i campi del soggiorno sono facoltativi da quando l'avviso serve anche
      agli altri tipi: si leggono sempre passando da qui, cosi' un campo
@@ -194,6 +235,8 @@ export function richiestaHTML(r: ConNumero): string {
       if (tipo === 'maestro') return righeMaestro(d, riga);
       if (tipo === 'trattamenti') return righeTrattamenti(d, riga);
       if (tipo === 'dayspa') return righeDayspa(d, riga);
+      if (tipo === 'arrivo') return righeArrivo(d, riga);
+      if (tipo === 'fattura') return righeFattura(d, riga);
       return riga('Periodo', periodo, true) + riga('Soggiorno', soggiorno);
     })()}
     ${riga('Email', s(r.email))}
@@ -246,6 +289,19 @@ export async function avvisaHotel(r: ConNumero): Promise<boolean> {
     return false;
   }
   const a = Deno.env.get('EMAIL_HOTEL') || 'info@termeleonardo.com';
+  /* LA COPIA. Non un secondo invio: cosi' la reception VEDE che la spa e'
+     in copia. Con due email separate nessuno dei due sa che l'altro l'ha
+     ricevuta, e ci si telefona per chiedere "l'hai vista?".
+     Se la variabile non c'e' la copia non parte: si scrive nel registro,
+     perche' un destinatario mancante in silenzio e' come non averlo
+     deciso. */
+  const chi = casellaInCopia(r.tipo);
+  const copia = chi === 'spa'
+    ? Deno.env.get('EMAIL_SPA')
+    : chi === 'amministrazione'
+    ? Deno.env.get('EMAIL_AMMINISTRAZIONE')
+    : undefined;
+  if (chi && !copia) console.error(`copia non inviata: manca l'indirizzo per ${chi} ->`, r.numero);
   try {
     const risposta = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -253,6 +309,7 @@ export async function avvisaHotel(r: ConNumero): Promise<boolean> {
       body: JSON.stringify({
         from: Deno.env.get('MITTENTE_EMAIL') || 'Hotel Terme Leonardo <noreply@hoteltermeleonardo.com>',
         to: a,
+        ...(copia ? { cc: [copia] } : {}),
         reply_to: r.email,
         subject: `${r.numero} · richiesta dal sito · ${r.nome}`,
         html: richiestaHTML(r),

@@ -2,18 +2,20 @@
 //  Prepara il tuo arrivo — Edge Function
 //  Deploy:  supabase functions deploy prepara-arrivo --no-verify-jwt
 //
-//  Tre azioni:
+//  Due azioni:
 //    POST ?action=crea      (interna, richiede x-hotel-key) → crea il link
 //    GET  ?token=...                                       → dati del soggiorno
-//    POST ?token=...                                       → salva la richiesta
+//
+//  IL SALVATAGGIO DELLA RICHIESTA NON E' PIU' QUI: e' passato alla funzione
+//  richieste, azione ?a=invia-arrivo (Task 8 del giro "strada unica") — la'
+//  nasce una richiesta vera, con numero, ricevuta, prezzo e conferma, non
+//  una riga in una tabella che nessuna schermata leggeva. Questa funzione
+//  resta responsabile solo del link: crearlo e leggerlo.
 // ============================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { desiderioValido, IN_RECEPTION } from './fanghi.ts';
 
 const CHIAVE_INTERNA = Deno.env.get('HOTEL_KEY')!;        // segreto condiviso con l'estensione
-const RESEND_KEY     = Deno.env.get('RESEND_API_KEY');     // opzionale, per le notifiche
-const DESTINATARIO   = 'info@termeleonardo.com';
 const BASE_PAGINA    = Deno.env.get('BASE_PAGINA') ?? 'https://arrivo.termeleonardo.com';
 
 const db = createClient(
@@ -114,81 +116,6 @@ Deno.serve(async (req) => {
         bambini:       link.bambini,
         cure:          link.cure === true
       });
-    }
-
-    // ---------- 3. RICHIESTA DELL'OSPITE ----------
-    if (req.method === 'POST') {
-      const b = await req.json();
-
-      const persone = Array.isArray(b.persone_extra)
-        ? b.persone_extra.slice(0, 6).map((p: Record<string, unknown>) => ({
-            nome: testo(p.nome, 80),
-            eta:  testo(p.eta, 10)
-          })).filter((p: {nome: string|null}) => p.nome)
-        : [];
-
-      const { error } = await db.from('arrivo_richiesta').insert({
-        token,
-        reservation_id:  link.reservation_id,
-        ora_arrivo:      testo(b.ora_arrivo, 30),
-        mezzo:           testo(b.mezzo, 20),
-        fattura:         !!b.fattura,
-        fatt_ragione:    testo(b.fatt_ragione, 160),
-        fatt_indirizzo:  testo(b.fatt_indirizzo, 200),
-        fatt_piva:       testo(b.fatt_piva, 20),
-        fatt_cf:         testo(b.fatt_cf, 20),
-        fatt_sdi:        testo(b.fatt_sdi, 10),
-        fatt_pec:        testo(b.fatt_pec, 160),
-        persone_extra:   persone,
-        transfer:        !!b.transfer,
-        transfer_tipo:   testo(b.transfer_tipo, 20),
-        transfer_scalo:  testo(b.transfer_scalo, 40),
-        transfer_volo:   testo(b.transfer_volo, 20),
-        transfer_quando: b.transfer_quando || null,
-        transfer_pax:    Number(b.transfer_pax) || null,
-        transfer_cell:   testo(b.transfer_cell, 30),
-        extra:           Array.isArray(b.extra) ? b.extra.slice(0, 10).map((e: unknown) => testo(e, 60)) : [],
-        /* elenco chiuso: il valore arriva dal browser, e senza un elenco in
-           reception arriverebbe qualunque stringa — dentro un'email col
-           nostro logo */
-        fanghi_desiderio: desiderioValido(b.fanghi_desiderio),
-        note:            testo(b.note, 1000)
-      });
-      if (error) return risposta({ errore: error.message }, 500);
-
-      // notifica alla reception: se fallisce, il dato è comunque salvato
-      if (RESEND_KEY) {
-        const righe: string[] = [
-          `<b>${link.intestatario}</b> — pratica ${link.numero_pratica ?? link.reservation_id}`,
-          `Soggiorno: ${link.data_arrivo} → ${link.data_partenza}`
-        ];
-        if (b.ora_arrivo)   righe.push(`Arrivo previsto: <b>${b.ora_arrivo}</b>${b.mezzo ? ' (' + b.mezzo + ')' : ''}`);
-        if (b.fattura)      righe.push(`<b>FATTURA</b>: ${b.fatt_ragione ?? ''} · P.IVA ${b.fatt_piva ?? '—'} · SDI ${b.fatt_sdi ?? '—'} · ${b.fatt_indirizzo ?? ''}`);
-        if (persone.length) righe.push(`<b>PERSONE DA AGGIUNGERE (da confermare)</b>: ${persone.map((p: {nome:string;eta:string|null}) => p.nome + (p.eta ? ' (' + p.eta + ')' : '')).join(', ')}`);
-        if (b.transfer)     righe.push(`<b>TRANSFER</b>: ${b.transfer_scalo ?? ''} · ${b.transfer_tipo ?? ''} · volo ${b.transfer_volo ?? '—'} · ${b.transfer_quando ?? ''} · ${b.transfer_pax ?? '?'} pax · cell ${b.transfer_cell ?? '—'}`);
-        /* DESIDERIO, non turno: il turno lo assegna la Segreteria Cure
-           dopo la visita medica, e la riga qui deve dirlo o qualcuno la
-           leggera' come un appuntamento gia' preso. */
-        const desiderio = desiderioValido(b.fanghi_desiderio);
-        if (desiderio) {
-          righe.push(`<b>FANGHI</b> · desiderio dell'ospite: ${IN_RECEPTION[desiderio]} — il turno lo assegna la Segreteria Cure`);
-        }
-        if (b.extra?.length) righe.push(`Extra richiesti: ${b.extra.join(', ')}`);
-        if (b.note)         righe.push(`Note: ${b.note}`);
-
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from: Deno.env.get('MITTENTE_EMAIL') || 'Prepara arrivo <noreply@hoteltermeleonardo.com>',
-            to: [DESTINATARIO],
-            subject: `PREPARA ARRIVO — ${link.intestatario} — ${link.data_arrivo}`,
-            html: righe.join('<br>')
-          })
-        }).catch(() => { /* la richiesta è salvata comunque */ });
-      }
-
-      return risposta({ ok: true });
     }
 
     return risposta({ errore: 'metodo non consentito' }, 405);

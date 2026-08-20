@@ -36,7 +36,7 @@
      font-weight:600;margin:0 0 14px;}
   label{display:block;font-size:13px;color:var(--grigio);margin:12px 0 5px;}
   input[type=text],input[type=tel],input[type=email],input[type=number],
-  input[type=datetime-local],select,textarea{
+  input[type=datetime-local],input[type=date],input[type=time],select,textarea{
      width:100%;padding:12px;border:1px solid #D8D2C4;border-radius:6px;
      font:16px Arial;color:var(--inchiostro);background:#fff;}
   input:focus,select:focus,textarea:focus{outline:2px solid var(--acqua);outline-offset:1px;}
@@ -96,8 +96,28 @@
   +39 049 9939200 · info@termeleonardo.com
 </footer>
 
-<script>
-const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/prepara-arrivo';
+<script type="module">
+/* PERCORSO ASSOLUTO, non relativo: sotto un indirizzo tradotto (o dietro un
+   proxy) un percorso relativo si risolverebbe contro la cartella sbagliata
+   e la pagina resterebbe bianca — vedi lo stesso commento in
+   pagine/richieste/transfer/index.html. */
+import { LUOGHI_ATAM } from '/comune/luoghi.js';
+/* La regola della navetta condivisa: quando si offre e cosa dice. Sta in un
+   modulo suo perche' e' fatta dei numeri del listino (solo Venezia
+   aeroporto, al massimo tre passeggeri, corsa fra le 08:00 e le 20:00,
+   ventiquattro ore di preavviso), non di grafica — e perche' e' la stessa
+   regola gia' provata da pagine/comune/navetta.test.ts e gia' usata da
+   pagine/richieste/transfer/index.html. validaTransfer (server) non la
+   applica: si fida di quello che il corpo manda, quindi la scelta deve
+   comparire SOLO quando e' vera, o l'ospite riceve una conferma scritta
+   per un servizio che non possiamo dargli. */
+import { corsaDiRitorno, navetta, ritiroPerVolo } from '/comune/navetta.js';
+
+/* La lettura del soggiorno resta su prepara-arrivo (il link che l'ospite
+   riceve in email); l'invio va su richieste, ?a=invia-arrivo — quella
+   funzione fa nascere richieste vere: numero, ricevuta, prezzo, conferma. */
+const FUNZIONE_ARRIVO = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/prepara-arrivo';
+const FUNZIONE_RICHIESTE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 
 /* ---------- dizionario ---------- */
 const T = {
@@ -117,19 +137,33 @@ const T = {
   ragione:'Intestazione / ragione sociale', indirizzo:'Indirizzo completo',
   piva:'Partita IVA', cf:'Codice fiscale', sdi:'Codice SDI', pec:'PEC',
   transferT:'Transfer', transferI:'Vorrei un transfer',
-  trTipo:'Per', trTipi:['L\u2019arrivo','La partenza','Andata e ritorno'],
-  trScalo:'Da dove? (aeroporto o stazione)', trVolo:'Numero volo o treno',
-  trQuando:'Giorno e ora', trPax:'Persone', trCell:'Cellulare per l\u2019autista',
+  trTipo:'Per', trTipi:['L\u2019arrivo','La partenza'],
+  trLuogo:'Da dove / verso dove', trVolo:'Numero volo o treno',
+  trQuando:'Giorno', trOra:'Ora', trPax:'Persone', trCell:'Cellulare per l\u2019autista',
+  trServizio:'Il servizio', trPrivata:'Auto solo per lei', trNavetta:'Navetta condivisa',
+  trNavettaCostaMeno:'Si divide l\u2019auto con altri ospiti, e costa meno.',
+  trNavettaStessoPrezzo:'Si divide l\u2019auto con altri ospiti; a tre persone costa come il taxi privato.',
+  trOraVolo:'Ora del volo',
+  trRitiroAlle:(o)=>`La prendiamo in hotel alle ${o}.`,
+  trRitiroGiornoPrima:(g,o)=>`La prendiamo in hotel il ${g} alle ${o} \u2014 il giorno prima del volo.`,
+  trRitorno:'Mi serve anche il ritorno',
+  trRitornoQuando:'Giorno del ritorno', trRitornoOra:'Ora del ritorno',
+  trRitornoManca:'Indichi anche il giorno e l\u2019ora del ritorno.',
   extraT:'Piccole attenzioni', extraOpz:['Culla per neonato','Seggiolone al ristorante','Parcheggio','Cane al seguito'],
   fanghiT:'Cure termali', fanghiD:'A che ora preferirebbe i fanghi?',
   fanghiOpz:['Presto — dalle 5:50','Più tardi — verso le 10:00','Indifferente'],
   fanghiNota:'Il turno lo assegna la Segreteria Cure dopo la visita medica di ammissione: qui prendiamo nota della sua preferenza.',
   fanghiPresoAtto:'Abbiamo preso nota del suo desiderio per i fanghi.',
   noteT:'Altro da dirci', notePh:'Intolleranze, preferenze per la camera, occasioni speciali…',
-  invia:'Invii alla reception', inviaNota:'Riceviamo subito noi della reception, nessuna conferma automatica.',
+  invia:'Invii alla reception', inviaNota:'Riceviamo subito noi della reception, e le arriva una ricevuta via email.',
   attendere:'Un attimo…',
   erroreInvio:'Non siamo riusciti a salvare. Riprovi tra un momento, o ci scriva a info@termeleonardo.com.',
   grazieT:'Grazie, è tutto pronto', grazie:'Abbiamo ricevuto le sue indicazioni: la reception le legge oggi stesso. A prestissimo alle terme.',
+  /* NON UN ERRORE ROSSO: succede a chi ricarica la pagina o riapre il link
+     dopo aver gia' inviato. Mostriamo i numeri gia' ricevuti, cosi' l'ospite
+     vede che il suo invio c'e' gia', e non ne nasce una seconda serie. */
+  giaInviatoT:'Le abbiamo già ricevute', giaInviato:'Abbiamo già ricevuto le sue indicazioni per questo soggiorno.',
+  perCambiare:'Per cambiare qualcosa ci scriva a info@termeleonardo.com.',
   nonValidoT:'Questo link non è più attivo', nonValido:'Il collegamento non risulta valido. Controlli di aver aperto l\u2019ultimo link ricevuto, o ci scriva a info@termeleonardo.com.',
   scadutoT:'Soggiorno già concluso', scaduto:'Questo link era legato a un soggiorno ormai passato. Per una nuova prenotazione ci trova a info@termeleonardo.com.'
  },
@@ -149,19 +183,30 @@ const T = {
   ragione:'Firmenname / Rechnungsempfänger', indirizzo:'Vollständige Adresse',
   piva:'USt-IdNr.', cf:'Steuernummer', sdi:'SDI-Code (Italien)', pec:'PEC / E-Mail',
   transferT:'Transfer', transferI:'Ich möchte einen Transfer',
-  trTipo:'Für', trTipi:['Die Anreise','Die Abreise','Hin und zurück'],
-  trScalo:'Von wo? (Flughafen oder Bahnhof)', trVolo:'Flug- oder Zugnummer',
-  trQuando:'Tag und Uhrzeit', trPax:'Personen', trCell:'Handy für den Fahrer',
+  trTipo:'Für', trTipi:['Die Anreise','Die Abreise'],
+  trLuogo:'Von wo / wohin', trVolo:'Flug- oder Zugnummer',
+  trQuando:'Tag', trOra:'Uhrzeit', trPax:'Personen', trCell:'Handy für den Fahrer',
+  trServizio:'Der Service', trPrivata:'Wagen nur für Sie', trNavetta:'Sammeltransfer',
+  trNavettaCostaMeno:'Sie teilen den Wagen mit anderen Gästen und zahlen weniger.',
+  trNavettaStessoPrezzo:'Sie teilen den Wagen mit anderen Gästen; zu dritt kostet er gleich viel wie das Privattaxi.',
+  trOraVolo:'Abflugzeit',
+  trRitiroAlle:(o)=>`Wir holen Sie um ${o} am Hotel ab.`,
+  trRitiroGiornoPrima:(g,o)=>`Wir holen Sie am ${g} um ${o} ab — am Tag vor dem Flug.`,
+  trRitorno:'Ich brauche auch die Rückfahrt',
+  trRitornoQuando:'Tag der Rückfahrt', trRitornoOra:'Uhrzeit der Rückfahrt',
+  trRitornoManca:'Bitte geben Sie auch Tag und Uhrzeit der Rückfahrt an.',
   extraT:'Kleine Aufmerksamkeiten', extraOpz:['Babybett','Hochstuhl im Restaurant','Parkplatz','Hund dabei'],
   fanghiT:'Thermalkuren', fanghiD:'Wann hätten Sie die Fangopackung am liebsten?',
   fanghiOpz:['Früh — ab 5:50 Uhr','Später — gegen 10:00 Uhr','Egal'],
   fanghiNota:'Den Termin vergibt das Kursekretariat nach der ärztlichen Aufnahmeuntersuchung: hier merken wir uns Ihren Wunsch.',
   fanghiPresoAtto:'Wir haben Ihren Wunschtermin für die Fangopackung vorgemerkt.',
   noteT:'Sonst noch etwas?', notePh:'Unverträglichkeiten, Zimmerwünsche, besondere Anlässe…',
-  invia:'An die Rezeption senden', inviaNota:'Ihre Angaben gehen direkt an uns — keine automatische Bestätigung.',
+  invia:'An die Rezeption senden', inviaNota:'Ihre Angaben gehen direkt an uns — die Eingangsbestätigung erhalten Sie per E-Mail.',
   attendere:'Einen Moment…',
   erroreInvio:'Speichern nicht möglich. Versuchen Sie es gleich noch einmal oder schreiben Sie an info@termeleonardo.com.',
   grazieT:'Danke, alles bereit', grazie:'Wir haben Ihre Angaben erhalten: die Rezeption liest sie noch heute. Bis bald in den Thermen.',
+  giaInviatoT:'Wir haben sie bereits erhalten', giaInviato:'Wir haben Ihre Angaben für diesen Aufenthalt bereits erhalten.',
+  perCambiare:'Um etwas zu ändern, schreiben Sie uns bitte an info@termeleonardo.com.',
   nonValidoT:'Dieser Link ist nicht mehr aktiv', nonValido:'Der Link ist ungültig. Öffnen Sie bitte den zuletzt erhaltenen Link oder schreiben Sie an info@termeleonardo.com.',
   scadutoT:'Aufenthalt bereits beendet', scaduto:'Dieser Link gehörte zu einem vergangenen Aufenthalt. Für eine neue Buchung: info@termeleonardo.com.'
  },
@@ -181,19 +226,30 @@ const T = {
   ragione:'Company / billing name', indirizzo:'Full address',
   piva:'VAT number', cf:'Tax code', sdi:'SDI code (Italy)', pec:'PEC / email',
   transferT:'Transfer', transferI:'I\u2019d like a transfer',
-  trTipo:'For', trTipi:['Arrival','Departure','Both ways'],
-  trScalo:'From where? (airport or station)', trVolo:'Flight or train number',
-  trQuando:'Day and time', trPax:'People', trCell:'Mobile for the driver',
+  trTipo:'For', trTipi:['Arrival','Departure'],
+  trLuogo:'From / to', trVolo:'Flight or train number',
+  trQuando:'Day', trOra:'Time', trPax:'People', trCell:'Mobile for the driver',
+  trServizio:'The service', trPrivata:'A car just for you', trNavetta:'Shared shuttle',
+  trNavettaCostaMeno:'You share the car with other guests, and it costs less.',
+  trNavettaStessoPrezzo:'You share the car with other guests; for three people it costs the same as the private taxi.',
+  trOraVolo:'Flight time',
+  trRitiroAlle:(o)=>`We pick you up at the hotel at ${o}.`,
+  trRitiroGiornoPrima:(g,o)=>`We pick you up on ${g} at ${o} — the day before your flight.`,
+  trRitorno:'I also need the return trip',
+  trRitornoQuando:'Return day', trRitornoOra:'Return time',
+  trRitornoManca:'Please also give the day and time of the return.',
   extraT:'Small touches', extraOpz:['Baby cot','High chair at the restaurant','Parking','Dog coming along'],
   fanghiT:'Thermal treatments', fanghiD:'When would you prefer your mud therapy?',
   fanghiOpz:['Early — from 5:50','Later — around 10:00','No preference'],
   fanghiNota:'The Cure Secretariat assigns the slot after the admission medical: here we simply note what you would prefer.',
   fanghiPresoAtto:'We have noted your preference for the mud therapy.',
   noteT:'Anything else?', notePh:'Intolerances, room preferences, special occasions…',
-  invia:'Send to reception', inviaNota:'It goes straight to us at reception — no automated reply.',
+  invia:'Send to reception', inviaNota:'It goes straight to us at reception — and you get a receipt by email.',
   attendere:'One moment…',
   erroreInvio:'We couldn\u2019t save your details. Please try again shortly, or write to info@termeleonardo.com.',
   grazieT:'Thank you, all set', grazie:'We\u2019ve received your details: reception reads them today. See you very soon at the thermal pools.',
+  giaInviatoT:'We already have this', giaInviato:'We\u2019ve already received your details for this stay.',
+  perCambiare:'To change anything, please write to info@termeleonardo.com.',
   nonValidoT:'This link is no longer active', nonValido:'The link isn\u2019t valid. Please open the most recent link you received, or write to info@termeleonardo.com.',
   scadutoT:'Stay already ended', scaduto:'This link belonged to a past stay. For a new booking: info@termeleonardo.com.'
  },
@@ -213,19 +269,30 @@ const T = {
   ragione:'Raison sociale', indirizzo:'Adresse complète',
   piva:'N° TVA', cf:'Code fiscal', sdi:'Code SDI (Italie)', pec:'PEC / e-mail',
   transferT:'Transfert', transferI:'Je souhaite un transfert',
-  trTipo:'Pour', trTipi:['L\u2019arrivée','Le départ','Aller-retour'],
-  trScalo:'Depuis où ? (aéroport ou gare)', trVolo:'N° de vol ou de train',
-  trQuando:'Jour et heure', trPax:'Personnes', trCell:'Portable pour le chauffeur',
+  trTipo:'Pour', trTipi:['L\u2019arrivée','Le départ'],
+  trLuogo:'D\u2019où / vers où', trVolo:'N° de vol ou de train',
+  trQuando:'Jour', trOra:'Heure', trPax:'Personnes', trCell:'Portable pour le chauffeur',
+  trServizio:'Le service', trPrivata:'Une voiture pour vous seul', trNavetta:'Navette partagée',
+  trNavettaCostaMeno:'Vous partagez la voiture avec d\u2019autres clients, et cela coûte moins cher.',
+  trNavettaStessoPrezzo:'Vous partagez la voiture avec d\u2019autres clients ; à trois, le prix est le même que le taxi privé.',
+  trOraVolo:'Heure du vol',
+  trRitiroAlle:(o)=>`Nous venons vous chercher à l\u2019hôtel à ${o}.`,
+  trRitiroGiornoPrima:(g,o)=>`Nous venons vous chercher le ${g} à ${o} — la veille du vol.`,
+  trRitorno:'J\u2019ai aussi besoin du retour',
+  trRitornoQuando:'Jour du retour', trRitornoOra:'Heure du retour',
+  trRitornoManca:'Veuillez indiquer aussi le jour et l\u2019heure du retour.',
   extraT:'Petites attentions', extraOpz:['Lit bébé','Chaise haute au restaurant','Parking','Chien accepté'],
   fanghiT:'Cures thermales', fanghiD:'À quelle heure préféreriez-vous les boues ?',
   fanghiOpz:['Tôt — dès 5h50','Plus tard — vers 10h00','Peu importe'],
   fanghiNota:'Le Secrétariat des Cures attribue le créneau après la visite médicale d’admission : ici nous prenons note de votre préférence.',
   fanghiPresoAtto:'Nous avons pris note de votre souhait pour les boues.',
   noteT:'Autre chose ?', notePh:'Intolérances, préférences de chambre, occasions spéciales…',
-  invia:'Envoyer à la réception', inviaNota:'Vos indications arrivent directement à la réception — pas de réponse automatique.',
+  invia:'Envoyer à la réception', inviaNota:'Vos indications arrivent directement à la réception — et vous recevez un accusé de réception par e-mail.',
   attendere:'Un instant…',
   erroreInvio:'Enregistrement impossible. Réessayez dans un instant ou écrivez à info@termeleonardo.com.',
   grazieT:'Merci, tout est prêt', grazie:'Nous avons bien reçu vos indications : la réception les lit aujourd\u2019hui même. À très bientôt aux thermes.',
+  giaInviatoT:'Nous les avons déjà reçues', giaInviato:'Nous avons déjà reçu vos indications pour ce séjour.',
+  perCambiare:'Pour changer quelque chose, écrivez-nous à info@termeleonardo.com.',
   nonValidoT:'Ce lien n\u2019est plus actif', nonValido:'Le lien n\u2019est pas valide. Ouvrez le dernier lien reçu ou écrivez à info@termeleonardo.com.',
   scadutoT:'Séjour déjà terminé', scaduto:'Ce lien concernait un séjour passé. Pour une nouvelle réservation : info@termeleonardo.com.'
  }
@@ -250,9 +317,184 @@ function dataBella(iso, lingua){
   return `${g} ${m} ${a}`;
 }
 
-function stato(titolo, testo, segno){
+function stato(titolo, testo, segno, extra){
   app.innerHTML = `<div class="stato"><div class="segno">${segno}</div>
-    <h1>${esc(titolo)}</h1><p>${esc(testo)}</p></div>`;
+    <h1>${esc(titolo)}</h1><p>${esc(testo)}</p>${extra || ''}</div>`;
+}
+
+/* L'elenco dei numeri, come lo mostrano sia la conferma appena inviata sia
+   lo stato "gia inviato": stessa forma, perche' sono la stessa cosa vista
+   in due momenti diversi. */
+function elencoNumeri(numeri){
+  const puliti = (Array.isArray(numeri) ? numeri : []).map(esc).filter(Boolean);
+  return puliti.length
+    ? `<p style="font-family:'Courier New',monospace;letter-spacing:1px;">${puliti.join(' · ')}</p>`
+    : '';
+}
+
+/* MOSTRA O NASCONDE LA SCELTA DEL SERVIZIO, e la forza a "auto privata"
+   quando la sparisce: stessa regola e stesso momento del modulo transfer
+   del sito (aggiornaNavetta() in pagine/richieste/transfer/index.html),
+   letta dal DOM invece che da variabili di stato perche' qui il servizio
+   e' una <select> vera, non due pulsanti — il valore della select E' lo
+   stato. Chiamata a ogni cambio di meta, passeggeri, giorno, ora o verso:
+   un ospite che diventa "fuori regola" cambiando uno di questi campi non
+   deve restare con "navetta condivisa" ancora selezionata sotto un blocco
+   che sta per sparire. */
+function aggiornaServizioTr(){
+  const t = T[LINGUA];
+  const box = document.getElementById('trBoxServizio');
+  if (!box) return;
+  const n = navetta({
+    luogo: document.getElementById('trLuogo').value,
+    pax: document.getElementById('trPax').value,
+    quando: document.getElementById('trQuando').value,
+    ora: document.getElementById('trOra').value,
+    verso: document.getElementById('trTipo').value,
+  }, new Date());
+  box.style.display = n ? 'block' : 'none';
+  if (!n) {
+    document.getElementById('trServizio').value = '0';
+  } else {
+    document.getElementById('trNavettaNota').textContent =
+      n.nota === 'stessoPrezzo' ? t.trNavettaStessoPrezzo : t.trNavettaCostaMeno;
+  }
+  /* E QUI L'ETICHETTA SEGUE IL CANCELLO, sempre, non solo quando l'ospite
+     tocca il servizio di persona. Due buchi, uno dentro l'altro:
+
+     · assegnare `trServizio.value = '0'` da codice NON fa scattare
+       `change` — e' la regola del DOM, non un caso — quindi il listener
+       che due righe di cablaggio piu' sotto appende aggiornaRitiroTr a
+       quel campo non parte mai quando siamo NOI a riportare il servizio
+       ad "auto privata";
+     · trLuogo e trPax erano legati soltanto a questa funzione, non
+       all'etichetta: cambiare meta o passeggeri chiudeva il cancello e
+       lasciava scritto "Ora del volo" sopra il campo.
+
+     Il seguito era: partenza condivisa con volo alle 22:00 (etichetta
+     "Ora del volo", nota "la prendiamo in hotel alle 19:00"), poi
+     l'ospite alza i passeggeri a cinque — la navetta sparisce, il
+     servizio torna privato, e il corpo parte giustamente con le 22:00
+     che l'ospite ha scritto. Ma lui aveva letto 19:00. Chiamandola da
+     qui, l'etichetta e la nota tornano indietro insieme al cancello, e
+     trLuogo/trPax ci arrivano per questa strada senza un secondo
+     listener.
+
+     Nessuna ricorsione: aggiornaRitiroTr legge il DOM e scrive soltanto
+     su trEtiOra e trNotaRitiro, due nodi che nessuno ascolta, e non
+     assegna nessun `.value` — non puo' rientrare qui. Verificato
+     eseguendo, non a occhio: la prova "il ritorno dell etichetta non fa
+     rimbalzare il cancello all infinito" conta le chiamate a navetta().
+     Le altre chiamate ad aggiornaRitiroTr (trOra, trQuando, trTipo,
+     trServizio) restano: sono il caso in cui il cancello non cambia. */
+  aggiornaRitiroTr();
+}
+
+/* IL PAVIMENTO DEL RITORNO: la data del ritorno non puo' precedere quella
+   dell'andata. Il server la rifiuta comunque ("il ritorno non puo
+   precedere l'andata", tipi.ts), ma solo dopo l'invio, e in un italiano
+   che un ospite tedesco leggerebbe come un rifiuto muto — la stessa cosa
+   per cui il punto 5 del giro precedente ha spostato 404/410 sulle
+   schermate tradotte. Legare il minimo qui evita che l'errore nasca:
+   vista succedere davvero sul modulo transfer del sito (ritorno il 18 con
+   andata il 19), da cui questa stessa regola e' ricopiata
+   (legaDateRitorno()). */
+function legaRitornoTr(){
+  const a = document.getElementById('trQuando')?.value;
+  const rq = document.getElementById('trRitornoQuando');
+  if (!rq) return;
+  if (a) rq.min = a;
+  if (a && rq.value && rq.value < a) rq.value = a;
+}
+
+/* L'UNICO CASO IN CUI "ORA" CAMBIA SIGNIFICATO: partenza scelta come
+   navetta condivisa. navetta.js (oraDellaCorsa) tratta SEMPRE il campo
+   "ora" di una partenza come l'ora del volo quando giudica se offrire la
+   navetta — anche prima che l'ospite abbia scelto il servizio, perche'
+   aggiornaServizioTr() deve poter rispondere "se fosse condivisa,
+   andrebbe bene?" senza ancora saperlo. Ma il valore SPEDITO al server
+   (validaTransfer, tipi.ts) e' gia' l'orario della corsa, non il volo: le
+   due letture combaciano solo se, quando l'ospite conferma la scelta
+   condivisa, il campo si etichetta "ora del volo" e il valore si converte
+   prima di partire — altrimenti un ospite con ritiro alle 22:00 vede
+   offrirsi una navetta che a quell'ora non esiste, e uno con ritiro alle
+   9:00 se la vede negare per errore. Stessa forma di
+   conNavettaInPartenza() nel modulo transfer del sito. */
+function conNavettaInPartenzaTr(){
+  return document.getElementById('trServizio').value === '1'
+    && document.getElementById('trTipo').value === 'partenza';
+}
+
+/* il giorno prima di una data ISO, come GG/MM, senza fusi (mezzogiorno per
+   non inciampare nell'ora legale) — copia di giornoPrimaDi() nel modulo
+   transfer del sito */
+function giornoPrimaDiTr(iso){
+  const d = new Date(iso + 'T12:00:00');
+  d.setDate(d.getDate() - 1);
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/* Cambia l'etichetta del campo e mostra sotto l'orario di ritiro vero,
+   cosi' l'ospite legge a che ora passiamo a prenderlo invece di doverlo
+   calcolare da solo. Va richiamata a ogni cambio che tocca la domanda
+   "e' partenza+condivisa?" o il suo risultato: servizio, verso, ora,
+   giorno (per la nota "il giorno prima del volo"). Stessa forma di
+   aggiornaRitiro() nel modulo transfer del sito. */
+function aggiornaRitiroTr(){
+  const t = T[LINGUA];
+  const eti = document.getElementById('trEtiOra');
+  const nota = document.getElementById('trNotaRitiro');
+  if (!eti || !nota) return;
+  const attivo = conNavettaInPartenzaTr();
+  eti.firstChild.nodeValue = attivo ? t.trOraVolo : t.trOra;
+  const r = attivo ? ritiroPerVolo(document.getElementById('trOra').value) : null;
+  if (!r) { nota.textContent = ''; return; }
+  const quando = document.getElementById('trQuando').value;
+  nota.textContent = r.giornoPrima && quando
+    ? t.trRitiroGiornoPrima(giornoPrimaDiTr(quando), r.ora)
+    : t.trRitiroAlle(r.ora);
+}
+
+/* Giorno e ora della corsa come la manda il corpo, piu' l'ora del volo da
+   cui nascono quando serve convertire. Fuori dal caso partenza+condivisa
+   non cambia niente: quello che l'ospite ha scritto e' gia' l'ora del
+   ritiro, come dice l'etichetta.
+
+   PRENDE `v` COME PARAMETRO, non dallo scope. Il modulo transfer del sito
+   scrive la stessa aritmetica dentro corsaVera(), che chiama `v('fOra')`
+   contando su una `v` definita altrove nel file — e quel modo di legarsi
+   allo scope e' costato due giorni: il 18 agosto una modifica ha
+   cancellato la riga che definiva `v` lasciando in piedi tredici
+   chiamate, il file restava valido, le prove restavano verdi, e il
+   modulo si rompeva soltanto quando l'ospite premeva «Invia». La riga e'
+   stata rimessa il 20 agosto (commit «Il modulo transfer non si poteva
+   inviare: rimessa la riga cancellata») e adesso pagine/aiutanti.test.ts
+   sorveglia che `v`, `esc`, `$` e `stato` restino definite: quel file
+   oggi e' a posto, e questo commento non lo accusa di niente.
+
+   Il parametro esplicito resta la scelta giusta lo stesso, per la ragione
+   opposta a un sospetto: non perche' `v` manchi da qualche parte, ma
+   perche' cosi' questa funzione non dipende da dove viene chiamata — si
+   estrae e si esegue da sola in una prova, che e' esattamente come le
+   prove del giro 4 la collaudano. Stessa forma di corsaVera() nel modulo
+   transfer del sito, solo con `v` esplicito. */
+function corsaVeraTr(v){
+  const quando = v('trQuando');
+  const scritta = v('trOra');
+  if (!conNavettaInPartenzaTr()) return { quando, ora: scritta };
+
+  const r = ritiroPerVolo(scritta);
+  if (!r) return { quando, ora: scritta };
+
+  let giorno = quando;
+  if (r.giornoPrima && quando) {
+    const d = new Date(quando + 'T12:00:00');
+    d.setDate(d.getDate() - 1);
+    giorno = d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+  return { quando: giorno, ora: r.ora, ora_volo: scritta };
 }
 
 function selettoreLingue(){
@@ -309,13 +551,69 @@ function modulo(){
     <label class="interruttore"><input type="checkbox" id="transfer" /> ${t.transferI}</label>
     <div class="ripiega">
       <label>${t.trTipo}</label>
-      <select id="trTipo">${t.trTipi.map(o=>`<option>${o}</option>`).join('')}</select>
-      <label>${t.trScalo}</label><input type="text" id="trScalo" maxlength="40" />
+      <!-- I VALORI SONO QUELLI DEL SERVER ('arrivo'/'partenza'), non il
+           testo tradotto: validaTransfer (supabase/functions/richieste/
+           tipi.ts) confronta la stringa lettera per lettera, e "L'arrivo"
+           o "Die Anreise" non passerebbero mai — ogni richiesta di
+           transfer da questa pagina verrebbe rifiutata, in tutte le
+           lingue. Il ritorno (l'ex "Andata e ritorno") non e' un terzo
+           valore qui: e' la sua spunta piu' sotto, con giorno e ora suoi —
+           validaTransfer li accetta come campi a parte (ritorno,
+           ritorno_quando, ritorno_ora), esattamente come nel modulo
+           transfer del sito. -->
+      <select id="trTipo">${t.trTipi.map((o,i)=>`<option value="${['arrivo','partenza'][i]}">${o}</option>`).join('')}</select>
+      <label>${t.trLuogo}</label>
+      <select id="trLuogo"></select>
       <div class="due">
-        <div><label>${t.trVolo}</label><input type="text" id="trVolo" maxlength="20" /></div>
-        <div><label>${t.trPax}</label><input type="number" id="trPax" min="1" max="9" value="${DATI.adulti + DATI.bambini}" /></div>
+        <div><label>${t.trQuando}</label><input type="date" id="trQuando" /></div>
+        <!-- L'ETICHETTA E LA NOTA CAMBIANO SOLO con partenza + navetta
+             condivisa: e' l'unico caso in cui "Ora" smette di essere
+             l'orario della corsa e diventa l'ora del volo, da cui il
+             ritiro si ricava (navetta.js, ritiroPerVolo). Vedi
+             aggiornaRitiroTr() e corsaVeraTr() piu' sotto — stessa forma
+             di aggiornaRitiro()/corsaVera() nel modulo transfer del sito. -->
+        <div><label id="trEtiOra">${t.trOra}</label><input type="time" id="trOra" />
+          <div class="nota-invio" style="text-align:left;margin-top:4px;" id="trNotaRitiro"></div>
+        </div>
       </div>
-      <label>${t.trQuando}</label><input type="datetime-local" id="trQuando" />
+      <div class="due">
+        <div><label>${t.trVolo}</label><input type="text" id="trVolo" maxlength="40" /></div>
+        <div><label>${t.trPax}</label><input type="number" id="trPax" min="1" max="8" value="${Math.min(DATI.adulti + DATI.bambini, 8)}" /></div>
+      </div>
+      <!-- LA SCELTA COMPARE SOLO QUANDO E' VERA. navetta.js mette quattro
+           condizioni — solo Venezia aeroporto, al massimo tre passeggeri,
+           corsa fra le 08:00 e le 20:00, ventiquattro ore di preavviso — e
+           validaTransfer non ne controlla nessuna: si fida di quello che
+           il corpo manda. Un blocco sempre visibile, accanto a 189 mete e
+           un campo pax che arriva a otto, lascerebbe scegliere "navetta
+           condivisa" a chi non puo' averla, e la conferma scritta
+           all'ospite direbbe una cosa falsa — lo stesso difetto di prima,
+           girato al contrario. aggiornaServizioTr() nasconde il blocco e
+           forza "auto privata" (value="0") ogni volta che meta,
+           passeggeri, giorno, ora o verso cambiano, non solo al primo
+           caricamento — esattamente come aggiornaNavetta() nel modulo
+           transfer del sito. -->
+      <div id="trBoxServizio" style="display:none;">
+        <label>${t.trServizio}</label>
+        <select id="trServizio">
+          <option value="0">${t.trPrivata}</option>
+          <option value="1">${t.trNavetta}</option>
+        </select>
+        <div class="nota-invio" style="text-align:left;margin-top:4px;" id="trNavettaNota"></div>
+      </div>
+      <label class="interruttore" style="font-size:15px;margin-top:14px;">
+        <input type="checkbox" id="trRitorno" /> ${t.trRitorno}
+      </label>
+      <!-- SOLO CON GIORNO E ORA, mai un "ritorno:true" muto: il
+           validatore lo accetterebbe (resta per le righe vecchie), ma e'
+           esattamente il difetto per cui esistono questi due campi — la
+           reception saprebbe CHE serve il ritorno e non QUANDO, e
+           dovrebbe telefonare. invia() blocca l'invio se la spunta e'
+           attiva e uno dei due campi e' vuoto. -->
+      <div class="due" id="trBoxRitorno" style="display:none;margin-top:6px;">
+        <div><label>${t.trRitornoQuando}</label><input type="date" id="trRitornoQuando" /></div>
+        <div><label>${t.trRitornoOra}</label><input type="time" id="trRitornoOra" /></div>
+      </div>
       <label>${t.trCell}</label><input type="tel" id="trCell" maxlength="30" />
     </div>
   </div>
@@ -347,7 +645,52 @@ function modulo(){
 
   <button class="invia" id="invia">${t.invia}</button>
   <div class="nota-invio">${t.inviaNota}</div>
-  <div class="esito-errore" id="erroreInvio">${t.erroreInvio}</div>`;
+  <!-- vuoto qui: il testo lo scrive invia(), perche' puo' essere il nostro
+       messaggio generico o quello preciso arrivato dal server (vedi invia()) -->
+  <div class="esito-errore" id="erroreInvio"></div>`;
+
+  /* Le voci NON si traducono e NON si riordinano: la reception le ricopia
+     nel modulo dei tassisti, e devono combaciare parola per parola. E'
+     anche il motivo per cui questa e' una <select> e non piu' una casella
+     di testo: "Venezia", "aeroporto di Venezia" e "VCE" non sono nessuna
+     delle 189 voci. */
+  document.getElementById('trLuogo').innerHTML =
+    '<option value=""></option>' + LUOGHI_ATAM.map((l) =>
+      `<option value="${l.replace(/"/g, '&quot;')}">${l}</option>`).join('');
+
+  /* la spunta mostra i suoi due campi solo quando serve: 'flex' e non
+     'block', perche' .due e' gia' un flex layout (vedi CSS). Quando si
+     apre, il minimo del giorno di ritorno va legato subito: senza,
+     l'ospite potrebbe scegliere una data prima ancora che trQuando gliela
+     abbia impedito. */
+  document.getElementById('trRitorno').addEventListener('change', (e) => {
+    document.getElementById('trBoxRitorno').style.display = e.target.checked ? 'flex' : 'none';
+    if (e.target.checked) legaRitornoTr();
+  });
+
+  /* LA SCELTA DEL SERVIZIO si ricalcola a ogni cambiamento di meta,
+     passeggeri, giorno, ora e verso, perche' tutti e cinque entrano nella
+     regola di navetta.js — e una volta alla fine, sul disegno appena
+     fatto, cosi' chi arriva gia' con una meta e un pax fuori dai limiti
+     (dal token, o riaprendo la lingua) non vede il blocco comparire senza
+     motivo. */
+  ['trLuogo','trPax','trQuando','trOra','trTipo'].forEach((id) => {
+    const el = document.getElementById(id);
+    el.addEventListener('change', aggiornaServizioTr);
+    el.addEventListener('input', aggiornaServizioTr);
+  });
+  aggiornaServizioTr();
+  document.getElementById('trQuando').addEventListener('change', legaRitornoTr);
+
+  /* L'ETICHETTA E LA NOTA DEL RITIRO seguono la stessa domanda del
+     cancello (partenza+condivisa?), ma la risposta cambia anche quando
+     cambiano il verso o il servizio da soli — non solo meta/pax/giorno/
+     ora, che gia' fanno ricalcolare l'eleggibilita' sopra. */
+  document.getElementById('trOra').addEventListener('input', aggiornaRitiroTr);
+  document.getElementById('trQuando').addEventListener('change', aggiornaRitiroTr);
+  document.getElementById('trTipo').addEventListener('change', aggiornaRitiroTr);
+  document.getElementById('trServizio').addEventListener('change', aggiornaRitiroTr);
+  aggiornaRitiroTr();
 
   document.querySelectorAll('.lingue button').forEach(b =>
     b.addEventListener('click', () => { LINGUA = b.dataset.l; modulo(); }));
@@ -370,57 +713,168 @@ function modulo(){
   document.getElementById('invia').addEventListener('click', invia);
 }
 
+/* GIA' INVIATO (409). Non e' un errore rosso: e' normale, capita a chi
+   ricarica la pagina o riapre l'ultimo link dopo aver gia' compilato.
+   Mostriamo i numeri gia' ricevuti e diciamo di scrivere per cambiare
+   qualcosa — mai una seconda serie di richieste. */
+function giaInviato(t, richieste){
+  const numeri = (Array.isArray(richieste) ? richieste : []).map(r => r?.numero);
+  stato(t.giaInviatoT, t.giaInviato, '✓', elencoNumeri(numeri) + `<p>${esc(t.perCambiare)}</p>`);
+}
+
+/* LO STESSO STATO, ALL'APERTURA. Prima esisteva solo come risposta a un
+   invio: chi riapriva il link per correggere il numero del volo
+   ricompilava tutto — ora, transfer, partita IVA — premeva Invia e si
+   sentiva dire che avevamo gia' tutto. Le correzioni si perdevano.
+
+   UN GUASTO QUI NON CHIUDE IL MODULO: si torna `null` e la pagina fa
+   quello che faceva prima, cioe' mostra il modulo. A proteggere dal doppio
+   invio resta il controllo del server, che sull'errore di lettura
+   rifiuta. */
+async function statoInvio(){
+  try {
+    const r = await fetch(`${FUNZIONE_RICHIESTE}?a=arrivo-inviato&t=${encodeURIComponent(TOKEN)}`);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) {
+    return null;
+  }
+}
+
 async function invia(){
   const t = T[LINGUA];
   const b = document.getElementById('invia');
+  const box = document.getElementById('erroreInvio');
   b.disabled = true; b.textContent = t.attendere;
-  document.getElementById('erroreInvio').style.display = 'none';
+  box.style.display = 'none';
   const v = id => document.getElementById(id)?.value?.trim() || null;
   const fatt = document.getElementById('fattura').checked;
   const tr = document.getElementById('transfer').checked;
+  const ritorno = tr && document.getElementById('trRitorno').checked;
+
+  /* MAI "ritorno:true" SENZA GIORNO E ORA: il validatore lo accetterebbe
+     comunque (resta per le richieste vecchie), ma e' esattamente il
+     difetto per cui esistono questi due campi — la reception saprebbe
+     CHE serve il ritorno e non QUANDO, e dovrebbe telefonare. Si blocca
+     l'invio qui, prima ancora di chiamare il server. */
+  if (ritorno && (!v('trRitornoQuando') || !v('trRitornoOra'))) {
+    box.textContent = t.trRitornoManca;
+    box.style.display = 'block';
+    b.disabled = false; b.textContent = t.invia;
+    return;
+  }
+
+  const collettivo = v('trServizio') === '1';
+  /* GIORNO E ORA VERI DELLA CORSA, non necessariamente quello che l'ospite
+     ha scritto: con partenza+condivisa il campo contiene l'ora del volo, e
+     corsaVeraTr() la converte nell'ora di ritiro (arretrando la data se il
+     ritiro cade il giorno prima) prima che parta qualunque cosa. Fuori da
+     quel caso non cambia niente. */
+  const corsaTr = tr ? corsaVeraTr(v) : null;
+  /* IL RITORNO SI GIUDICA DA SOLO. Chi sceglie la navetta per l'andata da'
+     per scontato che valga anche al ritorno, ma un ritorno alle 22:00 in
+     arrivo e' fuori fascia (navetta.js, DALLE/ALLE): senza ricalcolarlo,
+     il modulo che prepara la prenotazione dai tassisti leggerebbe
+     ritorno_collettivo assente (il server lo risolve a false) e
+     prenoterebbe in privata un ritorno che l'ospite ha chiesto condiviso —
+     niente di falso stampato per l'ospite, ma quello che si prenota
+     divergerebbe da quello che e' stato chiesto. Stessa regola del modulo
+     transfer del sito (corsaDiRitorno() + navetta(), aggiornaRitornoNote()). */
+  const corsaRitorno = ritorno ? corsaDiRitorno({
+    luogo: v('trLuogo'), pax: Number(v('trPax')) || 1, verso: v('trTipo'),
+    ritorno_quando: v('trRitornoQuando'), ritorno_ora: v('trRitornoOra'),
+  }) : null;
+  const ritornoCollettivo = collettivo && !!(corsaRitorno && navetta(corsaRitorno, new Date()));
+
   const corpo = {
+    token: TOKEN,
+    /* IL TELEFONO IN CIMA AL CORPO, non dentro transfer_dati: e' li' che
+       ?a=invia-arrivo lo cerca (index.ts) e da li' finisce su ogni pezzo
+       della richiesta — non solo sul transfer. Dentro transfer_dati si
+       perderebbe in silenzio: validaTransfer non legge "cell", e la
+       reception si ritroverebbe un taxi da chiamare senza nessun numero,
+       peggio di prima che l'email lo stampava. */
+    telefono: v('trCell'),
     ora_arrivo: v('ora'), mezzo: v('mezzo'),
+    /* le attenzioni partono come CHIAVI, non come testo tradotto: la
+       pagina parla quattro lingue, il back office una sola, e "Culla per
+       neonato" andrebbe letto da chi aveva davanti "Babybett" */
+    attenzioni: [...document.querySelectorAll('.extra:checked')]
+      .map(c => ['culla','seggiolone','parcheggio','cane'][+c.dataset.i]),
+    fanghi_desiderio: (()=>{ const s = document.querySelector('.fanghi:checked');
+      return s ? ['presto','tardi','indifferente'][+s.dataset.i] : null; })(),
     persone_extra: [...document.querySelectorAll('.persona')].map(p => ({
       nome: p.children[0].value.trim(), eta: p.children[1].value.trim()
     })).filter(p => p.nome),
-    fattura: fatt,
-    fatt_ragione: fatt ? v('fRagione') : null,
-    fatt_indirizzo: fatt ? v('fIndirizzo') : null,
-    fatt_piva: fatt ? v('fPiva') : null,
-    fatt_cf: fatt ? v('fCf') : null,
-    fatt_sdi: fatt ? v('fSdi') : null,
-    fatt_pec: fatt ? v('fPec') : null,
+    note: v('note'),
     transfer: tr,
-    transfer_tipo: tr ? v('trTipo') : null,
-    transfer_scalo: tr ? v('trScalo') : null,
-    transfer_volo: tr ? v('trVolo') : null,
-    transfer_quando: tr ? v('trQuando') : null,
-    transfer_pax: tr ? (Number(v('trPax')) || null) : null,
-    transfer_cell: tr ? v('trCell') : null,
-    extra: [...document.querySelectorAll('.extra:checked')].map(c => T[LINGUA].extraOpz[+c.dataset.i]),
-    /* i tre valori sono quelli che il server accetta (fanghi.ts, elenco
-       chiuso): l'indice della scelta, non il testo tradotto */
-    fanghi_desiderio: (()=>{
-      const s = document.querySelector('.fanghi:checked');
-      return s ? ['presto','tardi','indifferente'][+s.dataset.i] : null;
-    })(),
-    note: v('note')
+    transfer_dati: tr ? {
+      verso: v('trTipo'), luogo: v('trLuogo'), quando: corsaTr.quando, ora: corsaTr.ora,
+      /* IL DATO DA CUI NASCE LA CONVERSIONE: senza, chi legge "ora" in
+         reception vede solo l'orario di ritiro e non puo' verificare da
+         quale volo viene ne' correggerlo se il volo cambia. Assente (non
+         partenza+condivisa) resta null, come prezzo_cent: "non c'e'" e
+         "e' zero" sono due cose diverse. */
+      ora_volo: corsaTr.ora_volo || null,
+      pax: Number(v('trPax')) || 1, volo: v('trVolo'),
+      /* SENZA QUESTO IL TRANSFER NASCE SEMPRE "AUTO PRIVATA": validaTransfer
+         risolve collettivo a false se il corpo non lo manda, e quella non
+         e' una scelta neutra — finisce cosi' com'e' nel dettaglio della
+         richiesta e nell'email di conferma che legge l'ospite, che non ha
+         mai visto l'alternativa (su Venezia aeroporto, entro tre
+         passeggeri) piu' economica. */
+      collettivo,
+      ritorno,
+      ritorno_quando: ritorno ? v('trRitornoQuando') : null,
+      ritorno_ora: ritorno ? v('trRitornoOra') : null,
+      ritorno_collettivo: ritornoCollettivo
+    } : null,
+    fattura: fatt,
+    fattura_dati: fatt ? {
+      ragione: v('fRagione'), indirizzo: v('fIndirizzo'), piva: v('fPiva'),
+      cf: v('fCf'), sdi: v('fSdi'), pec: v('fPec')
+    } : null
   };
   try {
-    const r = await fetch(`${FUNZIONE}?token=${encodeURIComponent(TOKEN)}`, {
+    const r = await fetch(`${FUNZIONE_RICHIESTE}?a=invia-arrivo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(corpo)
     });
-    if (!r.ok) throw new Error('salvataggio');
+    const d = await r.json().catch(() => ({}));
+    if (r.status === 409) { giaInviato(t, d.richieste); window.scrollTo(0, 0); return; }
+    /* 404 E 410 SONO GLI STESSI CASI DEL CARICAMENTO (link non valido,
+       soggiorno scaduto), stavolta scoperti al momento dell'invio invece
+       che all'apertura — puo' succedere se il link scade mentre l'ospite
+       sta ancora compilando. Le schermate tradotte esistono gia' per
+       questi due casi: non c'e' motivo di mostrarli come un rifiuto in
+       italiano dentro il riquadro rosso. */
+    if (r.status === 404) { stato(t.nonValidoT, t.nonValido, '·'); return; }
+    if (r.status === 410) { stato(t.scadutoT, t.scaduto, '·'); return; }
+    if (!r.ok) {
+      /* IL MESSAGGIO DEL SERVER VA MOSTRATO: e' lui che dice «luogo non in
+         elenco» o «serve la partita IVA o il codice fiscale», e
+         nasconderlo lascerebbe l'ospite davanti a un rifiuto muto. Il
+         server non traduce i suoi errori: arrivano in italiano anche a
+         chi legge la pagina in un'altra lingua, e non c'e' altro modo di
+         dirli. */
+      box.textContent = d.errore || t.erroreInvio;
+      box.style.display = 'block';
+      b.disabled = false; b.textContent = t.invia;
+      return;
+    }
     /* «abbiamo preso nota del suo desiderio», e nient'altro: nessun orario
        confermato, nessun turno. Compare solo a chi una preferenza l'ha
        davvero espressa. */
     const scelta = document.querySelector('.fanghi:checked');
-    stato(t.grazieT, t.grazie + (scelta ? ' ' + t.fanghiPresoAtto : ''), '✓');
+    /* I NUMERI, SUBITO: senza mostrarli qui l'ospite li scopre solo
+       ricaricando (e finendo nel 409) — la stessa lista, mostrata al primo
+       giro invece che al secondo. */
+    stato(t.grazieT, t.grazie + (scelta ? ' ' + t.fanghiPresoAtto : ''), '✓', elencoNumeri(d.numeri));
     window.scrollTo(0, 0);
   } catch (e) {
-    document.getElementById('erroreInvio').style.display = 'block';
+    box.textContent = t.erroreInvio;
+    box.style.display = 'block';
     b.disabled = false; b.textContent = t.invia;
   }
 }
@@ -429,7 +883,7 @@ async function invia(){
   TOKEN = new URLSearchParams(location.search).get('t');
   if (!TOKEN) { stato(T.it.nonValidoT, T.it.nonValido, '·'); return; }
   try {
-    const r = await fetch(`${FUNZIONE}?token=${encodeURIComponent(TOKEN)}`);
+    const r = await fetch(`${FUNZIONE_ARRIVO}?token=${encodeURIComponent(TOKEN)}`);
     if (r.status === 410) {
       const l = LINGUA; stato(T[l].scadutoT, T[l].scaduto, '·'); return;
     }
@@ -437,6 +891,11 @@ async function invia(){
     DATI = await r.json();
     LINGUA = ['it','de','en','fr'].includes(DATI.lingua) ? DATI.lingua : 'it';
     document.documentElement.lang = LINGUA;
+    /* DOPO la lingua, perche' questa schermata la parla; PRIMA del modulo,
+       perche' e' il modulo che non deve nemmeno comparire a chi ha gia'
+       mandato tutto. */
+    const gia = await statoInvio();
+    if (gia && gia.inviato === true) { giaInviato(T[LINGUA], gia.richieste); return; }
     modulo();
   } catch (e) {
     stato(T.it.nonValidoT, T.it.nonValido, '·');

@@ -7,7 +7,7 @@
    Presidiato da componi-richiesta.test.ts. */
 
 import { validaContatti, validaRichiesta } from './valida.ts';
-import { validaDati } from './tipi.ts';
+import { TIPI_ATTIVI, validaDati } from './tipi.ts';
 
 const testo = (v: unknown) => String(v ?? '').trim();
 
@@ -34,6 +34,30 @@ export type Composta = {
    da chiunque altro. */
 export function componiRichiesta(corpo: Record<string, unknown>): Composta {
   const tipo = testo(corpo.tipo) || 'soggiorno';
+
+  /* IL TIPO ARRIVA DAL BROWSER, E QUI DIVENTA UN CANCELLO.
+
+     TIPI_ATTIVI e' l'elenco dei tipi che il pubblico puo' creare. `arrivo` e
+     `fattura` ne stanno fuori APPOSTA: li crea solo ?a=invia-arrivo, che
+     pretende il token del link mandato per email.
+
+     Ma finche' nessuno lo controllava era un invariante ASSERITO, non
+     imposto: il tipo passava dritto a validaDati, il cui switch conosce
+     anche quei due. E la guardia sul doppio invio del check-in guarda
+     proprio le righe di tipo `arrivo` — chi avesse avuto il token di un
+     ospite poteva crearne una dal modulo pubblico e chiuderlo fuori dal
+     proprio check-in.
+
+     Serve gia' avere quel token, che e' lo stesso segreto con cui si
+     compilerebbe il modulo direttamente: per chi attacca non c'e' guadagno.
+     Ma una guardia non deve appoggiarsi a una promessa scritta altrove.
+
+     includes() su un elenco e non una ricerca dentro un oggetto: una chiave
+     come "toString" esiste su Object.prototype, ed e' il difetto gia' pagato
+     coi circoli del golf in tipi.ts. */
+  if (!(TIPI_ATTIVI as readonly string[]).includes(tipo)) {
+    return { errore: 'tipo di richiesta sconosciuto' };
+  }
 
   if (tipo === 'soggiorno') {
     const { errore, dati } = validaRichiesta(corpo);

@@ -48,3 +48,48 @@ Deno.test('una fascia aggiunta domani non resta senza parole in pagina', () => {
     assert(d in inPagina(), `la fascia "${d}" esiste e la pagina non sa come chiamarla`);
   }
 });
+
+
+/* ============================================================
+   E DENTRO LA PAGINA, UNA TABELLA SOLA.
+
+   La scheda di una richiesta d'arrivo e la scheda «Arrivi del giorno»
+   dicono tutte e due la fascia dei fanghi, e per un po' l'hanno detta da due
+   tabelle diverse: DESIDERIO_IN_PAGINA, tenuta ferma dalle prove qui sopra,
+   e un `nomeFanghi` con le stesse tre stringhe copiate a mano e sorvegliate
+   da niente.
+
+   Cambiando una fascia domani, le prove avrebbero costretto la prima a
+   seguire e lasciato indietro la seconda: due schermate dello stesso back
+   office che dicono due cose diverse sullo stesso ospite, con la suite
+   verde.
+   ============================================================ */
+
+/** `nomeFanghi` estratta ed ESEGUITA, non cercata nel testo. */
+function nomeFanghi(): (k: string) => string {
+  const tabella = SORGENTE.match(/const DESIDERIO_IN_PAGINA = \{[^}]*\};/);
+  const funzione = SORGENTE.match(/function nomeFanghi\(k\) \{[\s\S]*?\n\}/);
+  assert(tabella && funzione,
+    'DESIDERIO_IN_PAGINA o nomeFanghi non si trovano: la pagina e cambiata');
+  return new Function(
+    `${tabella![0]}\n${funzione![0]}\nreturn nomeFanghi;`,
+  )() as (k: string) => string;
+}
+
+Deno.test('le due viste dicono la stessa fascia', () => {
+  const f = nomeFanghi();
+  const p = inPagina();
+  assertEquals(Object.keys(p).length, DESIDERI.length, 'la prova girerebbe a vuoto');
+  for (const d of DESIDERI) {
+    assertEquals(f(d), p[d], `la fascia "${d}" e detta in due modi diversi`);
+  }
+});
+
+/* Una chiave che non esiste non deve diventare una fascia: `toString`
+   esiste su Object.prototype, e una ricerca diretta ci cascherebbe. */
+Deno.test('un nome ereditato non e una fascia', () => {
+  const f = nomeFanghi();
+  for (const k of ['toString', 'constructor', 'alba']) {
+    assertEquals(f(k), '', `"${k}" ha prodotto una fascia`);
+  }
+});

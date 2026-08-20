@@ -22,7 +22,7 @@
    due livelli diversi — ed è sempre quella più debole a decidere.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { dominioAmmesso, ruoloDi, tipiVisibili, vedeTutto } from './ruoli.ts';
+import { CASELLA_IN_COPIA, casellaInCopia, dominioAmmesso, ruoloDi, tipiVisibili, vedeTutto } from './ruoli.ts';
 
 /* ---------- il dominio ---------- */
 
@@ -96,4 +96,50 @@ Deno.test('senza ruolo non si vede niente', () => {
    devono decidere se entra. */
 Deno.test('maiuscole e spazi non cambiano il ruolo', () => {
   assertEquals(ruoloDi('  Reception@TERMELEONARDO.com '), 'reception');
+});
+
+/* ============================================================
+   POSTA E SCHERMO DEVONO DIRE LA STESSA COSA.
+
+   Oggi ogni richiesta va alla casella dell'hotel e basta: la divisione per
+   ruolo esiste solo nel back office. La spa legge i trattamenti sullo
+   schermo e non li riceve; l'amministrazione, col tipo `fattura`, si
+   troverebbe i dati fiscali in una casella che non apre.
+
+   La regola sta accanto a quella dei ruoli e non altrove, perche' sono la
+   stessa decisione detta due volte: chi puo' leggere una cosa, quella cosa
+   deve riceverla.
+   ============================================================ */
+Deno.test('ogni tipo che la spa legge le arriva anche in copia', () => {
+  const suoi = tipiVisibili('spa');
+  assert(suoi.length > 0, 'la spa non legge niente: la prova girerebbe a vuoto');
+  for (const t of suoi) {
+    assertEquals(casellaInCopia(t), 'spa', `"${t}" la spa lo legge sullo schermo e non lo riceve`);
+  }
+});
+
+Deno.test('e alla spa non arriva niente che non possa leggere', () => {
+  const perSpa = Object.entries(CASELLA_IN_COPIA).filter(([, chi]) => chi === 'spa');
+  assert(perSpa.length > 0, 'nessun tipo va in copia alla spa: la prova girerebbe a vuoto');
+  for (const [tipo] of perSpa) {
+    assert(tipiVisibili('spa').includes(tipo),
+      `"${tipo}" arriva alla spa e la spa non puo aprirlo in back office`);
+  }
+});
+
+Deno.test('la fattura va all amministrazione', () => {
+  assertEquals(casellaInCopia('fattura'), 'amministrazione');
+});
+
+Deno.test('un tipo senza copia non ne ha', () => {
+  assertEquals(casellaInCopia('soggiorno'), null);
+  assertEquals(casellaInCopia(''), null);
+});
+
+/* Una chiave come "toString" esiste su Object.prototype: una lookup
+   diretta restituirebbe la funzione ereditata invece di sparire. E' il
+   difetto gia' pagato coi circoli del golf in tipi.ts. */
+Deno.test('un nome ereditato non diventa una casella', () => {
+  assertEquals(casellaInCopia('toString'), null);
+  assertEquals(casellaInCopia('constructor'), null);
 });

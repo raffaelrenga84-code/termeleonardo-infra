@@ -125,3 +125,63 @@ Deno.test('un campo sconosciuto, anche chiamato come un metodo ereditato, non fa
   assert(!d[0].campo.includes('function'));
   assertEquals(d[0].adesso, 'qualcosa');
 });
+
+/* ============================================================
+   LE PERSONE DA AGGIUNGERE SONO OGGETTI, NON STRINGHE.
+
+   `persone_extra` (check-in online) e' un elenco di { nome, eta }. Con
+   String() ogni voce diventa «[object Object]»: il valore stampato era
+   illeggibile, e — peggio — due elenchi DIVERSI della stessa lunghezza
+   risultavano UGUALI, quindi una correzione della reception spariva senza
+   lasciare traccia ne' in back office ne' nell'email dell'ospite. E'
+   l'«undefined» di questa colonna, vestito da nome di classe.
+   ============================================================ */
+Deno.test('le persone da aggiungere si leggono col nome, non come [object Object]', () => {
+  const d = differenze(
+    { persone_extra: [{ nome: 'Rossi Elena', eta: '12' }] },
+    { persone_extra: [{ nome: 'Rossi Elena', eta: '12' }, { nome: 'Rossi Marco' }] },
+  );
+  assertEquals(d.length, 1);
+  assertEquals(d[0].campo, 'Persone da aggiungere');
+  assertEquals(d[0].prima, 'Rossi Elena (12)');
+  assertEquals(d[0].adesso, 'Rossi Elena (12), Rossi Marco');
+});
+
+Deno.test('due elenchi di persone diversi non si scambiano per uguali', () => {
+  const d = differenze(
+    { persone_extra: [{ nome: 'Rossi Elena', eta: '12' }] },
+    { persone_extra: [{ nome: 'Bianchi Marco', eta: '40' }] },
+  );
+  assertEquals(d.length, 1, 'due persone diverse sono passate per la stessa persona');
+  assertEquals(d[0].prima, 'Rossi Elena (12)');
+  assertEquals(d[0].adesso, 'Bianchi Marco (40)');
+});
+
+/* Lo stesso elenco in ordine diverso resta «uguale», come per le voci dei
+   trattamenti: e' un dettaglio di come Postgres le ha restituite, non una
+   modifica dell'ospite. */
+Deno.test('le stesse persone in ordine diverso non sono una modifica', () => {
+  const d = differenze(
+    { persone_extra: [{ nome: 'Rossi Elena', eta: '12' }, { nome: 'Rossi Marco' }] },
+    { persone_extra: [{ nome: 'Rossi Marco' }, { nome: 'Rossi Elena', eta: '12' }] },
+  );
+  assertEquals(d, []);
+});
+
+/* I campi del check-in e della fattura hanno un nome leggibile: senza,
+   l'operatore leggeva «Ora_arrivo» e «Piva» — e l'ospite pure, dentro il
+   riquadro «cosa e' cambiato». */
+Deno.test('i campi di un arrivo e di una fattura hanno un nome da leggere', () => {
+  const attesi: Record<string, string> = {
+    ora_arrivo: 'Arrivo previsto', mezzo: 'Mezzo', attenzioni: 'Piccole attenzioni',
+    fanghi_desiderio: 'Desiderio fanghi', persone_extra: 'Persone da aggiungere',
+    persone_confermate: 'Persone da aggiungere confermate',
+    ragione: 'Ragione sociale', indirizzo: 'Indirizzo', piva: 'Partita IVA',
+    cf: 'Codice fiscale', sdi: 'Codice SDI', pec: 'PEC',
+  };
+  for (const [chiave, atteso] of Object.entries(attesi)) {
+    const d = differenze({ [chiave]: 'prima' }, { [chiave]: 'dopo' });
+    assertEquals(d.length, 1, `${chiave}: nessuna differenza rilevata`);
+    assertEquals(d[0].campo, atteso, `${chiave} si legge ancora col nome tecnico`);
+  }
+});
