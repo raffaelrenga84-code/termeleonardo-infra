@@ -20,7 +20,7 @@ import { inviaRicevuta } from './ricevuta.ts';
 import { inviaConferma } from './conferma.ts';
 import { arricchisciElenco } from './elenco.ts';
 import { filtroRicercaRichieste } from './ricerca.ts';
-import { giornoValido, perRuolo, perToken, tipiCura } from './arrivi.ts';
+import { giornoValido, perRuolo, perToken, puoChiudere, tipiCura } from './arrivi.ts';
 import { type Ruolo, ruoloDi, tipiVisibili, vedeTutto } from './ruoli.ts';
 import { pocoPreavviso } from './preavviso.ts';
 import { componiRisposta, corpoDisponibilita } from './disponibilita.ts';
@@ -704,11 +704,17 @@ Deno.serve(async (req) => {
     }
     /* Si legge il tipo PRIMA di aggiornare. Senza, la spa potrebbe
        chiudere un transfer che non ha nemmeno il diritto di vedere:
-       basterebbe indovinare un numero, e i numeri sono progressivi. */
+       basterebbe indovinare un numero, e i numeri sono progressivi.
+       Si legge anche dati: serve a puoChiudere per vedere se ci sono
+       persone da aggiungere ancora senza risposta. */
     const { data: chi } = await db.from('richiesta_sito')
-      .select('tipo').eq('numero', numero).maybeSingle();
+      .select('tipo, dati').eq('numero', numero).maybeSingle();
     if (!chi) return risposta({ errore: 'richiesta non trovata' }, 404);
     if (!puoToccare(accesso, chi.tipo)) return risposta({ errore: 'non autorizzato' }, 403);
+    if (nuovo === 'chiusa') {
+      const c = puoChiudere(chi);
+      if (!c.ok) return risposta({ errore: c.perche }, 409);
+    }
 
     const { error } = await db.from('richiesta_sito').update({
       stato: nuovo,

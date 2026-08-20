@@ -140,3 +140,29 @@ export function tipiCura(ruolo: Ruolo | null, conChiave: boolean): string[] {
   const suoi = tipiVisibili(ruolo);
   return CURA.filter((t) => suoi.includes(t));
 }
+
+/* ============================================================
+   UNA RICHIESTA D'ARRIVO CON GENTE DA AGGIUNGERE NON SI CHIUDE.
+
+   Chi ha scritto "si aggiunge mia figlia" sta aspettando di sapere se c'e'
+   posto e quanto costa. Una richiesta d'arrivo si chiude in fretta, perche'
+   quasi sempre non c'e' niente da rispondere: e' esattamente il caso in cui
+   una riga si perde.
+
+   Il segno che qualcuno ha risposto e' persone_confermate, che validaArrivo
+   conserva apposta attraverso ?a=conferma: la porta pubblica del check-in
+   lo forza sempre a falso, quindi solo la reception puo' metterlo a vero.
+   ============================================================ */
+/** Se questa richiesta si puo' portare allo stato «chiusa». */
+export function puoChiudere(riga: Riga): { ok: boolean; perche?: string } {
+  if (String(riga?.tipo ?? '') !== 'arrivo') return { ok: true };
+  const d = (riga.dati && typeof riga.dati === 'object')
+    ? riga.dati as Record<string, unknown> : {};
+  const persone = Array.isArray(d.persone_extra) ? d.persone_extra : [];
+  if (persone.length === 0 || d.persone_confermate === true) return { ok: true };
+  return {
+    ok: false,
+    perche: 'ci sono persone da aggiungere in attesa di risposta: ' +
+      'confermi disponibilita e prezzo prima di chiudere',
+  };
+}

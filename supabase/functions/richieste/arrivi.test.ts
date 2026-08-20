@@ -18,7 +18,7 @@
    scrive — e l'ultima prova qui sotto e' proprio quella.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { CAMPI_SPA, giornoValido, perRuolo, perToken, tipiCura } from './arrivi.ts';
+import { CAMPI_SPA, giornoValido, perRuolo, perToken, puoChiudere, tipiCura } from './arrivi.ts';
 import { tipiVisibili } from './ruoli.ts';
 
 /* ============================================================
@@ -248,4 +248,38 @@ Deno.test('alla spa tornano solo tipi che la spa puo gia leggere', () => {
 
 Deno.test('senza ruolo e senza chiave non torna nessun tipo', () => {
   assertEquals(tipiCura(null, false), []);
+});
+
+/* ============================================================
+   UNA RICHIESTA D'ARRIVO CON GENTE DA AGGIUNGERE NON SI CHIUDE.
+
+   Chi ha scritto "si aggiunge mia figlia" sta aspettando di sapere se c'e'
+   posto e quanto costa. Una richiesta d'arrivo si chiude in fretta, perche'
+   quasi sempre non c'e' niente da rispondere: e' esattamente il caso in
+   cui una riga si perde.
+
+   Il segno che qualcuno ha risposto e' persone_confermate, che
+   validaArrivo conserva apposta attraverso ?a=conferma.
+   ============================================================ */
+Deno.test('un arrivo con persone da aggiungere non si chiude', () => {
+  const r = puoChiudere({ tipo: 'arrivo', dati: { persone_extra: [{ nome: 'Bianchi Luca' }] } });
+  assert(!r.ok);
+  assert(r.perche && r.perche.length > 10, 'rifiuta senza dire perche');
+});
+
+Deno.test('ma si chiude quando qualcuno ha risposto', () => {
+  assert(puoChiudere({ tipo: 'arrivo', dati: {
+    persone_extra: [{ nome: 'Bianchi Luca' }], persone_confermate: true } }).ok);
+});
+
+Deno.test('un arrivo senza persone si chiude sempre', () => {
+  assert(puoChiudere({ tipo: 'arrivo', dati: { ora_arrivo: '16:30' } }).ok);
+  assert(puoChiudere({ tipo: 'arrivo', dati: { persone_extra: [] } }).ok);
+});
+
+/* La regola vale per l'arrivo e per nient'altro: un transfer con dentro
+   una chiave persone_extra per sbaglio non deve diventare inchiudibile. */
+Deno.test('gli altri tipi non sono toccati', () => {
+  assert(puoChiudere({ tipo: 'transfer', dati: { persone_extra: [{ nome: 'X' }] } }).ok);
+  assert(puoChiudere({ tipo: 'trattamenti', dati: {} }).ok);
 });
