@@ -142,6 +142,30 @@ export function tipiCura(ruolo: Ruolo | null, conChiave: boolean): string[] {
 }
 
 /* ============================================================
+   QUALI RICHIESTE DI UN ARRIVO PUO' VEDERE CHI GUARDA.
+
+   Una riga piatta si filtra campo per campo (CAMPI_SPA). Una richiesta no:
+   o la si vede o non la si vede, e a deciderlo e' il tipo — che e'
+   esattamente la domanda a cui ruoli.ts risponde gia' per l'elenco delle
+   richieste. Qui non si riscrive: si chiama.
+
+   Percio' la spa vede la richiesta `arrivo`? NO. Vede solo trattamenti e
+   Day Spa, come sullo schermo delle richieste. Il desiderio dei fanghi le
+   arriva dalla SCHEDA dell'arrivo (CAMPI_SPA, che lo contiene), non dalla
+   richiesta: e' il dato che le serve, senza la fatturazione che le sta
+   accanto.
+   ============================================================ */
+export function richiestePerRuolo(
+  richieste: Riga[],
+  ruolo: Ruolo | null,
+  conChiave: boolean,
+): Riga[] {
+  if (conChiave || vedeTutto(ruolo)) return richieste;
+  const suoi = tipiVisibili(ruolo);
+  return richieste.filter((r) => suoi.includes(String(r.tipo ?? '')));
+}
+
+/* ============================================================
    UNA RICHIESTA D'ARRIVO CON GENTE DA AGGIUNGERE NON SI CHIUDE.
 
    Chi ha scritto "si aggiunge mia figlia" sta aspettando di sapere se c'e'

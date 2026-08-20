@@ -18,7 +18,9 @@
    scrive — e l'ultima prova qui sotto e' proprio quella.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { CAMPI_SPA, giornoValido, perRuolo, perToken, puoChiudere, tipiCura } from './arrivi.ts';
+import {
+  CAMPI_SPA, giornoValido, perRuolo, perToken, puoChiudere, richiestePerRuolo, tipiCura,
+} from './arrivi.ts';
 import { tipiVisibili } from './ruoli.ts';
 
 /* ============================================================
@@ -282,4 +284,56 @@ Deno.test('un arrivo senza persone si chiude sempre', () => {
 Deno.test('gli altri tipi non sono toccati', () => {
   assert(puoChiudere({ tipo: 'transfer', dati: { persone_extra: [{ nome: 'X' }] } }).ok);
   assert(puoChiudere({ tipo: 'trattamenti', dati: {} }).ok);
+});
+
+/* ============================================================
+   L'ARRIVO ADESSO E' FATTO DI RICHIESTE.
+
+   Fino a ieri la scheda leggeva arrivo_richiesta. Adesso legge le
+   richieste che portano il token della prenotazione — ma le righe gia'
+   scritte nella vecchia tabella devono continuare a vedersi finche' quegli
+   arrivi non sono passati: non si migra niente, e un ospite che ha
+   compilato la settimana scorsa non deve sparire dalla schermata.
+   ============================================================ */
+const RICHIESTE = [
+  { numero: 'C26/19130', tipo: 'arrivo', dati: { ora_arrivo: '16:30' } },
+  { numero: 'C26/19131', tipo: 'transfer', dati: { luogo: 'Venezia  aeroporto' } },
+  { numero: 'C26/19132', tipo: 'fattura', dati: { ragione: 'Bianchi S.r.l.', piva: 'IT02042330288' } },
+  { numero: 'C26/19133', tipo: 'trattamenti', dati: { voci: ['Massaggio antistress'] } },
+];
+
+Deno.test('l elenco di prova non e vuoto', () => {
+  assert(RICHIESTE.length >= 4, 'la prova girerebbe a vuoto');
+});
+
+Deno.test('la reception vede tutte le richieste di un arrivo', () => {
+  assertEquals(richiestePerRuolo(RICHIESTE, 'reception', false).length, RICHIESTE.length);
+  assertEquals(richiestePerRuolo(RICHIESTE, null, true).length, RICHIESTE.length);
+});
+
+/* La spa vede quello che vede gia' nell'elenco delle richieste, e non altro:
+   la regola e' quella di ruoli.ts, non una seconda scritta qui. */
+Deno.test('la spa vede solo le sue', () => {
+  const suoi = richiestePerRuolo(RICHIESTE, 'spa', false);
+  assertEquals(suoi.map((r) => (r as { tipo: string }).tipo), ['trattamenti']);
+});
+
+/* Il controllo forte, come quello di ieri: non «manca il campo», ma quella
+   stringa non compare da nessuna parte in quello che parte. */
+Deno.test('alla spa la fatturazione non arriva in nessuna forma', () => {
+  const tutto = JSON.stringify(richiestePerRuolo(RICHIESTE, 'spa', false));
+  assert(!tutto.includes('IT02042330288'), 'la partita IVA e nella risposta');
+  assert(!tutto.includes('Venezia'), 'il transfer di un altro reparto e nella risposta');
+});
+
+/* E il desiderio dei fanghi continua ad arrivarle dalla SCHEDA dell'arrivo,
+   che e' piatta e passa da CAMPI_SPA: e' il dato che le serve, senza la
+   fatturazione che gli sta accanto. */
+Deno.test('ma la scheda dell arrivo le porta ancora i fanghi', () => {
+  const r = perRuolo({
+    intestatario: 'Bianchi Maria', data_arrivo: '2026-09-12',
+    ora_arrivo: '16:30', fanghi_desiderio: 'presto',
+  }, 'spa', false);
+  assert(r);
+  assertEquals(r.fanghi_desiderio, 'presto');
 });

@@ -1706,6 +1706,15 @@ const oggiISO = () => {
   return d.getFullYear() + '-' + due(d.getMonth() + 1) + '-' + due(d.getDate());
 };
 
+/* Le richieste di questo ospite, col numero: e' quello che si cerca
+   nella scheda «Richieste dal sito» per rispondere. Qui non si
+   risponde e non si chiude: questa schermata e' in sola lettura. */
+const righeRichieste = (a) => !a.richieste?.length ? '' :
+  `<div class="mini" style="padding-top:6px;">` + a.richieste.map((r) =>
+    `<div><span class="badge-tipo">${esc(r.etichetta)}</span> <span class="cod">${esc(r.numero)}</span> ${esc(r.riepilogo || '')}` +
+    `${r.stato && r.stato !== 'chiusa' ? '' : ' · chiusa'}</div>`
+  ).join('') + `</div>`;
+
 function vistaArrivi() {
   $('vista').innerHTML = `<div class="riquadro">
     <div class="due">
@@ -1747,7 +1756,7 @@ function vistaArrivi() {
                   ? `<div class="mini">fanghi, desiderio: <b>${esc(DESIDERIO_IN_PAGINA[a.fanghi_desiderio] || a.fanghi_desiderio)}</b>
                        <br />il turno lo assegna la Segreteria Cure</div>`
                   : ''}</td>
-            <td class="mini">${a.transfer ? '<span class="badge-tipo">transfer</span> ' : ''}${esc(a.note || '')}</td>
+            <td class="mini">${a.transfer ? '<span class="badge-tipo">transfer</span> ' : ''}${esc(a.note || '')}${righeRichieste(a)}</td>
           </tr>`).join('') + `</table>`;
       }
 
