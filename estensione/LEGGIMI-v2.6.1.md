@@ -289,3 +289,49 @@ Outlook cambia, ma nessuna serviva.
 
 La lezione sta nei numeri: quattro versioni a indovinare, una riga di
 diagnostica per trovarlo.
+
+---
+
+## v2.8.8 — le due copie tornano una sola (20/08/2026)
+
+L'estensione viveva in due posti che si erano allontanati: la cartella
+di OneDrive che Edge carica, ferma alla 2.8.7, e la copia nel deposito
+git, ferma alla 2.7.0. **Ognuna delle due aveva qualcosa che all'altra
+mancava**, quindi non era una copia: era una fusione.
+
+**Quello che mancava al deposito** — diciotto versioni di lavoro mai
+entrate in git: `outlook-transfer.js` per intero, il pulsante «Prepara
+bozza in Fidra» con l'anteprima, il lettore delle richieste dal sito
+RS-, la verifica del pacchetto che ha impedito di scegliere la tariffa
+da 330 al posto di quella da 290, le tre prove node. Stavano in una
+cartella sola: nessuna storia, nessuna copia di sicurezza.
+
+**Quello che mancava alla cartella viva:**
+
+- **green fee e maestro** solo a chi ha il golf, e la **preferenza
+  sull'orario dei fanghi** solo a chi ha le cure (`rigaGolf`,
+  `rigaFanghi` in template.js, richiamate dalle quattro conferme);
+- i pulsanti **transfer** e **buono regalo** nelle conferme **inglese e
+  francese**, dove erano spariti senza che nessuno se ne accorgesse;
+- **lo Shiatsu tolto dal modello dei buoni regalo.** La proprieta' l'ha
+  tolto dal listino il 20 agosto, ma qui l'email diceva ancora «dal
+  relax di 25 minuti allo shiatsu» in tutte e quattro le lingue: chi
+  rispondeva a una richiesta di buoni offriva un massaggio che il
+  reparto non fa piu'. Ora dice «all'anticellulite di 50 minuti».
+
+I quattro modelli tenuti dal deposito differivano dalla copia viva
+**solo** per queste righe — verificato contando le differenze prima di
+scegliere, non a occhio.
+
+### Perche' 2.8.8 e non 2.8.7
+
+Stesso scopo di sempre: dopo il Ricarica, se leggi **2.8.8** e' entrata.
+Il numero e' anche nelle due righe che lo script scrive in console
+all'avvio, cosi' si controlla da li' senza aprire il manifest.
+
+### Da adesso
+
+Le prove del deposito — `orari.test.ts`, `pulsanti.test.ts`,
+`pacchetti.test.ts`, `tolti.test.ts` — guardano il codice che gira
+davvero, non un suo fratello. Prima sorvegliavano una copia che nessuno
+caricava, ed e' per questo che lo Shiatsu era sopravvissuto.
