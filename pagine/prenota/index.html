@@ -59,6 +59,19 @@ textarea{min-height:80px;resize:vertical;}
 .invia{width:100%;margin-top:22px;padding:16px;border:0;border-radius:999px;
   background:var(--verde);color:var(--crema);font:600 16px inherit;cursor:pointer;}
 .invia:disabled{background:#B9BDB6;cursor:default;}
+/* LA BARRA DELLA SCELTA. Sta in fondo al contenuto ma si appiccica al
+   bordo basso della finestra: prima il pulsante era l'ultimo elemento
+   dopo tutte le categorie, e chi aveva appena scelto una camera doveva
+   scorrere il resto dell'elenco per scoprire come si andava avanti.
+   Quando una scelta c'e', la barra la ripete: la stessa riga che
+   l'ospite rivede sulla schermata dopo. */
+.barraScelta{position:sticky;bottom:0;z-index:5;margin-top:22px;
+  padding-bottom:12px;background:var(--crema);
+  box-shadow:0 -12px 16px -10px rgba(42,46,43,.22);}
+.barraScelta .scelto{background:#fff;border:1px solid var(--oro);
+  border-radius:12px;padding:10px 14px;margin-bottom:10px;
+  font-size:14px;text-align:center;}
+.barraScelta .invia{margin-top:0;}
 .fatta{text-align:center;padding:40px 22px;}
 .fatta .rif{font-family:"Courier New",monospace;font-size:20px;color:var(--verde);
   letter-spacing:1px;margin-top:10px;}
@@ -163,6 +176,10 @@ textarea{min-height:80px;resize:vertical;}
    qualcuno divide in due file. */
 import { componiCorpo, euroDaCentesimi, linguaScelta } from '/prenota/logica.js';
 import { altFoto, fotoDi } from '/prenota/foto.js';
+/* PERCORSO ASSOLUTO, stessa ragione di sopra. Con quale ordine si
+   propongono le categorie: sta in un modulo suo perche' e' una regola
+   commerciale, non un dettaglio di disegno — vedi ordine.js. */
+import { ordinaGruppi } from '/prenota/ordine.js';
 /* Lo stesso sistema del modulo transfer: l'asterisco sui campi
    obbligatori, l'elenco di cio' che manca DAVVERO, e il fuoco sul primo
    campo vuoto. Vive in un posto solo perche' le pagine sono tre. */
@@ -523,12 +540,15 @@ function schermaCamere() {
       max_adulti: p.max_adulti, voci: [] }; perId.set(p.camera_id, g); gruppi.push(g); }
     g.voci.push({ ...p, indice: i });
   });
+  /* e adesso nell'ordine con cui la reception le venderebbe a chi ha
+     cercato per quel numero di persone */
+  const inOrdine = ordinaGruppi(gruppi, RICERCA && RICERCA.adulti);
 
   $('app').innerHTML = `
     <button type="button" class="indietro" id="bIndietroDate">${esc(t.indietroDate)}</button>
     <div class="riquadro">
       <h2>${esc(t.cameraTit)}</h2><div class="guida">${esc(t.cameraGuida)}</div>
-      ${gruppi.map(g => `
+      ${inOrdine.map(g => `
         <div class="gruppoCamera">
           ${fotoDi(g.camera_id)
             ? `<img class="foto" src="${esc(fotoDi(g.camera_id))}" alt="${esc(altFoto(g.camera_id, g.nome))}"
@@ -550,8 +570,14 @@ function schermaCamere() {
             </button>`).join('')}
         </div>`).join('')}
     </div>
-    <button class="invia" id="bContinua"${SCELTA ? '' : ' disabled'}>${esc(t.continua)}</button>
-    <div id="esitoCamere"></div>`;
+    <div class="barraScelta">
+      ${SCELTA
+        ? `<div class="scelto">${t.riepilogoCamera(SCELTA.nome, SCELTA.tariffa,
+             euroDaCentesimi(SCELTA.prezzo_cent))}</div>`
+        : ''}
+      <button class="invia" id="bContinua"${SCELTA ? '' : ' disabled'}>${esc(t.continua)}</button>
+      <div id="esitoCamere"></div>
+    </div>`;
 
   $('bIndietroDate').onclick = () => { STATO = 'ricerca'; disegna(); };
   document.querySelectorAll('.proposta').forEach(btn => {
