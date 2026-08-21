@@ -84,3 +84,18 @@ export function daMostrare(inOrdine, aperto, indiceScelto) {
     restano: aperte ? 0 : tutte.length - prime.length,
   };
 }
+
+/** Le tariffe dentro una camera, dalla piu' economica alla piu' cara.
+ *
+ *  IL MOTORE LE MANDA NEL SUO ORDINE, che non e' quello del prezzo: sulla
+ *  Matrimoniale Queen uscivano 260, 190, 390. Chi guarda tre righe di
+ *  prezzi in disordine deve leggerle tutte e confrontarle a mente, e il
+ *  «da 190 €» che si aspettava non e' il primo che vede.
+ *
+ *  A parita' di prezzo resta l'ordine del motore. */
+export function perPrezzo(voci) {
+  return (voci ?? [])
+    .map((v, i) => ({ v, i }))
+    .sort((a, b) => (Number(a.v.prezzo_cent) || 0) - (Number(b.v.prezzo_cent) || 0) || a.i - b.i)
+    .map((x) => x.v);
+}

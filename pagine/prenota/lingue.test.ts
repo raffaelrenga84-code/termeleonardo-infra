@@ -84,3 +84,55 @@ Deno.test('e nessun testo esce vuoto', () => {
   }
   assertEquals(vuote, [], 'testi vuoti: al loro posto non compare niente');
 });
+
+/* ============================================================
+   LA TASSA DI SOGGIORNO SI DICE PER INTERO.
+
+   È una regola della casa, non una scelta di questa pagina. Il prompt
+   dell'agente vocale (v4.10, confermato dalla proprietà) la impone al
+   punto 9 delle regole di prenotazione — «ricorda la tassa di soggiorno
+   quando comunichi un totale, PER INTERO» — e vieta esplicitamente la
+   versione mozzata.
+
+   Fino al 21 agosto 2026 questa pagina era l'unico canale che comunicava
+   prezzi senza nominarla: l'ospite vedeva 190 €, prenotava, e in hotel gli
+   veniva chiesto altro. Il telefono era obbligato a dirla, il sito no.
+
+   La prova pretende i tre fatti in tutte e quattro le lingue: quanto, per
+   quante notti, chi è esente. Toglierne uno rifà la versione mozzata.
+   ============================================================ */
+Deno.test('la tassa di soggiorno porta i suoi fatti, in ogni lingua', () => {
+  const T = dizionari();
+  for (const l of LINGUE) {
+    const testo = String(T[l].tassaSoggiorno ?? '');
+    assert(testo.length > 40, `la lingua «${l}» non dice la tassa di soggiorno`);
+    /* l'importo: 1,50 con la virgola in italiano e francese, 1.50 col punto
+       in inglese, 1,50 in tedesco */
+    assert(
+      /1[.,]50/.test(testo),
+      `«${l}» non dice quanto costa: ${testo}`,
+    );
+    assert(
+      /sette|sieben|seven|sept/i.test(testo),
+      `«${l}» non dice il tetto delle sette notti: ${testo}`,
+    );
+    assert(
+      /14|quattordici|vierzehn|fourteen|quatorze/i.test(testo),
+      `«${l}» non dice chi e esente: ${testo}`,
+    );
+  }
+});
+
+Deno.test('e le formule dicono che cosa si mangia, in ogni lingua', () => {
+  const T = dizionari();
+  for (const l of LINGUE) {
+    for (const k of ['formulaCena', 'formulaColazione']) {
+      const testo = String(T[l][k] ?? '');
+      assert(testo.trim().length > 5, `«${l}.${k}» non dice niente: «${testo}»`);
+    }
+    assert(
+      String(T[l].formulaCena) !== String(T[l].formulaColazione),
+      `in «${l}» la mezza pensione e la sola colazione dicono la stessa cosa`,
+    );
+  }
+});

@@ -77,6 +77,10 @@ textarea{min-height:80px;resize:vertical;}
 /* L'avviso del giorno stesso: giallo come gli altri avvisi, non rosso.
    Non e' un errore dell'ospite aver scelto oggi. */
 .avvisoOggi{margin:12px 0 0;}
+/* La tassa di soggiorno: sta in cima all'elenco delle camere, dove i
+   prezzi si confrontano. La regola della casa e' che si dice sempre
+   quando si comunica un prezzo, e questa pagina i prezzi li comunica. */
+.tassa{margin:0 0 14px;}
 .altre{display:block;width:100%;margin-top:4px;padding:13px;background:none;
   border:1.5px solid var(--verde-medio);border-radius:999px;color:var(--verde);
   font:600 15px inherit;cursor:pointer;}
@@ -187,7 +191,10 @@ import { altFoto, fotoDi } from '/prenota/foto.js';
 /* PERCORSO ASSOLUTO, stessa ragione di sopra. Con quale ordine si
    propongono le categorie: sta in un modulo suo perche' e' una regola
    commerciale, non un dettaglio di disegno — vedi ordine.js. */
-import { daMostrare, ordinaGruppi } from '/prenota/ordine.js';
+import { daMostrare, ordinaGruppi, perPrezzo } from '/prenota/ordine.js';
+/* PERCORSO ASSOLUTO, stessa ragione. Che cosa comprende il trattamento:
+   le parole sono quelle della casa, vedi formule.js. */
+import { formulaDi } from '/prenota/formule.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Dopo una certa ora il giorno stesso
    non si prenota da qui — il perche' sta in giorno-stesso.js. */
 import { chiusoPerOggi, oraLimite } from '/prenota/giorno-stesso.js';
@@ -253,6 +260,9 @@ const T = {
     cameraTit:'Le camere libere', cameraGuida:'Scelga la camera e il trattamento che preferisce: il prezzo è per l’intero soggiorno.',
     finoAdulti:(n)=>n===1?`Per 1 adulto`:`Fino a ${n} adulti`,
     indietroDate:'← Cambi le date', continua:'Continua con i suoi dati',
+    formulaCena:'colazione e cena a buffet',
+    formulaColazione:'colazione inclusa',
+    tassaSoggiorno:'Alla tariffa si aggiunge la tassa di soggiorno: 1,50 € al giorno a persona, per un massimo di sette notti. Esenti i minori di 14 anni e le persone con disabilità. Si paga in hotel, in contanti.',
     altreCamere:(n)=>n===1?'Vedi anche l’altra camera':`Vedi anche le altre ${n} camere`,
     giornoStesso:(ora)=>`Per un arrivo oggi stesso dopo le ${ora} preferiamo organizzare al telefono, così le prepariamo la camera come si deve: ci chiami allo +39 049 9939200. Per ogni altra data può proseguire da qui.`,
     mancaScelta:'Scelga una camera per continuare.',
@@ -292,6 +302,9 @@ const T = {
     cameraTit:'Freie Zimmer', cameraGuida:'Wählen Sie Zimmer und Verpflegung: der Preis gilt für den gesamten Aufenthalt.',
     finoAdulti:(n)=>n===1?`Für 1 Erwachsenen`:`Bis zu ${n} Erwachsene`,
     indietroDate:'← Daten ändern', continua:'Weiter zu Ihren Daten',
+    formulaCena:'Frühstück und Abendbuffet',
+    formulaColazione:'Frühstück inbegriffen',
+    tassaSoggiorno:'Zum Preis kommt die Kurtaxe: 1,50 € pro Person und Tag, für höchstens sieben Nächte. Kinder unter 14 Jahren und Menschen mit Behinderung sind befreit. Bar vor Ort zu zahlen.',
     altreCamere:(n)=>n===1?'Das andere Zimmer ansehen':`Weitere ${n} Zimmer ansehen`,
     giornoStesso:(ora)=>`Für eine Anreise noch heute nach ${ora} Uhr organisieren wir das lieber telefonisch, damit Ihr Zimmer richtig vorbereitet wird: rufen Sie uns bitte unter +39 049 9939200 an. Für jedes andere Datum können Sie hier fortfahren.`,
     mancaScelta:'Bitte wählen Sie ein Zimmer, um fortzufahren.',
@@ -329,6 +342,9 @@ const T = {
     cameraTit:'Available rooms', cameraGuida:'Choose the room and rate you prefer: the price is for the whole stay.',
     finoAdulti:(n)=>n===1?`For 1 adult`:`Up to ${n} adults`,
     indietroDate:'← Change dates', continua:'Continue with your details',
+    formulaCena:'breakfast and dinner buffet',
+    formulaColazione:'breakfast included',
+    tassaSoggiorno:'The tourist tax is added to the rate: €1.50 per person per day, for a maximum of seven nights. Children under 14 and people with disabilities are exempt. Payable in cash at the hotel.',
     altreCamere:(n)=>n===1?'See the other room':`See the other ${n} rooms`,
     giornoStesso:(ora)=>`For an arrival today after ${ora} we prefer to arrange it by phone, so your room is properly prepared: please call us on +39 049 9939200. For any other date you can carry on from here.`,
     mancaScelta:'Please choose a room to continue.',
@@ -366,6 +382,9 @@ const T = {
     cameraTit:'Chambres disponibles', cameraGuida:'Choisissez la chambre et le tarif que vous préférez : le prix est pour tout le séjour.',
     finoAdulti:(n)=>n===1?`Pour 1 adulte`:`Jusqu’à ${n} adultes`,
     indietroDate:'← Changer les dates', continua:'Continuer avec vos coordonnées',
+    formulaCena:'petit-déjeuner et dîner-buffet',
+    formulaColazione:'petit-déjeuner inclus',
+    tassaSoggiorno:'S’ajoute la taxe de séjour : 1,50 € par personne et par jour, pour sept nuits au maximum. Les moins de 14 ans et les personnes en situation de handicap en sont exemptés. À régler en espèces sur place.',
     altreCamere:(n)=>n===1?'Voir l’autre chambre':`Voir les ${n} autres chambres`,
     giornoStesso:(ora)=>`Pour une arrivée le jour même après ${ora}, nous préférons organiser par téléphone afin que votre chambre soit bien préparée : appelez-nous au +39 049 9939200. Pour toute autre date, vous pouvez continuer ici.`,
     mancaScelta:'Veuillez choisir une chambre pour continuer.',
@@ -574,6 +593,15 @@ async function cercaDisponibilita() {
   }
 }
 
+/* Il trattamento con la sua formula a parole: «Mezza Pensione ·
+   colazione e cena a buffet». Quello che formule.js non riconosce esce
+   com'e' sempre uscito, col solo nome: non si indovina. */
+function conFormula(trattamento, t) {
+  const k = formulaDi(trattamento);
+  const dice = k === 'cena' ? t.formulaCena : k === 'colazione' ? t.formulaColazione : '';
+  return dice ? `${trattamento} · ${dice}` : trattamento;
+}
+
 /* ================= passo 2: le camere ================= */
 
 function schermaCamere() {
@@ -589,6 +617,9 @@ function schermaCamere() {
       max_adulti: p.max_adulti, voci: [] }; perId.set(p.camera_id, g); gruppi.push(g); }
     g.voci.push({ ...p, indice: i });
   });
+  /* dentro ogni camera, dalla piu' economica: il motore le manda in
+     ordine sparso e chi guarda deve confrontarle a mente */
+  for (const g of gruppi) g.voci = perPrezzo(g.voci);
   /* e adesso nell'ordine con cui la reception le venderebbe a chi ha
      cercato per quel numero di persone */
   const inOrdine = ordinaGruppi(gruppi, RICERCA && RICERCA.adulti);
@@ -601,6 +632,7 @@ function schermaCamere() {
     <button type="button" class="indietro" id="bIndietroDate">${esc(t.indietroDate)}</button>
     <div class="riquadro">
       <h2>${esc(t.cameraTit)}</h2><div class="guida">${esc(t.cameraGuida)}</div>
+      <div class="avviso tassa">${esc(t.tassaSoggiorno)}</div>
       ${visibili.map(g => `
         <div class="gruppoCamera">
           ${fotoDi(g.camera_id)
@@ -616,7 +648,7 @@ function schermaCamere() {
               <div class="riga">
                 <div>
                   <div class="tariffa">${esc(v.tariffa)}</div>
-                  ${v.trattamento ? `<div class="trattamento">${esc(v.trattamento)}</div>` : ''}
+                  ${v.trattamento ? `<div class="trattamento">${esc(conFormula(v.trattamento, t))}</div>` : ''}
                 </div>
                 <div class="prezzo">${euroDaCentesimi(v.prezzo_cent)} €</div>
               </div>

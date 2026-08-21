@@ -25,7 +25,7 @@
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { CAMERE } from '../../supabase/functions/richieste/camere.ts';
-import { daMostrare, IN_FONDO, ordinaGruppi, PRIMA_PER_ADULTI } from './ordine.js';
+import { daMostrare, IN_FONDO, ordinaGruppi, perPrezzo, PRIMA_PER_ADULTI } from './ordine.js';
 
 type Gruppo = { camera_id: number };
 const gruppi = (...id: number[]): Gruppo[] => id.map((camera_id) => ({ camera_id }));
@@ -218,5 +218,70 @@ Deno.test('la pagina mostra davvero solo le visibili, e sa riaprirle', () => {
   assert(
     azzeramenti >= 2,
     'c e solo la dichiarazione: una ricerca nuova resterebbe aperta da quella prima',
+  );
+});
+
+/* ============================================================
+   LE TARIFFE DENTRO UNA CAMERA, DALLA PIÙ ECONOMICA.
+
+   Il difetto vero, visto il 21 agosto 2026 sulla Matrimoniale Queen: le
+   tre tariffe uscivano 260, 190, 390. Chi guarda tre prezzi in disordine
+   deve leggerli tutti e confrontarli a mente, e il «da 190 €» che si
+   aspetta non è il primo che vede.
+   ============================================================ */
+const voci = (...cent: number[]) =>
+  cent.map((prezzo_cent, i) => ({ prezzo_cent, indice: i }));
+
+Deno.test('le tariffe escono dalla piu economica', () => {
+  const fuori = perPrezzo(voci(26000, 19000, 39000));
+  assertEquals(fuori.map((v: { prezzo_cent: number }) => v.prezzo_cent), [19000, 26000, 39000]);
+});
+
+Deno.test('e non si perde nessuna tariffa per strada', () => {
+  const dentro = voci(26000, 19000, 39000, 19000);
+  const fuori = perPrezzo(dentro);
+  assertEquals(fuori.length, dentro.length);
+  assertEquals(
+    fuori.map((v: { indice: number }) => v.indice).sort(),
+    [0, 1, 2, 3],
+    'una tariffa e sparita o e stata duplicata',
+  );
+});
+
+Deno.test('a parita di prezzo resta l ordine del motore', () => {
+  const fuori = perPrezzo(voci(19000, 19000, 12000));
+  assertEquals(fuori.map((v: { indice: number }) => v.indice), [2, 0, 1]);
+});
+
+Deno.test('un prezzo assente non manda la tariffa in cima per sbaglio', () => {
+  /* un prezzo mancante vale zero e finirebbe prima di tutte, cioe' proprio
+     dove l'occhio si posa: meglio che ci finisca in modo prevedibile e non
+     che faccia esplodere l'ordinamento */
+  const fuori = perPrezzo([
+    { prezzo_cent: 19000, indice: 0 },
+    { indice: 1 },
+    { prezzo_cent: 26000, indice: 2 },
+  ]);
+  assertEquals(fuori.map((v: { indice: number }) => v.indice), [1, 0, 2]);
+});
+
+Deno.test('un elenco assente non fa esplodere la scheda', () => {
+  assertEquals(perPrezzo(undefined as unknown as { prezzo_cent: number }[]), []);
+  assertEquals(perPrezzo([]), []);
+});
+
+Deno.test('la pagina ordina davvero le tariffe, e dice la formula', () => {
+  const pagina = Deno.readTextFileSync(new URL('index.html', import.meta.url));
+  assert(
+    pagina.includes('g.voci = perPrezzo(g.voci)'),
+    'le tariffe tornano nell ordine del motore: 260, 190, 390',
+  );
+  assert(
+    pagina.includes('conFormula(v.trattamento, t)'),
+    'la riga torna a dire solo «Mezza Pensione», senza dire che cosa comprende',
+  );
+  assert(
+    pagina.includes('esc(t.tassaSoggiorno)'),
+    'la tassa di soggiorno sparisce dalla schermata dove si guardano i prezzi',
   );
 });
