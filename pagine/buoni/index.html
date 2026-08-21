@@ -231,7 +231,38 @@ const descrizioneValore = (v, l) => (TESTO_VALORE[l] || TESTO_VALORE.it)(eur(v |
 let SB = null;        // client Supabase
 let TOKEN = '';       // token dell'utente autenticato
 let OPERATORE = '';   // nome dell'operatore, dal suo utente
-let VISTA = 'emetti';
+let VISTA = '';      // la scheda d'apertura: la decide schedaIniziale()
+
+/* SU QUALE SCHEDA SI APRE IL BACK OFFICE.
+
+   Si apriva sempre su «Emetti un buono». Per la reception va bene; per
+   la spa no, e non per gusto: `puoScrivereBuoni()` in supabase/functions/
+   buoni/ruoli.ts dice che la spa NON emette buoni — deciso dalla
+   proprieta' il 18 agosto 2026, perche' emettere un buono e' un gesto sul
+   denaro incassato. La spa apriva quindi un modulo che il server le
+   avrebbe rifiutato, mentre le sue richieste — trattamenti e Day Spa,
+   l'unica ragione per cui quell'account esiste — stavano tre schede piu'
+   in la'.
+
+   QUESTA NON E' UNA REGOLA DI PERMESSI. Non nasconde schede e non toglie
+   niente a nessuno: il cancello resta nel server, dove ha senso. Qui si
+   sceglie solo da dove si comincia.
+
+   La tabella e' una COPIA di quella in ruoli.ts, che una pagina servita
+   da Vercel non puo' importare. La copia e' inevitabile; che le due
+   divergano in silenzio no — le confronta scheda-iniziale.test.ts. */
+const SCHEDA_PER_RUOLO = new Map([
+  ['spa@termeleonardo.com', 'richieste'],
+]);
+
+/** La scheda su cui aprire il back office per questo indirizzo.
+ *  Una Map e non un oggetto: una chiave come `toString` esiste su
+ *  Object.prototype e una lookup diretta restituirebbe la funzione
+ *  ereditata, aprendo la pagina su una scheda che non esiste. */
+function schedaIniziale(email) {
+  const e = String(email ?? '').trim().toLowerCase();
+  return SCHEDA_PER_RUOLO.get(e) || 'emetti';
+}
 
 async function chiama(qs, opz = {}, base = FUNZIONE) {
   const r = await fetch(base + qs, {
@@ -278,6 +309,7 @@ function chiediAccesso(messaggio) {
       if (error) throw new Error('Email o password non validi.');
       TOKEN = data.session.access_token;
       OPERATORE = data.user.user_metadata?.nome || email.split('@')[0];
+      VISTA = schedaIniziale(email);
       await chiama('?a=elenco'); // prova: verifica anche dominio e IP
       disegna();
     } catch (e) {
