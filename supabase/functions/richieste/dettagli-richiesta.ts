@@ -29,6 +29,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     ritorno: 'Ritorno incluso', rif: 'Riferimento',
     noleggi: 'Noleggi', taxi: 'Taxi dall’hotel', trattamenti: 'Trattamenti',
     servizio: 'Servizio', navetta: 'Navetta condivisa', privata: 'Auto privata',
+    buono: 'Buono regalo',
     cane: 'Cane al seguito', si: 'Sì',
     prezzo: 'Prezzo', allAutista: 'da pagare direttamente all’autista', oraVolo: 'volo',
     modifiche: 'Cosa è cambiato rispetto alla richiesta',
@@ -46,6 +47,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     ritorno: 'Rückfahrt inbegriffen', rif: 'Referenz',
     noleggi: 'Verleih', taxi: 'Taxi ab Hotel', trattamenti: 'Anwendungen',
     servizio: 'Service', navetta: 'Sammeltransfer', privata: 'Privatwagen',
+    buono: 'Gutschein',
     cane: 'Mit Hund', si: 'Ja',
     prezzo: 'Preis', allAutista: 'direkt an den Fahrer zu zahlen', oraVolo: 'Flug',
     modifiche: 'Was sich gegenüber Ihrer Anfrage geändert hat',
@@ -63,6 +65,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     ritorno: 'Return trip included', rif: 'Reference',
     noleggi: 'Rentals', taxi: 'Taxi from the hotel', trattamenti: 'Treatments',
     servizio: 'Service', navetta: 'Shared shuttle', privata: 'Private car',
+    buono: 'Gift voucher',
     cane: 'Travelling with a dog', si: 'Yes',
     prezzo: 'Price', allAutista: 'to be paid directly to the driver', oraVolo: 'flight',
     modifiche: 'What has changed from your request',
@@ -80,6 +83,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     ritorno: 'Retour inclus', rif: 'Référence',
     noleggi: 'Locations', taxi: 'Taxi depuis l’hôtel', trattamenti: 'Soins',
     servizio: 'Service', navetta: 'Navette partagée', privata: 'Voiture privée',
+    buono: 'Chèque-cadeau',
     cane: 'Avec un chien', si: 'Oui',
     prezzo: 'Prix', allAutista: 'à régler directement au chauffeur', oraVolo: 'vol',
     modifiche: 'Ce qui a changé par rapport à votre demande',
@@ -310,6 +314,9 @@ function vociDettagli(tipo: string, t: Record<string, string>): Voce[] {
       /* il cane compare solo se c'e': la reception deve saperlo prima di
          assegnare la camera, e chi non ne ha uno non deve leggere «no» */
       { eti: t.cane, calcola: (d) => (d.cane ? t.si : '') },
+      /* il buono: la reception lo verifica e lo scala dal conto. Compare
+         solo se c'e', come tutto il resto. */
+      { eti: t.buono, calcola: (d) => String(d.buono ?? ''), }
     ];
   }
 

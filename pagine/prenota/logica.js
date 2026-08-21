@@ -43,7 +43,7 @@ export function euroDaCentesimi(cent) {
     regola dei 75 € a persona cambia. */
 export function componiCorpo({
   scelta, nome, email, telefono, checkIn, checkOut,
-  adulti, bambini, caparraCent = 0, note, lingua, cane = false,
+  adulti, bambini, caparraCent = 0, note, lingua, cane = false, buono = '',
 }) {
   const nAdulti = Number(adulti) || 0;
   const nBambini = Number(bambini) || 0;
@@ -76,6 +76,9 @@ export function componiCorpo({
          caparra: un «cane: false» in back office e' rumore che si legge
          come un dato raccolto. */
       ...(cane === true ? { cane: true } : {}),
+      /* IL BUONO. Solo il codice: il valore lo rilegge la reception dal
+         buono vero, e una cifra copiata qui invecchierebbe. */
+      ...(String(buono || '').trim() ? { buono: String(buono).trim().toUpperCase() } : {}),
     },
   };
 }

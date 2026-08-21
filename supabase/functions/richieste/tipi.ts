@@ -369,6 +369,16 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
      sappia PRIMA di assegnare la camera. */
   const cane = d?.cane === true || d?.cane === 'true' || d?.cane === 1;
 
+  /* IL BUONO REGALO: solo il CODICE, mai il valore. Il valore lo rilegge
+     la reception dal buono vero al momento di confermare — una cifra
+     copiata qui invecchierebbe, e se il buono nel frattempo fosse stato
+     speso resterebbe scritta una promessa che non vale piu'.
+
+     Il formato non si convalida: i codici li fa il nostro sistema, ma un
+     codice vecchio o scritto a mano da un ospite deve arrivare comunque
+     in reception, che sa leggerlo. Si taglia la lunghezza e basta. */
+  const buono = testo(d?.buono).trim().toUpperCase().slice(0, 40);
+
   return {
     dati: {
       camera_id: n,
@@ -383,6 +393,7 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
       /* assente quando non c'e', come la caparra: un «cane: false» in back
          office e' rumore che si legge come un dato raccolto */
       ...(cane ? { cane: true } : {}),
+      ...(buono ? { buono } : {}),
     },
   };
 }

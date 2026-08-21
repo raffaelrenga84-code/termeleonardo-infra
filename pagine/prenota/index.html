@@ -78,6 +78,12 @@ textarea{min-height:80px;resize:vertical;}
    Non e' un errore dell'ospite aver scelto oggi. */
 .avvisoOggi{margin:12px 0 0;}
 .avvisoCane{margin:10px 0 0;}
+/* il campo del buono: casella e pulsante sulla stessa riga */
+.rigaBuono{display:flex;gap:8px;align-items:stretch;}
+.rigaBuono input{flex:1 1 auto;text-transform:uppercase;}
+.rigaBuono .altre{width:auto;flex:0 0 auto;margin-top:0;padding:0 18px;}
+.caparraBuono{margin-top:14px;background:#EAF3EE;border-left:4px solid var(--verde-medio);
+  padding:13px 15px;border-radius:6px;font-size:14px;line-height:1.6;color:#1B4D4A;}
 .iconaCane{margin-right:6px;}
 /* la tassa sul passo dei dati: sobria, per non competere col riquadro
    della caparra che le sta sopra */
@@ -265,6 +271,9 @@ import { nomeTariffa, nomeTrattamento } from '/prenota/nomi.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Il supplemento del cane: sta in un
    modulo suo perche' e' un numero della casa, vedi cane.js. */
 import { SUPPLEMENTO_CANE_CENT } from '/prenota/cane.js';
+/* PERCORSO ASSOLUTO, stessa ragione. Che cosa succede alla caparra
+   quando c'e' un buono: vedi buono.js. */
+import { caparraDopoBuono, valoreInCentesimi } from '/prenota/buono.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Le tariffe che sono la stessa
    offerta con e senza cena si accorpano: vedi famiglie.js. */
 import { accorpa } from '/prenota/famiglie.js';
@@ -358,6 +367,14 @@ const T = {
     note:'Note (facoltative)', notePh:'Richieste particolari, orario di arrivo previsto…',
     rifOfferta:(r)=>`Rif. offerta: ${r}`,
     condizioniTit:'Condizioni di cancellazione',
+    buonoTit:'Ha un buono regalo?',
+    buonoPh:'Codice del buono', buonoVerifica:'Verifica',
+    buonoValido:(v)=>`Buono valido: ${v} €.`,
+    buonoServizio:'Buono valido: lo segnaliamo alla reception.',
+    buonoNonValido:'Questo buono non risulta utilizzabile. Controlli il codice, oppure ci scriva a info@termeleonardo.com.',
+    buonoNonLetto:'Non siamo riusciti a controllare il buono adesso. Può inviare la richiesta lo stesso: scriva il codice nelle note e ce ne occupiamo noi.',
+    caparraCoperta:'Il buono copre la caparra.',
+    caparraRidotta:(v)=>`Con il buono la caparra si riduce a ${v} €.`,
     caparraRiga:(v)=>`Alla conferma la reception le chiederà una caparra di ${v} €, che si detrae dal totale.`,
     cane:'Viaggio con un cane',
     caneNota:(imp)=>`Cani di piccola e media taglia, supplemento ${imp} € al giorno per animale (cibo escluso). Il cane può stare in camera, in hall e al Bistrot La Piazza; non in parco, piscine termali, grotte e zona relax, né in sala ristorante a cena e a colazione.`,
@@ -415,6 +432,14 @@ const T = {
     note:'Anmerkungen (optional)', notePh:'Besondere Wünsche, voraussichtliche Ankunftszeit…',
     rifOfferta:(r)=>`Rif. offerta / Angebotsreferenz: ${r}`,
     condizioniTit:'Stornobedingungen',
+    buonoTit:'Haben Sie einen Gutschein?',
+    buonoPh:'Gutscheincode', buonoVerifica:'Prüfen',
+    buonoValido:(v)=>`Gutschein gültig: ${v} €.`,
+    buonoServizio:'Gutschein gültig: wir melden ihn der Rezeption.',
+    buonoNonValido:'Dieser Gutschein ist nicht einlösbar. Bitte prüfen Sie den Code oder schreiben Sie an info@termeleonardo.com.',
+    buonoNonLetto:'Wir konnten den Gutschein gerade nicht prüfen. Sie können die Anfrage trotzdem senden: schreiben Sie den Code in die Anmerkungen, wir kümmern uns darum.',
+    caparraCoperta:'Der Gutschein deckt die Anzahlung.',
+    caparraRidotta:(v)=>`Mit dem Gutschein sinkt die Anzahlung auf ${v} €.`,
     caparraRiga:(v)=>`Bei der Bestätigung wird die Rezeption eine Anzahlung von ${v} € verlangen, die vom Gesamtbetrag abgezogen wird.`,
     cane:'Ich reise mit einem Hund',
     caneNota:(imp)=>`Kleine und mittelgroße Hunde, Aufschlag ${imp} € pro Tier und Tag (ohne Futter). Der Hund darf ins Zimmer, in die Halle und ins Bistrot La Piazza; nicht in den Park, die Thermalbäder, die Grotten und den Ruhebereich, auch nicht in den Speisesaal zum Abendessen und zum Frühstück.`,
@@ -471,6 +496,14 @@ const T = {
     note:'Notes (optional)', notePh:'Special requests, expected arrival time…',
     rifOfferta:(r)=>`Rif. offerta / Offer reference: ${r}`,
     condizioniTit:'Cancellation conditions',
+    buonoTit:'Do you have a gift voucher?',
+    buonoPh:'Voucher code', buonoVerifica:'Check',
+    buonoValido:(v)=>`Voucher valid: €${v}.`,
+    buonoServizio:'Voucher valid: we will pass it to the reception.',
+    buonoNonValido:'This voucher cannot be used. Please check the code, or write to info@termeleonardo.com.',
+    buonoNonLetto:'We could not check the voucher right now. You can send the request anyway: write the code in the notes and we will take care of it.',
+    caparraCoperta:'The voucher covers the deposit.',
+    caparraRidotta:(v)=>`With the voucher the deposit drops to €${v}.`,
     caparraRiga:(v)=>`On confirmation reception will ask you for a deposit of ${v} €, deducted from the total.`,
     cane:'I am travelling with a dog',
     caneNota:(imp)=>`Small and medium-sized dogs, supplement ${imp} € per animal per day (food not included). The dog is welcome in the room, in the lobby and at Bistrot La Piazza; not in the park, thermal pools, caves and relaxation area, nor in the dining room at dinner and breakfast.`,
@@ -527,6 +560,14 @@ const T = {
     note:'Remarques (facultatif)', notePh:'Demandes particulières, heure d’arrivée prévue…',
     rifOfferta:(r)=>`Rif. offerta / Réf. offre : ${r}`,
     condizioniTit:'Conditions d’annulation',
+    buonoTit:'Vous avez un chèque-cadeau ?',
+    buonoPh:'Code du chèque', buonoVerifica:'Vérifier',
+    buonoValido:(v)=>`Chèque valide : ${v} €.`,
+    buonoServizio:'Chèque valide : nous le signalons à la réception.',
+    buonoNonValido:'Ce chèque ne peut pas être utilisé. Vérifiez le code ou écrivez à info@termeleonardo.com.',
+    buonoNonLetto:'Nous n’avons pas pu vérifier le chèque maintenant. Vous pouvez envoyer la demande quand même : indiquez le code dans les notes, nous nous en occupons.',
+    caparraCoperta:'Le chèque couvre l’acompte.',
+    caparraRidotta:(v)=>`Avec le chèque, l’acompte descend à ${v} €.`,
     caparraRiga:(v)=>`À la confirmation, la réception vous demandera des arrhes de ${v} €, déduites du total.`,
     cane:'Je voyage avec un chien',
     caneNota:(imp)=>`Chiens de petite et moyenne taille, supplément ${imp} € par animal et par jour (nourriture non comprise). Le chien est admis en chambre, dans le hall et au Bistrot La Piazza ; pas dans le parc, les piscines thermales, les grottes et l’espace détente, ni en salle de restaurant au dîner et au petit-déjeuner.`,
@@ -565,6 +606,12 @@ let OSPITE = null;
    sparire non li riscrive, se ne va. */
 let SCRITTI = null;
 let NUMERO_FATTA = '';       // il numero appena assegnato, per legarci la camera dopo
+/* il buono verificato: { codice, valore_cent } quando e' valido, una
+   chiave d'errore quando non lo e', null quando non se n'e' parlato */
+let BUONO = null;
+let BUONO_KO = '';
+let VERIFICANDO_BUONO = false;
+const FUNZIONE_BUONI = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
 let CERCANDO = false;
 let INVIANDO = false;
 
@@ -724,6 +771,8 @@ async function cercaDisponibilita() {
     /* una ricerca nuova riparte chiusa: le due davanti sono altre */
     TUTTE_LE_CAMERE = false;
     SCRITTI = null;
+    BUONO = null;
+    BUONO_KO = '';
 
     if (!PROPOSTE.length) {
       CERCANDO = false;
@@ -960,6 +1009,77 @@ function schermaCamere() {
   };
 }
 
+/* LA CAPARRA, CHE IL BUONO PUO' COPRIRE.
+
+   Si dice «il buono copre la caparra» e nient'altro: NON «non le sara'
+   chiesto nulla», che sarebbe falso — restano la tassa di soggiorno e
+   gli extra. Una frase che promette troppo si paga al banco. */
+function disegnaCaparra() {
+  const box = document.querySelector('.caparraBuono');
+  if (!box) return;
+  const t = T[LNG];
+  const b = BUONO ? caparraDopoBuono(CAPARRA_CENT, BUONO.valore_cent) : null;
+  box.textContent = !b
+    ? t.caparraRiga(euroDaCentesimi(CAPARRA_CENT))
+    : b.copre
+    ? t.caparraCoperta
+    : t.caparraRidotta(euroDaCentesimi(b.resta));
+}
+
+/* l'esito della verifica, e la caparra che ne consegue */
+function disegnaEsitoBuono() {
+  const box = $('esitoBuono');
+  if (!box) return;
+  const t = T[LNG];
+  if (BUONO && BUONO.valore_cent) {
+    box.innerHTML = `<div class="avviso avvisoCane">${esc(t.buonoValido(euroDaCentesimi(BUONO.valore_cent)))}</div>`;
+  } else if (BUONO) {
+    box.innerHTML = `<div class="avviso avvisoCane">${esc(t.buonoServizio)}</div>`;
+  } else if (BUONO_KO) {
+    box.innerHTML = `<div class="errore">${esc(t[BUONO_KO])}</div>`;
+  } else {
+    box.innerHTML = '';
+  }
+  disegnaCaparra();
+}
+
+/* LA VERIFICA. Un buono che non si riesce a controllare NON blocca
+   l'invio: la richiesta parte lo stesso e la reception se ne occupa.
+   Bloccare qui vorrebbe dire perdere una prenotazione per un guasto
+   nostro.
+
+   E UN BUONO DI SERVIZIO NON TOCCA LA CAPARRA: un ingresso Day Spa non
+   e' denaro sul conto della camera. Si registra e basta, e decide la
+   reception. */
+async function verificaBuono() {
+  if (VERIFICANDO_BUONO) return;
+  const codice = String(($('fBuono') && $('fBuono').value) || '').trim().toUpperCase();
+  BUONO = null;
+  BUONO_KO = '';
+  if (!codice) { disegnaEsitoBuono(); return; }
+  VERIFICANDO_BUONO = true;
+  if ($('bBuono')) $('bBuono').disabled = true;
+  try {
+    const r = await fetch(`${FUNZIONE_BUONI}?a=verifica&codice=${encodeURIComponent(codice)}`);
+    const d = await r.json().catch(() => null);
+    if (!d || typeof d.valido !== 'boolean') {
+      BUONO_KO = 'buonoNonLetto';
+    } else if (!d.valido) {
+      BUONO_KO = 'buonoNonValido';
+    } else {
+      const servizio = Array.isArray(d.voci) && d.voci.length > 0;
+      const cent = servizio ? null : valoreInCentesimi(d.valore);
+      BUONO = { codice, valore_cent: cent };
+    }
+  } catch (e) {
+    console.error('verifica del buono non riuscita', e);
+    BUONO_KO = 'buonoNonLetto';
+  }
+  VERIFICANDO_BUONO = false;
+  if ($('bBuono')) $('bBuono').disabled = false;
+  disegnaEsitoBuono();
+}
+
 /* QUELLO CHE C'E' GIA' SCRITTO NELLE NOTE quando la pagina si apre.
    Due casi, e sono diversi: il riferimento di un'OFFERTA preparata dalla
    reception, e il numero della richiesta a cui questa camera si
@@ -1063,14 +1183,26 @@ function schermaDati() {
         <ul>${CONDIZIONI.righe.map(r => `<li>${esc(r)}</li>`).join('')}</ul>
         ${CONDIZIONI.recesso ? `<div class="recesso">${esc(CONDIZIONI.recesso)}</div>` : ''}
       </div>
-      <div class="caparra">${esc(t.caparraRiga(euroDaCentesimi(CAPARRA_CENT)))}</div>
       <!-- LA TASSA, DI NUOVO. E' gia' scritta sulla schermata delle camere,
            e si ripete qui perche' questo e' l'ultimo momento prima di
            premere invia: chi e' arrivato fin qui ha scelto una camera,
            letto le condizioni e visto la caparra, e la tassa e' l'unica
            cifra che non ha ancora incontrato due volte. Stesso testo,
            dalla stessa voce: non puo' divergere. -->
+      <div class="caparraBuono">${esc(t.caparraRiga(euroDaCentesimi(CAPARRA_CENT)))}</div>
       <div class="tassaDati">${esc(t.tassaSoggiorno)}</div>
+      <!-- IL BUONO REGALO. Sta qui e non sulla scelta della camera:
+           scegliere dove dormire e parlare di soldi sono due decisioni
+           diverse, e mescolarle confonde. Questa pagina NON sconta il
+           prezzo — non incassa niente, e' una richiesta — ma la caparra
+           la reception la chiedera' o non la chiedera', e quella si puo'
+           dire adesso. -->
+      <label for="fBuono" style="margin-top:18px;">${esc(t.buonoTit)}</label>
+      <div class="rigaBuono">
+        <input type="text" id="fBuono" autocomplete="off" placeholder="${esc(t.buonoPh)}" />
+        <button type="button" class="altre" id="bBuono">${esc(t.buonoVerifica)}</button>
+      </div>
+      <div id="esitoBuono"></div>
 
       <label class="spunta"><input type="checkbox" id="fPrivacy"${gia.privacy ? ' checked' : ''} />
         <span>${esc(t.privacy)} &mdash;
@@ -1082,6 +1214,11 @@ function schermaDati() {
     <div id="esitoDati"></div>`;
 
   $('bIndietroCamere').onclick = () => { SCRITTI = datiScritti(); STATO = 'camere'; disegna(); };
+  if ($('bBuono')) $('bBuono').onclick = verificaBuono;
+  /* un buono gia' verificato resta verificato attraverso i ridisegni:
+     rifarlo scrivere sarebbe come cancellargli il nome */
+  if (BUONO && $('fBuono')) $('fBuono').value = BUONO.codice;
+  disegnaEsitoBuono();
   if ($('bAggiungiCena')) {
     $('bAggiungiCena').onclick = () => {
       /* PRIMA si mette da parte quello che e' scritto, poi si cambia
@@ -1148,6 +1285,7 @@ async function inviaRichiesta() {
     caparraCent: CAPARRA_CENT,
     note, lingua: LNG,
     cane: $('fCane') ? $('fCane').checked : false,
+    buono: BUONO ? BUONO.codice : '',
   });
 
   try {

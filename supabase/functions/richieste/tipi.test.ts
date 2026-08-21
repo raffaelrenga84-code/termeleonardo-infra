@@ -646,3 +646,23 @@ Deno.test('e un cane scritto come la pagina lo manderebbe vale lo stesso', () =>
   assertEquals(validaDati('soggiorno', { camera_id: 6, cane: 'true' }).dati?.cane, true);
   assertEquals(validaDati('soggiorno', { camera_id: 6, cane: 1 }).dati?.cane, true);
 });
+
+Deno.test('il codice del buono passa il filtro, ripulito', () => {
+  /* solo il CODICE, mai il valore: quello lo rilegge la reception dal
+     buono vero. Una cifra copiata qui invecchierebbe. */
+  const e = validaDati('soggiorno', { camera_id: 6, buono: '  ab-1234  ' });
+  assertEquals(e.errore, undefined);
+  assertEquals(e.dati?.buono, 'AB-1234');
+});
+
+Deno.test('e senza buono il campo non compare', () => {
+  for (const d of [{ camera_id: 6 }, { camera_id: 6, buono: '' }, { camera_id: 6, buono: '   ' }]) {
+    const e = validaDati('soggiorno', d);
+    assertEquals(Object.hasOwn(e.dati ?? {}, 'buono'), false, JSON.stringify(d));
+  }
+});
+
+Deno.test('e un codice lunghissimo non passa intero', () => {
+  const e = validaDati('soggiorno', { camera_id: 6, buono: 'X'.repeat(200) });
+  assertEquals(String(e.dati?.buono ?? '').length, 40);
+});
