@@ -74,8 +74,20 @@ Deno.test('e in ogni lingua dicono che i dati sono gia dentro', () => {
    ============================================================ */
 Deno.test('la schermata finale offre anche un altra camera', () => {
   assert(
-    PAGINA.includes("indirizzoModulo('prenota', LNG, { ...OSPITE, insieme: NUMERO_FATTA })"),
-    'sparito l invito ad aggiungere una seconda camera, o non porta piu il numero della prima',
+    PAGINA.includes("indirizzoModulo('prenota', LNG, { ...OSPITE, insieme:"),
+    'sparito l invito ad aggiungere una seconda camera',
+  );
+  /* LA CATENA RESTA ATTACCATA ALLA PRIMA RICHIESTA, non alla precedente:
+     altrimenti la terza camera punterebbe alla seconda e la reception
+     dovrebbe risalire una catena invece di leggere un numero. */
+  assert(
+    PAGINA.includes('insieme: DA_URL.insieme || NUMERO_FATTA'),
+    'la catena si attacca alla camera precedente invece che alla prima richiesta',
+  );
+  /* e ogni camera porta il suo numero, per il cartello in cima */
+  assert(
+    PAGINA.includes('camera: (DA_URL.camera || 1) + 1'),
+    'la camera dopo non porta piu il suo numero: il cartello non saprebbe che dire',
   );
 });
 
@@ -96,4 +108,34 @@ Deno.test('le note di partenza tengono i due fatti separati', () => {
   const insieme = PAGINA.indexOf('t.insiemeA(DA_URL.insieme)');
   const rif = PAGINA.indexOf('t.rifOfferta(DA_URL.rif)');
   assert(insieme < rif, 'l ordine e cambiato: il collegamento va scritto per primo');
+});
+
+Deno.test('il cartello dice dove si e, quando la camera si aggiunge a un altra', () => {
+  /* chi aggiunge una camera si ritrova davanti una pagina identica a
+     quella di prima: senza una riga che dica dove si trova, non lo
+     capisce e crede di aver sbagliato qualcosa */
+  assert(PAGINA.includes('<div id="collegata"></div>'), 'sparito il posto del cartello');
+  assert(PAGINA.includes('t0.cameraDiSerie(DA_URL.camera, DA_URL.insieme)'), 'il cartello non dice piu il numero');
+  assert(PAGINA.includes('t0.siAggiungeA(DA_URL.insieme)'), 'senza numero il cartello non dice niente');
+  /* e solo quando c e davvero un collegamento */
+  assert(PAGINA.includes('if (DA_URL.insieme) {'), 'il cartello esce anche a chi prenota una camera sola');
+});
+
+Deno.test('e l avviso sulle piu camere si da PRIMA di cercare', () => {
+  /* arrivare a un elenco corto senza una spiegazione e quello che fa
+     chiudere la pagina: si dice sul passo delle date, mentre si scrive */
+  assert(PAGINA.includes('function avvisoPersone()'), 'sparito l avviso sulle piu camere');
+  assert(
+    PAGINA.includes("'fAdulti').addEventListener('input', avvisoPersone)"),
+    'l avviso non si aggiorna piu mentre si scrive',
+  );
+  assert(
+    PAGINA.includes("'fBambini').addEventListener('input', avvisoPersone)"),
+    'l avviso ignora i bambini: in quattro con due figli direbbe la cosa sbagliata',
+  );
+  assert(PAGINA.includes('const PERSONE_PER_CAMERA = 4;'), 'sparito il tetto di quattro per camera');
+  /* e si disegna anche all APERTURA, non solo quando si tocca un campo:
+     chi arriva con quattro persone gia scritte nell indirizzo non
+     toccherebbe niente e non leggerebbe niente */
+  assert(PAGINA.includes('  avvisoPersone();'), 'l avviso non si disegna all apertura');
 });

@@ -11,7 +11,7 @@ const INDIRIZZO_VERO =
 Deno.test('un indirizzo vero, come quello dei pulsanti della reception, si legge intero', () => {
   const r = parametriOspite(INDIRIZZO_VERO);
   assertEquals(r, {
-    rif: 'O26/19130', insieme: '',
+    rif: 'O26/19130', insieme: '', camera: null,
     nome: 'Marcheselli Alessandro',
     email: 'alessandro.marcheselli@sysma.it',
     tel: '3474852657',
@@ -27,11 +27,11 @@ Deno.test('un indirizzo vero, come quello dei pulsanti della reception, si legge
    pagina che scrive `esc(url.nome)` deve poter contare su una stringa. */
 Deno.test('parametri assenti: tutto vuoto, niente per magia', () => {
   assertEquals(parametriOspite(''), {
-    rif: '', insieme: '', nome: '', email: '', tel: '',
+    rif: '', insieme: '', camera: null, nome: '', email: '', tel: '',
     arrivo: '', partenza: '', adulti: null, lang: null,
   });
   assertEquals(parametriOspite('altro=cosa'), {
-    rif: '', insieme: '', nome: '', email: '', tel: '',
+    rif: '', insieme: '', camera: null, nome: '', email: '', tel: '',
     arrivo: '', partenza: '', adulti: null, lang: null,
   });
 });
@@ -248,4 +248,16 @@ Deno.test('normalizzaLingua non perde gli altri parametri', () => {
   assertEquals(p.get('t'), 'abc123');
   assertEquals(p.get('l'), 'fr');
   assertEquals(p.get('nome'), 'Mario');
+});
+
+Deno.test('il numero della camera si legge, e uno assurdo vale come assente', () => {
+  /* serve solo a dire all ospite dove si trova quando aggiunge una camera
+     a una richiesta gia fatta: un numero sbagliato disorienterebbe piu
+     del silenzio */
+  assertEquals(parametriOspite('?camera=2').camera, 2);
+  assertEquals(parametriOspite('?camera=1').camera, 1);
+  for (const v of ['0', '-1', '11', '2.5', 'due', '']) {
+    assertEquals(parametriOspite('?camera=' + v).camera, null, `camera=${v}`);
+  }
+  assertEquals(parametriOspite('').camera, null);
 });

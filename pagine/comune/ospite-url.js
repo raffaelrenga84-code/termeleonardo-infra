@@ -99,6 +99,16 @@ function dataValida(v) {
 /* Un intero, non un numero qualunque: "2.5" persone non esistono. Fuori
    dall'intervallo sensato (o non un numero affatto, es. "abc") il valore
    si ignora — meglio un campo vuoto che un numero assurdo gia' scritto. */
+/* QUALE CAMERA DELLA SERIE. Chi aggiunge la seconda camera arriva con
+   `camera=2`: serve solo a dirglielo in cima alla pagina, perche' una
+   pagina identica alla precedente disorienta. Un numero fuori scala
+   vale come assente: meglio nessun conteggio che uno sbagliato. */
+function cameraValida(v) {
+  if (v === null || v === undefined || String(v).trim() === '') return null;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 1 && n <= 10 ? n : null;
+}
+
 function adultiValidi(v) {
   if (v === null || v === undefined || String(v).trim() === '') return null;
   const n = Number(v);
@@ -142,6 +152,7 @@ export function parametriOspite(ricerca) {
     arrivo,
     partenza,
     adulti: adultiValidi(q.get('adulti')),
+    camera: cameraValida(q.get('camera')),
     lang: LINGUE.includes(q.get('lang')) ? q.get('lang') : null,
   };
 }

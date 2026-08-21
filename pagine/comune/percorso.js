@@ -107,7 +107,7 @@ export function indirizzoModulo(tipo, lingua, dati = {}) {
   const voce = PERCORSI[tipo] && PERCORSI[tipo][l];
   if (!voce) return '';
   const q = new URLSearchParams();
-  for (const chiave of ['nome', 'email', 'tel', 'arrivo', 'partenza', 'insieme']) {
+  for (const chiave of ['nome', 'email', 'tel', 'arrivo', 'partenza', 'insieme', 'camera']) {
     const v = String(dati[chiave] ?? '').trim();
     if (v) q.set(chiave, v);
   }

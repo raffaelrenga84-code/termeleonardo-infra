@@ -128,6 +128,11 @@ textarea{min-height:80px;resize:vertical;}
 .altre{display:block;width:100%;margin-top:4px;padding:13px;background:none;
   border:1.5px solid var(--verde-medio);border-radius:999px;color:var(--verde);
   font:600 15px inherit;cursor:pointer;}
+/* il cartello della serie: sopra tutto, perche' e' la prima cosa da
+   sapere quando la pagina si riapre uguale a prima */
+.cartello{max-width:640px;margin:18px auto -6px;padding:11px 15px;
+  background:#EAF3EE;border-left:4px solid var(--verde-medio);border-radius:6px;
+  font-size:13.5px;color:#1B4D4A;}
 .fatta{text-align:center;padding:40px 22px;}
 /* GLI INVITI. Transfer e trattamenti restano richieste loro, coi moduli
    che esistono gia': qui c'e' solo il collegamento, coi dati dell'ospite
@@ -222,6 +227,10 @@ textarea{min-height:80px;resize:vertical;}
 </div>
 
 <div class="passi" id="passi"></div>
+<!-- IL CARTELLO DELLA SERIE. Chi aggiunge una camera a una richiesta
+     gia' fatta si ritrova davanti una pagina identica a quella di
+     prima: senza una riga che dica dove si trova, non lo capisce. -->
+<div id="collegata"></div>
 <main id="app"></main>
 
 <div class="pie" id="tPie"></div>
@@ -375,6 +384,10 @@ const T = {
     buonoNonLetto:'Non siamo riusciti a controllare il buono adesso. Può inviare la richiesta lo stesso: scriva il codice nelle note e ce ne occupiamo noi.',
     caparraCoperta:'Il buono copre la caparra.',
     caparraRidotta:(v)=>`Con il buono la caparra si riduce a ${v} €.`,
+    cameraDiSerie:(n,rif)=>`Sta scegliendo la camera n. ${n}. Si aggiunge alla richiesta ${rif}: le teniamo insieme.`,
+    siAggiungeA:(rif)=>`Questa camera si aggiunge alla richiesta ${rif}: le teniamo insieme.`,
+    servonoDueCamere:(n)=>`In ${n} servono almeno due camere: la più grande ne tiene quattro. Cerchi una camera per volta — le colleghiamo noi.`,
+    forsePiuCamere:(n)=>`In ${n} può stare in una camera sola, oppure in due. Se preferisce camere separate, cerchi una camera per volta.`,
     caparraRiga:(v)=>`Alla conferma la reception le chiederà una caparra di ${v} €, che si detrae dal totale.`,
     cane:'Viaggio con un cane',
     caneNota:(imp)=>`Cani di piccola e media taglia, supplemento ${imp} € al giorno per animale (cibo escluso). Il cane può stare in camera, in hall e al Bistrot La Piazza; non in parco, piscine termali, grotte e zona relax, né in sala ristorante a cena e a colazione.`,
@@ -440,6 +453,10 @@ const T = {
     buonoNonLetto:'Wir konnten den Gutschein gerade nicht prüfen. Sie können die Anfrage trotzdem senden: schreiben Sie den Code in die Anmerkungen, wir kümmern uns darum.',
     caparraCoperta:'Der Gutschein deckt die Anzahlung.',
     caparraRidotta:(v)=>`Mit dem Gutschein sinkt die Anzahlung auf ${v} €.`,
+    cameraDiSerie:(n,rif)=>`Sie wählen Zimmer Nr. ${n}. Es kommt zur Anfrage ${rif} dazu: wir halten sie zusammen.`,
+    siAggiungeA:(rif)=>`Dieses Zimmer kommt zur Anfrage ${rif} dazu: wir halten sie zusammen.`,
+    servonoDueCamere:(n)=>`Zu ${n} brauchen Sie mindestens zwei Zimmer: das größte fasst vier Personen. Suchen Sie ein Zimmer nach dem anderen — wir verbinden sie.`,
+    forsePiuCamere:(n)=>`Zu ${n} passen Sie in ein Zimmer oder in zwei. Wenn Sie getrennte Zimmer bevorzugen, suchen Sie eines nach dem anderen.`,
     caparraRiga:(v)=>`Bei der Bestätigung wird die Rezeption eine Anzahlung von ${v} € verlangen, die vom Gesamtbetrag abgezogen wird.`,
     cane:'Ich reise mit einem Hund',
     caneNota:(imp)=>`Kleine und mittelgroße Hunde, Aufschlag ${imp} € pro Tier und Tag (ohne Futter). Der Hund darf ins Zimmer, in die Halle und ins Bistrot La Piazza; nicht in den Park, die Thermalbäder, die Grotten und den Ruhebereich, auch nicht in den Speisesaal zum Abendessen und zum Frühstück.`,
@@ -504,6 +521,10 @@ const T = {
     buonoNonLetto:'We could not check the voucher right now. You can send the request anyway: write the code in the notes and we will take care of it.',
     caparraCoperta:'The voucher covers the deposit.',
     caparraRidotta:(v)=>`With the voucher the deposit drops to €${v}.`,
+    cameraDiSerie:(n,rif)=>`You are choosing room no. ${n}. It is added to request ${rif}: we keep them together.`,
+    siAggiungeA:(rif)=>`This room is added to request ${rif}: we keep them together.`,
+    servonoDueCamere:(n)=>`For ${n} people you need at least two rooms: the largest holds four. Search for one room at a time — we link them.`,
+    forsePiuCamere:(n)=>`${n} of you fit in one room, or in two. If you prefer separate rooms, search for one room at a time.`,
     caparraRiga:(v)=>`On confirmation reception will ask you for a deposit of ${v} €, deducted from the total.`,
     cane:'I am travelling with a dog',
     caneNota:(imp)=>`Small and medium-sized dogs, supplement ${imp} € per animal per day (food not included). The dog is welcome in the room, in the lobby and at Bistrot La Piazza; not in the park, thermal pools, caves and relaxation area, nor in the dining room at dinner and breakfast.`,
@@ -568,6 +589,10 @@ const T = {
     buonoNonLetto:'Nous n’avons pas pu vérifier le chèque maintenant. Vous pouvez envoyer la demande quand même : indiquez le code dans les notes, nous nous en occupons.',
     caparraCoperta:'Le chèque couvre l’acompte.',
     caparraRidotta:(v)=>`Avec le chèque, l’acompte descend à ${v} €.`,
+    cameraDiSerie:(n,rif)=>`Vous choisissez la chambre n° ${n}. Elle s’ajoute à la demande ${rif} : nous les gardons ensemble.`,
+    siAggiungeA:(rif)=>`Cette chambre s’ajoute à la demande ${rif} : nous les gardons ensemble.`,
+    servonoDueCamere:(n)=>`À ${n}, il faut au moins deux chambres : la plus grande en accueille quatre. Cherchez une chambre à la fois — nous les relions.`,
+    forsePiuCamere:(n)=>`À ${n}, vous tenez dans une chambre, ou dans deux. Si vous préférez des chambres séparées, cherchez une chambre à la fois.`,
     caparraRiga:(v)=>`À la confirmation, la réception vous demandera des arrhes de ${v} €, déduites du total.`,
     cane:'Je voyage avec un chien',
     caneNota:(imp)=>`Chiens de petite et moyenne taille, supplément ${imp} € par animal et par jour (nourriture non comprise). Le chien est admis en chambre, dans le hall et au Bistrot La Piazza ; pas dans le parc, les piscines thermales, les grottes et l’espace détente, ni en salle de restaurant au dîner et au petit-déjeuner.`,
@@ -653,6 +678,27 @@ function avvisoGiornoStesso() {
     : '';
 }
 
+/* QUANTE PERSONE STANNO IN UNA CAMERA. La piu' grande ne tiene quattro:
+   sopra, servono per forza due camere. E gia' da tre conviene dirlo,
+   perche' chi cerca per tre adulti spesso vuole camere separate.
+
+   SI DICE PRIMA DI CERCARE, non dopo: arrivare a un elenco corto senza
+   una spiegazione e' quello che fa chiudere la pagina. */
+const PERSONE_PER_CAMERA = 4;
+
+function avvisoPersone() {
+  const box = $('avvisoPersone');
+  if (!box) return;
+  const t = T[LNG];
+  const n = (Number($('fAdulti') && $('fAdulti').value) || 0) +
+    (Number($('fBambini') && $('fBambini').value) || 0);
+  box.innerHTML = n > PERSONE_PER_CAMERA
+    ? `<div class="avviso avvisoOggi">${esc(t.servonoDueCamere(n))}</div>`
+    : n === 3 || n === 4
+    ? `<div class="avviso avvisoOggi">${esc(t.forsePiuCamere(n))}</div>`
+    : '';
+}
+
 /* ================= passo 1: date e ospiti ================= */
 
 function schermaRicerca(erroreIniziale) {
@@ -669,6 +715,7 @@ function schermaRicerca(erroreIniziale) {
           <input type="date" id="fPartenza" name="partenza" min="${oggiISO()}" value="${esc(r.partenza)}" /></div>
       </div>
       <div id="avvisoOggi"></div>
+      <div id="avvisoPersone"></div>
       <div class="due">
         <div><label for="fAdulti">${esc(t.adulti)}</label>
           <input type="number" id="fAdulti" min="1" max="10" value="${r.adulti}" /></div>
@@ -699,6 +746,12 @@ function schermaRicerca(erroreIniziale) {
      l'ora italiana e' passata, lo si dice */
   $('fArrivo').addEventListener('change', avvisoGiornoStesso);
   avvisoGiornoStesso();
+  /* e l'avviso sulle piu' camere: si dice PRIMA di cercare, cosi' il
+     filtro parte gia' giusto invece di far arrivare a un elenco corto
+     senza spiegazione */
+  $('fAdulti').addEventListener('input', avvisoPersone);
+  $('fBambini').addEventListener('input', avvisoPersone);
+  avvisoPersone();
 }
 
 async function cercaDisponibilita() {
@@ -1344,7 +1397,7 @@ function schermaFatta(numero) {
         <!-- LA SECONDA CAMERA. Non un carrello: una richiesta nuova, ma
              coi contatti e le date gia' dentro e col numero della prima
              nelle note, cosi' la reception le tiene insieme. -->
-        <a class="invito" href="${esc(indirizzoModulo('prenota', LNG, { ...OSPITE, insieme: NUMERO_FATTA }))}">${esc(t.invitoAltraCamera)}</a>
+        <a class="invito" href="${esc(indirizzoModulo('prenota', LNG, { ...OSPITE, insieme: DA_URL.insieme || NUMERO_FATTA, camera: (DA_URL.camera || 1) + 1 }))}">${esc(t.invitoAltraCamera)}</a>
         <div class="invitiNota">${esc(t.invitoNota)}</div>
       </div>` : ''}
     <p style="margin-top:22px;"><a href="?l=${LNG}">${esc(t.ancora)}</a></p>
@@ -1365,6 +1418,15 @@ function disegna(numeroFatta) {
 }
 
 testata();
+/* il cartello si scrive una volta sola: non cambia da un passo all'altro */
+if (DA_URL.insieme) {
+  const t0 = T[LNG];
+  $('collegata').innerHTML = `<div class="cartello">${esc(
+    DA_URL.camera
+      ? t0.cameraDiSerie(DA_URL.camera, DA_URL.insieme)
+      : t0.siAggiungeA(DA_URL.insieme),
+  )}</div>`;
+}
 disegna();
 </script>
 </body>
