@@ -14,7 +14,7 @@
   const HOTEL = {
     nome: 'Hotel Terme Leonardo',
     societa: 'Tria S.r.l.',
-    indirizzo: 'Via Monteortone 46 · 35037 Monteortone di Teolo (PD)',
+    indirizzo: 'Via Monteortone 46 · 35037 Monteortone di Abano Terme (PD)',
     contatti: '+39 049 9939 200 · info@termeleonardo.com · termeleonardo.com',
     fiscali: 'P.IVA IT 02042330288',
     cin: 'CIN IT028089A18QYO48ED',   // non obbligatorio in testata: resta nel piè di pagina

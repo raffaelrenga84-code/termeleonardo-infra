@@ -31,6 +31,20 @@ const CAP = '35037';
    chiama «di Abano Terme». Il nostro e' 35037, Monteortone. */
 const CAP_SBAGLIATO = '35031';
 
+/* IL COMUNE. Chi scrive l'indirizzo per esteso deve scrivere lo stesso
+   comune di tutti gli altri. Non e' un vezzo: fino al 21 agosto 2026 le
+   offerte, le conferme e il PDF delle FATTURE dicevano «Monteortone di
+   Teolo» mentre il sito, le pagine e le funzioni dicevano «di Abano
+   Terme» — otto punti contro tutto il resto. E' sfuggito a questa stessa
+   prova perche' guardava la via e il CAP, che li' erano giusti.
+
+   Perche' proprio «Abano Terme»: e' quello che la proprieta' ha dettato
+   il 20 agosto, ed e' quello che l'hotel pubblica sul proprio sito.
+   (35037 e' il CAP di Teolo, e Monteortone sta sul confine: se un domani
+   la visura dicesse altro, si cambia QUI e i sedici punti seguono.) */
+const COMUNE = 'Monteortone di Abano Terme';
+const COMUNE_SBAGLIATO = 'Monteortone di Teolo';
+
 const RADICI = ['../../supabase/functions', '../../pagine', '../../estensione'];
 const ESTENSIONI = ['.ts', '.js', '.html'];
 
@@ -84,4 +98,28 @@ Deno.test('e nessuno porta il CAP di Abano centro', () => {
     .filter((x) => x.testo.includes(CAP_SBAGLIATO))
     .map((x) => x.percorso);
   assertEquals(conCapSbagliato, [], `\n  hanno il CAP ${CAP_SBAGLIATO}:\n  ${conCapSbagliato.join('\n  ')}\n`);
+});
+
+Deno.test('e chi scrive il comune scrive quello di tutti gli altri', () => {
+  /* solo chi lo scrive per esteso: molti file portano via e CAP senza
+     nominare il comune, e pretenderlo da loro sarebbe rumore */
+  const sbagliati = conIndirizzo()
+    .filter((x) => x.testo.includes(COMUNE_SBAGLIATO))
+    .map((x) => x.percorso);
+  assertEquals(
+    sbagliati,
+    [],
+    `\n  scrivono «${COMUNE_SBAGLIATO}» invece di «${COMUNE}»:\n  ` +
+      `${sbagliati.join('\n  ')}\n`,
+  );
+});
+
+Deno.test('e il comune giusto e scritto da qualche parte, non da nessuna', () => {
+  /* se un domani sparisse ovunque, la prova sopra resterebbe verde
+     guardando il nulla: qui si pretende che qualcuno lo dica davvero */
+  const conComune = conIndirizzo().filter((x) => x.testo.includes(COMUNE));
+  assert(
+    conComune.length >= 5,
+    `solo ${conComune.length} file scrivono «${COMUNE}»: il comune sta sparendo`,
+  );
 });
