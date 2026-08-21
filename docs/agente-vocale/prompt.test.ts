@@ -110,7 +110,7 @@ Deno.test('ogni categoria del prompt esiste nel catalogo, e viceversa', () => {
 Deno.test('il prompt porta l indirizzo vero', () => {
   const p = prompt();
   if (!p) return;
-  assert(p.includes('Via Monteortone 46'), 'il prompt non porta la via giusta');
+  assert(p.includes('Via Monteortone, 46'), 'il prompt non porta la via giusta');
   assert(p.includes('35037'), 'il prompt non porta il CAP giusto');
   assert(!p.includes('35031'), 'il prompt porta il CAP di Abano centro, che non e il nostro');
 });

@@ -210,7 +210,7 @@ FatturaElettronicaHeader
                         FormatoTrasmissione FPR12 · CodiceDestinatario
                         (PECDestinatario se il codice è 0000000)
   CedentePrestatore     Hotel Terme Leonardo · P.IVA 02042330288
-                        Via Monteortone 46 · 35037 Monteortone di Abano Terme · PD · IT
+                        Via Monteortone, 46 · 35037 Monteortone di Abano Terme · PD · IT
                         *(corretto il 15 agosto 2026: diceva solo «Abano
                         Terme». È l'indirizzo del CEDENTE, cioè quello che
                         finisce stampato su ogni fattura emessa — non un

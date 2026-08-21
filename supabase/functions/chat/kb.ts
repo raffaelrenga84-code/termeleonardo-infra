@@ -150,7 +150,7 @@ Pagamento: contanti, bonifico istantaneo, Mastercard, Visa, bancomat — **no Di
 **Altro:** divieto di fumo in camera (ok balcone); minibar vuoto, rifornito su richiesta; noleggio bici a pagamento; box bici chiuso con ricarica e-bike.
 
 **INDIRIZZO POSTALE — questo, per esteso, quando lo chiedono:**
-**Via Monteortone 46 · 35037 Monteortone di Abano Terme (PD)**
+**Via Monteortone, 46 · 35037 Monteortone di Abano Terme (PD)**
 *Coordinate: 45.349404, 11.754545.* Non dire solo "Abano Terme": Monteortone
 è la frazione, e chi imposta il navigatore o spedisce qualcosa senza di
 quella finisce altrove. Fino al 15 agosto 2026 in giro c'erano quattro

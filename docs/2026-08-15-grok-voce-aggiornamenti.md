@@ -164,7 +164,7 @@ sbagliato («di Teolo») in nove documenti che i clienti ricevono.
 
 ```
 **INDIRIZZO POSTALE — questo, per esteso, quando lo chiedono:**
-**Via Monteortone 46 · 35037 Monteortone di Abano Terme (PD)**
+**Via Monteortone, 46 · 35037 Monteortone di Abano Terme (PD)**
 *Coordinate: 45.349404, 11.754545.* Non dire solo "Abano Terme": Monteortone è
 la frazione, e chi imposta il navigatore senza quella finisce altrove.
 ```

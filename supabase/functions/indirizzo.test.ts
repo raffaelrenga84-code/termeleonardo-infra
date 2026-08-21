@@ -19,11 +19,11 @@
 
    L'ORIGINALE, confermato dalla proprieta' il 20 agosto 2026:
        Hotel Terme Leonardo
-       Via Monteortone 46, 35037 Monteortone di Abano Terme (PD)
+       Via Monteortone, 46 35037 Monteortone di Abano Terme (PD)
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 
-const VIA = 'Via Monteortone 46';
+const VIA = 'Via Monteortone, 46';
 const CAP = '35037';
 
 /* «35031» e' Abano Terme centro: e' il CAP che l'indirizzo inventato

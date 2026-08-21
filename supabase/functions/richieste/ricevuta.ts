@@ -134,7 +134,7 @@ export function ricevutaHTML(r: Richiesta): string {
 
   <div style="border-top:1px solid #E6E2D8;margin-top:20px;padding-top:14px;
     font-size:12.5px;color:#8A938F;line-height:1.6;">
-    Hotel Terme Leonardo · Via Monteortone 46, 35037 Monteortone di Abano Terme (PD)<br />
+    Hotel Terme Leonardo · Via Monteortone, 46, 35037 Monteortone di Abano Terme (PD)<br />
     ${TELEFONO} · ${EMAIL_HOTEL}
   </div>
 </td></tr></table>`;

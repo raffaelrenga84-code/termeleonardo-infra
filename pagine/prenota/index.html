@@ -374,7 +374,7 @@ function testata() {
       '<option value="' + l + '"' + (l === LNG ? ' selected' : '') + '>' +
         BANDIERE[l] + ' ' + l.toUpperCase() + '</option>').join('') + '</select>';
   $('selLingua').onchange = (e) => { location.search = '?l=' + e.target.value; };
-  $('tPie').innerHTML = `Hotel Terme Leonardo &middot; Via Monteortone 46, 35037 Monteortone di Abano Terme (PD) &middot;
+  $('tPie').innerHTML = `Hotel Terme Leonardo &middot; Via Monteortone, 46, 35037 Monteortone di Abano Terme (PD) &middot;
     <a href="tel:+390499939200">+39 049 9939200</a> &middot;
     <a href="mailto:info@termeleonardo.com">info@termeleonardo.com</a> &middot;
     <a href="https://www.hoteltermeleonardo.com/" target="_blank" rel="noopener noreferrer">hoteltermeleonardo.com</a>`;
