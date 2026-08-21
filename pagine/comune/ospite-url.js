@@ -129,6 +129,13 @@ export function parametriOspite(ricerca) {
   if (arrivo && partenza && partenza <= arrivo) partenza = '';
   return {
     rif: testo(q.get('rif'), RIF_MAX),
+    /* IL NUMERO DELLA RICHIESTA A CUI QUESTA SI AGGIUNGE. Chi prenota due
+       camere fa due richieste — una pagina di prenotazione non e' un
+       carrello — e senza questo la reception riceve due fogli slegati e
+       assegna due camere lontane a due persone che viaggiano insieme.
+       Separato da `rif`, che e' il riferimento di un'OFFERTA della
+       reception: due cose diverse che finirebbero nella stessa riga. */
+    insieme: testo(q.get('insieme'), RIF_MAX),
     nome: testo(q.get('nome'), NOME_MAX),
     email: emailValida(q.get('email')),
     tel: testo(q.get('tel'), TEL_MAX),

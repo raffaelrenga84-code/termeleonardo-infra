@@ -11,7 +11,7 @@ const INDIRIZZO_VERO =
 Deno.test('un indirizzo vero, come quello dei pulsanti della reception, si legge intero', () => {
   const r = parametriOspite(INDIRIZZO_VERO);
   assertEquals(r, {
-    rif: 'O26/19130',
+    rif: 'O26/19130', insieme: '',
     nome: 'Marcheselli Alessandro',
     email: 'alessandro.marcheselli@sysma.it',
     tel: '3474852657',
@@ -27,11 +27,11 @@ Deno.test('un indirizzo vero, come quello dei pulsanti della reception, si legge
    pagina che scrive `esc(url.nome)` deve poter contare su una stringa. */
 Deno.test('parametri assenti: tutto vuoto, niente per magia', () => {
   assertEquals(parametriOspite(''), {
-    rif: '', nome: '', email: '', tel: '',
+    rif: '', insieme: '', nome: '', email: '', tel: '',
     arrivo: '', partenza: '', adulti: null, lang: null,
   });
   assertEquals(parametriOspite('altro=cosa'), {
-    rif: '', nome: '', email: '', tel: '',
+    rif: '', insieme: '', nome: '', email: '', tel: '',
     arrivo: '', partenza: '', adulti: null, lang: null,
   });
 });

@@ -371,6 +371,8 @@ const T = {
     ancoraTit:'Le serve altro per il suo soggiorno?',
     invitoTrattamenti:'Prenoti i trattamenti alla spa',
     invitoTransfer:'Prenoti il transfer da e per l’aeroporto',
+    invitoAltraCamera:'Aggiunga un’altra camera per le stesse date',
+    insiemeA:(n)=>`Insieme alla richiesta ${n}`,
     invitoNota:'I suoi dati sono già compilati: le resta da scegliere solo quando.',
     grazieTit:'Richiesta inviata',
     grazieTxt:'La reception le risponde entro poche ore con la conferma e le indicazioni per la caparra.',
@@ -425,6 +427,8 @@ const T = {
     ancoraTit:'Brauchen Sie noch etwas für Ihren Aufenthalt?',
     invitoTrattamenti:'Behandlungen im Spa buchen',
     invitoTransfer:'Transfer vom und zum Flughafen buchen',
+    invitoAltraCamera:'Ein weiteres Zimmer für dieselben Daten',
+    insiemeA:(n)=>`Zusammen mit der Anfrage ${n}`,
     invitoNota:'Ihre Daten sind schon ausgefüllt: Sie wählen nur noch wann.',
     grazieTit:'Anfrage gesendet',
     grazieTxt:'Die Rezeption antwortet Ihnen innerhalb weniger Stunden mit der Bestätigung und den Hinweisen zur Anzahlung.',
@@ -479,6 +483,8 @@ const T = {
     ancoraTit:'Anything else for your stay?',
     invitoTrattamenti:'Book your spa treatments',
     invitoTransfer:'Book the airport transfer',
+    invitoAltraCamera:'Add another room for the same dates',
+    insiemeA:(n)=>`Together with request ${n}`,
     invitoNota:'Your details are already filled in: you only choose when.',
     grazieTit:'Request sent',
     grazieTxt:'Reception will reply within a few hours with the confirmation and instructions for the deposit.',
@@ -533,6 +539,8 @@ const T = {
     ancoraTit:'Autre chose pour votre séjour ?',
     invitoTrattamenti:'Réservez vos soins au spa',
     invitoTransfer:'Réservez le transfert aéroport',
+    invitoAltraCamera:'Ajoutez une autre chambre pour les mêmes dates',
+    insiemeA:(n)=>`Avec la demande ${n}`,
     invitoNota:'Vos coordonnées sont déjà remplies : il ne reste qu’à choisir quand.',
     grazieTit:'Demande envoyée',
     grazieTxt:'La réception vous répond sous quelques heures avec la confirmation et les indications pour les arrhes.',
@@ -556,6 +564,7 @@ let OSPITE = null;
    cancellerebbe nome, email e telefono appena scritti: chi se li vede
    sparire non li riscrive, se ne va. */
 let SCRITTI = null;
+let NUMERO_FATTA = '';       // il numero appena assegnato, per legarci la camera dopo
 let CERCANDO = false;
 let INVIANDO = false;
 
@@ -951,6 +960,18 @@ function schermaCamere() {
   };
 }
 
+/* QUELLO CHE C'E' GIA' SCRITTO NELLE NOTE quando la pagina si apre.
+   Due casi, e sono diversi: il riferimento di un'OFFERTA preparata dalla
+   reception, e il numero della richiesta a cui questa camera si
+   aggiunge. Se ci sono tutti e due si scrivono tutti e due: sono due
+   fatti, non due modi di dire la stessa cosa. */
+function noteIniziali(t) {
+  const righe = [];
+  if (DA_URL.insieme) righe.push(t.insiemeA(DA_URL.insieme));
+  if (DA_URL.rif) righe.push(t.rifOfferta(DA_URL.rif));
+  return righe.join('\n');
+}
+
 /* L'ALTRA OPZIONE DELLA STESSA FAMIGLIA: quella con la cena, quando
    l'ospite ha scelto la sola colazione. L'offerta si rifa' qui perche'
    questo e' l'ultimo momento prima di inviare — e chi ha scelto la
@@ -1022,7 +1043,7 @@ function schermaDati() {
       <!-- il riferimento dell'offerta va nelle note, con un'etichetta
            chiara: e' li' che lo ritrova la reception, non e' un campo del
            modulo (vedi il commento in cima a ospite-url.js) -->
-      <textarea id="fNote" placeholder="${esc(t.notePh)}">${SCRITTI ? esc(gia.note) : (DA_URL.rif ? esc(t.rifOfferta(DA_URL.rif)) : '')}</textarea>
+      <textarea id="fNote" placeholder="${esc(t.notePh)}">${SCRITTI ? esc(gia.note) : esc(noteIniziali(t))}</textarea>
 
       <!-- IL CANE. La Knowledge Base dice che va segnalato «sempre al
            momento della prenotazione, mai all'arrivo»: prima di oggi
@@ -1169,6 +1190,9 @@ async function inviaRichiesta() {
    lo e' ancora, non si incassa niente e la camera non e' bloccata. */
 function schermaFatta(numero) {
   const t = T[LNG];
+  /* serve dentro l'indirizzo della seconda camera: e' il filo che le
+     tiene insieme in reception */
+  NUMERO_FATTA = numero;
   $('app').innerHTML = `<div class="riquadro fatta">
     <h2>${esc(t.grazieTit)}</h2>
     <p style="color:var(--verde-medio);">${esc(t.grazieTxt)}</p>
@@ -1179,6 +1203,10 @@ function schermaFatta(numero) {
         <div class="invitiTit">${esc(t.ancoraTit)}</div>
         <a class="invito" href="${esc(indirizzoModulo('trattamenti', LNG, OSPITE))}">${esc(t.invitoTrattamenti)}</a>
         <a class="invito" href="${esc(indirizzoModulo('transfer', LNG, OSPITE))}">${esc(t.invitoTransfer)}</a>
+        <!-- LA SECONDA CAMERA. Non un carrello: una richiesta nuova, ma
+             coi contatti e le date gia' dentro e col numero della prima
+             nelle note, cosi' la reception le tiene insieme. -->
+        <a class="invito" href="${esc(indirizzoModulo('prenota', LNG, { ...OSPITE, insieme: NUMERO_FATTA }))}">${esc(t.invitoAltraCamera)}</a>
         <div class="invitiNota">${esc(t.invitoNota)}</div>
       </div>` : ''}
     <p style="margin-top:22px;"><a href="?l=${LNG}">${esc(t.ancora)}</a></p>

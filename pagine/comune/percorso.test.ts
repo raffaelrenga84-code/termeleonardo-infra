@@ -199,3 +199,14 @@ Deno.test('e i parametri che scriviamo sono quelli che la pagina legge', () => {
   assertEquals(letti.arrivo, OSPITE.arrivo, 'la data di arrivo non arriva al modulo');
   assertEquals(letti.partenza, OSPITE.partenza, 'la data di partenza non arriva al modulo');
 });
+
+Deno.test('e l indirizzo sa portare anche il numero della richiesta collegata', () => {
+  /* chi prenota due camere fa due richieste: senza questo numero la
+     reception riceve due fogli slegati e assegna due camere lontane a
+     persone che viaggiano insieme */
+  const u = new URL(indirizzoModulo('prenota', 'it', { ...OSPITE, insieme: 'S-2026-0001' }));
+  assertEquals(u.pathname, '/it/prenota');
+  assertEquals(u.searchParams.get('insieme'), 'S-2026-0001');
+  const letti = parametriOspite(u.search);
+  assertEquals(letti.insieme, 'S-2026-0001', 'il numero collegato non arriva alla pagina');
+});
