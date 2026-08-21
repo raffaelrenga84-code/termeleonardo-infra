@@ -91,13 +91,20 @@ Deno.test('in nessuna lingua il titolo dice che la richiesta e confermata', () =
   }
 });
 
-/* Nessun orario promesso, nessun prezzo, nessuna disponibilita': «di solito
+/* IL PREZZO C'E', ED E' VOLUTO: e' la cifra che l'ospite ha scelto su
+   /prenota, e una ricevuta che non la ripete non serve a niente. Fino al
+   21 agosto 2026 questa prova dichiarava «ne prezzi» e restava verde lo
+   stesso, perche' la sua finzione non aveva `prezzo_cent`: su una
+   richiesta vera esce «Prezzo 260,00 €». Una prova che evita il caso che
+   dichiara di presidiare e' peggio di nessuna prova.
+
+   Resta vietato PROMETTERE: nessun orario, nessuna disponibilita'. «Di solito
    entro poche ore» sta sulla pagina, dove lo legge chi ha appena premuto
    invia. In un'email che si rilegge tre giorni dopo diventa un'accusa. */
-Deno.test('la ricevuta non promette tempi, prezzi ne disponibilita', () => {
+Deno.test('la ricevuta non promette tempi ne disponibilita', () => {
   const h = ricevutaHTML(RICHIESTA);
   assert(!/entro poche ore|entro \d|24 ore|48 ore/i.test(h), 'promette un tempo');
-  assert(!/€|prezzo|disponibil/i.test(h), 'parla di prezzo o disponibilita');
+  assert(!/disponibil/i.test(h), 'promette una disponibilita');
 });
 
 /* ---------- cosa ha chiesto ---------- */
@@ -217,4 +224,59 @@ Deno.test('senza email dell ospite non si prova nemmeno a mandarla', async () =>
     assertEquals(await inviaRicevuta({ ...RICHIESTA, email: '' }), false);
     assertEquals(i.spedite.length, 0);
   } finally { i.ripristina(); }
+});
+
+Deno.test('e dove scrive un prezzo dice anche la tassa che non e compresa', () => {
+  /* regola della casa, prompt dell'agente vocale punto 9: quando si comunica
+     un totale la tassa si dice PER INTERO. Questa e' l'email che l'ospite
+     si tiene. */
+  const conPrezzo = {
+    ...RICHIESTA,
+    tipo: 'soggiorno',
+    check_in: '2026-09-10',
+    check_out: '2026-09-12',
+    tipo_camera: 'Matrimoniale Queen',
+    dati: { prezzo_cent: 26000, caparra_cent: 15000 },
+  };
+  for (const lingua of ['it', 'de', 'en', 'fr']) {
+    const h = visibile(ricevutaHTML({ ...conPrezzo, lingua }));
+    assert(h.includes('260,00'), `${lingua}: il prezzo scelto non compare`);
+    assert(
+      /tassa di soggiorno|Kurtaxe|tourist tax|taxe de séjour/i.test(h),
+      `${lingua}: scrive un prezzo e non dice la tassa di soggiorno`,
+    );
+    assert(
+      /1[.,]50/.test(h),
+      `${lingua}: nomina la tassa senza dire quanto e: la versione mozzata che la casa vieta`,
+    );
+  }
+});
+
+/* quello che l'ospite legge davvero: i commenti HTML viaggiano dentro
+   l'email ma non si vedono, e uno di essi NOMINA la tassa per spiegare
+   perche' il blocco esiste. Senza questo, la prova qui sotto trovava la
+   parola anche dove il testo non si stampa. */
+function visibile(h: string): string {
+  /* niente espressione regolare: tagliare fra <!-- e --> con le sole
+     operazioni di stringa e' piu' lungo e non ha modi di sbagliarsi */
+  const pezzi = h.split('<!--');
+  return pezzi
+    .map((p, i) => {
+      if (i === 0) return p;
+      const fine = p.indexOf('-->');
+      return fine < 0 ? p : p.slice(fine + 3);
+    })
+    .join(' ');
+}
+
+Deno.test('ma su un transfer o dei trattamenti la tassa non si nomina', () => {
+  /* non hanno tassa di soggiorno: scriverla sarebbe una condizione
+     inventata su una richiesta che non la prevede */
+  for (const tipo of ['transfer', 'trattamenti', 'dayspa']) {
+    const h = visibile(ricevutaHTML({ ...RICHIESTA, tipo }));
+    assert(
+      !/tassa di soggiorno|Kurtaxe|tourist tax/i.test(h),
+      `${tipo}: nomina la tassa su una richiesta che non ne ha`,
+    );
+  }
 });

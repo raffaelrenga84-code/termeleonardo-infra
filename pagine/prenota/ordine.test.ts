@@ -277,7 +277,7 @@ Deno.test('la pagina ordina davvero le tariffe, e dice la formula', () => {
     'le tariffe tornano nell ordine del motore: 260, 190, 390',
   );
   assert(
-    pagina.includes('conFormula(v.trattamento, t)'),
+    pagina.includes('<div class="trattamento">${esc(conFormula('),
     'la riga torna a dire solo «Mezza Pensione», senza dire che cosa comprende',
   );
   assert(

@@ -57,6 +57,7 @@ const T: Record<string, Record<string, string>> = {
     nonPrenotazione: 'Non è ancora una prenotazione: le confermiamo noi, per email o al telefono.',
     chiusura: 'Per qualsiasi cosa risponda a questa email, oppure ci chiami.',
     dettagli: 'La sua richiesta', saluto: 'A presto,<br />Hotel Terme Leonardo',
+    tassa: 'Alla tariffa si aggiunge la tassa di soggiorno: 1,50 € al giorno a persona, per un massimo di sette notti. Esenti i minori di 14 anni e le persone con disabilità. Si paga in hotel, in contanti.',
     oggetto: 'Abbiamo ricevuto la sua richiesta',
   },
   de: {
@@ -65,6 +66,7 @@ const T: Record<string, Record<string, string>> = {
     nonPrenotazione: 'Dies ist noch keine Buchung: wir bestätigen Ihnen per E-Mail oder telefonisch.',
     chiusura: 'Für alles Weitere antworten Sie auf diese E-Mail oder rufen Sie uns an.',
     dettagli: 'Ihre Anfrage', saluto: 'Bis bald,<br />Hotel Terme Leonardo',
+    tassa: 'Zum Preis kommt die Kurtaxe: 1,50 € pro Person und Tag, für höchstens sieben Nächte. Kinder unter 14 Jahren und Menschen mit Behinderung sind befreit. Bar vor Ort zu zahlen.',
     oggetto: 'Wir haben Ihre Anfrage erhalten',
   },
   en: {
@@ -73,6 +75,7 @@ const T: Record<string, Record<string, string>> = {
     nonPrenotazione: 'This is not a booking yet: we will confirm by email or by phone.',
     chiusura: 'For anything at all, reply to this email or give us a call.',
     dettagli: 'Your request', saluto: 'See you soon,<br />Hotel Terme Leonardo',
+    tassa: 'The tourist tax is added to the rate: €1.50 per person per day, for a maximum of seven nights. Children under 14 and people with disabilities are exempt. Payable in cash at the hotel.',
     oggetto: 'We have received your request',
   },
   fr: {
@@ -81,6 +84,7 @@ const T: Record<string, Record<string, string>> = {
     nonPrenotazione: 'Ce n’est pas encore une réservation : nous vous confirmons par e-mail ou par téléphone.',
     chiusura: 'Pour toute question, répondez à cet e-mail ou appelez-nous.',
     dettagli: 'Votre demande', saluto: 'À bientôt,<br />Hotel Terme Leonardo',
+    tassa: 'S’ajoute la taxe de séjour : 1,50 € par personne et par jour, pour sept nuits au maximum. Les moins de 14 ans et les personnes en situation de handicap en sont exemptés. À régler en espèces sur place.',
     oggetto: 'Nous avons bien reçu votre demande',
   },
 };
@@ -120,6 +124,21 @@ export function ricevutaHTML(r: Richiesta): string {
     </tr>
   </table>
 
+  <!-- LA TASSA DI SOGGIORNO. Questa email scrive un prezzo e una caparra,
+       e la regola della casa (prompt dell'agente vocale, punto 9) e' che
+       quando si comunica un totale la tassa si dice PER INTERO. Fino al
+       21 agosto 2026 questa email non la diceva: l'ospite la scopriva
+       alla cassa.
+
+       NOTA SOBRIA, NON UN SECONDO RIQUADRO: qui sotto c'e' gia' quello
+       di «non e' ancora una prenotazione», che deve restare la cosa piu'
+       forte della pagina. Due riquadri uguali si annullano a vicenda.
+
+       Solo per il soggiorno: un transfer o dei trattamenti non hanno
+       tassa, e scriverla sarebbe una condizione inventata. -->
+  ${String(r.tipo ?? '') === 'soggiorno'
+    ? `<p style="font-size:12.5px;line-height:1.6;color:#8A938F;margin-top:14px;">${esc(t.tassa)}</p>`
+    : ''}
   <!-- LA RIGA CHE PORTA IL PESO. Non e' decorazione: e' l'unica cosa che
        impedisce a questa email di essere letta come una conferma. Sta in
        evidenza apposta, e non si ammorbidisce. -->

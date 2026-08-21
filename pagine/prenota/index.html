@@ -217,6 +217,9 @@ import { inclusiIn } from '/prenota/inclusi.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Che cosa comprende un piano
    tariffario oltre al trattamento: vedi piani.js. */
 import { massaggioDelPiano } from '/prenota/piani.js';
+/* PERCORSO ASSOLUTO, stessa ragione. Il motore risponde sempre in
+   italiano, qualunque lingua gli si chieda: vedi nomi.js. */
+import { nomeTariffa, nomeTrattamento } from '/prenota/nomi.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Dopo una certa ora il giorno stesso
    non si prenota da qui — il perche' sta in giorno-stesso.js. */
 import { chiusoPerOggi, oraLimite } from '/prenota/giorno-stesso.js';
@@ -699,8 +702,8 @@ function schermaCamere() {
               data-testid="proposta-${v.indice}" data-indice="${v.indice}">
               <div class="riga">
                 <div>
-                  <div class="tariffa">${esc(v.tariffa)}</div>
-                  ${v.trattamento ? `<div class="trattamento">${esc(conFormula(v.trattamento, t))}</div>` : ''}
+                  <div class="tariffa">${esc(nomeTariffa(v.tariffa, LNG))}</div>
+                  ${v.trattamento ? `<div class="trattamento">${esc(conFormula(nomeTrattamento(v.trattamento, LNG), t))}</div>` : ''}
                   ${massaggioDelPiano(v.tariffa)
                     ? `<div class="piano">${esc(t.pianoMassaggio(massaggioDelPiano(v.tariffa)))}</div>`
                     : ''}
@@ -718,7 +721,7 @@ function schermaCamere() {
     </div>
     <div class="barraScelta">
       ${SCELTA
-        ? `<div class="scelto">${t.riepilogoCamera(SCELTA.nome, SCELTA.tariffa,
+        ? `<div class="scelto">${t.riepilogoCamera(SCELTA.nome, nomeTariffa(SCELTA.tariffa, LNG),
              euroDaCentesimi(SCELTA.prezzo_cent))}</div>`
         : ''}
       <button class="invia" id="bContinua"${SCELTA ? '' : ' disabled'}>${esc(t.continua)}</button>
@@ -753,7 +756,7 @@ function schermaDati() {
     <button type="button" class="indietro" id="bIndietroCamere">${esc(t.indietroCamere)}</button>
     <div class="riepilogo">
       ${t.riepilogo(esc(RICERCA.arrivo), esc(RICERCA.partenza), RICERCA.adulti, bambini)}<br />
-      ${t.riepilogoCamera(SCELTA.nome, SCELTA.tariffa, euroDaCentesimi(SCELTA.prezzo_cent))}
+      ${t.riepilogoCamera(SCELTA.nome, nomeTariffa(SCELTA.tariffa, LNG), euroDaCentesimi(SCELTA.prezzo_cent))}
     </div>
     <div class="riquadro">
       <h2>${esc(t.datiTit)}</h2><div class="guida">${esc(t.datiGuida)}</div>
