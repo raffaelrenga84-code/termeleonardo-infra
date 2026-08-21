@@ -59,16 +59,32 @@ function fonteDi(nome: string): string {
 const TABELLA = SORGENTE.match(/const SCHEDA_PER_RUOLO = new Map\(\[[\s\S]*?\]\);/);
 assert(TABELLA, 'SCHEDA_PER_RUOLO non si trova: la pagina e cambiata');
 
+/* l'elenco delle schede e quello di chi non le vede: due costanti, non
+   funzioni, e senza di loro le funzioni ritagliate non girerebbero */
+const ELENCO = SORGENTE.match(/const SCHEDE = \[[\s\S]*?\];/);
+assert(ELENCO, 'SCHEDE non si trova: la pagina e cambiata');
+const NASCOSTE = SORGENTE.match(/const SCHEDE_NASCOSTE = new Map\(\[[\s\S]*?\]\);/);
+assert(NASCOSTE, 'SCHEDE_NASCOSTE non si trova: la pagina e cambiata');
+
+const contesto = [
+  TABELLA![0], ELENCO![0], NASCOSTE![0],
+  fonteDi('schedaIniziale'), fonteDi('schedeNascoste'), fonteDi('schedeDi'),
+].join('\n');
+
 const schedaIniziale = new Function(
-  TABELLA![0] + '\n' + fonteDi('schedaIniziale') + '\nreturn schedaIniziale;',
+  contesto + '\nreturn schedaIniziale;',
 )() as (email: unknown) => string;
+
+/** Le schede che questo indirizzo vede, nell'ordine della pagina. */
+const schedeDi = new Function(
+  contesto + '\nreturn schedeDi;',
+)() as (email: unknown) => [string, string][];
 
 /* Le schede che la pagina disegna davvero, lette dai suoi pulsanti: se
    `schedaIniziale` restituisse un nome che non esiste, il back office si
    aprirebbe su una pagina vuota — e nessuno saprebbe perché. */
 function schedeDellaPagina(): string[] {
-  const trovate = [...SORGENTE.matchAll(/data-v="([a-z]+)"/g)].map((m) => m[1]);
-  return [...new Set(trovate)];
+  return [...ELENCO![0].matchAll(/\['([a-z]+)',/g)].map((m) => m[1]);
 }
 
 Deno.test('la spa si apre sulle richieste, non sui buoni che non puo emettere', () => {
@@ -155,5 +171,71 @@ Deno.test('l ingresso imposta la scheda dall indirizzo di chi entra', () => {
     nascita![1].trim(),
     "''",
     'VISTA nasce gia con una scheda dentro: quella di schedaIniziale non si vedrebbe mai',
+  );
+});
+
+/* ---------- le schede che non servono non si mostrano ---------- */
+
+Deno.test('la spa non vede la scheda che il server le rifiuta', () => {
+  const viste = schedeDi('spa@termeleonardo.com').map(([v]) => v);
+  assertEquals(
+    viste.includes('emetti'),
+    false,
+    'la spa vede «Emetti un buono»: un modulo che puoScrivereBuoni() rifiuta, e lo scoprirebbe premendo Invia',
+  );
+  /* e le altre le vede tutte: nascondere una scheda non e' togliere un ruolo */
+  for (const c of ['elenco', 'verifica', 'richieste', 'arrivi']) {
+    assert(viste.includes(c), `alla spa manca anche «${c}», che invece le serve`);
+  }
+});
+
+Deno.test('chi i buoni li emette le vede tutte', () => {
+  for (const email of ['reception@termeleonardo.com', 'amministrazione@termeleonardo.com']) {
+    assertEquals(
+      schedeDi(email).length,
+      schedeDellaPagina().length,
+      `a ${email} manca una scheda`,
+    );
+  }
+});
+
+Deno.test('la scheda d apertura e sempre fra quelle che si vedono', () => {
+  /* l'invariante che tiene insieme le due tabelle: se un domani si
+     nascondesse proprio la scheda su cui quel ruolo si apre, il back
+     office si aprirebbe su una scheda senza pulsante — e chi la chiude
+     non saprebbe come tornarci. */
+  for (const email of [
+    'spa@termeleonardo.com',
+    'reception@termeleonardo.com',
+    'amministrazione@termeleonardo.com',
+    'sconosciuto@termeleonardo.com',
+    '',
+  ]) {
+    const viste = schedeDi(email).map(([v]) => v);
+    assert(
+      viste.includes(schedaIniziale(email)),
+      `${email || "(vuoto)"} si apre su «${schedaIniziale(email)}», che non e fra le sue schede`,
+    );
+  }
+});
+
+Deno.test('ogni scheda ha un nome da mostrare', () => {
+  for (const [v, t] of schedeDi('reception@termeleonardo.com')) {
+    assert(t && t.trim().length > 3, `la scheda «${v}» non ha un'etichetta`);
+  }
+});
+
+Deno.test('e la striscia dei pulsanti si disegna da quell elenco', () => {
+  /* una funzione giusta che nessuno chiama vale zero: qui si guarda che
+     disegna() prenda le schede da schedeDi() e non le abbia di nuovo
+     scritte a mano nel markup. */
+  assert(
+    /schedeDi\(/.test(SORGENTE),
+    'disegna() non chiama schedeDi(): la scheda nascosta comparirebbe lo stesso',
+  );
+  assertEquals(
+    /data-v="[a-z]+"/.test(SORGENTE),
+    false,
+    'ci sono ancora pulsanti scritti a mano nel markup: quelli non si nascondono',
   );
 });

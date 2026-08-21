@@ -2,7 +2,7 @@
    schede.test.ts — le schede del back office e le funzioni che le disegnano.
 
    COME SI ROMPE. Le schede sono tre cose scritte in tre punti diversi:
-   il pulsante (`data-v="..."`), la voce nella mappa che smista
+   il pulsante (una riga di `SCHEDE`), la voce nella mappa che smista
    (`{ emetti: vistaEmetti, ... }[VISTA]()`) e la funzione vera. Se una
    delle tre non combacia con le altre, la pagina non se ne accorge: si
    apre normalmente, e il guasto arriva quando qualcuno clicca quella
@@ -15,9 +15,17 @@ import { assert, assertEquals } from 'jsr:@std/assert';
 
 const SORGENTE = Deno.readTextFileSync(new URL('index.html', import.meta.url));
 
-/** I nomi sui pulsanti delle schede. */
+/** I nomi sui pulsanti delle schede.
+ *
+ *  Si leggono da `SCHEDE`, non piu' dal markup: da quando una scheda si
+ *  puo' nascondere per ruolo — alla spa «Emetti un buono», che il server
+ *  le rifiuta — i pulsanti nascono da un modello e nel sorgente non c'e'
+ *  piu' nessun `data-v="emetti"` da cercare. L'elenco e' la fonte da cui
+ *  quel markup nasce, quindi e' il posto giusto dove guardare. */
 function pulsanti(): string[] {
-  return [...SORGENTE.matchAll(/data-v="([a-z]+)"/g)].map((m) => m[1]);
+  const elenco = SORGENTE.match(/const SCHEDE = \[[\s\S]*?\];/);
+  assert(elenco, 'const SCHEDE non si trova in pagine/buoni/index.html: la pagina e cambiata, aggiornare questa prova');
+  return [...elenco![0].matchAll(/\['([a-z]+)',/g)].map((m) => m[1]);
 }
 
 /** La mappa che smista: nome della scheda -> nome della funzione. */

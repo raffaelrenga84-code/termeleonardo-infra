@@ -231,6 +231,7 @@ const descrizioneValore = (v, l) => (TESTO_VALORE[l] || TESTO_VALORE.it)(eur(v |
 let SB = null;        // client Supabase
 let TOKEN = '';       // token dell'utente autenticato
 let OPERATORE = '';   // nome dell'operatore, dal suo utente
+let EMAIL = '';       // il suo indirizzo: decide schede e apertura
 let VISTA = '';      // la scheda d'apertura: la decide schedaIniziale()
 
 /* SU QUALE SCHEDA SI APRE IL BACK OFFICE.
@@ -251,6 +252,41 @@ let VISTA = '';      // la scheda d'apertura: la decide schedaIniziale()
    La tabella e' una COPIA di quella in ruoli.ts, che una pagina servita
    da Vercel non puo' importare. La copia e' inevitabile; che le due
    divergano in silenzio no — le confronta scheda-iniziale.test.ts. */
+/* LE SCHEDE, nell'ordine in cui compaiono. Erano scritte a mano nel
+   markup di disegna(): un elenco non si puo' filtrare, e finche' erano
+   cinque pulsanti uguali per tutti andava bene. */
+const SCHEDE = [
+  ['emetti', 'Emetti un buono'],
+  ['elenco', 'Buoni emessi'],
+  ['verifica', 'Verifica / riscuoti'],
+  ['richieste', 'Richieste dal sito'],
+  ['arrivi', 'Arrivi del giorno'],
+];
+
+/* CHI NON VEDE COSA. Alla spa «Emetti un buono» non serve e non
+   funziona: puoScrivereBuoni() la rifiuta, quindi oggi e' un vicolo
+   cieco che si scopre premendo Invia.
+
+   NASCONDERE NON E' PROTEGGERE, e non finge di esserlo: il cancello
+   resta nel server, che rifiuterebbe la chiamata anche se qualcuno
+   riaprisse il pulsante dagli strumenti del browser. Questo toglie di
+   mezzo una strada che porta solo a un errore. */
+const SCHEDE_NASCOSTE = new Map([
+  ['spa@termeleonardo.com', ['emetti']],
+]);
+
+/** Le schede che questo indirizzo NON vede. */
+function schedeNascoste(email) {
+  const e = String(email ?? '').trim().toLowerCase();
+  return SCHEDE_NASCOSTE.get(e) || [];
+}
+
+/** Le schede che questo indirizzo vede, nell'ordine della pagina. */
+function schedeDi(email) {
+  const fuori = schedeNascoste(email);
+  return SCHEDE.filter(([v]) => !fuori.includes(v));
+}
+
 const SCHEDA_PER_RUOLO = new Map([
   ['spa@termeleonardo.com', 'richieste'],
 ]);
@@ -309,6 +345,7 @@ function chiediAccesso(messaggio) {
       if (error) throw new Error('Email o password non validi.');
       TOKEN = data.session.access_token;
       OPERATORE = data.user.user_metadata?.nome || email.split('@')[0];
+      EMAIL = email;
       VISTA = schedaIniziale(email);
       await chiama('?a=elenco'); // prova: verifica anche dominio e IP
       disegna();
@@ -325,15 +362,15 @@ function chiediAccesso(messaggio) {
 /* ---------- struttura ---------- */
 function disegna() {
   $('chiSono').textContent = OPERATORE ? OPERATORE + ' \u00b7' : '';
-  $('app').innerHTML = `<div class="schede">
-    <button data-v="emetti" class="${VISTA==='emetti'?'attiva':''}">Emetti un buono</button>
-    <button data-v="elenco" class="${VISTA==='elenco'?'attiva':''}">Buoni emessi</button>
-    <button data-v="verifica" class="${VISTA==='verifica'?'attiva':''}">Verifica / riscuoti</button>
-    <button data-v="richieste" class="${VISTA==='richieste'?'attiva':''}">Richieste dal sito</button>
-    <button data-v="arrivi" class="${VISTA==='arrivi'?'attiva':''}">Arrivi del giorno</button>
-  </div><div id="vista"></div>`;
+  const visibili = schedeDi(EMAIL);
+  /* se la scheda corrente non e' fra quelle visibili si torna alla prima:
+     senza, la pagina disegnerebbe una vista senza il pulsante per uscirne */
+  if (!visibili.some(([v]) => v === VISTA)) VISTA = visibili[0][0];
+  $('app').innerHTML = `<div class="schede">${visibili.map(([v, t]) =>
+    `<button data-scheda="${v}" class="${VISTA === v ? 'attiva' : ''}">${esc(t)}</button>`
+  ).join('')}</div><div id="vista"></div>`;
   document.querySelectorAll('.schede button').forEach(b =>
-    b.onclick = () => { VISTA = b.dataset.v; disegna(); });
+    b.onclick = () => { VISTA = b.dataset.scheda; disegna(); });
   ({ emetti: vistaEmetti, elenco: vistaElenco, verifica: vistaVerifica,
      richieste: vistaRichieste, arrivi: vistaArrivi })[VISTA]();
 }
