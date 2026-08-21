@@ -138,6 +138,9 @@ textarea{min-height:80px;resize:vertical;}
 .proposta .riga{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
 .proposta .tariffa{font-weight:600;color:var(--verde);}
 .proposta .trattamento{color:var(--verde-medio);font-size:13px;margin-top:1px;}
+/* la riga che spiega un pacchetto: piu' spenta del trattamento, perche'
+   e' un di piu' e non la formula */
+.proposta .piano{color:var(--grigio);font-size:12.5px;margin-top:2px;}
 .proposta .prezzo{font-family:"Cormorant Garamond",Georgia,serif;font-size:22px;
   color:var(--oro);white-space:nowrap;}
 
@@ -211,6 +214,9 @@ import { formulaDi } from '/prenota/formule.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Che cosa comprende il soggiorno:
    l'elenco e' quello della Knowledge Base, vedi inclusi.js. */
 import { inclusiIn } from '/prenota/inclusi.js';
+/* PERCORSO ASSOLUTO, stessa ragione. Che cosa comprende un piano
+   tariffario oltre al trattamento: vedi piani.js. */
+import { massaggioDelPiano } from '/prenota/piani.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Dopo una certa ora il giorno stesso
    non si prenota da qui — il perche' sta in giorno-stesso.js. */
 import { chiusoPerOggi, oraLimite } from '/prenota/giorno-stesso.js';
@@ -276,6 +282,7 @@ const T = {
     cameraTit:'Le camere libere', cameraGuida:'Scelga la camera e il trattamento che preferisce: il prezzo è per l’intero soggiorno.',
     finoAdulti:(n)=>n===1?`Per 1 adulto`:`Fino a ${n} adulti`,
     indietroDate:'← Cambi le date', continua:'Continua con i suoi dati',
+    pianoMassaggio:(min)=>`comprende anche un massaggio relax di ${min} minuti a persona`,
     inclusiTit:'Inclusi nel soggiorno, con ogni tariffa',
     dettaglioPrezzo:(adulti,aPersona)=>aPersona?`totale · ${adulti} adulti × ${aPersona} € a persona`:'totale del soggiorno',
     formulaCena:'colazione e cena a buffet',
@@ -320,6 +327,7 @@ const T = {
     cameraTit:'Freie Zimmer', cameraGuida:'Wählen Sie Zimmer und Verpflegung: der Preis gilt für den gesamten Aufenthalt.',
     finoAdulti:(n)=>n===1?`Für 1 Erwachsenen`:`Bis zu ${n} Erwachsene`,
     indietroDate:'← Daten ändern', continua:'Weiter zu Ihren Daten',
+    pianoMassaggio:(min)=>`enthält außerdem eine Entspannungsmassage von ${min} Minuten pro Person`,
     inclusiTit:'Im Aufenthalt inbegriffen, bei jedem Tarif',
     dettaglioPrezzo:(adulti,aPersona)=>aPersona?`gesamt · ${adulti} Erwachsene × ${aPersona} € pro Person`:'Gesamtpreis des Aufenthalts',
     formulaCena:'Frühstück und Abendbuffet',
@@ -362,6 +370,7 @@ const T = {
     cameraTit:'Available rooms', cameraGuida:'Choose the room and rate you prefer: the price is for the whole stay.',
     finoAdulti:(n)=>n===1?`For 1 adult`:`Up to ${n} adults`,
     indietroDate:'← Change dates', continua:'Continue with your details',
+    pianoMassaggio:(min)=>`also includes a ${min}-minute relaxing massage per person`,
     inclusiTit:'Included in your stay, with every rate',
     dettaglioPrezzo:(adulti,aPersona)=>aPersona?`total · ${adulti} adults × €${aPersona} per person`:'total for the stay',
     formulaCena:'breakfast and dinner buffet',
@@ -404,6 +413,7 @@ const T = {
     cameraTit:'Chambres disponibles', cameraGuida:'Choisissez la chambre et le tarif que vous préférez : le prix est pour tout le séjour.',
     finoAdulti:(n)=>n===1?`Pour 1 adulte`:`Jusqu’à ${n} adultes`,
     indietroDate:'← Changer les dates', continua:'Continuer avec vos coordonnées',
+    pianoMassaggio:(min)=>`comprend aussi un massage relaxant de ${min} minutes par personne`,
     inclusiTit:'Compris dans le séjour, avec chaque tarif',
     dettaglioPrezzo:(adulti,aPersona)=>aPersona?`total · ${adulti} adultes × ${aPersona} € par personne`:'total du séjour',
     formulaCena:'petit-déjeuner et dîner-buffet',
@@ -691,6 +701,9 @@ function schermaCamere() {
                 <div>
                   <div class="tariffa">${esc(v.tariffa)}</div>
                   ${v.trattamento ? `<div class="trattamento">${esc(conFormula(v.trattamento, t))}</div>` : ''}
+                  ${massaggioDelPiano(v.tariffa)
+                    ? `<div class="piano">${esc(t.pianoMassaggio(massaggioDelPiano(v.tariffa)))}</div>`
+                    : ''}
                 </div>
                 <div class="prezzoBox">
                   <div class="prezzo">${euroDaCentesimi(v.prezzo_cent)} €</div>
