@@ -540,6 +540,11 @@ let TUTTE_LE_CAMERE = false;      // l'ospite ha chiesto di vederle tutte
 /* i contatti appena scritti, per non farli ridigitare sul modulo dopo:
    quando la schermata finale si disegna il modulo non c'e' piu' */
 let OSPITE = null;
+/* quello che l'ospite ha gia' DIGITATO nel modulo. Serve perche' da qui
+   si puo' ancora cambiare tariffa, e ridisegnare la schermata
+   cancellerebbe nome, email e telefono appena scritti: chi se li vede
+   sparire non li riscrive, se ne va. */
+let SCRITTI = null;
 let CERCANDO = false;
 let INVIANDO = false;
 
@@ -698,6 +703,7 @@ async function cercaDisponibilita() {
     SCELTA = null;
     /* una ricerca nuova riparte chiusa: le due davanti sono altre */
     TUTTE_LE_CAMERE = false;
+    SCRITTI = null;
 
     if (!PROPOSTE.length) {
       CERCANDO = false;
@@ -896,32 +902,78 @@ function schermaCamere() {
   };
 }
 
+/* L'ALTRA OPZIONE DELLA STESSA FAMIGLIA: quella con la cena, quando
+   l'ospite ha scelto la sola colazione. L'offerta si rifa' qui perche'
+   questo e' l'ultimo momento prima di inviare — e chi ha scelto la
+   colazione al passo prima non stava ancora decidendo se cenare, stava
+   decidendo dove dormire. */
+function conCenaPerLaScelta() {
+  if (!SCELTA) return null;
+  const voci = PROPOSTE
+    .map((p, i) => ({ ...p, indice: i }))
+    .filter((p) => p.camera_id === SCELTA.camera_id);
+  const fam = accorpa(voci, massaggioDelPiano)
+    .find((f) => f.opzioni.some((o) => o.indice === SCELTA.indice));
+  if (!fam) return null;
+  /* solo quella che costa PIU' di quella scelta: se l'ospite ha gia' la
+     mezza pensione non gli si propone di togliersela */
+  return fam.opzioni.find((o) =>
+    o.indice !== SCELTA.indice && Number(o.prezzo_cent) > Number(SCELTA.prezzo_cent)
+  ) || null;
+}
+
+/* quello che c'e' scritto adesso nei campi, prima che il ridisegno lo
+   porti via */
+function datiScritti() {
+  const v = (id) => ($(id) ? $(id).value : '');
+  const b = (id) => ($(id) ? $(id).checked : false);
+  return {
+    nome: v('fNome'), email: v('fEmail'), tel: v('fTel'), note: v('fNote'),
+    cane: b('fCane'), privacy: b('fPrivacy'),
+  };
+}
+
 /* ================= passo 3: i dati e l'invio ================= */
 
 function schermaDati() {
   const t = T[LNG];
   const bambini = RICERCA.bambini || 0;
+  const conCena = conCenaPerLaScelta();
+  const gia = SCRITTI ||
+    { nome: DA_URL.nome, email: DA_URL.email, tel: DA_URL.tel, note: '', cane: false, privacy: false };
   $('app').innerHTML = `
     <button type="button" class="indietro" id="bIndietroCamere">${esc(t.indietroCamere)}</button>
     <div class="riepilogo">
       ${t.riepilogo(esc(RICERCA.arrivo), esc(RICERCA.partenza), RICERCA.adulti, bambini)}<br />
       ${t.riepilogoCamera(SCELTA.nome, nomeTariffa(SCELTA.tariffa, LNG), euroDaCentesimi(SCELTA.prezzo_cent))}
     </div>
+    ${conCena ? `
+    <button type="button" class="aggiungi" id="bAggiungiCena" data-indice="${conCena.indice}">
+      <div class="riga">
+        <div>
+          <div class="aggiungiTit">${esc(invito(conCena, t))}</div>
+          <div class="aggiungiSotto">${esc(quantoInPiu(conCena, SCELTA, t))}</div>
+        </div>
+        <div class="prezzoBox">
+          <div class="prezzoPiu">${euroDaCentesimi(conCena.prezzo_cent)} €</div>
+        </div>
+      </div>
+    </button>` : ''}
     <div class="riquadro">
       <h2>${esc(t.datiTit)}</h2><div class="guida">${esc(t.datiGuida)}</div>
       <label for="fNome">${esc(t.nome)}</label>
-      <input type="text" id="fNome" autocomplete="name" value="${esc(DA_URL.nome)}" />
+      <input type="text" id="fNome" autocomplete="name" value="${esc(gia.nome)}" />
       <div class="due">
         <div><label for="fEmail">${esc(t.email)}</label>
-          <input type="email" id="fEmail" autocomplete="email" value="${esc(DA_URL.email)}" /></div>
+          <input type="email" id="fEmail" autocomplete="email" value="${esc(gia.email)}" /></div>
         <div><label for="fTel">${esc(t.tel)}</label>
-          <input type="tel" id="fTel" autocomplete="tel" value="${esc(DA_URL.tel)}" /></div>
+          <input type="tel" id="fTel" autocomplete="tel" value="${esc(gia.tel)}" /></div>
       </div>
       <label for="fNote">${esc(t.note)}</label>
       <!-- il riferimento dell'offerta va nelle note, con un'etichetta
            chiara: e' li' che lo ritrova la reception, non e' un campo del
            modulo (vedi il commento in cima a ospite-url.js) -->
-      <textarea id="fNote" placeholder="${esc(t.notePh)}">${DA_URL.rif ? esc(t.rifOfferta(DA_URL.rif)) : ''}</textarea>
+      <textarea id="fNote" placeholder="${esc(t.notePh)}">${SCRITTI ? esc(gia.note) : (DA_URL.rif ? esc(t.rifOfferta(DA_URL.rif)) : '')}</textarea>
 
       <!-- IL CANE. La Knowledge Base dice che va segnalato «sempre al
            momento della prenotazione, mai all'arrivo»: prima di oggi
@@ -929,7 +981,7 @@ function schermaDati() {
            costretto a violare una regola della casa. I due fatti che
            servono — il supplemento e dove il cane non entra — escono
            solo a chi spunta, perche' agli altri sono rumore. -->
-      <label class="spunta" style="margin-top:18px;"><input type="checkbox" id="fCane" />
+      <label class="spunta" style="margin-top:18px;"><input type="checkbox" id="fCane"${gia.cane ? ' checked' : ''} />
         <!-- l'icona sta FUORI dalle traduzioni: un simbolo solo, in un
              posto solo, e nessuna lingua puo' dimenticarselo -->
         <span><span class="iconaCane" aria-hidden="true">🐕</span>${esc(t.cane)}</span></label>
@@ -950,7 +1002,7 @@ function schermaDati() {
            dalla stessa voce: non puo' divergere. -->
       <div class="tassaDati">${esc(t.tassaSoggiorno)}</div>
 
-      <label class="spunta"><input type="checkbox" id="fPrivacy" />
+      <label class="spunta"><input type="checkbox" id="fPrivacy"${gia.privacy ? ' checked' : ''} />
         <span>${esc(t.privacy)} &mdash;
           <a href="https://www.termeleonardo.com/${LNG}/privacy" target="_blank"
             rel="noopener noreferrer">${esc(t.privacyLink)}</a></span></label>
@@ -959,7 +1011,17 @@ function schermaDati() {
     <div class="legenda">${esc(t.legenda)}</div>
     <div id="esitoDati"></div>`;
 
-  $('bIndietroCamere').onclick = () => { STATO = 'camere'; disegna(); };
+  $('bIndietroCamere').onclick = () => { SCRITTI = datiScritti(); STATO = 'camere'; disegna(); };
+  if ($('bAggiungiCena')) {
+    $('bAggiungiCena').onclick = () => {
+      /* PRIMA si mette da parte quello che e' scritto, poi si cambia
+         tariffa: al contrario il ridisegno lo porterebbe via */
+      SCRITTI = datiScritti();
+      const i = Number($('bAggiungiCena').dataset.indice);
+      SCELTA = { ...PROPOSTE[i], indice: i };
+      disegna();
+    };
+  }
   /* i due fatti compaiono quando la spunta si accende, e sono gli stessi
      che la reception direbbe al telefono */
   const mostraCane = () => {

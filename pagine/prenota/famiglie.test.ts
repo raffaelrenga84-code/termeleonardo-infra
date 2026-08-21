@@ -201,3 +201,62 @@ Deno.test('un pacchetto da solo non produce nessuna aggiunta', () => {
   assertEquals(out.split('<button type="button" class="aggiungi').length - 1, 0);
   assert(out.includes('massaggio di 25 minuti'), 'il pacchetto non dice piu che comprende');
 });
+
+/* ============================================================
+   E L'OFFERTA SI RIFÀ NEL PASSO DEI DATI.
+
+   Chi al passo prima ha scelto la colazione non stava decidendo se
+   cenare: stava decidendo dove dormire. L'ultimo momento prima di
+   inviare è il secondo momento buono per chiederglielo.
+
+   IL DIFETTO CHE QUESTA CURA POTEVA INTRODURRE, ed è quello che fa
+   perdere la richiesta intera: cambiare tariffa da lì ridisegna la
+   schermata, e il ridisegno cancella nome, email e telefono appena
+   scritti. Chi se li vede sparire non li riscrive: se ne va. L'ordine
+   delle due righe — prima mettere da parte, poi cambiare — è tutto il
+   presidio, e per questo c'è una prova che guarda proprio l'ordine.
+   ============================================================ */
+Deno.test('l offerta della cena si rifa nel passo dei dati', () => {
+  assert(
+    PAGINA.includes('const conCena = conCenaPerLaScelta();'),
+    'sparita l offerta della cena dal passo dei dati',
+  );
+  assert(
+    PAGINA.includes('id="bAggiungiCena"'),
+    'sparito il pulsante che aggiunge la cena prima di inviare',
+  );
+});
+
+Deno.test('e si propone solo quella che costa di piu, mai il contrario', () => {
+  /* proporre a chi ha gia la mezza pensione di togliersela non e'
+     upselling: e' farsi togliere una cena gia venduta */
+  assert(
+    PAGINA.includes('Number(o.prezzo_cent) > Number(SCELTA.prezzo_cent)'),
+    'l offerta non guarda piu il prezzo: potrebbe proporre di scendere',
+  );
+});
+
+Deno.test('e cambiare tariffa non cancella quello che l ospite ha scritto', () => {
+  /* l ORDINE e il presidio: prima si mette da parte, poi si cambia. Al
+     contrario il ridisegno porta via nome, email e telefono. */
+  const dove = PAGINA.indexOf("$('bAggiungiCena').onclick");
+  assert(dove > 0, 'sparito il gestore del pulsante');
+  const salva = PAGINA.indexOf('SCRITTI = datiScritti();', dove);
+  const cambia = PAGINA.indexOf('SCELTA = { ...PROPOSTE[i], indice: i };', dove);
+  assert(salva > 0 && cambia > 0, 'il gestore non salva o non cambia');
+  assert(
+    salva < cambia,
+    'si cambia tariffa PRIMA di mettere da parte i dati: il ridisegno li porta via',
+  );
+});
+
+Deno.test('e i campi ripartono da quello che era scritto, non dall indirizzo', () => {
+  for (const campo of ['gia.nome', 'gia.email', 'gia.tel']) {
+    assert(
+      PAGINA.includes('esc(' + campo + ')'),
+      `il campo ${campo} torna a leggere l indirizzo: quello che era scritto si perde`,
+    );
+  }
+  assert(PAGINA.includes('gia.cane ?'), 'la spunta del cane non si conserva');
+  assert(PAGINA.includes('gia.privacy ?'), 'la spunta privacy non si conserva');
+});
