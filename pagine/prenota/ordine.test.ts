@@ -289,3 +289,27 @@ Deno.test('la pagina ordina davvero le tariffe, e dice la formula', () => {
     'sotto il prezzo non si dice piu che e il totale: chi legge «190,00 €» accanto a «2 adulti» non sa se sono 190 in tutto o a testa',
   );
 });
+
+Deno.test('la tassa si dice due volte, e sempre dalla stessa voce', () => {
+  /* una sulla schermata delle camere, dove i prezzi si confrontano, e una
+     sul passo dei dati, che e' l ultimo momento prima di premere invia.
+     Tutte e due da `t.tassaSoggiorno`: due testi scritti a mano
+     divergerebbero al primo che ne cambia uno — e' successo in questo
+     progetto con l anteprima del buono. */
+  const pagina = Deno.readTextFileSync(new URL('index.html', import.meta.url));
+  const quante = pagina.split('esc(t.tassaSoggiorno)').length - 1;
+  assertEquals(
+    quante,
+    2,
+    `la tassa compare ${quante} volte invece di 2 (camere e dati)`,
+  );
+  /* e la CIFRA sta scritta una volta sola. Non si conta «tassa di
+     soggiorno», che compare anche nei commenti del codice: si conta il
+     pezzo che, ricopiato, divergerebbe. */
+  const cifra = pagina.split('1,50 € al giorno a persona').length - 1;
+  assertEquals(
+    cifra,
+    1,
+    'la cifra della tassa e scritta a mano piu di una volta: al primo che ne cambia una divergono',
+  );
+});

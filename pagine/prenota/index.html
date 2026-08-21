@@ -78,6 +78,10 @@ textarea{min-height:80px;resize:vertical;}
    Non e' un errore dell'ospite aver scelto oggi. */
 .avvisoOggi{margin:12px 0 0;}
 .avvisoCane{margin:10px 0 0;}
+.iconaCane{margin-right:6px;}
+/* la tassa sul passo dei dati: sobria, per non competere col riquadro
+   della caparra che le sta sopra */
+.tassaDati{color:var(--grigio);font-size:12.5px;margin-top:10px;line-height:1.55;}
 /* La tassa di soggiorno: sta in cima all'elenco delle camere, dove i
    prezzi si confrontano. La regola della casa e' che si dice sempre
    quando si comunica un prezzo, e questa pagina i prezzi li comunica. */
@@ -899,7 +903,9 @@ function schermaDati() {
            servono — il supplemento e dove il cane non entra — escono
            solo a chi spunta, perche' agli altri sono rumore. -->
       <label class="spunta" style="margin-top:18px;"><input type="checkbox" id="fCane" />
-        <span>${esc(t.cane)}</span></label>
+        <!-- l'icona sta FUORI dalle traduzioni: un simbolo solo, in un
+             posto solo, e nessuna lingua puo' dimenticarselo -->
+        <span><span class="iconaCane" aria-hidden="true">🐕</span>${esc(t.cane)}</span></label>
       <div id="noteCane"></div>
 
       <label style="margin-top:20px;">${esc(t.condizioniTit)}</label>
@@ -909,6 +915,13 @@ function schermaDati() {
         ${CONDIZIONI.recesso ? `<div class="recesso">${esc(CONDIZIONI.recesso)}</div>` : ''}
       </div>
       <div class="caparra">${esc(t.caparraRiga(euroDaCentesimi(CAPARRA_CENT)))}</div>
+      <!-- LA TASSA, DI NUOVO. E' gia' scritta sulla schermata delle camere,
+           e si ripete qui perche' questo e' l'ultimo momento prima di
+           premere invia: chi e' arrivato fin qui ha scelto una camera,
+           letto le condizioni e visto la caparra, e la tassa e' l'unica
+           cifra che non ha ancora incontrato due volte. Stesso testo,
+           dalla stessa voce: non puo' divergere. -->
+      <div class="tassaDati">${esc(t.tassaSoggiorno)}</div>
 
       <label class="spunta"><input type="checkbox" id="fPrivacy" />
         <span>${esc(t.privacy)} &mdash;

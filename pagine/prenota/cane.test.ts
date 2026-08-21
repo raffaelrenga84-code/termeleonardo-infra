@@ -87,3 +87,19 @@ Deno.test('e in ogni lingua dice quanto costa e dove il cane non entra', () => {
     }
   }
 });
+
+Deno.test('la domanda porta la sua icona, e non dentro le traduzioni', () => {
+  /* un simbolo dentro quattro stringhe tradotte e' un simbolo che prima o
+     poi una lingua si dimentica. Sta fuori, in un posto solo. */
+  const pagina = Deno.readTextFileSync(new URL('index.html', import.meta.url));
+  assert(pagina.includes('class="iconaCane"'), 'sparita l icona del cane');
+  assert(
+    pagina.includes('aria-hidden="true"'),
+    'l icona non e nascosta a chi si fa leggere la pagina: sentirebbe «cane» due volte',
+  );
+  const dentroTraduzioni = [...pagina.matchAll(/cane:'([^']*)'/g)].map((m) => m[1]);
+  assert(dentroTraduzioni.length >= 4, 'le traduzioni della domanda non sono quattro');
+  for (const testo of dentroTraduzioni) {
+    assert(!/[\u{1F300}-\u{1FAFF}]/u.test(testo), `l icona e finita dentro una traduzione: «${testo}»`);
+  }
+});
