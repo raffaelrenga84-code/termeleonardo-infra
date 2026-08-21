@@ -74,6 +74,9 @@ textarea{min-height:80px;resize:vertical;}
 .barraScelta .invia{margin-top:0;}
 /* «Vedi anche le altre»: secondario, non deve competere col verde
    pieno del Continua. */
+/* L'avviso del giorno stesso: giallo come gli altri avvisi, non rosso.
+   Non e' un errore dell'ospite aver scelto oggi. */
+.avvisoOggi{margin:12px 0 0;}
 .altre{display:block;width:100%;margin-top:4px;padding:13px;background:none;
   border:1.5px solid var(--verde-medio);border-radius:999px;color:var(--verde);
   font:600 15px inherit;cursor:pointer;}
@@ -185,6 +188,9 @@ import { altFoto, fotoDi } from '/prenota/foto.js';
    propongono le categorie: sta in un modulo suo perche' e' una regola
    commerciale, non un dettaglio di disegno — vedi ordine.js. */
 import { daMostrare, ordinaGruppi } from '/prenota/ordine.js';
+/* PERCORSO ASSOLUTO, stessa ragione. Dopo una certa ora il giorno stesso
+   non si prenota da qui — il perche' sta in giorno-stesso.js. */
+import { chiusoPerOggi, oraLimite } from '/prenota/giorno-stesso.js';
 /* Lo stesso sistema del modulo transfer: l'asterisco sui campi
    obbligatori, l'elenco di cio' che manca DAVVERO, e il fuoco sul primo
    campo vuoto. Vive in un posto solo perche' le pagine sono tre. */
@@ -192,7 +198,7 @@ import { mancanti, nomiMancanti, segnaEtichette, segnaVuoti } from '/comune/obbl
 
 /* Stessa regola di sopra, stesso motivo: PERCORSO ASSOLUTO. `/comune/date.js`,
    mai un percorso relativo — vedi il commento di date.js per il dettaglio. */
-import { oggiISO, attivaDate } from '/comune/date.js';
+import { adessoARoma, attivaDate, oggiISO } from '/comune/date.js';
 /* IDEM PERCORSO ASSOLUTO: i parametri che i pulsanti delle email della
    reception scrivono nell'indirizzo (rif, nome, email, tel, arrivo,
    partenza, adulti, lang) — vedi il commento in cima a ospite-url.js per
@@ -248,6 +254,7 @@ const T = {
     finoAdulti:(n)=>n===1?`Per 1 adulto`:`Fino a ${n} adulti`,
     indietroDate:'← Cambi le date', continua:'Continua con i suoi dati',
     altreCamere:(n)=>n===1?'Vedi anche l’altra camera':`Vedi anche le altre ${n} camere`,
+    giornoStesso:(ora)=>`Per un arrivo oggi stesso dopo le ${ora} preferiamo organizzare al telefono, così le prepariamo la camera come si deve: ci chiami allo +39 049 9939200. Per ogni altra data può proseguire da qui.`,
     mancaScelta:'Scelga una camera per continuare.',
     // passo 3
     riepilogo:(a,p,ad,b)=>`Dal <strong>${a}</strong> al <strong>${p}</strong> · ${ad} adult${ad===1?'o':'i'}${b>0?`, ${b} bambin${b===1?'o':'i'}`:''}`,
@@ -286,6 +293,7 @@ const T = {
     finoAdulti:(n)=>n===1?`Für 1 Erwachsenen`:`Bis zu ${n} Erwachsene`,
     indietroDate:'← Daten ändern', continua:'Weiter zu Ihren Daten',
     altreCamere:(n)=>n===1?'Das andere Zimmer ansehen':`Weitere ${n} Zimmer ansehen`,
+    giornoStesso:(ora)=>`Für eine Anreise noch heute nach ${ora} Uhr organisieren wir das lieber telefonisch, damit Ihr Zimmer richtig vorbereitet wird: rufen Sie uns bitte unter +39 049 9939200 an. Für jedes andere Datum können Sie hier fortfahren.`,
     mancaScelta:'Bitte wählen Sie ein Zimmer, um fortzufahren.',
     riepilogo:(a,p,ad,b)=>`Vom <strong>${a}</strong> bis <strong>${p}</strong> · ${ad} Erwachsene${b>0?`, ${b} Kind${b===1?'':'er'}`:''}`,
     riepilogoCamera:(nome,tariffa,prezzo)=>`<strong>${esc(nome)}</strong> — ${esc(tariffa)} — ${prezzo} €`,
@@ -322,6 +330,7 @@ const T = {
     finoAdulti:(n)=>n===1?`For 1 adult`:`Up to ${n} adults`,
     indietroDate:'← Change dates', continua:'Continue with your details',
     altreCamere:(n)=>n===1?'See the other room':`See the other ${n} rooms`,
+    giornoStesso:(ora)=>`For an arrival today after ${ora} we prefer to arrange it by phone, so your room is properly prepared: please call us on +39 049 9939200. For any other date you can carry on from here.`,
     mancaScelta:'Please choose a room to continue.',
     riepilogo:(a,p,ad,b)=>`From <strong>${a}</strong> to <strong>${p}</strong> · ${ad} adult${ad===1?'':'s'}${b>0?`, ${b} child${b===1?'':'ren'}`:''}`,
     riepilogoCamera:(nome,tariffa,prezzo)=>`<strong>${esc(nome)}</strong> — ${esc(tariffa)} — ${prezzo} €`,
@@ -358,6 +367,7 @@ const T = {
     finoAdulti:(n)=>n===1?`Pour 1 adulte`:`Jusqu’à ${n} adultes`,
     indietroDate:'← Changer les dates', continua:'Continuer avec vos coordonnées',
     altreCamere:(n)=>n===1?'Voir l’autre chambre':`Voir les ${n} autres chambres`,
+    giornoStesso:(ora)=>`Pour une arrivée le jour même après ${ora}, nous préférons organiser par téléphone afin que votre chambre soit bien préparée : appelez-nous au +39 049 9939200. Pour toute autre date, vous pouvez continuer ici.`,
     mancaScelta:'Veuillez choisir une chambre pour continuer.',
     riepilogo:(a,p,ad,b)=>`Du <strong>${a}</strong> au <strong>${p}</strong> · ${ad} adulte${ad===1?'':'s'}${b>0?`, ${b} enfant${b===1?'':'s'}`:''}`,
     riepilogoCamera:(nome,tariffa,prezzo)=>`<strong>${esc(nome)}</strong> — ${esc(tariffa)} — ${prezzo} €`,
@@ -414,6 +424,20 @@ function passi() {
     `<span class="${n < i ? 'fatto' : n === i ? 'attivo' : ''}"></span>`).join('');
 }
 
+/* L'avviso del giorno stesso si scrive ACCANTO ALLE DATE e non sotto il
+   pulsante, perche' parla della data che l'ospite ha appena scelto. Sta
+   qui fuori perche' lo chiamano in due: il cambio della data, che lo fa
+   comparire subito, e il tentativo di ricerca, che lo ripete. */
+function avvisoGiornoStesso() {
+  const box = $('avvisoOggi');
+  if (!box) return;
+  const t = T[LNG];
+  const arrivo = $('fArrivo') ? $('fArrivo').value : '';
+  box.innerHTML = chiusoPerOggi(arrivo, adessoARoma())
+    ? `<div class="avviso avvisoOggi">${esc(t.giornoStesso(oraLimite()))}</div>`
+    : '';
+}
+
 /* ================= passo 1: date e ospiti ================= */
 
 function schermaRicerca(erroreIniziale) {
@@ -429,6 +453,7 @@ function schermaRicerca(erroreIniziale) {
         <div><label for="fPartenza">${esc(t.partenza)}</label>
           <input type="date" id="fPartenza" name="partenza" min="${oggiISO()}" value="${esc(r.partenza)}" /></div>
       </div>
+      <div id="avvisoOggi"></div>
       <div class="due">
         <div><label for="fAdulti">${esc(t.adulti)}</label>
           <input type="number" id="fAdulti" min="1" max="10" value="${r.adulti}" /></div>
@@ -455,6 +480,10 @@ function schermaRicerca(erroreIniziale) {
   $('fBambini').oninput = disegnaEta;
 
   $('bCerca').onclick = cercaDisponibilita;
+  /* non si aspetta il clic su «Cerca»: appena la data scelta e' oggi e
+     l'ora italiana e' passata, lo si dice */
+  $('fArrivo').addEventListener('change', avvisoGiornoStesso);
+  avvisoGiornoStesso();
 }
 
 async function cercaDisponibilita() {
@@ -470,6 +499,14 @@ async function cercaDisponibilita() {
   }
   if (partenza <= arrivo) {
     $('esitoRicerca').innerHTML = `<div class="errore">${esc(t.partenzaPrimaArrivo)}</div>`;
+    return;
+  }
+  /* il giorno stesso, passata l'ora, non si cerca nemmeno: la camera non
+     farebbe in tempo a essere pronta e la reception lo sa dire meglio al
+     telefono. Vedi giorno-stesso.js. */
+  if (chiusoPerOggi(arrivo, adessoARoma())) {
+    $('esitoRicerca').innerHTML = '';
+    avvisoGiornoStesso();
     return;
   }
   /* stesso tetto della ricerca e dell'invio: adulti PIU' bambini, non

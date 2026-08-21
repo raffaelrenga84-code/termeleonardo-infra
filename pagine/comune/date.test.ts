@@ -64,3 +64,46 @@ Deno.test('senza arrivo non si tocca la partenza gia scelta', () => {
   assertEquals(r.minimo, '');
   assertEquals(r.partenza, '2027-09-20');
 });
+
+/* ============================================================
+   CHE ORA E' IN ITALIA. Aggiunto il 21 agosto 2026.
+
+   IL DIFETTO CHE PRESIDIA. Serve a una regola che dipende dall'ora: dopo
+   le 14:30 il giorno stesso non si prenota online. Con l'orologio del
+   dispositivo quella regola sbaglia per chiunque non sia in Italia — chi
+   guarda da Londra alle 14:00 in Italia ha già le 15:00 e passerebbe, chi
+   guarda da Tokyo all'una di notte in Italia è ancora il giorno prima. E
+   sbaglia due volte l'anno per tutti, quando cambia l'ora legale.
+
+   Non si prova «adesso»: si passa un istante preciso e si pretende il
+   risultato giusto. Una prova sull'ora corrente sarebbe verde o rossa a
+   seconda di quando gira.
+   ============================================================ */
+import { adessoARoma } from './date.js';
+
+const ora = (m: number) =>
+  `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+
+Deno.test('d estate l Italia e due ore avanti su UTC', () => {
+  const r = adessoARoma(new Date('2026-08-21T12:00:00Z'));
+  assertEquals(r.giorno, '2026-08-21');
+  assertEquals(ora(r.minuti), '14:00');
+});
+
+Deno.test('e d inverno una sola: l ora legale la sa Intl, non noi', () => {
+  const r = adessoARoma(new Date('2026-01-21T12:00:00Z'));
+  assertEquals(r.giorno, '2026-01-21');
+  assertEquals(ora(r.minuti), '13:00');
+});
+
+Deno.test('a cavallo di mezzanotte cambia anche il giorno', () => {
+  const r = adessoARoma(new Date('2026-08-21T22:01:00Z'));
+  assertEquals(r.giorno, '2026-08-22');
+  assertEquals(ora(r.minuti), '00:01');
+});
+
+Deno.test('e la mezzanotte esce 00:00, non 24:00', () => {
+  const r = adessoARoma(new Date('2026-08-21T22:00:00Z'));
+  assertEquals(r.minuti, 0, `la mezzanotte esce ${ora(r.minuti)}`);
+  assertEquals(r.giorno, '2026-08-22');
+});

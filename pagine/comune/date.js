@@ -96,3 +96,30 @@ export function primoGiornoUtileTrattamenti(oggi = new Date()) {
   for (let i = 0; i < PREAVVISO_GIORNI_TRATTAMENTI; i++) g = giornoDopo(g);
   return g;
 }
+
+/* CHE ORA E' IN ITALIA, non sul dispositivo di chi guarda la pagina.
+   oggiISO() qui sopra usa l'orologio locale, ed e' giusto per quello che
+   fa: riempire un campo data per chi sta prenotando. Ma una regola che
+   dipende dall'ORA — «dopo le 14:30 non si prenota piu' per oggi» — con
+   l'orologio locale sbaglia per chiunque non sia in Italia: chi guarda da
+   Londra alle 14:00 in Italia ha gia' le 15:00, e passerebbe. Chi guarda
+   da Tokyo all'una di notte in Italia e' ancora il giorno prima.
+
+   Restituisce il giorno e i minuti dalla mezzanotte, tutti e due a Roma.
+   Il fuso lo tiene Intl, che sa gia' quando scatta l'ora legale. */
+export function adessoARoma(d = new Date()) {
+  const parti = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+    /* h23 e non hour12:false: con hour12 la mezzanotte esce «24» su certe
+       versioni di ICU, e 24*60 sarebbe un orario che non esiste */
+    hourCycle: 'h23',
+  }).formatToParts(d);
+  const p = {};
+  for (const x of parti) p[x.type] = x.value;
+  return {
+    giorno: `${p.year}-${p.month}-${p.day}`,
+    minuti: Number(p.hour) * 60 + Number(p.minute),
+  };
+}
