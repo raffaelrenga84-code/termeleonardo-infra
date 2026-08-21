@@ -614,3 +614,35 @@ Deno.test('una fattura completa passa', () => {
   assert(!v.errore, v.errore);
   assertEquals(v.dati?.piva, 'IT02042330288');
 });
+
+/* ============================================================
+   IL CANE. Aggiunto il 21 agosto 2026.
+
+   La Knowledge Base, sezione ANIMALI DOMESTICI, dice che il cane «va
+   segnalato SEMPRE al momento della prenotazione, mai all'arrivo». La
+   pagina non aveva modo di dirlo, e questo filtro scarta tutto quello che
+   non riconosce: senza le righe qui sotto la spunta arriverebbe al server
+   e sparirebbe in silenzio — il difetto peggiore, perché l'ospite crede
+   di aver avvisato e la reception non lo sa.
+   ============================================================ */
+Deno.test('il cane passa il filtro del soggiorno', () => {
+  const e = validaDati('soggiorno', { camera_id: 6, cane: true });
+  assertEquals(e.errore, undefined);
+  assertEquals(e.dati?.cane, true);
+});
+
+Deno.test('e senza cane il campo non compare, non vale false', () => {
+  /* un «cane: false» in back office e' rumore che si legge come un dato
+     raccolto: la reception crederebbe che qualcuno l'abbia chiesto */
+  for (const d of [{ camera_id: 6 }, { camera_id: 6, cane: false }, { camera_id: 6, cane: 'no' }]) {
+    const e = validaDati('soggiorno', d);
+    assertEquals(e.errore, undefined, JSON.stringify(d));
+    assertEquals(Object.hasOwn(e.dati ?? {}, 'cane'), false, JSON.stringify(d));
+  }
+});
+
+Deno.test('e un cane scritto come la pagina lo manderebbe vale lo stesso', () => {
+  /* un modulo HTML puo' mandare la stringa "true": vale come il booleano */
+  assertEquals(validaDati('soggiorno', { camera_id: 6, cane: 'true' }).dati?.cane, true);
+  assertEquals(validaDati('soggiorno', { camera_id: 6, cane: 1 }).dati?.cane, true);
+});

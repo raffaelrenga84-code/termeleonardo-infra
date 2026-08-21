@@ -77,6 +77,7 @@ textarea{min-height:80px;resize:vertical;}
 /* L'avviso del giorno stesso: giallo come gli altri avvisi, non rosso.
    Non e' un errore dell'ospite aver scelto oggi. */
 .avvisoOggi{margin:12px 0 0;}
+.avvisoCane{margin:10px 0 0;}
 /* La tassa di soggiorno: sta in cima all'elenco delle camere, dove i
    prezzi si confrontano. La regola della casa e' che si dice sempre
    quando si comunica un prezzo, e questa pagina i prezzi li comunica. */
@@ -220,6 +221,9 @@ import { massaggioDelPiano } from '/prenota/piani.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Il motore risponde sempre in
    italiano, qualunque lingua gli si chieda: vedi nomi.js. */
 import { nomeTariffa, nomeTrattamento } from '/prenota/nomi.js';
+/* PERCORSO ASSOLUTO, stessa ragione. Il supplemento del cane: sta in un
+   modulo suo perche' e' un numero della casa, vedi cane.js. */
+import { SUPPLEMENTO_CANE_CENT } from '/prenota/cane.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Dopo una certa ora il giorno stesso
    non si prenota da qui — il perche' sta in giorno-stesso.js. */
 import { chiusoPerOggi, oraLimite } from '/prenota/giorno-stesso.js';
@@ -303,6 +307,8 @@ const T = {
     rifOfferta:(r)=>`Rif. offerta: ${r}`,
     condizioniTit:'Condizioni di cancellazione',
     caparraRiga:(v)=>`Alla conferma la reception le chiederà una caparra di ${v} €, che si detrae dal totale.`,
+    cane:'Viaggio con un cane',
+    caneNota:(imp)=>`Cani di piccola e media taglia, supplemento ${imp} € al giorno per animale (cibo escluso). Il cane può stare in camera, in hall e al Bistrot La Piazza; non in parco, piscine termali, grotte e zona relax, né in sala ristorante a cena e a colazione.`,
     privacy:"Ho preso atto dell’informativa sul trattamento dei dati personali", privacyLink:"Leggi l’informativa",
     privacyManca:"Per procedere deve prendere atto dell’informativa privacy.",
     indietroCamere:'← Cambi camera',
@@ -347,6 +353,8 @@ const T = {
     rifOfferta:(r)=>`Rif. offerta / Angebotsreferenz: ${r}`,
     condizioniTit:'Stornobedingungen',
     caparraRiga:(v)=>`Bei der Bestätigung wird die Rezeption eine Anzahlung von ${v} € verlangen, die vom Gesamtbetrag abgezogen wird.`,
+    cane:'Ich reise mit einem Hund',
+    caneNota:(imp)=>`Kleine und mittelgroße Hunde, Aufschlag ${imp} € pro Tier und Tag (ohne Futter). Der Hund darf ins Zimmer, in die Halle und ins Bistrot La Piazza; nicht in den Park, die Thermalbäder, die Grotten und den Ruhebereich, auch nicht in den Speisesaal zum Abendessen und zum Frühstück.`,
     privacy:"Ich habe die Datenschutzerklärung zur Kenntnis genommen", privacyLink:"Datenschutzerklärung lesen",
     privacyManca:"Bitte nehmen Sie die Datenschutzerklärung zur Kenntnis.",
     indietroCamere:'← Zimmer ändern',
@@ -390,6 +398,8 @@ const T = {
     rifOfferta:(r)=>`Rif. offerta / Offer reference: ${r}`,
     condizioniTit:'Cancellation conditions',
     caparraRiga:(v)=>`On confirmation reception will ask you for a deposit of ${v} €, deducted from the total.`,
+    cane:'I am travelling with a dog',
+    caneNota:(imp)=>`Small and medium-sized dogs, supplement ${imp} € per animal per day (food not included). The dog is welcome in the room, in the lobby and at Bistrot La Piazza; not in the park, thermal pools, caves and relaxation area, nor in the dining room at dinner and breakfast.`,
     privacy:"I have read the privacy notice", privacyLink:"Read the privacy notice",
     privacyManca:"Please acknowledge the privacy notice to continue.",
     indietroCamere:'← Change room',
@@ -433,6 +443,8 @@ const T = {
     rifOfferta:(r)=>`Rif. offerta / Réf. offre : ${r}`,
     condizioniTit:'Conditions d’annulation',
     caparraRiga:(v)=>`À la confirmation, la réception vous demandera des arrhes de ${v} €, déduites du total.`,
+    cane:'Je voyage avec un chien',
+    caneNota:(imp)=>`Chiens de petite et moyenne taille, supplément ${imp} € par animal et par jour (nourriture non comprise). Le chien est admis en chambre, dans le hall et au Bistrot La Piazza ; pas dans le parc, les piscines thermales, les grottes et l’espace détente, ni en salle de restaurant au dîner et au petit-déjeuner.`,
     privacy:"J’ai pris connaissance de la politique de confidentialité", privacyLink:"Lire la politique de confidentialité",
     privacyManca:"Veuillez prendre connaissance de la politique de confidentialité.",
     indietroCamere:'← Changer de chambre',
@@ -774,6 +786,16 @@ function schermaDati() {
            modulo (vedi il commento in cima a ospite-url.js) -->
       <textarea id="fNote" placeholder="${esc(t.notePh)}">${DA_URL.rif ? esc(t.rifOfferta(DA_URL.rif)) : ''}</textarea>
 
+      <!-- IL CANE. La Knowledge Base dice che va segnalato «sempre al
+           momento della prenotazione, mai all'arrivo»: prima di oggi
+           questa pagina non aveva modo di dirlo, e l'ospite era
+           costretto a violare una regola della casa. I due fatti che
+           servono — il supplemento e dove il cane non entra — escono
+           solo a chi spunta, perche' agli altri sono rumore. -->
+      <label class="spunta" style="margin-top:18px;"><input type="checkbox" id="fCane" />
+        <span>${esc(t.cane)}</span></label>
+      <div id="noteCane"></div>
+
       <label style="margin-top:20px;">${esc(t.condizioniTit)}</label>
       <div class="condizioni">
         <div class="tit">${esc(t.condizioniTit)}</div>
@@ -792,6 +814,15 @@ function schermaDati() {
     <div id="esitoDati"></div>`;
 
   $('bIndietroCamere').onclick = () => { STATO = 'camere'; disegna(); };
+  /* i due fatti compaiono quando la spunta si accende, e sono gli stessi
+     che la reception direbbe al telefono */
+  const mostraCane = () => {
+    $('noteCane').innerHTML = $('fCane').checked
+      ? `<div class="avviso avvisoCane">${esc(t.caneNota(euroDaCentesimi(SUPPLEMENTO_CANE_CENT)))}</div>`
+      : '';
+  };
+  $('fCane').addEventListener('change', mostraCane);
+  mostraCane();
   $('bInvia').onclick = inviaRichiesta;
   /* le stelle si mettono qui, non nel markup: cosi' l'elenco di cosa e'
      obbligatorio sta in un posto solo e le etichette lo seguono */
@@ -838,6 +869,7 @@ async function inviaRichiesta() {
     adulti: RICERCA.adulti, bambini: RICERCA.bambini,
     caparraCent: CAPARRA_CENT,
     note, lingua: LNG,
+    cane: $('fCane') ? $('fCane').checked : false,
   });
 
   try {

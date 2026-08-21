@@ -29,6 +29,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     ritorno: 'Ritorno incluso', rif: 'Riferimento',
     noleggi: 'Noleggi', taxi: 'Taxi dall’hotel', trattamenti: 'Trattamenti',
     servizio: 'Servizio', navetta: 'Navetta condivisa', privata: 'Auto privata',
+    cane: 'Cane al seguito', si: 'Sì',
     prezzo: 'Prezzo', allAutista: 'da pagare direttamente all’autista', oraVolo: 'volo',
     modifiche: 'Cosa è cambiato rispetto alla richiesta',
     chiesto: 'Aveva chiesto', confermato: 'Confermiamo',
@@ -45,6 +46,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     ritorno: 'Rückfahrt inbegriffen', rif: 'Referenz',
     noleggi: 'Verleih', taxi: 'Taxi ab Hotel', trattamenti: 'Anwendungen',
     servizio: 'Service', navetta: 'Sammeltransfer', privata: 'Privatwagen',
+    cane: 'Mit Hund', si: 'Ja',
     prezzo: 'Preis', allAutista: 'direkt an den Fahrer zu zahlen', oraVolo: 'Flug',
     modifiche: 'Was sich gegenüber Ihrer Anfrage geändert hat',
     chiesto: 'Angefragt', confermato: 'Bestätigt',
@@ -61,6 +63,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     ritorno: 'Return trip included', rif: 'Reference',
     noleggi: 'Rentals', taxi: 'Taxi from the hotel', trattamenti: 'Treatments',
     servizio: 'Service', navetta: 'Shared shuttle', privata: 'Private car',
+    cane: 'Travelling with a dog', si: 'Yes',
     prezzo: 'Price', allAutista: 'to be paid directly to the driver', oraVolo: 'flight',
     modifiche: 'What has changed from your request',
     chiesto: 'Originally requested', confermato: 'Now confirmed',
@@ -77,6 +80,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     ritorno: 'Retour inclus', rif: 'Référence',
     noleggi: 'Locations', taxi: 'Taxi depuis l’hôtel', trattamenti: 'Soins',
     servizio: 'Service', navetta: 'Navette partagée', privata: 'Voiture privée',
+    cane: 'Avec un chien', si: 'Oui',
     prezzo: 'Prix', allAutista: 'à régler directement au chauffeur', oraVolo: 'vol',
     modifiche: 'Ce qui a changé par rapport à votre demande',
     chiesto: 'Demandé initialement', confermato: 'Confirmé',
@@ -303,6 +307,9 @@ function vociDettagli(tipo: string, t: Record<string, string>): Voce[] {
       /* la caparra non c'e' sempre: dove manca la riga non compare, perche
          «0,00 €» stampato si legge come una promessa di gratuita' */
       { eti: t.caparra, calcola: (d) => cifra(d.caparra_cent) },
+      /* il cane compare solo se c'e': la reception deve saperlo prima di
+         assegnare la camera, e chi non ne ha uno non deve leggere «no» */
+      { eti: t.cane, calcola: (d) => (d.cane ? t.si : '') },
     ];
   }
 

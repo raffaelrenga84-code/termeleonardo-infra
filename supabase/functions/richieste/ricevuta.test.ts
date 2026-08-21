@@ -280,3 +280,28 @@ Deno.test('ma su un transfer o dei trattamenti la tassa non si nomina', () => {
     );
   }
 });
+
+Deno.test('il cane compare nella ricevuta, e solo se c e', () => {
+  /* la reception lo deve sapere PRIMA di assegnare la camera, e chi non ha
+     un cane non deve leggere una riga che dice «no» */
+  const conCane = {
+    ...RICHIESTA,
+    tipo: 'soggiorno',
+    check_in: '2026-09-10',
+    check_out: '2026-09-12',
+    tipo_camera: 'Matrimoniale Queen',
+    dati: { prezzo_cent: 26000, cane: true },
+  };
+  for (const lingua of ['it', 'de', 'en', 'fr']) {
+    const h = visibile(ricevutaHTML({ ...conCane, lingua }));
+    assert(
+      /Cane al seguito|Mit Hund|Travelling with a dog|Avec un chien/.test(h),
+      `${lingua}: il cane non compare nella ricevuta`,
+    );
+  }
+  const senza = visibile(ricevutaHTML({ ...conCane, dati: { prezzo_cent: 26000 } }));
+  assert(
+    !/Cane al seguito/.test(senza),
+    'la riga del cane compare anche a chi non ne ha uno',
+  );
+});

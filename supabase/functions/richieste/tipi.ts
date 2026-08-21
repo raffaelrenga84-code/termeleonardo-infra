@@ -358,6 +358,17 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
   const bambini = persone(d?.bambini, 0, BAMBINI_MAX, 'bambini non validi');
   if (bambini.errore) return { errore: bambini.errore };
 
+  /* IL CANE. La Knowledge Base (sezione ANIMALI DOMESTICI) dice che va
+     segnalato «sempre al momento della prenotazione, mai all'arrivo» — e
+     fino al 21 agosto 2026 la pagina non aveva modo di dirlo, quindi
+     obbligava l'ospite a violare una regola della casa.
+
+     Un booleano e basta: quanti animali e che taglia li stabilisce la
+     reception, che ha la regola giusta («la taglia la valuta caso per
+     caso», e nessuna soglia in chili). Qui serve solo che la reception lo
+     sappia PRIMA di assegnare la camera. */
+  const cane = d?.cane === true || d?.cane === 'true' || d?.cane === 1;
+
   return {
     dati: {
       camera_id: n,
@@ -369,6 +380,9 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
       ...(caparra.valore !== undefined ? { caparra_cent: caparra.valore } : {}),
       ...(adulti.valore !== undefined ? { adulti: adulti.valore } : {}),
       ...(bambini.valore !== undefined ? { bambini: bambini.valore } : {}),
+      /* assente quando non c'e', come la caparra: un «cane: false» in back
+         office e' rumore che si legge come un dato raccolto */
+      ...(cane ? { cane: true } : {}),
     },
   };
 }

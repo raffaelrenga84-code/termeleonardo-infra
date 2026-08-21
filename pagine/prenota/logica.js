@@ -43,7 +43,7 @@ export function euroDaCentesimi(cent) {
     regola dei 75 € a persona cambia. */
 export function componiCorpo({
   scelta, nome, email, telefono, checkIn, checkOut,
-  adulti, bambini, caparraCent = 0, note, lingua,
+  adulti, bambini, caparraCent = 0, note, lingua, cane = false,
 }) {
   const nAdulti = Number(adulti) || 0;
   const nBambini = Number(bambini) || 0;
@@ -70,6 +70,12 @@ export function componiCorpo({
       adulti: nAdulti,
       bambini: nBambini,
       ...(nCaparra > 0 ? { caparra_cent: nCaparra } : {}),
+      /* IL CANE. La Knowledge Base dice che va segnalato «sempre al
+         momento della prenotazione, mai all'arrivo»: prima di oggi questa
+         pagina non aveva modo di dirlo. Si manda solo quando c'e', come la
+         caparra: un «cane: false» in back office e' rumore che si legge
+         come un dato raccolto. */
+      ...(cane === true ? { cane: true } : {}),
     },
   };
 }
