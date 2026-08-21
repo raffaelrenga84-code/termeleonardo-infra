@@ -11,11 +11,19 @@
    identificativi no, e un abbinamento per sottostringa metterebbe la foto
    della singola col balcone sulla "Singola senza balcone".
 
-   LE ACCESSIBILI NON HANNO FOTO. Mostrare la camera normale della stessa
-   famiglia a chi cerca una stanza attrezzata sarebbe una promessa falsa
-   proprio a chi ha piu' bisogno di sapere com'e' fatta. Restano senza
-   immagine finche' non ci sono le loro: una scheda senza foto si legge
-   lo stesso, una foto sbagliata no.
+   SULLE ACCESSIBILI NON VA LA FOTO DELLA CAMERA NORMALE. Mostrare la
+   stanza normale della stessa famiglia a chi cerca una stanza attrezzata
+   sarebbe una promessa falsa proprio a chi ha piu' bisogno di sapere
+   com'e' fatta: una scheda senza foto si legge lo stesso, una foto
+   sbagliata no.
+
+   Dal 21 agosto 2026 la Junior Suite Accessibile ha la SUA foto: il bagno
+   attrezzato della 650, che il foglio della reception da' come l'unica
+   camera di quella categoria (estensione/popup.js). E' un bagno e non una
+   stanza, ed e' voluto — su una camera attrezzata il bagno e' quello che
+   decide se la stanza va bene, e il testo alternativo lo dichiara (vedi
+   COSA_MOSTRA). La Singola Accessibile resta senza: e' un'altra camera,
+   e quel bagno non e' il suo.
 
    Presidiato da foto.test.ts, che confronta questo elenco col catalogo del
    server e verifica che ogni file esista davvero. */
@@ -31,6 +39,7 @@ export const FOTO_CAMERA = {
   5: 'double-room-hotel-terme-leonardo.jpg', // Doppia
   6: 'queen-room.jpg', // Matrimoniale Queen
   7: 'junior-suite-32-1-hotel-terme-leonardo.jpg', // Junior Suite Colli Euganei
+  8: 'junior-suite-accessibile-bagno.jpg', // Junior Suite Accessibile (il BAGNO)
   9: 'suite-533-hotel-terme-lonardo.jpg', // Suite Colli Euganei
   10: 'suite-533-hotel-terme-lonardo.jpg', // Suite Monteortone
   11: 'junior-suite-32-1-hotel-terme-leonardo.jpg', // Junior Suite Monteortone
@@ -41,10 +50,26 @@ export const FOTO_CAMERA = {
  *  dimenticanza: e' una decisione, e sta scritta qui perche' chi la cambia
  *  debba cambiarla apposta.
  *
- *  4  Singola Accessibile
- *  8  Junior Suite Accessibile
- *  Le due attrezzate per esigenze di mobilita': servono le loro foto. */
-export const SENZA_FOTO = [4, 8];
+ *  4  Singola Accessibile — attrezzata per esigenze di mobilita'. Serve
+ *     la SUA foto: la 650 e' una Junior Suite, e il suo bagno non
+ *     racconta questa stanza. */
+export const SENZA_FOTO = [4];
+
+/** Che cosa si vede nella foto, quando NON e' la stanza. Il testo
+ *  alternativo di una foto camera e' il nome della camera, e va bene
+ *  finche' la foto ritrae la camera. La 8 ha la foto del bagno: senza
+ *  questo, chi si fa leggere la pagina ad alta voce sentirebbe «Junior
+ *  Suite Accessibile» davanti a un bagno — e proprio li' sapere che cosa
+ *  si sta guardando e' il motivo per cui si guarda. */
+export const COSA_MOSTRA = { 8: 'il bagno attrezzato' };
+
+/** Il testo alternativo della foto di questa categoria: il nome della
+ *  camera, e se la foto non e' la stanza anche che cosa ritrae. */
+export function altFoto(camera_id, nome) {
+  const n = Number(camera_id);
+  const s = String(nome ?? '');
+  return Object.hasOwn(COSA_MOSTRA, n) ? `${s} — ${COSA_MOSTRA[n]}` : s;
+}
 
 /** Il percorso servibile della foto di questa categoria, o stringa vuota se
  *  non ne ha una. Vuoto e' un esito normale, non un errore: la pagina

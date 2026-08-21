@@ -162,7 +162,7 @@ textarea{min-height:80px;resize:vertical;}
    percorsi-web.test.ts, cosi' non torna con la prossima pagina che
    qualcuno divide in due file. */
 import { componiCorpo, euroDaCentesimi, linguaScelta } from '/prenota/logica.js';
-import { fotoDi } from '/prenota/foto.js';
+import { altFoto, fotoDi } from '/prenota/foto.js';
 /* Lo stesso sistema del modulo transfer: l'asterisco sui campi
    obbligatori, l'elenco di cio' che manca DAVVERO, e il fuoco sul primo
    campo vuoto. Vive in un posto solo perche' le pagine sono tre. */
@@ -531,7 +531,7 @@ function schermaCamere() {
       ${gruppi.map(g => `
         <div class="gruppoCamera">
           ${fotoDi(g.camera_id)
-            ? `<img class="foto" src="${esc(fotoDi(g.camera_id))}" alt="${esc(g.nome)}"
+            ? `<img class="foto" src="${esc(fotoDi(g.camera_id))}" alt="${esc(altFoto(g.camera_id, g.nome))}"
                  width="800" height="500" loading="lazy" decoding="async">`
             : ''}
           <h3>${esc(g.nome)}</h3>

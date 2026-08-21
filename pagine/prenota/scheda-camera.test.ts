@@ -13,7 +13,9 @@
      `src` vuoto: il browser lo interpreta come «ricarica questa pagina» e
      scarica di nuovo l'HTML per ogni scheda muta;
    · l'`alt` deve portare il nome della camera, che e' l'unica cosa che
-     legge chi non vede l'immagine;
+     legge chi non vede l'immagine — e quando la foto NON ritrae la
+     stanza (la Junior Suite Accessibile ha la foto del bagno) deve dire
+     anche che cosa ritrae, o annuncia una camera e mostra un bagno;
    · il percorso deve essere assoluto, per la ragione spiegata in
      percorsi-web.test.ts: su /it/prenota un percorso relativo esce fuori
      strada;
@@ -27,7 +29,7 @@
    ============================================================ */
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
 import { CAMERE } from '../../supabase/functions/richieste/camere.ts';
-import { fotoDi, SENZA_FOTO } from './foto.js';
+import { altFoto, fotoDi, SENZA_FOTO } from './foto.js';
 
 const PAGINA = Deno.readTextFileSync(new URL('index.html', import.meta.url));
 
@@ -47,8 +49,8 @@ function disegna(g: { camera_id: number; nome: string }): string {
   const esc = (v: unknown) =>
     String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const f = new Function('g', 'esc', 'fotoDi', 'return `' + modello() + '`;');
-  return f(g, esc, fotoDi) as string;
+  const f = new Function('g', 'esc', 'fotoDi', 'altFoto', 'return `' + modello() + '`;');
+  return f(g, esc, fotoDi, altFoto) as string;
 }
 
 Deno.test('una camera con foto esce con un img completo', () => {
@@ -91,4 +93,18 @@ Deno.test('tutte le categorie del catalogo si disegnano senza errori', () => {
   const attese = Object.keys(CAMERE).length - SENZA_FOTO.length;
   assertEquals(conFoto, attese,
     `schede con foto: ${conFoto}, attese ${attese}`);
+});
+
+Deno.test('la foto del bagno non si annuncia come la camera', () => {
+  /* la prova end-to-end del caso che ha fatto nascere altFoto: si disegna
+     la scheda vera della categoria 8 e si guarda l'attributo che esce.
+     foto.test.ts prova la funzione; qui si prova la SCHEDA. */
+  const out = disegna({ camera_id: 8, nome: 'Junior Suite Accessibile' });
+  assertStringIncludes(out, 'src="/prenota/img/junior-suite-accessibile-bagno.jpg"');
+  assertStringIncludes(out, 'alt="Junior Suite Accessibile — il bagno attrezzato"');
+  assertEquals(
+    out.includes('alt="Junior Suite Accessibile"'),
+    false,
+    "l'alt annuncia la camera davanti alla foto di un bagno",
+  );
 });

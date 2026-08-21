@@ -16,17 +16,22 @@
    · una foto viene assegnata a una camera che non esiste più, e nessuno se
      ne accorge perché non compare mai.
 
-   LE ACCESSIBILI NON HANNO FOTO, ED È VOLUTO. Le due categorie attrezzate
-   per ospiti con esigenze di mobilità non hanno una foto propria, e usare
-   quella della camera normale della stessa famiglia sarebbe una promessa
-   falsa proprio a chi ha più bisogno di sapere com'è fatta la stanza.
-   Restano senza immagine finché non ci sono le loro. L'elenco SENZA_FOTO
-   qui sotto è il posto dove questa decisione è scritta: chi la cambia deve
-   cambiarla qui, non per distrazione.
+   SULLE ACCESSIBILI NON VA LA FOTO DELLA CAMERA NORMALE. Usare la stanza
+   normale della stessa famiglia per una categoria attrezzata sarebbe una
+   promessa falsa proprio a chi ha più bisogno di sapere com'è fatta.
+
+   Dal 21 agosto 2026 la Junior Suite Accessibile una foto ce l'ha: il
+   bagno attrezzato della 650, l'unica camera di quella categoria secondo
+   il foglio della reception. La Singola Accessibile resta in SENZA_FOTO,
+   perché è un'altra stanza. E siccome quella foto è un BAGNO e non una
+   camera, nasce qui il terzo presidio: il testo alternativo deve dirlo.
+   Un alt che annuncia «Junior Suite Accessibile» davanti a un bagno mente
+   a chi si fa leggere la pagina ad alta voce — e su una camera attrezzata
+   è proprio il bagno il motivo per cui si guarda la foto.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { CAMERE } from '../../supabase/functions/richieste/camere.ts';
-import { FOTO_CAMERA, SENZA_FOTO, fotoDi } from './foto.js';
+import { altFoto, COSA_MOSTRA, FOTO_CAMERA, SENZA_FOTO, fotoDi } from './foto.js';
 
 const QUI = new URL('.', import.meta.url);
 
@@ -81,7 +86,7 @@ Deno.test('ogni file di foto esiste davvero', () => {
   }
 });
 
-Deno.test('le accessibili restano senza foto, e la funzione lo dice', () => {
+Deno.test('le categorie dichiarate senza foto restano senza, e la funzione lo dice', () => {
   /* non è una ripetizione dell'elenco: è la verifica che la funzione che la
      pagina chiama davvero restituisca il vuoto, e non la foto della camera
      normale della stessa famiglia */
@@ -103,4 +108,39 @@ Deno.test('fotoDi restituisce un percorso servibile, non un nome nudo', () => {
   /* una camera che non esiste non deve far esplodere la pagina */
   assertEquals(fotoDi(9999), '');
   assertEquals(fotoDi(undefined as unknown as number), '');
+});
+
+Deno.test('quando la foto non ritrae la stanza, il testo alternativo lo dice', () => {
+  /* il difetto: l'alt di una foto camera è il nome della camera. Va bene
+     finché la foto è la stanza; la 8 ha la foto del bagno. Senza questo,
+     chi si fa leggere la pagina sente «Junior Suite Accessibile» e crede
+     di stare guardando la camera. */
+  assertEquals(
+    altFoto(8, 'Junior Suite Accessibile'),
+    'Junior Suite Accessibile — il bagno attrezzato',
+  );
+  /* e le altre non cambiano: il nome nudo, come prima */
+  assertEquals(altFoto(5, 'Doppia'), 'Doppia');
+  assertEquals(altFoto(undefined as unknown as number, 'Doppia'), 'Doppia');
+});
+
+Deno.test('ogni avviso nel testo alternativo descrive una foto che esiste', () => {
+  /* un avviso su una categoria senza foto non si vedrebbe mai, e chi legge
+     questo elenco crederebbe che la 8 sia coperta quando non lo è */
+  const vuoti = Object.keys(COSA_MOSTRA)
+    .map(Number)
+    .filter((n) => !Object.hasOwn(FOTO_CAMERA, n));
+  assertEquals(vuoti, [], 'COSA_MOSTRA descrive foto che non ci sono');
+  assert(Object.keys(COSA_MOSTRA).length > 0, 'COSA_MOSTRA è vuoto: la prova non guarda niente');
+});
+
+Deno.test('la pagina chiama altFoto, non il nome nudo', () => {
+  /* la prova sopra vale solo se la pagina la usa davvero: qui si guarda il
+     markup, perché un alt corretto in un modulo che nessuno chiama non
+     arriva a nessuno */
+  const pagina = Deno.readTextFileSync(new URL('index.html', QUI));
+  assert(
+    pagina.includes('alt="${esc(altFoto(g.camera_id, g.nome))}"'),
+    'la foto camera non passa piu da altFoto(): il bagno tornerebbe ad annunciarsi come la stanza',
+  );
 });
