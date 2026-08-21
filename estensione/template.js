@@ -418,9 +418,12 @@ function rigaGolf(d, lingua) {
 
 /* IL TURNO NON SI PROMETTE. Lo assegna la Segreteria Cure dopo la visita
    medica di ammissione: qui si dice soltanto che la preferenza si puo'
-   dire ORA. Finisce in arrivo_richiesta.fanghi_desiderio, e da li' la
-   scheda «Arrivi» del back office la fa leggere alla Segreteria Cure —
-   prima viveva solo dentro un'email nella casella info@. */
+   dire ORA. Viaggia dentro la richiesta d'arrivo che il check-in online
+   crea in richiesta_sito (`fanghi_desiderio` fra i dati), e da li' la
+   scheda «Arrivi» del back office la fa leggere alla Segreteria Cure.
+
+   Prima viveva solo dentro un'email nella casella info@, e prima ancora
+   in arrivo_richiesta — la tabella che nessuna schermata leggeva. */
 const TESTI_FANGHI = {
   it: { t: 'I fanghi: preferisce presto o pi&ugrave; tardi?', d: '',
         s: 'I turni sono al mattino, dalle 5:50 alle 10:30. Ce lo dica dalla pagina qui sopra: l&rsquo;orario esatto glielo assegna la Segreteria Cure dopo la visita di ammissione' },

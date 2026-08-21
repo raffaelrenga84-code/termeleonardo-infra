@@ -477,3 +477,54 @@ Deno.test('senza ruolo e senza chiave non compare nessun arrivo', () => {
   const arrivi = arriviDelGiorno([LINK_NUOVO, LINK_VECCHIO], VECCHIE_ARRIVO_VECCHIO, NUOVE_ARRIVO_NUOVO, null, false);
   assertEquals(arrivi.length, 0);
 });
+
+/* ============================================================
+   LA TERZA CHIAVE DELL'APPIATTIMENTO.
+
+   arriviDelGiorno() appiattisce ogni richiesta `arrivo` in tre pezzi: i
+   dati che l'ospite ha scritto, il `token` per ritrovarlo, e `creato_il`
+   per sapere QUANDO ha compilato. Le prove qui sopra coprono i primi due;
+   la terza no, ed e' quella che si rompe piu' in silenzio.
+
+   perToken() sceglie la compilazione piu' recente confrontando le date, e
+   senza data «resta la prima». Se l'appiattimento smettesse di portarsi
+   dietro creato_il — un rinomino, un campo letto dal posto sbagliato — la
+   data sparirebbe, e chi ha ricompilato per correggere l'orario del volo
+   si vedrebbe mostrare quello vecchio. Nessun errore, nessuna riga rossa:
+   solo il dato sbagliato in reception, e il taxi mandato all'ora sbagliata.
+   ============================================================ */
+
+Deno.test('chi compila due volte, in reception si vede la piu recente', () => {
+  const link = [{ token: 'tok-due', numero_pratica: 'PR-200', intestatario: 'Verdi Anna',
+    data_arrivo: '2026-09-12', data_partenza: '2026-09-15', adulti: 2, bambini: 0 }];
+  /* la seconda compilazione corregge l'orario: e' quella che vale */
+  const nuove = [
+    { tipo: 'arrivo', numero: 'RS-1', arrivo_token: 'tok-due',
+      creato_il: '2026-09-01T08:00:00Z', dati: { ora_arrivo: '16:30' } },
+    { tipo: 'arrivo', numero: 'RS-2', arrivo_token: 'tok-due',
+      creato_il: '2026-09-05T09:00:00Z', dati: { ora_arrivo: '21:00' } },
+  ];
+  const fuori = arriviDelGiorno(link, [], nuove, 'reception', false);
+  assertEquals(fuori.length, 1, 'un ospite, una scheda');
+  assertEquals(
+    fuori[0].ora_arrivo,
+    '21:00',
+    'la scheda mostra la compilazione piu vecchia: l appiattimento ha perso creato_il, e perToken() senza data tiene la prima che incontra',
+  );
+  assertEquals(fuori[0].compilazioni, 2, 'il conteggio delle compilazioni');
+});
+
+Deno.test('e l ordine in cui arrivano le righe non cambia la risposta', () => {
+  /* la stessa cosa con le due righe scambiate: se passasse solo per
+     l'ordine, la prova sopra sarebbe verde anche senza la data */
+  const link = [{ token: 'tok-due', numero_pratica: 'PR-200', intestatario: 'Verdi Anna',
+    data_arrivo: '2026-09-12', data_partenza: '2026-09-15', adulti: 2, bambini: 0 }];
+  const nuove = [
+    { tipo: 'arrivo', numero: 'RS-2', arrivo_token: 'tok-due',
+      creato_il: '2026-09-05T09:00:00Z', dati: { ora_arrivo: '21:00' } },
+    { tipo: 'arrivo', numero: 'RS-1', arrivo_token: 'tok-due',
+      creato_il: '2026-09-01T08:00:00Z', dati: { ora_arrivo: '16:30' } },
+  ];
+  const fuori = arriviDelGiorno(link, [], nuove, 'reception', false);
+  assertEquals(fuori[0].ora_arrivo, '21:00', 'la piu recente vince anche se arriva per prima');
+});

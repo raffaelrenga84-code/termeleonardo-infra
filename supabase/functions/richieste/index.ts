@@ -355,8 +355,13 @@ Deno.serve(async (req) => {
        arrivo_token anche loro.
 
        Un errore di lettura NON e' "non ce ne sono": e' "non posso
-       verificare", e si rifiuta — come fa gia' ?a=precompila sullo stesso
-       errore sulla stessa tabella. */
+       verificare", e si rifiuta. Qui si rifiuta e altrove no, ed e'
+       voluto: ?a=precompila, davanti allo stesso errore, degrada a
+       «non ti conosco» e lascia il modulo vuoto — non sta per scrivere
+       niente, quindi il danno peggiore e' far ridigitare due campi.
+       Qui invece si sta per creare fino a tre richieste con tre numeri:
+       chi non puo' verificare non le crea. (E' anche un'altra tabella:
+       arrivo_link di la', richiesta_sito qui.) */
     const rifiutoSeGiaInviato = async () => {
       const { data, error } = await db.from('richiesta_sito')
         .select('numero, tipo').eq('arrivo_token', t);
