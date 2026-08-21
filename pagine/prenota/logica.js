@@ -135,3 +135,26 @@ export function aPersonaCent(cent, adulti, bambini) {
   if (cent % adulti !== 0) return null;
   return cent / adulti;
 }
+
+/* QUANTO PESA UNA DIFFERENZA DI PREZZO, a persona e a notte.
+
+   «+140 €» e' un ostacolo; «35 € a persona a notte, cena a buffet
+   compresa» e' una decisione facile. E' lo stesso numero: cambia solo
+   l'unita' in cui si legge, e quella per notte e' quella con cui una
+   persona giudica davvero.
+
+   SI ARROTONDA AL CENTESIMO, ed e' voluto: il totale esatto sta scritto
+   accanto, sempre. Questa e' una velocita', non un importo da pagare —
+   nessuno paghera' mai «35,00 €» come cifra a se'. Rifiutarsi di dirla
+   quando la divisione non torna esatta significherebbe non dirla quasi
+   mai, cioe' buttare via l'unica forma in cui il numero si capisce.
+
+   Coi bambini non si divide, per la stessa ragione di aPersonaCent: hanno
+   un prezzo loro. */
+export function aPersonaNotteCent(cent, adulti, bambini, notti) {
+  if (typeof cent !== 'number' || !Number.isInteger(cent) || cent < 0) return null;
+  if (typeof adulti !== 'number' || !Number.isInteger(adulti) || adulti < 1) return null;
+  if (typeof notti !== 'number' || !Number.isInteger(notti) || notti < 1) return null;
+  if ((Number(bambini) || 0) > 0) return null;
+  return Math.round(cent / (adulti * notti));
+}

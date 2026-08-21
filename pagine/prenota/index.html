@@ -95,6 +95,23 @@ textarea{min-height:80px;resize:vertical;}
 .proposta .prezzoBox{text-align:right;flex:0 0 auto;}
 .proposta .dettPrezzo{color:var(--grigio);font-size:11.5px;margin-top:1px;
   line-height:1.4;}
+/* LA FAMIGLIA: la tariffa base e, attaccata sotto, la stessa offerta con
+   la cena. Tratteggiata e non piena: e' un'aggiunta, non una terza
+   tariffa da confrontare. */
+.famiglia{margin-top:0;}
+.famiglia + .famiglia{margin-top:10px;}
+.famiglia .proposta{margin-top:0;}
+.aggiungi{display:block;width:100%;text-align:left;background:#FDFBF3;
+  border:1.5px dashed var(--oro);border-radius:10px;padding:10px 14px;
+  margin-top:4px;cursor:pointer;font:inherit;color:inherit;}
+.aggiungi.selezionata{border-style:solid;background:#FBF6E4;}
+.aggiungi .riga{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.aggiungiTit{font-weight:600;color:var(--verde);font-size:13.5px;}
+.aggiungiSotto{color:#6B4A22;font-size:12.5px;margin-top:1px;line-height:1.45;}
+.aggiungi .prezzoPiu{font-family:"Cormorant Garamond",Georgia,serif;font-size:18px;
+  color:var(--verde-medio);}
+.aggiungi .dettPrezzo{color:var(--grigio);font-size:11.5px;margin-top:1px;line-height:1.4;}
+.aggiungi .prezzoBox{text-align:right;flex:0 0 auto;}
 .altre{display:block;width:100%;margin-top:4px;padding:13px;background:none;
   border:1.5px solid var(--verde-medio);border-radius:999px;color:var(--verde);
   font:600 15px inherit;cursor:pointer;}
@@ -203,7 +220,7 @@ textarea{min-height:80px;resize:vertical;}
    ed e' la regola per ogni risorsa di queste pagine — la presidia
    percorsi-web.test.ts, cosi' non torna con la prossima pagina che
    qualcuno divide in due file. */
-import { aPersonaCent, componiCorpo, euroDaCentesimi, linguaScelta } from '/prenota/logica.js';
+import { aPersonaCent, aPersonaNotteCent, componiCorpo, euroDaCentesimi, linguaScelta } from '/prenota/logica.js';
 import { altFoto, fotoDi } from '/prenota/foto.js';
 /* PERCORSO ASSOLUTO, stessa ragione di sopra. Con quale ordine si
    propongono le categorie: sta in un modulo suo perche' e' una regola
@@ -224,6 +241,9 @@ import { nomeTariffa, nomeTrattamento } from '/prenota/nomi.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Il supplemento del cane: sta in un
    modulo suo perche' e' un numero della casa, vedi cane.js. */
 import { SUPPLEMENTO_CANE_CENT } from '/prenota/cane.js';
+/* PERCORSO ASSOLUTO, stessa ragione. Le tariffe che sono la stessa
+   offerta con e senza cena si accorpano: vedi famiglie.js. */
+import { accorpa } from '/prenota/famiglie.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Dopo una certa ora il giorno stesso
    non si prenota da qui — il perche' sta in giorno-stesso.js. */
 import { chiusoPerOggi, oraLimite } from '/prenota/giorno-stesso.js';
@@ -234,7 +254,7 @@ import { mancanti, nomiMancanti, segnaEtichette, segnaVuoti } from '/comune/obbl
 
 /* Stessa regola di sopra, stesso motivo: PERCORSO ASSOLUTO. `/comune/date.js`,
    mai un percorso relativo — vedi il commento di date.js per il dettaglio. */
-import { adessoARoma, attivaDate, oggiISO } from '/comune/date.js';
+import { adessoARoma, attivaDate, nottiFra, oggiISO } from '/comune/date.js';
 /* IDEM PERCORSO ASSOLUTO: i parametri che i pulsanti delle email della
    reception scrivono nell'indirizzo (rif, nome, email, tel, arrivo,
    partenza, adulti, lang) — vedi il commento in cima a ospite-url.js per
@@ -292,6 +312,9 @@ const T = {
     pianoMassaggio:(min)=>`comprende anche un massaggio relax di ${min} minuti a persona`,
     inclusiTit:'Inclusi nel soggiorno, con ogni tariffa',
     dettaglioPrezzo:(adulti,aPersona)=>aPersona?`totale · ${adulti} adulti × ${aPersona} € a persona`:'totale del soggiorno',
+    aggiungiCena:'Aggiunga la cena a buffet',
+    passaA:(n)=>`Passi a ${n}`,
+    differenza:(aNotte,totale)=>aNotte?`${aNotte} € a persona a notte · +${totale} € in tutto`:`+${totale} € in tutto`,
     formulaCena:'colazione e cena a buffet',
     formulaColazione:'colazione inclusa',
     tassaSoggiorno:'Alla tariffa si aggiunge la tassa di soggiorno: 1,50 € al giorno a persona, per un massimo di sette notti. Esenti i minori di 14 anni e le persone con disabilità. Si paga in hotel, in contanti.',
@@ -339,6 +362,9 @@ const T = {
     pianoMassaggio:(min)=>`enthält außerdem eine Entspannungsmassage von ${min} Minuten pro Person`,
     inclusiTit:'Im Aufenthalt inbegriffen, bei jedem Tarif',
     dettaglioPrezzo:(adulti,aPersona)=>aPersona?`gesamt · ${adulti} Erwachsene × ${aPersona} € pro Person`:'Gesamtpreis des Aufenthalts',
+    aggiungiCena:'Nehmen Sie das Abendbuffet dazu',
+    passaA:(n)=>`Wechseln zu ${n}`,
+    differenza:(aNotte,totale)=>aNotte?`${aNotte} € pro Person und Nacht · +${totale} € insgesamt`:`+${totale} € insgesamt`,
     formulaCena:'Frühstück und Abendbuffet',
     formulaColazione:'Frühstück inbegriffen',
     tassaSoggiorno:'Zum Preis kommt die Kurtaxe: 1,50 € pro Person und Tag, für höchstens sieben Nächte. Kinder unter 14 Jahren und Menschen mit Behinderung sind befreit. Bar vor Ort zu zahlen.',
@@ -384,6 +410,9 @@ const T = {
     pianoMassaggio:(min)=>`also includes a ${min}-minute relaxing massage per person`,
     inclusiTit:'Included in your stay, with every rate',
     dettaglioPrezzo:(adulti,aPersona)=>aPersona?`total · ${adulti} adults × €${aPersona} per person`:'total for the stay',
+    aggiungiCena:'Add the dinner buffet',
+    passaA:(n)=>`Switch to ${n}`,
+    differenza:(aNotte,totale)=>aNotte?`${aNotte} € per person per night · +${totale} € in total`:`+${totale} € in total`,
     formulaCena:'breakfast and dinner buffet',
     formulaColazione:'breakfast included',
     tassaSoggiorno:'The tourist tax is added to the rate: €1.50 per person per day, for a maximum of seven nights. Children under 14 and people with disabilities are exempt. Payable in cash at the hotel.',
@@ -429,6 +458,9 @@ const T = {
     pianoMassaggio:(min)=>`comprend aussi un massage relaxant de ${min} minutes par personne`,
     inclusiTit:'Compris dans le séjour, avec chaque tarif',
     dettaglioPrezzo:(adulti,aPersona)=>aPersona?`total · ${adulti} adultes × ${aPersona} € par personne`:'total du séjour',
+    aggiungiCena:'Ajoutez le dîner-buffet',
+    passaA:(n)=>`Passer à ${n}`,
+    differenza:(aNotte,totale)=>aNotte?`${aNotte} € par personne et par nuit · +${totale} € au total`:`+${totale} € au total`,
     formulaCena:'petit-déjeuner et dîner-buffet',
     formulaColazione:'petit-déjeuner inclus',
     tassaSoggiorno:'S’ajoute la taxe de séjour : 1,50 € par personne et par jour, pour sept nuits au maximum. Les moins de 14 ans et les personnes en situation de handicap en sont exemptés. À régler en espèces sur place.',
@@ -665,6 +697,29 @@ function dettaglioDelPrezzo(cent, t) {
   return t.dettaglioPrezzo(adulti, uno === null ? '' : euroDaCentesimi(uno));
 }
 
+/* L'INVITO. Che cosa si aggiunge scegliendo l'altra opzione. Quasi
+   sempre e' la cena, ed e' bene dirlo con la parola giusta invece che
+   col nome del trattamento: «Aggiunga la cena a buffet» si capisce,
+   «Passi a Mezza Pensione» va tradotto a mente. */
+function invito(v, t) {
+  return formulaDi(v.trattamento) === 'cena'
+    ? t.aggiungiCena
+    : t.passaA(nomeTrattamento(v.trattamento, LNG));
+}
+
+/* QUANTO IN PIU', nel modo in cui una persona lo giudica davvero.
+   «+140 €» e' un ostacolo; «35 € a persona a notte» e' una decisione
+   facile — ed e' lo stesso numero. Il totale in piu' resta scritto
+   accanto, sempre: non si sostituisce il numero vero, gli si mette
+   davanti quello che si capisce. */
+function quantoInPiu(v, base, t) {
+  const piu = (Number(v.prezzo_cent) || 0) - (Number(base.prezzo_cent) || 0);
+  const adulti = Number(RICERCA && RICERCA.adulti) || 0;
+  const notti = nottiFra(RICERCA && RICERCA.arrivo, RICERCA && RICERCA.partenza);
+  const aNotte = aPersonaNotteCent(piu, adulti, RICERCA && RICERCA.bambini, notti);
+  return t.differenza(aNotte === null ? '' : euroDaCentesimi(aNotte), euroDaCentesimi(piu));
+}
+
 /* ================= passo 2: le camere ================= */
 
 function schermaCamere() {
@@ -709,7 +764,10 @@ function schermaCamere() {
           <h3>${esc(g.nome)}</h3>
           ${g.descrizione ? `<div class="descrizione">${esc(g.descrizione)}</div>` : ''}
           ${g.max_adulti ? `<div class="maxAdulti">${esc(t.finoAdulti(g.max_adulti))}</div>` : ''}
-          ${g.voci.map(v => `
+          ${accorpa(g.voci, massaggioDelPiano).map(fam => `
+            <div class="famiglia">
+            ${fam.opzioni.map((v, i) => i === 0
+              ? `
             <button type="button" class="proposta${SCELTA && SCELTA.indice === v.indice ? ' selezionata' : ''}"
               data-testid="proposta-${v.indice}" data-indice="${v.indice}">
               <div class="riga">
@@ -725,7 +783,23 @@ function schermaCamere() {
                   <div class="dettPrezzo">${esc(dettaglioDelPrezzo(v.prezzo_cent, t))}</div>
                 </div>
               </div>
-            </button>`).join('')}
+            </button>`
+              : `
+            <button type="button" class="aggiungi${SCELTA && SCELTA.indice === v.indice ? ' selezionata' : ''}"
+              data-testid="proposta-${v.indice}" data-indice="${v.indice}">
+              <div class="riga">
+                <div>
+                  <div class="aggiungiTit">${esc(invito(v, t))}</div>
+                  <div class="aggiungiSotto">${esc(quantoInPiu(v, fam.opzioni[0], t))}</div>
+                </div>
+                <div class="prezzoBox">
+                  <div class="prezzoPiu">${euroDaCentesimi(v.prezzo_cent)} €</div>
+                  <div class="dettPrezzo">${esc(dettaglioDelPrezzo(v.prezzo_cent, t))}</div>
+                </div>
+              </div>
+            </button>`
+            ).join('')}
+            </div>`).join('')}
         </div>`).join('')}
       ${restano
         ? `<button type="button" class="altre" id="bAltre">${esc(t.altreCamere(restano))}</button>`

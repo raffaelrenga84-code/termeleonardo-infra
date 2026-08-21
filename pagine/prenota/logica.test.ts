@@ -225,3 +225,47 @@ Deno.test('zero centesimi fra due adulti fanno zero, non null', () => {
      manda, la pagina lo mostra com e */
   assertEquals(aPersonaCent(0, 2, 0), 0);
 });
+
+/* ============================================================
+   QUANTO PESA UNA DIFFERENZA, A PERSONA E A NOTTE.
+
+   È il numero con cui si vende la cena: «+140 €» è un ostacolo, «35 € a
+   persona a notte» è una decisione facile — ed è lo stesso numero. Se
+   sbaglia, sbaglia in una riga che invita a spendere, che è il posto
+   peggiore dove sbagliare.
+   ============================================================ */
+import { aPersonaNotteCent } from './logica.js';
+
+Deno.test('140 euro su due adulti e due notti fanno 35 a testa a notte', () => {
+  assertEquals(aPersonaNotteCent(14000, 2, 0, 2), 3500);
+});
+
+Deno.test('e su una notte sola fanno il doppio', () => {
+  assertEquals(aPersonaNotteCent(14000, 2, 0, 1), 7000);
+});
+
+Deno.test('coi bambini non si divide, come per il prezzo intero', () => {
+  assertEquals(aPersonaNotteCent(14000, 2, 1, 2), null);
+});
+
+Deno.test('senza notti non si dice niente', () => {
+  /* nottiFra restituisce 0 quando le date non si leggono: dividere per
+     zero darebbe Infinity, e «Infinity € a persona a notte» */
+  assertEquals(aPersonaNotteCent(14000, 2, 0, 0), null);
+  assertEquals(aPersonaNotteCent(14000, 2, 0, -1), null);
+});
+
+Deno.test('si arrotonda al centesimo, e il totale esatto resta accanto', () => {
+  /* 100 centesimi fra 3 persone e 1 notte: 33,33. Rifiutarsi di dirlo
+     quando la divisione non torna esatta vorrebbe dire non dirlo quasi
+     mai, cioe' buttare via l unica forma in cui il numero si capisce */
+  assertEquals(aPersonaNotteCent(100, 3, 0, 1), 33);
+});
+
+Deno.test('e un dato guasto non produce un numero', () => {
+  for (const c of [null, undefined, -1, 1.5, 'cento']) {
+    assertEquals(aPersonaNotteCent(c as number, 2, 0, 2), null, `centesimi «${c}»`);
+  }
+  assertEquals(aPersonaNotteCent(14000, 0, 0, 2), null);
+  assertEquals(aPersonaNotteCent(14000, 2, 0, 1.5), null);
+});

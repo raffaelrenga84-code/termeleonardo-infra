@@ -123,3 +123,18 @@ export function adessoARoma(d = new Date()) {
     minuti: Number(p.hour) * 60 + Number(p.minute),
   };
 }
+
+/* Quante notti fra due date ISO, o 0 se non si puo' dire. Serve a dire
+   quanto pesa una differenza di prezzo A NOTTE, che e' l'unico modo in cui
+   una differenza si giudica davvero. */
+export function nottiFra(arrivo, partenza) {
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  if (!iso.test(String(arrivo || '')) || !iso.test(String(partenza || ''))) return 0;
+  /* mezzogiorno e non mezzanotte: cosi' il cambio dell'ora legale non fa
+     sparire o comparire una notte */
+  const a = new Date(arrivo + 'T12:00:00');
+  const p = new Date(partenza + 'T12:00:00');
+  if (isNaN(a.getTime()) || isNaN(p.getTime())) return 0;
+  const n = Math.round((p.getTime() - a.getTime()) / 86400000);
+  return n > 0 ? n : 0;
+}
