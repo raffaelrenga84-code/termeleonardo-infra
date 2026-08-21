@@ -345,7 +345,7 @@ const T = {
     formulaCena:'colazione e cena a buffet',
     formulaColazione:'colazione inclusa',
     tassaSoggiorno:'Alla tariffa si aggiunge la tassa di soggiorno: 1,50 € al giorno a persona, per un massimo di sette notti. Esenti i minori di 14 anni e le persone con disabilità. Si paga in hotel, in contanti.',
-    separate:(n)=>`Siete in ${n} e vi vanno bene camere separate? Cerchi una camera per volta.`,
+    separate:(n)=>`Siete in ${n} e vi vanno bene camere separate? Cerchi una camera per volta — la Matrimoniale Queen a uso singolo è la più richiesta.`,
     troppePerUnaCamera:(n)=>`Per ${n} persone non abbiamo una camera sola abbastanza grande. Ci chiami allo +39 049 9939200 e le prepariamo due camere vicine, oppure cerchi una camera per volta.`,
     altreCamere:(n)=>n===1?'Vedi anche l’altra camera':`Vedi anche le altre ${n} camere`,
     giornoStesso:(ora)=>`Per un arrivo oggi stesso dopo le ${ora} preferiamo organizzare al telefono, così le prepariamo la camera come si deve: ci chiami allo +39 049 9939200. Per ogni altra data può proseguire da qui.`,
@@ -401,7 +401,7 @@ const T = {
     formulaCena:'Frühstück und Abendbuffet',
     formulaColazione:'Frühstück inbegriffen',
     tassaSoggiorno:'Zum Preis kommt die Kurtaxe: 1,50 € pro Person und Tag, für höchstens sieben Nächte. Kinder unter 14 Jahren und Menschen mit Behinderung sind befreit. Bar vor Ort zu zahlen.',
-    separate:(n)=>`Sie sind zu ${n} und getrennte Zimmer wären in Ordnung? Suchen Sie ein Zimmer nach dem anderen.`,
+    separate:(n)=>`Sie sind zu ${n} und getrennte Zimmer wären in Ordnung? Suchen Sie ein Zimmer nach dem anderen — das Queen-Zimmer zur Einzelnutzung ist das gefragteste.`,
     troppePerUnaCamera:(n)=>`Für ${n} Personen haben wir kein einzelnes Zimmer, das groß genug ist. Rufen Sie uns unter +39 049 9939200 an: wir bereiten zwei Zimmer nebeneinander vor. Oder suchen Sie ein Zimmer nach dem anderen.`,
     altreCamere:(n)=>n===1?'Das andere Zimmer ansehen':`Weitere ${n} Zimmer ansehen`,
     giornoStesso:(ora)=>`Für eine Anreise noch heute nach ${ora} Uhr organisieren wir das lieber telefonisch, damit Ihr Zimmer richtig vorbereitet wird: rufen Sie uns bitte unter +39 049 9939200 an. Für jedes andere Datum können Sie hier fortfahren.`,
@@ -455,7 +455,7 @@ const T = {
     formulaCena:'breakfast and dinner buffet',
     formulaColazione:'breakfast included',
     tassaSoggiorno:'The tourist tax is added to the rate: €1.50 per person per day, for a maximum of seven nights. Children under 14 and people with disabilities are exempt. Payable in cash at the hotel.',
-    separate:(n)=>`Are you ${n} and happy with separate rooms? Search for one room at a time.`,
+    separate:(n)=>`Are you ${n} and happy with separate rooms? Search for one room at a time — the Queen for single use is the most requested.`,
     troppePerUnaCamera:(n)=>`We have no single room large enough for ${n} people. Call us on +39 049 9939200 and we will prepare two rooms next to each other, or search for one room at a time.`,
     altreCamere:(n)=>n===1?'See the other room':`See the other ${n} rooms`,
     giornoStesso:(ora)=>`For an arrival today after ${ora} we prefer to arrange it by phone, so your room is properly prepared: please call us on +39 049 9939200. For any other date you can carry on from here.`,
@@ -509,7 +509,7 @@ const T = {
     formulaCena:'petit-déjeuner et dîner-buffet',
     formulaColazione:'petit-déjeuner inclus',
     tassaSoggiorno:'S’ajoute la taxe de séjour : 1,50 € par personne et par jour, pour sept nuits au maximum. Les moins de 14 ans et les personnes en situation de handicap en sont exemptés. À régler en espèces sur place.',
-    separate:(n)=>`Vous êtes ${n} et des chambres séparées vous conviennent ? Cherchez une chambre à la fois.`,
+    separate:(n)=>`Vous êtes ${n} et des chambres séparées vous conviennent ? Cherchez une chambre à la fois — la Queen en usage individuel est la plus demandée.`,
     troppePerUnaCamera:(n)=>`Pour ${n} personnes, nous n’avons pas de chambre unique assez grande. Appelez-nous au +39 049 9939200 : nous préparons deux chambres côte à côte. Ou cherchez une chambre à la fois.`,
     altreCamere:(n)=>n===1?'Voir l’autre chambre':`Voir les ${n} autres chambres`,
     giornoStesso:(ora)=>`Pour une arrivée le jour même après ${ora}, nous préférons organiser par téléphone afin que votre chambre soit bien préparée : appelez-nous au +39 049 9939200. Pour toute autre date, vous pouvez continuer ici.`,
@@ -723,6 +723,12 @@ async function cercaDisponibilita() {
       $('esitoRicerca').innerHTML = `<div class="errore">${esc(t.nessunaCamera)}</div>`;
       return;
     }
+    /* IL SEMAFORO SI SPEGNE ANCHE QUI. Si spegneva solo quando non
+       c'erano camere e quando la ricerca falliva: sulla strada buona
+       restava acceso, e tornando indietro a cambiare le date «Vedi le
+       camere» non rispondeva piu'. Nessuno se ne accorgeva perche' la
+       schermata cambia subito. */
+    CERCANDO = false;
     STATO = 'camere';
     disegna();
   } catch (e) {
@@ -1142,6 +1148,11 @@ async function inviaRichiesta() {
       nome, email, tel: telefono,
       arrivo: RICERCA && RICERCA.arrivo, partenza: RICERCA && RICERCA.partenza,
     };
+    /* stessa ragione del semaforo della ricerca: oggi da qui non si
+       torna indietro, quindi non fa danno — ma lasciarlo acceso e' la
+       stessa trappola pronta per il prossimo che aggiunge un
+       «indietro». */
+    INVIANDO = false;
     STATO = 'fatta';
     disegna(d.numero || '');
   } catch (e) {
