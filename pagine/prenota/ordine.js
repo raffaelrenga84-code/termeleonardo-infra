@@ -24,13 +24,25 @@
 
 'use strict';
 
-/** Le categorie da mettere davanti, per numero di adulti cercati.
+/** Le categorie da mettere davanti, per numero di PERSONE cercate —
+ *  adulti PIU' bambini, non adulti e basta.
+ *
+ *  PERCHE' PERSONE. Fino al 21 agosto 2026 questo elenco guardava i soli
+ *  adulti: chi cercava per due adulti e un bambino si trovava davanti la
+ *  Matrimoniale Queen, che tiene due persone. La Knowledge Base e'
+ *  esplicita — «adulto + bambino nello stesso letto senza letto aggiunto:
+ *  il bambino paga come adulto, a qualsiasi eta'» — quindi un bambino
+ *  occupa un posto come chiunque altro, e per tre persone la sistemazione
+ *  giusta e' la Junior Suite Abano.
+ *
  *  L'ordine dentro l'elenco e' l'ordine in cui escono. */
-export const PRIMA_PER_ADULTI = new Map([
+export const PRIMA_PER_PERSONE = new Map([
   /* una persona: la singola col parco, poi la Queen a uso doppia */
   [1, [3, 6]],
   /* due persone: la Queen, poi la Doppia */
   [2, [6, 5]],
+  /* da tre in su non si decide niente: comanda l'ordine del motore, che
+     mette gia' davanti le junior suite e le suite */
 ]);
 
 /** Le due attrezzate per esigenze di mobilita': in fondo, sempre, qualunque
@@ -40,8 +52,8 @@ export const IN_FONDO = [4, 8];
 
 /** Riordina i gruppi di proposte. Non tocca l'array che riceve e non ne
  *  perde nessuno: quello che entra esce, in un altro ordine. */
-export function ordinaGruppi(gruppi, adulti) {
-  const davanti = PRIMA_PER_ADULTI.get(Number(adulti)) ?? [];
+export function ordinaGruppi(gruppi, persone) {
+  const davanti = PRIMA_PER_PERSONE.get(Number(persone)) ?? [];
   /* [fascia, posto nella fascia]: 0 = messe davanti, 1 = ordine del
      motore, 2 = in fondo */
   const posto = (g) => {
@@ -63,8 +75,31 @@ export function ordinaGruppi(gruppi, adulti) {
  *  PERCHE'. Undici categorie una sotto l'altra, ognuna con la sua
  *  fotografia e le sue tariffe, sono una pagina lunghissima da scorrere
  *  prima di capire che cosa si sta scegliendo. Con due davanti — quelle
- *  giuste per il numero di persone cercato, vedi PRIMA_PER_ADULTI — chi ha
+ *  giuste per il numero di persone cercato, vedi PRIMA_PER_PERSONE — chi ha
  *  le idee chiare sceglie subito, e chi vuole guardare tutto clicca. */
+/** LE CAMERE CHE CI STANNO DAVVERO.
+ *
+ *  IL MOTORE NON FILTRA NIENTE: chiedendo per tre persone restituisce
+ *  tutte e undici le categorie, SINGOLE COMPRESE. Misurato il 21 agosto
+ *  2026 interrogando la nostra stessa funzione.
+ *
+ *  Ogni persona occupa un posto — bambini compresi, a qualsiasi eta', e la
+ *  culla resta una preferenza da registrare, non un posto in meno
+ *  (Knowledge Base, «Bambini e letto aggiunto»). Quindi una categoria va
+ *  bene solo se ne tiene almeno quante ne cerca l'ospite.
+ *
+ *  UNA CAPIENZA CHE NON SI CONOSCE NON ESCLUDE NESSUNO: se il motore non
+ *  la manda, la camera resta. Nascondere una sistemazione per un dato
+ *  mancante e' peggio che mostrarne una grande a chi e' solo. */
+export function adatte(gruppi, persone) {
+  const n = Number(persone);
+  if (!Number.isInteger(n) || n < 1) return gruppi ?? [];
+  return (gruppi ?? []).filter((g) => {
+    const max = Number(g?.max_adulti);
+    return !Number.isInteger(max) || max < 1 || max >= n;
+  });
+}
+
 export const QUANTE_SUBITO = 2;
 
 /** Che cosa disegnare adesso dell'elenco, e quante restano fuori.

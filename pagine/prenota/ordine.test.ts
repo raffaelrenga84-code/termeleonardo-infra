@@ -25,7 +25,7 @@
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { CAMERE } from '../../supabase/functions/richieste/camere.ts';
-import { daMostrare, IN_FONDO, ordinaGruppi, perPrezzo, PRIMA_PER_ADULTI } from './ordine.js';
+import { adatte, daMostrare, IN_FONDO, ordinaGruppi, perPrezzo, PRIMA_PER_PERSONE } from './ordine.js';
 
 type Gruppo = { camera_id: number };
 const gruppi = (...id: number[]): Gruppo[] => id.map((camera_id) => ({ camera_id }));
@@ -88,7 +88,7 @@ Deno.test('un elenco vuoto o assente non fa esplodere la pagina', () => {
 Deno.test('ogni identificativo nominato esiste nel catalogo', () => {
   /* una categoria rinumerata o tolta lascerebbe qui un numero che non
      corrisponde a niente: la regola smetterebbe di applicarsi in silenzio */
-  const nominati = [...IN_FONDO, ...[...PRIMA_PER_ADULTI.values()].flat()];
+  const nominati = [...IN_FONDO, ...[...PRIMA_PER_PERSONE.values()].flat()];
   const fantasmi = nominati.filter((n) => !Object.hasOwn(CAMERE, n));
   assertEquals(fantasmi, [], 'identificativi che il catalogo non ha');
 });
@@ -114,7 +114,7 @@ Deno.test('la pagina riordina davvero, e il pulsante sta nella barra', () => {
      regola giusta in un modulo che nessuno usa non arriva a nessuno */
   const pagina = Deno.readTextFileSync(new URL('index.html', import.meta.url));
   assert(
-    pagina.includes('ordinaGruppi(gruppi, RICERCA && RICERCA.adulti)'),
+    pagina.includes('ordinaGruppi(capienti, persone)'),
     'la schermata non chiama piu ordinaGruppi: torna l ordine del motore',
   );
   assert(
@@ -311,5 +311,90 @@ Deno.test('la tassa si dice due volte, e sempre dalla stessa voce', () => {
     cifra,
     1,
     'la cifra della tassa e scritta a mano piu di una volta: al primo che ne cambia una divergono',
+  );
+});
+
+/* ============================================================
+   LE CAMERE CHE CI STANNO DAVVERO. Aggiunto il 21 agosto 2026.
+
+   IL DIFETTO, segnalato dalla proprietà provando la pagina vera: con 2
+   adulti e 1 bambino uscivano davanti la Matrimoniale Queen e la Doppia,
+   che tengono due persone. Con 3 adulti invece usciva giusto.
+
+   Le cause erano DUE, e la seconda è la più grave:
+
+   · il mio elenco guardava i soli ADULTI. Con 3 adulti nessuna regola si
+     applicava e comandava l'ordine del motore, che mette già davanti le
+     junior suite — «sembrava giusto» per caso, non per merito;
+
+   · IL MOTORE NON FILTRA NIENTE. Interrogato per tre persone restituisce
+     tutte e undici le categorie, SINGOLE COMPRESE. Misurato, non dedotto.
+     Quindi chi apriva «vedi anche le altre» trovava una Singola offerta a
+     tre persone.
+
+   Un bambino occupa un posto come chiunque altro: la Knowledge Base dice
+   «adulto + bambino nello stesso letto senza letto aggiunto: il bambino
+   paga come adulto, a qualsiasi età», e la culla resta una preferenza da
+   registrare, non un posto in meno.
+   ============================================================ */
+Deno.test('una camera che non tiene tutte le persone non si mostra', () => {
+  const g = [
+    { camera_id: 6, max_adulti: 2 },
+    { camera_id: 12, max_adulti: 3 },
+    { camera_id: 11, max_adulti: 4 },
+    { camera_id: 3, max_adulti: 1 },
+  ];
+  assertEquals(adatte(g, 3).map((x: { camera_id: number }) => x.camera_id), [12, 11]);
+  assertEquals(adatte(g, 1).map((x: { camera_id: number }) => x.camera_id), [6, 12, 11, 3]);
+  assertEquals(adatte(g, 4).map((x: { camera_id: number }) => x.camera_id), [11]);
+});
+
+Deno.test('e la tripla non si esclude mai', () => {
+  /* la Knowledge Base e' esplicita: «Triple — la soluzione e' la Junior
+     Suite Abano. Mai escludere la tripla.» */
+  const g = [{ camera_id: 12, max_adulti: 3 }];
+  assertEquals(adatte(g, 3).length, 1, 'la tripla e stata esclusa');
+});
+
+Deno.test('una capienza che non si conosce non esclude nessuno', () => {
+  /* nascondere una sistemazione per un dato mancante e' peggio che
+     mostrarne una grande a chi e' solo */
+  const g = [{ camera_id: 6 }, { camera_id: 5, max_adulti: 0 }, { camera_id: 9, max_adulti: null }];
+  assertEquals(adatte(g, 4).length, 3);
+});
+
+Deno.test('e un numero di persone assurdo non nasconde tutto', () => {
+  const g = [{ camera_id: 6, max_adulti: 2 }];
+  for (const n of [0, -1, 1.5, NaN, undefined, null, 'due']) {
+    assertEquals(adatte(g, n as number).length, 1, `persone=${n}`);
+  }
+});
+
+Deno.test('l ordine guarda le PERSONE, non i soli adulti', () => {
+  /* il difetto segnalato: due adulti e un bambino sono TRE persone, e per
+     tre persone la Queen non va davanti — non va proprio */
+  const g = [
+    { camera_id: 12, max_adulti: 3 },
+    { camera_id: 6, max_adulti: 2 },
+    { camera_id: 5, max_adulti: 2 },
+  ];
+  const perDue = ordinaGruppi(adatte(g, 2), 2).map((x: { camera_id: number }) => x.camera_id);
+  assertEquals(perDue.slice(0, 2), [6, 5], 'per due persone davanti Queen e Doppia');
+  const perTre = ordinaGruppi(adatte(g, 3), 3).map((x: { camera_id: number }) => x.camera_id);
+  assertEquals(perTre, [12], 'per tre persone resta solo la Junior Suite');
+});
+
+Deno.test('la pagina conta le persone e filtra, in quest ordine', () => {
+  const pagina = Deno.readTextFileSync(new URL('index.html', import.meta.url));
+  assert(
+    pagina.includes('(Number(RICERCA && RICERCA.bambini) || 0)'),
+    'la pagina torna a contare i soli adulti: la Queen riapparirebbe a chi viaggia con un figlio',
+  );
+  const filtro = pagina.indexOf('adatte(gruppi, persone)');
+  const ordine = pagina.indexOf('ordinaGruppi(capienti, persone)');
+  assert(filtro > 0 && ordine > filtro, 'si ordina prima di filtrare, o non si filtra affatto');
+  assert(
+    pagina.includes('t.troppePerUnaCamera(persone)'),
+    'senza nessuna camera capiente la pagina non dice niente',
   );
 });
