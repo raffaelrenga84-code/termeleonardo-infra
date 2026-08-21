@@ -682,6 +682,10 @@ function notaPacchetto(trattamento, lingua) {
      si legge dal nome della tariffa. Se non c'e', il segnaposto sparisce
      insieme allo spazio che lo segue e resta la frase generica - mai un
      "{N}" che arriva all'ospite. */
+  /* v2.5.2: quante applicazioni. "Spezial 10 cure" e "Spezial 5 cure" sono
+     lo stesso pacchetto con il ciclo raddoppiato, e la descrizione deve
+     dirlo: il numero si legge dal nome della tariffa. Se non c'e', il
+     segnaposto sparisce insieme allo spazio e resta la frase generica. */
   const quante = ((trattamento || '').match(/(\d+)\s*(?:cure|anwendungen|treatments|soins)/i) || [])[1];
   // pacchetti riservati ad alcune lingue: fuori da quelle, nessuna didascalia
   if (Array.isArray(p.lingue) && !p.lingue.includes(lingua)) return '';

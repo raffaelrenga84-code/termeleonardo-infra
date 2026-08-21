@@ -1,5 +1,5 @@
 /* ============================================================
-   Offerta Leonardo — il modulo dei tassisti si compila da solo (v2.3)
+   Offerta Leonardo — il modulo dei tassisti si compila da solo (v2.4)
    ------------------------------------------------------------
    Gira su atam.biz/prenotazioni. Se l'indirizzo porta un frammento
    #leo=… — scritto dal back office quando si apre una richiesta di
@@ -146,8 +146,15 @@
 
   /* ---------- pannello ---------- */
   function riga(etichetta, valore, esito) {
+    /* v2.4 — «Servizio: Auto privata» compariva anche quando la richiesta
+       non diceva niente e i pallini restavano vuoti: il pannello
+       raccontava una scelta che il modulo non aveva fatto. Un valore
+       vuoto ora si legge per quello che e'. */
     const segno = esito === true ? ' <span style="color:#2E7D32;">✓</span>'
       : esito === false ? ' <span style="color:#C62828;">✗ a mano</span>' : '';
+    if (!valore) return `<div style="padding:4px 0;border-bottom:1px solid #EDE7DC;">
+      <span style="color:#7B756A;font-size:11px;">${etichetta}</span><br>
+      <strong style="color:#B3261E;font-weight:normal;">non detto nella richiesta &mdash; scegli tu</strong></div>`;
     return `<div style="padding:4px 0;border-bottom:1px solid #EDE7DC;">
       <span style="color:#7B756A;font-size:11px;">${etichetta}</span><br>
       <strong style="color:#2A2E2B;">${valore || '—'}</strong>${segno}</div>`;
@@ -177,7 +184,10 @@
       ${riga('Data', esc(esiti.dataValore || d.data), esiti.data)}
       ${riga('Ora', esc(d.ora), esiti.ora)}
       ${riga('Pax', esc(d.pax), esiti.pax)}
-      ${riga('Servizio', d.collettivo ? 'Navetta condivisa' : 'Auto privata', esiti.collettivo)}
+      ${riga('Servizio',
+             d.collettivo === true ? 'Navetta condivisa'
+             : d.collettivo === false ? 'Auto privata' : '',
+             esiti.collettivo)}
       ${riga(d.verso === 'partenza' ? 'Partenza per' : 'Arrivo da', esc(esiti.luogoTesto || d.luogo), esiti.luogo)}
       ${riga('Nome del cliente', esc(d.nome), esiti.nome)}
       ${d.camera ? riga('Numero di camera', esc(d.camera), esiti.camera) : ''}
@@ -189,6 +199,8 @@
         giusta dalla tendina.</div>` : ''}
       <div style="margin-top:9px;padding:7px 9px;background:#F4F1EA;font-size:12px;color:#55524B;">
         <strong>Il pagamento</strong> non lo tocco: la richiesta non lo dice.<br />
+        ${d.collettivo === undefined ? `<strong>Auto privata o navetta</strong> nemmeno:
+          i pallini restano vuoti finch&eacute; non scegli.<br />` : ''}
         <strong>Prenota lo premi tu</strong>, dopo aver riletto.
       </div>
       ${mancano.length ? `<div style="margin-top:8px;font-size:12px;color:#7A2E24;">

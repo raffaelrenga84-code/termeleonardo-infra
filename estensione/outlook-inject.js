@@ -1,15 +1,53 @@
-/* ============================================================
-   Offerta Leonardo — inserimento automatico in Outlook Web
-   ------------------------------------------------------------
-   Il popup salva l'email in chrome.storage.local e apre il
-   deeplink di composizione. Questo script, su outlook.office.com,
-   trova l'editor e inserisce l'HTML direttamente nel DOM: così
-   la formattazione non passa dagli appunti e non viene sanificata
-   (il Ctrl+V di Outlook Web rimuove sfondi, font e colori).
-   Il Ctrl+V resta come riserva: il popup copia comunque negli appunti.
-   ============================================================ */
-
 (() => {
+  'use strict';
+
+  /* ============================================================
+     v2.7.5 — DENTRO I FRAME
+     Outlook mette il corpo del messaggio in un frame, e aprendo la mail
+     in una finestra a se' l'indirizzo diventa «about:blank». Nessuna
+     delle due cose era coperta: lo script girava solo sulla pagina
+     principale, dove il testo della mail non c'e'.
+     Ora il manifest lo carica anche nei frame. Qui dentro pero' non si
+     disegna niente e non si tocca la posta: il frame fa una cosa sola,
+     mandare alla pagina principale il testo che vede. Il resto — i
+     pulsanti, l'anteprima, l'inserimento della risposta — resta dove
+     l'operatore lo vede, cioe' nella finestra vera.
+     ============================================================ */
+  const IN_UN_FRAME = window !== window.top;
+  if (IN_UN_FRAME) {
+    const manda = () => {
+      const testo = (document.body && document.body.innerText) || '';
+      if (testo.length < 40) return;
+      try { window.top.postMessage({ leonardo: 'testo-frame', testo: testo.slice(0, 20000) }, '*'); }
+      catch (e) { /* il genitore non ci ascolta: pazienza */ }
+    };
+    setTimeout(manda, 600);
+    setInterval(manda, 2000);
+    /* v2.7.6: un segno che lo script c'e'. Senza, non c'e' modo di
+       distinguere «non gira» da «gira ma non riconosce», e si finisce a
+       tirare a indovinare. */
+    console.log('%cLeonardo 2.8.7 — attivo in un frame', 'color:#8C8578',
+      { indirizzo: location.href.slice(0, 80), caratteri: (document.body && document.body.innerText || '').length });
+    window.leoDiagnostica = () => ({
+      dove: 'frame', indirizzo: location.href,
+      caratteri: (document.body && document.body.innerText || '').length,
+      primi300: ((document.body && document.body.innerText) || '').replace(/\s+/g, ' ').slice(0, 300)
+    });
+    return;   // nel frame non si fa altro
+  }
+
+  /* quel che i frame ci mandano: l'ultimo testo ricevuto, con l'ora */
+  let TESTO_DAI_FRAME = { testo: '', quando: 0 };
+  window.addEventListener('message', (ev) => {
+    const d = ev && ev.data;
+    if (d && d.leonardo === 'testo-frame' && typeof d.testo === 'string') {
+      TESTO_DAI_FRAME = { testo: d.testo, quando: Date.now() };
+    }
+  });
+
+  function testoDaiFrame() {
+    return (Date.now() - TESTO_DAI_FRAME.quando < 8000) ? TESTO_DAI_FRAME.testo : '';
+  }
   const CHIAVE = 'leonardo_email_pendente';
   const VALIDITA_MS = 10 * 60 * 1000;   // ignora richieste più vecchie di 10 minuti
   const TENTATIVI = 60;                 // ~30 secondi di attesa dell'editor
@@ -254,7 +292,21 @@ function parseCentralino(testo) {
   /* ---------- richieste in testo libero (v1.1.1) ----------
      Email dirette degli ospiti: date + parole da richiesta. I campi non
      dichiarati restano vuoti: il pannello li evidenzia, nessuna invenzione. */
-  const PAROLE_RICHIESTA = /prenotazion|prenotare|disponibilit|preventivo|soggiorn|camera|check\s*out|Buchung|Anfrage|Zimmer|reservier|Verf&?uuml;gbark|Verfügbark|r&eacute;servation|réservation|booking|availab/i;
+  /* v2.8.7 — l'elenco era quasi tutto italiano e tedesco: «camera» c'era,
+     «room» no. Una richiesta come «what could be the price for one room
+     1 adult, from 25.09- 3.10?» non faceva comparire il pulsante, pur
+     essendo un preventivo in piena regola. Aggiunte le parole che gli
+     ospiti inglesi e francesi usano davvero al posto di «booking». */
+  const PAROLE_RICHIESTA = new RegExp([
+    /* italiano */ 'prenotazion', 'prenotare', 'disponibilit', 'preventivo', 'soggiorn',
+    'camera', 'camere', 'tariff', 'prezz', 'nott[ei]', 'quotazione',
+    /* tedesco  */ 'Buchung', 'Anfrage', 'Zimmer', 'reservier', 'Verf&?uuml;gbark',
+    'Verfügbark', 'Preis', 'Übernacht', 'Uebernacht', 'Aufenthalt', 'Angebot',
+    /* inglese  */ 'booking', 'availab', 'check\\s*out', 'rooms?\\b', 'price', 'rates?\\b',
+    'quote', 'nights?\\b', '\\bstay\\b', 'vacanc', 'reservation',
+    /* francese */ 'r&eacute;servation', 'réservation', 'chambres?\\b', 'tarif',
+    'prix', 'nuit', 's&eacute;jour', 'séjour', 'sejour', 'devis'
+  ].join('|'), 'i');
 
   function annoDedotto(mese, giorno) {
     const oggi = new Date();
@@ -277,13 +329,60 @@ function parseCentralino(testo) {
       }
     }
     // date: "dal 12 al 13 agosto (2026)" · "12-13 agosto" · "vom 12. bis 13. August"
+    /* v2.7: due modi di scrivere le date che i clienti usano davvero e che
+       prima sfuggivano — verificati sulle richieste di Ippolito e Kreiner:
+         "con arrivo venerdi' 21 agosto e partenza domenica 23 agosto 2026"
+         "Dienstag 27. Oktober bis Samstag 31. Oktober 2026"
+       Il giorno della settimana in mezzo va saltato, e i due mesi possono
+       essere scritti entrambi (anche diversi: 30 ottobre - 2 novembre). */
+    const GIORNI = String.raw`(?:lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica|` +
+                   String.raw`Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag)`;
     let m = t.match(/dal\s+(\d{1,2})\s+al\s+(\d{1,2})\s+([a-zà-ù]+)(?:\s+(\d{4}))?/i)
          || t.match(/(\d{1,2})\s*[-–\/]\s*(\d{1,2})\s+([a-zà-ù]+)(?:\s+(\d{4}))?/i)
-         || t.match(/vom\s+(\d{1,2})\.?\s*(?:bis|[-–])\s*(\d{1,2})\.?\s*([A-Za-zäöü]+)(?:\s+(\d{4}))?/i);
+         || t.match(/vom\s+(\d{1,2})\.?\s*(?:bis|[-–])\s*(\d{1,2})\.?\s*([A-Za-zäöü]+)(?:\s+(\d{4}))?/i)
+         /* v2.7.3: inglese e francese. Il tipo di camera lo leggevamo gia'
+            in tutte e quattro le lingue, ma senza le date la richiesta non
+            veniva riconosciuta affatto e la deduzione non serviva a niente. */
+         || t.match(/from\s+(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+(?:to|until|till)\s+(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([A-Za-z]+)(?:\s+(\d{4}))?/i)
+         || t.match(/du\s+(\d{1,2})(?:er)?\s+au\s+(\d{1,2})\s+([a-zà-ûü]+)(?:\s+(\d{4}))?/i);
+
+    /* forma con i due mesi scritti per esteso */
+    let m2 = null;
+    if (!m && !r.arrivo) {
+      const dueMesi = new RegExp(
+        String.raw`(?:arrivo|anreise|ankunft|dal|vom|ab)?\s*(?:` + GIORNI + String.raw`)?\s*` +
+        String.raw`(\d{1,2})\.?\s+([a-zà-ùäöü]+)(?:\s+(\d{4}))?` +
+        String.raw`[^\d]{0,40}?(?:partenza|abreise|al|bis|fino al|to)\s*(?:` + GIORNI + String.raw`)?\s*` +
+        String.raw`(\d{1,2})\.?\s+([a-zà-ùäöü]+)(?:\s+(\d{4}))?`, 'i');
+      m2 = t.match(dueMesi);
+    }
+    if (m2) {
+      const ALTRI = { januar:1, februar:2, 'märz':3, april:4, mai:5, juni:6, juli:7,
+                      august:8, september:9, oktober:10, november:11, dezember:12,
+                      january:1, march:3, may:5, june:6, july:7, october:10, december:12,
+                      janvier:1, 'février':2, fevrier:2, mars:3, avril:4, juin:6, juillet:7,
+                      'août':8, aout:8, septembre:9, octobre:10, novembre:11, 'décembre':12 };
+      const mese1 = MESI_IT[m2[2].toLowerCase()] || ALTRI[m2[2].toLowerCase()];
+      const mese2 = MESI_IT[m2[5].toLowerCase()] || ALTRI[m2[5].toLowerCase()];
+      if (mese1 && mese2) {
+        const anno1 = m2[3] ? +m2[3] : (m2[6] ? +m2[6] : annoDedotto(mese1, +m2[1]));
+        const anno2 = m2[6] ? +m2[6] : (mese2 < mese1 ? anno1 + 1 : anno1);
+        r.arrivo = { g: +m2[1], m: mese1, a: anno1 };
+        r.partenza = { g: +m2[4], m: mese2, a: anno2 };
+        const g1 = new Date(anno1, mese1 - 1, +m2[1]), g2 = new Date(anno2, mese2 - 1, +m2[4]);
+        const n = Math.round((g2 - g1) / 86400000);
+        if (n > 0 && n < 60) r.notti = n;
+      }
+    }
     if (m) {
       const MESI_DE = { januar:1, februar:2, m\u00e4rz:3, april:4, mai:5, juni:6, juli:7, august:8, september:9, oktober:10, november:11, dezember:12 };
+      const MESI_EN = { january:1, february:2, march:3, april:4, may:5, june:6, july:7, august:8,
+                        september:9, october:10, november:11, december:12,
+                        jan:1, feb:2, mar:3, apr:4, jun:6, jul:7, aug:8, sep:9, sept:9, oct:10, nov:11, dec:12 };
+      const MESI_FR = { janvier:1, f\u00e9vrier:2, fevrier:2, mars:3, avril:4, mai:5, juin:6, juillet:7,
+                        ao\u00fbt:8, aout:8, septembre:9, octobre:10, novembre:11, d\u00e9cembre:12, decembre:12 };
       const chiave = m[3].toLowerCase();
-      const mese = MESI_IT[chiave] || MESI_DE[chiave];
+      const mese = MESI_IT[chiave] || MESI_DE[chiave] || MESI_EN[chiave] || MESI_FR[chiave];
       if (mese) {
         const anno = m[4] ? +m[4] : annoDedotto(mese, +m[1]);
         r.arrivo = { g: +m[1], m: mese, a: anno };
@@ -291,9 +390,96 @@ function parseCentralino(testo) {
         r.notti = Math.max(1, +m[2] - +m[1]);
       }
     }
-    let a = t.match(/(\d+)\s*(?:adult[oi]|person[ae]|Personen|Erwachsene)/i);
+
+    /* v2.8.7 — periodo scritto tutto in cifre: «from 25.09- 3.10»,
+       «dal 25/09 al 3/10», «vom 25.09.-03.10.2026». Nessuno dei modi
+       di prima lo prendeva, perche' cercavano tutti il nome di un mese.
+       Si legge giorno.mese all'europea: e' come scrivono gli ospiti che
+       arrivano qui, e l'anteprima mostra comunque la data per esteso
+       («25 settembre 2026 → 3 ottobre 2026») proprio perche' un
+       eventuale mese/giorno rovesciato salti all'occhio prima di aprire
+       Fidra. */
+    /* Va provato DOPO, non prima: su «dal 25/09 al 3/10» il tentativo
+       coi nomi dei mesi abbocca lo stesso — legge «25/09» e poi prende
+       «al» per un nome di mese — e finisce senza date ma con `m` pieno.
+       Guardare `m` non basta: bisogna guardare se una data e' uscita. */
+    let mNum = null;
+    if (!r.arrivo) {
+      mNum = t.match(
+        /* il punto finale dopo il giorno e dopo il mese e' tedesco puro
+           — «vom 25.09.-03.10.2026» — e senza `\.?` lo schema si ferma
+           prima del trattino */
+        /(?:dal|from|vom|du|ab)?\s*(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\.?\s*(?:[-–—]|al|to|until|till|bis|au|a)\s*(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\.?/i);
+    }
+    if (mNum) {
+      const g1 = +mNum[1], me1 = +mNum[2], g2 = +mNum[4], me2 = +mNum[5];
+      const valida = (g, me) => g >= 1 && g <= 31 && me >= 1 && me <= 12;
+      if (valida(g1, me1) && valida(g2, me2)) {
+        const norm = (v) => v == null ? null : (+v < 100 ? 2000 + +v : +v);
+        const a1 = norm(mNum[3]) || annoDedotto(me1, g1);
+        const a2 = norm(mNum[6]) || (me2 < me1 ? a1 + 1 : a1);
+        const d1 = new Date(a1, me1 - 1, g1), d2 = new Date(a2, me2 - 1, g2);
+        const n = Math.round((d2 - d1) / 86400000);
+        if (n > 0 && n < 60) {
+          r.arrivo = { g: g1, m: me1, a: a1 };
+          r.partenza = { g: g2, m: me2, a: a2 };
+          r.notti = n;
+        }
+      }
+    }
+
+    /* "Person(en)?" e non "Personen?": il secondo vuol dire «Persone» con la
+       n facoltativa, e lasciava fuori proprio "1 Person" — il caso di chi
+       viaggia solo, che e' quello dove serve il supplemento uso singola. */
+    /* v2.8.7: «adult[oi]» copriva adulto e adulti ma non l'inglese
+       «1 adult» — proprio il caso di chi viaggia solo, dove serve il
+       supplemento uso singola. */
+    let a = t.match(/(\d+)\s*(?:adult[oi]|adults?|person[ae]|Person(?:en)?|Erwachsene[rn]?|guests?|people|pax)\b/i);
     if (a) r.adulti = +a[1];
     else if (/\bin due\b|\bper due\b|zu zweit/i.test(t)) r.adulti = 2;
+    else {
+      /* v2.7.1: chi scrive «una camera matrimoniale» quasi mai aggiunge «per
+         due persone»: lo da' per scontato. Il tipo di camera lo dice, e senza
+         questa deduzione l'anteprima restava muta proprio sul dato che
+         determina il supplemento uso singola. Resta una deduzione, e come
+         tale viene dichiarata nel riquadro. */
+      /* L'ordine conta. «Doppia uso singola» contiene «doppia», ma le
+         persone sono una: se si guardasse prima il tipo di camera si
+         dedurrebbe due, e sarebbe l'errore peggiore possibile — proprio
+         il caso in cui serve il supplemento uso singola. Per questo la
+         riga dell'uso singola viene per prima e vince su tutte.
+         Le sigle (DZ, EZ, DBL, SGL) sono quelle che i clienti tedeschi e
+         le agenzie usano piu' delle parole intere. */
+      const DA_CAMERA = [
+        [/\buso\s+singol\w*|\bd\.?u\.?s\.?\b|\bAlleinbenutzung\b|\bEinzelnutzung\b|\bEinzelbelegung\b|\bsingle\s+(?:use|occupancy)\b|\busage\s+individuel\b/i, 1],
+        [/\bsingol[aei]\b|\bEinzelzimmer\b|\bEZ\b|\bsingle\s*rooms?\b|\bSGL\b|\bchambres?\s+simples?\b/i, 1],
+        [/\bmatrimonial[aei]\b|\bdoppi[ae]\b|\bDoppelzimmer\b|\bDZ\b|\bdouble\s*rooms?\b|\bDBL\b|\btwin\b|\bTWN\b|\bchambres?\s+doubles?\b|\bqueen\b/i, 2],
+        [/\btripl[ae]\b|\bDreibettzimmer\b|\bDreibett\b|\btriple\b|\bTRPL\b|\bchambres?\s+triples?\b/i, 3],
+        [/\bquadrupl[ae]\b|\bfamiliare\b|\bFamilienzimmer\b|\bfamily\s*room\b|\bVierbettzimmer\b/i, 4]
+      ];
+      for (const [cerca, perCamera] of DA_CAMERA) {
+        const m2 = t.match(cerca);
+        if (!m2) continue;
+        /* quante camere: «2 DZ», «due camere doppie», «zwei Doppelzimmer» */
+        const prima = t.slice(Math.max(0, m2.index - 26), m2.index);
+        const NUM_PAROLA = { due: 2, tre: 3, quattro: 4, cinque: 5,
+                             zwei: 2, drei: 3, vier: 4, funf: 5, 'fünf': 5,
+                             two: 2, three: 3, four: 4, five: 5,
+                             deux: 2, trois: 3, quatre: 4, cinq: 5 };
+        const mq = prima.match(/(\d+|due|tre|quattro|cinque|zwei|drei|vier|f[uü]nf|two|three|four|five|deux|trois|quatre|cinq)\s*(?:camer\w*|zimmer|rooms?|chambres?)?\s*$/i);
+        let camere = 1;
+        if (mq) camere = /^\d+$/.test(mq[1]) ? +mq[1] : (NUM_PAROLA[mq[1].toLowerCase()] || 1);
+        if (camere > 1 && camere <= 12) {
+          r.nCamere = camere;
+          r.adulti = perCamera * camere;
+        } else {
+          r.adulti = perCamera;
+        }
+        r.adultiDedotti = true;
+        r.tipoCameraLetto = m2[0];
+        break;
+      }
+    }
     const b = t.match(/(\d+)\s*(?:bambin[oi]|Kind(?:er)?)/i);
     if (b) r.bambini = +b[1];
     if (/mezza\s*pensione|halbpension|half\s*board/i.test(t)) r.trattamento = 'Mezza Pensione';
@@ -302,9 +488,108 @@ function parseCentralino(testo) {
     return (r.arrivo || r.email) ? r : null;
   }
 
+  /* ============================================================
+     v2.7.2 — RICHIESTE DAL SITO (RS-anno-numero)
+     Il modulo del sito manda una mail gia' in ordine: campi con
+     l'etichetta accanto, date in cifre, prezzo e caparra che l'ospite
+     ha visto sulla pagina. Non c'e' niente da indovinare, e sarebbe
+     stato uno spreco passarla al lettore del testo libero — che infatti
+     su "22/08/2026 → 24/08/2026" non avrebbe letto nulla.
+     Il prezzo si porta dietro fino all'anteprima perche' e' quello che
+     l'ospite si aspetta: se in Fidra ne esce un altro, meglio saperlo
+     prima di rispondere.
+     ============================================================ */
+  const SITO_SEGNO = /RICHIESTA\s+DAL\s+SITO|\bRS-20\d\d-\d{3,}/i;
+
+  function campoSito(testo, etichetta) {
+    /* l'etichetta puo' stare sulla stessa riga del valore (tabella) o su
+       quella sopra (colonne impilate su schermo stretto): si prova prima
+       la stessa riga, poi la successiva non vuota */
+    const righe = testo.split('\n').map(r => r.trim());
+    const re = new RegExp('^' + etichetta + "\\s*:?\\s*(.*)$", 'i');
+    for (let i = 0; i < righe.length; i++) {
+      const m = righe[i].match(re);
+      if (!m) continue;
+      if (m[1]) return m[1].trim();
+      for (let k = i + 1; k < Math.min(i + 3, righe.length); k++) {
+        if (righe[k]) return righe[k].trim();
+      }
+    }
+    return null;
+  }
+
+  function dataSito(s) {
+    const m = String(s || '').match(/(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})/);
+    return m ? { g: +m[1], m: +m[2], a: +m[3] } : null;
+  }
+
+  function parseSito(testo) {
+    const t = String(testo || '').replace(/\r/g, '');
+    if (!SITO_SEGNO.test(t)) return null;
+    const r = { fonte: 'Sito', tipo: 'preventivo' };
+
+    const rif = t.match(/\bRS-20\d\d-\d{3,}\b/i);
+    if (rif) r.riferimento = rif[0].toUpperCase();
+
+    /* il nome sta fra l'intestazione e il riferimento */
+    const mn = t.match(/RICHIESTA\s+DAL\s+SITO\s*\n+\s*([^\n]{2,60})/i);
+    if (mn && !/^RS-/i.test(mn[1].trim())) {
+      r.ospite = mn[1].trim();
+      const parti = r.ospite.split(/\s+/);
+      r.cognome = parti[parti.length - 1];
+      r.nome = parti.slice(0, -1).join(' ');
+    }
+
+    const periodo = campoSito(t, 'Periodo') || '';
+    const date = periodo.match(/(\d{1,2}[\/.]\d{1,2}[\/.]\d{4})[^\d]+(\d{1,2}[\/.]\d{1,2}[\/.]\d{4})/);
+    if (date) { r.arrivo = dataSito(date[1]); r.partenza = dataSito(date[2]); }
+
+    const sogg = campoSito(t, 'Soggiorno') || '';
+    const mNotti = sogg.match(/(\d+)\s*nott/i);      if (mNotti) r.notti = +mNotti[1];
+    const mAd = sogg.match(/(\d+)\s*adult/i);         if (mAd) r.adulti = +mAd[1];
+    const mBa = sogg.match(/(\d+)\s*bambin/i);        if (mBa) r.bambini = +mBa[1];
+    if (r.adulti == null) {
+      const mOsp = sogg.match(/(\d+)\s*ospit/i);
+      if (mOsp) { r.adulti = +mOsp[1]; r.adultiDedotti = true; }
+    }
+
+    const email = campoSito(t, 'Email');
+    if (email && /@/.test(email)) r.email = email.replace(/\s+/g, '');
+    const tel = campoSito(t, 'Telefono');
+    if (tel && /\d/.test(tel)) r.telefono = tel;
+
+    r.categoria = campoSito(t, 'Camera') || null;
+    r.pacchetto = campoSito(t, 'Pacchetto') || null;
+    r.trattamento = campoSito(t, 'Trattamento') || null;
+    r.prezzoVisto = campoSito(t, "Prezzo visto dall'ospite") || campoSito(t, 'Prezzo') || null;
+    r.caparraIndicata = campoSito(t, 'Caparra indicata') || campoSito(t, 'Caparra') || null;
+
+    const lingua = (campoSito(t, 'Lingua') || '').toLowerCase();
+    if (/ital/.test(lingua)) r.lingua = 'it';
+    else if (/tedesc|deutsch|german/.test(lingua)) r.lingua = 'de';
+    else if (/ingles|english/.test(lingua)) r.lingua = 'en';
+    else if (/frances|fran/.test(lingua)) r.lingua = 'fr';
+
+    r.note = t.replace(/\s+/g, ' ').trim().slice(0, 300);
+    return (r.arrivo || r.email) ? r : null;
+  }
+
+  function trovaRichiestaSito() {
+    let migliore = null;
+    for (const e of elementiLettura('div, td, p, table')) {
+      if (!visibile(e)) continue;
+      const txt = e.innerText || '';
+      if (txt.length < 60 || txt.length > 4000) continue;
+      if (!SITO_SEGNO.test(txt)) continue;
+      if (!/Periodo|Soggiorno/i.test(txt)) continue;
+      if (!migliore || txt.length < (migliore.innerText || '').length) migliore = e;
+    }
+    return migliore;
+  }
+
   function mittenteDaPagina() {
     // intestazione OWA: "Nome Cognome<indirizzo@dominio>"
-    const testo = areaLettura().innerText || '';
+    const testo = testoCompleto();
     const mm = testo.match(/([A-ZÀ-Ü][^\n<>]{1,45}?)\s*<\s*([\w.+-]+@(?!termeleonardo|hldv)[\w.-]+\.[a-z]{2,})\s*>/i);
     if (mm) return { nome: mm[1].trim(), email: mm[2].trim() };
     return null;
@@ -312,8 +597,8 @@ function parseCentralino(testo) {
 
   function trovaRichiestaLibera() {
     let migliore = null;
-    for (const e of areaLettura().querySelectorAll('div, td, p')) {
-      if (!e.offsetParent) continue;
+    for (const e of elementiLettura('div, td, p')) {
+      if (!visibile(e)) continue;
       const txt = e.innerText || '';
       if (txt.length < 40 || txt.length > 2500) continue;
       if (!PAROLE_RICHIESTA.test(txt)) continue;
@@ -323,17 +608,102 @@ function parseCentralino(testo) {
     return migliore;
   }
 
+  /* dentro un iframe offsetParent puo' essere nullo anche per elementi
+     visibilissimi: si guarda se occupano spazio sullo schermo. */
+  function visibile(e) {
+    if (e.offsetParent) return true;
+    const r = e.getBoundingClientRect ? e.getBoundingClientRect() : null;
+    return !!(r && r.width > 0 && r.height > 0);
+  }
+
+  /* v2.7.4: il nuovo Outlook (outlook.cloud.microsoft) mette il corpo del
+     messaggio in un iframe. Guardando il solo documento principale non si
+     trovava niente e nessun pulsante compariva. Si cercano anche i frame
+     dello stesso dominio; quelli di altra origine sollevano un errore ed
+     e' giusto ignorarli. */
+  function radici() {
+    const fuori = [document];
+    for (const f of document.querySelectorAll('iframe')) {
+      try {
+        const d = f.contentDocument;
+        if (d && d.body) fuori.push(d);
+      } catch (e) { /* frame di altra origine: non ci riguarda */ }
+    }
+    return fuori;
+  }
+
+  /* v2.7.7: Outlook costruisce l'interfaccia con componenti che tengono il
+     contenuto in uno «shadow root»: querySelectorAll non lo attraversa, e
+     dal di fuori la pagina sembra vuota. Lo script girava, i frame non
+     eseguono estensioni, e il testo era li' — dietro quella porta.
+     Si scende dentro ogni shadow root aperto, con un limite di profondita'
+     perche' l'albero di OWA e' profondo e non serve arrivare in fondo. */
+  function raccogli(radice, selettore, fuori, profondita) {
+    if (!radice || profondita > 12) return;
+    let trovati = [];
+    try { trovati = radice.querySelectorAll(selettore); } catch (e) { return; }
+    for (const e of trovati) fuori.push(e);
+    let tutti = [];
+    try { tutti = radice.querySelectorAll('*'); } catch (e) { return; }
+    for (const e of tutti) {
+      if (e.shadowRoot) raccogli(e.shadowRoot, selettore, fuori, profondita + 1);
+    }
+  }
+
+  function elementiLettura(selettore) {
+    const fuori = [];
+    for (const d of radici()) {
+      const area = d.querySelector('div[role="main"]') || d.body;
+      if (!area) continue;
+      raccogli(area, selettore, fuori, 0);
+    }
+    /* il corpo del messaggio arriva anche dal frame, che non possiamo
+       leggere direttamente: si presenta come un elemento qualsiasi, cosi'
+       i riconoscimenti non devono sapere da dove viene */
+    const dalFrame = testoDaiFrame();
+    if (dalFrame) {
+      fuori.push({ innerText: dalFrame, offsetParent: true, daFrame: true,
+                   getBoundingClientRect: () => ({ width: 1, height: 1 }) });
+    }
+    return fuori;
+  }
+
   function areaLettura() {
-    // OWA tiene nel DOM anche messaggi gia' aperti e anteprime dell'elenco:
-    // si cerca SOLO nel riquadro di lettura visibile.
     return document.querySelector('div[role="main"]') || document.body;
+  }
+
+  /* tutto il testo visibile, shadow root compresi */
+  function testoCompleto() {
+    const pezzi = [];
+    for (const d of radici()) {
+      const area = d.querySelector('div[role="main"]') || d.body;
+      if (!area) continue;
+      pezzi.push(area.innerText || '');
+      const dentro = [];
+      raccogli(area, 'div, td, p', dentro, 0);
+      for (const e of dentro) {
+        if (e.getRootNode && e.getRootNode() !== d) pezzi.push(e.innerText || '');
+      }
+    }
+    pezzi.push(testoDaiFrame());
+    return pezzi.join('\n');
+  }
+
+  function quantiShadow() {
+    let n = 0;
+    for (const d of radici()) {
+      let tutti = [];
+      try { tutti = d.querySelectorAll('*'); } catch (e) { continue; }
+      for (const e of tutti) if (e.shadowRoot) n++;
+    }
+    return n;
   }
 
   function trovaRichiestaCentralino() {
     // l'elemento piu' piccolo, VISIBILE, che contiene la richiesta completa
     let migliore = null;
-    for (const e of areaLettura().querySelectorAll('div, td, p')) {
-      if (!e.offsetParent) continue;
+    for (const e of elementiLettura('div, td, p')) {
+      if (!visibile(e)) continue;
       const txt = e.innerText || '';
       if (txt.length < 60 || txt.length > 4000) continue;
       if (/Richiesta\s+(preventivo|prenotazione)/i.test(txt) && /Ospite\s*:/i.test(txt)) {
@@ -343,9 +713,98 @@ function parseCentralino(testo) {
     return migliore;
   }
 
+  /* ============================================================
+     v2.7 — PRIMA DI APRIRE FIDRA, DIRE COSA SI E' CAPITO
+     La lettura della richiesta sbaglia, e il caso peggiore non e'
+     quando fallisce: e' quando produce date plausibili ma sbagliate,
+     che finiscono in una prenotazione e poi in un'offerta senza che
+     nessuno le abbia lette. Qui si mostrano prima, e si prosegue solo
+     con un secondo clic.
+     ============================================================ */
+  const MESI_NOME = ['', 'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
+                     'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+
+  function dataLeggibile(d) {
+    if (!d || !d.g || !d.m) return null;
+    return `${d.g} ${MESI_NOME[d.m] || d.m}${d.a ? ' ' + d.a : ''}`;
+  }
+
+  function mostraAnteprima(dati) {
+    document.getElementById('leonardo-anteprima')?.remove();
+    const righe = [];
+    const agg = (etichetta, valore, mancante) => righe.push(
+      `<tr><td style="padding:3px 12px 3px 0;color:#8C8578;white-space:nowrap;">${etichetta}</td>
+       <td style="padding:3px 0;${valore ? '' : 'color:#B3261E;'}">${valore || mancante}</td></tr>`);
+
+    agg('Ospite', dati.ospite || dati.nome || '', 'non letto — lo scrivi in Fidra');
+    agg('Email', dati.email || '', 'non letta');
+    const a = dataLeggibile(dati.arrivo), p = dataLeggibile(dati.partenza);
+    agg('Periodo', a && p ? `dal ${a} al ${p}${dati.notti ? ` &middot; ${dati.notti} ${dati.notti === 1 ? 'notte' : 'notti'}` : ''}` : '',
+        'date non lette — attenzione, sono la cosa piu\' facile da sbagliare');
+    const soli = dati.adulti === 1;
+    agg('Persone', dati.adulti != null
+      ? `${dati.adulti} ${dati.adulti === 1 ? 'adulto' : 'adulti'}${dati.bambini ? `, ${dati.bambini} bambin${dati.bambini === 1 ? 'o' : 'i'}` : ''}` +
+        (dati.adultiDedotti ? ` <span style="color:#8C7A45;">(dedotto da &laquo;${
+          dati.tipoCameraLetto || 'tipo di camera'}&raquo;${dati.nCamere > 1 ? `, ${dati.nCamere} camere` : ''} — verifica)</span>` : '')
+      : '', 'non lette');
+    if (dati.categoria) agg('Camera', dati.categoria, '');
+    if (dati.pacchetto) agg('Pacchetto', dati.pacchetto, '');
+    if (dati.trattamento) agg('Trattamento', dati.trattamento, '');
+    if (dati.riferimento) agg('Riferimento', dati.riferimento, '');
+
+    const scatola = document.createElement('div');
+    scatola.id = 'leonardo-anteprima';
+    scatola.style.cssText =
+      'position:fixed;bottom:70px;right:24px;z-index:2147483647;width:390px;' +
+      'background:#fff;border:1px solid #CBD5D8;border-radius:10px;' +
+      'box-shadow:0 10px 30px rgba(15,92,100,.25);' +
+      'font:14px/20px Arial,Helvetica,sans-serif;color:#2A2E2B;';
+    scatola.innerHTML = `
+      <div style="background:#1E7F88;color:#fff;padding:9px 14px;border-radius:10px 10px 0 0;font-weight:bold;">
+        Ecco cosa ho letto nella richiesta</div>
+      <div style="padding:12px 14px;">
+        <table style="width:100%;font-size:13.5px;">${righe.join('')}</table>
+        ${dati.prezzoVisto ? `<div style="margin-top:10px;padding:9px 11px;background:#FDF6EE;border-left:3px solid #C97B2C;
+            font-size:12.5px;color:#7A5A2B;">L&apos;ospite ha visto <strong>${dati.prezzoVisto}</strong> sulla pagina${
+              dati.caparraIndicata ? `, con caparra ${dati.caparraIndicata}` : ''}.
+            Se in Fidra esce un altro prezzo, decidi tu quale vale &mdash; ma non lasciarlo scoprire a lui.</div>` : ''}
+        ${soli ? `<div style="margin-top:10px;padding:9px 11px;background:#FDF6F5;border-left:3px solid #B3261E;
+            font-size:12.5px;color:#8C2F28;">Un ospite solo: in Fidra ricordati il
+            <strong>supplemento uso singola</strong> prima di generare l&apos;offerta.
+            E' l&apos;errore che ci e' gia' costato tre email a un cliente.</div>` : ''}
+        <div style="margin-top:10px;font-size:12.5px;color:#8C8578;">
+          Quello che manca lo completi in Fidra: qui si apre solo il modulo.</div>
+        <div style="margin-top:12px;text-align:right;">
+          <button id="leoAnnulla" style="background:#fff;color:#55524B;border:1px solid #CBD5D8;
+            border-radius:5px;padding:7px 14px;font:600 13px Arial;cursor:pointer;">Annulla</button>
+          <button id="leoProsegui" style="margin-left:6px;background:#1E7F88;color:#fff;border:0;
+            border-radius:5px;padding:7px 16px;font:600 13px Arial;cursor:pointer;">Apri in Fidra</button>
+        </div>
+      </div>`;
+    document.body.appendChild(scatola);
+    scatola.querySelector('#leoAnnulla').onclick = () => scatola.remove();
+    scatola.querySelector('#leoProsegui').onclick = () => {
+      scatola.remove();
+      dati.creato = Date.now();
+      chrome.storage.local.set({ leonardo_bozza_centralino: dati }, () => {
+        avviso('Richiesta letta: apro il modulo di Fidra');
+        window.open('https://leonardo.fidra.cloud/booking', '_blank');
+      });
+    };
+  }
+
   function mostraPulsanteCentralino() {
     if (document.getElementById('leonardo-bozza-btn')) return;
-    const el = trovaRichiestaCentralino();
+    /* v2.7.10 — IL BACO CHE HA FATTO PERDERE QUATTRO VERSIONI.
+       Qui si guardava solo la richiesta del centralino, mentre il ciclo
+       che chiama questa funzione accetta anche quelle dal sito e quelle
+       scritte a mano: per tutte le altre si usciva subito e il pulsante
+       non compariva mai. La diagnostica lo ha detto in un colpo —
+       «riconosce: {sito: true}» con nessun pulsante sullo schermo — dopo
+       che avevo dato la colpa agli iframe, ad about:blank, ai frame
+       protetti e agli shadow root, tutte cose che non c'entravano:
+       il testo si leggeva benissimo, 790 caratteri, tutto al suo posto. */
+    const el = trovaRichiestaSito() || trovaRichiestaCentralino() || trovaRichiestaLibera();
     if (!el) return;
     const btn = document.createElement('button');
     btn.id = 'leonardo-bozza-btn';
@@ -356,8 +815,15 @@ function parseCentralino(testo) {
       'font:600 14px/18px Arial,Helvetica,sans-serif;color:#fff;' +
       'background:#1E7F88;box-shadow:0 3px 12px rgba(0,0,0,.3);';
     btn.addEventListener('click', () => {
-      const daCentralino = trovaRichiestaCentralino();
-      let dati = daCentralino ? parseCentralino(daCentralino.innerText) : null;
+      /* dal piu' affidabile al meno: il modulo del sito ha i campi
+         etichettati, il centralino un formato noto, il testo libero
+         va indovinato */
+      const daSito = trovaRichiestaSito();
+      let dati = daSito ? parseSito(daSito.innerText) : null;
+      if (!dati) {
+        const daCentralino = trovaRichiestaCentralino();
+        dati = daCentralino ? parseCentralino(daCentralino.innerText) : null;
+      }
       if (!dati) {
         const libera = trovaRichiestaLibera();
         if (libera) dati = parseLibera(libera.innerText, mittenteDaPagina());
@@ -366,26 +832,87 @@ function parseCentralino(testo) {
         avviso('Richiesta non leggibile: apri la mail per intero e riprova', '#B3541E');
         return;
       }
-      dati.creato = Date.now();
-      chrome.storage.local.set({ leonardo_bozza_centralino: dati }, () => {
-        avviso('Richiesta letta: apro il modulo di Fidra');
-        window.open('https://leonardo.fidra.cloud/booking', '_blank');
-      });
+      mostraAnteprima(dati);
     });
     document.body.appendChild(btn);
   }
 
+  /* v2.7.4: quando un pulsante non compare non c'e' modo di sapere perche'.
+     Da console: leoDiagnostica() dice quanti documenti guarda, quanto testo
+     trova e quale riconoscimento scatta. */
+  window.leoDiagnostica = function () {
+    const docs = radici();
+    const testo = testoCompleto();
+    const esito = {
+      documenti: docs.length,
+      diCuiFrame: docs.length - 1,
+      caratteriLetti: testo.length,
+      caratteriDaiFrame: testoDaiFrame().length,
+      iframeVisti: docs.length - 1,
+      componentiConShadow: quantiShadow(),
+      contiene: {
+        'RICHIESTA DAL SITO': /RICHIESTA\s+DAL\s+SITO/i.test(testo),
+        'RS-anno-numero': /\bRS-20\d\d-\d{3,}/i.test(testo),
+        'Periodo': /Periodo/i.test(testo)
+      },
+      riconosce: {
+        sito: !!trovaRichiestaSito(),
+        centralino: !!trovaRichiestaCentralino(),
+        libera: !!trovaRichiestaLibera(),
+        dayspa: !!trovaRichiestaDaySpa(),
+        buoni: !!trovaRichiestaBuoni()
+      },
+      primi300: testo.replace(/\s+/g, ' ').slice(0, 300)
+    };
+    console.log('%cLeonardo — cosa vedo in questa pagina', 'font-weight:bold;color:#0F5C64');
+    console.log(JSON.stringify(esito, null, 2));
+    return esito;
+  };
+
+  console.log('%cLeonardo 2.8.7 — attivo nella pagina', 'color:#0F5C64;font-weight:bold',
+    'scrivi leoDiagnostica() per sapere cosa vede');
+
+  /* v2.7.8: la diagnostica si stampa da sola. Chiederla a mano ha fatto
+     perdere un giro: adesso, se dopo qualche secondo non e' comparso
+     nessun pulsante ma nella pagina c'e' qualcosa che somiglia a una
+     richiesta, il riepilogo finisce in console senza che nessuno debba
+     digitare niente. Una volta ogni due minuti, per non intasare. */
+  let ultimoRapporto = 0;
+  setInterval(() => {
+    if (Date.now() - ultimoRapporto < 120000) return;
+    const cePulsante = document.getElementById('leonardo-bozza-btn') ||
+                     document.getElementById('leonardo-dayspa-btn') ||
+                     document.getElementById('leonardo-buoni-btn');
+    if (cePulsante) return;
+    const testo = testoCompleto();
+    const sembraRichiesta = /RICHIESTA\s+DAL\s+SITO|\bRS-20\d\d-\d{3,}|Richiesta\s+(preventivo|prenotazione)|disponibilit|Anfrage|Verf[üu]gbarkeit|availability/i.test(testo);
+    if (!sembraRichiesta) return;
+    ultimoRapporto = Date.now();
+    /* v2.7.9: stampato come testo e non come oggetto. La console mostra
+       gli oggetti chiusi («Object») e vanno aperti a mano: un rigo di JSON
+       si seleziona e si incolla, che e' quello che serve davvero. */
+    const esito = leoDiagnostica();
+    console.log('%cLeonardo — vedo una richiesta ma nessun pulsante. Copia le righe qui sotto:',
+      'color:#B3541E;font-weight:bold');
+    console.log(JSON.stringify(esito, null, 2));
+  }, 4000);
+
   // il riquadro di lettura cambia via SPA: controllo periodico leggero
   setInterval(() => {
     const btn = document.getElementById('leonardo-bozza-btn');
-    const c = trovaRichiestaCentralino() || trovaRichiestaLibera();
+    const c = trovaRichiestaSito() || trovaRichiestaCentralino() || trovaRichiestaLibera();
     if (c && !btn) mostraPulsanteCentralino();
-    if (!c && btn) btn.remove();
+    if (!c && btn) { btn.remove(); document.getElementById('leonardo-anteprima')?.remove(); }
 
     const btnSpa = document.getElementById('leonardo-dayspa-btn');
     const spa = trovaRichiestaDaySpa();
     if (spa && !btnSpa) mostraPulsanteDaySpa();
     if (!spa && btnSpa) btnSpa.remove();
+
+    const btnBuoni = document.getElementById('leonardo-buoni-btn');
+    const buoni = trovaRichiestaBuoni();
+    if (buoni && !btnBuoni) mostraPulsanteBuoni();
+    if (!buoni && btnBuoni) btnBuoni.remove();
   }, 1500);
 
   /* ==========================================================
@@ -401,8 +928,8 @@ function parseCentralino(testo) {
 
   function trovaRichiestaDaySpa() {
     let migliore = null;
-    for (const e of areaLettura().querySelectorAll('div, td, p')) {
-      if (!e.offsetParent) continue;
+    for (const e of elementiLettura('div, td, p')) {
+      if (!visibile(e)) continue;
       const txt = e.innerText || '';
       if (txt.length < 15 || txt.length > 2500) continue;
       if (!DAYSPA_TEMA.test(txt) || !DAYSPA_CONTESTO.test(txt)) continue;
@@ -428,6 +955,48 @@ function parseCentralino(testo) {
 
   const DAYSPA_NOMI = { it: 'Cliente', de: 'Gast', en: 'Guest', fr: 'Madame, Monsieur' };
 
+  /* ============================================================
+     v2.7.1 — ANTEPRIMA ANCHE PER LE RISPOSTE PRONTE
+     Day Spa e Buoni regalo non passano da Fidra: il modello viene
+     scritto e basta. Le due cose che possono sbagliare sono la lingua
+     (dedotta contando le parole) e il nome del destinatario, e nessuna
+     delle due si vedeva prima di premere Rispondi. Qui si vedono.
+     ============================================================ */
+  const LINGUA_NOME = { it: 'italiano', de: 'tedesco', en: 'inglese', fr: 'francese' };
+
+  function anteprimaRisposta({ titolo, lingua, destinatario, modello, nota, azione }) {
+    document.getElementById('leonardo-anteprima')?.remove();
+    const scatola = document.createElement('div');
+    scatola.id = 'leonardo-anteprima';
+    scatola.style.cssText =
+      'position:fixed;bottom:70px;right:24px;z-index:2147483647;width:370px;' +
+      'background:#fff;border:1px solid #CBD5D8;border-radius:10px;' +
+      'box-shadow:0 10px 30px rgba(15,92,100,.25);' +
+      'font:14px/20px Arial,Helvetica,sans-serif;color:#2A2E2B;';
+    scatola.innerHTML = `
+      <div style="background:#0F5C64;color:#fff;padding:9px 14px;border-radius:10px 10px 0 0;font-weight:bold;">
+        ${titolo}</div>
+      <div style="padding:12px 14px;">
+        <table style="width:100%;font-size:13.5px;">
+          <tr><td style="padding:3px 12px 3px 0;color:#8C8578;">Modello</td><td>${modello}</td></tr>
+          <tr><td style="padding:3px 12px 3px 0;color:#8C8578;">Lingua</td>
+              <td>${LINGUA_NOME[lingua] || lingua} <span style="color:#8C7A45;">(dedotta dal testo)</span></td></tr>
+          <tr><td style="padding:3px 12px 3px 0;color:#8C8578;">A</td>
+              <td${destinatario.generico ? ' style="color:#B3261E;"' : ''}>${destinatario.nome}</td></tr>
+        </table>
+        ${nota ? `<div style="margin-top:10px;font-size:12.5px;color:#8C8578;">${nota}</div>` : ''}
+        <div style="margin-top:12px;text-align:right;">
+          <button id="leoAnnulla" style="background:#fff;color:#55524B;border:1px solid #CBD5D8;
+            border-radius:5px;padding:7px 14px;font:600 13px Arial;cursor:pointer;">Annulla</button>
+          <button id="leoProsegui" style="margin-left:6px;background:#0F5C64;color:#fff;border:0;
+            border-radius:5px;padding:7px 16px;font:600 13px Arial;cursor:pointer;">Prepara la risposta</button>
+        </div>
+      </div>`;
+    document.body.appendChild(scatola);
+    scatola.querySelector('#leoAnnulla').onclick = () => scatola.remove();
+    scatola.querySelector('#leoProsegui').onclick = () => { scatola.remove(); azione(); };
+  }
+
   function mostraPulsanteDaySpa() {
     if (document.getElementById('leonardo-dayspa-btn')) return;
     if (!trovaRichiestaDaySpa()) return;
@@ -444,14 +1013,92 @@ function parseCentralino(testo) {
       if (!el) { avviso('Richiesta non pi\u00f9 visibile: apri la mail e riprova', '#B3541E'); return; }
       const lingua = linguaTesto(el.innerText || '');
       const mitt = mittenteDaPagina();
-      chrome.storage.local.get(['firma'], (ris) => {
-        const o = { genere: 'N', firma: (ris && ris.firma) || 'La Reception' };
-        const d = { intestatario: (mitt && mitt.nome) || DAYSPA_NOMI[lingua] || 'Cliente' };
-        const build = { it: costruisciDaySpaIT, de: costruisciDaySpaDE, en: costruisciDaySpaEN, fr: costruisciDaySpaFR };
-        const html = (build[lingua] || build.it)(d, o);
-        chrome.storage.local.set({ [CHIAVE]: { html, creato: Date.now(), firmaContenuto: 'day-spa/prenotazioni' } }, () => {
-          avviso('Info Day Spa pronta (' + lingua.toUpperCase() + '): premi Rispondi, il testo si inserisce da solo');
-        });
+      const nome = (mitt && mitt.nome) || '';
+      anteprimaRisposta({
+        titolo: 'Risposta Info Day Spa',
+        modello: 'Info Day Spa — prezzi, orari, come prenotare',
+        lingua,
+        destinatario: nome ? { nome } : { nome: (DAYSPA_NOMI[lingua] || 'Cliente') + ' — nome non letto', generico: true },
+        nota: 'Il testo entra da solo quando premi Rispondi in Outlook.',
+        azione: () => chrome.storage.local.get(['firma'], (ris) => {
+          const o = { genere: 'N', firma: (ris && ris.firma) || 'La Reception' };
+          const d = { intestatario: nome || DAYSPA_NOMI[lingua] || 'Cliente' };
+          const build = { it: costruisciDaySpaIT, de: costruisciDaySpaDE, en: costruisciDaySpaEN, fr: costruisciDaySpaFR };
+          const html = (build[lingua] || build.it)(d, o);
+          chrome.storage.local.set({ [CHIAVE]: { html, creato: Date.now(), firmaContenuto: 'day-spa/prenotazioni' } }, () => {
+            avviso('Info Day Spa pronta (' + lingua.toUpperCase() + '): premi Rispondi, il testo si inserisce da solo');
+          });
+        })
+      });
+    });
+    document.body.appendChild(btn);
+  }
+
+  /* ==========================================================
+     RISPOSTA BUONI REGALO (v2.7.1)
+     Le richieste di buoni non passano da Fidra e la risposta e'
+     sempre la stessa: si comprano online, si pagano con carta,
+     arrivano per email. Il modello esiste gia' — mancava solo il
+     pulsante per raggiungerlo dalla mail.
+     ========================================================== */
+  /* «buono» da solo basta come tema, perche' a filtrare ci pensa il contesto
+     (regalare, acquistare, prezzo...). Senza, la frase piu' naturale in
+     italiano — «vorrei regalare un buono» — non veniva riconosciuta.
+     «buon soggiorno» non interferisce: manca la o finale. */
+  const BUONI_TEMA = /\bbuon[oi]\b|gift\s*(?:card|voucher|certificate)|gutschein\w*|geschenkgutschein|bon\s+cadeau|ch[èe]que\s+cadeau|voucher/i;
+  /* «regalare» da solo non basta: comparirebbe in mezzo alle frasi di
+     cortesia. Serve il tema del buono, oppure regalare + terme/spa. */
+  const BUONI_CONTESTO = /regal\w*|verschenk\w*|schenken|offrir|gift|acquist\w*|comprar\w*|kaufen|buy|prezz\w*|preis\w*|import\w*|valore|betrag|amount|validit\w*|g[üu]ltig|scadenz\w*/i;
+
+  function trovaRichiestaBuoni() {
+    let migliore = null;
+    for (const e of elementiLettura('div, td, p')) {
+      if (!visibile(e)) continue;
+      const txt = e.innerText || '';
+      if (txt.length < 15 || txt.length > 2500) continue;
+      if (!BUONI_TEMA.test(txt) || !BUONI_CONTESTO.test(txt)) continue;
+      /* una richiesta di soggiorno che nomina il buono resta agli altri
+         pulsanti: li' il buono e' un dettaglio, non il motivo della mail */
+      if (/Richiesta\s+(preventivo|prenotazione)/i.test(txt)) continue;
+      if (!migliore || txt.length < (migliore.innerText || '').length) migliore = e;
+    }
+    return migliore;
+  }
+
+  const BUONI_NOMI = { it: 'Cliente', de: 'Gast', en: 'Guest', fr: 'Madame, Monsieur' };
+
+  function mostraPulsanteBuoni() {
+    if (document.getElementById('leonardo-buoni-btn')) return;
+    if (!trovaRichiestaBuoni()) return;
+    const btn = document.createElement('button');
+    btn.id = 'leonardo-buoni-btn';
+    btn.textContent = '\u{1F381} Rispondi: Buoni regalo';
+    btn.style.cssText =
+      'position:fixed;bottom:174px;right:24px;z-index:2147483647;' +
+      'padding:12px 20px;border:0;border-radius:8px;cursor:pointer;' +
+      'font:600 14px/18px Arial,Helvetica,sans-serif;color:#fff;' +
+      'background:#7A8450;box-shadow:0 3px 12px rgba(0,0,0,.3);';
+    btn.addEventListener('click', () => {
+      const el = trovaRichiestaBuoni();
+      if (!el) { avviso('Richiesta non pi\u00f9 visibile: apri la mail e riprova', '#B3541E'); return; }
+      const lingua = linguaTesto(el.innerText || '');
+      const mitt = mittenteDaPagina();
+      const nome = (mitt && mitt.nome) || '';
+      anteprimaRisposta({
+        titolo: 'Risposta Buoni regalo',
+        modello: 'Buoni regalo — come si compone, prezzi, validit\u00e0, acquisto online',
+        lingua,
+        destinatario: nome ? { nome } : { nome: (BUONI_NOMI[lingua] || 'Cliente') + ' \u2014 nome non letto', generico: true },
+        nota: 'Il pulsante nell\'email porta alla pagina nella lingua giusta.',
+        azione: () => chrome.storage.local.get(['firma'], (ris) => {
+          const o = { genere: 'N', firma: (ris && ris.firma) || 'La Reception' };
+          const d = { intestatario: nome || BUONI_NOMI[lingua] || 'Cliente' };
+          const build = { it: costruisciBuoniIT, de: costruisciBuoniDE, en: costruisciBuoniEN, fr: costruisciBuoniFR };
+          const html = (build[lingua] || build.it)(d, o);
+          chrome.storage.local.set({ [CHIAVE]: { html, creato: Date.now(), firmaContenuto: 'buoni-regalo' } }, () => {
+            avviso('Buoni regalo pronto (' + lingua.toUpperCase() + '): premi Rispondi, il testo si inserisce da solo');
+          });
+        })
       });
     });
     document.body.appendChild(btn);
@@ -557,4 +1204,8 @@ function parseCentralino(testo) {
     chrome.storage.local.remove(CHIAVE);
     avviso('Email inserita — rileggi e premi Invia');
   }, 1000);
+
+  /* gancio per i test e per la console: parseLibera vive dentro l'IIFE */
+  (typeof self !== 'undefined' ? self : globalThis).__leonardoInject =
+    { parseLibera, PAROLE_RICHIESTA, annoDedotto };
 })();
