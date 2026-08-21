@@ -346,8 +346,41 @@ Deno.serve(async (req) => {
     const { errore, pezzi } = pezziDaArrivo(corpo, new Date());
     if (errore || !pezzi) return risposta({ errore }, 400);
 
-    /* un numero per pezzo, chiesti PRIMA: se poi l'inserimento fallisce
-       restano numeri saltati, che e' innocuo. Una riga orfana no. */
+    /* LA DOMANDA «L'HA GIA' MANDATO?», SCRITTA UNA VOLTA E FATTA DUE.
+
+       LA DOMANDA E' «C'E' GIA' UN ARRIVO?», NON «C'E' GIA' UNA RIGA?»:
+       arrivoGiaInviato() in arrivo-invio.ts, dove sta scritto perche'.
+       Contare le righe chiudeva fuori dal check-in chi aveva usato un
+       modulo del sito con lo stesso token — quei moduli scrivono
+       arrivo_token anche loro.
+
+       Un errore di lettura NON e' "non ce ne sono": e' "non posso
+       verificare", e si rifiuta — come fa gia' ?a=precompila sullo stesso
+       errore sulla stessa tabella. */
+    const rifiutoSeGiaInviato = async () => {
+      const { data, error } = await db.from('richiesta_sito')
+        .select('numero, tipo').eq('arrivo_token', t);
+      if (error) {
+        console.error('controllo duplicati fallito:', error);
+        return risposta({ errore: 'salvataggio non riuscito' }, 500);
+      }
+      return arrivoGiaInviato(data) ? risposta({ errore: 'gia inviato', richieste: data }, 409) : null;
+    };
+
+    /* PRESTO, prima di toccare la numerazione. Chi ricarica la pagina e
+       rimanda — il gesto piu' naturale davanti a una pagina lenta — si
+       portava via fino a TRE numeri di pratica a ogni giro, e la serie
+       RS-2026-#### si riempiva di buchi: chi la guarda non sa distinguere
+       un numero saltato da una richiesta sparita.
+
+       Non basta questa da sola, e per questo non ha sostituito quella
+       tardi: vedi la seconda chiamata piu' sotto. */
+    const giaPresto = await rifiutoSeGiaInviato();
+    if (giaPresto) return giaPresto;
+
+    /* un numero per pezzo, chiesti PRIMA dell'inserimento: se poi
+       l'inserimento fallisce restano numeri saltati, che e' innocuo.
+       Una riga orfana no. */
     const numeri: NumeroRichiesta[] = [];
     for (let i = 0; i < pezzi.length; i++) {
       const { data: n, error: eN } = await db.rpc('prossimo_numero_richiesta');
@@ -358,41 +391,27 @@ Deno.serve(async (req) => {
       numeri.push(n[0]);
     }
 
-    /* GIA' MANDATO — controllata QUI, il piu' tardi possibile: dopo la
-       validazione e la numerazione, appena prima dell'insert. Senza questo
-       controllo, chi ricarica la pagina e rimanda crea tre richieste nuove
-       con tre numeri nuovi e riceve una seconda ricevuta per cose gia' in
-       lavorazione — peggio di prima, non meglio. Per cambiare qualcosa si
-       scrive, e la correzione la fa la reception sulla richiesta con
-       ?a=conferma.
+    /* E TARDI, il piu' tardi possibile: dopo la validazione e la
+       numerazione, appena prima dell'insert.
 
-       LA DOMANDA E' «C'E' GIA' UN ARRIVO?», NON «C'E' GIA' UNA RIGA?»:
-       arrivoGiaInviato() in arrivo-invio.ts, dove sta scritto perche'.
-       Contare le righe chiudeva fuori dal check-in chi aveva usato un
-       modulo del sito con lo stesso token — quei moduli scrivono
-       arrivo_token anche loro.
+       LA CORSA RESTA POSSIBILE, RISTRETTA E NON CHIUSA, ed e' per questo
+       che quella presto non ha preso il posto di questa. Un indice unico
+       su arrivo_token non si puo' mettere: un invio riuscito lascia gia'
+       fino a tre righe con lo stesso token, una per pezzo. Con il
+       controllo QUI, la finestra fra la lettura e il prossimo insert non
+       contiene nessun'altra chiamata di rete in mezzo: e' la piu' stretta
+       ottenibile senza quel vincolo. Spostandolo prima della numerazione
+       si sarebbe chiuso un fastidio allargando una corsa, e due invii
+       simultanei sarebbero passati tutti e due.
 
-       Un errore di lettura NON e' "non ce ne sono": e' "non posso
-       verificare", e si rifiuta — come fa gia' ?a=precompila sullo stesso
-       errore sulla stessa tabella. Restano numeri saltati (innocuo, vedi
-       sopra).
+       Senza questo controllo, chi ricarica e rimanda crea tre richieste
+       nuove con tre numeri nuovi e riceve una seconda ricevuta per cose
+       gia' in lavorazione. Per cambiare qualcosa si scrive, e la
+       correzione la fa la reception con ?a=conferma.
 
-       LA CORSA RESTA POSSIBILE, RISTRETTA E NON CHIUSA. Un indice unico su
-       arrivo_token non si puo' mettere: un invio riuscito lascia gia' fino
-       a tre righe con lo stesso token, una per pezzo. Mettendo il
-       controllo qui, invece che prima della numerazione, la finestra fra
-       la lettura e il prossimo insert non contiene piu' nessun'altra
-       chiamata di rete in mezzo: e' la piu' stretta ottenibile senza quel
-       vincolo. */
-    const { data: gia, error: eGia } = await db.from('richiesta_sito')
-      .select('numero, tipo').eq('arrivo_token', t);
-    if (eGia) {
-      console.error('controllo duplicati fallito:', eGia);
-      return risposta({ errore: 'salvataggio non riuscito' }, 500);
-    }
-    if (arrivoGiaInviato(gia)) {
-      return risposta({ errore: 'gia inviato', richieste: gia }, 409);
-    }
+       Se scatta qui, restano numeri saltati: innocuo, vedi sopra. */
+    const giaTardi = await rifiutoSeGiaInviato();
+    if (giaTardi) return giaTardi;
 
     const righe = righeDaArrivo(
       { intestatario: link.intestatario, email: link.email, lingua: link.lingua },
