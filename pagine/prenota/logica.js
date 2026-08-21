@@ -106,3 +106,26 @@ export function linguaScelta(percorso, ricerca, linguaBrowser) {
   const b = String(linguaBrowser || '').slice(0, 2);
   return ['de', 'fr', 'it'].includes(b) ? b : 'en';
 }
+
+/* QUANTO VIENE A PERSONA, in centesimi, o null se non si puo' dire.
+
+   Il prezzo che il motore manda e' il TOTALE del soggiorno. Chi legge
+   «190,00 €» accanto a «2 adulti» non sa se sono 190 in tutto o a testa —
+   il motore del sito vecchio scrive «Adulti 2 x € 95» proprio per questo.
+
+   NON SI DIVIDE MAI COI BAMBINI. Hanno un prezzo loro: dividere il totale
+   per i soli adulti direbbe un numero piu' alto del vero su una pagina che
+   vende. E non si divide se la divisione non e' esatta, perche' arrotondare
+   scriverebbe una cifra che nessuno pagherà mai.
+
+   null e' un esito normale: la pagina dice solo che e' il totale, che e'
+   vero sempre. */
+export function aPersonaCent(cent, adulti, bambini) {
+  /* typeof prima della conversione: Number(null) fa 0, e uno zero finto
+     e uno zero vero non sono la stessa cosa */
+  if (typeof cent !== 'number' || !Number.isInteger(cent) || cent < 0) return null;
+  if (typeof adulti !== 'number' || !Number.isInteger(adulti) || adulti < 2) return null;
+  if ((Number(bambini) || 0) > 0) return null;
+  if (cent % adulti !== 0) return null;
+  return cent / adulti;
+}

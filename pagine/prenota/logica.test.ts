@@ -168,3 +168,60 @@ Deno.test('una lingua inventata non passa', () => {
   assertEquals(linguaScelta('/prenota/', '?l=xx', 'it-IT'), 'it');
   assertEquals(linguaScelta('/xx/prenota', '', 'it-IT'), 'it');
 });
+
+/* ============================================================
+   QUANTO VIENE A PERSONA. Aggiunto il 21 agosto 2026.
+
+   IL DIFETTO CHE PRESIDIA. Il prezzo che la pagina mostra è il TOTALE del
+   soggiorno, e non lo diceva nessuno: chi legge «190,00 €» accanto a
+   «2 adulti» non sa se sono 190 in tutto o a testa. Il motore del sito
+   vecchio scrive «Adulti 2 x € 95» proprio per togliere quel dubbio.
+
+   IL DIFETTO CHE POTEVA NASCERE DALLA CURA, ed è il più pericoloso: una
+   divisione fatta quando non si può fare. Coi bambini il totale non si
+   divide per i soli adulti — verrebbe un numero PIÙ ALTO del vero,
+   scritto su una pagina che vende. E una divisione non esatta,
+   arrotondata, scriverebbe una cifra che nessuno pagherà mai.
+
+   Per questo null è un esito normale e frequente: la pagina si limita a
+   dire che è il totale, che è vero sempre.
+   ============================================================ */
+import { aPersonaCent } from './logica.js';
+
+Deno.test('due adulti senza bambini: il totale si divide', () => {
+  assertEquals(aPersonaCent(19000, 2, 0), 9500);
+  assertEquals(aPersonaCent(38400, 2, 0), 19200);
+});
+
+Deno.test('coi bambini non si divide mai', () => {
+  /* il bambino ha un prezzo suo: dividere per i soli adulti direbbe una
+     cifra piu alta del vero */
+  assertEquals(aPersonaCent(19000, 2, 1), null);
+  assertEquals(aPersonaCent(19000, 2, 3), null);
+});
+
+Deno.test('con un adulto solo non c e niente da dividere', () => {
+  assertEquals(aPersonaCent(19000, 1, 0), null);
+});
+
+Deno.test('e se la divisione non e esatta non si arrotonda', () => {
+  /* 19001 centesimi fra due farebbe 95,005: arrotondare scriverebbe una
+     cifra che nessuno paghera mai */
+  assertEquals(aPersonaCent(19001, 2, 0), null);
+  assertEquals(aPersonaCent(10000, 3, 0), null);
+});
+
+Deno.test('e un dato guasto non produce un numero', () => {
+  for (const c of [null, undefined, -100, 190.5, 'centonovanta']) {
+    assertEquals(aPersonaCent(c as number, 2, 0), null, `centesimi «${c}»`);
+  }
+  for (const a of [null, undefined, 0, -2, 2.5, 'due']) {
+    assertEquals(aPersonaCent(19000, a as number, 0), null, `adulti «${a}»`);
+  }
+});
+
+Deno.test('zero centesimi fra due adulti fanno zero, non null', () => {
+  /* un prezzo a zero e' strano ma non e' un dato guasto: se il motore lo
+     manda, la pagina lo mostra com e */
+  assertEquals(aPersonaCent(0, 2, 0), 0);
+});

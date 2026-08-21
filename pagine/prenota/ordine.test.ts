@@ -284,4 +284,8 @@ Deno.test('la pagina ordina davvero le tariffe, e dice la formula', () => {
     pagina.includes('esc(t.tassaSoggiorno)'),
     'la tassa di soggiorno sparisce dalla schermata dove si guardano i prezzi',
   );
+  assert(
+    pagina.includes('dettaglioDelPrezzo(v.prezzo_cent, t)'),
+    'sotto il prezzo non si dice piu che e il totale: chi legge «190,00 €» accanto a «2 adulti» non sa se sono 190 in tutto o a testa',
+  );
 });
