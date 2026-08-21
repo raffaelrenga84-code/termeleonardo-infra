@@ -40,9 +40,13 @@ Deno.test('l elenco c e in tutte e quattro le lingue, con le stesse voci', () =>
 Deno.test('e nessuna voce e vuota o monca', () => {
   for (const l of LINGUE) {
     for (const [i, r] of INCLUSI[l].entries()) {
+      /* la soglia serve a prendere il vuoto e il troncato, non a
+         pretendere frasi: «Palestra» sono otto caratteri e «Gym» tre, e
+         sono voci complete. Una soglia scelta a occhio aveva gia' fatto
+         diventare rossa una modifica giusta. */
       assert(
-        typeof r === 'string' && r.trim().length > 12,
-        `«${l}» voce ${i + 1} e vuota o troppo corta: «${r}»`,
+        typeof r === 'string' && r.trim().length >= 3,
+        `«${l}» voce ${i + 1} e vuota o troncata: «${r}»`,
       );
     }
   }
@@ -90,5 +94,37 @@ Deno.test('la pagina lo mostra davvero, e con un details vero', () => {
   assert(
     pagina.includes('<details class="inclusi">') && pagina.includes('<summary>'),
     'il pannello non e piu un <details>: senza, non si apre da tastiera e lo screen reader non lo annuncia',
+  );
+});
+
+Deno.test('la «i» accanto al prezzo riporta all elenco, senza copiarlo', () => {
+  /* IL VINCOLO CHE DECIDE DOVE STA. La scheda di una tariffa e' un
+     <button>: un pulsante dentro un pulsante non e' markup valido — da
+     tastiera il secondo diventa irraggiungibile e lo screen reader ne
+     annuncia uno solo. La «i» sta quindi fuori dalla scheda, sulla riga
+     della camera, a un centimetro dal primo prezzo. */
+  const pagina = Deno.readTextFileSync(new URL('index.html', import.meta.url));
+  assert(pagina.includes('class="infoInclusi"'), 'sparita la «i»');
+  assert(
+    pagina.includes('aria-label="${esc(t.inclusiTit)}"'),
+    'la «i» non ha un nome: chi si fa leggere la pagina sente solo «i»',
+  );
+  /* fuori dalla scheda: compare PRIMA del punto in cui le tariffe si
+     disegnano */
+  const dovI = pagina.indexOf('class="infoInclusi"');
+  const dovTariffe = pagina.indexOf('accorpa(g.voci');
+  assert(dovI > 0 && dovTariffe > 0);
+  assert(
+    dovI < dovTariffe,
+    'la «i» e finita dentro la scheda della tariffa, che e un <button>: markup non valido',
+  );
+  /* e non disegna una copia dell elenco: apre quello che c e gia */
+  assert(
+    pagina.includes("document.querySelector('details.inclusi')"),
+    'la «i» non apre piu il pannello: o non fa niente, o qualcuno ha copiato l elenco',
+  );
+  assert(
+    pagina.split('inclusiIn(LNG)').length - 1 === 1,
+    'l elenco viene disegnato piu di una volta: due copie divergeranno',
   );
 });

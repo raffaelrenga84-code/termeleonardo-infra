@@ -161,7 +161,14 @@ textarea{min-height:80px;resize:vertical;}
 .gruppoCamera h3{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;
   font-size:19px;color:var(--verde);margin:0 0 2px;}
 .gruppoCamera .descrizione{color:var(--grigio);font-size:13px;margin-bottom:8px;}
-.gruppoCamera .maxAdulti{color:var(--grigio);font-size:12px;margin-bottom:8px;}
+/* la riga con «fino a N adulti» a sinistra e la «i» a destra, all altezza
+   del primo prezzo */
+.gruppoCamera .rigaInfo{display:flex;justify-content:space-between;
+  align-items:center;gap:10px;margin-bottom:8px;}
+.gruppoCamera .maxAdulti{color:var(--grigio);font-size:12px;}
+.infoInclusi{flex:0 0 auto;width:22px;height:22px;padding:0;border-radius:50%;
+  border:1.5px solid var(--verde-medio);background:none;color:var(--verde-medio);
+  font:600 12px Georgia,serif;line-height:1;cursor:pointer;}
 .proposta{display:block;width:100%;text-align:left;background:#FCFBF8;
   border:1.5px solid #DCD6CB;border-radius:10px;padding:12px 14px;margin-top:8px;
   cursor:pointer;font:inherit;color:inherit;}
@@ -799,7 +806,17 @@ function schermaCamere() {
             : ''}
           <h3>${esc(g.nome)}</h3>
           ${g.descrizione ? `<div class="descrizione">${esc(g.descrizione)}</div>` : ''}
-          ${g.max_adulti ? `<div class="maxAdulti">${esc(t.finoAdulti(g.max_adulti))}</div>` : ''}
+          <!-- LA «i». Sta qui e non dentro la scheda della tariffa perche'
+               quella e' un <button>, e un pulsante dentro un pulsante non e'
+               markup valido: da tastiera diventa irraggiungibile e lo screen
+               reader ne annuncia uno solo. Qui e' a un centimetro dal primo
+               prezzo e vale per tutte le tariffe della camera — che e' giusto,
+               perche' quello che e' compreso e' lo stesso per tutte. -->
+          <div class="rigaInfo">
+            <span class="maxAdulti">${g.max_adulti ? esc(t.finoAdulti(g.max_adulti)) : ''}</span>
+            <button type="button" class="infoInclusi" data-testid="info-inclusi"
+              aria-label="${esc(t.inclusiTit)}"><span aria-hidden="true">i</span></button>
+          </div>
           ${accorpa(g.voci, massaggioDelPiano).map(fam => `
             <div class="famiglia">
             ${fam.opzioni.map((v, i) => i === 0
@@ -852,6 +869,16 @@ function schermaCamere() {
 
   $('bIndietroDate').onclick = () => { STATO = 'ricerca'; disegna(); };
   if ($('bAltre')) $('bAltre').onclick = () => { TUTTE_LE_CAMERE = true; schermaCamere(); };
+  /* la «i» apre il pannello che c'e' gia' e ci porta l'occhio: l'elenco
+     resta in un posto solo, non se ne disegna una copia per camera */
+  document.querySelectorAll('.infoInclusi').forEach((b) => {
+    b.onclick = () => {
+      const d = document.querySelector('details.inclusi');
+      if (!d) return;
+      d.open = true;
+      d.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+  });
   document.querySelectorAll('.proposta').forEach(btn => {
     btn.onclick = () => {
       const i = Number(btn.dataset.indice);

@@ -39,7 +39,7 @@ export const INCLUSI = {
     'Zona relax, solo per adulti',
     'Un accappatoio e un asciugamano a persona; il cambio si paga',
     'Prato con vista sui Colli Euganei',
-    'Palestra e percorso Kneipp',
+    'Palestra',
     'Green fee agevolato nei tre Golfclub della zona',
   ],
   de: [
@@ -51,7 +51,7 @@ export const INCLUSI = {
     'Ruhebereich, nur für Erwachsene',
     'Ein Bademantel und ein Handtuch pro Person; der Wechsel ist kostenpflichtig',
     'Liegewiese mit Blick auf die Euganeischen Hügel',
-    'Fitnessraum und Kneipp-Parcours',
+    'Fitnessraum',
     'Ermäßigtes Greenfee in den drei Golfclubs der Umgebung',
   ],
   en: [
@@ -63,7 +63,7 @@ export const INCLUSI = {
     'Relaxation area, adults only',
     'One bathrobe and one towel per person; changing them is charged',
     'Lawn with a view over the Euganean Hills',
-    'Gym and Kneipp path',
+    'Gym',
     'Reduced green fee at the three golf clubs nearby',
   ],
   fr: [
@@ -75,7 +75,7 @@ export const INCLUSI = {
     'Espace détente, réservé aux adultes',
     'Un peignoir et une serviette par personne ; le change est payant',
     'Pelouse avec vue sur les collines Euganéennes',
-    'Salle de sport et parcours Kneipp',
+    'Salle de sport',
     'Green fee réduit dans les trois golfs des environs',
   ],
 };
