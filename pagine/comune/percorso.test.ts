@@ -117,3 +117,85 @@ Deno.test('ogni tipo ha un percorso in tutte e quattro le lingue', () => {
     }
   }
 });
+
+/* ============================================================
+   L'INDIRIZZO DI UN MODULO, COI DATI DELL'OSPITE DENTRO.
+
+   IL DIFETTO CHE PRESIDIA. Chi ha appena chiesto una camera e vuole anche
+   il transfer si trovava davanti un modulo vuoto: nome, email e telefono
+   da ridigitare due minuti dopo averli scritti. Ogni campo da riempire
+   una seconda volta è gente che rinuncia.
+
+   IL DIFETTO PEGGIORE, e quello che una prova sola non vedrebbe: i nomi
+   dei parametri che scriviamo devono essere quelli che la pagina di
+   destinazione LEGGE. Se qualcuno ne rinomina uno, il collegamento
+   continua a funzionare, il modulo si apre — e semplicemente non si
+   riempie. Nessun errore, nessun rosso, e nessuno se ne accorge finché un
+   ospite non si lamenta. Per questo l'ultima prova non guarda le
+   stringhe: fa leggere l'indirizzo a parametriOspite() e pretende
+   indietro i valori.
+   ============================================================ */
+import { indirizzoModulo, SITO } from './percorso.js';
+import { parametriOspite } from './ospite-url.js';
+
+const OSPITE = {
+  nome: 'Mario Rossi',
+  email: 'mario@example.com',
+  tel: '333 1234567',
+  arrivo: '2026-09-10',
+  partenza: '2026-09-12',
+};
+
+Deno.test('ogni lingua ha il suo indirizzo tradotto', () => {
+  const atteso: Record<string, string> = {
+    it: '/it/trattamenti', de: '/de/behandlungen', en: '/en/treatments', fr: '/fr/soins',
+  };
+  for (const [l, percorso] of Object.entries(atteso)) {
+    const u = new URL(indirizzoModulo('trattamenti', l, OSPITE));
+    assertEquals(u.pathname, percorso, `lingua ${l}`);
+  }
+  assertEquals(new URL(indirizzoModulo('transfer', 'fr', OSPITE)).pathname, '/fr/transfert');
+});
+
+Deno.test('e l indirizzo e assoluto, sul dominio dell hotel', () => {
+  /* la pagina che scrive questi collegamenti e' servita da due domini: un
+     percorso relativo va a vuoto su quello dietro le riscritture */
+  const u = indirizzoModulo('transfer', 'it', OSPITE);
+  assertEquals(u.startsWith(SITO + '/'), true, u);
+  assertEquals(SITO.startsWith('https://'), true);
+});
+
+Deno.test('i valori vuoti non sporcano l indirizzo', () => {
+  const u = new URL(indirizzoModulo('transfer', 'it', { nome: 'Mario', email: '', tel: '  ' }));
+  assertEquals(u.searchParams.get('nome'), 'Mario');
+  assertEquals(u.searchParams.has('email'), false);
+  assertEquals(u.searchParams.has('tel'), false);
+});
+
+Deno.test('senza dati resta l indirizzo nudo, che funziona lo stesso', () => {
+  assertEquals(indirizzoModulo('transfer', 'it'), SITO + '/it/transfer');
+  assertEquals(indirizzoModulo('transfer', 'it', {}), SITO + '/it/transfer');
+});
+
+Deno.test('un tipo che non esiste non produce un collegamento a caso', () => {
+  /* meglio nessun pulsante che un pulsante che porta su una pagina che non
+     c e */
+  assertEquals(indirizzoModulo('inventato', 'it', OSPITE), '');
+  assertEquals(indirizzoModulo('', 'it', OSPITE), '');
+});
+
+Deno.test('una lingua che non conosciamo ripiega sull inglese, come tutto il resto', () => {
+  assertEquals(new URL(indirizzoModulo('transfer', 'es', OSPITE)).pathname, '/en/transfer');
+});
+
+Deno.test('e i parametri che scriviamo sono quelli che la pagina legge', () => {
+  /* la prova che lega le due parti: non si confrontano stringhe, si fa
+     leggere l indirizzo a chi lo leggera' davvero */
+  const u = new URL(indirizzoModulo('trattamenti', 'it', OSPITE));
+  const letti = parametriOspite(u.search);
+  assertEquals(letti.nome, OSPITE.nome, 'il nome non arriva al modulo');
+  assertEquals(letti.email, OSPITE.email, 'l email non arriva al modulo');
+  assertEquals(letti.tel, OSPITE.tel, 'il telefono non arriva al modulo');
+  assertEquals(letti.arrivo, OSPITE.arrivo, 'la data di arrivo non arriva al modulo');
+  assertEquals(letti.partenza, OSPITE.partenza, 'la data di partenza non arriva al modulo');
+});

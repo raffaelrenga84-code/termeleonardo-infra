@@ -116,6 +116,16 @@ textarea{min-height:80px;resize:vertical;}
   border:1.5px solid var(--verde-medio);border-radius:999px;color:var(--verde);
   font:600 15px inherit;cursor:pointer;}
 .fatta{text-align:center;padding:40px 22px;}
+/* GLI INVITI. Transfer e trattamenti restano richieste loro, coi moduli
+   che esistono gia': qui c'e' solo il collegamento, coi dati dell'ospite
+   dentro l'indirizzo perche' non li ridigiti. Stanno sulla schermata e
+   NON nell'email: l'ospite e' ancora qui, e la ricevuta e' gia' densa
+   (prezzo, caparra, tassa di soggiorno, cane). */
+.inviti{margin-top:30px;padding-top:22px;border-top:1px solid #E5E0D8;}
+.invitiTit{color:var(--verde);font-weight:600;font-size:15px;margin-bottom:12px;}
+.invito{display:block;padding:12px 16px;margin-top:8px;border:1.5px solid var(--verde-medio);
+  border-radius:999px;color:var(--verde);text-decoration:none;font-weight:600;font-size:14px;}
+.invitiNota{color:var(--grigio);font-size:12.5px;margin-top:10px;}
 .fatta .rif{font-family:"Courier New",monospace;font-size:20px;color:var(--verde);
   letter-spacing:1px;margin-top:10px;}
 .pie{text-align:center;color:var(--grigio);font-size:12.5px;padding:0 18px 40px;}
@@ -244,6 +254,9 @@ import { SUPPLEMENTO_CANE_CENT } from '/prenota/cane.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Le tariffe che sono la stessa
    offerta con e senza cena si accorpano: vedi famiglie.js. */
 import { accorpa } from '/prenota/famiglie.js';
+/* PERCORSO ASSOLUTO, stessa ragione. L'indirizzo pubblico dei moduli
+   transfer e trattamenti, coi dati dell'ospite gia' dentro. */
+import { indirizzoModulo } from '/comune/percorso.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Dopo una certa ora il giorno stesso
    non si prenota da qui — il perche' sta in giorno-stesso.js. */
 import { chiusoPerOggi, oraLimite } from '/prenota/giorno-stesso.js';
@@ -339,6 +352,10 @@ const T = {
     mancaChe:(x)=>`Manca ancora: ${x}.`, legenda:'* campo obbligatorio',
     ripiego:'Non siamo riusciti a registrare la richiesta. Ci chiami allo +39 049 9939200 o scriva a info@termeleonardo.com: rispondiamo subito.',
     // chiusura
+    ancoraTit:'Le serve altro per il suo soggiorno?',
+    invitoTrattamenti:'Prenoti i trattamenti alla spa',
+    invitoTransfer:'Prenoti il transfer da e per l’aeroporto',
+    invitoNota:'I suoi dati sono già compilati: le resta da scegliere solo quando.',
     grazieTit:'Richiesta inviata',
     grazieTxt:'La reception le risponde entro poche ore con la conferma e le indicazioni per la caparra.',
     rif:'Riferimento', ancora:'Fai un’altra richiesta',
@@ -387,6 +404,10 @@ const T = {
     invia:'Anfrage senden', invio:'Senden…',
     mancaChe:(x)=>`Es fehlt noch: ${x}.`, legenda:'* Pflichtfeld',
     ripiego:'Wir konnten die Anfrage nicht speichern. Rufen Sie uns unter +39 049 9939200 an oder schreiben Sie an info@termeleonardo.com: wir antworten sofort.',
+    ancoraTit:'Brauchen Sie noch etwas für Ihren Aufenthalt?',
+    invitoTrattamenti:'Behandlungen im Spa buchen',
+    invitoTransfer:'Transfer vom und zum Flughafen buchen',
+    invitoNota:'Ihre Daten sind schon ausgefüllt: Sie wählen nur noch wann.',
     grazieTit:'Anfrage gesendet',
     grazieTxt:'Die Rezeption antwortet Ihnen innerhalb weniger Stunden mit der Bestätigung und den Hinweisen zur Anzahlung.',
     rif:'Referenz', ancora:'Weitere Anfrage stellen',
@@ -435,6 +456,10 @@ const T = {
     invia:'Send request', invio:'Sending…',
     mancaChe:(x)=>`Still missing: ${x}.`, legenda:'* required field',
     ripiego:'We could not register your request. Please call +39 049 9939200 or write to info@termeleonardo.com: we will reply right away.',
+    ancoraTit:'Anything else for your stay?',
+    invitoTrattamenti:'Book your spa treatments',
+    invitoTransfer:'Book the airport transfer',
+    invitoNota:'Your details are already filled in: you only choose when.',
     grazieTit:'Request sent',
     grazieTxt:'Reception will reply within a few hours with the confirmation and instructions for the deposit.',
     rif:'Reference', ancora:'Make another request',
@@ -483,6 +508,10 @@ const T = {
     invia:'Envoyer la demande', invio:'Envoi…',
     mancaChe:(x)=>`Il manque encore : ${x}.`, legenda:'* champ obligatoire',
     ripiego:'Nous n’avons pas pu enregistrer la demande. Appelez-nous au +39 049 9939200 ou écrivez à info@termeleonardo.com : nous répondons tout de suite.',
+    ancoraTit:'Autre chose pour votre séjour ?',
+    invitoTrattamenti:'Réservez vos soins au spa',
+    invitoTransfer:'Réservez le transfert aéroport',
+    invitoNota:'Vos coordonnées sont déjà remplies : il ne reste qu’à choisir quand.',
     grazieTit:'Demande envoyée',
     grazieTxt:'La réception vous répond sous quelques heures avec la confirmation et les indications pour les arrhes.',
     rif:'Référence', ancora:'Faire une autre demande',
@@ -497,6 +526,9 @@ let CAPARRA_CENT = 0;
 let CONDIZIONI = { righe: [], recesso: '' };
 let SCELTA = null;                // la proposta scelta
 let TUTTE_LE_CAMERE = false;      // l'ospite ha chiesto di vederle tutte
+/* i contatti appena scritti, per non farli ridigitare sul modulo dopo:
+   quando la schermata finale si disegna il modulo non c'e' piu' */
+let OSPITE = null;
 let CERCANDO = false;
 let INVIANDO = false;
 
@@ -959,6 +991,12 @@ async function inviaRichiesta() {
       console.error('richiesta non registrata:', r.status, d);
       throw new Error('non registrata');
     }
+    /* prima di cambiare schermata: i campi stanno per sparire dal DOM e
+       servono ancora, per gli inviti qui sotto */
+    OSPITE = {
+      nome, email, tel: telefono,
+      arrivo: RICERCA && RICERCA.arrivo, partenza: RICERCA && RICERCA.partenza,
+    };
     STATO = 'fatta';
     disegna(d.numero || '');
   } catch (e) {
@@ -980,6 +1018,13 @@ function schermaFatta(numero) {
     <p style="color:var(--verde-medio);">${esc(t.grazieTxt)}</p>
     ${numero ? `<div class="rif">${esc(numero)}</div>
       <div class="guida" style="margin-top:4px;">${esc(t.rif)}</div>` : ''}
+    ${OSPITE ? `
+      <div class="inviti">
+        <div class="invitiTit">${esc(t.ancoraTit)}</div>
+        <a class="invito" href="${esc(indirizzoModulo('trattamenti', LNG, OSPITE))}">${esc(t.invitoTrattamenti)}</a>
+        <a class="invito" href="${esc(indirizzoModulo('transfer', LNG, OSPITE))}">${esc(t.invitoTransfer)}</a>
+        <div class="invitiNota">${esc(t.invitoNota)}</div>
+      </div>` : ''}
     <p style="margin-top:22px;"><a href="?l=${LNG}">${esc(t.ancora)}</a></p>
   </div>`;
 }

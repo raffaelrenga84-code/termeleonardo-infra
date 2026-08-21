@@ -83,3 +83,34 @@ export function indirizzoPerLingua(percorso, ricerca, tipo, nuovaLingua) {
   if (tipo) q.set('tipo', tipo);
   return `${percorso || ''}?${q.toString()}`;
 }
+
+/* IL SITO PUBBLICO. Gli indirizzi qui sotto devono funzionare dentro
+   un'email e in una pagina servita da due domini diversi (il sito
+   dell'hotel e il progetto Vercel che sta dietro alle riscritture): un
+   percorso relativo come `/it/trattamenti` va a vuoto sul secondo. */
+export const SITO = 'https://www.hoteltermeleonardo.com';
+
+/* L'INDIRIZZO PUBBLICO DI UN MODULO, con i dati dell'ospite gia' dentro.
+
+   PERCHE'. Chi ha appena chiesto una camera e vuole anche il transfer si
+   trovava davanti un modulo vuoto: nome, email e telefono da ridigitare,
+   appena due minuti dopo averli scritti. Ogni campo da riempire una
+   seconda volta e' gente che rinuncia.
+
+   I nomi dei parametri sono quelli che le pagine LEGGONO GIA' — vedi
+   parametriOspite() in ospite-url.js: sono gli stessi che scrivono i
+   pulsanti delle email della reception, quindi non nasce un contratto
+   nuovo. I valori vuoti non si scrivono: `?nome=` non riempie niente e
+   sporca l'indirizzo. */
+export function indirizzoModulo(tipo, lingua, dati = {}) {
+  const l = LINGUE.includes(lingua) ? lingua : 'en';
+  const voce = PERCORSI[tipo] && PERCORSI[tipo][l];
+  if (!voce) return '';
+  const q = new URLSearchParams();
+  for (const chiave of ['nome', 'email', 'tel', 'arrivo', 'partenza']) {
+    const v = String(dati[chiave] ?? '').trim();
+    if (v) q.set(chiave, v);
+  }
+  const coda = q.toString();
+  return `${SITO}/${l}/${voce}${coda ? '?' + coda : ''}`;
+}
