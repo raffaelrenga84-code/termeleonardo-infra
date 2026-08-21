@@ -57,3 +57,30 @@ export function ordinaGruppi(gruppi, adulti) {
     .sort((a, b) => a.p[0] - b.p[0] || a.p[1] - b.p[1] || a.i - b.i)
     .map((x) => x.g);
 }
+
+/** Quante categorie si mostrano subito. Le altre stanno dietro un pulsante.
+ *
+ *  PERCHE'. Undici categorie una sotto l'altra, ognuna con la sua
+ *  fotografia e le sue tariffe, sono una pagina lunghissima da scorrere
+ *  prima di capire che cosa si sta scegliendo. Con due davanti — quelle
+ *  giuste per il numero di persone cercato, vedi PRIMA_PER_ADULTI — chi ha
+ *  le idee chiare sceglie subito, e chi vuole guardare tutto clicca. */
+export const QUANTE_SUBITO = 2;
+
+/** Che cosa disegnare adesso dell'elenco, e quante restano fuori.
+ *
+ *  `aperto` e' vero quando l'ospite ha gia' chiesto di vederle tutte.
+ *  `indiceScelto` serve a un caso che altrimenti sarebbe crudele: chi ha
+ *  aperto l'elenco e scelto una suite non deve vedersela sparire sotto gli
+ *  occhi al ridisegno. Se la scelta sta fuori dalle prime, si apre. */
+export function daMostrare(inOrdine, aperto, indiceScelto) {
+  const tutte = inOrdine ?? [];
+  const prime = tutte.slice(0, QUANTE_SUBITO);
+  const sceltaFuori = Number.isInteger(indiceScelto) &&
+    !prime.some((g) => (g.voci ?? []).some((v) => v.indice === indiceScelto));
+  const aperte = Boolean(aperto) || sceltaFuori || tutte.length <= QUANTE_SUBITO;
+  return {
+    visibili: aperte ? tutte : prime,
+    restano: aperte ? 0 : tutte.length - prime.length,
+  };
+}

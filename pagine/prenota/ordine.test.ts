@@ -25,7 +25,7 @@
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { CAMERE } from '../../supabase/functions/richieste/camere.ts';
-import { IN_FONDO, ordinaGruppi, PRIMA_PER_ADULTI } from './ordine.js';
+import { daMostrare, IN_FONDO, ordinaGruppi, PRIMA_PER_ADULTI } from './ordine.js';
 
 type Gruppo = { camera_id: number };
 const gruppi = (...id: number[]): Gruppo[] => id.map((camera_id) => ({ camera_id }));
@@ -118,8 +118,9 @@ Deno.test('la pagina riordina davvero, e il pulsante sta nella barra', () => {
     'la schermata non chiama piu ordinaGruppi: torna l ordine del motore',
   );
   assert(
-    pagina.includes('${inOrdine.map(g =>'),
-    'la schermata disegna ancora `gruppi`, non quelli riordinati',
+    pagina.includes('inOrdine, TUTTE_LE_CAMERE'),
+    'l elenco riordinato non arriva piu a daMostrare: le due mostrate ' +
+      'tornerebbero a essere le prime due dell ordine del motore',
   );
   assert(
     /\.barraScelta\{[^}]*position:sticky/.test(pagina),
@@ -128,5 +129,94 @@ Deno.test('la pagina riordina davvero, e il pulsante sta nella barra', () => {
   assert(
     pagina.includes('<div class="barraScelta">'),
     'la barra non c e piu nel markup',
+  );
+});
+
+/* ============================================================
+   QUANTE SE NE MOSTRANO. Aggiunto il 21 agosto 2026.
+
+   Undici categorie una sotto l'altra, ognuna con la sua fotografia e le
+   sue tariffe, sono una pagina lunghissima da scorrere prima di capire
+   che cosa si sta scegliendo. Se ne mostrano due — quelle giuste per il
+   numero di persone, decise dal riordino qui sopra — e le altre stanno
+   dietro un pulsante.
+
+   IL CASO CRUDELE che daMostrare deve evitare: l'ospite apre l'elenco,
+   sceglie una suite, la schermata si ridisegna e la sua scelta sparisce
+   sotto il pulsante. Se la scelta sta fuori dalle prime, si apre.
+   ============================================================ */
+const conVoci = (...id: number[]) =>
+  id.map((camera_id) => ({ camera_id, voci: [{ indice: camera_id * 10 }] }));
+
+Deno.test('chiuso se ne vedono due, e il pulsante dice quante restano', () => {
+  const r = daMostrare(conVoci(6, 5, 9, 12, 3, 4, 8), false, null);
+  assertEquals(r.visibili.map((g: Gruppo) => g.camera_id), [6, 5]);
+  assertEquals(r.restano, 5);
+});
+
+Deno.test('aperto si vedono tutte e il pulsante sparisce', () => {
+  const tutte = conVoci(6, 5, 9, 12, 3, 4, 8);
+  const r = daMostrare(tutte, true, null);
+  assertEquals(r.visibili.length, tutte.length);
+  assertEquals(r.restano, 0);
+});
+
+Deno.test('una scelta fuori dalle prime apre l elenco da sola', () => {
+  /* senza questo, chi ha aperto e scelto una suite se la vede sparire al
+     ridisegno che segue il clic */
+  const r = daMostrare(conVoci(6, 5, 9, 12), false, 90 /* la 9 */);
+  assertEquals(r.visibili.map((g: Gruppo) => g.camera_id), [6, 5, 9, 12]);
+  assertEquals(r.restano, 0);
+});
+
+Deno.test('ma una scelta fra le prime lo lascia chiuso', () => {
+  const r = daMostrare(conVoci(6, 5, 9, 12), false, 50 /* la 5 */);
+  assertEquals(r.visibili.map((g: Gruppo) => g.camera_id), [6, 5]);
+  assertEquals(r.restano, 2);
+});
+
+Deno.test('con due o meno categorie non si nasconde niente', () => {
+  /* un pulsante che apre su niente e' peggio di nessun pulsante */
+  for (const quante of [0, 1, 2]) {
+    const r = daMostrare(conVoci(6, 5).slice(0, quante), false, null);
+    assertEquals(r.restano, 0, `con ${quante} categorie il pulsante non deve uscire`);
+    assertEquals(r.visibili.length, quante);
+  }
+});
+
+Deno.test('e aperto non si perde nessuna categoria', () => {
+  const tutte = conVoci(6, 5, 9, 12, 3, 4, 8);
+  const r = daMostrare(tutte, true, null);
+  assertEquals(
+    r.visibili.map((g: Gruppo) => g.camera_id),
+    tutte.map((g) => g.camera_id),
+    'aprire l elenco cambia le categorie o il loro ordine',
+  );
+});
+
+Deno.test('un elenco assente non fa esplodere la pagina', () => {
+  const r = daMostrare(undefined as unknown as { camera_id: number }[], false, null);
+  assertEquals(r.visibili, []);
+  assertEquals(r.restano, 0);
+});
+
+Deno.test('la pagina mostra davvero solo le visibili, e sa riaprirle', () => {
+  const pagina = Deno.readTextFileSync(new URL('index.html', import.meta.url));
+  assert(
+    pagina.includes('daMostrare(') && pagina.includes('${visibili.map(g =>'),
+    'la schermata non passa piu da daMostrare: tornano fuori tutte e undici',
+  );
+  assert(
+    pagina.includes("$('bAltre').onclick") && pagina.includes('TUTTE_LE_CAMERE = true'),
+    'il pulsante non apre piu l elenco: le altre categorie diventano irraggiungibili',
+  );
+  /* DUE volte, non una: la riga che DICHIARA la variabile la mette gia
+     a false, quindi cercare la stringa e basta resta verde anche quando
+     l'azzeramento dopo la ricerca sparisce. E' successo: la mutazione e
+     sopravvissuta, e la prova era sbagliata, non il codice. */
+  const azzeramenti = pagina.split('TUTTE_LE_CAMERE = false').length - 1;
+  assert(
+    azzeramenti >= 2,
+    'c e solo la dichiarazione: una ricerca nuova resterebbe aperta da quella prima',
   );
 });

@@ -72,6 +72,11 @@ textarea{min-height:80px;resize:vertical;}
   border-radius:12px;padding:10px 14px;margin-bottom:10px;
   font-size:14px;text-align:center;}
 .barraScelta .invia{margin-top:0;}
+/* «Vedi anche le altre»: secondario, non deve competere col verde
+   pieno del Continua. */
+.altre{display:block;width:100%;margin-top:4px;padding:13px;background:none;
+  border:1.5px solid var(--verde-medio);border-radius:999px;color:var(--verde);
+  font:600 15px inherit;cursor:pointer;}
 .fatta{text-align:center;padding:40px 22px;}
 .fatta .rif{font-family:"Courier New",monospace;font-size:20px;color:var(--verde);
   letter-spacing:1px;margin-top:10px;}
@@ -179,7 +184,7 @@ import { altFoto, fotoDi } from '/prenota/foto.js';
 /* PERCORSO ASSOLUTO, stessa ragione di sopra. Con quale ordine si
    propongono le categorie: sta in un modulo suo perche' e' una regola
    commerciale, non un dettaglio di disegno — vedi ordine.js. */
-import { ordinaGruppi } from '/prenota/ordine.js';
+import { daMostrare, ordinaGruppi } from '/prenota/ordine.js';
 /* Lo stesso sistema del modulo transfer: l'asterisco sui campi
    obbligatori, l'elenco di cio' che manca DAVVERO, e il fuoco sul primo
    campo vuoto. Vive in un posto solo perche' le pagine sono tre. */
@@ -242,6 +247,7 @@ const T = {
     cameraTit:'Le camere libere', cameraGuida:'Scelga la camera e il trattamento che preferisce: il prezzo è per l’intero soggiorno.',
     finoAdulti:(n)=>n===1?`Per 1 adulto`:`Fino a ${n} adulti`,
     indietroDate:'← Cambi le date', continua:'Continua con i suoi dati',
+    altreCamere:(n)=>n===1?'Vedi anche l’altra camera':`Vedi anche le altre ${n} camere`,
     mancaScelta:'Scelga una camera per continuare.',
     // passo 3
     riepilogo:(a,p,ad,b)=>`Dal <strong>${a}</strong> al <strong>${p}</strong> · ${ad} adult${ad===1?'o':'i'}${b>0?`, ${b} bambin${b===1?'o':'i'}`:''}`,
@@ -279,6 +285,7 @@ const T = {
     cameraTit:'Freie Zimmer', cameraGuida:'Wählen Sie Zimmer und Verpflegung: der Preis gilt für den gesamten Aufenthalt.',
     finoAdulti:(n)=>n===1?`Für 1 Erwachsenen`:`Bis zu ${n} Erwachsene`,
     indietroDate:'← Daten ändern', continua:'Weiter zu Ihren Daten',
+    altreCamere:(n)=>n===1?'Das andere Zimmer ansehen':`Weitere ${n} Zimmer ansehen`,
     mancaScelta:'Bitte wählen Sie ein Zimmer, um fortzufahren.',
     riepilogo:(a,p,ad,b)=>`Vom <strong>${a}</strong> bis <strong>${p}</strong> · ${ad} Erwachsene${b>0?`, ${b} Kind${b===1?'':'er'}`:''}`,
     riepilogoCamera:(nome,tariffa,prezzo)=>`<strong>${esc(nome)}</strong> — ${esc(tariffa)} — ${prezzo} €`,
@@ -314,6 +321,7 @@ const T = {
     cameraTit:'Available rooms', cameraGuida:'Choose the room and rate you prefer: the price is for the whole stay.',
     finoAdulti:(n)=>n===1?`For 1 adult`:`Up to ${n} adults`,
     indietroDate:'← Change dates', continua:'Continue with your details',
+    altreCamere:(n)=>n===1?'See the other room':`See the other ${n} rooms`,
     mancaScelta:'Please choose a room to continue.',
     riepilogo:(a,p,ad,b)=>`From <strong>${a}</strong> to <strong>${p}</strong> · ${ad} adult${ad===1?'':'s'}${b>0?`, ${b} child${b===1?'':'ren'}`:''}`,
     riepilogoCamera:(nome,tariffa,prezzo)=>`<strong>${esc(nome)}</strong> — ${esc(tariffa)} — ${prezzo} €`,
@@ -349,6 +357,7 @@ const T = {
     cameraTit:'Chambres disponibles', cameraGuida:'Choisissez la chambre et le tarif que vous préférez : le prix est pour tout le séjour.',
     finoAdulti:(n)=>n===1?`Pour 1 adulte`:`Jusqu’à ${n} adultes`,
     indietroDate:'← Changer les dates', continua:'Continuer avec vos coordonnées',
+    altreCamere:(n)=>n===1?'Voir l’autre chambre':`Voir les ${n} autres chambres`,
     mancaScelta:'Veuillez choisir une chambre pour continuer.',
     riepilogo:(a,p,ad,b)=>`Du <strong>${a}</strong> au <strong>${p}</strong> · ${ad} adulte${ad===1?'':'s'}${b>0?`, ${b} enfant${b===1?'':'s'}`:''}`,
     riepilogoCamera:(nome,tariffa,prezzo)=>`<strong>${esc(nome)}</strong> — ${esc(tariffa)} — ${prezzo} €`,
@@ -377,6 +386,7 @@ let PROPOSTE = [];                // risposta di a=disponibilita
 let CAPARRA_CENT = 0;
 let CONDIZIONI = { righe: [], recesso: '' };
 let SCELTA = null;                // la proposta scelta
+let TUTTE_LE_CAMERE = false;      // l'ospite ha chiesto di vederle tutte
 let CERCANDO = false;
 let INVIANDO = false;
 
@@ -506,6 +516,8 @@ async function cercaDisponibilita() {
     CONDIZIONI = d.condizioni && Array.isArray(d.condizioni.righe)
       ? d.condizioni : { righe: [], recesso: '' };
     SCELTA = null;
+    /* una ricerca nuova riparte chiusa: le due davanti sono altre */
+    TUTTE_LE_CAMERE = false;
 
     if (!PROPOSTE.length) {
       CERCANDO = false;
@@ -543,12 +555,16 @@ function schermaCamere() {
   /* e adesso nell'ordine con cui la reception le venderebbe a chi ha
      cercato per quel numero di persone */
   const inOrdine = ordinaGruppi(gruppi, RICERCA && RICERCA.adulti);
+  /* e di quelle se ne mostrano due: le altre dietro un pulsante */
+  const { visibili, restano } = daMostrare(
+    inOrdine, TUTTE_LE_CAMERE, SCELTA && SCELTA.indice,
+  );
 
   $('app').innerHTML = `
     <button type="button" class="indietro" id="bIndietroDate">${esc(t.indietroDate)}</button>
     <div class="riquadro">
       <h2>${esc(t.cameraTit)}</h2><div class="guida">${esc(t.cameraGuida)}</div>
-      ${inOrdine.map(g => `
+      ${visibili.map(g => `
         <div class="gruppoCamera">
           ${fotoDi(g.camera_id)
             ? `<img class="foto" src="${esc(fotoDi(g.camera_id))}" alt="${esc(altFoto(g.camera_id, g.nome))}"
@@ -569,6 +585,9 @@ function schermaCamere() {
               </div>
             </button>`).join('')}
         </div>`).join('')}
+      ${restano
+        ? `<button type="button" class="altre" id="bAltre">${esc(t.altreCamere(restano))}</button>`
+        : ''}
     </div>
     <div class="barraScelta">
       ${SCELTA
@@ -580,6 +599,7 @@ function schermaCamere() {
     </div>`;
 
   $('bIndietroDate').onclick = () => { STATO = 'ricerca'; disegna(); };
+  if ($('bAltre')) $('bAltre').onclick = () => { TUTTE_LE_CAMERE = true; schermaCamere(); };
   document.querySelectorAll('.proposta').forEach(btn => {
     btn.onclick = () => {
       const i = Number(btn.dataset.indice);
