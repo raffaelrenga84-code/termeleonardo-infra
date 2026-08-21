@@ -398,3 +398,44 @@ Deno.test('la pagina conta le persone e filtra, in quest ordine', () => {
     'senza nessuna camera capiente la pagina non dice niente',
   );
 });
+
+/* ============================================================
+   E LA VIA DELLE CAMERE SEPARATE, ma solo fra adulti.
+
+   Correzione del 21 agosto 2026, dalla proprietà: tre adulti possono
+   benissimo volere tre singole — amici, colleghi — e nascondergliele e
+   basta è troppo rigido. Tre persone di cui un bambino no: il bambino
+   dorme coi genitori, sul letto aggiunto o sul divano letto della junior
+   suite, e mandarlo in una camera sua non è una soluzione, è un
+   equivoco.
+
+   Quindi il filtro resta sempre — una camera che non li tiene tutti non
+   si mostra — ma la via d'uscita si offre SOLO quando sono tutti adulti.
+   ============================================================ */
+Deno.test('la via delle camere separate si offre fra adulti, non con un bambino', () => {
+  const pagina = Deno.readTextFileSync(new URL('index.html', import.meta.url));
+  assert(
+    pagina.includes('const separabili = !bambiniCercati && persone >= 2 &&'),
+    'la proposta delle camere separate non guarda piu i bambini: la offrirebbe a una famiglia',
+  );
+  assert(
+    pagina.includes('capienti.length < gruppi.length'),
+    'la proposta esce anche quando non e stato tolto niente: non avrebbe senso',
+  );
+  /* la CONDIZIONE, col dollaro-graffa: la sola chiamata resta nel ramo
+     morto anche spegnendo tutto. E' la quarta volta che questa forma
+     lascia passare una mutazione, in una giornata sola. */
+  assert(
+    pagina.includes('${separabili'),
+    'la proposta delle camere separate non si disegna piu',
+  );
+  assert(
+    pagina.includes('t.separate(persone)'),
+    'sparito il testo della proposta',
+  );
+  /* riparte da UNA persona, con le stesse date */
+  assert(
+    pagina.includes('&adulti=1&l=$'),
+    'la ricerca separata non riparte da una persona sola',
+  );
+});
