@@ -10,7 +10,7 @@
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 
-const SORGENTE = Deno.readTextFileSync(new URL('index.html', import.meta.url));
+const SORGENTE = Deno.readTextFileSync(new URL('arrivo/index.html', import.meta.url));
 
 Deno.test('il copione si legge senza errori di sintassi', () => {
   const m = SORGENTE.match(/<script type="module">([\s\S]*)<\/script>/);

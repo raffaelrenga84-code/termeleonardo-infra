@@ -23,7 +23,7 @@
    ============================================================ */
 import { assert } from 'jsr:@std/assert';
 
-const PAGINA = Deno.readTextFileSync(new URL('./index.html', import.meta.url));
+const PAGINA = Deno.readTextFileSync(new URL('./arrivo/index.html', import.meta.url));
 
 /* le chiavi che la sezione usa, una per lingua: se una lingua ne perde una,
    l'ospite vede `undefined` dentro una scheda dell'hotel */

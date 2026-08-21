@@ -39,7 +39,7 @@ const VISIBILI = [
 /* Non devono comparire: back office, pagine di servizio, e il modulo delle
    richieste, che da solo vale sedici indirizzi tutti uguali. */
 const NASCOSTE = [
-  'index.html',
+  'arrivo/index.html',
   'documenti.html',
   'segnalibri.html',
   'buoni/index.html',

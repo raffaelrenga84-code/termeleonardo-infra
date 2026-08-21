@@ -16,7 +16,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const CHIAVE_INTERNA = Deno.env.get('HOTEL_KEY')!;        // segreto condiviso con l'estensione
-const BASE_PAGINA    = Deno.env.get('BASE_PAGINA') ?? 'https://arrivo.termeleonardo.com';
+const BASE_PAGINA    = Deno.env.get('BASE_PAGINA') ?? 'https://www.hoteltermeleonardo.com/arrivo';
 
 const db = createClient(
   Deno.env.get('SUPABASE_URL')!,
