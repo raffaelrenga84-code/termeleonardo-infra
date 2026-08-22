@@ -176,8 +176,15 @@ textarea{min-height:80px;resize:vertical;}
 /* ---- passi: tre schermate in una pagina sola, un indicatore leggero ---- */
 .passi{display:flex;justify-content:center;gap:8px;margin:0 auto 22px;max-width:640px;
   padding:0 18px;}
-.passi span{flex:1;height:3px;border-radius:3px;background:#E5E0D8;}
-.passi span.fatto,.passi span.attivo{background:var(--oro);}
+/* ogni passo e' una barretta E il suo nome: le barrette da sole dicono
+   che qualcosa si colora, non dove si e' ne' dove si sta tornando */
+.passi span{flex:1;display:block;}
+.passi span i{display:block;height:3px;border-radius:3px;background:#E5E0D8;}
+.passi span b{display:block;margin-top:6px;font:400 11.5px/1.3 inherit;
+  color:var(--grigio);text-align:center;letter-spacing:.2px;}
+.passi span.fatto i,.passi span.attivo i{background:var(--oro);}
+.passi span.fatto b{color:var(--verde-medio);}
+.passi span.attivo b{color:var(--verde);font-weight:600;}
 .indietro{display:inline-block;background:none;border:0;padding:0;margin-bottom:6px;
   color:var(--verde-medio);font-size:13px;cursor:pointer;text-decoration:underline;}
 
@@ -364,6 +371,7 @@ const T = {
     occhiello:'PRENOTAZIONE CAMERE', titolo:'La sua camera all’Hotel Terme Leonardo',
     sotto:'Scelga le date, veda le camere libere e il prezzo: la reception le conferma tutto entro poche ore.',
     // passo 1
+    passoDate:'Date e ospiti', passoCamera:'La camera', passoDati:'I suoi dati',
     dateTit:'Date e ospiti', dateGuida:'Ci dica quando arriva e in quanti siete: le mostriamo le camere libere per quelle date.',
     arrivo:'Arrivo', partenza:'Partenza', adulti:'Adulti', bambini:'Bambini',
     etaBambino:(n)=>`Età bambino ${n}`, etaOpt:'Età',
@@ -441,6 +449,7 @@ const T = {
   de:{
     occhiello:'ZIMMERBUCHUNG', titolo:'Ihr Zimmer im Hotel Terme Leonardo',
     sotto:'Wählen Sie die Daten, sehen Sie die freien Zimmer und den Preis: die Rezeption bestätigt Ihnen alles innerhalb weniger Stunden.',
+    passoDate:'Daten und Gäste', passoCamera:'Das Zimmer', passoDati:'Ihre Angaben',
     dateTit:'Daten und Gäste', dateGuida:'Sagen Sie uns, wann Sie ankommen und wie viele Sie sind: wir zeigen Ihnen die freien Zimmer für diese Daten.',
     arrivo:'Anreise', partenza:'Abreise', adulti:'Erwachsene', bambini:'Kinder',
     etaBambino:(n)=>`Alter Kind ${n}`, etaOpt:'Alter',
@@ -515,6 +524,7 @@ const T = {
   en:{
     occhiello:'ROOM BOOKING', titolo:'Your room at Hotel Terme Leonardo',
     sotto:'Choose your dates, see the rooms available and the price: reception confirms everything within a few hours.',
+    passoDate:'Dates and guests', passoCamera:'The room', passoDati:'Your details',
     dateTit:'Dates and guests', dateGuida:'Tell us when you arrive and how many you are: we will show the rooms available for those dates.',
     arrivo:'Arrival', partenza:'Departure', adulti:'Adults', bambini:'Children',
     etaBambino:(n)=>`Age of child ${n}`, etaOpt:'Age',
@@ -589,6 +599,7 @@ const T = {
   fr:{
     occhiello:'RÉSERVATION DE CHAMBRE', titolo:'Votre chambre à l’Hotel Terme Leonardo',
     sotto:'Choisissez les dates, consultez les chambres disponibles et le prix : la réception vous confirme tout sous quelques heures.',
+    passoDate:'Dates et personnes', passoCamera:'La chambre', passoDati:'Vos coordonnées',
     dateTit:'Dates et voyageurs', dateGuida:'Dites-nous quand vous arrivez et combien vous êtes : nous vous montrons les chambres disponibles pour ces dates.',
     arrivo:'Arrivée', partenza:'Départ', adulti:'Adultes', bambini:'Enfants',
     etaBambino:(n)=>`Âge de l’enfant ${n}`, etaOpt:'Âge',
@@ -709,10 +720,15 @@ function testata() {
 }
 
 function passi() {
+  const t = T[LNG];
   const ordine = ['ricerca','camere','dati'];
+  /* i nomi stanno qui e non nell'elenco degli stati: l'elenco e' il
+     percorso, i nomi sono quello che l'ospite legge, e cambiano lingua */
+  const nomi = [t.passoDate, t.passoCamera, t.passoDati];
   const i = ordine.indexOf(STATO === 'fatta' ? 'dati' : STATO);
   $('passi').innerHTML = ordine.map((_, n) =>
-    `<span class="${n < i ? 'fatto' : n === i ? 'attivo' : ''}"></span>`).join('');
+    `<span class="${n < i ? 'fatto' : n === i ? 'attivo' : ''}">` +
+    `<i></i><b>${esc(nomi[n])}</b></span>`).join('');
 }
 
 /* L'avviso del giorno stesso si scrive ACCANTO ALLE DATE e non sotto il

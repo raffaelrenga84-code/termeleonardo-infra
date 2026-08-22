@@ -18,7 +18,7 @@
    escono nudi e l'ospite ridigita tutto — che è esattamente la cosa che
    questi inviti servono a evitare.
    ============================================================ */
-import { assert } from 'jsr:@std/assert';
+import { assert, assertEquals } from 'jsr:@std/assert';
 
 const PAGINA = Deno.readTextFileSync(new URL('index.html', import.meta.url));
 
@@ -213,4 +213,17 @@ Deno.test('e la cena e una striscia attaccata, non una terza tariffa', () => {
     'la tariffa sopra tiene gli angoli tondi: si vede la cucitura',
   );
   assert(PAGINA.includes('class="piu" aria-hidden="true"'), 'sparito il segno + davanti all invito');
+});
+
+Deno.test('ogni passo dice il suo nome, non solo una barretta colorata', () => {
+  /* chi vedeva tre barrette sapeva che qualcosa si colorava, non dove si
+     trovava ne dove stava tornando quando premeva indietro */
+  assert(PAGINA.includes('const nomi = [t.passoDate, t.passoCamera, t.passoDati];'), 'i passi non hanno piu nome');
+  assert(PAGINA.includes('<i></i><b>'), 'la barretta e il nome non escono piu insieme');
+  const nomi = [...PAGINA.matchAll(/passoDate:'([^']*)'/g)].map((m) => m[1]);
+  assertEquals(nomi.length, 4, `i nomi del primo passo sono ${nomi.length}, non 4`);
+  for (const n of nomi) {
+    assert(n.trim().length > 3, `nome troppo corto: «${n}»`);
+    assert(n.split(/\s+/).length <= 3, `nome troppo lungo per un telefono: «${n}»`);
+  }
 });
