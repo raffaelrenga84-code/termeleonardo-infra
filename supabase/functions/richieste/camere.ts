@@ -56,10 +56,10 @@ export const CAMERE: Record<number, Camera> = {
       fr: 'Deux lits simples de 1×2 m, jumelables sur demande.',
     } },
   6: { id: 6, nome: 'Matrimoniale Queen', descrizione: {
-      it: 'Letto queen da 1,60 m, circa 16 m².',
-      de: 'Queensize-Bett 1,60 m, rund 16 m².',
-      en: 'Queen bed, 1.60 m, about 16 m².',
-      fr: 'Lit queen de 1,60 m, environ 16 m².',
+      it: 'Letto matrimoniale da 1,60 m, circa 16 m².',
+      de: 'Doppelbett 1,60 m, rund 16 m².',
+      en: 'Double bed, 1.60 m, about 16 m².',
+      fr: 'Lit double de 1,60 m, environ 16 m².',
     } },
   7: { id: 7, nome: 'Junior Suite Colli Euganei', descrizione: {
       it: 'Junior suite con doppio lavabo.',

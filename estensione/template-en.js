@@ -53,7 +53,7 @@ function guestsEN(adulti, bambini) {
 }
 
 const ROOMS_EN = {
-  'queen': '16 m², queen-size double bed 1.60 m, balcony overlooking the garden, soundproofed',
+  'queen': '16 m², double bed 1.60 m, balcony overlooking the garden, soundproofed',
   'doppia': '18 m², two single beds that can be joined, balcony, soundproofed',
   'singola': '16 m², French bed 1.45 m, balcony overlooking the garden and the pools',
   'junior suite abano': '28 m², up to 3 guests: separate living and sleeping areas with sofa bed, terrace and walk-in wardrobe',

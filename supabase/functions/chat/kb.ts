@@ -328,7 +328,7 @@ Chiusura: "Inoltro subito la richiesta alla reception, che conferma la prenotazi
 | **Singola senza balcone** | 1 | fino a 1 | l’unica senza balcone |
 | **Singola Parco** | 1 | fino a 1 | letto alla francese 1,45 m, vista parco — **l’unica col letto alla francese** |
 | **Doppia** | 1–2 | fino a 1 | letti singoli 1×2 m, accostabili |
-| **Matrimoniale Queen** | 1–2 | fino a 1 | letto queen 1,60 m, ~16 mq |
+| **Matrimoniale Queen** | 1–2 | fino a 1 | letto matrimoniale 1,60 m, ~16 mq |
 | **Junior Suite Colli Euganei** | 1–2 | 0 | doppio lavabo |
 | **Junior Suite Abano** | 1–**3** | fino a 1 | ~35 mq, vista Abano/Monteortone — **è la tripla** |
 | **Junior Suite Monteortone** | 2–4 | 0 | |

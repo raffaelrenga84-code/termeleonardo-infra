@@ -54,7 +54,7 @@ function hotesFR(adulti, bambini) {
 }
 
 const CHAMBRES_FR = {
-  'queen': '16 m², lit double queen de 1,60 m, balcon avec vue sur le jardin, insonorisée',
+  'queen': '16 m², lit double de 1,60 m, balcon avec vue sur le jardin, insonorisée',
   'doppia': '18 m², deux lits simples jumelables, balcon, insonorisée',
   'singola': '16 m², lit à la française de 1,45 m, balcon avec vue sur le jardin et les piscines',
   'junior suite abano': '28 m², jusqu\'à 3 personnes : coin nuit et coin salon séparés avec canapé-lit, terrasse et dressing',

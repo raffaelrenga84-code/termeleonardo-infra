@@ -55,7 +55,7 @@ function gaesteDE(erw, kinder) {
 }
 
 const ZIMMER_DE = {
-  'queen': '16 m², Queensize-Doppelbett 1,60 m, Balkon mit Gartenblick, schallisoliert',
+  'queen': '16 m², Doppelbett 1,60 m, Balkon mit Gartenblick, schallisoliert',
   'doppia': '18 m², zwei zusammenstellbare Einzelbetten, Balkon, schallisoliert',
   'singola': '16 m², französisches Bett 1,45 m, Balkon mit Garten- und Poolblick',
   'junior suite abano': '28 m², bis 3 Personen: getrennter Wohn- und Schlafbereich mit Schlafsofa, Terrasse und begehbarem Kleiderschrank',
