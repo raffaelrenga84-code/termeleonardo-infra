@@ -260,3 +260,52 @@ Deno.test('e i campi ripartono da quello che era scritto, non dall indirizzo', (
   assert(PAGINA.includes('gia.cane ?'), 'la spunta del cane non si conserva');
   assert(PAGINA.includes('gia.privacy ?'), 'la spunta privacy non si conserva');
 });
+
+/* ============================================================
+   I PREZZI SU UN TELEFONO. Corretto il 22 agosto 2026.
+
+   La riga della tariffa era a due colonne — testo a sinistra, prezzo a
+   destra — e la colonna del prezzo NON SI STRINGEVA, perché dentro
+   c'era anche «totale · 2 adulti × 190,00 € a persona». Su un telefono
+   quella frase si prendeva metà riga e schiacciava il nome della
+   tariffa a tre parole per volta:
+
+       Miglior          380,00 €
+       Prezzo      totale · 2 adulti
+       Bed &       × 190,00 € a persona
+       Breakfast ·
+
+   La frase sta ora FUORI dalla riga, a tutta larghezza. In riga resta
+   il solo prezzo, che è corto. È una cosa di struttura, non di stile: un
+   foglio di stile la può ammorbidire, ma se il div torna dentro la
+   colonna il difetto torna identico. Per questo la prova guarda dove sta
+   il div, non come è colorato.
+   ============================================================ */
+Deno.test('la frase del totale sta FUORI dalla colonna del prezzo', () => {
+  const fam = accorpa(QUEEN, massaggioDelPiano)[0];
+  const out = disegna(fam, null);
+  const box = out.indexOf('class="prezzoBox"');
+  const dett = out.indexOf('class="dettPrezzo"');
+  assert(box > 0, 'sparita la colonna del prezzo');
+  assert(dett > box, 'la frase del totale viene prima del prezzo');
+  /* fra i due devono chiudersi TRE div: il prezzo, la colonna, la riga.
+     Se sono meno, la frase e' tornata dentro la colonna. */
+  const chiusure = out.slice(box, dett).split('</div>').length - 1;
+  assert(
+    chiusure >= 3,
+    `fra il prezzo e la frase del totale si chiudono ${chiusure} div invece di 3: ` +
+      'la frase e tornata dentro la colonna, e su un telefono schiaccia il nome della tariffa',
+  );
+});
+
+Deno.test('e il nome della tariffa puo restringersi senza traboccare', () => {
+  const pagina = Deno.readTextFileSync(new URL('index.html', import.meta.url));
+  assert(
+    pagina.includes('.proposta .riga > div:first-child{min-width:0;}'),
+    'senza min-width:0 una parola lunga fa traboccare la scheda invece di andare a capo',
+  );
+  assert(
+    pagina.includes('@media(max-width:420px){'),
+    'sotto i 420px il prezzo torna accanto al nome, e si spezzano tutti e due',
+  );
+});

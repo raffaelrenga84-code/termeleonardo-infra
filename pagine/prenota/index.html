@@ -49,6 +49,14 @@ textarea{min-height:80px;resize:vertical;}
 .due{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .tre{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
 @media(max-width:560px){.due,.tre{grid-template-columns:1fr 1fr;}}
+/* SOTTO I 420px il prezzo va a capo sotto il nome della tariffa: su un
+   telefono stretto «Matrimoniale Queen» e «380,00 €» sulla stessa riga
+   spezzano tutti e due. */
+@media(max-width:420px){
+  .proposta .riga,.aggiungi .riga{display:block;}
+  .proposta .prezzoBox,.aggiungi .prezzoBox{text-align:left;margin-top:6px;}
+  .proposta .dettPrezzo,.aggiungi .dettPrezzo{text-align:left;}
+}
 .spunta{display:flex;align-items:flex-start;gap:10px;margin-top:12px;font-size:14.5px;
   color:var(--verde-medio);cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;}
 .spunta input{width:18px;height:18px;margin:2px 0 0;flex:0 0 auto;}
@@ -102,9 +110,14 @@ textarea{min-height:80px;resize:vertical;}
 .inclusi ul{margin:0;padding:0 16px 12px 30px;}
 .inclusi li{color:var(--grigio);font-size:13px;line-height:1.65;}
 /* il prezzo e la sua spiegazione, incolonnati a destra */
+/* in riga resta il solo prezzo, che e' corto. La frase «totale · 2
+   adulti × 190,00 € a persona» sta SOTTO, a tutta larghezza: in colonna
+   non si stringeva e su un telefono schiacciava il nome della tariffa a
+   tre parole per riga. */
 .proposta .prezzoBox{text-align:right;flex:0 0 auto;}
-.proposta .dettPrezzo{color:var(--grigio);font-size:11.5px;margin-top:1px;
-  line-height:1.4;}
+.proposta .riga > div:first-child{min-width:0;}
+.proposta .dettPrezzo{color:var(--grigio);font-size:11.5px;margin-top:4px;
+  line-height:1.4;text-align:right;}
 /* LA FAMIGLIA: la tariffa base e, attaccata sotto, la stessa offerta con
    la cena. Tratteggiata e non piena: e' un'aggiunta, non una terza
    tariffa da confrontare. */
@@ -116,11 +129,12 @@ textarea{min-height:80px;resize:vertical;}
   margin-top:4px;cursor:pointer;font:inherit;color:inherit;}
 .aggiungi.selezionata{border-style:solid;background:#FBF6E4;}
 .aggiungi .riga{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.aggiungi .riga > div:first-child{min-width:0;}
 .aggiungiTit{font-weight:600;color:var(--verde);font-size:13.5px;}
 .aggiungiSotto{color:#6B4A22;font-size:12.5px;margin-top:1px;line-height:1.45;}
 .aggiungi .prezzoPiu{font-family:"Cormorant Garamond",Georgia,serif;font-size:18px;
   color:var(--verde-medio);}
-.aggiungi .dettPrezzo{color:var(--grigio);font-size:11.5px;margin-top:1px;line-height:1.4;}
+.aggiungi .dettPrezzo{color:var(--grigio);font-size:11.5px;margin-top:4px;line-height:1.4;text-align:right;}
 .aggiungi .prezzoBox{text-align:right;flex:0 0 auto;}
 /* la via delle camere separate: stessa forma del «vedi anche le altre»,
    ma e' un collegamento e non un pulsante, perche' porta via da qui */
@@ -1030,9 +1044,11 @@ function schermaCamere() {
                 </div>
                 <div class="prezzoBox">
                   <div class="prezzo">${euroDaCentesimi(v.prezzo_cent)} €</div>
-                  <div class="dettPrezzo">${esc(dettaglioDelPrezzo(v.prezzo_cent, t))}</div>
                 </div>
               </div>
+              <!-- fuori dalla riga: e' la frase piu' lunga della scheda, e in
+                   colonna schiacciava il nome della tariffa -->
+              <div class="dettPrezzo">${esc(dettaglioDelPrezzo(v.prezzo_cent, t))}</div>
             </button>`
               : `
             <button type="button" class="aggiungi${SCELTA && SCELTA.indice === v.indice ? ' selezionata' : ''}"
@@ -1044,9 +1060,9 @@ function schermaCamere() {
                 </div>
                 <div class="prezzoBox">
                   <div class="prezzoPiu">${euroDaCentesimi(v.prezzo_cent)} €</div>
-                  <div class="dettPrezzo">${esc(dettaglioDelPrezzo(v.prezzo_cent, t))}</div>
                 </div>
               </div>
+              <div class="dettPrezzo">${esc(dettaglioDelPrezzo(v.prezzo_cent, t))}</div>
             </button>`
             ).join('')}
             </div>`).join('')}
