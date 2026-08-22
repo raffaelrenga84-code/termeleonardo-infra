@@ -79,27 +79,54 @@ export function apriAlTocco(campo) {
    fuoco, e chi scrive la data a tastiera non viene interrotto a meta'. */
 export function collegaArrivoPartenza(arrivo, partenza) {
   if (!arrivo || !partenza) return;
+
+  /* restituisce il minimo ammesso, che e' anche il modo di sapere se
+     l'arrivo e' una data vera: senza, e' stringa vuota */
   const aggiorna = () => {
     const { minimo, partenza: buona } = partenzaCoerente(arrivo.value, partenza.value);
     if (minimo) partenza.min = minimo;
     if (partenza.value !== buona) partenza.value = buona;
+    return minimo;
   };
 
-  const vaAllaPartenza = () => {
-    aggiorna();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(arrivo.value || ''))) return;
+  const dopoLArrivo = () => {
+    const minimo = aggiorna();
+    if (!minimo) return;
+    /* se ne ha gia' una buona non si tocca niente: sta correggendo
+       l'arrivo, non ricominciando */
     if (partenza.value) return;
+
+    /* IL CALENDARIO DELLA PARTENZA SI APRIVA SU OGGI. Su un campo data
+       vuoto iOS apre la vista sul giorno corrente: `min` impedisce di
+       scegliere prima, ma non sposta il mese ne' il giorno evidenziato,
+       e chi ha scelto il 24 agosto si ritrovava il 22 illuminato. Si
+       mette il minimo — una notte, che e' anche il soggiorno piu' corto
+       possibile — e da li' l'ospite sposta. */
+    partenza.value = minimo;
+
     try {
       arrivo.blur?.();
       partenza.focus?.();
     } catch { /* un browser che non lo permette non deve rompere la pagina */ }
   };
 
+  /* E ANCHE IL PANNELLO DELLA PARTENZA SI CHIUDE. Si chiudeva solo quello
+     dell'arrivo, e restava aperto quello dopo: la stessa sensazione di
+     prima, spostata di un passo. */
+  const dopoLaPartenza = () => {
+    aggiorna();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(partenza.value || ''))) return;
+    try {
+      partenza.blur?.();
+    } catch { /* idem */ }
+  };
+
   for (const ev of ['input', 'change']) {
     arrivo.addEventListener(ev, aggiorna);
     partenza.addEventListener(ev, aggiorna);
   }
-  arrivo.addEventListener('change', vaAllaPartenza);
+  arrivo.addEventListener('change', dopoLArrivo);
+  partenza.addEventListener('change', dopoLaPartenza);
   aggiorna();
 }
 

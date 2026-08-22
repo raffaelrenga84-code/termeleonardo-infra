@@ -127,3 +127,54 @@ Deno.test('e senza uno dei due campi non esplode niente', () => {
   collegaArrivoPartenza(null as unknown as Campo, campo());
   collegaArrivoPartenza(campo(), null as unknown as Campo);
 });
+
+/* ============================================================
+   SEGUITO, dal telefono vero il 22 agosto 2026.
+
+   · il calendario della PARTENZA si apriva su OGGI e non sul giorno dopo
+     l'arrivo. Su un campo data vuoto iOS apre la vista sul giorno
+     corrente: `min` impedisce di scegliere prima, ma non sposta il mese
+     né il giorno evidenziato. Chi aveva scelto il 24 agosto si trovava
+     il 22 illuminato, e la sensazione è che la pagina non lo ascolti;
+
+   · e il pannello della partenza non si chiudeva da solo, mentre quello
+     dell'arrivo sì: la stessa sensazione di prima, spostata di un passo.
+   ============================================================ */
+Deno.test('la partenza parte dal giorno dopo l arrivo, non da oggi', () => {
+  const a = campo();
+  const p = campo();
+  collegaArrivoPartenza(a, p);
+  a.value = '2026-08-24';
+  a.scatta('change');
+  assertEquals(p.value, '2026-08-25', 'la partenza resta vuota: il calendario si apre su oggi');
+  assertEquals(p.min, '2026-08-25');
+});
+
+Deno.test('ma non sovrascrive una partenza gia scelta e buona', () => {
+  const a = campo('2026-08-24');
+  const p = campo('2026-09-02');
+  collegaArrivoPartenza(a, p);
+  a.value = '2026-08-25';
+  a.scatta('change');
+  assertEquals(p.value, '2026-09-02', 'ha buttato una partenza buona per metterci il minimo');
+});
+
+Deno.test('e scelta la partenza si chiude anche il suo calendario', () => {
+  const a = campo('2026-08-24');
+  const p = campo();
+  collegaArrivoPartenza(a, p);
+  p.value = '2026-08-30';
+  p.scatta('change');
+  assert(p.chiuso, 'il calendario della partenza resta aperto');
+});
+
+Deno.test('e una partenza buttata perche sbagliata NON chiude il calendario', () => {
+  /* l ospite deve poter scegliere di nuovo senza riaprire il pannello */
+  const a = campo('2026-08-26');
+  const p = campo();
+  collegaArrivoPartenza(a, p);
+  p.value = '2026-08-22';
+  p.scatta('change');
+  assertEquals(p.value, '', 'la partenza sbagliata e rimasta');
+  assertEquals(p.chiuso, false, 'ha chiuso il calendario lasciando il campo vuoto');
+});
