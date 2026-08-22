@@ -163,3 +163,18 @@ Deno.test('e il totale viaggia fino al cartello della camera dopo', () => {
     'senza totale il cartello non dice piu niente',
   );
 });
+
+Deno.test('il cartello dice che per questa camera date e persone si cambiano', () => {
+  /* E IL PEZZO CHE MANCAVA per due camere di PERIODI DIVERSI — il caso
+     vero della prenotazione #18968: una camera 18 notti col pacchetto
+     cure, l altra 2 notti in mezza pensione. La catena lo permetteva
+     gia (la seconda camera riparte dal passo delle date), ma il cartello
+     non lo diceva e chi lo legge crede di dover tenere le stesse date. */
+  const frasi = [...PAGINA.matchAll(/camera(?:DiSerie|DiQuante):\([^)]*\)=>`([^`]*)`/g)]
+    .map((m) => m[1]);
+  assert(frasi.length === 8, `le frasi del cartello sono ${frasi.length}, non 8`);
+  const segno = /cambiare date|Daten und Personen|change dates|changer les dates/i;
+  for (const [i, f] of frasi.entries()) {
+    assert(segno.test(f), `la frase ${i + 1} non dice che date e persone si possono cambiare: «${f}»`);
+  }
+});
