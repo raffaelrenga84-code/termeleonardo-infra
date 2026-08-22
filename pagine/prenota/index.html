@@ -101,7 +101,6 @@ textarea{min-height:80px;resize:vertical;}
 .riquadroCulla{background:#fff;border:1px solid #E5E0D8;border-radius:12px;
   padding:10px 14px;margin-bottom:14px;}
 .riquadroCulla .spunta{margin-top:0;}
-.senzaCulla{color:#9A3412;font-size:12.5px;margin-left:8px;}
 .erroreCulla{background:#FDF1EC;border-left:3px solid #C2410C;border-radius:6px;
   padding:8px 11px;margin-bottom:8px;font-size:13px;color:#7C2D12;}
 .serve{margin-top:14px;}
@@ -347,7 +346,7 @@ import { nomeTariffa, nomeTrattamento } from '/prenota/nomi.js';
 import { SUPPLEMENTO_CANE_CENT } from '/prenota/cane.js';
 /* la culla: quanto costa e in quali categorie ci sta. Anche questi sono
    numeri della casa, e stanno in un modulo loro per la stessa ragione. */
-import { ciStaLaCulla, primaConCulla, SUPPLEMENTO_CULLA_CENT } from '/prenota/culla.js';
+import { ciStaLaCulla, primaConCulla, soloConCulla, SUPPLEMENTO_CULLA_CENT } from '/prenota/culla.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Che cosa succede alla caparra
    quando c'e' un buono: vedi buono.js. */
 import { caparraDopoBuono, valoreInCentesimi } from '/prenota/buono.js';
@@ -443,7 +442,6 @@ const T = {
     culla:'Ci serve una culla',
     cullaBreve:'con culla',
     cullaNota:(imp)=>`Supplemento ${imp} € per tutto il soggiorno, non al giorno. La culla si può posizionare nelle Junior Suite e nelle Suite: nelle singole, nella Doppia e nella Matrimoniale Queen non c’è lo spazio.`,
-    cullaNoScheda:'qui la culla non ci sta',
     cullaNoQui:(nome)=>`Nella ${nome} la culla non ci sta: serve una Junior Suite o una Suite.`,
     cullaCambia:(nome,prezzo)=>`Passi alla ${nome} — ${prezzo} €`,
     cullaNessuna:'Per queste date non risultano libere Junior Suite o Suite: ci chiami allo +39 049 9939200 e cerchiamo insieme.',
@@ -538,7 +536,6 @@ const T = {
     culla:'Wir brauchen ein Kinderbett',
     cullaBreve:'mit Kinderbett',
     cullaNota:(imp)=>`Aufschlag ${imp} € für den gesamten Aufenthalt, nicht pro Tag. Das Kinderbett passt in die Junior-Suiten und die Suiten: in den Einzelzimmern, im Doppelzimmer und im Zimmer Matrimoniale Queen ist kein Platz dafür.`,
-    cullaNoScheda:'hier passt kein Kinderbett',
     cullaNoQui:(nome)=>`Ins Zimmer ${nome} passt kein Kinderbett: dafür braucht es eine Junior-Suite oder eine Suite.`,
     cullaCambia:(nome,prezzo)=>`Wechseln zu ${nome} — ${prezzo} €`,
     cullaNessuna:'Für diese Daten sind keine Junior-Suiten oder Suiten frei: rufen Sie uns bitte unter +39 049 9939200 an, wir suchen gemeinsam.',
@@ -632,7 +629,6 @@ const T = {
     culla:'We need a cot',
     cullaBreve:'with cot',
     cullaNota:(imp)=>`Supplement ${imp} € for the whole stay, not per day. The cot fits in the Junior Suites and the Suites: there is no room for it in the singles, the Twin or the Matrimoniale Queen.`,
-    cullaNoScheda:'no room for a cot here',
     cullaNoQui:(nome)=>`There is no room for a cot in the ${nome}: you need a Junior Suite or a Suite.`,
     cullaCambia:(nome,prezzo)=>`Switch to the ${nome} — ${prezzo} €`,
     cullaNessuna:'No Junior Suites or Suites are free for these dates: please call us on +39 049 9939200 and we will look together.',
@@ -726,7 +722,6 @@ const T = {
     culla:'Il nous faut un lit bébé',
     cullaBreve:'avec lit bébé',
     cullaNota:(imp)=>`Supplément ${imp} € pour tout le séjour, pas par jour. Le lit bébé tient dans les Junior Suites et les Suites : dans les chambres simples, la Doppia et la Matrimoniale Queen il n’y a pas la place.`,
-    cullaNoScheda:'pas de place pour un lit bébé',
     cullaNoQui:(nome)=>`Dans la ${nome} il n’y a pas la place pour un lit bébé : il faut une Junior Suite ou une Suite.`,
     cullaCambia:(nome,prezzo)=>`Passez à la ${nome} — ${prezzo} €`,
     cullaNessuna:'Aucune Junior Suite ni Suite n’est libre pour ces dates : appelez-nous au +39 049 9939200, nous chercherons ensemble.',
@@ -1331,7 +1326,13 @@ function schermaCamere() {
     capienti.length < gruppi.length;
   /* e poi nell'ordine con cui la reception le venderebbe a chi ha cercato
      per quel numero di persone */
-  const inOrdine = ordinaGruppi(capienti, persone);
+  /* E POI, A CHI HA CHIESTO LA CULLA, si tolgono le categorie che non la
+     ospitano. DOPO il conto di `separabili` qui sopra, che confronta
+     quante ne sono state tolte PER LE PERSONE: contarci dentro anche
+     quelle tolte per la culla proporrebbe di dividersi in piu' camere a
+     chi ha solo chiesto un lettino. */
+  const conLaCulla = soloConCulla(capienti, CULLA);
+  const inOrdine = ordinaGruppi(conLaCulla, persone);
   /* e di quelle se ne mostrano due: le altre dietro un pulsante */
   const { visibili, restano } = daMostrare(
     inOrdine, TUTTE_LE_CAMERE, SCELTA && SCELTA.indice,
@@ -1371,13 +1372,7 @@ function schermaCamere() {
                prezzo e vale per tutte le tariffe della camera — che e' giusto,
                perche' quello che e' compreso e' lo stesso per tutte. -->
           <div class="rigaInfo">
-            <span class="maxAdulti">${g.max_adulti ? esc(t.finoAdulti(g.max_adulti)) : ''}
-              <!-- QUI LA CULLA NON CI STA: si dice sulla scheda, mentre si
-                   sceglie. Dirlo dopo vorrebbe dire far scegliere alla
-                   cieca e poi rimandare indietro. -->
-              ${CULLA && !ciStaLaCulla(g.camera_id)
-                ? `<span class="senzaCulla">${esc(t.cullaNoScheda)}</span>`
-                : ''}</span>
+            <span class="maxAdulti">${g.max_adulti ? esc(t.finoAdulti(g.max_adulti)) : ''}</span>
             <button type="button" class="infoInclusi" data-testid="info-inclusi"
               aria-label="${esc(t.inclusiTit)}"><span aria-hidden="true">i</span></button>
           </div>
@@ -1422,6 +1417,12 @@ function schermaCamere() {
             ).join('')}
             </div>`).join('')}
         </div>`).join('')}
+      <!-- L'ELENCO PUO' RESTARE VUOTO: per quelle date puo' non esserci
+           nessuna suite libera. Un elenco vuoto e muto sembra la pagina
+           rotta; qui si dice che cosa e' successo e si da' un numero. -->
+      ${CULLA && !inOrdine.length
+        ? `<div class="erroreCulla">${esc(t.cullaNessuna)}</div>`
+        : ''}
       ${restano
         ? `<button type="button" class="altre" id="bAltre">${esc(t.altreCamere(restano))}</button>`
         : ''}

@@ -28,7 +28,7 @@
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 import {
-  CAMERE_CON_CULLA, ciStaLaCulla, primaConCulla, SUPPLEMENTO_CULLA_CENT,
+  CAMERE_CON_CULLA, ciStaLaCulla, primaConCulla, soloConCulla, SUPPLEMENTO_CULLA_CENT,
 } from './culla.js';
 import { corpoCamera, euroDaCentesimi } from './logica.js';
 import { CAMERE } from '../../supabase/functions/richieste/camere.ts';
@@ -303,12 +303,68 @@ Deno.test('la domanda sta in CIMA all elenco, non dopo le camere', () => {
   assert(domanda < prima, 'la domanda della culla sta sotto l elenco delle camere');
 });
 
-Deno.test('e le camere che non la ospitano lo dicono sulla loro scheda', () => {
-  assert(
-    PAGINA.includes('CULLA && !ciStaLaCulla(g.camera_id)'),
-    'le schede non dicono piu dove la culla non ci sta',
+Deno.test('e le camere che non la ospitano non si vedono affatto', () => {
+  /* detto dalla proprieta' guardando la pagina vera: «se non ci sta non
+     farmela nemmeno vedere». Prima si mostravano tutte con scritto
+     accanto «qui la culla non ci sta» — cioe' una camera da scartare a
+     mano, e scartare a mano lo deve fare la pagina. */
+  const camere = [
+    { camera_id: 6, nome: 'Matrimoniale Queen' },
+    { camera_id: 7, nome: 'Junior Suite Colli Euganei' },
+    { camera_id: 5, nome: 'Doppia' },
+    { camera_id: 9, nome: 'Suite Colli Euganei' },
+  ];
+  assertEquals(
+    soloConCulla(camere, true).map((g: { nome: string }) => g.nome),
+    ['Junior Suite Colli Euganei', 'Suite Colli Euganei'],
   );
-  assertEquals(PAGINA.split('cullaNoScheda:').length - 1, 4);
+});
+
+Deno.test('e chi non l ha chiesta continua a vederle tutte', () => {
+  /* il filtro esiste solo per chi ha risposto di si: a tutti gli altri
+     toglierebbe otto camere su undici senza che l abbiano chiesto */
+  const camere = [{ camera_id: 6 }, { camera_id: 7 }];
+  assertEquals(soloConCulla(camere, false).length, 2);
+  assertEquals(soloConCulla(camere, undefined as unknown as boolean).length, 2);
+  assertEquals(soloConCulla(camere, 'si' as unknown as boolean).length, 2);
+  assertEquals(soloConCulla(undefined as unknown as [], true), []);
+});
+
+Deno.test('il filtro della culla arriva DOPO il conto delle camere separate', () => {
+  /* «separabili» confronta quante camere sono state tolte PER LE PERSONE:
+     contarci dentro anche quelle tolte per la culla proporrebbe di
+     dividersi in piu' camere a chi ha solo chiesto un lettino */
+  const sep = PAGINA.indexOf('const separabili =');
+  const filtro = PAGINA.indexOf('const conLaCulla = soloConCulla(capienti, CULLA);');
+  const ordine = PAGINA.indexOf('const inOrdine = ordinaGruppi(conLaCulla, persone);');
+  assert(sep > 0 && filtro > 0 && ordine > 0, 'il filtro della culla non si applica piu');
+  assert(filtro > sep, 'il filtro della culla falsa il conto delle camere separate');
+  assert(ordine > filtro, 'si ordina prima di filtrare');
+  /* e UNA volta sola: una seconda chiamata dentro il conto di
+     «separabili» lo rimetterebbe a mentire, lasciando questa in pace */
+  assertEquals(
+    PAGINA.split('soloConCulla(').length - 1,
+    1,
+    'il filtro della culla si applica piu di una volta: uno dei due punti ' +
+      'falsa il conto delle camere separate',
+  );
+});
+
+Deno.test('e un elenco rimasto vuoto non resta muto', () => {
+  /* per quelle date puo' non esserci nessuna suite libera: un elenco
+     vuoto e senza spiegazione sembra la pagina rotta */
+  assert(
+    PAGINA.includes('${CULLA && !inOrdine.length'),
+    'l elenco svuotato dalla culla resta senza spiegazione',
+  );
+});
+
+Deno.test('e non resta in giro la frase che non serve piu', () => {
+  /* «qui la culla non ci sta» era la nota sulle schede: adesso quelle
+     schede non ci sono. Un testo morto in quattro lingue e' una trappola
+     per il prossimo che lo trova e lo crede in uso. */
+  assertEquals(PAGINA.split('cullaNoScheda').length - 1, 0);
+  assertEquals(PAGINA.split('senzaCulla').length - 1, 0);
 });
 
 /* I DUE GESTORI SI ESEGUONO. Guardare il testo della pagina diceva che

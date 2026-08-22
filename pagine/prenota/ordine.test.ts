@@ -113,8 +113,11 @@ Deno.test('la pagina riordina davvero, e il pulsante sta nella barra', () => {
   /* le prove qui sopra valgono solo se la pagina chiama la funzione: una
      regola giusta in un modulo che nessuno usa non arriva a nessuno */
   const pagina = Deno.readTextFileSync(new URL('index.html', import.meta.url));
+  /* la catena e': adatte (chi ci sta) → soloConCulla (dove la culla ci
+     sta) → ordinaGruppi (nell'ordine in cui la reception le vende). Qui
+     si pretende l'ultimo anello, gli altri li presidia culla.test.ts. */
   assert(
-    pagina.includes('ordinaGruppi(capienti, persone)'),
+    pagina.includes('ordinaGruppi(conLaCulla, persone)'),
     'la schermata non chiama piu ordinaGruppi: torna l ordine del motore',
   );
   assert(
@@ -391,8 +394,11 @@ Deno.test('la pagina conta le persone e filtra, in quest ordine', () => {
     'la pagina torna a contare i soli adulti: la Queen riapparirebbe a chi viaggia con un figlio',
   );
   const filtro = pagina.indexOf('adatte(gruppi, persone)');
-  const ordine = pagina.indexOf('ordinaGruppi(capienti, persone)');
-  assert(filtro > 0 && ordine > filtro, 'si ordina prima di filtrare, o non si filtra affatto');
+  const culla = pagina.indexOf('soloConCulla(capienti, CULLA)');
+  const ordine = pagina.indexOf('ordinaGruppi(conLaCulla, persone)');
+  assert(filtro > 0, 'non si filtra piu per numero di persone');
+  assert(culla > filtro, 'il filtro della culla non viene dopo quello delle persone');
+  assert(ordine > culla, 'si ordina prima di filtrare: il lavoro dell ordine va buttato');
   assert(
     pagina.includes('t.troppePerUnaCamera(persone)'),
     'senza nessuna camera capiente la pagina non dice niente',

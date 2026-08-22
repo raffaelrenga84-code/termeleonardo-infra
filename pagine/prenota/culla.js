@@ -59,6 +59,22 @@ export function ciStaLaCulla(cameraId) {
   return Number.isInteger(n) && CAMERE_CON_CULLA.includes(n);
 }
 
+/** Le camere da mostrare a chi ha chiesto una culla: solo quelle che la
+ *  ospitano.
+ *
+ *  Prima si mostravano tutte, con scritto accanto «qui la culla non ci
+ *  sta»: e' una camera da scartare a mano, e scartare a mano lo deve
+ *  fare la pagina. Chi cerca con una culla ha gia' abbastanza da
+ *  decidere.
+ *
+ *  Senza culla chiesta non tocca niente e restituisce l'elenco com'e':
+ *  il filtro esiste solo per chi ha risposto di si'. */
+export function soloConCulla(gruppi, chiesta) {
+  const tutte = Array.isArray(gruppi) ? gruppi : [];
+  if (chiesta !== true) return tutte;
+  return tutte.filter((g) => ciStaLaCulla(g && g.camera_id));
+}
+
 /** Fra le camere libere per quelle date, la MENO CARA che ospita una
  *  culla — quella da proporre a chi ne ha chiesta una su una camera che
  *  non la ospita.
