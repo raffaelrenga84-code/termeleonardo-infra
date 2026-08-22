@@ -15,6 +15,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { validaParametriDisponibilita } from './valida.ts';
 import { validaDati } from './tipi.ts';
 import { componiRichiesta, type Contatti } from './componi-richiesta.ts';
+import { altreCamere, conIlNumero } from './piu-camere.ts';
 import { avvisaHotel } from './email-richiesta.ts';
 import { inviaRicevuta } from './ricevuta.ts';
 import { inviaConferma } from './conferma.ts';
@@ -227,6 +228,14 @@ Deno.serve(async (req) => {
     const colonne = composta.colonne;
     const propri = composta.dati ?? null;
 
+    /* LE CAMERE IN PIU', convalidate PRIMA di toccare il database: una
+       richiesta con due camere e' UN invio, non due — mandarne N di fila
+       sbatterebbe contro TETTO_PERSONA, che ferma a 3 per mezz'ora. Il
+       perche' e il come stanno in piu-camere.ts. */
+    const extra = altreCamere(corpo);
+    if (extra.errore) return risposta({ errore: extra.errore }, 400);
+    const inPiu = extra.camere ?? [];
+
     const ip = indirizzo(req);
     if (await troppeRichieste(contatti.email, ip)) {
       return risposta({ errore: 'troppe richieste ravvicinate' }, 429);
@@ -266,6 +275,44 @@ Deno.serve(async (req) => {
       return risposta({ errore: 'salvataggio non riuscito' }, 500);
     }
 
+    /* OGNI CAMERA IN PIU' E' UNA RIGA SUA, col suo numero e le sue date:
+       e' quello che la reception guarda per primo, e una riga sola con
+       dentro tre camere lo nasconderebbe. Il filo che le tiene insieme e'
+       `insieme` nel jsonb — un CAMPO, non una frase nelle note: una frase
+       la si legge, un campo lo si cerca.
+
+       SE UNA NON SI SALVA NON SI MENTE. La prima e' gia' a database e non
+       si puo' disfare (niente transazione qui): si smette, e all'ospite si
+       dice quante ne sono state registrate. Un «ok» che ne promette tre e
+       ne ha salvate due e' peggio di un numero in meno. */
+    const numeri: string[] = [n.numero];
+    const salvate: { colonne: Record<string, unknown>; numero: string }[] = [];
+    for (const [i, c] of inPiu.entries()) {
+      const { data: n2, error: e2 } = await db.rpc('prossimo_numero_richiesta');
+      if (e2 || !n2?.[0]) {
+        console.error('numerazione della camera', i + 2, 'fallita:', e2);
+        break;
+      }
+      const m = n2[0];
+      const suoi = conIlNumero(c.dati, n.numero);
+      const { error: e3 } = await db.from('richiesta_sito').insert({
+        anno: m.anno, progressivo: m.progressivo, numero: m.numero,
+        tipo,
+        ...c.colonne,
+        dati: suoi,
+        dati_originali: suoi,
+        origine: String(corpo.origine || '').slice(0, 200) || null,
+        ip,
+        privacy_il: dataConsenso(corpo.privacy_presa_atto),
+      });
+      if (e3) {
+        console.error('camera', i + 2, 'non salvata:', e3);
+        break;
+      }
+      numeri.push(m.numero);
+      salvate.push({ colonne: c.colonne!, numero: m.numero });
+    }
+
     /* Due email, e nessuna delle due puo' far fallire la richiesta: se non
        partono, la richiesta e' comunque salvata e si ritrova nell'elenco del
        back office.
@@ -284,12 +331,33 @@ Deno.serve(async (req) => {
        non si salva: e' deducibile da quando e' arrivata e da che giorno
        chiede, e un dato copiato in colonna divergerebbe. */
     const urgente = pocoPreavviso(tipo, propri, new Date());
-    const dati = { ...contatti, ...colonne, ...(propri || {}), tipo, numero: n.numero, poco_preavviso: urgente };
+    const dati = {
+      ...contatti,
+      ...colonne,
+      ...(propri || {}),
+      tipo,
+      numero: n.numero,
+      poco_preavviso: urgente,
+      /* le altre camere, per la ricevuta e per l'avviso: senza, l'ospite
+         riceverebbe una ricevuta con una camera sola dopo averne
+         prenotate tre */
+      ...(salvate.length ? { altre_camere: salvate } : {}),
+    };
     const [avvisato, ricevuta] = await Promise.all([
       avvisaHotel(dati),
       inviaRicevuta({ ...dati, dati: propri ?? null }),
     ]);
-    return risposta({ ok: true, numero: n.numero, avviso: avvisato, ricevuta });
+    /* `numero` resta il primo, che e' il riferimento della richiesta;
+       `numeri` li porta tutti, cosi' la pagina puo' dire quante camere
+       sono state registrate davvero invece di prometterne tre. */
+    return risposta({
+      ok: true,
+      numero: n.numero,
+      numeri,
+      camere_chieste: inPiu.length + 1,
+      avviso: avvisato,
+      ricevuta,
+    });
   }
 
   /* ---------- pubblico: precompilazione da un link della nostra email ----------
