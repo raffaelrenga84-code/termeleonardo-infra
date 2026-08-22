@@ -94,10 +94,20 @@ export function arricchisciElenco(righe: RigaGrezza[]): RigaArricchita[] {
 /** La chiave del gruppo di una riga: il numero della capofila se e' una
  *  camera in piu', il proprio se e' lei la capofila. */
 export function chiaveGruppo(r: RigaGrezza): string {
-  const insieme = (r.dati || {}).insieme;
   const suo = String(r.numero ?? '').trim();
-  const capo = String(insieme ?? '').trim();
-  return capo || suo;
+  return capofilaDi(r.dati) || suo;
+}
+
+/** Il numero della capofila dichiarato da una riga, comunque ci sia
+ *  arrivato: `insieme` se e' una camera in piu' dello stesso invio,
+ *  `collegata_a` se e' una richiesta mandata dopo da «aggiunga
+ *  un'altra camera». Due strade diverse — e due campi diversi, perche'
+ *  il freno per persona tratta la prima come «non e' un invio nuovo» e
+ *  la seconda come «lo e'» — ma per chi guarda la lista sono la stessa
+ *  cosa: camere dello stesso ospite, da assegnare vicine. */
+export function capofilaDi(dati: Record<string, unknown> | null | undefined): string {
+  const d = dati || {};
+  return String(d.insieme ?? '').trim() || String(d.collegata_a ?? '').trim();
 }
 
 /** Attacca a ogni riga `camere_insieme`: tutti i numeri del suo gruppo,
@@ -115,7 +125,7 @@ export function collegaCamere(
 ): RigaArricchita[] {
   const per = new Map<string, string[]>();
   for (const f of figlie ?? []) {
-    const capo = String((f?.dati || {}).insieme ?? '').trim();
+    const capo = capofilaDi(f?.dati);
     const suo = String(f?.numero ?? '').trim();
     if (!capo || !suo) continue;
     if (!per.has(capo)) per.set(capo, []);

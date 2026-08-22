@@ -28,7 +28,7 @@
      lista.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { arricchisciElenco, chiaveGruppo, collegaCamere } from './elenco.ts';
+import { arricchisciElenco, capofilaDi, chiaveGruppo, collegaCamere } from './elenco.ts';
 
 const CAPOFILA = {
   numero: 'C26/19130', tipo: 'soggiorno', stato: 'nuova',
@@ -150,9 +150,16 @@ Deno.test('le camere del gruppo si cercano con una query LORO', () => {
   assert(dove > 0, 'sparita l azione elenco');
   const corpo = INDEX.slice(dove, INDEX.indexOf('\n  }\n', dove));
   assert(
-    corpo.includes(".select('numero, dati').in('dati->>insieme', chiavi)"),
+    corpo.includes(".select('numero, dati').in(campo, chiavi)"),
     'il gruppo non si cerca piu con una query sua: il conto sara sbagliato ' +
       'appena la lista e filtrata',
+  );
+  /* DUE CAMPI, due giri: `insieme` sono le camere in piu dello stesso
+     invio, `collegata_a` le richieste mandate dopo da «aggiunga un altra
+     camera». Cercarne uno solo lascerebbe scollegata meta delle camere. */
+  assert(
+    corpo.includes("['dati->>insieme', 'dati->>collegata_a']"),
+    'una delle due strade del collegamento non si cerca piu',
   );
   assert(
     corpo.includes('collegaCamere(righe, figlie)'),
@@ -175,7 +182,77 @@ Deno.test('e se quella query fallisce non si perde l elenco', () => {
   const righe = INDEX.split('\n');
   const dopo = righe[righe.indexOf(riga!) + 1] ?? '';
   assert(
-    dopo.includes('figlie = f ?? []'),
+    dopo.includes('figlie = figlie.concat(f ?? [])'),
     'la strada buona non si legge piu accanto a quella dell errore',
+  );
+});
+
+/* ============================================================
+   L'ALTRA STRADA: «aggiunga un'altra camera» dalla schermata finale.
+
+   Quella non e' una camera in piu' dello stesso invio: e' una richiesta
+   NUOVA, con un altro giro di modulo, e porta il numero della prima in
+   `collegata_a`. Prima il collegamento finiva soltanto in una frase
+   dentro le note — e in questo progetto e' gia' scritto che il filo
+   dev'essere un CAMPO, non una frase: una frase la si legge, un campo lo
+   si cerca.
+
+   DUE CAMPI E NON UNO, e non e' pignoleria: il freno per persona esclude
+   dal conteggio le righe con `insieme`, perche' un carrello di tre camere
+   e' un invio solo. Riusare quel campo qui vorrebbe dire che una richiesta
+   vera smette di contare per il freno — cioe' una strada libera per chi
+   insiste.
+   ============================================================ */
+
+const COLLEGATA = {
+  numero: 'C26/19150', tipo: 'soggiorno', stato: 'nuova',
+  nome: 'Mario Rossi', check_in: '2026-09-05', check_out: '2026-09-07',
+  dati: { tariffa: 'Miglior Prezzo', prezzo_cent: 31000, collegata_a: 'C26/19130' },
+};
+
+Deno.test('una richiesta mandata dopo entra nello stesso gruppo', () => {
+  assertEquals(chiaveGruppo(COLLEGATA), 'C26/19130');
+  const [r] = collegaCamere(arricchisciElenco([CAPOFILA]), [
+    { numero: COLLEGATA.numero, dati: COLLEGATA.dati },
+  ]);
+  assertEquals(r.camere_insieme, ['C26/19130', 'C26/19150']);
+});
+
+Deno.test('e le due strade si mescolano nello stesso gruppo', () => {
+  /* tre camere col carrello e una aggiunta dopo sono quattro camere dello
+     stesso ospite: per chi le assegna non c e nessuna differenza */
+  const [r] = collegaCamere(arricchisciElenco([CAPOFILA]), [
+    { numero: SECONDA.numero, dati: SECONDA.dati },
+    { numero: COLLEGATA.numero, dati: COLLEGATA.dati },
+  ]);
+  assertEquals(r.camere_insieme?.length, 3);
+});
+
+Deno.test('e `insieme` vince su `collegata_a` quando ci sono tutti e due', () => {
+  /* non dovrebbe capitare, ma se capita la verita e quella scritta dal
+     server: `insieme` lo mette lui, `collegata_a` arriva dall indirizzo */
+  assertEquals(
+    capofilaDi({ insieme: 'C26/1', collegata_a: 'C26/2' }),
+    'C26/1',
+  );
+  assertEquals(capofilaDi({ collegata_a: 'C26/2' }), 'C26/2');
+  assertEquals(capofilaDi(null), '');
+  assertEquals(capofilaDi({ insieme: '  ', collegata_a: '  ' }), '');
+});
+
+Deno.test('IL FRENO continua a contare le richieste mandate dopo', () => {
+  /* e' la ragione per cui i campi sono due. Il freno esclude dal
+     conteggio le righe con `insieme` — un carrello di tre camere e' un
+     invio solo — e se escludesse anche `collegata_a` chi insiste avrebbe
+     una strada libera: manda, torna dalla schermata finale, manda di
+     nuovo, all'infinito. */
+  const dove = INDEX.indexOf('const { count: sue }');
+  assert(dove > 0, 'il conteggio per persona e sparito');
+  const query = INDEX.slice(dove, INDEX.indexOf('  }', dove));
+  assert(query.includes("dati->>insieme"), 'il freno non esclude piu le camere di un carrello');
+  assert(
+    !query.includes("collegata_a"),
+    'il freno ha smesso di contare le richieste mandate da «aggiunga un altra ' +
+      'camera»: chi insiste ha una strada libera',
   );
 });

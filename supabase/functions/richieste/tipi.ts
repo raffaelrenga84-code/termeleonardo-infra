@@ -410,6 +410,16 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
      arrivate. */
   const interessi = INTERESSI.filter((v) => chieste.includes(v));
 
+  /* IL COLLEGAMENTO A UNA RICHIESTA GIA' MANDATA, quando l'ospite arriva
+     da «aggiunga un'altra camera». Un numero di pratica, non un testo:
+     si taglia e basta, come il buono — un numero vecchio o scritto a
+     mano deve arrivare comunque in reception, che sa leggerlo.
+
+     NON e' `insieme`: quello lo scrive il server sulle camere in piu' di
+     uno stesso invio, e il freno per persona le esclude dal conteggio.
+     Questa e' una richiesta vera e per il freno conta. */
+  const collegataA = testo(d?.collegata_a).slice(0, 20);
+
   return {
     dati: {
       camera_id: n,
@@ -429,6 +439,7 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
       /* assente quando non c'e', come il cane: un elenco vuoto in back
          office si legge come «ho chiesto e non gli serve niente» */
       ...(interessi.length ? { interessi } : {}),
+      ...(collegataA ? { collegata_a: collegataA } : {}),
     },
   };
 }

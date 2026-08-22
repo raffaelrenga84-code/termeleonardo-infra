@@ -706,10 +706,18 @@ Deno.serve(async (req) => {
     const chiavi = [...new Set(righe.map(chiaveGruppo).filter(Boolean))];
     let figlie: { numero?: unknown; dati?: Record<string, unknown> | null }[] = [];
     if (chiavi.length) {
-      const { data: f, error: eF } = await db.from('richiesta_sito')
-        .select('numero, dati').in('dati->>insieme', chiavi);
-      if (eF) console.error('collegamento fra camere non letto:', eF);
-      else figlie = f ?? [];
+      /* DUE STRADE, DUE CAMPI, due query: `insieme` sono le camere in piu'
+         dello stesso invio, `collegata_a` le richieste mandate dopo da
+         «aggiunga un'altra camera». Due query e non una con `or`: i
+         numeri di pratica contengono una barra, e infilarli dentro una
+         stringa di sintassi e' il modo di scoprire un giorno che uno di
+         loro la rompeva. */
+      for (const campo of ['dati->>insieme', 'dati->>collegata_a']) {
+        const { data: f, error: eF } = await db.from('richiesta_sito')
+          .select('numero, dati').in(campo, chiavi);
+        if (eF) console.error('collegamento fra camere non letto:', campo, eF);
+        else figlie = figlie.concat(f ?? []);
+      }
     }
     return risposta({ ok: true, richieste: collegaCamere(righe, figlie) });
   }

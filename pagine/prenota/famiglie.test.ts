@@ -287,7 +287,11 @@ Deno.test('e i campi ripartono da quello che era scritto, non dall indirizzo', (
       `il campo ${campo} torna a leggere l indirizzo: quello che era scritto si perde`,
     );
   }
-  assert(PAGINA.includes('gia.cane ?'), 'la spunta del cane non si conserva');
+  /* il cane non sta piu' in `gia`: e' una variabile sola letta da due
+     schermate, e il modulo riparte da quella. Restasse anche in `gia`,
+     tornare indietro alle camere lo riporterebbe al valore vecchio. */
+  assert(PAGINA.includes("id=\"fCane\"${CANE ? ' checked' : ''}"),
+    'la spunta del cane non riparte piu dallo stato comune');
   assert(PAGINA.includes('gia.privacy ?'), 'la spunta privacy non si conserva');
 });
 

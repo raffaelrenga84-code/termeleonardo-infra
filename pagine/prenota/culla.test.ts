@@ -31,6 +31,7 @@ import {
   CAMERE_CON_CULLA, ciStaLaCulla, primaConCulla, soloConCulla, SUPPLEMENTO_CULLA_CENT,
 } from './culla.js';
 import { corpoCamera, euroDaCentesimi } from './logica.js';
+import { SUPPLEMENTO_CANE_CENT } from './cane.js';
 import { CAMERE } from '../../supabase/functions/richieste/camere.ts';
 import { validaDati } from '../../supabase/functions/richieste/tipi.ts';
 import { dettagli, ETICHETTE, LINGUE } from '../../supabase/functions/richieste/dettagli-richiesta.ts';
@@ -161,6 +162,7 @@ function banco(): {
   chiesta: (t: Record<string, unknown>) => string;
   avviso: (t: Record<string, unknown>) => string;
   metti: (culla: boolean, scelta: unknown, proposte: unknown[]) => void;
+  cane: (v: boolean) => void;
 } {
   const pezzo = (re: RegExp, come: string) => {
     const m = PAGINA.match(re);
@@ -171,20 +173,23 @@ function banco(): {
   const f = new Function(
     'aiuti',
     `
-    const { esc, euroDaCentesimi, ciStaLaCulla, primaConCulla, SUPPLEMENTO_CULLA_CENT } = aiuti;
+    const { esc, euroDaCentesimi, ciStaLaCulla, primaConCulla,
+      SUPPLEMENTO_CULLA_CENT, SUPPLEMENTO_CANE_CENT } = aiuti;
     const CULLA_SEGNO = '<svg class="segno"></svg>';
-    let CULLA = false, SCELTA = null, PROPOSTE = [];
+    let CULLA = false, CANE = false, SCELTA = null, PROPOSTE = [];
     ${pezzo(/function cullaChiestaHTML\(t\) \{[\s\S]*?\n\}/, 'cullaChiestaHTML')}
     ${pezzo(/function cullaAvvisoHTML\(t\) \{[\s\S]*?\n\}/, 'cullaAvvisoHTML')}
     return {
       chiesta: cullaChiestaHTML, avviso: cullaAvvisoHTML,
       metti: (c, s, p) => { CULLA = c; SCELTA = s; PROPOSTE = p; },
+      cane: (v) => { CANE = v; },
     };
   `,
   );
   return f({
     esc: (x: unknown) => String(x ?? '').replace(/</g, '&lt;'),
     euroDaCentesimi, ciStaLaCulla, primaConCulla, SUPPLEMENTO_CULLA_CENT,
+    SUPPLEMENTO_CANE_CENT,
   });
 }
 
@@ -194,6 +199,8 @@ const T = {
   cullaNoQui: (nome: string) => `Nella ${nome} la culla non ci sta.`,
   cullaCambia: (nome: string, prezzo: string) => `Passi alla ${nome} — ${prezzo} €`,
   cullaNessuna: 'Ci chiami allo +39 049 9939200.',
+  cane: 'Viaggio con un cane',
+  caneNota: (imp: string) => `Supplemento ${imp} € al giorno per animale.`,
 };
 
 Deno.test('la domanda c e sempre, il prezzo solo a chi risponde di si', () => {

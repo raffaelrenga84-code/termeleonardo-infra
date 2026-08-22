@@ -30,6 +30,9 @@
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
 import { componiCorpo, corpoCamera, euroDaCentesimi } from './logica.js';
 import { nomeTariffa } from './nomi.js';
+import { nottiFra } from '../comune/date.js';
+import { SUPPLEMENTO_CANE_CENT } from './cane.js';
+import { SUPPLEMENTO_CULLA_CENT } from './culla.js';
 import { altreCamere, CAMERE_MAX } from '../../supabase/functions/richieste/piu-camere.ts';
 
 const PAGINA = Deno.readTextFileSync(new URL('index.html', import.meta.url))
@@ -64,6 +67,9 @@ type Banco = {
   riepilogoCamereHTML: (t: Record<string, unknown>, c: Camera[]) => string;
   quantaCameraHTML: (t: Record<string, unknown>) => string;
   caparraTotaleCent: () => number;
+  vociSupplementi: (c: Camera[], t: Record<string, unknown>) => { eti: string; cent: number }[];
+  totaleConSupplementiCent: (c: Camera[], t: Record<string, unknown>) => number;
+  cane: (v: boolean) => void;
   quante: (n: number) => void;
   metti: (carrello: Camera[], scelta: unknown, ricerca: unknown, caparra: number) => void;
 };
@@ -71,21 +77,28 @@ type Banco = {
 const fabbrica = new Function(
   'aiuti',
   `
-  const { esc, nomeTariffa, euroDaCentesimi } = aiuti;
+  const { esc, nomeTariffa, euroDaCentesimi, nottiFra,
+    SUPPLEMENTO_CANE_CENT, SUPPLEMENTO_CULLA_CENT } = aiuti;
   const LNG = 'it';
   let CARRELLO = [], SCELTA = null, RICERCA = {}, CAPARRA_CENT = 0, CAMERE_TOTALI = 0;
-  /* la culla della camera in mano: qui non si prova, ha il suo file —
-     ma tutteLeCamere() la nomina, e senza il banco non partirebbe */
-  let CULLA = false;
+  /* la culla e il cane della camera in mano: qui non si provano, hanno il
+     loro file — ma le funzioni del carrello li nominano, e senza il banco
+     non partirebbe */
+  let CULLA = false, CANE = false;
   ${prendi('tutteLeCamere')}
   ${prendi('totaleCent')}
   ${prendi('carrelloHTML')}
   ${prendi('riepilogoCamereHTML')}
   ${prendi('quantaCameraHTML')}
+  ${prendi('nottiDelSoggiorno')}
+  ${prendi('vociSupplementi')}
+  ${prendi('supplementiCent')}
+  ${prendi('totaleConSupplementiCent')}
   ${prendi('caparraTotaleCent')}
   return {
     tutteLeCamere, totaleCent, carrelloHTML, riepilogoCamereHTML, quantaCameraHTML,
-    caparraTotaleCent,
+    caparraTotaleCent, vociSupplementi, totaleConSupplementiCent,
+    cane: (v) => { CANE = v; },
     quante: (n) => { CAMERE_TOTALI = n; },
     metti: (c, s, r, cap) => { CARRELLO = c; SCELTA = s; RICERCA = r; CAPARRA_CENT = cap; },
   };
@@ -98,13 +111,18 @@ const esc = (s: unknown) =>
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string),
   );
 
-const banco = fabbrica({ esc, nomeTariffa, euroDaCentesimi }) as Banco;
+const banco = fabbrica({
+  esc, nomeTariffa, euroDaCentesimi, nottiFra,
+  SUPPLEMENTO_CANE_CENT, SUPPLEMENTO_CULLA_CENT,
+}) as Banco;
 
 const T = {
   carrelloTit: (n: number) => (n === 1 ? 'Camera già scelta' : `Camere già scelte (${n})`),
   carrelloTot: 'Totale',
   togliCamera: 'Togli questa camera',
   cullaBreve: 'con culla',
+  extraCulla: (n: number) => (n === 1 ? 'Culla' : `${n} culle`),
+  extraCane: (g: number) => `Cane · ${g} giorni`,
   cameraNdi: (n: number, tot: number) => `Sta scegliendo la camera ${n} di ${tot}.`,
   riepilogo: (a: string, p: string, ad: number, b: number) => `Dal ${a} al ${p} · ${ad}+${b}`,
   riepilogoCamera: (n: string, tf: string, pr: string) => `${n} — ${tf} — ${pr} €`,
@@ -490,4 +508,114 @@ Deno.test('e dal passo delle date c e una strada avanti', () => {
   assertStringIncludes(PAGINA.slice(dove - 200, dove), 'CARRELLO.length');
   assertStringIncludes(PAGINA, "$('bAvantiCarrello').onclick = () => { STATO = 'dati'; disegna(); };");
   assertEquals(PAGINA.split('avantiCarrello:').length - 1, 4);
+});
+
+/* ============================================================
+   I SUPPLEMENTI DENTRO IL TOTALE.
+
+   Chiesto dalla proprietà guardando la pagina vera: «il prezzo della
+   camera non ha la culla al suo interno che ho selezionato, dovrebbe
+   aggiungere 30 euro, e dovrebbe funzionare così anche il cane».
+
+   DOVE SÌ E DOVE NO. Il prezzo scritto su ogni tariffa resta quello del
+   MOTORE: è il numero che la reception ritrova in gestionale quando
+   conferma, e sommarci dentro 30 € vorrebbe dire che «460,00 €» sulla
+   pagina e «460,00 €» su Fidra non sono più la stessa cosa. Il TOTALE
+   invece è quanto spende l'ospite, e lì i supplementi ci vanno — scritti
+   riga per riga, perché un totale che non si sa spiegare è quello che si
+   contesta al banco.
+   ============================================================ */
+
+Deno.test('la culla entra nel totale, una per ogni camera che la ha', () => {
+  banco.cane(false);
+  const conCulla = { ...DUE_NOTTI, culla: true } as Camera;
+  const voci = banco.vociSupplementi([DICIOTTO_NOTTI, conCulla], T);
+  assertEquals(voci.length, 1);
+  assertEquals(voci[0].cent, SUPPLEMENTO_CULLA_CENT);
+  assertStringIncludes(voci[0].eti, 'Culla');
+
+  const due = banco.vociSupplementi(
+    [{ ...DICIOTTO_NOTTI, culla: true } as Camera, conCulla], T,
+  );
+  assertEquals(due[0].cent, 2 * SUPPLEMENTO_CULLA_CENT);
+});
+
+Deno.test('e il cane si conta AL GIORNO, su tutto il soggiorno', () => {
+  /* con piu' camere e periodi diversi il cane sta in albergo dal primo
+     arrivo all'ultima partenza: contare le notti di una camera sola
+     direbbe un numero piu' basso di quello che la reception poi chiede.
+     Qui: dal 2 al 20 settembre sono 18 notti, non le 2 della seconda. */
+  banco.cane(true);
+  const voci = banco.vociSupplementi([DUE_NOTTI, DICIOTTO_NOTTI], T);
+  assertEquals(voci.length, 1);
+  assertEquals(voci[0].cent, 18 * SUPPLEMENTO_CANE_CENT);
+  assertStringIncludes(voci[0].eti, '18');
+  banco.cane(false);
+});
+
+Deno.test('e chi non ha chiesto niente non ha nessun supplemento', () => {
+  /* una riga «Culla 0,00 €» e' un prezzo in piu' su una pagina che ne ha
+     gia' tanti */
+  banco.cane(false);
+  assertEquals(banco.vociSupplementi([DICIOTTO_NOTTI, DUE_NOTTI], T), []);
+  assertEquals(
+    banco.totaleConSupplementiCent([DICIOTTO_NOTTI, DUE_NOTTI], T),
+    banco.totaleCent([DICIOTTO_NOTTI, DUE_NOTTI]),
+  );
+});
+
+Deno.test('il totale e le camere PIU i supplementi', () => {
+  banco.cane(true);
+  const conCulla = { ...DUE_NOTTI, culla: true } as Camera;
+  const camere = [DICIOTTO_NOTTI, conCulla];
+  assertEquals(
+    banco.totaleConSupplementiCent(camere, T),
+    319100 + 29000 + SUPPLEMENTO_CULLA_CENT + 18 * SUPPLEMENTO_CANE_CENT,
+  );
+  banco.cane(false);
+});
+
+Deno.test('e il riepilogo del modulo li scrive, riga per riga', () => {
+  /* un totale che non si sa spiegare e' quello che si contesta al banco */
+  banco.cane(false);
+  const html = banco.riepilogoCamereHTML(T, [{ ...DUE_NOTTI, culla: true } as Camera]);
+  assertStringIncludes(html, 'Culla');
+  assertStringIncludes(html, euroDaCentesimi(SUPPLEMENTO_CULLA_CENT));
+  assertStringIncludes(html, euroDaCentesimi(29000 + SUPPLEMENTO_CULLA_CENT));
+});
+
+Deno.test('e con una camera sola e nessun supplemento resta la riga di sempre', () => {
+  /* chi prenota una camera e basta non deve trovarsi davanti una tabella */
+  banco.cane(false);
+  const html = banco.riepilogoCamereHTML(T, [DUE_NOTTI]);
+  assert(!html.includes('carrelloTot'), 'compare un totale per una camera sola senza supplementi');
+});
+
+Deno.test('la barra della scelta dice quanto fa in tutto', () => {
+  /* e' il punto esatto in cui la proprieta' ha guardato: si spunta la
+     culla e il prezzo della camera resta quello di prima */
+  assertStringIncludes(PAGINA, 'class="conSupplementi"');
+  assertStringIncludes(PAGINA, 't.totaleSupplementi(');
+  const dove = PAGINA.indexOf('class="conSupplementi"');
+  assertStringIncludes(
+    PAGINA.slice(dove - 300, dove),
+    'vociSupplementi(camere, t).length',
+  );
+});
+
+Deno.test('e il prezzo della singola tariffa resta quello del motore', () => {
+  /* PRESIDIO: sommare i supplementi dentro il prezzo di una tariffa
+     romperebbe il confronto con il gestionale, e quella differenza si
+     scopre al telefono. La scheda scrive `v.prezzo_cent` e basta. */
+  assertStringIncludes(PAGINA, '<div class="prezzoPiu">${euroDaCentesimi(v.prezzo_cent)} €</div>');
+  assert(
+    !PAGINA.includes('euroDaCentesimi(v.prezzo_cent + SUPPLEMENTO'),
+    'i supplementi sono finiti dentro il prezzo della tariffa',
+  );
+});
+
+Deno.test('le parole dei supplementi ci sono in tutte e quattro le lingue', () => {
+  for (const k of ['extraCulla:', 'extraCane:', 'totaleSupplementi:']) {
+    assertEquals(PAGINA.split(k).length - 1, 4, `«${k}» non c\'e\' in tutte e quattro le lingue`);
+  }
 });

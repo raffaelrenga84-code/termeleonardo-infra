@@ -267,3 +267,75 @@ Deno.test('e lo dice in tutte e quattro le lingue, per esteso', () => {
     assert(r.length > 60, `riga ${i + 1} troppo corta: «${r}»`);
   }
 });
+
+/* ============================================================
+   IL FILO DELLA SECONDA CAMERA E' UN CAMPO, non solo una frase.
+
+   «Aggiunga un'altra camera» apre la pagina coi contatti e le date gia'
+   dentro e il numero della prima nell'indirizzo. Quel numero finiva
+   soltanto in una riga dentro le note: la reception la legge se legge
+   le note, e il back office non aveva modo di mettere insieme le due
+   richieste. In questo progetto e' gia' scritto perche' non basta — «un
+   CAMPO, non una frase nelle note: una frase la si legge, un campo lo si
+   cerca» — ed era vero solo per le camere del carrello.
+
+   SI CHIAMA `collegata_a` E NON `insieme`, e la differenza non e'
+   estetica: il freno per persona esclude dal conteggio le righe con
+   `insieme`, perche' un carrello di tre camere e' un invio solo. Questa
+   invece e' una richiesta vera, mandata a mano, e per il freno deve
+   contare come tutte le altre.
+   ============================================================ */
+import { componiCorpo } from './logica.js';
+import { validaDati } from '../../supabase/functions/richieste/tipi.ts';
+
+const BASE = {
+  scelta: { nome: 'Doppia', camera_id: 5, prezzo_cent: 31000 },
+  nome: 'Mario Rossi', email: 'mario@example.com', telefono: '3331234567',
+  checkIn: '2026-09-02', checkOut: '2026-09-04', adulti: 2, bambini: 0,
+  note: '', lingua: 'it',
+};
+
+Deno.test('la seconda camera porta il numero della prima in un CAMPO', () => {
+  const corpo = componiCorpo({ ...BASE, collegataA: 'C26/19130' });
+  assertEquals(corpo.dati.collegata_a, 'C26/19130');
+});
+
+Deno.test('e chi non arriva da li non porta nessun collegamento', () => {
+  /* un campo vuoto in back office si legge come un dato raccolto */
+  for (const v of ['', '   ', undefined, null]) {
+    const corpo = componiCorpo({ ...BASE, collegataA: v as string });
+    assertEquals('collegata_a' in corpo.dati, false, `«${v}» ha prodotto un campo`);
+  }
+});
+
+Deno.test('e la pagina lo prende dall indirizzo', () => {
+  assert(
+    PAGINA.includes("collegataA: DA_URL.insieme || ''"),
+    'la pagina non manda piu il numero della richiesta a cui si aggiunge',
+  );
+});
+
+Deno.test('il server lo registra, tagliato e senza spazi', () => {
+  /* un numero vecchio o scritto a mano deve arrivare comunque in
+     reception, che sa leggerlo: si taglia e basta, come il buono */
+  const v = validaDati('soggiorno', {
+    camera_id: 5, collegata_a: '  C26/19130  ',
+  }, new Date('2026-08-22T09:00:00Z'));
+  assertEquals(v.errore, undefined);
+  assertEquals(v.dati!.collegata_a, 'C26/19130');
+  const lungo = validaDati('soggiorno', {
+    camera_id: 5, collegata_a: 'x'.repeat(200),
+  }, new Date('2026-08-22T09:00:00Z'));
+  assertEquals(String(lungo.dati!.collegata_a).length, 20);
+});
+
+Deno.test('e senza collegamento il campo non c e', () => {
+  const v = validaDati('soggiorno', { camera_id: 5 }, new Date('2026-08-22T09:00:00Z'));
+  assertEquals('collegata_a' in v.dati!, false);
+});
+
+Deno.test('e la frase nelle note resta: la legge l ospite, non la macchina', () => {
+  /* il campo serve al back office, la riga nelle note serve all ospite
+     che rilegge quello che sta mandando — e puo cancellarla */
+  assert(PAGINA.includes('t.insiemeA(DA_URL.insieme)'), 'sparita la riga nelle note');
+});

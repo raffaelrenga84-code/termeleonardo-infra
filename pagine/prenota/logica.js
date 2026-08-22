@@ -90,6 +90,7 @@ export function corpoCamera({
 export function componiCorpo({
   scelta, nome, email, telefono, checkIn, checkOut,
   adulti, bambini, caparraCent = 0, note, lingua, cane = false, buono = '', culla = false,
+  collegataA = '',
   /* il tipo va detto: da un [] vuoto TypeScript deduce never[], e ogni
      chiamante con delle chiavi vere diventerebbe un errore */
   interessi = /** @type {string[]} */ ([]),
@@ -120,6 +121,19 @@ export function componiCorpo({
          sola. Come il cane, si manda solo quando c'e': un elenco vuoto si
          legge come «gli e' stato chiesto e non gli serve niente». */
       ...(Array.isArray(interessi) && interessi.length ? { interessi } : {}),
+      /* IL COLLEGAMENTO A UNA RICHIESTA GIA' MANDATA. Arriva
+         dall'indirizzo, quando si passa di qui da «aggiunga un'altra
+         camera» sulla schermata finale. E' un CAMPO e non una frase nelle
+         note: una frase la si legge, un campo lo si cerca — ed e' quello
+         che tiene insieme le due richieste in back office.
+
+         NON e' `insieme`, che vuol dire un'altra cosa: quella e' una
+         camera in piu' dello STESSO invio, e il freno per persona la
+         esclude dal conteggio. Questa invece e' una richiesta vera, e per
+         il freno deve contare come tutte le altre. */
+      ...(String(collegataA || '').trim()
+        ? { collegata_a: String(collegataA).trim().slice(0, 20) }
+        : {}),
     },
   };
 }

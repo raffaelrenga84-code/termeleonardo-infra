@@ -52,11 +52,27 @@ Deno.test('e senza spunta il campo non c e proprio', () => {
 
 Deno.test('la pagina chiede, e mostra i due fatti solo a chi risponde di si', () => {
   const pagina = Deno.readTextFileSync(new URL('index.html', import.meta.url));
+  /* DUE CASELLE, UNA VARIABILE. Dal 22 agosto 2026 il cane si spunta
+     anche accanto alla culla, sul passo delle camere — chiesto dalla
+     proprieta' — e le due caselle leggono e scrivono la stessa CANE.
+     Due stati separati vorrebbero dire un cane spuntato di qua e non di
+     la', e la reception lo scoprirebbe al banco. */
   assert(pagina.includes('id="fCane"'), 'la domanda sul cane non c e piu nel modulo');
   assert(
-    pagina.includes("cane: $('fCane') ? $('fCane').checked : false"),
+    pagina.includes('id="fCaneCamere"'),
+    'la domanda sul cane non c e piu dove si sceglie la camera',
+  );
+  assert(
+    pagina.includes('cane: CANE,'),
     'la spunta non viaggia piu con la richiesta: l ospite crederebbe di aver avvisato',
   );
+  for (const casella of ["$('fCane').checked", "$('fCaneCamere').checked"]) {
+    assert(
+      pagina.includes('CANE = ' + casella),
+      `la casella ${casella} non scrive piu lo stato comune: le due schermate ` +
+        'si contraddicono',
+    );
+  }
   assert(
     pagina.includes('t.caneNota(euroDaCentesimi(SUPPLEMENTO_CANE_CENT))'),
     'il testo non prende piu il supplemento dalla costante: potrebbero divergere',

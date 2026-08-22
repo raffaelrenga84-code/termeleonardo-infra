@@ -103,6 +103,8 @@ textarea{min-height:80px;resize:vertical;}
 .riquadroCulla .spunta{margin-top:0;}
 .erroreCulla{background:#FDF1EC;border-left:3px solid #C2410C;border-radius:6px;
   padding:8px 11px;margin-bottom:8px;font-size:13px;color:#7C2D12;}
+/* il totale coi supplementi, sotto la camera scelta */
+.conSupplementi{margin-top:4px;font-size:13px;color:var(--verde);font-weight:600;}
 .serve{margin-top:14px;}
 .serveTit{font-family:"Cormorant Garamond",Georgia,serif;font-size:20px;
   color:var(--verde);margin-bottom:2px;}
@@ -438,6 +440,10 @@ const T = {
     mancaScelta:'Scelga una camera per continuare.',
     // passo 3
     riepilogo:(a,p,ad,b)=>`Dal <strong>${a}</strong> al <strong>${p}</strong> · ${ad} adult${ad===1?'o':'i'}${b>0?`, ${b} bambin${b===1?'o':'i'}`:''}`,
+    // i supplementi nel totale
+    extraCulla:(n)=>n===1?'Culla':`${n} culle`,
+    extraCane:(g)=>`Cane · ${g} giorn${g===1?'o':'i'}`,
+    totaleSupplementi:(v)=>`Con i supplementi: ${v} €`,
     // la culla
     culla:'Ci serve una culla',
     cullaBreve:'con culla',
@@ -532,6 +538,10 @@ const T = {
     giornoStesso:(ora)=>`Für eine Anreise noch heute nach ${ora} Uhr organisieren wir das lieber telefonisch, damit Ihr Zimmer richtig vorbereitet wird: rufen Sie uns bitte unter +39 049 9939200 an. Für jedes andere Datum können Sie hier fortfahren.`,
     mancaScelta:'Bitte wählen Sie ein Zimmer, um fortzufahren.',
     riepilogo:(a,p,ad,b)=>`Vom <strong>${a}</strong> bis <strong>${p}</strong> · ${ad} Erwachsene${b>0?`, ${b} Kind${b===1?'':'er'}`:''}`,
+    // i supplementi nel totale
+    extraCulla:(n)=>n===1?'Kinderbett':`${n} Kinderbetten`,
+    extraCane:(g)=>`Hund · ${g} Tag${g===1?'':'e'}`,
+    totaleSupplementi:(v)=>`Mit Zuschlägen: ${v} €`,
     // la culla
     culla:'Wir brauchen ein Kinderbett',
     cullaBreve:'mit Kinderbett',
@@ -625,6 +635,10 @@ const T = {
     giornoStesso:(ora)=>`For an arrival today after ${ora} we prefer to arrange it by phone, so your room is properly prepared: please call us on +39 049 9939200. For any other date you can carry on from here.`,
     mancaScelta:'Please choose a room to continue.',
     riepilogo:(a,p,ad,b)=>`From <strong>${a}</strong> to <strong>${p}</strong> · ${ad} adult${ad===1?'':'s'}${b>0?`, ${b} child${b===1?'':'ren'}`:''}`,
+    // i supplementi nel totale
+    extraCulla:(n)=>n===1?'Cot':`${n} cots`,
+    extraCane:(g)=>`Dog · ${g} day${g===1?'':'s'}`,
+    totaleSupplementi:(v)=>`With supplements: ${v} €`,
     // la culla
     culla:'We need a cot',
     cullaBreve:'with cot',
@@ -718,6 +732,10 @@ const T = {
     giornoStesso:(ora)=>`Pour une arrivée le jour même après ${ora}, nous préférons organiser par téléphone afin que votre chambre soit bien préparée : appelez-nous au +39 049 9939200. Pour toute autre date, vous pouvez continuer ici.`,
     mancaScelta:'Veuillez choisir une chambre pour continuer.',
     riepilogo:(a,p,ad,b)=>`Du <strong>${a}</strong> au <strong>${p}</strong> · ${ad} adulte${ad===1?'':'s'}${b>0?`, ${b} enfant${b===1?'':'s'}`:''}`,
+    // i supplementi nel totale
+    extraCulla:(n)=>n===1?'Lit bébé':`${n} lits bébé`,
+    extraCane:(g)=>`Chien · ${g} jour${g===1?'':'s'}`,
+    totaleSupplementi:(v)=>`Avec suppléments : ${v} €`,
     // la culla
     culla:'Il nous faut un lit bébé',
     cullaBreve:'avec lit bébé',
@@ -790,6 +808,12 @@ let CAPARRA_CENT = 0;
    camera, non accanto al nome dell'ospite: chi prenota due stanze puo'
    volerla in una sola. */
 let CULLA = false;
+/* IL CANE. E' della PERSONA e non della camera — chi prenota tre stanze
+   ha un cane, non tre — quindi vive qui e non nel carrello. Si spunta da
+   due schermate, quella delle camere e il modulo: due caselle, una
+   variabile sola. Due stati separati vorrebbero dire un cane spuntato di
+   qua e non di la', e la reception lo scoprirebbe al banco. */
+let CANE = false;
 let CONDIZIONI = { righe: [], recesso: '' };
 let SCELTA = null;                // la proposta scelta
 let TUTTE_LE_CAMERE = false;      // l'ospite ha chiesto di vederle tutte
@@ -1173,6 +1197,14 @@ function cullaChiestaHTML(t) {
     ${CULLA
       ? `<div class="avviso avvisoCane">${esc(t.cullaNota(euroDaCentesimi(SUPPLEMENTO_CULLA_CENT)))}</div>`
       : ''}
+    <!-- IL CANE, qui e non solo sul modulo: chi viaggia con un cane lo sa
+         prima di scegliere la camera, e il supplemento entra nel totale
+         mentre sta ancora decidendo. -->
+    <label class="spunta"><input type="checkbox" id="fCaneCamere"${CANE ? ' checked' : ''} />
+      <span><span class="iconaCane" aria-hidden="true">🐕</span>${esc(t.cane)}</span></label>
+    ${CANE
+      ? `<div class="avviso avvisoCane">${esc(t.caneNota(euroDaCentesimi(SUPPLEMENTO_CANE_CENT)))}</div>`
+      : ''}
   </div>`;
 }
 
@@ -1203,6 +1235,46 @@ function tutteLeCamere() {
 /* LA CAPARRA DI TUTTE LE CAMERE. Quella di una sola, sotto un totale
    che ne conta tre, e' un numero che l'ospite scopre falso in
    reception: la caparra si chiede per ogni camera. */
+/* LE NOTTI DEL SOGGIORNO, per il supplemento del cane che si conta al
+   giorno. Con piu' camere e periodi diversi il cane sta in albergo dal
+   primo arrivo all'ultima partenza: contare le notti di una camera sola
+   direbbe un numero piu' basso di quello che la reception poi chiede. */
+function nottiDelSoggiorno(camere) {
+  const date = (campo) => camere.map((c) => c.ricerca && c.ricerca[campo])
+    .filter(Boolean).slice().sort();
+  const arrivi = date('arrivo');
+  const partenze = date('partenza');
+  if (!arrivi.length || !partenze.length) return 0;
+  return nottiFra(arrivi[0], partenze[partenze.length - 1]);
+}
+
+/* I SUPPLEMENTI, UNO PER RIGA. Fondere 30 € dentro il prezzo della
+   camera farebbe due danni: il numero non tornerebbe piu' con quello del
+   gestionale, e l'ospite leggerebbe un totale che non sa spiegare. */
+function vociSupplementi(camere, t) {
+  const voci = [];
+  const culle = camere.filter((c) => c.culla === true).length;
+  if (culle) {
+    voci.push({ eti: t.extraCulla(culle), cent: culle * SUPPLEMENTO_CULLA_CENT });
+  }
+  const notti = CANE ? nottiDelSoggiorno(camere) : 0;
+  if (notti > 0) {
+    voci.push({ eti: t.extraCane(notti), cent: notti * SUPPLEMENTO_CANE_CENT });
+  }
+  return voci;
+}
+
+function supplementiCent(camere, t) {
+  return vociSupplementi(camere, t).reduce((n, v) => n + v.cent, 0);
+}
+
+/* quanto spende in tutto: le camere piu' i supplementi. La tassa di
+   soggiorno resta fuori e scritta a parte, come in tutto il resto della
+   pagina: si paga in hotel e non a noi. */
+function totaleConSupplementiCent(camere, t) {
+  return totaleCent(camere) + supplementiCent(camere, t);
+}
+
 function caparraTotaleCent() {
   return tutteLeCamere().reduce((t, c) => t + (Number(c.caparraCent) || 0), 0);
 }
@@ -1254,7 +1326,10 @@ function quantaCameraHTML(t) {
    e il totale in fondo. Chi paga vuole vedere che cosa sta chiedendo,
    tutto insieme e una volta sola. */
 function riepilogoCamereHTML(t, camere) {
-  if (camere.length === 1) {
+  const extra = vociSupplementi(camere, t);
+  /* con una camera sola E nessun supplemento resta la riga di sempre:
+     chi prenota una camera e basta non deve trovarsi davanti una tabella */
+  if (camere.length === 1 && !extra.length) {
     const c = camere[0];
     return t.riepilogo(esc(c.ricerca.arrivo), esc(c.ricerca.partenza),
       c.ricerca.adulti, c.ricerca.bambini || 0) +
@@ -1263,6 +1338,11 @@ function riepilogoCamereHTML(t, camere) {
         euroDaCentesimi(c.scelta.prezzo_cent)) +
       (c.culla ? ` · ${esc(t.cullaBreve)}` : '');
   }
+  const righeExtra = extra.map((v) => `
+    <div class="carrelloRiga">
+      <div><div class="carrelloNome">${esc(v.eti)}</div></div>
+      <span class="carrelloPrezzo">${euroDaCentesimi(v.cent)} €</span>
+    </div>`).join('');
   const righe = camere.map((c) => `
     <div class="carrelloRiga">
       <div>
@@ -1272,8 +1352,8 @@ function riepilogoCamereHTML(t, camere) {
       </div>
       <span class="carrelloPrezzo">${euroDaCentesimi(c.scelta.prezzo_cent)} €</span>
     </div>`).join('');
-  return righe +
-    `<div class="carrelloTot">${esc(t.carrelloTot)} ${euroDaCentesimi(totaleCent(camere))} €</div>`;
+  return righe + righeExtra +
+    `<div class="carrelloTot">${esc(t.carrelloTot)} ${euroDaCentesimi(totaleConSupplementiCent(camere, t))} €</div>`;
 }
 
 /* i pulsantini per togliere una camera: si attaccano dopo ogni disegno,
@@ -1438,6 +1518,18 @@ function schermaCamere() {
         ? `<div class="scelto">${t.riepilogoCamera(SCELTA.nome, nomeTariffa(SCELTA.tariffa, LNG),
              euroDaCentesimi(SCELTA.prezzo_cent))}</div>`
         : ''}
+      <!-- IL TOTALE COI SUPPLEMENTI, subito e non solo sul modulo: chi ha
+           spuntato la culla guarda il prezzo della camera e non ci trova
+           dentro i 30 €. Il prezzo della tariffa resta quello del motore
+           — e' il numero che la reception ritrova in gestionale — e qui
+           sotto si dice quanto fa in tutto. -->
+      ${(() => {
+        const camere = tutteLeCamere();
+        if (!camere.length || !vociSupplementi(camere, t).length) return '';
+        return `<div class="conSupplementi">${esc(t.totaleSupplementi(
+          euroDaCentesimi(totaleConSupplementiCent(camere, t)),
+        ))}</div>`;
+      })()}
       <!-- «Continua» si accende anche con una camera nel CARRELLO e
            nessuna in mano: chi ne ha messa da parte una e poi ha
            cambiato idea sulla seconda resterebbe chiuso qui dentro. -->
@@ -1454,6 +1546,13 @@ function schermaCamere() {
 
   $('bIndietroDate').onclick = () => { STATO = 'ricerca'; disegna(); };
   if ($('bAltre')) $('bAltre').onclick = () => { TUTTE_LE_CAMERE = true; schermaCamere(); };
+  if ($('fCaneCamere')) {
+    $('fCaneCamere').onchange = () => {
+      CANE = $('fCaneCamere').checked;
+      /* si ridisegna: da questa risposta dipendono la nota e il totale */
+      schermaCamere();
+    };
+  }
   if ($('fCulla')) {
     $('fCulla').onchange = () => {
       CULLA = $('fCulla').checked;
@@ -1635,7 +1734,10 @@ function datiScritti() {
   const b = (id) => ($(id) ? $(id).checked : false);
   return {
     nome: v('fNome'), email: v('fEmail'), tel: v('fTel'), note: v('fNote'),
-    cane: b('fCane'), privacy: b('fPrivacy'),
+    /* il cane non sta piu' qui dentro: e' una variabile sola, spuntabile
+       da due schermate, e passa da CANE. Restasse anche qui, tornare
+       indietro alle camere lo riporterebbe al valore vecchio. */
+    privacy: b('fPrivacy'),
     /* anche le spunte si conservano: cambiare tariffa ridisegna il modulo,
        e quello che l'ospite aveva gia' spuntato non deve sparire */
     interessi: interessiDaMostrare().filter((k) => b('f_' + k)),
@@ -1650,7 +1752,7 @@ function schermaDati() {
   const tutte = tutteLeCamere();
   const conCena = conCenaPerLaScelta();
   const gia = SCRITTI ||
-    { nome: DA_URL.nome, email: DA_URL.email, tel: DA_URL.tel, note: '', cane: false,
+    { nome: DA_URL.nome, email: DA_URL.email, tel: DA_URL.tel, note: '',
       interessi: [], privacy: false };
   $('app').innerHTML = `
     <button type="button" class="indietro" id="bIndietroCamere">${esc(t.indietroCamere)}</button>
@@ -1697,7 +1799,7 @@ function schermaDati() {
            costretto a violare una regola della casa. I due fatti che
            servono — il supplemento e dove il cane non entra — escono
            solo a chi spunta, perche' agli altri sono rumore. -->
-      <label class="spunta" style="margin-top:18px;"><input type="checkbox" id="fCane"${gia.cane ? ' checked' : ''} />
+      <label class="spunta" style="margin-top:18px;"><input type="checkbox" id="fCane"${CANE ? ' checked' : ''} />
         <!-- l'icona sta FUORI dalle traduzioni: un simbolo solo, in un
              posto solo, e nessuna lingua puo' dimenticarselo -->
         <span><span class="iconaCane" aria-hidden="true">🐕</span>${esc(t.cane)}</span></label>
@@ -1772,7 +1874,8 @@ function schermaDati() {
   /* i due fatti compaiono quando la spunta si accende, e sono gli stessi
      che la reception direbbe al telefono */
   const mostraCane = () => {
-    $('noteCane').innerHTML = $('fCane').checked
+    CANE = $('fCane').checked;
+    $('noteCane').innerHTML = CANE
       ? `<div class="avviso avvisoCane">${esc(t.caneNota(euroDaCentesimi(SUPPLEMENTO_CANE_CENT)))}</div>`
       : '';
   };
@@ -1831,8 +1934,11 @@ async function inviaRichiesta() {
     caparraCent: prima.caparraCent,
     culla: prima.culla === true,
     note, lingua: LNG,
-    cane: $('fCane') ? $('fCane').checked : false,
+    cane: CANE,
     buono: BUONO ? BUONO.codice : '',
+    /* il numero della richiesta a cui questa si aggiunge, quando si arriva
+       qui da «aggiunga un'altra camera» */
+    collegataA: DA_URL.insieme || '',
     interessi: interessiDaMostrare().filter((k) => $('f_' + k) && $('f_' + k).checked),
   });
   /* le altre camere passano dalla STESSA funzione della prima: due modi
