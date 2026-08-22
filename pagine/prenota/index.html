@@ -725,20 +725,23 @@ function avvisoPersone() {
   const t = T[LNG];
   const n = (Number($('fAdulti') && $('fAdulti').value) || 0) +
     (Number($('fBambini') && $('fBambini').value) || 0);
-  /* sotto le tre persone non c'e' niente da decidere: la domanda sarebbe
-     rumore in cima all'imbuto, e le domande in piu' costano richieste */
-  if (n < 3) {
-    box.innerHTML = '';
-    return;
-  }
+  /* LA DOMANDA SI VEDE SEMPRE. Due adulti possono essere due coppie, o
+     un genitore e un figlio grande: nascondere «quante camere» sotto le
+     tre persone la rendeva invisibile proprio al caso piu' comune.
+
+     IL CONSIGLIO invece no: «in 5 servono almeno due camere» a chi e' in
+     due sarebbe rumore, e un rumore che si legge come un rimprovero. */
+  const consiglio = n > PERSONE_PER_CAMERA
+    ? t.servonoDueCamere(n)
+    : n >= 3
+    ? t.forsePiuCamere(n)
+    : '';
   const scelte = [1, 2, 3].map((k) =>
     `<option value="${k}"${CAMERE_TOTALI === k ? ' selected' : ''}>` +
     `${esc(k === 1 ? t.unaCamera : t.nCamere(k))}</option>`
   ).join('');
   box.innerHTML = `
-    <div class="avviso avvisoOggi">${esc(
-      n > PERSONE_PER_CAMERA ? t.servonoDueCamere(n) : t.forsePiuCamere(n),
-    )}</div>
+    ${consiglio ? `<div class="avviso avvisoOggi">${esc(consiglio)}</div>` : ''}
     <label for="fCamere" style="margin-top:12px;">${esc(t.quanteCamere)}</label>
     <select id="fCamere">${scelte}</select>
     ${CAMERE_TOTALI > 1

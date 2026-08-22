@@ -140,11 +140,15 @@ Deno.test('e l avviso sulle piu camere si da PRIMA di cercare', () => {
   assert(PAGINA.includes('  avvisoPersone();'), 'l avviso non si disegna all apertura');
 });
 
-Deno.test('la domanda «quante camere» esce da tre persone in su, non prima', () => {
-  /* sotto le tre non c e niente da decidere: una domanda in piu in cima
-     all imbuto costa richieste */
-  assert(PAGINA.includes('if (n < 3) {'), 'la domanda esce anche a chi e in due');
+Deno.test('la domanda «quante camere» si vede SEMPRE, il consiglio no', () => {
+  /* due adulti possono essere due coppie: nascondere la domanda sotto le
+     tre persone la rendeva invisibile proprio al caso piu comune. Il
+     consiglio invece resta condizionato: «in 5 servono almeno due camere»
+     a chi e in due si legge come un rimprovero. */
   assert(PAGINA.includes('id="fCamere"'), 'sparita la domanda sulle camere');
+  assert(!PAGINA.includes('if (n < 3) {'), 'la domanda e di nuovo nascosta sotto le tre persone');
+  assert(PAGINA.includes('const consiglio = n > PERSONE_PER_CAMERA'), 'il consiglio non e piu condizionato');
+  assert(PAGINA.includes(': n >= 3'), 'il consiglio esce anche a chi e in due');
   assert(PAGINA.includes('t.primaCamera(CAMERE_TOTALI)'), 'non si spiega piu che cosa succede dopo');
 });
 
