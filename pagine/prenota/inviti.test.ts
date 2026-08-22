@@ -246,3 +246,24 @@ Deno.test('ogni passo dice il suo nome, non solo una barretta colorata', () => {
     assert(n.split(/\s+/).length <= 3, `nome troppo lungo per un telefono: «${n}»`);
   }
 });
+
+Deno.test('il modulo dice DOVE saranno trattamenti e transfer', () => {
+  /* stanno sulla schermata dopo l'invio, e chi e' sul modulo non lo sa:
+     la proprieta' li ha cercati due volte guardando questa pagina. Non si
+     spostano qui dentro — la camera non e' ancora confermata, e ogni
+     passo in piu' prima dell'invio costa richieste — ma si annunciano. */
+  const dove = PAGINA.indexOf('t.dopoInvio');
+  assert(dove > 0, 'il modulo non dice piu dove sono trattamenti e transfer');
+  const invia = PAGINA.indexOf('id="bInvia"');
+  assert(dove < invia, 'l annuncio sta DOPO il pulsante invia: nessuno lo legge');
+});
+
+Deno.test('e lo dice in tutte e quattro le lingue, per esteso', () => {
+  const righe = [...PAGINA.matchAll(/dopoInvio:'([^']*)'/g)].map((m) => m[1]);
+  assertEquals(righe.length, 4, `le righe sono ${righe.length}, non 4`);
+  for (const [i, r] of righe.entries()) {
+    /* deve nominare tutte e due le cose: «potra' aggiungere altro» non
+       dice niente a nessuno */
+    assert(r.length > 60, `riga ${i + 1} troppo corta: «${r}»`);
+  }
+});

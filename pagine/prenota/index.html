@@ -94,6 +94,12 @@ textarea{min-height:80px;resize:vertical;}
   padding:13px 15px;border-radius:6px;font-size:14px;line-height:1.6;color:#1B4D4A;}
 .iconaCane{margin-right:6px;}
 .piu{color:var(--oro);font-weight:700;margin-right:5px;}
+/* il piatto: stessa altezza della riga, stesso oro del «+» che
+   sostituisce, e allineato alla base delle lettere */
+.segno{color:var(--oro);margin-right:6px;vertical-align:-4px;}
+/* la riga che dice che cosa si potra' chiedere DOPO */
+.dopoInvio{max-width:640px;margin:0 auto 12px;padding:0 4px;
+  font-size:12.5px;line-height:1.5;color:var(--grigio);}
 /* la tassa sul passo dei dati: sobria, per non competere col riquadro
    della caparra che le sta sopra */
 .tassaDati{color:var(--grigio);font-size:12.5px;margin-top:10px;line-height:1.55;}
@@ -420,6 +426,7 @@ const T = {
     // passo 3
     riepilogo:(a,p,ad,b)=>`Dal <strong>${a}</strong> al <strong>${p}</strong> · ${ad} adult${ad===1?'o':'i'}${b>0?`, ${b} bambin${b===1?'o':'i'}`:''}`,
     // il carrello
+    dopoInvio:'Dopo l’invio potrà aggiungere, se le servono, i trattamenti alla spa e il transfer da e per l’aeroporto: sono richieste a parte, coi suoi dati già compilati.',
     avantiCarrello:(n)=>n===1?'Continua con la camera scelta':`Continua con le ${n} camere scelte`,
     perLaCamera:(n)=>`Solo per la camera ${n}`,
     cameraNdi:(n,tot)=>`Sta scegliendo la camera ${n} di ${tot}. Le mettiamo tutte nella stessa richiesta, con un totale solo.`,
@@ -504,6 +511,7 @@ const T = {
     mancaScelta:'Bitte wählen Sie ein Zimmer, um fortzufahren.',
     riepilogo:(a,p,ad,b)=>`Vom <strong>${a}</strong> bis <strong>${p}</strong> · ${ad} Erwachsene${b>0?`, ${b} Kind${b===1?'':'er'}`:''}`,
     // il carrello
+    dopoInvio:'Nach dem Absenden können Sie bei Bedarf Behandlungen im Spa und den Flughafentransfer hinzufügen: eigene Anfragen, mit Ihren Daten bereits ausgefüllt.',
     avantiCarrello:(n)=>n===1?'Weiter mit dem gewählten Zimmer':`Weiter mit den ${n} gewählten Zimmern`,
     perLaCamera:(n)=>`Nur für das Zimmer ${n}`,
     cameraNdi:(n,tot)=>`Sie wählen gerade Zimmer ${n} von ${tot}. Wir fassen alle in einer Anfrage zusammen, mit einer Gesamtsumme.`,
@@ -587,6 +595,7 @@ const T = {
     mancaScelta:'Please choose a room to continue.',
     riepilogo:(a,p,ad,b)=>`From <strong>${a}</strong> to <strong>${p}</strong> · ${ad} adult${ad===1?'':'s'}${b>0?`, ${b} child${b===1?'':'ren'}`:''}`,
     // il carrello
+    dopoInvio:'After sending you can add spa treatments and the airport transfer if you need them: separate requests, with your details already filled in.',
     avantiCarrello:(n)=>n===1?'Continue with the room chosen':`Continue with the ${n} rooms chosen`,
     perLaCamera:(n)=>`For the ${n} only`,
     cameraNdi:(n,tot)=>`You are choosing room ${n} of ${tot}. We put them all in one request, with a single total.`,
@@ -670,6 +679,7 @@ const T = {
     mancaScelta:'Veuillez choisir une chambre pour continuer.',
     riepilogo:(a,p,ad,b)=>`Du <strong>${a}</strong> au <strong>${p}</strong> · ${ad} adulte${ad===1?'':'s'}${b>0?`, ${b} enfant${b===1?'':'s'}`:''}`,
     // il carrello
+    dopoInvio:'Après l’envoi, vous pourrez ajouter si besoin les soins au spa et le transfert depuis et vers l’aéroport : ce sont des demandes distinctes, avec vos coordonnées déjà remplies.',
     avantiCarrello:(n)=>n===1?'Continuer avec la chambre choisie':`Continuer avec les ${n} chambres choisies`,
     perLaCamera:(n)=>`Uniquement pour la chambre ${n}`,
     cameraNdi:(n,tot)=>`Vous choisissez la chambre ${n} sur ${tot}. Nous les réunissons dans une seule demande, avec un seul total.`,
@@ -1041,6 +1051,22 @@ function dettaglioDelPrezzo(cent, t) {
   return t.dettaglioPrezzo(adulti, uno === null ? '' : euroDaCentesimi(uno));
 }
 
+/* IL PIATTO FUMANTE. Un «+» dice che c'e' dell'altro; un piatto dice
+   CHE COSA, e si vede prima di leggere — su una striscia stretta in
+   mezzo a due prezzi quel mezzo secondo e' tutto. Disegnato qui e non
+   preso da un font di emoji: le emoji cambiano faccia da un telefono
+   all'altro, e su qualcuna il piatto non ha nemmeno il vapore.
+
+   SOLO QUANDO L'AGGIUNTA E' DAVVERO LA CENA: sulle altre formule
+   sarebbe una figura che promette un piatto e ne porta un altro. */
+const PIATTO = `<svg class="segno" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8.2 3c-1.4 1.3-1.4 2.5 0 3.8s1.4 2.5 0 3.8" /><path d="M12 2.2c-1.4 1.3-1.4 2.5 0 3.8s1.4 2.5 0 3.8" /><path d="M15.8 3c-1.4 1.3-1.4 2.5 0 3.8s1.4 2.5 0 3.8" /><path d="M2.6 13.4h18.8c0 3.8-4.2 6.4-9.4 6.4s-9.4-2.6-9.4-6.4Z" /><path d="M1.6 21.1h20.8" /></g></svg>`;
+
+function segnoInvito(v) {
+  return formulaDi(v.trattamento) === 'cena'
+    ? PIATTO
+    : '<span class="piu" aria-hidden="true">+</span>';
+}
+
 /* L'INVITO. Che cosa si aggiunge scegliendo l'altra opzione. Quasi
    sempre e' la cena, ed e' bene dirlo con la parola giusta invece che
    col nome del trattamento: «Aggiunga la cena a buffet» si capisce,
@@ -1271,7 +1297,7 @@ function schermaCamere() {
                 <div>
                   <!-- il segno «+» prima delle parole: chi scorre capisce
                        che si aggiunge prima ancora di leggere -->
-                  <div class="aggiungiTit"><span class="piu" aria-hidden="true">+</span>${esc(invito(v, t))}</div>
+                  <div class="aggiungiTit">${segnoInvito(v)}${esc(invito(v, t))}</div>
                   <div class="aggiungiSotto">${esc(quantoInPiu(v, fam.opzioni[0], t))}</div>
                 </div>
                 <div class="prezzoBox">
@@ -1486,7 +1512,7 @@ function schermaDati() {
     <button type="button" class="aggiungi" id="bAggiungiCena" data-indice="${conCena.indice}">
       <div class="riga">
         <div>
-          <div class="aggiungiTit"><span class="piu" aria-hidden="true">+</span>${esc(invito(conCena, t))}</div>
+          <div class="aggiungiTit">${segnoInvito(conCena)}${esc(invito(conCena, t))}</div>
           <div class="aggiungiSotto">${esc(quantoInPiu(conCena, SCELTA, t))}</div>
           <!-- CON PIU' CAMERE si dice PER QUALE vale: sopra c'e' il totale
                di tre stanze, e un «+140 €» senza nome sembrerebbe
@@ -1560,6 +1586,12 @@ function schermaDati() {
           <a href="https://www.termeleonardo.com/${LNG}/privacy" target="_blank"
             rel="noopener noreferrer">${esc(t.privacyLink)}</a></span></label>
     </div>
+    <!-- DOVE SONO TRATTAMENTI E TRANSFER. Stanno sulla schermata dopo
+         l'invio, coi dati gia' compilati — ma chi e' qui non lo sa e li
+         cerca: la proprieta' li ha cercati due volte. Non si spostano
+         qui dentro (la camera non e' ancora confermata, e ogni passo in
+         piu' prima dell'invio costa richieste): si annunciano. -->
+    <div class="dopoInvio">${esc(t.dopoInvio)}</div>
     <button class="invia" id="bInvia">${esc(t.invia)}</button>
     <div class="legenda">${esc(t.legenda)}</div>
     <div id="esitoDati"></div>`;

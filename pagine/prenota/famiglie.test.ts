@@ -22,6 +22,7 @@
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { accorpa, famiglia } from './famiglie.js';
 import { massaggioDelPiano } from './piani.js';
+import { formulaDi } from './formule.js';
 
 type Voce = { tariffa: string; trattamento: string; prezzo_cent: number; indice?: number };
 const v = (tariffa: string, trattamento: string, cent: number, indice = 0): Voce => ({
@@ -135,6 +136,22 @@ function modelloOpzioni(): string {
   return PAGINA.slice(da, a + "            ).join('')}".length);
 }
 
+/* IL SEGNO DELL'AGGIUNTA — il piatto fumante per la cena, il «+» per
+   tutto il resto — si prende dalla pagina VERA e si esegue: uno stub
+   direbbe che la scheda funziona anche se il piatto non uscisse. */
+function segnoDallaPagina(): (v: { trattamento: string }) => string {
+  const da = PAGINA.indexOf('const PIATTO = ');
+  assert(da > 0, 'il piatto non si trova nella pagina');
+  const capo = PAGINA.indexOf('function segnoInvito(v) {', da);
+  assert(capo > da, 'segnoInvito non si trova nella pagina');
+  const fine = PAGINA.indexOf('\n}\n', capo);
+  assert(fine > capo, 'la fine di segnoInvito non si trova');
+  return new Function('formulaDi', PAGINA.slice(da, fine + 2) + '; return segnoInvito;')(
+    formulaDi,
+  ) as (v: { trattamento: string }) => string;
+}
+const segnoInvito = segnoDallaPagina();
+
 function disegna(fam: { opzioni: Voce[] }, scelto: number | null): string {
   const esc = (x: unknown) =>
     String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -145,6 +162,7 @@ function disegna(fam: { opzioni: Voce[] }, scelto: number | null): string {
   const f = new Function(
     'fam', 'SCELTA', 'LNG', 'esc', 'euroDaCentesimi', 'nomeTariffa', 'nomeTrattamento',
     'conFormula', 't', 'massaggioDelPiano', 'dettaglioDelPrezzo', 'invito', 'quantoInPiu',
+    'segnoInvito',
     'return `' + modelloOpzioni() + '`;',
   );
   return f(
@@ -161,6 +179,7 @@ function disegna(fam: { opzioni: Voce[] }, scelto: number | null): string {
     () => 'totale del soggiorno',
     () => 'Aggiunga la cena a buffet',
     () => '35,00 € a persona a notte · +140,00 € in tutto',
+    segnoInvito,
   ) as string;
 }
 
@@ -376,4 +395,38 @@ Deno.test('e «Soggiorno breve» resta unito a «Miglior Prezzo»', () => {
   assertEquals(famiglia('  SOGGIORNO   BREVE '), 'miglior prezzo');
   assertEquals(famiglia('Golf'), 'golf');
   assertEquals(accorpa(QUEEN)[0].opzioni.length, 2);
+});
+
+Deno.test('l aggiunta della cena porta un piatto fumante, non un «+»', () => {
+  /* chiesto dalla proprieta': su una striscia stretta in mezzo a due
+     prezzi il segno si vede prima di leggere, e un «+» dice solo che c'e'
+     dell'altro — il piatto dice CHE COSA. */
+  const out = disegna(accorpa(QUEEN)[0], null);
+  const dove = out.indexOf('Aggiunga la cena a buffet');
+  assert(dove > 0, 'manca l invito alla cena');
+  const prima = out.slice(Math.max(0, dove - 500), dove);
+  assert(prima.includes('<svg class="segno"'), 'l aggiunta della cena non porta il piatto');
+  assert(
+    !prima.includes('<span class="piu"'),
+    'sulla cena c e ancora il vecchio «+»',
+  );
+});
+
+Deno.test('e il piatto e disegnato, non una emoji', () => {
+  /* le emoji cambiano faccia da un telefono all'altro, e su qualcuna il
+     piatto non ha nemmeno il vapore: quello che si e' promesso al
+     cliente e' un piatto FUMANTE */
+  const segno = segnoInvito({ trattamento: 'Mezza Pensione' });
+  assert(segno.includes('<svg'), 'il segno della cena non e piu disegnato');
+  assert(segno.includes('stroke="currentColor"'), 'il piatto non prende piu il colore della riga');
+  /* tre riccioli di vapore: senza, e un piatto vuoto */
+  assertEquals(segno.split('c-1.4 1.3-1.4 2.5 0 3.8').length - 1, 3);
+});
+
+Deno.test('ma su un altra formula resta il «+»', () => {
+  /* un piatto davanti a «Passi a Pensione Completa» prometterebbe una
+     cosa e ne porterebbe un altra */
+  const segno = segnoInvito({ trattamento: 'Bed & Breakfast' });
+  assert(!segno.includes('<svg'), 'il piatto esce anche dove non c e la cena');
+  assert(segno.includes('>+<'), 'sparito il segno delle altre aggiunte');
 });
