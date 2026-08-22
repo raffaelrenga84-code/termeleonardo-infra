@@ -68,5 +68,57 @@ function tradotto(tavola, nome, lingua) {
 /** Il nome del trattamento nella lingua chiesta, o com'e' arrivato. */
 export const nomeTrattamento = (nome, lingua) => tradotto(TRATTAMENTI, nome, lingua);
 
-/** Il nome della tariffa nella lingua chiesta, o com'e' arrivato. */
-export const nomeTariffa = (nome, lingua) => tradotto(TARIFFE, nome, lingua);
+/** I PIANI CHE SONO OFFERTE: comprendono qualcosa oltre alla camera e al
+ *  trattamento — un massaggio, dei green fee, un ciclo di cure.
+ *
+ *  Perche' l'elenco sta QUI e non in piani.js, che gia' sa quali
+ *  comprendono un massaggio: piani.js si importa col percorso assoluto
+ *  /prenota/piani.js, che nel browser e' l'unico che funziona e in una
+ *  prova Deno non si risolve. Un modulo che dev'essere provato da solo non
+ *  puo' dipenderne. La duplicazione e' voluta e presidiata: una prova
+ *  pretende che ogni piano con un massaggio sia anche un'offerta. */
+export const OFFERTE = [
+  /soggiorno\s*smart|\bsmart\b/i,
+  /thermal\s*escape|\bescape\b/i,
+  /\bgolf\b/i,
+  /dolce\s*vita/i,
+];
+
+/** Questa tariffa e' un'offerta? Quello che non si riconosce NON lo e':
+ *  chiamare «offerta» un prezzo normale e' una promessa che la scheda
+ *  poi non mantiene. */
+export function eOfferta(tariffa) {
+  const s = String(tariffa ?? '');
+  return OFFERTE.some((r) => r.test(s));
+}
+
+/** Il nome CORTO di un'offerta, quando quello del motore ripete una
+ *  parola che l'etichetta gia' porta. «Offerta Soggiorno Smart» dice
+ *  «soggiorno» due volte; «Offerta Smart» si legge in mezzo secondo.
+ *  Quello che non sta qui esce col nome che arriva. */
+export const NOME_OFFERTA = new Map([
+  ['soggiorno smart', 'Smart'],
+]);
+
+/** Come si dice «offerta» in ciascuna lingua, e DOVE si mette. Italiano e
+ *  francese davanti, tedesco e inglese dopo — con lo SPAZIO e non col
+ *  trattino, perche' i nomi sono di due parole e «Dolce Vita-Angebot»
+ *  attacca il trattino alla seconda invece che al tutto. */
+export const ETICHETTA_OFFERTA = {
+  it: (n) => `Offerta ${n}`,
+  fr: (n) => `Offre ${n}`,
+  de: (n) => `${n} Angebot`,
+  en: (n) => `${n} offer`,
+};
+
+/** Il nome della tariffa nella lingua chiesta, o com'e' arrivato — e con
+ *  «Offerta» davanti quando comprende qualcosa in piu'. */
+export function nomeTariffa(nome, lingua) {
+  const base = tradotto(TARIFFE, nome, lingua);
+  if (!eOfferta(nome)) return base;
+  const chiave = String(nome ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const corto = NOME_OFFERTA.get(chiave) ?? base;
+  const l = String(lingua ?? '').toLowerCase();
+  /* una lingua che non conosciamo non si inventa: esce il nome nudo */
+  return Object.hasOwn(ETICHETTA_OFFERTA, l) ? ETICHETTA_OFFERTA[l](corto) : corto;
+}

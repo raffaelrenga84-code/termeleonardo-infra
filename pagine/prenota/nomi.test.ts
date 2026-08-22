@@ -41,11 +41,15 @@ Deno.test('in italiano torna il nome com e arrivato', () => {
 });
 
 Deno.test('un nome che non conosciamo non si traduce mai', () => {
-  /* le tariffe stagionali vanno e vengono: «Soggiorno Smart» c era il 22
-     agosto e non c era il 15 settembre. Esce com e' arrivato. */
+  /* le tariffe stagionali vanno e vengono, e quelle che non conosciamo
+     escono com'e' arrivato il nome.
+
+     «Soggiorno Smart» NON sta piu' in questo elenco, ed e' giusto: dal 22
+     agosto 2026 e' riconosciuto come OFFERTA e prende la sua etichetta.
+     Al suo posto un nome che non conosciamo davvero. */
   for (const l of [...ALTRE, 'it']) {
-    assertEquals(nomeTariffa('Soggiorno Smart', l), 'Soggiorno Smart');
     assertEquals(nomeTariffa('Offerta Autunno 2027', l), 'Offerta Autunno 2027');
+    assertEquals(nomeTariffa('Tariffa Congressi', l), 'Tariffa Congressi');
     assertEquals(nomeTrattamento('Pensione Completa', l), 'Pensione Completa');
   }
 });
@@ -106,4 +110,82 @@ Deno.test('la pagina traduce davvero, in tutti e tre i posti', () => {
     pagina.includes('conFormula(nomeTrattamento(v.trattamento, LNG), t)'),
     'il trattamento torna in italiano dentro una riga tradotta',
   );
+});
+
+/* ============================================================
+   «OFFERTA» DAVANTI AI PACCHETTI. Chiesto dalla proprietà il 22 agosto
+   2026: chi guarda l'elenco vede «Miglior Prezzo», «Thermal Escape»,
+   «Golf», «Dolce Vita» e non ha modo di capire quali comprendono
+   qualcosa oltre alla camera e al trattamento. La parola lo dice in
+   mezzo secondo.
+
+   LA DUPLICAZIONE È VOLUTA. L'elenco delle offerte sta in nomi.js e non
+   in piani.js — che già sa quali comprendono un massaggio — perché
+   piani.js si importa col percorso assoluto /prenota/piani.js, l'unico
+   che funziona nel browser e che in una prova Deno non si risolve. Un
+   modulo che dev'essere provato da solo non può dipenderne.
+
+   Quindi la duplicazione si presidia invece di lasciarla scoperta:
+   ogni piano che comprende un massaggio DEVE essere anche un'offerta.
+   ============================================================ */
+import { eOfferta, ETICHETTA_OFFERTA, NOME_OFFERTA } from './nomi.js';
+import { PIANI } from './piani.js';
+
+Deno.test('i pacchetti si annunciano come offerte, in tutte le lingue', () => {
+  assertEquals(nomeTariffa('Soggiorno Smart', 'it'), 'Offerta Smart');
+  assertEquals(nomeTariffa('Golf', 'it'), 'Offerta Golf');
+  assertEquals(nomeTariffa('Dolce Vita', 'fr'), 'Offre Dolce Vita');
+  assertEquals(nomeTariffa('Golf', 'de'), 'Golf Angebot');
+  assertEquals(nomeTariffa('Thermal Escape', 'en'), 'Thermal Escape offer');
+});
+
+Deno.test('e la grammatica non e la stessa in tutte le lingue', () => {
+  /* «Angebot Golf» in tedesco suona come una traduzione a macchina: la
+     parola va DOPO. Italiano e francese davanti. */
+  assert(ETICHETTA_OFFERTA.de('Golf').startsWith('Golf'), 'il tedesco mette la parola davanti');
+  assert(ETICHETTA_OFFERTA.en('Golf').startsWith('Golf'), 'l inglese mette la parola davanti');
+  assert(ETICHETTA_OFFERTA.it('Golf').startsWith('Offerta'), 'l italiano non la mette davanti');
+  assert(ETICHETTA_OFFERTA.fr('Golf').startsWith('Offre'), 'il francese non la mette davanti');
+});
+
+Deno.test('un prezzo normale NON si annuncia come offerta', () => {
+  /* chiamare «offerta» un prezzo normale e una promessa che la scheda
+     poi non mantiene */
+  for (const t of ['Miglior Prezzo', 'Soggiorno breve', 'Tariffa Base']) {
+    assertEquals(eOfferta(t), false, `«${t}» si e preso il nome di offerta`);
+    assert(
+      !nomeTariffa(t, 'it').startsWith('Offerta'),
+      `«${t}» esce come offerta in italiano`,
+    );
+  }
+});
+
+Deno.test('e il nome non ripete una parola che l etichetta gia porta', () => {
+  /* «Offerta Soggiorno Smart» dice «soggiorno» due volte */
+  assertEquals(NOME_OFFERTA.get('soggiorno smart'), 'Smart');
+  assertEquals(nomeTariffa('  SOGGIORNO   Smart ', 'it'), 'Offerta Smart');
+});
+
+Deno.test('ogni piano che comprende un massaggio e anche un offerta', () => {
+  /* il presidio della duplicazione: se un domani si aggiunge un pacchetto
+     a piani.js e ci si dimentica di nomi.js, quel pacchetto uscirebbe
+     come un prezzo qualunque */
+  assert(PIANI.length > 0, 'nessun piano: la prova non guarda niente');
+  const NOMI_VERI: Record<string, string> = {
+    smart: 'Soggiorno Smart',
+    escape: 'Thermal Escape',
+  };
+  for (const p of PIANI) {
+    const nome = NOMI_VERI[p.chiave];
+    assert(nome, `il piano «${p.chiave}» non ha un nome vero in questa prova: aggiungilo`);
+    assertEquals(
+      eOfferta(nome),
+      true,
+      `«${nome}» comprende un massaggio ma non si annuncia come offerta`,
+    );
+  }
+});
+
+Deno.test('e una lingua che non conosciamo non si inventa un etichetta', () => {
+  assertEquals(nomeTariffa('Golf', 'es'), 'Golf');
 });
