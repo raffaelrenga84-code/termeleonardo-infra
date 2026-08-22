@@ -86,7 +86,7 @@ Oltre a: lettini massaggianti, docce emozionali con aromaterapia, whirlpool, cas
 - **Piscine ospiti hotel: 8:00–19:30 domenica–giovedì; venerdì e sabato fino alle 22:30**
 
 **TASSA DI SOGGIORNO — non è inclusa nelle tariffe.**
-**Un euro e cinquanta al giorno a persona, per un massimo di sette notti. Esenti i minori di quattordici anni e le persone con disabilità. Si paga in loco, in contanti.**
+**Un euro e cinquanta al giorno a persona, per un massimo di sette notti. Esenti i minori di quattordici anni e le persone con disabilità. Si paga in loco.**
 Dillo sempre quando comunichi un prezzo o chiudi un preventivo.
 
 **Arrivo in serata o di notte.** La reception è sempre presidiata; dalle ventidue alle otto c'è il portiere di notte. Arrivare tardi non è mai un problema.
