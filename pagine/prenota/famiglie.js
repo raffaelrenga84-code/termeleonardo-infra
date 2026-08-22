@@ -13,49 +13,80 @@
    l'ospite di capirlo — anzi, «Soggiorno breve» accanto a «Miglior
    Prezzo» sembra un prodotto diverso.
 
-   COSA FA. Mette in una famiglia sola tutto quello che NON e' un
-   pacchetto, e lascia ogni pacchetto per conto suo — perche' un pacchetto
-   comprende altro (un massaggio) e non e' la stessa cosa con la cena in
-   piu'. Dentro la famiglia resta un'opzione per trattamento.
+   COSA FA. Mette in una famiglia le tariffe con lo STESSO PIANO, e dentro
+   tiene un'opzione per trattamento: e' li' che «aggiungi la cena» ha un
+   senso, perche' e' la stessa offerta con e senza. Fra piani diversi non
+   si accorpa niente.
 
-   PERCHE' NON SI RAGGRUPPA PER NOME. Perche' il nome cambia con la durata
-   del soggiorno: un elenco di nomi sarebbe giusto oggi e sbagliato per un
-   soggiorno di cinque notti. Si guarda invece se la tariffa comprende
-   qualcosa (piani.js lo sa), che e' il fatto vero.
+   IL LIMITE CHE C'ERA E CHE E' STATO PAGATO. Fino al 22 agosto 2026 la
+   famiglia era «ha un massaggio o no», e dentro restava una sola opzione
+   per trattamento. Su un soggiorno lungo (provato su 02-20 settembre) una
+   camera ha cinque proposte:
 
-   IL LIMITE, DETTO. Se due tariffe diverse offrissero lo STESSO
-   trattamento a prezzi diversi — per esempio una rimborsabile e una no —
-   qui resterebbe la piu' economica e l'altra sparirebbe. Oggi non
-   succede: la risposta del motore non porta nessuna condizione di
-   cancellazione per tariffa, quindi due righe con lo stesso trattamento
-   sarebbero indistinguibili anche per l'ospite. Se un domani quelle
-   condizioni arrivassero nei dati, questa regola va rifatta — e c'e' una
-   prova che lo dice.
+     Miglior Prezzo · Bed & Breakfast · 3255
+     Miglior Prezzo · Mezza Pensione  · 3705
+     Dolce Vita     · 5 cure          · 3965
+     Dolce Vita     · 10 cure         · 4225
+     Golf           · Mezza Pensione  · 3878
+
+   «Golf» ha la stessa Mezza Pensione di «Miglior Prezzo» e costa di piu':
+   SPARIVA. Un pacchetto intero invendibile dalla pagina, e nessuno se ne
+   accorgeva perche' sui soggiorni corti il Golf non esce. E «5 cure» e «10
+   cure» finivano dentro la famiglia standard come se fossero due modi di
+   mangiare.
+
+   IL NOME SI USA, ma con l'unica equivalenza che serve: «Soggiorno breve»
+   e «Miglior Prezzo» sono la stessa offerta, il nome cambia con la durata.
+   Sta in STESSO_PIANO, e chi ne trovasse un'altra deve aggiungerla
+   apposta invece di allargare una regola.
 
    Presidiato da famiglie.test.ts. */
 
 'use strict';
 
-/** Accorpa le tariffe di una camera.
+/** I nomi che sono LO STESSO PIANO con un altro nome.
  *
- *  `comprende(tariffa)` dice se quella tariffa e' un pacchetto (in
- *  pratica massaggioDelPiano di piani.js): si riceve invece di importarlo
- *  perche' cosi' questa regola si prova da sola.
+ *  «Soggiorno breve» e' il nome che prende il prezzo in mezza pensione
+ *  quando il soggiorno e' di una o due notti — detto dalla proprieta' il
+ *  21 agosto 2026. Su un soggiorno lungo la stessa offerta si chiama
+ *  «Miglior Prezzo» e porta tutti e due i trattamenti.
+ *
+ *  E' l'unico caso in cui due nomi vanno uniti, e sta scritto qui perche'
+ *  chi ne trovasse un altro debba aggiungerlo apposta invece di allargare
+ *  una regola. Le chiavi sono in minuscolo: il motore risponde sempre in
+ *  italiano, qualunque lingua gli si chieda. */
+export const STESSO_PIANO = new Map([
+  ['soggiorno breve', 'miglior prezzo'],
+]);
+
+/** Il piano di una tariffa: il suo nome, o quello a cui e' unita. */
+export function famiglia(tariffa) {
+  const k = String(tariffa ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+  return STESSO_PIANO.get(k) ?? k;
+}
+
+/** Accorpa le tariffe di una camera, per PIANO TARIFFARIO.
+ *
+ *  Dentro un piano resta un'opzione per trattamento, la piu' economica: e'
+ *  li' che «aggiungi la cena» ha senso, perche' e' la stessa offerta con e
+ *  senza. Fra piani diversi non si accorpa NIENTE, e questo e' il punto:
+ *  «Golf · Mezza Pensione» e «Miglior Prezzo · Mezza Pensione» hanno lo
+ *  stesso trattamento e prezzi diversi, e prima il Golf spariva.
  *
  *  Restituisce le famiglie dalla piu' economica, e dentro ognuna le
  *  opzioni dalla piu' economica. */
-export function accorpa(voci, comprende) {
+export function accorpa(voci) {
   const prezzo = (v) => Number(v?.prezzo_cent) || 0;
   const famiglie = new Map();
 
   for (const v of voci ?? []) {
-    const pacchetto = typeof comprende === 'function' && comprende(v?.tariffa);
-    const chiave = pacchetto ? 'pacchetto:' + String(v?.tariffa ?? '') : 'standard';
+    const chiave = famiglia(v?.tariffa);
     if (!famiglie.has(chiave)) famiglie.set(chiave, new Map());
     const perTrattamento = famiglie.get(chiave);
     const b = String(v?.trattamento ?? '');
     const gia = perTrattamento.get(b);
-    /* a parita' di trattamento resta la piu' economica: vedi IL LIMITE */
+    /* stesso piano E stesso trattamento a due prezzi: resta il minore.
+       Sono la stessa cosa, e nessuno vuole pagare di piu'. */
     if (!gia || prezzo(v) < prezzo(gia)) perTrattamento.set(b, v);
   }
 

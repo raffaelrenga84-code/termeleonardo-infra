@@ -20,7 +20,7 @@
    questa prova gira sul nuovo.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { accorpa } from './famiglie.js';
+import { accorpa, famiglia } from './famiglie.js';
 import { massaggioDelPiano } from './piani.js';
 
 type Voce = { tariffa: string; trattamento: string; prezzo_cent: number; indice?: number };
@@ -39,20 +39,20 @@ const QUEEN = [
 ];
 
 Deno.test('le tre righe della Queen diventano due schede', () => {
-  const f = accorpa(QUEEN, massaggioDelPiano);
+  const f = accorpa(QUEEN);
   assertEquals(f.length, 2);
-  assertEquals(f[0].chiave, 'standard');
+  assertEquals(f[0].chiave, 'miglior prezzo');
   assertEquals(f[0].opzioni.map((o: Voce) => o.tariffa), ['Miglior Prezzo', 'Soggiorno breve']);
-  assertEquals(f[1].chiave, 'pacchetto:Thermal Escape');
+  assertEquals(f[1].chiave, 'thermal escape');
   assertEquals(f[1].opzioni.length, 1);
 });
 
-Deno.test('il pacchetto resta per conto suo, non diventa un trattamento', () => {
+Deno.test('un piano diverso resta per conto suo, non diventa un trattamento', () => {
   /* il Thermal Escape ha la stessa mezza pensione del Soggiorno breve: se
      si accorpasse per trattamento, un massaggio da 25 minuti sparirebbe
      dentro un pulsante «aggiunga la cena» */
-  const f = accorpa(QUEEN, massaggioDelPiano);
-  const standard = f.find((x: { chiave: string }) => x.chiave === 'standard');
+  const f = accorpa(QUEEN);
+  const standard = f.find((x: { chiave: string }) => x.chiave === 'miglior prezzo');
   assertEquals(
     standard?.opzioni.some((o: Voce) => o.tariffa === 'Thermal Escape'),
     false,
@@ -63,28 +63,42 @@ Deno.test('il pacchetto resta per conto suo, non diventa un trattamento', () => 
 Deno.test('niente si perde per strada', () => {
   /* il danno peggiore: una tariffa che sparisce e' una camera che non si
      vende, e nessuno sa perche' */
-  const f = accorpa(QUEEN, massaggioDelPiano);
+  const f = accorpa(QUEEN);
   const fuori = f.flatMap((x: { opzioni: Voce[] }) => x.opzioni).map((o: Voce) => o.tariffa).sort();
   assertEquals(fuori, ['Miglior Prezzo', 'Soggiorno breve', 'Thermal Escape']);
 });
 
 Deno.test('le famiglie escono dalla piu economica, e cosi le opzioni dentro', () => {
-  const f = accorpa([...QUEEN].reverse(), massaggioDelPiano);
+  const f = accorpa([...QUEEN].reverse());
   assertEquals(f[0].opzioni[0].prezzo_cent, 38000);
   assertEquals(f[0].opzioni[1].prezzo_cent, 52000);
   assert(f[0].opzioni[0].prezzo_cent < f[1].opzioni[0].prezzo_cent);
 });
 
-Deno.test('a parita di trattamento resta la piu economica', () => {
-  /* e' l unico caso in cui sparire e' giusto: stessa camera, stesso
-     trattamento, prezzo piu' alto. Il limite sta scritto in famiglie.js */
+Deno.test('dentro lo STESSO piano, a parita di trattamento resta la piu economica', () => {
+  /* stesso piano, stesso trattamento, due prezzi: sono la stessa cosa, e
+     nessuno vuole pagare di piu' */
   const f = accorpa([
     v('Miglior Prezzo', 'Bed & Breakfast', 38000, 0),
-    v('Tariffa Base', 'Bed & Breakfast', 41000, 1),
-  ], massaggioDelPiano);
+    v('Miglior Prezzo', 'Bed & Breakfast', 41000, 1),
+  ]);
   assertEquals(f.length, 1);
   assertEquals(f[0].opzioni.length, 1);
   assertEquals(f[0].opzioni[0].prezzo_cent, 38000);
+});
+
+Deno.test('ma due PIANI diversi con lo stesso trattamento restano tutti e due', () => {
+  /* e' il difetto del Golf: fino al 22 agosto 2026 quello piu' caro
+     spariva, e con lui un pacchetto intero */
+  const f = accorpa([
+    v('Miglior Prezzo', 'Mezza Pensione', 370500, 0),
+    v('Golf', 'Mezza Pensione', 387800, 1),
+  ]);
+  assertEquals(f.length, 2, 'due piani diversi si sono fusi: uno dei due e sparito');
+  assertEquals(
+    f.flatMap((x: { opzioni: Voce[] }) => x.opzioni).map((o: Voce) => o.tariffa).sort(),
+    ['Golf', 'Miglior Prezzo'],
+  );
 });
 
 Deno.test('ma un trattamento che compare una volta sola non sparisce mai', () => {
@@ -92,17 +106,14 @@ Deno.test('ma un trattamento che compare una volta sola non sparisce mai', () =>
     v('Miglior Prezzo', 'Bed & Breakfast', 38000, 0),
     v('Soggiorno breve', 'Mezza Pensione', 52000, 1),
     v('Tariffa X', 'Pensione Completa', 70000, 2),
-  ], massaggioDelPiano);
+  ]);
   const tratt = f.flatMap((x: { opzioni: Voce[] }) => x.opzioni).map((o: Voce) => o.trattamento);
   assertEquals(tratt.sort(), ['Bed & Breakfast', 'Mezza Pensione', 'Pensione Completa']);
 });
 
 Deno.test('un elenco vuoto o assente non fa esplodere la scheda', () => {
-  assertEquals(accorpa([], massaggioDelPiano), []);
-  assertEquals(accorpa(undefined as unknown as Voce[], massaggioDelPiano), []);
-  /* senza la funzione che riconosce i pacchetti finisce tutto in una
-     famiglia sola: non e' il caso giusto, ma non deve esplodere */
-  assertEquals(accorpa(QUEEN, undefined as unknown as (t: string) => number).length, 1);
+  assertEquals(accorpa([]), []);
+  assertEquals(accorpa(undefined as unknown as Voce[]), []);
 });
 
 /* ============================================================
@@ -154,7 +165,7 @@ function disegna(fam: { opzioni: Voce[] }, scelto: number | null): string {
 }
 
 Deno.test('la scheda esce con una tariffa grande e la cena come aggiunta', () => {
-  const fam = accorpa(QUEEN, massaggioDelPiano)[0];
+  const fam = accorpa(QUEEN)[0];
   const out = disegna(fam, null);
   /* si contano i PULSANTI, non le classi: «aggiungiTit» e
      «aggiungiSotto» cominciano anche loro per «aggiungi» */
@@ -172,7 +183,7 @@ Deno.test('la scheda esce con una tariffa grande e la cena come aggiunta', () =>
 Deno.test('e ogni opzione resta selezionabile, con il suo indice', () => {
   /* se l aggiunta non portasse il suo indice, chi la clicca comprerebbe la
      tariffa senza cena: il difetto piu' caro possibile su questa pagina */
-  const fam = accorpa(QUEEN, massaggioDelPiano)[0];
+  const fam = accorpa(QUEEN)[0];
   const out = disegna(fam, null);
   assert(out.includes('data-indice="0"'), 'la tariffa base non e selezionabile');
   assert(out.includes('data-indice="1"'), 'l aggiunta non e selezionabile');
@@ -180,7 +191,7 @@ Deno.test('e ogni opzione resta selezionabile, con il suo indice', () => {
 });
 
 Deno.test('e la scelta si vede su quella scelta, non sull altra', () => {
-  const fam = accorpa(QUEEN, massaggioDelPiano)[0];
+  const fam = accorpa(QUEEN)[0];
   const conAggiunta = disegna(fam, 1);
   assert(conAggiunta.includes('class="aggiungi selezionata"'), 'l aggiunta scelta non si segna');
   assertEquals(
@@ -196,7 +207,7 @@ Deno.test('e la scelta si vede su quella scelta, non sull altra', () => {
 Deno.test('un pacchetto da solo non produce nessuna aggiunta', () => {
   /* «Aggiunga la cena» sotto il Thermal Escape, che la cena ce l ha gia,
      sarebbe un invito a comprare quello che si sta gia comprando */
-  const fam = accorpa(QUEEN, massaggioDelPiano)[1];
+  const fam = accorpa(QUEEN)[1];
   const out = disegna(fam, null);
   assertEquals(out.split('<button type="button" class="aggiungi').length - 1, 0);
   assert(out.includes('massaggio di 25 minuti'), 'il pacchetto non dice piu che comprende');
@@ -282,7 +293,7 @@ Deno.test('e i campi ripartono da quello che era scritto, non dall indirizzo', (
    il div, non come è colorato.
    ============================================================ */
 Deno.test('la frase del totale sta FUORI dalla colonna del prezzo', () => {
-  const fam = accorpa(QUEEN, massaggioDelPiano)[0];
+  const fam = accorpa(QUEEN)[0];
   const out = disegna(fam, null);
   const box = out.indexOf('class="prezzoBox"');
   const dett = out.indexOf('class="dettPrezzo"');
@@ -308,4 +319,61 @@ Deno.test('e il nome della tariffa puo restringersi senza traboccare', () => {
     pagina.includes('@media(max-width:420px){'),
     'sotto i 420px il prezzo torna accanto al nome, e si spezzano tutti e due',
   );
+});
+
+/* ============================================================
+   IL GOLF CHE SPARIVA. Trovato il 22 agosto 2026.
+
+   Su un soggiorno lungo — provato su 02-20 settembre, Junior Suite
+   Abano — una camera ha cinque proposte:
+
+     Miglior Prezzo · Bed & Breakfast · 3255
+     Miglior Prezzo · Mezza Pensione  · 3705
+     Dolce Vita     · 5 cure          · 3965
+     Dolce Vita     · 10 cure         · 4225
+     Golf           · Mezza Pensione  · 3878
+
+   L'accorpamento metteva in una famiglia sola tutto quello che non
+   comprendeva un massaggio, e dentro teneva UNA opzione per trattamento:
+   il Golf ha la stessa Mezza Pensione del Miglior Prezzo e costa di piu',
+   quindi SPARIVA. Un pacchetto intero invendibile dalla pagina — e
+   invisibile, perche' sui soggiorni corti il Golf non esce.
+   ============================================================ */
+const SETTEMBRE = [
+  v('Miglior Prezzo', 'Bed & Breakfast', 325500, 0),
+  v('Miglior Prezzo', 'Mezza Pensione', 370500, 1),
+  v('Dolce Vita', '5 cure', 396500, 2),
+  v('Dolce Vita', '10 cure', 422500, 3),
+  v('Golf', 'Mezza Pensione', 387800, 4),
+];
+
+Deno.test('il pacchetto Golf non sparisce dietro una mezza pensione piu economica', () => {
+  const dentro = accorpa(SETTEMBRE)
+    .flatMap((f: { opzioni: Voce[] }) => f.opzioni)
+    .map((o: Voce) => o.tariffa);
+  assert(dentro.includes('Golf'), 'il Golf e sparito: un pacchetto invendibile dalla pagina');
+  assertEquals(dentro.length, SETTEMBRE.length, 'qualche proposta e andata persa');
+});
+
+Deno.test('e le cure non diventano un modo di mangiare', () => {
+  /* «5 cure» e «10 cure» finivano dentro la famiglia standard accanto a
+     «Bed & Breakfast», come se fossero due trattamenti da scegliere */
+  const fam = accorpa(SETTEMBRE);
+  const standard = fam.find((f: { chiave: string }) => f.chiave === 'miglior prezzo');
+  assertEquals(
+    standard?.opzioni.map((o: Voce) => o.trattamento),
+    ['Bed & Breakfast', 'Mezza Pensione'],
+    'la famiglia standard ha dentro qualcosa che non e un trattamento',
+  );
+  const cure = fam.find((f: { chiave: string }) => f.chiave === 'dolce vita');
+  assertEquals(cure?.opzioni.length, 2, 'il Dolce Vita non e una famiglia sua');
+});
+
+Deno.test('e «Soggiorno breve» resta unito a «Miglior Prezzo»', () => {
+  /* e' lo stesso prezzo con un altro nome, che dipende dalla durata: se
+     si dividessero, la cena tornerebbe a essere una tariffa a se' */
+  assertEquals(famiglia('Soggiorno breve'), 'miglior prezzo');
+  assertEquals(famiglia('  SOGGIORNO   BREVE '), 'miglior prezzo');
+  assertEquals(famiglia('Golf'), 'golf');
+  assertEquals(accorpa(QUEEN)[0].opzioni.length, 2);
 });
