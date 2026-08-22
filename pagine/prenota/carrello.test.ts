@@ -55,6 +55,7 @@ type Camera = {
   ricerca: { arrivo: string; partenza: string; adulti: number; bambini: number };
   scelta: Record<string, unknown>;
   caparraCent: number;
+  culla?: boolean;
 };
 type Banco = {
   tutteLeCamere: () => Camera[];
@@ -73,6 +74,9 @@ const fabbrica = new Function(
   const { esc, nomeTariffa, euroDaCentesimi } = aiuti;
   const LNG = 'it';
   let CARRELLO = [], SCELTA = null, RICERCA = {}, CAPARRA_CENT = 0, CAMERE_TOTALI = 0;
+  /* la culla della camera in mano: qui non si prova, ha il suo file —
+     ma tutteLeCamere() la nomina, e senza il banco non partirebbe */
+  let CULLA = false;
   ${prendi('tutteLeCamere')}
   ${prendi('totaleCent')}
   ${prendi('carrelloHTML')}
@@ -100,6 +104,7 @@ const T = {
   carrelloTit: (n: number) => (n === 1 ? 'Camera già scelta' : `Camere già scelte (${n})`),
   carrelloTot: 'Totale',
   togliCamera: 'Togli questa camera',
+  cullaBreve: 'con culla',
   cameraNdi: (n: number, tot: number) => `Sta scegliendo la camera ${n} di ${tot}.`,
   riepilogo: (a: string, p: string, ad: number, b: number) => `Dal ${a} al ${p} · ${ad}+${b}`,
   riepilogoCamera: (n: string, tf: string, pr: string) => `${n} — ${tf} — ${pr} €`,
@@ -218,6 +223,36 @@ Deno.test('e nel riepilogo dei dati non si tolgono camere', () => {
      toglierebbe una camera per sbaglio a chi tocca lo schermo */
   const html = banco.riepilogoCamereHTML(T, [DICIOTTO_NOTTI, DUE_NOTTI]);
   assert(!html.includes('data-togli'), 'si possono togliere camere dal passo dei dati');
+});
+
+Deno.test('la culla chiesta su una camera si rilegge dove si paga', () => {
+  /* spuntata sul passo delle camere e mai piu' vista: chi arriva al
+     modulo non ha modo di accorgersi di averla chiesta, ne' di non
+     averla chiesta. Va riletta in tutti e due i posti dove le camere si
+     ricontano — il carrello e il riepilogo del modulo. */
+  const conCulla = { ...DICIOTTO_NOTTI, culla: true } as Camera;
+  banco.metti([conCulla, DUE_NOTTI], null, {}, 0);
+
+  const carrello = banco.carrelloHTML(T);
+  assertStringIncludes(carrello, 'con culla');
+  assertEquals(carrello.split('con culla').length - 1, 1,
+    'la culla si legge anche sulla camera che non la ha');
+
+  const riepilogo = banco.riepilogoCamereHTML(T, [conCulla, DUE_NOTTI]);
+  assertStringIncludes(riepilogo, 'con culla');
+  assertEquals(riepilogo.split('con culla').length - 1, 1);
+});
+
+Deno.test('e con una camera sola si rilegge lo stesso', () => {
+  /* il riepilogo del modulo cambia forma con una camera sola: e' la
+     riga di sempre, e la culla deve entrarci comunque */
+  const sola = { ...DUE_NOTTI, culla: true } as Camera;
+  assertStringIncludes(banco.riepilogoCamereHTML(T, [sola]), 'con culla');
+  assertEquals(
+    banco.riepilogoCamereHTML(T, [DUE_NOTTI]).includes('con culla'),
+    false,
+    'la culla si legge anche su chi non l ha chiesta',
+  );
 });
 
 /* ============ il patto con il server ============ */

@@ -31,6 +31,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     servizio: 'Servizio', navetta: 'Navetta condivisa', privata: 'Auto privata',
     buono: 'Buono regalo',
     cane: 'Cane al seguito', si: 'Sì',
+    culla: 'Culla',
     interessi: 'Da richiamare per', intTrattamenti: 'Trattamenti alla spa',
     intTransfer: 'Transfer aeroporto', intGreenfee: 'Green fee', intMaestro: 'Maestro di golf',
     prezzo: 'Prezzo', allAutista: 'da pagare direttamente all’autista', oraVolo: 'volo',
@@ -51,6 +52,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     servizio: 'Service', navetta: 'Sammeltransfer', privata: 'Privatwagen',
     buono: 'Gutschein',
     cane: 'Mit Hund', si: 'Ja',
+    culla: 'Kinderbett',
     interessi: 'Rückruf gewünscht für', intTrattamenti: 'Anwendungen im Spa',
     intTransfer: 'Flughafentransfer', intGreenfee: 'Greenfee', intMaestro: 'Golflehrer',
     prezzo: 'Preis', allAutista: 'direkt an den Fahrer zu zahlen', oraVolo: 'Flug',
@@ -71,6 +73,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     servizio: 'Service', navetta: 'Shared shuttle', privata: 'Private car',
     buono: 'Gift voucher',
     cane: 'Travelling with a dog', si: 'Yes',
+    culla: 'Cot',
     interessi: 'To call back about', intTrattamenti: 'Spa treatments',
     intTransfer: 'Airport transfer', intGreenfee: 'Green fee', intMaestro: 'Golf pro',
     prezzo: 'Price', allAutista: 'to be paid directly to the driver', oraVolo: 'flight',
@@ -91,6 +94,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     servizio: 'Service', navetta: 'Navette partagée', privata: 'Voiture privée',
     buono: 'Chèque-cadeau',
     cane: 'Avec un chien', si: 'Oui',
+    culla: 'Lit bébé',
     interessi: 'À rappeler pour', intTrattamenti: 'Soins au spa',
     intTransfer: 'Transfert aéroport', intGreenfee: 'Green fee', intMaestro: 'Professeur de golf',
     prezzo: 'Prix', allAutista: 'à régler directement au chauffeur', oraVolo: 'vol',
@@ -334,6 +338,10 @@ function vociDettagli(tipo: string, t: Record<string, string>): Voce[] {
       /* il cane compare solo se c'e': la reception deve saperlo prima di
          assegnare la camera, e chi non ne ha uno non deve leggere «no» */
       { eti: t.cane, calcola: (d) => (d.cane ? t.si : '') },
+      /* la culla come il cane: si legge solo se c'e'. E qui conta
+         doppio, perche' dice anche che la camera deve essere una Junior
+         Suite o una Suite. */
+      { eti: t.culla, calcola: (d) => (d.culla ? t.si : '') },
       /* il buono: la reception lo verifica e lo scala dal conto. Compare
          solo se c'e', come tutto il resto. */
       { eti: t.buono, calcola: (d) => String(d.buono ?? ''), },

@@ -97,6 +97,13 @@ textarea{min-height:80px;resize:vertical;}
 /* il piatto: stessa altezza della riga, stesso oro del «+» che
    sostituisce, e allineato alla base delle lettere */
 .segno{color:var(--oro);margin-right:6px;vertical-align:-4px;}
+/* la domanda della culla: sta in cima all'elenco, dove si decide */
+.riquadroCulla{background:#fff;border:1px solid #E5E0D8;border-radius:12px;
+  padding:10px 14px;margin-bottom:14px;}
+.riquadroCulla .spunta{margin-top:0;}
+.senzaCulla{color:#9A3412;font-size:12.5px;margin-left:8px;}
+.erroreCulla{background:#FDF1EC;border-left:3px solid #C2410C;border-radius:6px;
+  padding:8px 11px;margin-bottom:8px;font-size:13px;color:#7C2D12;}
 .serve{margin-top:14px;}
 .serveTit{font-family:"Cormorant Garamond",Georgia,serif;font-size:20px;
   color:var(--verde);margin-bottom:2px;}
@@ -338,6 +345,9 @@ import { nomeTariffa, nomeTrattamento } from '/prenota/nomi.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Il supplemento del cane: sta in un
    modulo suo perche' e' un numero della casa, vedi cane.js. */
 import { SUPPLEMENTO_CANE_CENT } from '/prenota/cane.js';
+/* la culla: quanto costa e in quali categorie ci sta. Anche questi sono
+   numeri della casa, e stanno in un modulo loro per la stessa ragione. */
+import { ciStaLaCulla, primaConCulla, SUPPLEMENTO_CULLA_CENT } from '/prenota/culla.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Che cosa succede alla caparra
    quando c'e' un buono: vedi buono.js. */
 import { caparraDopoBuono, valoreInCentesimi } from '/prenota/buono.js';
@@ -429,6 +439,14 @@ const T = {
     mancaScelta:'Scelga una camera per continuare.',
     // passo 3
     riepilogo:(a,p,ad,b)=>`Dal <strong>${a}</strong> al <strong>${p}</strong> · ${ad} adult${ad===1?'o':'i'}${b>0?`, ${b} bambin${b===1?'o':'i'}`:''}`,
+    // la culla
+    culla:'Ci serve una culla',
+    cullaBreve:'con culla',
+    cullaNota:(imp)=>`Supplemento ${imp} € per tutto il soggiorno, non al giorno. La culla si può posizionare nelle Junior Suite e nelle Suite: nelle singole, nella Doppia e nella Matrimoniale Queen non c’è lo spazio.`,
+    cullaNoScheda:'qui la culla non ci sta',
+    cullaNoQui:(nome)=>`Nella ${nome} la culla non ci sta: serve una Junior Suite o una Suite.`,
+    cullaCambia:(nome,prezzo)=>`Passi alla ${nome} — ${prezzo} €`,
+    cullaNessuna:'Per queste date non risultano libere Junior Suite o Suite: ci chiami allo +39 049 9939200 e cerchiamo insieme.',
     // il carrello
     serveTit:'Le serve altro?', serveGuida:'Lo spunti adesso e la reception ne parlerà con lei quando la richiamerà: non è ancora una prenotazione.',
     serveVoce:(k)=>({trattamenti:'Trattamenti alla spa',transfer:'Transfer da e per l’aeroporto',greenfee:'Green fee',maestro:'Lezione col maestro di golf'})[k]||'',
@@ -516,6 +534,14 @@ const T = {
     giornoStesso:(ora)=>`Für eine Anreise noch heute nach ${ora} Uhr organisieren wir das lieber telefonisch, damit Ihr Zimmer richtig vorbereitet wird: rufen Sie uns bitte unter +39 049 9939200 an. Für jedes andere Datum können Sie hier fortfahren.`,
     mancaScelta:'Bitte wählen Sie ein Zimmer, um fortzufahren.',
     riepilogo:(a,p,ad,b)=>`Vom <strong>${a}</strong> bis <strong>${p}</strong> · ${ad} Erwachsene${b>0?`, ${b} Kind${b===1?'':'er'}`:''}`,
+    // la culla
+    culla:'Wir brauchen ein Kinderbett',
+    cullaBreve:'mit Kinderbett',
+    cullaNota:(imp)=>`Aufschlag ${imp} € für den gesamten Aufenthalt, nicht pro Tag. Das Kinderbett passt in die Junior-Suiten und die Suiten: in den Einzelzimmern, im Doppelzimmer und im Zimmer Matrimoniale Queen ist kein Platz dafür.`,
+    cullaNoScheda:'hier passt kein Kinderbett',
+    cullaNoQui:(nome)=>`Ins Zimmer ${nome} passt kein Kinderbett: dafür braucht es eine Junior-Suite oder eine Suite.`,
+    cullaCambia:(nome,prezzo)=>`Wechseln zu ${nome} — ${prezzo} €`,
+    cullaNessuna:'Für diese Daten sind keine Junior-Suiten oder Suiten frei: rufen Sie uns bitte unter +39 049 9939200 an, wir suchen gemeinsam.',
     // il carrello
     serveTit:'Brauchen Sie noch etwas?', serveGuida:'Kreuzen Sie es jetzt an: die Rezeption spricht beim Rückruf mit Ihnen darüber. Es ist noch keine Buchung.',
     serveVoce:(k)=>({trattamenti:'Anwendungen im Spa',transfer:'Flughafentransfer',greenfee:'Greenfee',maestro:'Stunde beim Golflehrer'})[k]||'',
@@ -602,6 +628,14 @@ const T = {
     giornoStesso:(ora)=>`For an arrival today after ${ora} we prefer to arrange it by phone, so your room is properly prepared: please call us on +39 049 9939200. For any other date you can carry on from here.`,
     mancaScelta:'Please choose a room to continue.',
     riepilogo:(a,p,ad,b)=>`From <strong>${a}</strong> to <strong>${p}</strong> · ${ad} adult${ad===1?'':'s'}${b>0?`, ${b} child${b===1?'':'ren'}`:''}`,
+    // la culla
+    culla:'We need a cot',
+    cullaBreve:'with cot',
+    cullaNota:(imp)=>`Supplement ${imp} € for the whole stay, not per day. The cot fits in the Junior Suites and the Suites: there is no room for it in the singles, the Twin or the Matrimoniale Queen.`,
+    cullaNoScheda:'no room for a cot here',
+    cullaNoQui:(nome)=>`There is no room for a cot in the ${nome}: you need a Junior Suite or a Suite.`,
+    cullaCambia:(nome,prezzo)=>`Switch to the ${nome} — ${prezzo} €`,
+    cullaNessuna:'No Junior Suites or Suites are free for these dates: please call us on +39 049 9939200 and we will look together.',
     // il carrello
     serveTit:'Anything else you need?', serveGuida:'Tick it now and reception will talk it over with you when they call: it is not a booking yet.',
     serveVoce:(k)=>({trattamenti:'Spa treatments',transfer:'Airport transfer',greenfee:'Green fee',maestro:'Lesson with the golf pro'})[k]||'',
@@ -688,6 +722,14 @@ const T = {
     giornoStesso:(ora)=>`Pour une arrivée le jour même après ${ora}, nous préférons organiser par téléphone afin que votre chambre soit bien préparée : appelez-nous au +39 049 9939200. Pour toute autre date, vous pouvez continuer ici.`,
     mancaScelta:'Veuillez choisir une chambre pour continuer.',
     riepilogo:(a,p,ad,b)=>`Du <strong>${a}</strong> au <strong>${p}</strong> · ${ad} adulte${ad===1?'':'s'}${b>0?`, ${b} enfant${b===1?'':'s'}`:''}`,
+    // la culla
+    culla:'Il nous faut un lit bébé',
+    cullaBreve:'avec lit bébé',
+    cullaNota:(imp)=>`Supplément ${imp} € pour tout le séjour, pas par jour. Le lit bébé tient dans les Junior Suites et les Suites : dans les chambres simples, la Doppia et la Matrimoniale Queen il n’y a pas la place.`,
+    cullaNoScheda:'pas de place pour un lit bébé',
+    cullaNoQui:(nome)=>`Dans la ${nome} il n’y a pas la place pour un lit bébé : il faut une Junior Suite ou une Suite.`,
+    cullaCambia:(nome,prezzo)=>`Passez à la ${nome} — ${prezzo} €`,
+    cullaNessuna:'Aucune Junior Suite ni Suite n’est libre pour ces dates : appelez-nous au +39 049 9939200, nous chercherons ensemble.',
     // il carrello
     serveTit:'Autre chose ?', serveGuida:'Cochez-le maintenant : la réception en parlera avec vous lors du rappel. Ce n’est pas encore une réservation.',
     serveVoce:(k)=>({trattamenti:'Soins au spa',transfer:'Transfert depuis et vers l’aéroport',greenfee:'Green fee',maestro:'Leçon avec le professeur de golf'})[k]||'',
@@ -749,6 +791,10 @@ let STATO = 'ricerca';           // 'ricerca' | 'camere' | 'dati' | 'fatta'
 let RICERCA = null;              // { arrivo, partenza, adulti, bambini, eta_bambini }
 let PROPOSTE = [];                // risposta di a=disponibilita
 let CAPARRA_CENT = 0;
+/* LA CULLA DELLA CAMERA IN MANO. Viaggia col carrello accanto alla sua
+   camera, non accanto al nome dell'ospite: chi prenota due stanze puo'
+   volerla in una sola. */
+let CULLA = false;
 let CONDIZIONI = { righe: [], recesso: '' };
 let SCELTA = null;                // la proposta scelta
 let TUTTE_LE_CAMERE = false;      // l'ospite ha chiesto di vederle tutte
@@ -1076,6 +1122,12 @@ function dettaglioDelPrezzo(cent, t) {
   return t.dettaglioPrezzo(adulti, uno === null ? '' : euroDaCentesimi(uno));
 }
 
+/* LA CULLA. Sponde, due montanti e le stanghette in mezzo: si riconosce
+   a diciassette pixel, che e' la misura a cui la si guarda. Disegnata
+   come il piatto, e per la stessa ragione: le emoji cambiano faccia da
+   un telefono all'altro, e una culla non ce l'hanno proprio. */
+const CULLA_SEGNO = `<svg class="segno" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5V19" /><path d="M20 5V19" /><path d="M4 8.5h16" /><path d="M4 15h16" /><path d="M8 8.5V15" /><path d="M12 8.5V15" /><path d="M16 8.5V15" /></g></svg>`;
+
 /* IL PIATTO FUMANTE. Un «+» dice che c'e' dell'altro; un piatto dice
    CHE COSA, e si vede prima di leggere — su una striscia stretta in
    mezzo a due prezzi quel mezzo secondo e' tutto. Disegnato qui e non
@@ -1115,12 +1167,40 @@ function quantoInPiu(v, base, t) {
   return t.differenza(aNotte === null ? '' : euroDaCentesimi(aNotte), euroDaCentesimi(piu));
 }
 
+/* LA DOMANDA DELLA CULLA, in cima all'elenco e non in fondo: chiederla
+   dopo aver scelto vorrebbe dire far scegliere alla cieca e poi dire di
+   no. Quando e' chiesta, sotto compare quanto costa — 30 € per TUTTO il
+   soggiorno, non al giorno come il cane — e dove ci sta. */
+function cullaChiestaHTML(t) {
+  return `<div class="riquadroCulla">
+    <label class="spunta"><input type="checkbox" id="fCulla"${CULLA ? ' checked' : ''} />
+      <span>${CULLA_SEGNO}${esc(t.culla)}</span></label>
+    ${CULLA
+      ? `<div class="avviso avvisoCane">${esc(t.cullaNota(euroDaCentesimi(SUPPLEMENTO_CULLA_CENT)))}</div>`
+      : ''}
+  </div>`;
+}
+
+/* SE LA CAMERA SCELTA NON OSPITA LA CULLA. Non si blocca niente: si
+   dice, e si propone la MENO CARA fra le libere che la ospita. Chi si
+   sente dire «deve cambiare categoria» sta gia' ricevendo una notizia
+   che costa, e proporgli la Suite quando basta una Junior Suite e' il
+   modo piu' veloce di far chiudere la pagina. */
+function cullaAvvisoHTML(t) {
+  if (!CULLA || !SCELTA || ciStaLaCulla(SCELTA.camera_id)) return '';
+  const altra = primaConCulla(PROPOSTE);
+  return `<div class="erroreCulla">${esc(t.cullaNoQui(SCELTA.nome))}</div>` +
+    (altra
+      ? `<button type="button" class="altre" id="bCullaCambia" data-indice="${altra.indice}">${esc(t.cullaCambia(altra.nome, euroDaCentesimi(altra.prezzo_cent)))}</button>`
+      : `<div class="erroreCulla">${esc(t.cullaNessuna)}</div>`);
+}
+
 /* TUTTE LE CAMERE DELLA RICHIESTA: quelle messe da parte piu' quella che
    si sta scegliendo adesso. Il carrello tiene solo le PARCHEGGIATE, cosi'
    tornare indietro dal modulo non deve disfare niente. */
 function tutteLeCamere() {
   const ora = SCELTA
-    ? [{ ricerca: { ...RICERCA }, scelta: SCELTA, caparraCent: CAPARRA_CENT }]
+    ? [{ ricerca: { ...RICERCA }, scelta: SCELTA, caparraCent: CAPARRA_CENT, culla: CULLA }]
     : [];
   return [...CARRELLO, ...ora];
 }
@@ -1147,7 +1227,7 @@ function carrelloHTML(t) {
       <div>
         <div class="carrelloNome">${esc(c.scelta.nome)}</div>
         <div class="carrelloQuando">${esc(c.ricerca.arrivo)} → ${esc(c.ricerca.partenza)} ·
-          ${esc(nomeTariffa(c.scelta.tariffa, LNG))}</div>
+          ${esc(nomeTariffa(c.scelta.tariffa, LNG))}${c.culla ? ' · ' + esc(t.cullaBreve) : ''}</div>
       </div>
       <div class="carrelloDestra">
         <span class="carrelloPrezzo">${euroDaCentesimi(c.scelta.prezzo_cent)} €</span>
@@ -1185,14 +1265,15 @@ function riepilogoCamereHTML(t, camere) {
       c.ricerca.adulti, c.ricerca.bambini || 0) +
       `<br />` +
       t.riepilogoCamera(c.scelta.nome, nomeTariffa(c.scelta.tariffa, LNG),
-        euroDaCentesimi(c.scelta.prezzo_cent));
+        euroDaCentesimi(c.scelta.prezzo_cent)) +
+      (c.culla ? ` · ${esc(t.cullaBreve)}` : '');
   }
   const righe = camere.map((c) => `
     <div class="carrelloRiga">
       <div>
         <div class="carrelloNome">${esc(c.scelta.nome)}</div>
         <div class="carrelloQuando">${esc(c.ricerca.arrivo)} → ${esc(c.ricerca.partenza)} ·
-          ${esc(nomeTariffa(c.scelta.tariffa, LNG))}</div>
+          ${esc(nomeTariffa(c.scelta.tariffa, LNG))}${c.culla ? ' · ' + esc(t.cullaBreve) : ''}</div>
       </div>
       <span class="carrelloPrezzo">${euroDaCentesimi(c.scelta.prezzo_cent)} €</span>
     </div>`).join('');
@@ -1270,6 +1351,7 @@ function schermaCamere() {
         ? `<div class="errore">${esc(t.troppePerUnaCamera(persone))}</div>`
         : ''}
       <div class="avviso tassa">${esc(t.tassaSoggiorno)}</div>
+      ${cullaChiestaHTML(t)}
       <details class="inclusi">
         <summary>${esc(t.inclusiTit)}</summary>
         <ul>${inclusiIn(LNG).map(r => `<li>${esc(r)}</li>`).join('')}</ul>
@@ -1289,7 +1371,13 @@ function schermaCamere() {
                prezzo e vale per tutte le tariffe della camera — che e' giusto,
                perche' quello che e' compreso e' lo stesso per tutte. -->
           <div class="rigaInfo">
-            <span class="maxAdulti">${g.max_adulti ? esc(t.finoAdulti(g.max_adulti)) : ''}</span>
+            <span class="maxAdulti">${g.max_adulti ? esc(t.finoAdulti(g.max_adulti)) : ''}
+              <!-- QUI LA CULLA NON CI STA: si dice sulla scheda, mentre si
+                   sceglie. Dirlo dopo vorrebbe dire far scegliere alla
+                   cieca e poi rimandare indietro. -->
+              ${CULLA && !ciStaLaCulla(g.camera_id)
+                ? `<span class="senzaCulla">${esc(t.cullaNoScheda)}</span>`
+                : ''}</span>
             <button type="button" class="infoInclusi" data-testid="info-inclusi"
               aria-label="${esc(t.inclusiTit)}"><span aria-hidden="true">i</span></button>
           </div>
@@ -1352,6 +1440,7 @@ function schermaCamere() {
       <!-- «Continua» si accende anche con una camera nel CARRELLO e
            nessuna in mano: chi ne ha messa da parte una e poi ha
            cambiato idea sulla seconda resterebbe chiuso qui dentro. -->
+      ${cullaAvvisoHTML(t)}
       <button class="invia" id="bContinua"${tutteLeCamere().length ? '' : ' disabled'}>${esc(t.continua)}</button>
       <!-- AGGIUNGI UN'ALTRA CAMERA: mette da parte quella scelta e
            riporta alle date, che si possono cambiare. Compare solo con
@@ -1364,14 +1453,35 @@ function schermaCamere() {
 
   $('bIndietroDate').onclick = () => { STATO = 'ricerca'; disegna(); };
   if ($('bAltre')) $('bAltre').onclick = () => { TUTTE_LE_CAMERE = true; schermaCamere(); };
+  if ($('fCulla')) {
+    $('fCulla').onchange = () => {
+      CULLA = $('fCulla').checked;
+      /* si ridisegna tutto l'elenco, non solo la spunta: da questa
+         risposta dipendono le note sulle schede e l'avviso nella barra */
+      schermaCamere();
+    };
+  }
+  if ($('bCullaCambia')) {
+    $('bCullaCambia').onclick = () => {
+      const i = Number($('bCullaCambia').dataset.indice);
+      if (!PROPOSTE[i]) return;
+      SCELTA = { ...PROPOSTE[i], indice: i };
+      schermaCamere();
+    };
+  }
   attivaCarrello();
   if ($('bAltraCamera')) {
     $('bAltraCamera').onclick = () => {
       /* si mette da parte quella scelta e si torna alle date: da li'
          l'ospite puo' cambiarle, che e' il caso di due camere per periodi
          diversi */
-      CARRELLO.push({ ricerca: { ...RICERCA }, scelta: SCELTA, caparraCent: CAPARRA_CENT });
+      CARRELLO.push({
+        ricerca: { ...RICERCA }, scelta: SCELTA, caparraCent: CAPARRA_CENT, culla: CULLA,
+      });
       SCELTA = null;
+      /* la culla resta con la camera messa da parte: la prossima riparte
+         da zero, altrimenti se ne troverebbe una che non ha chiesto */
+      CULLA = false;
       TUTTE_LE_CAMERE = false;
       STATO = 'ricerca';
       disegna();
@@ -1718,6 +1828,7 @@ async function inviaRichiesta() {
     checkIn: prima.ricerca.arrivo, checkOut: prima.ricerca.partenza,
     adulti: prima.ricerca.adulti, bambini: prima.ricerca.bambini,
     caparraCent: prima.caparraCent,
+    culla: prima.culla === true,
     note, lingua: LNG,
     cane: $('fCane') ? $('fCane').checked : false,
     buono: BUONO ? BUONO.codice : '',
@@ -1734,6 +1845,7 @@ async function inviaRichiesta() {
         adulti: c.ricerca.adulti,
         bambini: c.ricerca.bambini,
         caparraCent: c.caparraCent,
+        culla: c.culla === true,
       }));
   }
 

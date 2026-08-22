@@ -369,6 +369,20 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
      sappia PRIMA di assegnare la camera. */
   const cane = d?.cane === true || d?.cane === 'true' || d?.cane === 1;
 
+  /* LA CULLA. Un booleano come il cane, e per la stessa ragione: la
+     reception deve saperlo PRIMA di assegnare la camera. Qui pero' non
+     e' solo un supplemento — la culla ci sta nelle Junior Suite e nelle
+     Suite e in nessun'altra categoria, quindi una culla su una
+     Matrimoniale Queen e' una prenotazione che va rifatta al banco.
+
+     LA CATEGORIA NON SI CONTROLLA QUI, e non e' una dimenticanza: se il
+     server rifiutasse, l'ospite perderebbe la richiesta invece di
+     leggere un consiglio. A dirgli che deve cambiare categoria — e a
+     proporgli quella giusta fra le libere — ci pensa la pagina, mentre
+     sceglie e puo' ancora cambiare idea. Qui la si registra e basta:
+     una richiesta che arriva in reception vale piu' di una respinta. */
+  const culla = d?.culla === true || d?.culla === 'true' || d?.culla === 1;
+
   /* IL BUONO REGALO: solo il CODICE, mai il valore. Il valore lo rilegge
      la reception dal buono vero al momento di confermare — una cifra
      copiata qui invecchierebbe, e se il buono nel frattempo fosse stato
@@ -410,6 +424,7 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
       /* assente quando non c'e', come la caparra: un «cane: false» in back
          office e' rumore che si legge come un dato raccolto */
       ...(cane ? { cane: true } : {}),
+      ...(culla ? { culla: true } : {}),
       ...(buono ? { buono } : {}),
       /* assente quando non c'e', come il cane: un elenco vuoto in back
          office si legge come «ho chiesto e non gli serve niente» */

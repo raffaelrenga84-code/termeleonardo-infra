@@ -53,7 +53,9 @@ export function euroDaCentesimi(cent) {
  *  `note`, `cane` e `buono` NON stanno qui: sono della PERSONA, non della
  *  camera. Chi prenota due stanze scrive le note una volta sola e ha un
  *  cane solo, non uno per camera. */
-export function corpoCamera({ scelta, checkIn, checkOut, adulti, bambini, caparraCent = 0 }) {
+export function corpoCamera({
+  scelta, checkIn, checkOut, adulti, bambini, caparraCent = 0, culla = false,
+}) {
   const nAdulti = Number(adulti) || 0;
   const nBambini = Number(bambini) || 0;
   /* una caparra a zero non si manda: sarebbe una promessa di «0,00 €»
@@ -75,6 +77,10 @@ export function corpoCamera({ scelta, checkIn, checkOut, adulti, bambini, caparr
       adulti: nAdulti,
       bambini: nBambini,
       ...(nCaparra > 0 ? { caparra_cent: nCaparra } : {}),
+      /* LA CULLA E' DELLA CAMERA e non della persona: chi prenota due
+         stanze puo' volerla in una sola. Sta qui e non in componiCorpo
+         per questo. Solo quando c'e', come la caparra. */
+      ...(culla === true ? { culla: true } : {}),
     },
   };
 }
@@ -83,12 +89,14 @@ export function corpoCamera({ scelta, checkIn, checkOut, adulti, bambini, caparr
  *  in piu' le aggiunge chi chiama, in `altre[]`, con corpoCamera(). */
 export function componiCorpo({
   scelta, nome, email, telefono, checkIn, checkOut,
-  adulti, bambini, caparraCent = 0, note, lingua, cane = false, buono = '',
+  adulti, bambini, caparraCent = 0, note, lingua, cane = false, buono = '', culla = false,
   /* il tipo va detto: da un [] vuoto TypeScript deduce never[], e ogni
      chiamante con delle chiavi vere diventerebbe un errore */
   interessi = /** @type {string[]} */ ([]),
 }) {
-  const camera = corpoCamera({ scelta, checkIn, checkOut, adulti, bambini, caparraCent });
+  const camera = corpoCamera({
+    scelta, checkIn, checkOut, adulti, bambini, caparraCent, culla,
+  });
   return {
     tipo: 'soggiorno',
     privacy_presa_atto: true,
