@@ -73,6 +73,12 @@ td{padding:9px 10px;border-top:1px solid #F0EBE1;vertical-align:top;}
 .omaggio{display:inline-block;padding:1px 7px;border-radius:9px;background:#FBF3DF;
 color:#8A6D1F;border:1px solid #E4CE93;font-size:11px;letter-spacing:.3px;}
 /* un buono con più voci va riconosciuto senza doverlo aprire */
+/* il gruppo di camere: si legge prima dei dettagli, perche' cambia il
+   modo di trattare la richiesta — vanno assegnate vicine */
+.insiemeCamere{margin-top:10px;padding:10px 12px;border-radius:8px;
+  background:#EAF3EE;border-left:3px solid #1E7F88;font-size:13.5px;color:#1B4D4A;}
+.apriInsieme{border:1px solid #BBD3CC;background:#fff;border-radius:6px;
+  padding:2px 8px;cursor:pointer;color:#1B4D4A;}
 .piu-voci{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:9px;
 background:var(--acqua-chiara);color:var(--acqua-scura);border:1px solid var(--acqua);
 font-size:11px;letter-spacing:.3px;}
@@ -1515,6 +1521,28 @@ function rigaPeriodo(r, riga) {
   return riga('Periodo', `<strong>${esc(periodo)}</strong>${pezzi ? ` <span class="mini">${esc(pezzi)}</span>` : ''}`);
 }
 
+/* LE CAMERE CHE VIAGGIANO INSIEME. Il carrello del sito ne salva una
+   riga per camera: sono pratiche distinte — ognuna col suo periodo, la
+   sua tariffa e il suo stato, ed e' giusto cosi' — ma sono lo stesso
+   ospite, e vanno assegnate vicine.
+
+   Il collegamento lo calcola il server (collegaCamere in elenco.ts) e
+   arriva su OGNI riga del gruppo, capofila compresa: prima si vedeva
+   da una parte sola, e chi apriva la capofila non sapeva che ce
+   n'erano altre due. */
+function camereInsieme(r) {
+  const numeri = Array.isArray(r.camere_insieme) ? r.camere_insieme : [];
+  if (numeri.length < 2) return null;
+  return { numeri, quale: numeri.indexOf(r.numero) + 1 };
+}
+
+/* il segno in lista: corto, perche' sta dentro una cella gia' piena */
+function segnoInsieme(r) {
+  const g = camereInsieme(r);
+  if (!g) return '';
+  return `<span class="piu-voci">${g.quale > 0 ? g.quale + ' di ' + g.numeri.length : g.numeri.length} camere insieme</span>`;
+}
+
 function dettaglioRichiesta(r) {
   const riga = (e, v) => v ? `<tr><td class="mini" style="padding-right:14px;white-space:nowrap;">${esc(e)}</td>
     <td>${v}</td></tr>` : '';
@@ -1533,6 +1561,22 @@ function dettaglioRichiesta(r) {
     <h2>${esc(r.nome)} <span class="badge-tipo">${esc(r.etichetta || 'Richiesta')}</span>
       <span class="stato st-${esc(r.stato)}">${esc(etichetta(STATI_RICHIESTA, r.stato))}</span></h2>
     <div class="mini">${esc(r.numero)} · arrivata il ${quandoIT(r.creato_il)}</div>
+    ${(() => {
+      /* IL GRUPPO, coi numeri di tutte. Cliccabili: da qui si apre la
+         camera che serve senza cercarla a mano nella lista, che e'
+         esattamente il gesto che prima non c'era. */
+      const g = camereInsieme(r);
+      if (!g) return '';
+      return `<div class="insiemeCamere">
+        <strong>${g.numeri.length} camere per lo stesso ospite</strong>${g.quale > 0 ? ` — questa e' la ${g.quale}ª` : ''}.
+        Da assegnare vicine.
+        <div style="margin-top:6px;">${g.numeri.map((num) =>
+          num === r.numero
+            ? `<span class="cod">${esc(num)}</span>`
+            : `<button type="button" class="apriInsieme cod" data-numero="${esc(num)}">${esc(num)}</button>`
+        ).join(' · ')}</div>
+      </div>`;
+    })()}
     <table style="margin-top:12px;">
       ${rigaPeriodo(r, riga)}
       ${riga('Email', `<a href="mailto:${esc(r.email)}?subject=${oggetto}">${esc(r.email)}</a>`)}
@@ -1660,7 +1704,7 @@ async function vistaRichieste() {
           <td class="cod">${esc(r.numero)}</td>
           <td class="mini">${quandoIT(r.creato_il)}</td>
           <td>${esc(r.nome)}<div class="mini">${esc(r.email)}${r.telefono ? ' · ' + esc(r.telefono) : ''}</div></td>
-          <td><span class="badge-tipo">${esc(r.etichetta || 'Richiesta')}</span>
+          <td><span class="badge-tipo">${esc(r.etichetta || 'Richiesta')}</span>${segnoInsieme(r)}
             <div class="mini">${esc(r.riepilogo || '')}</div></td>
           <td><span class="stato st-${esc(r.stato)}">${esc(etichetta(STATI_RICHIESTA, r.stato))}</span></td>
         </tr>`).join('') + `</table>` : '';
@@ -1685,6 +1729,20 @@ async function vistaRichieste() {
             if ($(id)) $(id).addEventListener('change', aggiornaPrezzoTransfer);
           }
 
+          /* le camere dello stesso gruppo si aprono da qui: cercarle a
+             mano nella lista e' il gesto che questo collegamento
+             esiste per togliere */
+          for (const b of $('rDettaglio').querySelectorAll('button.apriInsieme')) {
+            b.onclick = () => {
+              const altra = CARICATE.find(x => x.numero === b.dataset.numero);
+              if (!altra) {
+                b.textContent = 'non in elenco';
+                return;
+              }
+              $('rDettaglio').innerHTML = dettaglioRichiesta(altra);
+              $('rDettaglio').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            };
+          }
           /* un pulsante per riga: si copia il valore, mai l'etichetta */
           for (const b of $('rDettaglio').querySelectorAll('button.copiaVoce')) {
             b.onclick = async () => {

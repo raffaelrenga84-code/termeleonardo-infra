@@ -19,7 +19,7 @@ import { altreCamere, conIlNumero } from './piu-camere.ts';
 import { avvisaHotel } from './email-richiesta.ts';
 import { inviaRicevuta } from './ricevuta.ts';
 import { inviaConferma } from './conferma.ts';
-import { arricchisciElenco } from './elenco.ts';
+import { arricchisciElenco, chiaveGruppo, collegaCamere } from './elenco.ts';
 import { filtroRicercaRichieste } from './ricerca.ts';
 import { arriviDelGiorno, giornoValido, puoChiudere, tipiCura } from './arrivi.ts';
 import { type Ruolo, ruoloDi, tipiVisibili, vedeTutto } from './ruoli.ts';
@@ -697,7 +697,21 @@ Deno.serve(async (req) => {
        della stessa regola che divergono al primo cambiamento — il difetto
        gia' pagato coi prezzi del listino, i testi dei buoni, l'indirizzo,
        i trattamenti. */
-    return risposta({ ok: true, richieste: arricchisciElenco(data ?? []) });
+    /* LE CAMERE CHE VIAGGIANO INSIEME. Una query sua, non le 200 righe
+       qui sopra: con un filtro per stato una camera gia' vista
+       resterebbe fuori e la capofila direbbe «2 camere» quando sono
+       tre. Se fallisce non si perde l'elenco — si perde il
+       collegamento, che e' il male minore. */
+    const righe = arricchisciElenco(data ?? []);
+    const chiavi = [...new Set(righe.map(chiaveGruppo).filter(Boolean))];
+    let figlie: { numero?: unknown; dati?: Record<string, unknown> | null }[] = [];
+    if (chiavi.length) {
+      const { data: f, error: eF } = await db.from('richiesta_sito')
+        .select('numero, dati').in('dati->>insieme', chiavi);
+      if (eF) console.error('collegamento fra camere non letto:', eF);
+      else figlie = f ?? [];
+    }
+    return risposta({ ok: true, richieste: collegaCamere(righe, figlie) });
   }
 
   /* ---------- gli arrivi di un giorno ----------

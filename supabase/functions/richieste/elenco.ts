@@ -32,7 +32,14 @@ export type RigaGrezza = {
   [k: string]: unknown;
 };
 
-export type RigaArricchita = RigaGrezza & Riga & { differenze: Differenza[] };
+/* `camere_insieme` c'e' solo sulle righe che fanno parte di un gruppo di
+   camere, e le porta tutte, capofila per prima. Dichiarato qui e non
+   lasciato all'indice aperto di RigaGrezza: e' un campo che il back
+   office legge davvero, e un `unknown` costringerebbe a fidarsi. */
+export type RigaArricchita = RigaGrezza & Riga & {
+  differenze: Differenza[];
+  camere_insieme?: string[];
+};
 
 /* IL TOKEN DELL'ARRIVO NON ESCE DA QUI. `arrivo_token` e' la chiave con cui
    si apre la pagina di compilazione di quell'ospite: chi la leggesse nella
@@ -60,4 +67,69 @@ export function arricchisciRiga(r: RigaGrezza): RigaArricchita {
 
 export function arricchisciElenco(righe: RigaGrezza[]): RigaArricchita[] {
   return righe.map(arricchisciRiga);
+}
+
+/* ============================================================
+   LE CAMERE CHE VIAGGIANO INSIEME, viste da tutte e due i versi.
+
+   Il carrello salva una riga per camera: la prima e' la capofila, e
+   quelle in piu' portano il suo numero in `dati.insieme`. Il filo
+   quindi esisteva gia', ma si vedeva da una parte sola: aprendo la
+   camera 2 si risaliva alla 1, aprendo la 1 non c'era scritto niente.
+   Chi lavora dalla lista invece che dall'email non poteva sapere che
+   quell'ospite ne aveva prenotate tre.
+
+   SI DERIVA, NON SI COPIA. Scrivere sulla capofila l'elenco delle
+   figlie sarebbe un secondo dato che dice la stessa cosa, e due dati
+   che dicono la stessa cosa prima o poi si contraddicono — per esempio
+   quando una camera viene cancellata a mano. Qui il gruppo si ricompone
+   ogni volta da quello che c'e' scritto.
+
+   LE FIGLIE ARRIVANO DA UNA QUERY LORO e non dalle 200 righe della
+   pagina: con un filtro per stato — «mostrami solo le nuove» — una
+   figlia gia' vista resterebbe fuori, e la capofila direbbe «2 camere»
+   quando sono tre. Un numero sbagliato e' peggio di nessun numero.
+   ============================================================ */
+
+/** La chiave del gruppo di una riga: il numero della capofila se e' una
+ *  camera in piu', il proprio se e' lei la capofila. */
+export function chiaveGruppo(r: RigaGrezza): string {
+  const insieme = (r.dati || {}).insieme;
+  const suo = String(r.numero ?? '').trim();
+  const capo = String(insieme ?? '').trim();
+  return capo || suo;
+}
+
+/** Attacca a ogni riga `camere_insieme`: tutti i numeri del suo gruppo,
+ *  capofila per prima, SOLO quando le camere sono piu' d'una.
+ *
+ *  `figlie` sono le righe che dichiarano di appartenere a un gruppo —
+ *  numero e `dati.insieme` — prese da una query loro, cosi' il conto e'
+ *  giusto anche quando la lista e' filtrata per stato.
+ *
+ *  Una riga sola nel suo gruppo non porta niente: «1 camera» scritto su
+ *  ogni richiesta normale sarebbe rumore su tutta la lista. */
+export function collegaCamere(
+  righe: RigaArricchita[],
+  figlie: { numero?: unknown; dati?: Record<string, unknown> | null }[],
+): RigaArricchita[] {
+  const per = new Map<string, string[]>();
+  for (const f of figlie ?? []) {
+    const capo = String((f?.dati || {}).insieme ?? '').trim();
+    const suo = String(f?.numero ?? '').trim();
+    if (!capo || !suo) continue;
+    if (!per.has(capo)) per.set(capo, []);
+    const elenco = per.get(capo)!;
+    /* una figlia puo' arrivare due volte se la query la ripete: due
+       «camera 2» nella stessa lista sono un numero sbagliato */
+    if (!elenco.includes(suo)) elenco.push(suo);
+  }
+  return (righe ?? []).map((r) => {
+    const capo = chiaveGruppo(r);
+    const altre = per.get(capo) ?? [];
+    if (!altre.length || !capo) return r;
+    /* la capofila per prima, poi le sue camere nell'ordine dei numeri:
+       e' l'ordine in cui l'ospite le ha scelte */
+    return { ...r, camere_insieme: [capo, ...[...altre].sort()] };
+  });
 }
