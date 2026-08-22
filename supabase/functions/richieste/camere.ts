@@ -26,17 +26,22 @@ export type Camera = {
 };
 
 export const CAMERE: Record<number, Camera> = {
+  /* IL LETTO ALLA FRANCESE E' DELLA PARCO, non di questa. Fino al 22
+     agosto 2026 era scritto qui, e da qui era finito anche nella
+     Knowledge Base e nel prompt dell'agente vocale. Che letto abbia
+     questa camera non lo sappiamo: meglio non dirlo che dirlo storto. */
   2: { id: 2, nome: 'Singola senza balcone', descrizione: {
-      it: 'Letto alla francese da 1,45 m. È l’unica camera senza balcone.',
-      de: 'Französisches Bett, 1,45 m. Das einzige Zimmer ohne Balkon.',
-      en: 'French bed, 1.45 m. The only room without a balcony.',
-      fr: 'Lit à la française de 1,45 m. La seule chambre sans balcon.',
+      it: 'È l’unica camera senza balcone.',
+      de: 'Das einzige Zimmer ohne Balkon.',
+      en: 'The only room without a balcony.',
+      fr: 'La seule chambre sans balcon.',
     } },
+  /* l'unica camera col letto alla francese */
   3: { id: 3, nome: 'Singola Parco', descrizione: {
-      it: 'Camera singola con balcone e vista sul parco.',
-      de: 'Einzelzimmer mit Balkon und Blick auf den Park.',
-      en: 'Single room with a balcony overlooking the park.',
-      fr: 'Chambre simple avec balcon et vue sur le parc.',
+      it: 'Letto alla francese da 1,45 m, balcone con vista sul parco.',
+      de: 'Französisches Bett 1,45 m, Balkon mit Blick auf den Park.',
+      en: 'French bed, 1.45 m, balcony overlooking the park.',
+      fr: 'Lit à la française de 1,45 m, balcon avec vue sur le parc.',
     } },
   4: { id: 4, nome: 'Singola Accessibile', descrizione: {
       it: 'Camera singola attrezzata per ospiti con esigenze di mobilità.',

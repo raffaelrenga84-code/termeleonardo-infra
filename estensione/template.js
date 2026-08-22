@@ -759,7 +759,7 @@ function descrizioneOspiti(adulti, bambini) {
 const CAMERE_IT = {
   'queen': '16 m², letto matrimoniale queen da 1,60 m, balcone con vista sul giardino, insonorizzata',
   'doppia': '18 m², letti singoli accostabili, balcone, insonorizzata',
-  'singola': '16 m², letto alla francese da 1,40 m, balcone con vista sul giardino e sulle piscine',
+  'singola': '16 m², letto alla francese da 1,45 m, balcone con vista sul giardino e sulle piscine',
   'junior suite abano': '28 m², fino a 3 persone: camera e soggiorno separati con divano letto, terrazza e cabina armadio',
   'junior suite monteortone': '28 m², fino a 4 persone: letto matrimoniale e due divani letto, terrazza con vista sul giardino',
   'junior suite colli': '24 m² per 2 persone, area salotto e cabina armadio, terrazza con vista sul giardino e sulle piscine',
