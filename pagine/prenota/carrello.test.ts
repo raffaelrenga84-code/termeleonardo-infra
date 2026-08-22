@@ -399,3 +399,15 @@ Deno.test('i due cartelli si disegnano su ENTRAMBE le schermate dove si sceglie'
     }
   }
 });
+
+Deno.test('l invito alla cena dice PER QUALE camera vale, quando sono piu di una', () => {
+  /* l'invito cambia la tariffa di UNA camera sola: sopra c'e' il totale
+     di tre stanze, e un «+140 €» senza nome si legge come riferito a
+     tutte — l'ospite scopre il vero conto in reception. */
+  const dove = PAGINA.indexOf('id="bAggiungiCena"');
+  assert(dove > 0, 'sparito l invito alla cena');
+  const blocco = PAGINA.slice(dove, dove + 700);
+  assertStringIncludes(blocco, 'tutte.length > 1');
+  assertStringIncludes(blocco, 't.perLaCamera(SCELTA.nome)');
+  assertEquals(PAGINA.split('perLaCamera:').length - 1, 4);
+});

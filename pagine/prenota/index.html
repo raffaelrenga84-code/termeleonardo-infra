@@ -420,6 +420,7 @@ const T = {
     // passo 3
     riepilogo:(a,p,ad,b)=>`Dal <strong>${a}</strong> al <strong>${p}</strong> · ${ad} adult${ad===1?'o':'i'}${b>0?`, ${b} bambin${b===1?'o':'i'}`:''}`,
     // il carrello
+    perLaCamera:(n)=>`Solo per la camera ${n}`,
     cameraNdi:(n,tot)=>`Sta scegliendo la camera ${n} di ${tot}. Le mettiamo tutte nella stessa richiesta, con un totale solo.`,
     carrelloTit:(n)=>n===1?'Camera già scelta':`Camere già scelte (${n})`, carrelloTot:'Totale',
     togliCamera:'Togli questa camera', aggiungiCamera:'+ Aggiungi un’altra camera',
@@ -502,6 +503,7 @@ const T = {
     mancaScelta:'Bitte wählen Sie ein Zimmer, um fortzufahren.',
     riepilogo:(a,p,ad,b)=>`Vom <strong>${a}</strong> bis <strong>${p}</strong> · ${ad} Erwachsene${b>0?`, ${b} Kind${b===1?'':'er'}`:''}`,
     // il carrello
+    perLaCamera:(n)=>`Nur für das Zimmer ${n}`,
     cameraNdi:(n,tot)=>`Sie wählen gerade Zimmer ${n} von ${tot}. Wir fassen alle in einer Anfrage zusammen, mit einer Gesamtsumme.`,
     carrelloTit:(n)=>n===1?'Gewähltes Zimmer':`Gewählte Zimmer (${n})`, carrelloTot:'Gesamt',
     togliCamera:'Dieses Zimmer entfernen', aggiungiCamera:'+ Weiteres Zimmer hinzufügen',
@@ -583,6 +585,7 @@ const T = {
     mancaScelta:'Please choose a room to continue.',
     riepilogo:(a,p,ad,b)=>`From <strong>${a}</strong> to <strong>${p}</strong> · ${ad} adult${ad===1?'':'s'}${b>0?`, ${b} child${b===1?'':'ren'}`:''}`,
     // il carrello
+    perLaCamera:(n)=>`For the ${n} only`,
     cameraNdi:(n,tot)=>`You are choosing room ${n} of ${tot}. We put them all in one request, with a single total.`,
     carrelloTit:(n)=>n===1?'Room chosen':`Rooms chosen (${n})`, carrelloTot:'Total',
     togliCamera:'Remove this room', aggiungiCamera:'+ Add another room',
@@ -664,6 +667,7 @@ const T = {
     mancaScelta:'Veuillez choisir une chambre pour continuer.',
     riepilogo:(a,p,ad,b)=>`Du <strong>${a}</strong> au <strong>${p}</strong> · ${ad} adulte${ad===1?'':'s'}${b>0?`, ${b} enfant${b===1?'':'s'}`:''}`,
     // il carrello
+    perLaCamera:(n)=>`Uniquement pour la chambre ${n}`,
     cameraNdi:(n,tot)=>`Vous choisissez la chambre ${n} sur ${tot}. Nous les réunissons dans une seule demande, avec un seul total.`,
     carrelloTit:(n)=>n===1?'Chambre choisie':`Chambres choisies (${n})`, carrelloTot:'Total',
     togliCamera:'Retirer cette chambre', aggiungiCamera:'+ Ajouter une autre chambre',
@@ -1460,6 +1464,12 @@ function schermaDati() {
         <div>
           <div class="aggiungiTit"><span class="piu" aria-hidden="true">+</span>${esc(invito(conCena, t))}</div>
           <div class="aggiungiSotto">${esc(quantoInPiu(conCena, SCELTA, t))}</div>
+          <!-- CON PIU' CAMERE si dice PER QUALE vale: sopra c'e' il totale
+               di tre stanze, e un «+140 €» senza nome sembrerebbe
+               riferito a tutte. -->
+          ${tutte.length > 1
+            ? `<div class="aggiungiSotto">${esc(t.perLaCamera(SCELTA.nome))}</div>`
+            : ''}
         </div>
         <div class="prezzoBox">
           <div class="prezzoPiu">${euroDaCentesimi(conCena.prezzo_cent)} €</div>
@@ -1639,12 +1649,24 @@ async function inviaRichiesta() {
     }
     /* prima di cambiare schermata: i campi stanno per sparire dal DOM e
        servono ancora, per gli inviti qui sotto */
+    /* IL SOGGIORNO E' LA FINESTRA CHE CONTIENE TUTTE LE CAMERE. Prendere
+       le date da RICERCA vuol dire prenderle dall'ULTIMA camera scelta:
+       chi arriva il 2 e riparte il 20 chiedeva il transfer per il 4. Le
+       date ISO si ordinano da sole. */
+    const quando = camere.map((c) => c.ricerca || {});
+    const ordinate = (campo) =>
+      quando.map((r) => r[campo]).filter(Boolean).slice().sort();
+    const arrivi = ordinate('arrivo');
+    const partenze = ordinate('partenza');
     OSPITE = {
       nome, email, tel: telefono,
-      arrivo: RICERCA && RICERCA.arrivo, partenza: RICERCA && RICERCA.partenza,
+      arrivo: arrivi[0] || '',
+      partenza: partenze[partenze.length - 1] || '',
       /* chi ha scelto l'offerta Golf vuole i green fee e il maestro, e li
-         vuole adesso: e' l'unico momento in cui ci sta pensando */
-      golf: /golf/i.test(String((SCELTA && SCELTA.tariffa) || '')),
+         vuole adesso: e' l'unico momento in cui ci sta pensando. Basta che
+         il Golf stia in UNA delle camere: chi lo prende per se' e una
+         camera normale per la suocera gioca lo stesso. */
+      golf: camere.some((c) => /golf/i.test(String((c.scelta && c.scelta.tariffa) || ''))),
     };
     /* stessa ragione del semaforo della ricerca: oggi da qui non si
        torna indietro, quindi non fa danno — ma lasciarlo acceso e' la

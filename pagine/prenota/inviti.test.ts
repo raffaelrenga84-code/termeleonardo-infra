@@ -197,9 +197,28 @@ Deno.test('green fee e maestro solo a chi ha scelto il Golf', () => {
     PAGINA.includes("indirizzoModulo('maestro', LNG, OSPITE)"),
     'sparito l invito al maestro',
   );
+  /* IL GOLF SI CERCA IN TUTTE LE CAMERE, non nell'ultima scelta: da
+     quando c'e' il carrello, chi prende il pacchetto Golf per se' e una
+     camera normale per la suocera aveva SCELTA sulla camera normale, e i
+     due inviti sparivano proprio a chi era venuto per giocare. */
   assert(
-    PAGINA.includes("golf: /golf/i.test(String((SCELTA && SCELTA.tariffa) || ''))"),
-    'non si ricorda piu se la tariffa scelta era il Golf',
+    PAGINA.includes(
+      "golf: camere.some((c) => /golf/i.test(String((c.scelta && c.scelta.tariffa) || '')))",
+    ),
+    'il Golf si cerca di nuovo solo nell ultima camera scelta',
+  );
+
+  /* e le date degli inviti sono la finestra che contiene TUTTE le camere:
+     chi arriva il 2 e riparte il 20 chiedeva il transfer per il 4 */
+  assert(
+    PAGINA.includes('const quando = camere.map((c) => c.ricerca || {});'),
+    'le date degli inviti tornano a essere quelle dell ultima camera',
+  );
+  const dove = PAGINA.indexOf('OSPITE = {');
+  const blocco = PAGINA.slice(dove, dove + 400);
+  assert(
+    blocco.includes('arrivo: arrivi[0]') && blocco.includes('partenza: partenze[partenze.length - 1]'),
+    'gli inviti non prendono piu il primo arrivo e l ultima partenza',
   );
 });
 
