@@ -27,7 +27,10 @@
    conferma — peggio che non avere la ricevuta.
    ============================================================ */
 
-import { dettagli, esc, ETICHETTE, linguaDi } from './dettagli-richiesta.ts';
+import { cifra, dettagli, esc, ETICHETTE, linguaDi } from './dettagli-richiesta.ts';
+/* LE CAMERE IN PIU'. Senza, chi ne prenota tre riceve una ricevuta con
+   una camera e un prezzo, e scopre le altre due in reception. */
+import { righeAltreCamere, rigaTotale } from './altre-camere.ts';
 
 const BASE_IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 const TELEFONO = '+39 049 9939200';
@@ -118,6 +121,12 @@ export function ricevutaHTML(r: Richiesta): string {
   <table cellpadding="0" cellspacing="0" border="0" width="100%"
     style="margin-top:20px;border-collapse:collapse;border-top:1px solid #E6E2D8;">
     ${dettagli(String(r.tipo ?? ''), d, t)}
+    <!-- LE ALTRE CAMERE del carrello, ognuna col suo numero di pratica.
+         Senza queste righe l'ospite legge la conferma di averne chiesta
+         UNA dopo averne chieste tre: e' il difetto che questa email
+         esiste per non fare. -->
+    ${righeAltreCamere((r as unknown as Record<string, unknown>).altre_camere, t)}
+    ${rigaTotale(d, (r as unknown as Record<string, unknown>).altre_camere, t, cifra)}
     <tr>
       <td style="padding:7px 16px 7px 0;color:#8A938F;font-size:13px;white-space:nowrap;vertical-align:top;">${esc(t.rif)}</td>
       <td style="padding:7px 0;color:#1B4D4A;font-size:15px;">${esc(r.numero)}</td>

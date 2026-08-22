@@ -32,6 +32,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     buono: 'Buono regalo',
     cane: 'Cane al seguito', si: 'Sì',
     culla: 'Culla',
+    cameraN: 'Camera {n}', totaleCamere: 'Totale di tutte le camere',
     interessi: 'Da richiamare per', intTrattamenti: 'Trattamenti alla spa',
     intTransfer: 'Transfer aeroporto', intGreenfee: 'Green fee', intMaestro: 'Maestro di golf',
     prezzo: 'Prezzo', allAutista: 'da pagare direttamente all’autista', oraVolo: 'volo',
@@ -53,6 +54,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     buono: 'Gutschein',
     cane: 'Mit Hund', si: 'Ja',
     culla: 'Kinderbett',
+    cameraN: 'Zimmer {n}', totaleCamere: 'Gesamtsumme aller Zimmer',
     interessi: 'Rückruf gewünscht für', intTrattamenti: 'Anwendungen im Spa',
     intTransfer: 'Flughafentransfer', intGreenfee: 'Greenfee', intMaestro: 'Golflehrer',
     prezzo: 'Preis', allAutista: 'direkt an den Fahrer zu zahlen', oraVolo: 'Flug',
@@ -74,6 +76,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     buono: 'Gift voucher',
     cane: 'Travelling with a dog', si: 'Yes',
     culla: 'Cot',
+    cameraN: 'Room {n}', totaleCamere: 'Total for all rooms',
     interessi: 'To call back about', intTrattamenti: 'Spa treatments',
     intTransfer: 'Airport transfer', intGreenfee: 'Green fee', intMaestro: 'Golf pro',
     prezzo: 'Price', allAutista: 'to be paid directly to the driver', oraVolo: 'flight',
@@ -95,6 +98,7 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     buono: 'Chèque-cadeau',
     cane: 'Avec un chien', si: 'Oui',
     culla: 'Lit bébé',
+    cameraN: 'Chambre {n}', totaleCamere: 'Total de toutes les chambres',
     interessi: 'À rappeler pour', intTrattamenti: 'Soins au spa',
     intTransfer: 'Transfert aéroport', intGreenfee: 'Green fee', intMaestro: 'Professeur de golf',
     prezzo: 'Prix', allAutista: 'à régler directement au chauffeur', oraVolo: 'vol',
@@ -415,7 +419,10 @@ function vociDettagli(tipo: string, t: Record<string, string>): Voce[] {
    leggerli come tredicimila. */
 /* Una cifra e basta: `euro()` ci attacca «da pagare all'autista», che vale
    per il transfer e non per una camera. */
-function cifra(v: unknown): string {
+/* esportata perche' la usa anche il totale delle camere in piu': due
+   formattatori diversi scriverebbero «525,00 €» e «525.00 EUR» nella
+   stessa email */
+export function cifra(v: unknown): string {
   if (v === null || v === undefined || v === "") return "";
   const n = Number(v);
   if (!Number.isFinite(n) || n === 0) return "";

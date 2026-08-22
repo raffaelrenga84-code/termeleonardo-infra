@@ -9,6 +9,13 @@
 
 import type { Richiesta } from './valida.ts';
 import { casellaInCopia } from './ruoli.ts';
+/* LE CAMERE IN PIU' del carrello. In back office sono pratiche distinte,
+   legate dal campo `insieme`; qui vanno tutte insieme, perche' questa
+   email e' quello che la reception legge davvero. Le etichette sono in
+   italiano come tutto il resto di questo avviso: lo legge la casa, non
+   l'ospite. */
+import { cifra, ETICHETTE } from './dettagli-richiesta.ts';
+import { righeAltreCamere, rigaTotale } from './altre-camere.ts';
 
 /* I tipi diversi dal soggiorno portano campi propri, che arrivano qui
    insieme ai contatti: il tipo resta aperto invece di elencarli tutti. */
@@ -247,6 +254,16 @@ export function richiestaHTML(r: ConNumero): string {
     ${tipo === 'soggiorno' ? riga('Prezzo visto dall’ospite', prezzo, true) : ''}
     ${tipo === 'soggiorno' ? riga('Caparra indicata', caparra) : ''}
     ${riga('Lingua', LINGUE[s(r.lingua)] || LINGUE.it)}
+    <!-- LE ALTRE CAMERE. Un avviso con una camera sola, dopo che
+         l'ospite ne ha chieste tre, manda la reception a cercare le
+         altre due in back office — sempre che sappia che ci sono. -->
+    ${righeAltreCamere((r as unknown as Record<string, unknown>).altre_camere, ETICHETTE.it)}
+    ${rigaTotale(
+      r as unknown as Record<string, unknown>,
+      (r as unknown as Record<string, unknown>).altre_camere,
+      ETICHETTE.it,
+      cifra,
+    )}
   </table>
 
   ${prezzo && tipo === 'soggiorno'
