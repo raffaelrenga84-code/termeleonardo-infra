@@ -522,6 +522,26 @@
     return visti[0].t;
   }
 
+  /* I PULSANTI FLOTTANTI SI IMPILANO DA SOLI.
+
+     Le posizioni erano scritte a mano — 70, 118, 122, 174 — e il Day Spa
+     (122) finiva sotto il transfer ATAM (118): quattro pixel di distanza.
+     Non poteva funzionare: i pulsanti stanno in due file diversi,
+     compaiono in combinazioni che dipendono dall'email aperta, e chi ne
+     aggiunge uno non sa quali altri saranno li' in quel momento.
+
+     Qui si rimettono tutti in fila dal basso, nell'ordine del DOM. La
+     funzione e' ripetuta nei due file APPOSTA: lavora sul DOM e non
+     tiene stato, quindi due copie fanno lo stesso lavoro e l'ultima che
+     gira sistema anche i pulsanti dell'altra. */
+  const PULSANTE_BASSO = 70;
+  const PULSANTE_PASSO = 52;
+  function impilaPulsanti() {
+    const tutti = Array.from(document.querySelectorAll('[data-leo-pulsante]'));
+    tutti.forEach((b, i) => {
+      b.style.bottom = (PULSANTE_BASSO + i * PULSANTE_PASSO) + 'px';
+    });
+  }
   function mostraPulsante() {
     if (document.getElementById(ID_BTN)) return;
     const r = leggiRichiesta(testoLettura());
@@ -529,16 +549,18 @@
     const b = document.createElement('button');
     b.id = ID_BTN;
     b.textContent = '\u{1F695} Prepara transfer ATAM';
-    /* il pulsante delle offerte sta a bottom:70px right:24px: questo si
-       mette sopra, non accanto, cosi' non si spostano a vicenda quando
-       una mail e' sia richiesta di preventivo sia di transfer */
+    /* la posizione la decide impilaPulsanti(): scritta a mano finiva a
+       118px, quattro pixel sotto il Day Spa (122), e i due si
+       sovrapponevano su una mail che era insieme transfer e Day Spa */
     b.style.cssText =
-      'position:fixed;bottom:118px;right:24px;z-index:2147483647;' +
+      'position:fixed;right:24px;z-index:2147483647;' +
       'padding:12px 20px;border:0;border-radius:8px;cursor:pointer;' +
       'font:600 14px/18px Arial,Helvetica,sans-serif;color:#fff;' +
       'background:#C97B2C;box-shadow:0 3px 12px rgba(0,0,0,.3);';
+    b.dataset.leoPulsante = '1';
     b.onclick = () => mostraAnteprima(leggiRichiesta(testoLettura()) || r);
     document.body.appendChild(b);
+    impilaPulsanti();
   }
 
   function via() {

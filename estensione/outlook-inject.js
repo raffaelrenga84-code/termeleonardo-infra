@@ -26,7 +26,7 @@
     /* v2.7.6: un segno che lo script c'e'. Senza, non c'e' modo di
        distinguere «non gira» da «gira ma non riconosce», e si finisce a
        tirare a indovinare. */
-    console.log('%cLeonardo 2.8.11 — attivo in un frame', 'color:#8C8578',
+    console.log('%cLeonardo 2.8.12 — attivo in un frame', 'color:#8C8578',
       { indirizzo: location.href.slice(0, 80), caratteri: (document.body && document.body.innerText || '').length });
     window.leoDiagnostica = () => ({
       dove: 'frame', indirizzo: location.href,
@@ -793,6 +793,26 @@ function parseCentralino(testo) {
     };
   }
 
+  /* I PULSANTI FLOTTANTI SI IMPILANO DA SOLI.
+
+     Le posizioni erano scritte a mano — 70, 118, 122, 174 — e il Day Spa
+     (122) finiva sotto il transfer ATAM (118): quattro pixel di distanza.
+     Non poteva funzionare: i pulsanti stanno in due file diversi,
+     compaiono in combinazioni che dipendono dall'email aperta, e chi ne
+     aggiunge uno non sa quali altri saranno li' in quel momento.
+
+     Qui si rimettono tutti in fila dal basso, nell'ordine del DOM. La
+     funzione e' ripetuta nei due file APPOSTA: lavora sul DOM e non
+     tiene stato, quindi due copie fanno lo stesso lavoro e l'ultima che
+     gira sistema anche i pulsanti dell'altra. */
+  const PULSANTE_BASSO = 70;
+  const PULSANTE_PASSO = 52;
+  function impilaPulsanti() {
+    const tutti = Array.from(document.querySelectorAll('[data-leo-pulsante]'));
+    tutti.forEach((b, i) => {
+      b.style.bottom = (PULSANTE_BASSO + i * PULSANTE_PASSO) + 'px';
+    });
+  }
   function mostraPulsanteCentralino() {
     if (document.getElementById('leonardo-bozza-btn')) return;
     /* v2.7.10 — IL BACO CHE HA FATTO PERDERE QUATTRO VERSIONI.
@@ -810,10 +830,11 @@ function parseCentralino(testo) {
     btn.id = 'leonardo-bozza-btn';
     btn.textContent = '\u{1F4CB} Prepara bozza in Fidra';
     btn.style.cssText =
-      'position:fixed;bottom:70px;right:24px;z-index:2147483647;' +
+      'position:fixed;right:24px;z-index:2147483647;' +
       'padding:12px 20px;border:0;border-radius:8px;cursor:pointer;' +
       'font:600 14px/18px Arial,Helvetica,sans-serif;color:#fff;' +
       'background:#1E7F88;box-shadow:0 3px 12px rgba(0,0,0,.3);';
+    btn.dataset.leoPulsante = '1';
     btn.addEventListener('click', () => {
       /* dal piu' affidabile al meno: il modulo del sito ha i campi
          etichettati, il centralino un formato noto, il testo libero
@@ -835,6 +856,7 @@ function parseCentralino(testo) {
       mostraAnteprima(dati);
     });
     document.body.appendChild(btn);
+    impilaPulsanti();
   }
 
   /* v2.7.4: quando un pulsante non compare non c'e' modo di sapere perche'.
@@ -869,7 +891,7 @@ function parseCentralino(testo) {
     return esito;
   };
 
-  console.log('%cLeonardo 2.8.11 — attivo nella pagina', 'color:#0F5C64;font-weight:bold',
+  console.log('%cLeonardo 2.8.12 — attivo nella pagina', 'color:#0F5C64;font-weight:bold',
     'scrivi leoDiagnostica() per sapere cosa vede');
 
   /* v2.7.8: la diagnostica si stampa da sola. Chiederla a mano ha fatto
@@ -1004,10 +1026,11 @@ function parseCentralino(testo) {
     btn.id = 'leonardo-dayspa-btn';
     btn.textContent = '\u{1F4A7} Rispondi: Info Day Spa';
     btn.style.cssText =
-      'position:fixed;bottom:122px;right:24px;z-index:2147483647;' +
+      'position:fixed;right:24px;z-index:2147483647;' +
       'padding:12px 20px;border:0;border-radius:8px;cursor:pointer;' +
       'font:600 14px/18px Arial,Helvetica,sans-serif;color:#fff;' +
       'background:#0F5C64;box-shadow:0 3px 12px rgba(0,0,0,.3);';
+    btn.dataset.leoPulsante = '1';
     btn.addEventListener('click', () => {
       const el = trovaRichiestaDaySpa();
       if (!el) { avviso('Richiesta non pi\u00f9 visibile: apri la mail e riprova', '#B3541E'); return; }
@@ -1032,6 +1055,7 @@ function parseCentralino(testo) {
       });
     });
     document.body.appendChild(btn);
+    impilaPulsanti();
   }
 
   /* ==========================================================
@@ -1074,10 +1098,11 @@ function parseCentralino(testo) {
     btn.id = 'leonardo-buoni-btn';
     btn.textContent = '\u{1F381} Rispondi: Buoni regalo';
     btn.style.cssText =
-      'position:fixed;bottom:174px;right:24px;z-index:2147483647;' +
+      'position:fixed;right:24px;z-index:2147483647;' +
       'padding:12px 20px;border:0;border-radius:8px;cursor:pointer;' +
       'font:600 14px/18px Arial,Helvetica,sans-serif;color:#fff;' +
       'background:#7A8450;box-shadow:0 3px 12px rgba(0,0,0,.3);';
+    btn.dataset.leoPulsante = '1';
     btn.addEventListener('click', () => {
       const el = trovaRichiestaBuoni();
       if (!el) { avviso('Richiesta non pi\u00f9 visibile: apri la mail e riprova', '#B3541E'); return; }
@@ -1102,6 +1127,7 @@ function parseCentralino(testo) {
       });
     });
     document.body.appendChild(btn);
+    impilaPulsanti();
   }
 
   /* ---------- ricerca automatica nella casella di Outlook (v1.1.1) ---------- */
