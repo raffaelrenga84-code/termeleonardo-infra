@@ -182,3 +182,35 @@ Deno.test('il cartello dice che per questa camera date e persone si cambiano', (
     assert(segno.test(f), `la frase ${i + 1} non dice che date e persone si possono cambiare: «${f}»`);
   }
 });
+
+Deno.test('green fee e maestro solo a chi ha scelto il Golf', () => {
+  /* metterli sempre farebbe cinque pulsanti sulla schermata finale, e
+     cinque inviti non sono un invito: sono un menu. A chi ha appena
+     prenotato il Golf invece servono, ed e l unico momento in cui ci sta
+     pensando. */
+  assert(PAGINA.includes('${OSPITE.golf ? `'), 'i due inviti del golf escono a tutti, o non escono');
+  assert(
+    PAGINA.includes("indirizzoModulo('greenfee', LNG, OSPITE)"),
+    'sparito l invito ai green fee',
+  );
+  assert(
+    PAGINA.includes("indirizzoModulo('maestro', LNG, OSPITE)"),
+    'sparito l invito al maestro',
+  );
+  assert(
+    PAGINA.includes("golf: /golf/i.test(String((SCELTA && SCELTA.tariffa) || ''))"),
+    'non si ricorda piu se la tariffa scelta era il Golf',
+  );
+});
+
+Deno.test('e la cena e una striscia attaccata, non una terza tariffa', () => {
+  /* aveva la stessa misura delle schede vere, e in mezzo a due tariffe si
+     leggeva come una terza cosa da confrontare — proprio quello che
+     l accorpamento doveva togliere */
+  assert(PAGINA.includes('border-top:0;border-radius:0 0 10px 10px;'), 'la cena si e staccata dalla tariffa');
+  assert(
+    PAGINA.includes('.famiglia:has(.aggiungi) .proposta{border-bottom-left-radius:0;'),
+    'la tariffa sopra tiene gli angoli tondi: si vede la cucitura',
+  );
+  assert(PAGINA.includes('class="piu" aria-hidden="true"'), 'sparito il segno + davanti all invito');
+});

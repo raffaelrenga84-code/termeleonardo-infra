@@ -93,6 +93,7 @@ textarea{min-height:80px;resize:vertical;}
 .caparraBuono{margin-top:14px;background:#EAF3EE;border-left:4px solid var(--verde-medio);
   padding:13px 15px;border-radius:6px;font-size:14px;line-height:1.6;color:#1B4D4A;}
 .iconaCane{margin-right:6px;}
+.piu{color:var(--oro);font-weight:700;margin-right:5px;}
 /* la tassa sul passo dei dati: sobria, per non competere col riquadro
    della caparra che le sta sopra */
 .tassaDati{color:var(--grigio);font-size:12.5px;margin-top:10px;line-height:1.55;}
@@ -124,15 +125,24 @@ textarea{min-height:80px;resize:vertical;}
 .famiglia{margin-top:0;}
 .famiglia + .famiglia{margin-top:10px;}
 .famiglia .proposta{margin-top:0;}
+/* attaccata alla tariffa che sta sopra: niente stacco, niente bordo in
+   cima, angoli quadri sopra e tondi sotto. Cosi' si legge come «e con
+   questa puoi aggiungere», non come «oppure». */
 .aggiungi{display:block;width:100%;text-align:left;background:#FDFBF3;
-  border:1.5px dashed var(--oro);border-radius:10px;padding:10px 14px;
-  margin-top:4px;cursor:pointer;font:inherit;color:inherit;}
+  border:1.5px dashed var(--oro);border-top:0;border-radius:0 0 10px 10px;
+  padding:8px 14px;margin-top:0;cursor:pointer;font:inherit;color:inherit;}
 .aggiungi.selezionata{border-style:solid;background:#FBF6E4;}
+/* e la tariffa sopra perde gli angoli tondi in basso, o si vede la
+   cucitura fra le due */
+.famiglia:has(.aggiungi) .proposta{border-bottom-left-radius:0;
+  border-bottom-right-radius:0;}
 .aggiungi .riga{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
 .aggiungi .riga > div:first-child{min-width:0;}
-.aggiungiTit{font-weight:600;color:var(--verde);font-size:13.5px;}
-.aggiungiSotto{color:#6B4A22;font-size:12.5px;margin-top:1px;line-height:1.45;}
-.aggiungi .prezzoPiu{font-family:"Cormorant Garamond",Georgia,serif;font-size:18px;
+.aggiungiTit{font-weight:600;color:var(--verde);font-size:13px;}
+.aggiungiSotto{color:#6B4A22;font-size:12px;margin-top:0;line-height:1.4;}
+/* il totale con la cena resta leggibile ma non compete col prezzo della
+   tariffa: chi confronta deve confrontare le TARIFFE, non l'aggiunta */
+.aggiungi .prezzoPiu{font-family:"Cormorant Garamond",Georgia,serif;font-size:16px;
   color:var(--verde-medio);}
 .aggiungi .dettPrezzo{color:var(--grigio);font-size:11.5px;margin-top:4px;line-height:1.4;text-align:right;}
 .aggiungi .prezzoBox{text-align:right;flex:0 0 auto;}
@@ -418,6 +428,8 @@ const T = {
     // chiusura
     ancoraTit:'Le serve altro per il suo soggiorno?',
     invitoTrattamenti:'Prenoti i trattamenti alla spa',
+    invitoGreenFee:'Prenoti i green fee',
+    invitoMaestro:'Prenoti il maestro di golf',
     invitoTransfer:'Prenoti il transfer da e per l’aeroporto',
     invitoAltraCamera:'Aggiunga un’altra camera per le stesse date',
     insiemeA:(n)=>`Insieme alla richiesta ${n}`,
@@ -490,6 +502,8 @@ const T = {
     ripiego:'Wir konnten die Anfrage nicht speichern. Rufen Sie uns unter +39 049 9939200 an oder schreiben Sie an info@termeleonardo.com: wir antworten sofort.',
     ancoraTit:'Brauchen Sie noch etwas für Ihren Aufenthalt?',
     invitoTrattamenti:'Behandlungen im Spa buchen',
+    invitoGreenFee:'Greenfee buchen',
+    invitoMaestro:'Golflehrer buchen',
     invitoTransfer:'Transfer vom und zum Flughafen buchen',
     invitoAltraCamera:'Ein weiteres Zimmer für dieselben Daten',
     insiemeA:(n)=>`Zusammen mit der Anfrage ${n}`,
@@ -562,6 +576,8 @@ const T = {
     ripiego:'We could not register your request. Please call +39 049 9939200 or write to info@termeleonardo.com: we will reply right away.',
     ancoraTit:'Anything else for your stay?',
     invitoTrattamenti:'Book your spa treatments',
+    invitoGreenFee:'Book your green fees',
+    invitoMaestro:'Book the golf pro',
     invitoTransfer:'Book the airport transfer',
     invitoAltraCamera:'Add another room for the same dates',
     insiemeA:(n)=>`Together with request ${n}`,
@@ -634,6 +650,8 @@ const T = {
     ripiego:'Nous n’avons pas pu enregistrer la demande. Appelez-nous au +39 049 9939200 ou écrivez à info@termeleonardo.com : nous répondons tout de suite.',
     ancoraTit:'Autre chose pour votre séjour ?',
     invitoTrattamenti:'Réservez vos soins au spa',
+    invitoGreenFee:'Réservez les green fees',
+    invitoMaestro:'Réservez le pro de golf',
     invitoTransfer:'Réservez le transfert aéroport',
     invitoAltraCamera:'Ajoutez une autre chambre pour les mêmes dates',
     insiemeA:(n)=>`Avec la demande ${n}`,
@@ -1058,7 +1076,9 @@ function schermaCamere() {
               data-testid="proposta-${v.indice}" data-indice="${v.indice}">
               <div class="riga">
                 <div>
-                  <div class="aggiungiTit">${esc(invito(v, t))}</div>
+                  <!-- il segno «+» prima delle parole: chi scorre capisce
+                       che si aggiunge prima ancora di leggere -->
+                  <div class="aggiungiTit"><span class="piu" aria-hidden="true">+</span>${esc(invito(v, t))}</div>
                   <div class="aggiungiSotto">${esc(quantoInPiu(v, fam.opzioni[0], t))}</div>
                 </div>
                 <div class="prezzoBox">
@@ -1250,7 +1270,7 @@ function schermaDati() {
     <button type="button" class="aggiungi" id="bAggiungiCena" data-indice="${conCena.indice}">
       <div class="riga">
         <div>
-          <div class="aggiungiTit">${esc(invito(conCena, t))}</div>
+          <div class="aggiungiTit"><span class="piu" aria-hidden="true">+</span>${esc(invito(conCena, t))}</div>
           <div class="aggiungiSotto">${esc(quantoInPiu(conCena, SCELTA, t))}</div>
         </div>
         <div class="prezzoBox">
@@ -1415,6 +1435,9 @@ async function inviaRichiesta() {
     OSPITE = {
       nome, email, tel: telefono,
       arrivo: RICERCA && RICERCA.arrivo, partenza: RICERCA && RICERCA.partenza,
+      /* chi ha scelto l'offerta Golf vuole i green fee e il maestro, e li
+         vuole adesso: e' l'unico momento in cui ci sta pensando */
+      golf: /golf/i.test(String((SCELTA && SCELTA.tariffa) || '')),
     };
     /* stessa ragione del semaforo della ricerca: oggi da qui non si
        torna indietro, quindi non fa danno — ma lasciarlo acceso e' la
@@ -1450,6 +1473,12 @@ function schermaFatta(numero) {
         <div class="invitiTit">${esc(t.ancoraTit)}</div>
         <a class="invito" href="${esc(indirizzoModulo('trattamenti', LNG, OSPITE))}">${esc(t.invitoTrattamenti)}</a>
         <a class="invito" href="${esc(indirizzoModulo('transfer', LNG, OSPITE))}">${esc(t.invitoTransfer)}</a>
+        <!-- GREEN FEE E MAESTRO solo a chi ha scelto il Golf: metterli
+             sempre farebbe cinque pulsanti, e cinque inviti non sono un
+             invito, sono un menu. -->
+        ${OSPITE.golf ? `
+        <a class="invito" href="${esc(indirizzoModulo('greenfee', LNG, OSPITE))}">${esc(t.invitoGreenFee)}</a>
+        <a class="invito" href="${esc(indirizzoModulo('maestro', LNG, OSPITE))}">${esc(t.invitoMaestro)}</a>` : ''}
         <!-- LA SECONDA CAMERA. Non un carrello: una richiesta nuova, ma
              coi contatti e le date gia' dentro e col numero della prima
              nelle note, cosi' la reception le tiene insieme. -->
