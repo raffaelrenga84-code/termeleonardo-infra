@@ -388,6 +388,10 @@ const T = {
     siAggiungeA:(rif)=>`Questa camera si aggiunge alla richiesta ${rif}: le teniamo insieme.`,
     servonoDueCamere:(n)=>`In ${n} servono almeno due camere: la più grande ne tiene quattro. Cerchi una camera per volta — le colleghiamo noi.`,
     forsePiuCamere:(n)=>`In ${n} può stare in una camera sola, oppure in due. Se preferisce camere separate, cerchi una camera per volta.`,
+    quanteCamere:'Quante camere le servono?', unaCamera:'Una camera',
+    nCamere:(n)=>`${n} camere`,
+    primaCamera:(n)=>`Bene, ${n} camere. Le cerchiamo una per volta: ci dica quante persone dormono nella PRIMA, poi le aggiungiamo le altre.`,
+    cameraDiQuante:(n,tot,rif)=>`Sta scegliendo la camera ${n} di ${tot}. Si aggiunge alla richiesta ${rif}: le teniamo insieme.`,
     caparraRiga:(v)=>`Alla conferma la reception le chiederà una caparra di ${v} €, che si detrae dal totale.`,
     cane:'Viaggio con un cane',
     caneNota:(imp)=>`Cani di piccola e media taglia, supplemento ${imp} € al giorno per animale (cibo escluso). Il cane può stare in camera, in hall e al Bistrot La Piazza; non in parco, piscine termali, grotte e zona relax, né in sala ristorante a cena e a colazione.`,
@@ -457,6 +461,10 @@ const T = {
     siAggiungeA:(rif)=>`Dieses Zimmer kommt zur Anfrage ${rif} dazu: wir halten sie zusammen.`,
     servonoDueCamere:(n)=>`Zu ${n} brauchen Sie mindestens zwei Zimmer: das größte fasst vier Personen. Suchen Sie ein Zimmer nach dem anderen — wir verbinden sie.`,
     forsePiuCamere:(n)=>`Zu ${n} passen Sie in ein Zimmer oder in zwei. Wenn Sie getrennte Zimmer bevorzugen, suchen Sie eines nach dem anderen.`,
+    quanteCamere:'Wie viele Zimmer brauchen Sie?', unaCamera:'Ein Zimmer',
+    nCamere:(n)=>`${n} Zimmer`,
+    primaCamera:(n)=>`Gut, ${n} Zimmer. Wir suchen sie eines nach dem anderen: sagen Sie uns, wie viele Personen im ERSTEN schlafen, dann fügen wir die anderen hinzu.`,
+    cameraDiQuante:(n,tot,rif)=>`Sie wählen Zimmer ${n} von ${tot}. Es kommt zur Anfrage ${rif} dazu: wir halten sie zusammen.`,
     caparraRiga:(v)=>`Bei der Bestätigung wird die Rezeption eine Anzahlung von ${v} € verlangen, die vom Gesamtbetrag abgezogen wird.`,
     cane:'Ich reise mit einem Hund',
     caneNota:(imp)=>`Kleine und mittelgroße Hunde, Aufschlag ${imp} € pro Tier und Tag (ohne Futter). Der Hund darf ins Zimmer, in die Halle und ins Bistrot La Piazza; nicht in den Park, die Thermalbäder, die Grotten und den Ruhebereich, auch nicht in den Speisesaal zum Abendessen und zum Frühstück.`,
@@ -525,6 +533,10 @@ const T = {
     siAggiungeA:(rif)=>`This room is added to request ${rif}: we keep them together.`,
     servonoDueCamere:(n)=>`For ${n} people you need at least two rooms: the largest holds four. Search for one room at a time — we link them.`,
     forsePiuCamere:(n)=>`${n} of you fit in one room, or in two. If you prefer separate rooms, search for one room at a time.`,
+    quanteCamere:'How many rooms do you need?', unaCamera:'One room',
+    nCamere:(n)=>`${n} rooms`,
+    primaCamera:(n)=>`Good, ${n} rooms. We search for them one at a time: tell us how many people sleep in the FIRST one, then we add the others.`,
+    cameraDiQuante:(n,tot,rif)=>`You are choosing room ${n} of ${tot}. It is added to request ${rif}: we keep them together.`,
     caparraRiga:(v)=>`On confirmation reception will ask you for a deposit of ${v} €, deducted from the total.`,
     cane:'I am travelling with a dog',
     caneNota:(imp)=>`Small and medium-sized dogs, supplement ${imp} € per animal per day (food not included). The dog is welcome in the room, in the lobby and at Bistrot La Piazza; not in the park, thermal pools, caves and relaxation area, nor in the dining room at dinner and breakfast.`,
@@ -593,6 +605,10 @@ const T = {
     siAggiungeA:(rif)=>`Cette chambre s’ajoute à la demande ${rif} : nous les gardons ensemble.`,
     servonoDueCamere:(n)=>`À ${n}, il faut au moins deux chambres : la plus grande en accueille quatre. Cherchez une chambre à la fois — nous les relions.`,
     forsePiuCamere:(n)=>`À ${n}, vous tenez dans une chambre, ou dans deux. Si vous préférez des chambres séparées, cherchez une chambre à la fois.`,
+    quanteCamere:'Combien de chambres vous faut-il ?', unaCamera:'Une chambre',
+    nCamere:(n)=>`${n} chambres`,
+    primaCamera:(n)=>`Très bien, ${n} chambres. Nous les cherchons une à la fois : dites-nous combien de personnes dorment dans la PREMIÈRE, puis nous ajoutons les autres.`,
+    cameraDiQuante:(n,tot,rif)=>`Vous choisissez la chambre ${n} sur ${tot}. Elle s’ajoute à la demande ${rif} : nous les gardons ensemble.`,
     caparraRiga:(v)=>`À la confirmation, la réception vous demandera des arrhes de ${v} €, déduites du total.`,
     cane:'Je voyage avec un chien',
     caneNota:(imp)=>`Chiens de petite et moyenne taille, supplément ${imp} € par animal et par jour (nourriture non comprise). Le chien est admis en chambre, dans le hall et au Bistrot La Piazza ; pas dans le parc, les piscines thermales, les grottes et l’espace détente, ni en salle de restaurant au dîner et au petit-déjeuner.`,
@@ -633,6 +649,9 @@ let SCRITTI = null;
 let NUMERO_FATTA = '';       // il numero appena assegnato, per legarci la camera dopo
 /* il buono verificato: { codice, valore_cent } quando e' valido, una
    chiave d'errore quando non lo e', null quando non se n'e' parlato */
+/* quante camere ha detto di volere: serve a scrivere «camera 2 di 3» sul
+   cartello e a passarlo alla camera dopo. Zero = non l'ha detto. */
+let CAMERE_TOTALI = Number(DA_URL.di) || 0;
 let BUONO = null;
 let BUONO_KO = '';
 let VERIFICANDO_BUONO = false;
@@ -692,11 +711,29 @@ function avvisoPersone() {
   const t = T[LNG];
   const n = (Number($('fAdulti') && $('fAdulti').value) || 0) +
     (Number($('fBambini') && $('fBambini').value) || 0);
-  box.innerHTML = n > PERSONE_PER_CAMERA
-    ? `<div class="avviso avvisoOggi">${esc(t.servonoDueCamere(n))}</div>`
-    : n === 3 || n === 4
-    ? `<div class="avviso avvisoOggi">${esc(t.forsePiuCamere(n))}</div>`
-    : '';
+  /* sotto le tre persone non c'e' niente da decidere: la domanda sarebbe
+     rumore in cima all'imbuto, e le domande in piu' costano richieste */
+  if (n < 3) {
+    box.innerHTML = '';
+    return;
+  }
+  const scelte = [1, 2, 3].map((k) =>
+    `<option value="${k}"${CAMERE_TOTALI === k ? ' selected' : ''}>` +
+    `${esc(k === 1 ? t.unaCamera : t.nCamere(k))}</option>`
+  ).join('');
+  box.innerHTML = `
+    <div class="avviso avvisoOggi">${esc(
+      n > PERSONE_PER_CAMERA ? t.servonoDueCamere(n) : t.forsePiuCamere(n),
+    )}</div>
+    <label for="fCamere" style="margin-top:12px;">${esc(t.quanteCamere)}</label>
+    <select id="fCamere">${scelte}</select>
+    ${CAMERE_TOTALI > 1
+      ? `<div class="guida" style="margin-top:6px;">${esc(t.primaCamera(CAMERE_TOTALI))}</div>`
+      : ''}`;
+  $('fCamere').onchange = () => {
+    CAMERE_TOTALI = Number($('fCamere').value) || 0;
+    avvisoPersone();
+  };
 }
 
 /* ================= passo 1: date e ospiti ================= */
@@ -1397,7 +1434,7 @@ function schermaFatta(numero) {
         <!-- LA SECONDA CAMERA. Non un carrello: una richiesta nuova, ma
              coi contatti e le date gia' dentro e col numero della prima
              nelle note, cosi' la reception le tiene insieme. -->
-        <a class="invito" href="${esc(indirizzoModulo('prenota', LNG, { ...OSPITE, insieme: DA_URL.insieme || NUMERO_FATTA, camera: (DA_URL.camera || 1) + 1 }))}">${esc(t.invitoAltraCamera)}</a>
+        <a class="invito" href="${esc(indirizzoModulo('prenota', LNG, { ...OSPITE, insieme: DA_URL.insieme || NUMERO_FATTA, camera: (DA_URL.camera || 1) + 1, di: CAMERE_TOTALI || DA_URL.di || '' }))}">${esc(t.invitoAltraCamera)}</a>
         <div class="invitiNota">${esc(t.invitoNota)}</div>
       </div>` : ''}
     <p style="margin-top:22px;"><a href="?l=${LNG}">${esc(t.ancora)}</a></p>
@@ -1422,7 +1459,9 @@ testata();
 if (DA_URL.insieme) {
   const t0 = T[LNG];
   $('collegata').innerHTML = `<div class="cartello">${esc(
-    DA_URL.camera
+    DA_URL.camera && DA_URL.di
+      ? t0.cameraDiQuante(DA_URL.camera, DA_URL.di, DA_URL.insieme)
+      : DA_URL.camera
       ? t0.cameraDiSerie(DA_URL.camera, DA_URL.insieme)
       : t0.siAggiungeA(DA_URL.insieme),
   )}</div>`;

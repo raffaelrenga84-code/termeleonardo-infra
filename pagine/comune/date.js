@@ -56,6 +56,27 @@ export function apriAlTocco(campo) {
 
 /* Collega arrivo e partenza: appena si sceglie l'arrivo, la partenza non
    puo' piu' essere prima. */
+/* IL COLLEGAMENTO FRA I DUE CAMPI DATA.
+
+   ASCOLTA TUTTI E DUE, non solo l'arrivo. Fino al 22 agosto 2026
+   ascoltava il solo arrivo: una partenza precedente all'arrivo, scelta a
+   mano dal calendario, non la correggeva nessuno — e restava a schermo un
+   soggiorno che il server rifiuta dopo aver fatto compilare tutto il
+   resto. Visto su iPhone: arrivo 26 agosto, partenza 22.
+
+   E ASCOLTA ANCHE `input`, non solo `change`. Sul calendario di iOS la
+   scelta di un giorno cambia il valore mentre il pannello resta aperto:
+   aspettare `change` vuol dire lasciare il campo `min` della partenza
+   indietro di un passo proprio mentre l'ospite sta scegliendo.
+
+   E DOPO L'ARRIVO PASSA DA SOLO ALLA PARTENZA. Su iPhone il pannello del
+   calendario non si chiude da solo: chi ha appena scelto l'arrivo crede di
+   stare scegliendo la partenza e continua a spostare l'arrivo. Il blur
+   chiude il pannello, e il focus sulla partenza apre il suo (apriAlTocco).
+
+   Solo su `change` e solo se la partenza e' VUOTA: cosi' chi sta
+   correggendo l'arrivo su un modulo gia' compilato non si vede rubare il
+   fuoco, e chi scrive la data a tastiera non viene interrotto a meta'. */
 export function collegaArrivoPartenza(arrivo, partenza) {
   if (!arrivo || !partenza) return;
   const aggiorna = () => {
@@ -63,7 +84,22 @@ export function collegaArrivoPartenza(arrivo, partenza) {
     if (minimo) partenza.min = minimo;
     if (partenza.value !== buona) partenza.value = buona;
   };
-  arrivo.addEventListener('change', aggiorna);
+
+  const vaAllaPartenza = () => {
+    aggiorna();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(arrivo.value || ''))) return;
+    if (partenza.value) return;
+    try {
+      arrivo.blur?.();
+      partenza.focus?.();
+    } catch { /* un browser che non lo permette non deve rompere la pagina */ }
+  };
+
+  for (const ev of ['input', 'change']) {
+    arrivo.addEventListener(ev, aggiorna);
+    partenza.addEventListener(ev, aggiorna);
+  }
+  arrivo.addEventListener('change', vaAllaPartenza);
   aggiorna();
 }
 

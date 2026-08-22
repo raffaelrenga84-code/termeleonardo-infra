@@ -153,6 +153,7 @@ export function parametriOspite(ricerca) {
     partenza,
     adulti: adultiValidi(q.get('adulti')),
     camera: cameraValida(q.get('camera')),
+    di: cameraValida(q.get('di')),
     lang: LINGUE.includes(q.get('lang')) ? q.get('lang') : null,
   };
 }

@@ -139,3 +139,27 @@ Deno.test('e l avviso sulle piu camere si da PRIMA di cercare', () => {
      toccherebbe niente e non leggerebbe niente */
   assert(PAGINA.includes('  avvisoPersone();'), 'l avviso non si disegna all apertura');
 });
+
+Deno.test('la domanda «quante camere» esce da tre persone in su, non prima', () => {
+  /* sotto le tre non c e niente da decidere: una domanda in piu in cima
+     all imbuto costa richieste */
+  assert(PAGINA.includes('if (n < 3) {'), 'la domanda esce anche a chi e in due');
+  assert(PAGINA.includes('id="fCamere"'), 'sparita la domanda sulle camere');
+  assert(PAGINA.includes('t.primaCamera(CAMERE_TOTALI)'), 'non si spiega piu che cosa succede dopo');
+});
+
+Deno.test('e il totale viaggia fino al cartello della camera dopo', () => {
+  assert(
+    PAGINA.includes("di: CAMERE_TOTALI || DA_URL.di || ''"),
+    'il totale non arriva alla camera dopo: il cartello tornerebbe a dire solo il numero',
+  );
+  assert(
+    PAGINA.includes('t0.cameraDiQuante(DA_URL.camera, DA_URL.di, DA_URL.insieme)'),
+    'il cartello non dice piu «di quante»',
+  );
+  /* e senza totale si ripiega sul solo numero, invece di tacere */
+  assert(
+    PAGINA.includes('t0.cameraDiSerie(DA_URL.camera, DA_URL.insieme)'),
+    'senza totale il cartello non dice piu niente',
+  );
+});
