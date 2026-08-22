@@ -420,6 +420,7 @@ const T = {
     // passo 3
     riepilogo:(a,p,ad,b)=>`Dal <strong>${a}</strong> al <strong>${p}</strong> · ${ad} adult${ad===1?'o':'i'}${b>0?`, ${b} bambin${b===1?'o':'i'}`:''}`,
     // il carrello
+    avantiCarrello:(n)=>n===1?'Continua con la camera scelta':`Continua con le ${n} camere scelte`,
     perLaCamera:(n)=>`Solo per la camera ${n}`,
     cameraNdi:(n,tot)=>`Sta scegliendo la camera ${n} di ${tot}. Le mettiamo tutte nella stessa richiesta, con un totale solo.`,
     carrelloTit:(n)=>n===1?'Camera già scelta':`Camere già scelte (${n})`, carrelloTot:'Totale',
@@ -503,6 +504,7 @@ const T = {
     mancaScelta:'Bitte wählen Sie ein Zimmer, um fortzufahren.',
     riepilogo:(a,p,ad,b)=>`Vom <strong>${a}</strong> bis <strong>${p}</strong> · ${ad} Erwachsene${b>0?`, ${b} Kind${b===1?'':'er'}`:''}`,
     // il carrello
+    avantiCarrello:(n)=>n===1?'Weiter mit dem gewählten Zimmer':`Weiter mit den ${n} gewählten Zimmern`,
     perLaCamera:(n)=>`Nur für das Zimmer ${n}`,
     cameraNdi:(n,tot)=>`Sie wählen gerade Zimmer ${n} von ${tot}. Wir fassen alle in einer Anfrage zusammen, mit einer Gesamtsumme.`,
     carrelloTit:(n)=>n===1?'Gewähltes Zimmer':`Gewählte Zimmer (${n})`, carrelloTot:'Gesamt',
@@ -585,6 +587,7 @@ const T = {
     mancaScelta:'Please choose a room to continue.',
     riepilogo:(a,p,ad,b)=>`From <strong>${a}</strong> to <strong>${p}</strong> · ${ad} adult${ad===1?'':'s'}${b>0?`, ${b} child${b===1?'':'ren'}`:''}`,
     // il carrello
+    avantiCarrello:(n)=>n===1?'Continue with the room chosen':`Continue with the ${n} rooms chosen`,
     perLaCamera:(n)=>`For the ${n} only`,
     cameraNdi:(n,tot)=>`You are choosing room ${n} of ${tot}. We put them all in one request, with a single total.`,
     carrelloTit:(n)=>n===1?'Room chosen':`Rooms chosen (${n})`, carrelloTot:'Total',
@@ -667,6 +670,7 @@ const T = {
     mancaScelta:'Veuillez choisir une chambre pour continuer.',
     riepilogo:(a,p,ad,b)=>`Du <strong>${a}</strong> au <strong>${p}</strong> · ${ad} adulte${ad===1?'':'s'}${b>0?`, ${b} enfant${b===1?'':'s'}`:''}`,
     // il carrello
+    avantiCarrello:(n)=>n===1?'Continuer avec la chambre choisie':`Continuer avec les ${n} chambres choisies`,
     perLaCamera:(n)=>`Uniquement pour la chambre ${n}`,
     cameraNdi:(n,tot)=>`Vous choisissez la chambre ${n} sur ${tot}. Nous les réunissons dans une seule demande, avec un seul total.`,
     carrelloTit:(n)=>n===1?'Chambre choisie':`Chambres choisies (${n})`, carrelloTot:'Total',
@@ -859,6 +863,12 @@ function schermaRicerca(erroreIniziale) {
     <div class="avviso">${esc(t.sotto)}</div>
     ${quantaCameraHTML(t)}
     ${carrelloHTML(t)}
+    <!-- LA STRADA AVANTI CON QUELLO CHE C'E' GIA'. Senza, chi ha messo
+         una camera da parte e non ne vuole una seconda e' costretto a
+         sceglierne un'altra per poter mandare la richiesta. -->
+    ${CARRELLO.length
+      ? `<button type="button" class="altre" id="bAvantiCarrello">${esc(t.avantiCarrello(CARRELLO.length))}</button>`
+      : ''}
     <div class="riquadro">
       <h2>${esc(t.dateTit)}</h2><div class="guida">${esc(t.dateGuida)}</div>
       <div class="due">
@@ -898,6 +908,9 @@ function schermaRicerca(erroreIniziale) {
   /* non si aspetta il clic su «Cerca»: appena la data scelta e' oggi e
      l'ora italiana e' passata, lo si dice */
   attivaCarrello();
+  if ($('bAvantiCarrello')) {
+    $('bAvantiCarrello').onclick = () => { STATO = 'dati'; disegna(); };
+  }
   $('fArrivo').addEventListener('change', avvisoGiornoStesso);
   avvisoGiornoStesso();
   /* e l'avviso sulle piu' camere: si dice PRIMA di cercare, cosi' il
@@ -1059,6 +1072,13 @@ function tutteLeCamere() {
     ? [{ ricerca: { ...RICERCA }, scelta: SCELTA, caparraCent: CAPARRA_CENT }]
     : [];
   return [...CARRELLO, ...ora];
+}
+
+/* LA CAPARRA DI TUTTE LE CAMERE. Quella di una sola, sotto un totale
+   che ne conta tre, e' un numero che l'ospite scopre falso in
+   reception: la caparra si chiede per ogni camera. */
+function caparraTotaleCent() {
+  return tutteLeCamere().reduce((t, c) => t + (Number(c.caparraCent) || 0), 0);
 }
 
 function totaleCent(camere) {
@@ -1278,7 +1298,10 @@ function schermaCamere() {
         ? `<div class="scelto">${t.riepilogoCamera(SCELTA.nome, nomeTariffa(SCELTA.tariffa, LNG),
              euroDaCentesimi(SCELTA.prezzo_cent))}</div>`
         : ''}
-      <button class="invia" id="bContinua"${SCELTA ? '' : ' disabled'}>${esc(t.continua)}</button>
+      <!-- «Continua» si accende anche con una camera nel CARRELLO e
+           nessuna in mano: chi ne ha messa da parte una e poi ha
+           cambiato idea sulla seconda resterebbe chiuso qui dentro. -->
+      <button class="invia" id="bContinua"${tutteLeCamere().length ? '' : ' disabled'}>${esc(t.continua)}</button>
       <!-- AGGIUNGI UN'ALTRA CAMERA: mette da parte quella scelta e
            riporta alle date, che si possono cambiare. Compare solo con
            una camera scelta, e solo finche' ce ne stanno. -->
@@ -1321,7 +1344,7 @@ function schermaCamere() {
     };
   });
   $('bContinua').onclick = () => {
-    if (!SCELTA) {
+    if (!tutteLeCamere().length) {
       $('esitoCamere').innerHTML = `<div class="errore">${esc(t.mancaScelta)}</div>`;
       return;
     }
@@ -1339,9 +1362,10 @@ function disegnaCaparra() {
   const box = document.querySelector('.caparraBuono');
   if (!box) return;
   const t = T[LNG];
-  const b = BUONO ? caparraDopoBuono(CAPARRA_CENT, BUONO.valore_cent) : null;
+  const caparra = caparraTotaleCent();
+  const b = BUONO ? caparraDopoBuono(caparra, BUONO.valore_cent) : null;
   box.textContent = !b
-    ? t.caparraRiga(euroDaCentesimi(CAPARRA_CENT))
+    ? t.caparraRiga(euroDaCentesimi(caparra))
     : b.copre
     ? t.caparraCoperta
     : t.caparraRidotta(euroDaCentesimi(b.resta));
@@ -1516,7 +1540,7 @@ function schermaDati() {
            letto le condizioni e visto la caparra, e la tassa e' l'unica
            cifra che non ha ancora incontrato due volte. Stesso testo,
            dalla stessa voce: non puo' divergere. -->
-      <div class="caparraBuono">${esc(t.caparraRiga(euroDaCentesimi(CAPARRA_CENT)))}</div>
+      <div class="caparraBuono">${esc(t.caparraRiga(euroDaCentesimi(caparraTotaleCent())))}</div>
       <div class="tassaDati">${esc(t.tassaSoggiorno)}</div>
       <!-- IL BUONO REGALO. Sta qui e non sulla scelta della camera:
            scegliere dove dormire e parlare di soldi sono due decisioni

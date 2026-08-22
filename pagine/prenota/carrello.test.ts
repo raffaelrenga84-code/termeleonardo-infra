@@ -62,6 +62,7 @@ type Banco = {
   carrelloHTML: (t: Record<string, unknown>) => string;
   riepilogoCamereHTML: (t: Record<string, unknown>, c: Camera[]) => string;
   quantaCameraHTML: (t: Record<string, unknown>) => string;
+  caparraTotaleCent: () => number;
   quante: (n: number) => void;
   metti: (carrello: Camera[], scelta: unknown, ricerca: unknown, caparra: number) => void;
 };
@@ -77,8 +78,10 @@ const fabbrica = new Function(
   ${prendi('carrelloHTML')}
   ${prendi('riepilogoCamereHTML')}
   ${prendi('quantaCameraHTML')}
+  ${prendi('caparraTotaleCent')}
   return {
     tutteLeCamere, totaleCent, carrelloHTML, riepilogoCamereHTML, quantaCameraHTML,
+    caparraTotaleCent,
     quante: (n) => { CAMERE_TOTALI = n; },
     metti: (c, s, r, cap) => { CARRELLO = c; SCELTA = s; RICERCA = r; CAPARRA_CENT = cap; },
   };
@@ -410,4 +413,46 @@ Deno.test('l invito alla cena dice PER QUALE camera vale, quando sono piu di una
   assertStringIncludes(blocco, 'tutte.length > 1');
   assertStringIncludes(blocco, 't.perLaCamera(SCELTA.nome)');
   assertEquals(PAGINA.split('perLaCamera:').length - 1, 4);
+});
+
+/* ============ la caparra, e i vicoli ciechi ============ */
+
+Deno.test('la caparra e quella di TUTTE le camere', () => {
+  /* la caparra si chiede per ogni camera: scriverne una sola sotto un
+     totale che ne conta tre e' un numero che l'ospite scopre falso in
+     reception */
+  banco.metti([{ ...DICIOTTO_NOTTI, caparraCent: 30000 }], DUE_NOTTI.scelta, DUE_NOTTI.ricerca, 12000);
+  assertEquals(banco.caparraTotaleCent(), 42000);
+});
+
+Deno.test('e una camera senza caparra non ne inventa una', () => {
+  banco.metti([{ ...DUE_NOTTI, caparraCent: 0 }], null, {}, 0);
+  assertEquals(banco.caparraTotaleCent(), 0);
+});
+
+Deno.test('il modulo e il buono guardano la stessa caparra', () => {
+  /* due cifre diverse sulla stessa schermata — quella scritta e quella
+     che il buono dice di coprire — sono peggio di nessuna cifra */
+  assertStringIncludes(PAGINA, 't.caparraRiga(euroDaCentesimi(caparraTotaleCent()))');
+  assertStringIncludes(PAGINA, 'const caparra = caparraTotaleCent();');
+  assertStringIncludes(PAGINA, 'caparraDopoBuono(caparra, BUONO.valore_cent)');
+});
+
+Deno.test('con una camera nel carrello si va avanti anche senza sceglierne un altra', () => {
+  /* IL VICOLO CIECO: chi mette una camera da parte e poi cambia idea
+     sulla seconda aveva «Continua» spento e nessuna strada avanti — una
+     camera in mano e nessun modo di mandarla. */
+  assertStringIncludes(PAGINA, "id=\"bContinua\"${tutteLeCamere().length ? '' : ' disabled'}");
+  assertStringIncludes(PAGINA, 'if (!tutteLeCamere().length) {');
+});
+
+Deno.test('e dal passo delle date c e una strada avanti', () => {
+  /* l'altra meta' dello stesso vicolo: si torna alle date per la camera
+     dopo, si cambia idea, e da li' non si andava da nessuna parte */
+  assertStringIncludes(PAGINA, 'id="bAvantiCarrello"');
+  assertStringIncludes(PAGINA, 't.avantiCarrello(CARRELLO.length)');
+  const dove = PAGINA.indexOf('id="bAvantiCarrello"');
+  assertStringIncludes(PAGINA.slice(dove - 200, dove), 'CARRELLO.length');
+  assertStringIncludes(PAGINA, "$('bAvantiCarrello').onclick = () => { STATO = 'dati'; disegna(); };");
+  assertEquals(PAGINA.split('avantiCarrello:').length - 1, 4);
 });
