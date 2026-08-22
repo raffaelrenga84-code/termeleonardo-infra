@@ -41,35 +41,60 @@ export function euroDaCentesimi(cent) {
     ricalcolare: e' una promessa gia' fatta all'ospite, e chi guardera'
     quella richiesta dovra' vedere quella cifra anche se un domani la
     regola dei 75 € a persona cambia. */
+/** QUELLO CHE UNA CAMERA METTE NELLA RICHIESTA: date, occupazione,
+ *  categoria, tariffa e il jsonb coi fatti per la macchina.
+ *
+ *  Sta in una funzione sua perche' il carrello ne compone N: la prima
+ *  camera va nel corpo, le altre in `altre[]` — e devono parlare la
+ *  STESSA lingua. Due funzioni diverse divergerebbero al primo campo
+ *  aggiunto, ed e' gia' successo in questo progetto con l'anteprima del
+ *  buono.
+ *
+ *  `note`, `cane` e `buono` NON stanno qui: sono della PERSONA, non della
+ *  camera. Chi prenota due stanze scrive le note una volta sola e ha un
+ *  cane solo, non uno per camera. */
+export function corpoCamera({ scelta, checkIn, checkOut, adulti, bambini, caparraCent = 0 }) {
+  const nAdulti = Number(adulti) || 0;
+  const nBambini = Number(bambini) || 0;
+  /* una caparra a zero non si manda: sarebbe una promessa di «0,00 €»
+     stampata in email e in back office, che e' peggio di nessuna riga */
+  const nCaparra = Number(caparraCent) || 0;
+  const s = scelta || {};
+  return {
+    check_in: checkIn,
+    check_out: checkOut,
+    ospiti: nAdulti + nBambini,
+    tipo_camera: s.nome,
+    pacchetto: s.tariffa,
+    dati: {
+      camera_id: s.camera_id,
+      variante_id: s.variante_id,
+      tariffa: s.tariffa,
+      trattamento: s.trattamento,
+      prezzo_cent: s.prezzo_cent,
+      adulti: nAdulti,
+      bambini: nBambini,
+      ...(nCaparra > 0 ? { caparra_cent: nCaparra } : {}),
+    },
+  };
+}
+
+/** Il corpo della richiesta: la PERSONA piu' la prima camera. Le camere
+ *  in piu' le aggiunge chi chiama, in `altre[]`, con corpoCamera(). */
 export function componiCorpo({
   scelta, nome, email, telefono, checkIn, checkOut,
   adulti, bambini, caparraCent = 0, note, lingua, cane = false, buono = '',
 }) {
-  const nAdulti = Number(adulti) || 0;
-  const nBambini = Number(bambini) || 0;
-  /* una caparra a zero non si manda: sarebbe una promessa di "0,00 €"
-     stampata in email e in back office, che e' peggio di nessuna riga */
-  const nCaparra = Number(caparraCent) || 0;
+  const camera = corpoCamera({ scelta, checkIn, checkOut, adulti, bambini, caparraCent });
   return {
     tipo: 'soggiorno',
     privacy_presa_atto: true,
     nome, email, telefono,
-    check_in: checkIn,
-    check_out: checkOut,
-    ospiti: nAdulti + nBambini,
-    tipo_camera: scelta.nome,
-    pacchetto: scelta.tariffa,
+    ...camera,
     messaggio: note,
     lingua,
     dati: {
-      camera_id: scelta.camera_id,
-      variante_id: scelta.variante_id,
-      tariffa: scelta.tariffa,
-      trattamento: scelta.trattamento,
-      prezzo_cent: scelta.prezzo_cent,
-      adulti: nAdulti,
-      bambini: nBambini,
-      ...(nCaparra > 0 ? { caparra_cent: nCaparra } : {}),
+      ...camera.dati,
       /* IL CANE. La Knowledge Base dice che va segnalato «sempre al
          momento della prenotazione, mai all'arrivo»: prima di oggi questa
          pagina non aveva modo di dirlo. Si manda solo quando c'e', come la

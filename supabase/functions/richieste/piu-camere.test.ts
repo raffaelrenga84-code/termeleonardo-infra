@@ -129,3 +129,51 @@ Deno.test('il filo che le tiene insieme e un CAMPO, non una frase nelle note', (
   });
   assertEquals(conIlNumero(null, 'S-2026-0001'), { insieme: 'S-2026-0001' });
 });
+
+/* ============================================================
+   IL FRENO. TETTO_PERSONA ferma a 3 richieste per mezz'ora contando le
+   righe di richiesta_sito. Con il carrello un invio solo ne salva fino a
+   cinque: contandole tutte, chi prenota per una comitiva si brucia da
+   solo la quota, e la schermata finale gli offre «aggiungi un'altra
+   camera» verso un rifiuto sicuro. Si contano gli INVII, e le camere in
+   piu' si riconoscono da `insieme` nel jsonb.
+   ============================================================ */
+const INDEX = Deno.readTextFileSync(new URL('index.ts', import.meta.url))
+  .split('\r\n').join('\n');
+
+Deno.test('il tetto per persona conta gli invii, non le camere', () => {
+  const da = INDEX.indexOf('const { count: sue }');
+  assert(da > 0, 'il conteggio per persona e sparito da index.ts');
+  const query = INDEX.slice(da, INDEX.indexOf('  }', da));
+  assert(
+    query.includes("dati->>insieme"),
+    'il conteggio per persona non esclude piu le camere di un carrello: ' +
+      'chi ne prenota tre in un colpo si brucia da solo la quota',
+  );
+  assert(
+    query.includes("email.eq."),
+    'il filtro sta su una query che non e quella per persona',
+  );
+});
+
+Deno.test('e il tetto TOTALE continua a contare le righe', () => {
+  /* li' il rischio e' la tabella che si riempie, e una riga e' una riga:
+     escludere qualcosa da quel conteggio aprirebbe una strada per
+     riempirla in pace */
+  const da = INDEX.indexOf('const { count: totale }');
+  assert(da > 0, 'il conteggio totale e sparito da index.ts');
+  const query = INDEX.slice(da, INDEX.indexOf(';', da));
+  assert(
+    !query.includes("insieme"),
+    'anche il tetto totale ha smesso di contare le righe',
+  );
+});
+
+Deno.test('e nessun altro scrive `insieme` nel jsonb', () => {
+  /* se lo scrivesse anche la pagina, o un altro punto del server, una
+     richiesta qualunque potrebbe farsi passare per «camera in piu» e
+     sfilarsi dal conteggio del freno */
+  const QUI = Deno.readTextFileSync(new URL('piu-camere.ts', import.meta.url));
+  assertEquals(QUI.split('insieme:').length - 1, 1);
+  assertEquals(INDEX.split('insieme:').length - 1, 0);
+});

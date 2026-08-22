@@ -65,9 +65,20 @@ Deno.test('e l invio fa lo stesso, anche se oggi non fa danno', () => {
     2,
     'il semaforo dell invio non si spegne su tutte le uscite',
   );
+  /* si pretende l'ORDINE, non che le due righe siano attaccate: fra lo
+     spegnimento e il cambio di schermata adesso ci sta la contabilita' della
+     richiesta appena chiusa — il carrello che si svuota, i numeri che il
+     server ha restituito. Pretendere l'adiacenza faceva fallire questa
+     prova per righe in mezzo che col semaforo non c'entrano. Quello che
+     conta e' che il semaforo sia gia' spento QUANDO la schermata cambia. */
+  const spento = dopo.indexOf('INVIANDO = false');
+  const cambio = dopo.indexOf('STATO = \'fatta\'');
+  assert(spento >= 0, 'il semaforo dell invio non si spegne piu');
+  assert(cambio >= 0, 'la schermata finale non arriva piu');
   assert(
-    PAGINA.includes("INVIANDO = false;\n    STATO = 'fatta';"),
-    'il semaforo dell invio si spegne dopo il cambio di schermata, o non si spegne',
+    spento < cambio,
+    'il semaforo dell invio si spegne DOPO il cambio di schermata: ' +
+      'a quel punto il pulsante non esiste piu e la riga non serve a niente',
   );
 });
 

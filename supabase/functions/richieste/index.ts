@@ -120,7 +120,11 @@ function puoToccare(a: Accesso, tipo: unknown): boolean {
    funziona, perche' ogni richiesta puo' toccare un'istanza diversa della
    funzione e il contatore riparte da zero. Questo invece conta a database,
    dove il numero e' uno solo. In caso di errore si lascia passare: meglio
-   una richiesta di troppo che una richiesta persa. */
+   una richiesta di troppo che una richiesta persa.
+
+   Il tetto PER PERSONA conta gli invii (vedi sotto: le camere in piu' di
+   un carrello sono escluse); quello TOTALE conta invece le righe, perche'
+   li' il rischio e' la tabella che si riempie e una riga e' una riga. */
 const TETTO_PERSONA = 3;
 /* Il tetto per persona resta stretto: e' li' che si ferma chi insiste.
    Quello TOTALE conta invece tutte le righe di richiesta_sito nella mezz'ora,
@@ -144,9 +148,19 @@ async function troppeRichieste(email: string, ip: string): Promise<boolean> {
       .select('id', { count: 'exact', head: true }).gte('creato_il', da);
     if ((totale ?? 0) >= TETTO_TOTALE) return true;
 
+    /* SI CONTANO GLI INVII, NON LE CAMERE. Un carrello di tre camere e' UNA
+       richiesta della stessa persona, ma salva TRE righe: contandole tutte,
+       chi prenota per una comitiva si brucia da solo la quota e la
+       schermata finale gli offre «aggiungi un'altra camera» verso un
+       rifiuto sicuro. Le camere in piu' portano `insieme` nel jsonb —
+       glielo mette conIlNumero() in piu-camere.ts, e nessun altro — quindi
+       si escludono da questo conteggio. Il freno resta quello che deve
+       essere: un tetto su quante VOLTE una persona manda il modulo. */
     const { count: sue } = await db.from('richiesta_sito')
       .select('id', { count: 'exact', head: true })
-      .gte('creato_il', da).or(`email.eq.${email},ip.eq.${ip}`);
+      .gte('creato_il', da)
+      .is('dati->>insieme', null)
+      .or(`email.eq.${email},ip.eq.${ip}`);
     return (sue ?? 0) >= TETTO_PERSONA;
   } catch (e) {
     console.error('conteggio limite fallito, lascio passare:', e);

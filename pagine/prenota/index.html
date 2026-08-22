@@ -154,6 +154,23 @@ textarea{min-height:80px;resize:vertical;}
   font:600 15px inherit;cursor:pointer;}
 /* il cartello della serie: sopra tutto, perche' e' la prima cosa da
    sapere quando la pagina si riapre uguale a prima */
+/* IL CARRELLO: le camere gia' messe da parte, col totale che cresce.
+   Un carrello che non si vede non e' un carrello. */
+.carrello{background:#fff;border:1px solid #E5E0D8;border-radius:12px;
+  padding:12px 14px;margin-bottom:14px;}
+.carrelloTit{font-weight:600;color:var(--verde);font-size:13.5px;
+  margin-bottom:8px;}
+.carrelloRiga{display:flex;justify-content:space-between;align-items:flex-start;
+  gap:10px;padding:7px 0;border-top:1px solid #F0EDE6;}
+.carrelloNome{color:var(--verde);font-size:14px;}
+.carrelloQuando{color:var(--grigio);font-size:12px;margin-top:1px;}
+.carrelloDestra{display:flex;align-items:center;gap:8px;flex:0 0 auto;}
+.carrelloPrezzo{font-family:"Cormorant Garamond",Georgia,serif;font-size:17px;
+  color:var(--verde-medio);white-space:nowrap;}
+.togli{width:24px;height:24px;padding:0;border:1px solid #DCD6CB;border-radius:50%;
+  background:none;color:var(--grigio);font:400 15px/1 Arial;cursor:pointer;}
+.carrelloTot{margin-top:10px;padding-top:9px;border-top:1px solid #E5E0D8;
+  text-align:right;font-weight:600;color:var(--verde);font-size:14px;}
 .cartello{max-width:640px;margin:18px auto -6px;padding:11px 15px;
   background:#EAF3EE;border-left:4px solid var(--verde-medio);border-radius:6px;
   font-size:13.5px;color:#1B4D4A;}
@@ -290,7 +307,7 @@ textarea{min-height:80px;resize:vertical;}
    ed e' la regola per ogni risorsa di queste pagine — la presidia
    percorsi-web.test.ts, cosi' non torna con la prossima pagina che
    qualcuno divide in due file. */
-import { aPersonaCent, aPersonaNotteCent, componiCorpo, euroDaCentesimi, linguaScelta } from '/prenota/logica.js';
+import { aPersonaCent, aPersonaNotteCent, componiCorpo, corpoCamera, euroDaCentesimi, linguaScelta } from '/prenota/logica.js';
 import { altFoto, fotoDi } from '/prenota/foto.js';
 /* PERCORSO ASSOLUTO, stessa ragione di sopra. Con quale ordine si
    propongono le categorie: sta in un modulo suo perche' e' una regola
@@ -402,6 +419,12 @@ const T = {
     mancaScelta:'Scelga una camera per continuare.',
     // passo 3
     riepilogo:(a,p,ad,b)=>`Dal <strong>${a}</strong> al <strong>${p}</strong> · ${ad} adult${ad===1?'o':'i'}${b>0?`, ${b} bambin${b===1?'o':'i'}`:''}`,
+    // il carrello
+    cameraNdi:(n,tot)=>`Sta scegliendo la camera ${n} di ${tot}. Le mettiamo tutte nella stessa richiesta, con un totale solo.`,
+    carrelloTit:(n)=>n===1?'Camera già scelta':`Camere già scelte (${n})`, carrelloTot:'Totale',
+    togliCamera:'Togli questa camera', aggiungiCamera:'+ Aggiungi un’altra camera',
+    rifPiu:'I suoi riferimenti',
+    camereMancanti:(fatte,chieste)=>`Abbiamo registrato ${fatte} camere delle ${chieste} che ci ha chiesto. Per le altre ci chiami allo +39 049 9939200.`,
     riepilogoCamera:(nome,tariffa,prezzo)=>`<strong>${esc(nome)}</strong> — ${esc(tariffa)} — ${prezzo} €`,
     datiTit:'I suoi dati', datiGuida:'Ci servono per confermarle la richiesta.',
     nome:'Nome e cognome', email:'Email', tel:'Telefono',
@@ -478,6 +501,12 @@ const T = {
     giornoStesso:(ora)=>`Für eine Anreise noch heute nach ${ora} Uhr organisieren wir das lieber telefonisch, damit Ihr Zimmer richtig vorbereitet wird: rufen Sie uns bitte unter +39 049 9939200 an. Für jedes andere Datum können Sie hier fortfahren.`,
     mancaScelta:'Bitte wählen Sie ein Zimmer, um fortzufahren.',
     riepilogo:(a,p,ad,b)=>`Vom <strong>${a}</strong> bis <strong>${p}</strong> · ${ad} Erwachsene${b>0?`, ${b} Kind${b===1?'':'er'}`:''}`,
+    // il carrello
+    cameraNdi:(n,tot)=>`Sie wählen gerade Zimmer ${n} von ${tot}. Wir fassen alle in einer Anfrage zusammen, mit einer Gesamtsumme.`,
+    carrelloTit:(n)=>n===1?'Gewähltes Zimmer':`Gewählte Zimmer (${n})`, carrelloTot:'Gesamt',
+    togliCamera:'Dieses Zimmer entfernen', aggiungiCamera:'+ Weiteres Zimmer hinzufügen',
+    rifPiu:'Ihre Referenznummern',
+    camereMancanti:(fatte,chieste)=>`Wir haben ${fatte} von ${chieste} Zimmern erfasst. Für die übrigen rufen Sie uns bitte unter +39 049 9939200 an.`,
     riepilogoCamera:(nome,tariffa,prezzo)=>`<strong>${esc(nome)}</strong> — ${esc(tariffa)} — ${prezzo} €`,
     datiTit:'Ihre Daten', datiGuida:'Wir brauchen sie, um Ihnen die Anfrage zu bestätigen.',
     nome:'Vor- und Nachname', email:'E-Mail', tel:'Telefon',
@@ -553,6 +582,12 @@ const T = {
     giornoStesso:(ora)=>`For an arrival today after ${ora} we prefer to arrange it by phone, so your room is properly prepared: please call us on +39 049 9939200. For any other date you can carry on from here.`,
     mancaScelta:'Please choose a room to continue.',
     riepilogo:(a,p,ad,b)=>`From <strong>${a}</strong> to <strong>${p}</strong> · ${ad} adult${ad===1?'':'s'}${b>0?`, ${b} child${b===1?'':'ren'}`:''}`,
+    // il carrello
+    cameraNdi:(n,tot)=>`You are choosing room ${n} of ${tot}. We put them all in one request, with a single total.`,
+    carrelloTit:(n)=>n===1?'Room chosen':`Rooms chosen (${n})`, carrelloTot:'Total',
+    togliCamera:'Remove this room', aggiungiCamera:'+ Add another room',
+    rifPiu:'Your references',
+    camereMancanti:(fatte,chieste)=>`We recorded ${fatte} of the ${chieste} rooms you asked for. For the others please call us on +39 049 9939200.`,
     riepilogoCamera:(nome,tariffa,prezzo)=>`<strong>${esc(nome)}</strong> — ${esc(tariffa)} — ${prezzo} €`,
     datiTit:'Your details', datiGuida:'We need them to confirm your request.',
     nome:'Full name', email:'Email', tel:'Phone',
@@ -628,6 +663,12 @@ const T = {
     giornoStesso:(ora)=>`Pour une arrivée le jour même après ${ora}, nous préférons organiser par téléphone afin que votre chambre soit bien préparée : appelez-nous au +39 049 9939200. Pour toute autre date, vous pouvez continuer ici.`,
     mancaScelta:'Veuillez choisir une chambre pour continuer.',
     riepilogo:(a,p,ad,b)=>`Du <strong>${a}</strong> au <strong>${p}</strong> · ${ad} adulte${ad===1?'':'s'}${b>0?`, ${b} enfant${b===1?'':'s'}`:''}`,
+    // il carrello
+    cameraNdi:(n,tot)=>`Vous choisissez la chambre ${n} sur ${tot}. Nous les réunissons dans une seule demande, avec un seul total.`,
+    carrelloTit:(n)=>n===1?'Chambre choisie':`Chambres choisies (${n})`, carrelloTot:'Total',
+    togliCamera:'Retirer cette chambre', aggiungiCamera:'+ Ajouter une autre chambre',
+    rifPiu:'Vos références',
+    camereMancanti:(fatte,chieste)=>`Nous avons enregistré ${fatte} chambres sur les ${chieste} demandées. Pour les autres, appelez-nous au +39 049 9939200.`,
     riepilogoCamera:(nome,tariffa,prezzo)=>`<strong>${esc(nome)}</strong> — ${esc(tariffa)} — ${prezzo} €`,
     datiTit:'Vos coordonnées', datiGuida:'Elles nous servent pour confirmer votre demande.',
     nome:'Nom et prénom', email:'E-mail', tel:'Téléphone',
@@ -689,7 +730,25 @@ let OSPITE = null;
    cancellerebbe nome, email e telefono appena scritti: chi se li vede
    sparire non li riscrive, se ne va. */
 let SCRITTI = null;
-let NUMERO_FATTA = '';       // il numero appena assegnato, per legarci la camera dopo
+/* LE CAMERE GIA' MESSE DA PARTE. Ognuna porta la SUA ricerca — date e
+   persone possono essere diverse da camera a camera: e' il caso vero
+   della prenotazione #18968, una stanza 18 notti e una 2. */
+let CARRELLO = [];
+/* Quante camere in un invio solo. LO STESSO NUMERO STA NEL SERVER
+   (CAMERE_MAX in piu-camere.ts), e deve restare lo stesso: se la pagina
+   ne lasciasse aggiungere piu' di quante il server ne accetta, l'ospite
+   compilerebbe tutto per sentirsi rifiutare alla fine. Le funzioni si
+   pubblicano per cartella e non possono importare da qui: la copia e'
+   voluta, e una prova le confronta. */
+const CAMERE_MAX_PAGINA = 5;
+let NUMERO_FATTA = '';
+/* TUTTI i numeri assegnati: con piu' camere il server ne restituisce
+   uno per camera, e all'ospite servono tutti — con uno solo in mano
+   non potrebbe nominare le altre due al telefono. */
+let NUMERI_FATTA = [];
+/* quante camere aveva chiesto: se ne sono state registrate meno, va
+   detto SUBITO e a voce alta, non scoperto in reception */
+let CAMERE_CHIESTE = 0;       // il numero appena assegnato, per legarci la camera dopo
 /* il buono verificato: { codice, valore_cent } quando e' valido, una
    chiave d'errore quando non lo e', null quando non se n'e' parlato */
 /* quante camere ha detto di volere: serve a scrivere «camera 2 di 3» sul
@@ -794,6 +853,8 @@ function schermaRicerca(erroreIniziale) {
   const r = RICERCA || { arrivo: ARRIVO_URL, partenza: PARTENZA_URL, adulti: DA_URL.adulti || 2, bambini: 0 };
   $('app').innerHTML = `
     <div class="avviso">${esc(t.sotto)}</div>
+    ${quantaCameraHTML(t)}
+    ${carrelloHTML(t)}
     <div class="riquadro">
       <h2>${esc(t.dateTit)}</h2><div class="guida">${esc(t.dateGuida)}</div>
       <div class="due">
@@ -832,6 +893,7 @@ function schermaRicerca(erroreIniziale) {
   $('bCerca').onclick = cercaDisponibilita;
   /* non si aspetta il clic su «Cerca»: appena la data scelta e' oggi e
      l'ora italiana e' passata, lo si dice */
+  attivaCarrello();
   $('fArrivo').addEventListener('change', avvisoGiornoStesso);
   avvisoGiornoStesso();
   /* e l'avviso sulle piu' camere: si dice PRIMA di cercare, cosi' il
@@ -985,6 +1047,95 @@ function quantoInPiu(v, base, t) {
   return t.differenza(aNotte === null ? '' : euroDaCentesimi(aNotte), euroDaCentesimi(piu));
 }
 
+/* TUTTE LE CAMERE DELLA RICHIESTA: quelle messe da parte piu' quella che
+   si sta scegliendo adesso. Il carrello tiene solo le PARCHEGGIATE, cosi'
+   tornare indietro dal modulo non deve disfare niente. */
+function tutteLeCamere() {
+  const ora = SCELTA
+    ? [{ ricerca: { ...RICERCA }, scelta: SCELTA, caparraCent: CAPARRA_CENT }]
+    : [];
+  return [...CARRELLO, ...ora];
+}
+
+function totaleCent(camere) {
+  return camere.reduce((t, c) => t + (Number(c.scelta.prezzo_cent) || 0), 0);
+}
+
+/* IL RIEPILOGO DELLE CAMERE MESSE DA PARTE, con il totale che cresce.
+   Senza, l'ospite che ne aggiunge tre non sa piu' che cosa ha scelto ne'
+   quanto sta spendendo — e un carrello che non si vede non e' un
+   carrello. */
+function carrelloHTML(t) {
+  if (!CARRELLO.length) return '';
+  const righe = CARRELLO.map((c, i) => `
+    <div class="carrelloRiga">
+      <div>
+        <div class="carrelloNome">${esc(c.scelta.nome)}</div>
+        <div class="carrelloQuando">${esc(c.ricerca.arrivo)} → ${esc(c.ricerca.partenza)} ·
+          ${esc(nomeTariffa(c.scelta.tariffa, LNG))}</div>
+      </div>
+      <div class="carrelloDestra">
+        <span class="carrelloPrezzo">${euroDaCentesimi(c.scelta.prezzo_cent)} €</span>
+        <button type="button" class="togli" data-togli="${i}"
+          aria-label="${esc(t.togliCamera)}">×</button>
+      </div>
+    </div>`).join('');
+  return `<div class="carrello">
+    <div class="carrelloTit">${esc(t.carrelloTit(CARRELLO.length))}</div>
+    ${righe}
+    <div class="carrelloTot">${esc(t.carrelloTot)} ${euroDaCentesimi(totaleCent(CARRELLO))} €</div>
+  </div>`;
+}
+
+/* A CHE PUNTO SIAMO, quando l'ospite ha detto quante camere gli servono.
+   Senza, chi ne ha chieste tre le sceglie alla cieca e non sa mai se ne
+   ha messa da parte una o due. Si tace quando non ce n'e' bisogno: una
+   camera sola, oppure il carrello e' gia' andato oltre il numero
+   dichiarato — allora il conto vero e' il carrello, e un «camera 4 di 3»
+   sarebbe solo sbagliato. */
+function quantaCameraHTML(t) {
+  const n = CARRELLO.length + 1;
+  if (!(CAMERE_TOTALI > 1) || n > CAMERE_TOTALI) return '';
+  return `<div class="cartello">${esc(t.cameraNdi(n, CAMERE_TOTALI))}</div>`;
+}
+
+/* IL RIEPILOGO DEL PASSO DEI DATI. Con una camera sola resta la riga di
+   sempre; con piu' camere diventa un conto: ogni camera con le SUE date
+   e il totale in fondo. Chi paga vuole vedere che cosa sta chiedendo,
+   tutto insieme e una volta sola. */
+function riepilogoCamereHTML(t, camere) {
+  if (camere.length === 1) {
+    const c = camere[0];
+    return t.riepilogo(esc(c.ricerca.arrivo), esc(c.ricerca.partenza),
+      c.ricerca.adulti, c.ricerca.bambini || 0) +
+      `<br />` +
+      t.riepilogoCamera(c.scelta.nome, nomeTariffa(c.scelta.tariffa, LNG),
+        euroDaCentesimi(c.scelta.prezzo_cent));
+  }
+  const righe = camere.map((c) => `
+    <div class="carrelloRiga">
+      <div>
+        <div class="carrelloNome">${esc(c.scelta.nome)}</div>
+        <div class="carrelloQuando">${esc(c.ricerca.arrivo)} → ${esc(c.ricerca.partenza)} ·
+          ${esc(nomeTariffa(c.scelta.tariffa, LNG))}</div>
+      </div>
+      <span class="carrelloPrezzo">${euroDaCentesimi(c.scelta.prezzo_cent)} €</span>
+    </div>`).join('');
+  return righe +
+    `<div class="carrelloTot">${esc(t.carrelloTot)} ${euroDaCentesimi(totaleCent(camere))} €</div>`;
+}
+
+/* i pulsantini per togliere una camera: si attaccano dopo ogni disegno,
+   perche' il riepilogo compare su due schermate diverse */
+function attivaCarrello() {
+  document.querySelectorAll('[data-togli]').forEach((b) => {
+    b.onclick = () => {
+      CARRELLO.splice(Number(b.dataset.togli), 1);
+      disegna();
+    };
+  });
+}
+
 /* ================= passo 2: le camere ================= */
 
 function schermaCamere() {
@@ -1032,6 +1183,8 @@ function schermaCamere() {
 
   $('app').innerHTML = `
     <button type="button" class="indietro" id="bIndietroDate">${esc(t.indietroDate)}</button>
+    ${quantaCameraHTML(t)}
+    ${carrelloHTML(t)}
     <div class="riquadro">
       <h2>${esc(t.cameraTit)}</h2><div class="guida">${esc(t.cameraGuida)}</div>
       <!-- il motore ha risposto, ma nessuna camera tiene tutte le persone
@@ -1122,11 +1275,30 @@ function schermaCamere() {
              euroDaCentesimi(SCELTA.prezzo_cent))}</div>`
         : ''}
       <button class="invia" id="bContinua"${SCELTA ? '' : ' disabled'}>${esc(t.continua)}</button>
+      <!-- AGGIUNGI UN'ALTRA CAMERA: mette da parte quella scelta e
+           riporta alle date, che si possono cambiare. Compare solo con
+           una camera scelta, e solo finche' ce ne stanno. -->
+      ${SCELTA && tutteLeCamere().length < CAMERE_MAX_PAGINA
+        ? `<button type="button" class="altre" id="bAltraCamera">${esc(t.aggiungiCamera)}</button>`
+        : ''}
       <div id="esitoCamere"></div>
     </div>`;
 
   $('bIndietroDate').onclick = () => { STATO = 'ricerca'; disegna(); };
   if ($('bAltre')) $('bAltre').onclick = () => { TUTTE_LE_CAMERE = true; schermaCamere(); };
+  attivaCarrello();
+  if ($('bAltraCamera')) {
+    $('bAltraCamera').onclick = () => {
+      /* si mette da parte quella scelta e si torna alle date: da li'
+         l'ospite puo' cambiarle, che e' il caso di due camere per periodi
+         diversi */
+      CARRELLO.push({ ricerca: { ...RICERCA }, scelta: SCELTA, caparraCent: CAPARRA_CENT });
+      SCELTA = null;
+      TUTTE_LE_CAMERE = false;
+      STATO = 'ricerca';
+      disegna();
+    };
+  }
   /* la «i» apre il pannello che c'e' gia' e ci porta l'occhio: l'elenco
      resta in un posto solo, non se ne disegna una copia per camera */
   document.querySelectorAll('.infoInclusi').forEach((b) => {
@@ -1273,14 +1445,14 @@ function datiScritti() {
 function schermaDati() {
   const t = T[LNG];
   const bambini = RICERCA.bambini || 0;
+  const tutte = tutteLeCamere();
   const conCena = conCenaPerLaScelta();
   const gia = SCRITTI ||
     { nome: DA_URL.nome, email: DA_URL.email, tel: DA_URL.tel, note: '', cane: false, privacy: false };
   $('app').innerHTML = `
     <button type="button" class="indietro" id="bIndietroCamere">${esc(t.indietroCamere)}</button>
     <div class="riepilogo">
-      ${t.riepilogo(esc(RICERCA.arrivo), esc(RICERCA.partenza), RICERCA.adulti, bambini)}<br />
-      ${t.riepilogoCamera(SCELTA.nome, nomeTariffa(SCELTA.tariffa, LNG), euroDaCentesimi(SCELTA.prezzo_cent))}
+      ${riepilogoCamereHTML(t, tutte)}
     </div>
     ${conCena ? `
     <button type="button" class="aggiungi" id="bAggiungiCena" data-indice="${conCena.indice}">
@@ -1423,15 +1595,34 @@ async function inviaRichiesta() {
 
   /* la caparra si manda com'e' stata MOSTRATA all'ospite poche righe piu'
      su: e' una promessa gia' fatta, non un numero da ricalcolare a valle */
+  /* TUTTE LE CAMERE IN UN INVIO SOLO. La prima va nel corpo, le altre in
+     «altre» — mandarne N di fila sbatterebbe contro il freno del server
+     (3 richieste per mezz'ora) e alla quarta camera l'ospite leggerebbe
+     un rifiuto. Vedi piu-camere.ts. */
+  const camere = tutteLeCamere();
+  const prima = camere[0];
   const corpo = componiCorpo({
-    scelta: SCELTA, nome, email, telefono,
-    checkIn: RICERCA.arrivo, checkOut: RICERCA.partenza,
-    adulti: RICERCA.adulti, bambini: RICERCA.bambini,
-    caparraCent: CAPARRA_CENT,
+    scelta: prima.scelta, nome, email, telefono,
+    checkIn: prima.ricerca.arrivo, checkOut: prima.ricerca.partenza,
+    adulti: prima.ricerca.adulti, bambini: prima.ricerca.bambini,
+    caparraCent: prima.caparraCent,
     note, lingua: LNG,
     cane: $('fCane') ? $('fCane').checked : false,
     buono: BUONO ? BUONO.codice : '',
   });
+  /* le altre camere passano dalla STESSA funzione della prima: due modi
+     diversi di comporre una camera divergerebbero al primo campo nuovo */
+  if (camere.length > 1) {
+    corpo.altre = camere.slice(1).map((c) =>
+      corpoCamera({
+        scelta: c.scelta,
+        checkIn: c.ricerca.arrivo,
+        checkOut: c.ricerca.partenza,
+        adulti: c.ricerca.adulti,
+        bambini: c.ricerca.bambini,
+        caparraCent: c.caparraCent,
+      }));
+  }
 
   try {
     const r = await fetch(FUNZIONE, {
@@ -1460,6 +1651,14 @@ async function inviaRichiesta() {
        stessa trappola pronta per il prossimo che aggiunge un
        «indietro». */
     INVIANDO = false;
+    /* il carrello si svuota: una richiesta nuova non deve ereditare le
+       camere di quella appena mandata */
+    CARRELLO = [];
+    /* `numeri` e `camere_chieste` arrivano dal server: la pagina non li
+       ricalcola, perche' la verita' su che cosa e' stato SALVATO ce
+       l'ha solo lui */
+    NUMERI_FATTA = Array.isArray(d.numeri) ? d.numeri : (d.numero ? [d.numero] : []);
+    CAMERE_CHIESTE = Number(d.camere_chieste) || NUMERI_FATTA.length;
     STATO = 'fatta';
     disegna(d.numero || '');
   } catch (e) {
@@ -1482,8 +1681,17 @@ function schermaFatta(numero) {
   $('app').innerHTML = `<div class="riquadro fatta">
     <h2>${esc(t.grazieTit)}</h2>
     <p style="color:var(--verde-medio);">${esc(t.grazieTxt)}</p>
-    ${numero ? `<div class="rif">${esc(numero)}</div>
-      <div class="guida" style="margin-top:4px;">${esc(t.rif)}</div>` : ''}
+    ${NUMERI_FATTA.length > 1
+      ? `<div class="rif">${NUMERI_FATTA.map((n) => esc(n)).join(' · ')}</div>
+        <div class="guida" style="margin-top:4px;">${esc(t.rifPiu)}</div>`
+      : numero ? `<div class="rif">${esc(numero)}</div>
+        <div class="guida" style="margin-top:4px;">${esc(t.rif)}</div>` : ''}
+    <!-- SE NE SONO STATE REGISTRATE MENO di quante ne aveva chieste, si
+         dice qui: un «grazie» liscio manderebbe via l'ospite convinto di
+         avere tre camere quando ne ha due. -->
+    ${CAMERE_CHIESTE > NUMERI_FATTA.length
+      ? `<div class="errore" style="margin-top:14px;">${esc(t.camereMancanti(NUMERI_FATTA.length, CAMERE_CHIESTE))}</div>`
+      : ''}
     ${OSPITE ? `
       <div class="inviti">
         <div class="invitiTit">${esc(t.ancoraTit)}</div>
