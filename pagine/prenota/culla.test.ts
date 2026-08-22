@@ -161,6 +161,7 @@ Deno.test('e una camera senza prezzo non si propone', () => {
 function banco(): {
   chiesta: (t: Record<string, unknown>) => string;
   avviso: (t: Record<string, unknown>) => string;
+  modulo: (t: Record<string, unknown>, camere: unknown[]) => string;
   metti: (culla: boolean, scelta: unknown, proposte: unknown[]) => void;
   cane: (v: boolean) => void;
 } {
@@ -178,9 +179,10 @@ function banco(): {
     const CULLA_SEGNO = '<svg class="segno"></svg>';
     let CULLA = false, CANE = false, SCELTA = null, PROPOSTE = [];
     ${pezzo(/function cullaChiestaHTML\(t\) \{[\s\S]*?\n\}/, 'cullaChiestaHTML')}
-    ${pezzo(/function cullaAvvisoHTML\(t\) \{[\s\S]*?\n\}/, 'cullaAvvisoHTML')}
+    ${pezzo(/function cullaAvvisoHTML\([^)]*\) \{[\s\S]*?\n\}/, 'cullaAvvisoHTML')}
+    ${pezzo(/function cullaModuloHTML\([^)]*\) \{[\s\S]*?\n\}/, 'cullaModuloHTML')}
     return {
-      chiesta: cullaChiestaHTML, avviso: cullaAvvisoHTML,
+      chiesta: cullaChiestaHTML, avviso: cullaAvvisoHTML, modulo: cullaModuloHTML,
       metti: (c, s, p) => { CULLA = c; SCELTA = s; PROPOSTE = p; },
       cane: (v) => { CANE = v; },
     };
@@ -201,6 +203,7 @@ const T = {
   cullaNessuna: 'Ci chiami allo +39 049 9939200.',
   cane: 'Viaggio con un cane',
   caneNota: (imp: string) => `Supplemento ${imp} € al giorno per animale.`,
+  cullaSuCamera: 'La culla si chiede sulla camera: torni indietro.',
 };
 
 Deno.test('la domanda c e sempre, il prezzo solo a chi risponde di si', () => {
@@ -464,4 +467,108 @@ Deno.test('e le parole della culla ci sono in tutte e quattro le lingue', () => 
   for (const k of ["    culla:'", 'cullaNota:', 'cullaNoQui:', 'cullaCambia:', 'cullaNessuna:']) {
     assertEquals(PAGINA.split(k).length - 1, 4, `«${k}» non c'e' in tutte e quattro le lingue`);
   }
+});
+
+/* ============================================================
+   LA CULLA ANCHE SUL MODULO, «con i controlli del caso».
+
+   Chiesto dalla proprietà dopo aver visto il cane su tutte e due le
+   schermate. Il cane però è della PERSONA — una variabile sola, due
+   caselle — mentre la culla è della CAMERA: con tre camere nel carrello
+   «ci serve una culla» non vuol dire niente finché non si dice in
+   quale.
+   ============================================================ */
+
+const UNA = [{ scelta: { camera_id: 9, nome: 'Suite Colli Euganei' } }];
+
+Deno.test('con una camera sola la casella c e, e si ricorda', () => {
+  const b = banco();
+  b.metti(false, UNA[0].scelta, PROPOSTE);
+  const spenta = b.modulo(T, UNA);
+  assert(spenta.includes('id="fCullaDati"'), 'la casella non c e sul modulo');
+  assert(!spenta.includes('checked'), 'la casella nasce gia spuntata');
+
+  b.metti(true, UNA[0].scelta, PROPOSTE);
+  const accesa = b.modulo(T, UNA);
+  assert(accesa.includes('checked'), 'la casella non si ricorda di essere accesa');
+  assert(accesa.includes('30,00'), 'chi la spunta non legge quanto costa');
+});
+
+Deno.test('e i controlli valgono anche qui', () => {
+  /* «con i controlli del caso»: se in quella camera la culla non ci sta
+     lo dice e propone la meno cara fra le libere che la ospita */
+  const b = banco();
+  b.metti(true, { camera_id: 6, nome: 'Matrimoniale Queen' }, PROPOSTE);
+  const html = b.modulo(T, [{ scelta: { camera_id: 6 } }]);
+  assert(html.includes('Matrimoniale Queen'), 'non dice quale camera');
+  assert(html.includes('Junior Suite Colli Euganei'), 'non propone niente');
+  assert(
+    html.includes('id="bCullaCambiaDati"'),
+    'il pulsante del modulo ha lo stesso nome di quello delle camere: ' +
+      'i due gestori si accavallerebbero',
+  );
+});
+
+Deno.test('con piu camere la casella NON c e', () => {
+  /* sarebbe una domanda senza risposta: quale delle tre? Il riepilogo qui
+     sopra dice gia quali camere la hanno, e si cambia dalla camera */
+  const b = banco();
+  b.metti(false, UNA[0].scelta, PROPOSTE);
+  const html = b.modulo(T, [{ scelta: { camera_id: 9 } }, { scelta: { camera_id: 7 } }]);
+  assert(!html.includes('id="fCullaDati"'), 'la casella esce anche con piu camere');
+  assert(html.includes('torni indietro'), 'non si dice dove si chiede la culla');
+});
+
+Deno.test('e chi ne ha gia una non legge nemmeno quella riga', () => {
+  /* l ha gia chiesta: dirgli dove si chiede sarebbe rumore */
+  const b = banco();
+  b.metti(false, UNA[0].scelta, PROPOSTE);
+  const html = b.modulo(T, [
+    { scelta: { camera_id: 9 }, culla: true },
+    { scelta: { camera_id: 7 } },
+  ]);
+  assertEquals(html, '');
+});
+
+Deno.test('la casella del modulo non porta via quello che e scritto', () => {
+  /* il ridisegno ricrea i campi: senza mettere da parte prima, nome ed
+     email spariscono. E la stessa trappola gia vista col cambio di
+     tariffa, e la stessa che datiScritti() esiste per evitare. */
+  const dove = PAGINA.indexOf("$('fCullaDati').onchange");
+  assert(dove > 0, 'la casella del modulo non fa piu niente');
+  const corpo = PAGINA.slice(dove, dove + 420);
+  const salva = corpo.indexOf('SCRITTI = datiScritti();');
+  const cambia = corpo.indexOf('CULLA = ');
+  assert(salva >= 0, 'quello che e scritto non si mette piu da parte');
+  assert(salva < cambia, 'si cambia PRIMA di salvare: il ridisegno porta via i campi');
+  assert(corpo.includes('disegna();'), 'il modulo non si ridisegna');
+});
+
+Deno.test('e cambiare camera dal modulo lascia sul modulo', () => {
+  /* chi sta compilando non va rimandato indietro per una camera cambiata */
+  const dove = PAGINA.indexOf("$('bCullaCambiaDati').onclick");
+  assert(dove > 0, 'il pulsante del modulo non fa piu niente');
+  const corpo = PAGINA.slice(dove, dove + 500);
+  assert(corpo.includes('SCRITTI = datiScritti();'), 'perde quello che e scritto');
+  assert(corpo.includes('SCELTA = { ...PROPOSTE[i], indice: i };'), 'non cambia la camera');
+  assert(corpo.includes('if (!PROPOSTE[i]) return;'), 'un indice fuori elenco fa esplodere la pagina');
+  assert(!corpo.includes('schermaCamere();'), 'rimanda indietro chi sta compilando');
+});
+
+Deno.test('e la riga per piu camere c e in tutte e quattro le lingue', () => {
+  assertEquals(PAGINA.split('cullaSuCamera:').length - 1, 4);
+});
+
+Deno.test('e la casella si disegna DAVVERO sul modulo', () => {
+  /* una funzione che nessuno chiama e codice morto travestito da
+     funzionalita: le prove qui sopra la eseguono, e resterebbero verdi
+     anche se la pagina smettesse di disegnarla */
+  const dove = PAGINA.indexOf('${cullaModuloHTML(t, tutte)}');
+  assert(dove > 0, 'la culla non si disegna piu sul modulo');
+  /* accanto al cane, e prima del pulsante invia */
+  const cane = PAGINA.indexOf('<div id="noteCane"></div>');
+  const invia = PAGINA.indexOf('id="bInvia"');
+  assert(cane > 0 && invia > 0, 'il modulo ha cambiato forma: la prova va aggiornata');
+  assert(dove > cane, 'la culla non sta piu accanto al cane');
+  assert(dove < invia, 'la culla sta dopo il pulsante invia: nessuno la vedrebbe');
 });

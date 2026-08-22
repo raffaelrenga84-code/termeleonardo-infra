@@ -105,6 +105,11 @@ textarea{min-height:80px;resize:vertical;}
   padding:8px 11px;margin-bottom:8px;font-size:13px;color:#7C2D12;}
 /* il totale coi supplementi, sotto la camera scelta */
 .conSupplementi{margin-top:4px;font-size:13px;color:var(--verde);font-weight:600;}
+/* «modifica»: un collegamento, non un pulsante grosso — sta dentro un
+   riepilogo che si legge, e non deve competere con «Invia la richiesta» */
+.modifica{display:inline-block;margin-top:4px;padding:0;border:0;background:none;
+  color:var(--verde-medio);font:inherit;font-size:12.5px;text-decoration:underline;
+  cursor:pointer;}
 .serve{margin-top:14px;}
 .serveTit{font-family:"Cormorant Garamond",Georgia,serif;font-size:20px;
   color:var(--verde);margin-bottom:2px;}
@@ -445,6 +450,8 @@ const T = {
     extraCane:(g)=>`Cane · ${g} giorn${g===1?'o':'i'}`,
     totaleSupplementi:(v)=>`Con i supplementi: ${v} €`,
     // la culla
+    modifica:'Modifica date, camera o trattamento',
+    cullaSuCamera:'La culla si chiede sulla camera: torni indietro con «Cambi camera» per aggiungerla.',
     culla:'Ci serve una culla',
     cullaBreve:'con culla',
     cullaNota:(imp)=>`Supplemento ${imp} € per tutto il soggiorno, non al giorno. La culla si può posizionare nelle Junior Suite e nelle Suite: nelle singole, nella Doppia e nella Matrimoniale Queen non c’è lo spazio.`,
@@ -543,6 +550,8 @@ const T = {
     extraCane:(g)=>`Hund · ${g} Tag${g===1?'':'e'}`,
     totaleSupplementi:(v)=>`Mit Zuschlägen: ${v} €`,
     // la culla
+    modifica:'Daten, Zimmer oder Verpflegung ändern',
+    cullaSuCamera:'Das Kinderbett wird beim Zimmer angegeben: gehen Sie mit «Zimmer ändern» zurück, um es hinzuzufügen.',
     culla:'Wir brauchen ein Kinderbett',
     cullaBreve:'mit Kinderbett',
     cullaNota:(imp)=>`Aufschlag ${imp} € für den gesamten Aufenthalt, nicht pro Tag. Das Kinderbett passt in die Junior-Suiten und die Suiten: in den Einzelzimmern, im Doppelzimmer und im Zimmer Matrimoniale Queen ist kein Platz dafür.`,
@@ -640,6 +649,8 @@ const T = {
     extraCane:(g)=>`Dog · ${g} day${g===1?'':'s'}`,
     totaleSupplementi:(v)=>`With supplements: ${v} €`,
     // la culla
+    modifica:'Change dates, room or board',
+    cullaSuCamera:'The cot is requested on the room: go back with «Change room» to add it.',
     culla:'We need a cot',
     cullaBreve:'with cot',
     cullaNota:(imp)=>`Supplement ${imp} € for the whole stay, not per day. The cot fits in the Junior Suites and the Suites: there is no room for it in the singles, the Twin or the Matrimoniale Queen.`,
@@ -737,6 +748,8 @@ const T = {
     extraCane:(g)=>`Chien · ${g} jour${g===1?'':'s'}`,
     totaleSupplementi:(v)=>`Avec suppléments : ${v} €`,
     // la culla
+    modifica:'Modifier dates, chambre ou formule',
+    cullaSuCamera:'Le lit bébé se demande sur la chambre : revenez avec « Changer de chambre » pour l’ajouter.',
     culla:'Il nous faut un lit bébé',
     cullaBreve:'avec lit bébé',
     cullaNota:(imp)=>`Supplément ${imp} € pour tout le séjour, pas par jour. Le lit bébé tient dans les Junior Suites et les Suites : dans les chambres simples, la Doppia et la Matrimoniale Queen il n’y a pas la place.`,
@@ -1208,17 +1221,79 @@ function cullaChiestaHTML(t) {
   </div>`;
 }
 
+/* «MODIFICA» SU OGNI CAMERA DEL RIEPILOGO. Porta il posto della camera
+   nell'elenco di tutteLeCamere(), che e' quello che serve per ritrovarla
+   nel carrello. */
+function modificaHTML(t, i) {
+  return `<button type="button" class="modifica" data-modifica="${i}">${esc(t.modifica)}</button>`;
+}
+
+/* RIPRENDE UNA CAMERA IN MANO: esce dal carrello e torna a essere quella
+   che si sta scegliendo, con le sue date e la sua culla. Senza questo,
+   «modifica» aggiungerebbe una camera nuova e lascerebbe la vecchia dove
+   stava. */
+function riprendiCamera(i) {
+  const camere = tutteLeCamere();
+  const c = camere[i];
+  if (!c) return false;
+  /* prima si mette da parte quello che e' scritto: il ridisegno ricrea i
+     campi del modulo, ed e' la trappola gia' vista col cambio di tariffa */
+  SCRITTI = datiScritti();
+  if (i < CARRELLO.length) CARRELLO.splice(i, 1);
+  RICERCA = { ...c.ricerca };
+  SCELTA = c.scelta;
+  CULLA = c.culla === true;
+  CAPARRA_CENT = Number(c.caparraCent) || 0;
+  /* si riparte dalle DATE e non dall'elenco: quello in memoria e' di
+     un'altra ricerca, e mostrerebbe prezzi e disponibilita' di un altro
+     periodo senza un segno che qualcosa non torni */
+  TUTTE_LE_CAMERE = false;
+  STATO = 'ricerca';
+  return true;
+}
+
+/* i pulsantini si attaccano dopo ogni disegno */
+function attivaModifica() {
+  document.querySelectorAll('[data-modifica]').forEach((b) => {
+    b.onclick = () => {
+      if (riprendiCamera(Number(b.dataset.modifica))) disegna();
+    };
+  });
+}
+
+/* LA CULLA SUL MODULO, accanto al cane. Con UNA camera e' una casella
+   come le altre; con piu' camere non c'e', perche' «ci serve una culla»
+   non vuol dire niente finche' non si dice in quale — e quello si decide
+   sulla camera, dove il riepilogo qui sopra gia' dice quali la hanno. */
+function cullaModuloHTML(t, camere) {
+  if (camere.length !== 1) {
+    return camere.some((c) => c.culla === true)
+      ? ''
+      : `<div class="guida" style="margin-top:8px;">${esc(t.cullaSuCamera)}</div>`;
+  }
+  return `
+    <label class="spunta"><input type="checkbox" id="fCullaDati"${CULLA ? ' checked' : ''} />
+      <span>${CULLA_SEGNO}${esc(t.culla)}</span></label>
+    ${CULLA
+      ? `<div class="avviso avvisoCane">${esc(t.cullaNota(euroDaCentesimi(SUPPLEMENTO_CULLA_CENT)))}</div>`
+      : ''}
+    ${cullaAvvisoHTML(t, 'bCullaCambiaDati')}`;
+}
+
 /* SE LA CAMERA SCELTA NON OSPITA LA CULLA. Non si blocca niente: si
    dice, e si propone la MENO CARA fra le libere che la ospita. Chi si
    sente dire «deve cambiare categoria» sta gia' ricevendo una notizia
    che costa, e proporgli la Suite quando basta una Junior Suite e' il
    modo piu' veloce di far chiudere la pagina. */
-function cullaAvvisoHTML(t) {
+function cullaAvvisoHTML(t, idPulsante = 'bCullaCambia') {
+  /* il pulsante ha due nomi perche' ha due gestori: dalle camere
+     ridisegna l'elenco, dal modulo resta sul modulo — chi sta compilando
+     non deve essere rimandato indietro per una camera cambiata. */
   if (!CULLA || !SCELTA || ciStaLaCulla(SCELTA.camera_id)) return '';
   const altra = primaConCulla(PROPOSTE);
   return `<div class="erroreCulla">${esc(t.cullaNoQui(SCELTA.nome))}</div>` +
     (altra
-      ? `<button type="button" class="altre" id="bCullaCambia" data-indice="${altra.indice}">${esc(t.cullaCambia(altra.nome, euroDaCentesimi(altra.prezzo_cent)))}</button>`
+      ? `<button type="button" class="altre" id="${idPulsante}" data-indice="${altra.indice}">${esc(t.cullaCambia(altra.nome, euroDaCentesimi(altra.prezzo_cent)))}</button>`
       : `<div class="erroreCulla">${esc(t.cullaNessuna)}</div>`);
 }
 
@@ -1336,19 +1411,21 @@ function riepilogoCamereHTML(t, camere) {
       `<br />` +
       t.riepilogoCamera(c.scelta.nome, nomeTariffa(c.scelta.tariffa, LNG),
         euroDaCentesimi(c.scelta.prezzo_cent)) +
-      (c.culla ? ` · ${esc(t.cullaBreve)}` : '');
+      (c.culla ? ` · ${esc(t.cullaBreve)}` : '') +
+      modificaHTML(t, 0);
   }
   const righeExtra = extra.map((v) => `
     <div class="carrelloRiga">
       <div><div class="carrelloNome">${esc(v.eti)}</div></div>
       <span class="carrelloPrezzo">${euroDaCentesimi(v.cent)} €</span>
     </div>`).join('');
-  const righe = camere.map((c) => `
+  const righe = camere.map((c, i) => `
     <div class="carrelloRiga">
       <div>
         <div class="carrelloNome">${esc(c.scelta.nome)}</div>
         <div class="carrelloQuando">${esc(c.ricerca.arrivo)} → ${esc(c.ricerca.partenza)} ·
           ${esc(nomeTariffa(c.scelta.tariffa, LNG))}${c.culla ? ' · ' + esc(t.cullaBreve) : ''}</div>
+        ${modificaHTML(t, i)}
       </div>
       <span class="carrelloPrezzo">${euroDaCentesimi(c.scelta.prezzo_cent)} €</span>
     </div>`).join('');
@@ -1804,6 +1881,7 @@ function schermaDati() {
              posto solo, e nessuna lingua puo' dimenticarselo -->
         <span><span class="iconaCane" aria-hidden="true">🐕</span>${esc(t.cane)}</span></label>
       <div id="noteCane"></div>
+      ${cullaModuloHTML(t, tutte)}
 
       <label style="margin-top:20px;">${esc(t.condizioniTit)}</label>
       <div class="condizioni">
@@ -1856,6 +1934,7 @@ function schermaDati() {
     <div id="esitoDati"></div>`;
 
   $('bIndietroCamere').onclick = () => { SCRITTI = datiScritti(); STATO = 'camere'; disegna(); };
+  attivaModifica();
   if ($('bBuono')) $('bBuono').onclick = verificaBuono;
   /* un buono gia' verificato resta verificato attraverso i ridisegni:
      rifarlo scrivere sarebbe come cancellargli il nome */
@@ -1879,6 +1958,27 @@ function schermaDati() {
       ? `<div class="avviso avvisoCane">${esc(t.caneNota(euroDaCentesimi(SUPPLEMENTO_CANE_CENT)))}</div>`
       : '';
   };
+  if ($('fCullaDati')) {
+    $('fCullaDati').onchange = () => {
+      /* PRIMA si mette da parte quello che e' scritto: il ridisegno
+         ricrea i campi, e senza questo l'ospite perde nome ed email
+         — e' la stessa trappola gia' vista con il cambio di tariffa */
+      SCRITTI = datiScritti();
+      CULLA = $('fCullaDati').checked;
+      disegna();
+    };
+  }
+  if ($('bCullaCambiaDati')) {
+    $('bCullaCambiaDati').onclick = () => {
+      SCRITTI = datiScritti();
+      const i = Number($('bCullaCambiaDati').dataset.indice);
+      if (!PROPOSTE[i]) return;
+      SCELTA = { ...PROPOSTE[i], indice: i };
+      /* si resta sul modulo: chi sta compilando non va rimandato
+         indietro per una camera cambiata */
+      disegna();
+    };
+  }
   $('fCane').addEventListener('change', mostraCane);
   mostraCane();
   $('bInvia').onclick = inviaRichiesta;

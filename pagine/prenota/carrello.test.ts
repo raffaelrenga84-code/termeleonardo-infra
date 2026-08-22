@@ -90,6 +90,7 @@ const fabbrica = new Function(
   ${prendi('carrelloHTML')}
   ${prendi('riepilogoCamereHTML')}
   ${prendi('quantaCameraHTML')}
+  ${prendi('modificaHTML')}
   ${prendi('nottiDelSoggiorno')}
   ${prendi('vociSupplementi')}
   ${prendi('supplementiCent')}
@@ -120,6 +121,7 @@ const T = {
   carrelloTit: (n: number) => (n === 1 ? 'Camera già scelta' : `Camere già scelte (${n})`),
   carrelloTot: 'Totale',
   togliCamera: 'Togli questa camera',
+  modifica: 'Modifica date, camera o trattamento',
   cullaBreve: 'con culla',
   extraCulla: (n: number) => (n === 1 ? 'Culla' : `${n} culle`),
   extraCane: (g: number) => `Cane · ${g} giorni`,
@@ -618,4 +620,88 @@ Deno.test('le parole dei supplementi ci sono in tutte e quattro le lingue', () =
   for (const k of ['extraCulla:', 'extraCane:', 'totaleSupplementi:']) {
     assertEquals(PAGINA.split(k).length - 1, 4, `«${k}» non c\'e\' in tutte e quattro le lingue`);
   }
+});
+
+/* ============================================================
+   IL RIEPILOGO SI MODIFICA.
+
+   Chiesto dalla proprietà: «dai la possibilità di modificare il
+   riepilogo in date camera trattamenti eccetera». C'era solo «← Cambi
+   camera», che riporta all'elenco — e con più camere non dice QUALE si
+   sta cambiando: si tornava indietro alla cieca.
+
+   DUE MODI DI ROMPERSI, e nessuno si vede con una camera sola:
+
+   · «modifica» aggiunge una camera invece di cambiarla, e l'ospite si
+     ritrova a pagarne una in più;
+   · riporta all'elenco delle camere invece che alle date, e quell'elenco
+     è dell'ULTIMA ricerca: chi modifica la stanza da diciotto notti si
+     vede i prezzi delle due notti dell'altra.
+   ============================================================ */
+
+Deno.test('ogni camera del riepilogo ha il suo «modifica»', () => {
+  banco.cane(false);
+  const html = banco.riepilogoCamereHTML(T, [DICIOTTO_NOTTI, DUE_NOTTI]);
+  assertStringIncludes(html, 'data-modifica="0"');
+  assertStringIncludes(html, 'data-modifica="1"');
+});
+
+Deno.test('e ce l ha anche chi ne ha prenotata una sola', () => {
+  banco.cane(false);
+  assertStringIncludes(banco.riepilogoCamereHTML(T, [DUE_NOTTI]), 'data-modifica="0"');
+});
+
+Deno.test('e il testo dice che cosa si puo cambiare', () => {
+  /* «Modifica» e basta non dice se cambia la camera o le date: chi ha
+     sbagliato le date non lo riconosce come la sua strada */
+  const guide = [...PAGINA.matchAll(/modifica:'([^']*)'/g)].map((m) => m[1]);
+  assertEquals(guide.length, 4, `i testi sono ${guide.length}, non 4`);
+  for (const [i, g] of guide.entries()) {
+    assert(g.length > 12, `testo ${i + 1} troppo corto: «${g}»`);
+  }
+});
+
+Deno.test('«modifica» riprende la camera IN MANO, non ne aggiunge una', () => {
+  /* il difetto piu caro: l ospite chiede di cambiare la seconda camera e
+     se ne ritrova tre, con la vecchia ancora dentro */
+  const dove = PAGINA.indexOf('function riprendiCamera(i) {');
+  assert(dove > 0, 'sparita la funzione che riprende la camera');
+  const corpo = PAGINA.slice(dove, dove + 900);
+  assertStringIncludes(corpo, 'if (i < CARRELLO.length) CARRELLO.splice(i, 1);');
+  assertStringIncludes(corpo, 'RICERCA = { ...c.ricerca };');
+  assertStringIncludes(corpo, 'SCELTA = c.scelta;');
+  assertStringIncludes(corpo, 'CULLA = c.culla === true;');
+});
+
+Deno.test('e riparte dalle DATE, non dall elenco vecchio', () => {
+  /* l elenco in memoria e dell ULTIMA ricerca: chi modifica la stanza da
+     diciotto notti si vedrebbe i prezzi delle due notti dell altra, senza
+     un segno che qualcosa non torni */
+  const dove = PAGINA.indexOf('function riprendiCamera(i) {');
+  const corpo = PAGINA.slice(dove, dove + 900);
+  assertStringIncludes(corpo, "STATO = 'ricerca';");
+  assert(!corpo.includes("STATO = 'camere'"), 'riporta all elenco vecchio');
+});
+
+Deno.test('e non porta via quello che l ospite ha gia scritto', () => {
+  /* il ridisegno ricrea i campi: e la stessa trappola gia vista col
+     cambio di tariffa */
+  const dove = PAGINA.indexOf('function riprendiCamera(i) {');
+  const corpo = PAGINA.slice(dove, dove + 900);
+  const salva = corpo.indexOf('SCRITTI = datiScritti();');
+  const togli = corpo.indexOf('CARRELLO.splice');
+  assert(salva > 0, 'quello che e scritto non si mette piu da parte');
+  assert(salva < togli, 'si tocca il carrello prima di salvare i campi');
+});
+
+Deno.test('e i pulsantini si attaccano dopo il disegno', () => {
+  /* il riepilogo si ridisegna a ogni giro: un gestore attaccato una volta
+     sola resterebbe su nodi che non esistono piu */
+  assertStringIncludes(PAGINA, 'function attivaModifica() {');
+  assertStringIncludes(PAGINA, '  attivaModifica();');
+  const dove = PAGINA.indexOf('function attivaModifica() {');
+  assertStringIncludes(
+    PAGINA.slice(dove, dove + 300),
+    'if (riprendiCamera(Number(b.dataset.modifica))) disegna();',
+  );
 });
