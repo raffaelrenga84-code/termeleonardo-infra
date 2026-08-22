@@ -97,6 +97,10 @@ textarea{min-height:80px;resize:vertical;}
 /* il piatto: stessa altezza della riga, stesso oro del «+» che
    sostituisce, e allineato alla base delle lettere */
 .segno{color:var(--oro);margin-right:6px;vertical-align:-4px;}
+.serve{margin-top:14px;}
+.serveTit{font-family:"Cormorant Garamond",Georgia,serif;font-size:20px;
+  color:var(--verde);margin-bottom:2px;}
+.serve .spunta{margin-top:10px;}
 /* la riga che dice che cosa si potra' chiedere DOPO */
 .dopoInvio{max-width:640px;margin:0 auto 12px;padding:0 4px;
   font-size:12.5px;line-height:1.5;color:var(--grigio);}
@@ -426,6 +430,8 @@ const T = {
     // passo 3
     riepilogo:(a,p,ad,b)=>`Dal <strong>${a}</strong> al <strong>${p}</strong> · ${ad} adult${ad===1?'o':'i'}${b>0?`, ${b} bambin${b===1?'o':'i'}`:''}`,
     // il carrello
+    serveTit:'Le serve altro?', serveGuida:'Lo spunti adesso e la reception ne parlerà con lei quando la richiamerà: non è ancora una prenotazione.',
+    serveVoce:(k)=>({trattamenti:'Trattamenti alla spa',transfer:'Transfer da e per l’aeroporto',greenfee:'Green fee',maestro:'Lezione col maestro di golf'})[k]||'',
     dopoInvio:'Dopo l’invio potrà aggiungere, se le servono, i trattamenti alla spa e il transfer da e per l’aeroporto: sono richieste a parte, coi suoi dati già compilati.',
     avantiCarrello:(n)=>n===1?'Continua con la camera scelta':`Continua con le ${n} camere scelte`,
     perLaCamera:(n)=>`Solo per la camera ${n}`,
@@ -511,6 +517,8 @@ const T = {
     mancaScelta:'Bitte wählen Sie ein Zimmer, um fortzufahren.',
     riepilogo:(a,p,ad,b)=>`Vom <strong>${a}</strong> bis <strong>${p}</strong> · ${ad} Erwachsene${b>0?`, ${b} Kind${b===1?'':'er'}`:''}`,
     // il carrello
+    serveTit:'Brauchen Sie noch etwas?', serveGuida:'Kreuzen Sie es jetzt an: die Rezeption spricht beim Rückruf mit Ihnen darüber. Es ist noch keine Buchung.',
+    serveVoce:(k)=>({trattamenti:'Anwendungen im Spa',transfer:'Flughafentransfer',greenfee:'Greenfee',maestro:'Stunde beim Golflehrer'})[k]||'',
     dopoInvio:'Nach dem Absenden können Sie bei Bedarf Behandlungen im Spa und den Flughafentransfer hinzufügen: eigene Anfragen, mit Ihren Daten bereits ausgefüllt.',
     avantiCarrello:(n)=>n===1?'Weiter mit dem gewählten Zimmer':`Weiter mit den ${n} gewählten Zimmern`,
     perLaCamera:(n)=>`Nur für das Zimmer ${n}`,
@@ -595,6 +603,8 @@ const T = {
     mancaScelta:'Please choose a room to continue.',
     riepilogo:(a,p,ad,b)=>`From <strong>${a}</strong> to <strong>${p}</strong> · ${ad} adult${ad===1?'':'s'}${b>0?`, ${b} child${b===1?'':'ren'}`:''}`,
     // il carrello
+    serveTit:'Anything else you need?', serveGuida:'Tick it now and reception will talk it over with you when they call: it is not a booking yet.',
+    serveVoce:(k)=>({trattamenti:'Spa treatments',transfer:'Airport transfer',greenfee:'Green fee',maestro:'Lesson with the golf pro'})[k]||'',
     dopoInvio:'After sending you can add spa treatments and the airport transfer if you need them: separate requests, with your details already filled in.',
     avantiCarrello:(n)=>n===1?'Continue with the room chosen':`Continue with the ${n} rooms chosen`,
     perLaCamera:(n)=>`For the ${n} only`,
@@ -679,6 +689,8 @@ const T = {
     mancaScelta:'Veuillez choisir une chambre pour continuer.',
     riepilogo:(a,p,ad,b)=>`Du <strong>${a}</strong> au <strong>${p}</strong> · ${ad} adulte${ad===1?'':'s'}${b>0?`, ${b} enfant${b===1?'':'s'}`:''}`,
     // il carrello
+    serveTit:'Autre chose ?', serveGuida:'Cochez-le maintenant : la réception en parlera avec vous lors du rappel. Ce n’est pas encore une réservation.',
+    serveVoce:(k)=>({trattamenti:'Soins au spa',transfer:'Transfert depuis et vers l’aéroport',greenfee:'Green fee',maestro:'Leçon avec le professeur de golf'})[k]||'',
     dopoInvio:'Après l’envoi, vous pourrez ajouter si besoin les soins au spa et le transfert depuis et vers l’aéroport : ce sont des demandes distinctes, avec vos coordonnées déjà remplies.',
     avantiCarrello:(n)=>n===1?'Continuer avec la chambre choisie':`Continuer avec les ${n} chambres choisies`,
     perLaCamera:(n)=>`Uniquement pour la chambre ${n}`,
@@ -759,6 +771,19 @@ let CARRELLO = [];
    pubblicano per cartella e non possono importare da qui: la copia e'
    voluta, e una prova le confronta. */
 const CAMERE_MAX_PAGINA = 5;
+
+/* QUELLO CHE GLI SERVIRA' OLTRE ALLA CAMERA. Le stesse quattro cose che
+   la schermata finale offre come pulsanti, chieste pero' gia' nel
+   modulo: una spunta non e' una richiesta — giorno, ora e numero di
+   volo stanno nei moduli veri — ma e' quello che la reception ha in
+   mano quando richiama, e ce l'ha anche da chi chiude la pagina subito
+   dopo l'invio senza guardare i pulsanti.
+
+   LE CHIAVI SONO LE STESSE DEL SERVER (INTERESSI in tipi.ts): quello
+   che non e' in quell'elenco viene scartato, e la spunta sparirebbe
+   senza che nessuno se ne accorga. Una prova le confronta. */
+const INTERESSI = ['trattamenti', 'transfer'];
+const INTERESSI_GOLF = ['greenfee', 'maestro'];
 let NUMERO_FATTA = '';
 /* TUTTI i numeri assegnati: con piu' camere il server ne restituisce
    uno per camera, e all'ospite servono tutti — con uno solo in mano
@@ -1483,6 +1508,15 @@ function conCenaPerLaScelta() {
   ) || null;
 }
 
+/* QUALI SPUNTE SI MOSTRANO. Green fee e maestro solo a chi ha scelto il
+   Golf in una qualsiasi delle camere: a tutti gli altri sarebbero due
+   righe che non vogliono dire niente. */
+function interessiDaMostrare() {
+  const golf = tutteLeCamere().some((c) =>
+    /golf/i.test(String((c.scelta && c.scelta.tariffa) || '')));
+  return golf ? [...INTERESSI, ...INTERESSI_GOLF] : INTERESSI;
+}
+
 /* quello che c'e' scritto adesso nei campi, prima che il ridisegno lo
    porti via */
 function datiScritti() {
@@ -1491,6 +1525,9 @@ function datiScritti() {
   return {
     nome: v('fNome'), email: v('fEmail'), tel: v('fTel'), note: v('fNote'),
     cane: b('fCane'), privacy: b('fPrivacy'),
+    /* anche le spunte si conservano: cambiare tariffa ridisegna il modulo,
+       e quello che l'ospite aveva gia' spuntato non deve sparire */
+    interessi: interessiDaMostrare().filter((k) => b('f_' + k)),
   };
 }
 
@@ -1502,7 +1539,8 @@ function schermaDati() {
   const tutte = tutteLeCamere();
   const conCena = conCenaPerLaScelta();
   const gia = SCRITTI ||
-    { nome: DA_URL.nome, email: DA_URL.email, tel: DA_URL.tel, note: '', cane: false, privacy: false };
+    { nome: DA_URL.nome, email: DA_URL.email, tel: DA_URL.tel, note: '', cane: false,
+      interessi: [], privacy: false };
   $('app').innerHTML = `
     <button type="button" class="indietro" id="bIndietroCamere">${esc(t.indietroCamere)}</button>
     <div class="riepilogo">
@@ -1585,6 +1623,14 @@ function schermaDati() {
         <span>${esc(t.privacy)} &mdash;
           <a href="https://www.termeleonardo.com/${LNG}/privacy" target="_blank"
             rel="noopener noreferrer">${esc(t.privacyLink)}</a></span></label>
+    </div>
+    <!-- LE SPUNTE. Chieste qui e non solo dopo l'invio: chi chiude la
+         pagina appena letta la conferma non vedrebbe mai i pulsanti, e
+         la reception non saprebbe che gli serviva un transfer. -->
+    <div class="riquadro serve">
+      <div class="serveTit">${esc(t.serveTit)}</div>
+      <div class="guida">${esc(t.serveGuida)}</div>
+      ${interessiDaMostrare().map((k) => `<label class="spunta"><input type="checkbox" id="f_${k}"${(gia.interessi || []).includes(k) ? ' checked' : ''} /><span>${esc(t.serveVoce(k))}</span></label>`).join('')}
     </div>
     <!-- DOVE SONO TRATTAMENTI E TRANSFER. Stanno sulla schermata dopo
          l'invio, coi dati gia' compilati — ma chi e' qui non lo sa e li
@@ -1675,6 +1721,7 @@ async function inviaRichiesta() {
     note, lingua: LNG,
     cane: $('fCane') ? $('fCane').checked : false,
     buono: BUONO ? BUONO.codice : '',
+    interessi: interessiDaMostrare().filter((k) => $('f_' + k) && $('f_' + k).checked),
   });
   /* le altre camere passano dalla STESSA funzione della prima: due modi
      diversi di comporre una camera divergerebbero al primo campo nuovo */

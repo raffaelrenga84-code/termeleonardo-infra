@@ -31,6 +31,8 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     servizio: 'Servizio', navetta: 'Navetta condivisa', privata: 'Auto privata',
     buono: 'Buono regalo',
     cane: 'Cane al seguito', si: 'Sì',
+    interessi: 'Da richiamare per', intTrattamenti: 'Trattamenti alla spa',
+    intTransfer: 'Transfer aeroporto', intGreenfee: 'Green fee', intMaestro: 'Maestro di golf',
     prezzo: 'Prezzo', allAutista: 'da pagare direttamente all’autista', oraVolo: 'volo',
     modifiche: 'Cosa è cambiato rispetto alla richiesta',
     chiesto: 'Aveva chiesto', confermato: 'Confermiamo',
@@ -49,6 +51,8 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     servizio: 'Service', navetta: 'Sammeltransfer', privata: 'Privatwagen',
     buono: 'Gutschein',
     cane: 'Mit Hund', si: 'Ja',
+    interessi: 'Rückruf gewünscht für', intTrattamenti: 'Anwendungen im Spa',
+    intTransfer: 'Flughafentransfer', intGreenfee: 'Greenfee', intMaestro: 'Golflehrer',
     prezzo: 'Preis', allAutista: 'direkt an den Fahrer zu zahlen', oraVolo: 'Flug',
     modifiche: 'Was sich gegenüber Ihrer Anfrage geändert hat',
     chiesto: 'Angefragt', confermato: 'Bestätigt',
@@ -67,6 +71,8 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     servizio: 'Service', navetta: 'Shared shuttle', privata: 'Private car',
     buono: 'Gift voucher',
     cane: 'Travelling with a dog', si: 'Yes',
+    interessi: 'To call back about', intTrattamenti: 'Spa treatments',
+    intTransfer: 'Airport transfer', intGreenfee: 'Green fee', intMaestro: 'Golf pro',
     prezzo: 'Price', allAutista: 'to be paid directly to the driver', oraVolo: 'flight',
     modifiche: 'What has changed from your request',
     chiesto: 'Originally requested', confermato: 'Now confirmed',
@@ -85,6 +91,8 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     servizio: 'Service', navetta: 'Navette partagée', privata: 'Voiture privée',
     buono: 'Chèque-cadeau',
     cane: 'Avec un chien', si: 'Oui',
+    interessi: 'À rappeler pour', intTrattamenti: 'Soins au spa',
+    intTransfer: 'Transfert aéroport', intGreenfee: 'Green fee', intMaestro: 'Professeur de golf',
     prezzo: 'Prix', allAutista: 'à régler directement au chauffeur', oraVolo: 'vol',
     modifiche: 'Ce qui a changé par rapport à votre demande',
     chiesto: 'Demandé initialement', confermato: 'Confirmé',
@@ -187,6 +195,18 @@ function attenzione(chiave: string, t: Record<string, string>): string {
     case 'seggiolone': return t.attSeggiolone;
     case 'parcheggio': return t.attParcheggio;
     case 'cane': return t.attCane;
+    default: return '';
+  }
+}
+
+/* stesso switch, stessa ragione: una chiave sconosciuta sparisce invece
+   di stampare all'ospite il nome interno di un campo */
+function interesse(chiave: string, t: Record<string, string>): string {
+  switch (chiave) {
+    case 'trattamenti': return t.intTrattamenti;
+    case 'transfer': return t.intTransfer;
+    case 'greenfee': return t.intGreenfee;
+    case 'maestro': return t.intMaestro;
     default: return '';
   }
 }
@@ -316,7 +336,16 @@ function vociDettagli(tipo: string, t: Record<string, string>): Voce[] {
       { eti: t.cane, calcola: (d) => (d.cane ? t.si : '') },
       /* il buono: la reception lo verifica e lo scala dal conto. Compare
          solo se c'e', come tutto il resto. */
-      { eti: t.buono, calcola: (d) => String(d.buono ?? ''), }
+      { eti: t.buono, calcola: (d) => String(d.buono ?? ''), },
+      /* QUELLO CHE GLI SERVIRA' OLTRE ALLA CAMERA, spuntato nel modulo.
+         Non e' una richiesta di trattamento o di transfer — quelle
+         arrivano dai loro moduli, con giorno e ora — ma la reception lo
+         ha in mano quando richiama per confermare la camera. */
+      {
+        eti: t.interessi,
+        calcola: (d) => (Array.isArray(d.interessi) ? d.interessi : [])
+          .map((v) => interesse(String(v ?? ''), t)).filter(Boolean).join(' · '),
+      },
     ];
   }
 

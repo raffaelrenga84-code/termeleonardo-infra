@@ -379,6 +379,23 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
      in reception, che sa leggerlo. Si taglia la lunghezza e basta. */
   const buono = testo(d?.buono).trim().toUpperCase().slice(0, 40);
 
+  /* CHE COSA GLI SERVIRA' OLTRE ALLA CAMERA. Spuntato nel modulo, prima
+     dell'invio: non e' una richiesta di trattamento o di transfer — quelle
+     hanno bisogno di giorno, ora e numero di volo, e stanno nei loro
+     moduli — ma e' l'informazione che la reception ha in mano quando
+     richiama, e ce l'ha anche se l'ospite chiude la pagina subito dopo.
+
+     Chiavi e non testo, come le attenzioni dell'arrivo: la pagina parla
+     quattro lingue e in back office si legge una parola sola. Quello che
+     non e' in elenco sparisce. */
+  const chieste = Array.isArray(d?.interessi) ? d.interessi.map((v) => testo(v)) : [];
+  /* UN GIRO SOLO, e parte dall'elenco di casa: cosi' in un colpo si
+     scarta quello che non conosciamo, spariscono i doppioni (due
+     «transfer» da un doppio invio si leggerebbero come due transfer da
+     organizzare) e l'ordine e' sempre lo stesso, non quello in cui sono
+     arrivate. */
+  const interessi = INTERESSI.filter((v) => chieste.includes(v));
+
   return {
     dati: {
       camera_id: n,
@@ -394,6 +411,9 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
          office e' rumore che si legge come un dato raccolto */
       ...(cane ? { cane: true } : {}),
       ...(buono ? { buono } : {}),
+      /* assente quando non c'e', come il cane: un elenco vuoto in back
+         office si legge come «ho chiesto e non gli serve niente» */
+      ...(interessi.length ? { interessi } : {}),
     },
   };
 }
@@ -403,6 +423,12 @@ function validaSoggiorno(d: Record<string, unknown>): Esito {
    parla quattro lingue, e "Culla per neonato" in back office andrebbe
    letto da chi in quel momento aveva davanti "Babybett". E' la stessa
    scelta gia' fatta per il desiderio dei fanghi. */
+/* QUELLO CHE GLI SERVIRA' OLTRE ALLA CAMERA: le stesse quattro cose che
+   la schermata finale offre come pulsanti. Green fee e maestro solo a
+   chi ha scelto il Golf, ma il filtro qui non lo sa e non deve saperlo:
+   e' la pagina a decidere che cosa mostrare. */
+const INTERESSI = ['trattamenti', 'transfer', 'greenfee', 'maestro'] as const;
+
 const ATTENZIONI = ['culla', 'seggiolone', 'parcheggio', 'cane'] as const;
 
 /* COPIA di DESIDERI in prepara-arrivo/fanghi.ts: le funzioni si pubblicano

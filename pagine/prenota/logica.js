@@ -84,6 +84,9 @@ export function corpoCamera({ scelta, checkIn, checkOut, adulti, bambini, caparr
 export function componiCorpo({
   scelta, nome, email, telefono, checkIn, checkOut,
   adulti, bambini, caparraCent = 0, note, lingua, cane = false, buono = '',
+  /* il tipo va detto: da un [] vuoto TypeScript deduce never[], e ogni
+     chiamante con delle chiavi vere diventerebbe un errore */
+  interessi = /** @type {string[]} */ ([]),
 }) {
   const camera = corpoCamera({ scelta, checkIn, checkOut, adulti, bambini, caparraCent });
   return {
@@ -104,6 +107,11 @@ export function componiCorpo({
       /* IL BUONO. Solo il codice: il valore lo rilegge la reception dal
          buono vero, e una cifra copiata qui invecchierebbe. */
       ...(String(buono || '').trim() ? { buono: String(buono).trim().toUpperCase() } : {}),
+      /* QUELLO CHE GLI SERVIRA' OLTRE ALLA CAMERA: chiavi, non parole — la
+         pagina parla quattro lingue e in back office si legge una parola
+         sola. Come il cane, si manda solo quando c'e': un elenco vuoto si
+         legge come «gli e' stato chiesto e non gli serve niente». */
+      ...(Array.isArray(interessi) && interessi.length ? { interessi } : {}),
     },
   };
 }
