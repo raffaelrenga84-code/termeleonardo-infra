@@ -440,13 +440,23 @@
       ${riga('Telefono', d.telefono, null)}
       ${riga('Email', d.email, null)}
       ${riga('Arrivo → Partenza', dataIT(d.arrivo) + ' → ' + dataIT(d.partenza) + (d.notti ? ` (${d.notti} notti)` : ''), esiti.date)}
-      ${riga('Adulti', d.adulti, esiti.adulti)}
+      <!-- v2.8.13 — il segno accanto ad «Adulti» adesso e' quello del
+           CONTROLLO FINALE, non quello della scrittura: scrivere 2 e
+           riuscirci non vuol dire che alla fine ci sia ancora 2. -->
+      ${riga('Adulti', d.adulti,
+        esiti.controlloFinale ? esiti.controlloFinale.adultiTornano : esiti.adulti)}
       ${riga('Bambini', (d.bambini ?? 0) + (d.etaBambini ? ' — età ' + d.etaBambini : ''), esiti.bambini)}
       ${riga('Trattamento', d.trattamento, esiti.trattamento)}
       ${categoriaRichiesta(d) ? riga('Camera richiesta', categoriaRichiesta(d), esiti.categoria) : ''}
       ${riga('Sorgente', d.fonte || 'Telefono', esiti.sorgente)}
       ${d.preferenza ? riga('Preferenza', d.preferenza, null) : ''}
       ${d.note ? riga('Note', d.note, null) : ''}
+      <!-- IL NUMERO DI PERSONE NON TORNA. Prima finiva solo nel diario,
+           che nessuno apre: la bozza partiva con tre persone al posto di
+           due e se ne accorgeva l'ospite in fattura. -->
+      ${esiti.controlloFinale && esiti.controlloFinale.adultiTornano === false
+        ? `<div style="margin-top:6px;padding:6px 8px;background:#FDF0EE;border-left:3px solid #C0392B;font-size:12px;color:#7A2E24;"><strong>In Fidra ci sono ${esiti.controlloFinale.adulti} adulti, non ${esiti.controlloFinale.adultiAttesi}.</strong> Scegliere la camera rimette l'occupazione a quella di casa: correggila a mano prima di salvare.</div>`
+        : ''}
       ${esiti.avvisoNotti ? `<div style="margin-top:6px;padding:6px 8px;background:#FFF6DE;border-left:3px solid #B3541E;font-size:12px;color:#7A5A1E;">${esiti.avvisoNotti.tipo === 'fidra'
             ? `<strong>Fidra sta ancora lavorando su ${esiti.avvisoNotti.quante} notti</strong>, non su ${esiti.avvisoNotti.attese}: disponibilit&agrave; e prezzi qui sotto sono del periodo sbagliato. Riscegli le date dal calendario prima di guardare le camere.`
             : `Fra le due date ci sono ${esiti.avvisoNotti.quante} notti, ma la richiesta ne dice ${esiti.avvisoNotti.dichiarate}: ricontrolla prima di salvare.`}</div>` : ''}
@@ -508,8 +518,6 @@
     const esiti = {};
     esiti.sorgente = impostaSorgente(d.fonte);
     await attesa(300);
-    esiti.adulti = await impostaContatore('adults', 'Adulti', d.adulti);
-    esiti.bambini = d.bambini > 0 ? await impostaContatore('children', 'Bambini', d.bambini) : null;
     await attesa(300);
     try { esiti.date = await impostaDate(d.arrivo, d.partenza); }
     catch (e) { esiti.date = false; }
@@ -537,6 +545,16 @@
       nota('categoria/tenuta', { tenuta: esiti.categoriaTenuta });
     }
 
+    /* v2.8.13 — LE PERSONE DOPO LA CAMERA, e per la stessa ragione del
+       trattamento qui sotto: cliccare la tessera della categoria rimette
+       l'occupazione a quella di casa per quella camera. La Junior Suite
+       Abano e' «la sistemazione per tre persone», e il 2 scritto un
+       secondo prima spariva — con il pannello che intanto diceva ✓,
+       perche' la scrittura era riuscita davvero. */
+    await attesa(300);
+    esiti.adulti = await impostaContatore('adults', 'Adulti', d.adulti);
+    esiti.bambini = d.bambini > 0 ? await impostaContatore('children', 'Bambini', d.bambini) : null;
+
     /* v1.7.0 — il trattamento PER ULTIMO. Scegliere la camera rifa' la
        lista prezzi, quindi ogni spunta messa prima viene cancellata. */
     await attesa(600);
@@ -550,7 +568,11 @@
       nottiAttese: notteDiff(d.arrivo, d.partenza),
       adulti: document.querySelector('input[name="adults"]')?.value ?? null,
       adultiAttesi: d.adulti ?? null,
-      categoria: cat ? (tessereCategoria(cat).length > 0) : null
+      categoria: cat ? (tessereCategoria(cat).length > 0) : null,
+      /* IL CONFRONTO, fatto qui e non lasciato a chi legge il diario:
+         null vuol dire «non c'era un numero da rispettare» */
+      adultiTornano: d.adulti == null ? null
+        : String(document.querySelector('input[name="adults"]')?.value ?? '') === String(d.adulti),
     };
     nota('controllo-finale', esiti.controlloFinale);
 

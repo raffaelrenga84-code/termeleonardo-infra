@@ -121,15 +121,23 @@ Deno.test('la culla chiesta su UNA camera si legge su quella camera', () => {
   assertEquals(html.split('Culla').length - 1, 1, 'la culla si legge su piu di una camera');
 });
 
-Deno.test('il totale si scrive solo quando le camere sono piu d una', () => {
-  /* sotto un prezzo solo, «Totale» ripeterebbe la stessa cifra due righe
-     piu sotto */
+Deno.test('il totale si scrive quando c e qualcosa da sommare', () => {
+  /* sotto un prezzo solo e senza supplementi, «Totale» ripeterebbe la
+     stessa cifra due righe piu sotto. Con una culla o un cane invece la
+     somma e un numero nuovo, ed e quello che l ospite ha visto sulla
+     pagina prima di premere invia. */
   assertEquals(rigaTotale(PRIMA, [], ETICHETTE.it, cifra), '');
+  const conCulla = rigaTotale({ ...PRIMA, culla: true }, [], ETICHETTE.it, cifra);
+  assert(conCulla.includes('Culla'), 'la culla non si legge fra i supplementi');
+  assert(
+    conCulla.includes(cifra(319100 + 3000)),
+    `il totale non comprende la culla: ${conCulla}`,
+  );
   const con = rigaTotale(PRIMA, [SECONDA], ETICHETTE.it, cifra);
   assert(con.includes('Totale'), 'con due camere non si scrive il totale');
   assert(
-    con.includes(cifra(319100 + 29000)),
-    `il totale non e la somma delle due camere: ${con}`,
+    con.includes(cifra(319100 + 29000 + 3000)),
+    `il totale non e la somma delle due camere piu la culla: ${con}`,
   );
 });
 
@@ -162,8 +170,8 @@ Deno.test('la RICEVUTA all ospite le porta tutte, col totale', () => {
   assert(html.includes('Suite Colli Euganei'), 'la ricevuta non porta la terza');
   assert(html.includes('C26/19131'), 'la ricevuta non porta i numeri delle altre');
   assert(
-    html.includes(cifra(319100 + 29000 + 45000)),
-    'la ricevuta non dice quanto costa in tutto',
+    html.includes(cifra(319100 + 29000 + 45000 + 3000)),
+    'la ricevuta non dice quanto costa in tutto, culla compresa',
   );
 });
 
@@ -183,8 +191,8 @@ Deno.test('l AVVISO alla reception le porta tutte, in italiano', () => {
   assert(html.includes('C26/19132'), 'l avviso non porta il numero della terza');
   assert(html.includes('Totale di tutte le camere'), 'l avviso non dice il totale');
   assert(
-    html.includes(cifra(319100 + 29000 + 45000)),
-    'il totale dell avviso non e la somma delle tre camere',
+    html.includes(cifra(319100 + 29000 + 45000 + 3000)),
+    'il totale dell avviso non e la somma delle tre camere piu la culla',
   );
 });
 

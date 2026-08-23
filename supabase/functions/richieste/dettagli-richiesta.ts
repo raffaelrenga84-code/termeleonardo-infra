@@ -33,6 +33,8 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     cane: 'Cane al seguito', si: 'Sì',
     culla: 'Culla',
     cameraN: 'Camera {n}', totaleCamere: 'Totale di tutte le camere',
+    extraCulla1: 'Culla', extraCullaN: '{n} culle', extraCane: 'Cane · {n} giorni',
+    totaleTutto: 'Totale',
     interessi: 'Da richiamare per', intTrattamenti: 'Trattamenti alla spa',
     intTransfer: 'Transfer aeroporto', intGreenfee: 'Green fee', intMaestro: 'Maestro di golf',
     prezzo: 'Prezzo', allAutista: 'da pagare direttamente all’autista', oraVolo: 'volo',
@@ -55,6 +57,8 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     cane: 'Mit Hund', si: 'Ja',
     culla: 'Kinderbett',
     cameraN: 'Zimmer {n}', totaleCamere: 'Gesamtsumme aller Zimmer',
+    extraCulla1: 'Kinderbett', extraCullaN: '{n} Kinderbetten', extraCane: 'Hund · {n} Tage',
+    totaleTutto: 'Gesamt',
     interessi: 'Rückruf gewünscht für', intTrattamenti: 'Anwendungen im Spa',
     intTransfer: 'Flughafentransfer', intGreenfee: 'Greenfee', intMaestro: 'Golflehrer',
     prezzo: 'Preis', allAutista: 'direkt an den Fahrer zu zahlen', oraVolo: 'Flug',
@@ -77,6 +81,8 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     cane: 'Travelling with a dog', si: 'Yes',
     culla: 'Cot',
     cameraN: 'Room {n}', totaleCamere: 'Total for all rooms',
+    extraCulla1: 'Cot', extraCullaN: '{n} cots', extraCane: 'Dog · {n} days',
+    totaleTutto: 'Total',
     interessi: 'To call back about', intTrattamenti: 'Spa treatments',
     intTransfer: 'Airport transfer', intGreenfee: 'Green fee', intMaestro: 'Golf pro',
     prezzo: 'Price', allAutista: 'to be paid directly to the driver', oraVolo: 'flight',
@@ -99,6 +105,8 @@ export const ETICHETTE: Record<string, Record<string, string>> = {
     cane: 'Avec un chien', si: 'Oui',
     culla: 'Lit bébé',
     cameraN: 'Chambre {n}', totaleCamere: 'Total de toutes les chambres',
+    extraCulla1: 'Lit bébé', extraCullaN: '{n} lits bébé', extraCane: 'Chien · {n} jours',
+    totaleTutto: 'Total',
     interessi: 'À rappeler pour', intTrattamenti: 'Soins au spa',
     intTransfer: 'Transfert aéroport', intGreenfee: 'Green fee', intMaestro: 'Professeur de golf',
     prezzo: 'Prix', allAutista: 'à régler directement au chauffeur', oraVolo: 'vol',
@@ -209,7 +217,9 @@ function attenzione(chiave: string, t: Record<string, string>): string {
 
 /* stesso switch, stessa ragione: una chiave sconosciuta sparisce invece
    di stampare all'ospite il nome interno di un campo */
-function interesse(chiave: string, t: Record<string, string>): string {
+/* esportata perche' la usa anche l'avviso alla reception, che le sue
+   righe se le costruisce da se' e in italiano */
+export function interesse(chiave: string, t: Record<string, string>): string {
   switch (chiave) {
     case 'trattamenti': return t.intTrattamenti;
     case 'transfer': return t.intTransfer;

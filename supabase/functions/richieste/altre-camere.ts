@@ -28,6 +28,9 @@
    vorrebbe dire farglielo ricalcolare a mano da tre cifre sparse. */
 
 import { dettagli, esc, riga } from './dettagli-richiesta.ts';
+/* i supplementi stanno in un modulo loro: i numeri di casa sono una copia
+   di quelli della pagina, e vanno tenuti dove si vedono */
+import { righeSupplementi, supplementiCent } from './supplementi.ts';
 
 /** Una camera in più com'è stata salvata: le colonne della riga e il suo
  *  numero di pratica. La forma è quella che index.ts mette in
@@ -106,6 +109,14 @@ export function rigaTotale(
   t: Record<string, string>,
   cifra: (c: unknown) => string,
 ): string {
-  if (!camereInPiu(altre).length) return '';
-  return riga(t.totaleCamere, cifra(totaleCamereCent(prima, altre)));
+  /* IL CONTO COMPLETO: le camere piu' i supplementi. La pagina glielo ha
+     gia' mostrato cosi', e un'email che scrive un numero piu' basso e' una
+     differenza che si scopre al banco. */
+  const extra = righeSupplementi(prima, altre, t, cifra);
+  const piu = camereInPiu(altre).length;
+  if (!piu && !extra) return '';
+  const totale = totaleCamereCent(prima, altre) + supplementiCent(prima, altre, t);
+  /* con una camera sola il totale non e' «di tutte le camere»: e' il
+     conto di questa piu' quello che ci ha aggiunto */
+  return extra + riga(piu ? t.totaleCamere : t.totaleTutto, cifra(totale));
 }

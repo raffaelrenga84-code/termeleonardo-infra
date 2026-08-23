@@ -14,7 +14,7 @@ import { casellaInCopia } from './ruoli.ts';
    email e' quello che la reception legge davvero. Le etichette sono in
    italiano come tutto il resto di questo avviso: lo legge la casa, non
    l'ospite. */
-import { cifra, ETICHETTE } from './dettagli-richiesta.ts';
+import { cifra, ETICHETTE, interesse } from './dettagli-richiesta.ts';
 import { righeAltreCamere, rigaTotale } from './altre-camere.ts';
 
 /* I tipi diversi dal soggiorno portano campi propri, che arrivano qui
@@ -253,6 +253,26 @@ export function richiestaHTML(r: ConNumero): string {
     ${tipo === 'soggiorno' ? riga('Trattamento', s(r.trattamento)) : ''}
     ${tipo === 'soggiorno' ? riga('Prezzo visto dall’ospite', prezzo, true) : ''}
     ${tipo === 'soggiorno' ? riga('Caparra indicata', caparra) : ''}
+    <!-- QUELLO CHE L'OSPITE HA CHIESTO OLTRE ALLA CAMERA. Mancava tutto:
+         il cane esiste dal 21 agosto e in reception non e' mai arrivato,
+         e il buono regalo nemmeno. Le righe di questo avviso si
+         costruiscono qui e non in dettagli-richiesta.ts — lo legge la
+         casa, e va in italiano — ed e' per questo che erano rimaste
+         indietro. Adesso una prova pretende che OGNI campo mandabile
+         dall'ospite si legga qui dentro. -->
+      ${tipo === 'soggiorno' ? riga('Cane al seguito', r.cane === true ? 'Sì' : '') : ''}
+      ${tipo === 'soggiorno' ? riga('Culla', r.culla === true ? 'Sì' : '') : ''}
+      ${riga('Buono regalo', s(r.buono))}
+      ${riga(
+        'Da richiamare per',
+        (Array.isArray(r.interessi) ? r.interessi : [])
+          .map((v) => interesse(String(v ?? ''), ETICHETTE.it)).filter(Boolean).join(' · '),
+      )}
+      <!-- il filo con le altre richieste dello stesso ospite: chi apre
+           questa deve sapere che ce n'e' un'altra a cui si aggiunge -->
+      ${riga('Si aggiunge alla richiesta', s(r.collegata_a) || s(r.insieme))}
+    <!-- v2.8: i supplementi e il totale vero, gli stessi che l'ospite ha
+         visto sulla pagina prima di premere invia -->
     ${riga('Lingua', LINGUE[s(r.lingua)] || LINGUE.it)}
     <!-- LE ALTRE CAMERE. Un avviso con una camera sola, dopo che
          l'ospite ne ha chieste tre, manda la reception a cercare le

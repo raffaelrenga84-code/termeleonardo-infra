@@ -26,7 +26,7 @@
     /* v2.7.6: un segno che lo script c'e'. Senza, non c'e' modo di
        distinguere «non gira» da «gira ma non riconosce», e si finisce a
        tirare a indovinare. */
-    console.log('%cLeonardo 2.8.12 — attivo in un frame', 'color:#8C8578',
+    console.log('%cLeonardo 2.8.13 — attivo in un frame', 'color:#8C8578',
       { indirizzo: location.href.slice(0, 80), caratteri: (document.body && document.body.innerText || '').length });
     window.leoDiagnostica = () => ({
       dove: 'frame', indirizzo: location.href,
@@ -891,7 +891,7 @@ function parseCentralino(testo) {
     return esito;
   };
 
-  console.log('%cLeonardo 2.8.12 — attivo nella pagina', 'color:#0F5C64;font-weight:bold',
+  console.log('%cLeonardo 2.8.13 — attivo nella pagina', 'color:#0F5C64;font-weight:bold',
     'scrivi leoDiagnostica() per sapere cosa vede');
 
   /* v2.7.8: la diagnostica si stampa da sola. Chiederla a mano ha fatto
