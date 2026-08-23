@@ -281,10 +281,19 @@ function validaTrattamenti(d: Record<string, unknown>, oggi: Date): Esito {
   const f = testo(d.fascia);
   const fascia = FASCE.includes(f) ? f : 'indifferente';
 
+  /* L'ORA PRECISA, facoltativa. Chi ha un treno alle sei non ha una
+     preferenza generica: ha un'ora. Si accetta solo HH:MM sulle 24 ore —
+     quello che manda un <input type="time"> — e quello che non lo e'
+     sparisce invece di far fallire la richiesta: fra perdere l'ora e
+     perdere la prenotazione, l'errore giusto e' il primo, e la fascia
+     resta a dire quando. */
+  const oraScritta = testo(d.ora);
+  const ora = /^([01]\d|2[0-3]):[0-5]\d$/.test(oraScritta) ? oraScritta : '';
+
   const note = testo(d.note);
   if (note.length > 2000) return { errore: 'note troppo lunghe' };
 
-  return { dati: { voci, giorno: data.valore, fascia, note } };
+  return { dati: { voci, giorno: data.valore, fascia, note, ...(ora ? { ora } : {}) } };
 }
 
 /* ---------------- soggiorno ---------------- */

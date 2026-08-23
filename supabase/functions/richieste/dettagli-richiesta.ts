@@ -373,7 +373,15 @@ function vociDettagli(tipo: string, t: Record<string, string>): Voce[] {
 
   if (tipo === 'trattamenti') {
     return [
-      { eti: t.quando, calcola: (d) => `${data(d.giorno)}${d.fascia ? ' · ' + String(d.fascia) : ''}` },
+      {
+        eti: t.quando,
+        /* L'ORA VINCE SULLA FASCIA quando c'e': «pomeriggio · 15:00» sono
+           due modi di dire la stessa cosa, e chi legge ne vuole uno. */
+        calcola: (d) => {
+          const quando = d.ora ? String(d.ora) : (d.fascia ? String(d.fascia) : '');
+          return `${data(d.giorno)}${quando ? ' · ' + quando : ''}`;
+        },
+      },
       {
         eti: t.trattamenti,
         calcola: (d) => (Array.isArray(d.voci) ? (d.voci as string[]) : []).join(' · '),

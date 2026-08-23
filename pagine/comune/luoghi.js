@@ -200,15 +200,22 @@ export const LUOGHI_ATAM = [
   "civitavecchia",
 ];
 
-/* Le dodici voci che il modulo transfer del sito mette in prima fila,
-   fuori dalla tendina — NON le prime dodici di LUOGHI_ATAM: sono una
-   curatela, non un taglio meccanico dell'elenco. Sono i punti da cui un
-   ospite ARRIVA (aeroporti, stazioni, il porto) piu' i tre campi da golf
-   convenzionati, perche' sono le destinazioni piu' richieste davvero. Chi
-   in futuro la vede corta non deve "completarla" fino a farla combaciare
-   con LUOGHI_ATAM: le prime otto di quell'elenco cominciano con
-   Montegrotto e Padova città, che sono a due passi dall'hotel e non sono
-   punti di arrivo per un ospite.
+/* LE DUE voci che il modulo transfer del sito mette in prima fila, fuori
+   dalla tendina.
+
+   ERANO DODICI fino al 23 agosto 2026, e la proprietà le ha ridotte a
+   due: «il più richiesto è Venezia Marco Polo, e magari la stazione dei
+   treni di Padova; gli altri metterli in Un'altra destinazione, per
+   rendere la schermata più leggera e veloce per il cliente». Dodici
+   pastiglie su quattro righe sono un elenco da leggere; due sono una
+   scelta da fare.
+
+   LE ALTRE DIECI NON SPARISCONO: la tendina completa si costruisce da
+   LUOGHI_ATAM meno queste, quindi tutto quello che esce di qui entra da
+   solo dietro «Un'altra destinazione…». Chi in futuro volesse
+   riallungare questo elenco non lo "completi" tagliando le prime N voci
+   di LUOGHI_ATAM: quelle cominciano con Montegrotto e Padova città, che
+   sono a due passi dall'hotel e non sono punti di arrivo per un ospite.
 
    Ogni voce qui sotto DEVE esistere anche in LUOGHI_ATAM, parola per
    parola: lo tiene fermo luoghi.test.ts. Se i tassisti rinominano una di
@@ -216,15 +223,14 @@ export const LUOGHI_ATAM = [
    prima fila — la prova lo scopre invece. */
 export const PIU_RICHIESTI = [
   "Venezia  aeroporto",
-  "Treviso Aeroporto",
-  "Verona Aeroporto✈️",
-  "Bologna Aeroporto",
-  "Venezia P.le Roma",
-  "Venezia porto",
   "Padova FS",
-  "Terme  Euganee FS",
-  "Mestre fs",
-  "Golf Valsanzibio 🏌",
-  "Golf Montecchia🏌",
-  "Golf Frassanelle 🏌",
 ];
+
+/* L'ICONA di ciascuna, per chi la guarda su un telefono: la chiave e' il
+   valore ESATTO di ATAM, doppi spazi compresi, perche' e' quello che il
+   modulo ha in mano. Una voce senza icona non e' un errore: esce senza,
+   come tutte le altre della tendina. */
+export const ICONA_META = {
+  "Venezia  aeroporto": "aereo",
+  "Padova FS": "treno",
+};

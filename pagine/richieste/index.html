@@ -359,6 +359,8 @@ const T = {
       molte:(n)=>`${n} trattamenti scelti`, info:(n)=>`Che cos’è ${n}`,
       massimo:'Può scegliere al massimo otto trattamenti: ne tolga uno per aggiungerne un altro.' },
     giorno:'Giorno', fascia:'Preferenza di orario',
+    oraPrecisa:'Oppure a un’ora precisa (facoltativo)',
+    oraPrecisaNota:'Se indica un’ora, è quella che teniamo: la confermiamo noi in base alle disponibilità della spa.',
     mattina:'Mattina', pomeriggio:'Pomeriggio', indifferente:'Indifferente',
       pocoPreavviso:'Ci ha dato poco preavviso. Di solito per i trattamenti chiediamo almeno 48 ore: faremo il possibile e le rispondiamo al più presto.',
     quando:'Giorno', ora:'Ora preferita',
@@ -463,6 +465,8 @@ const T = {
       molte:(n)=>`${n} Anwendungen gewählt`, info:(n)=>`Was ist ${n}`,
       massimo:'Sie können höchstens acht Anwendungen wählen: entfernen Sie eine, um eine andere hinzuzufügen.' },
     giorno:'Tag', fascia:'Bevorzugte Zeit',
+    oraPrecisa:'Oder zu einer genauen Uhrzeit (optional)',
+    oraPrecisaNota:'Wenn Sie eine Uhrzeit angeben, halten wir uns daran: wir bestätigen sie je nach Verfügbarkeit des Spa.',
     mattina:'Vormittag', pomeriggio:'Nachmittag', indifferente:'Egal',
       pocoPreavviso:'Sie haben uns wenig Vorlauf gegeben. Für Anwendungen bitten wir normalerweise um mindestens 48 Stunden: wir tun unser Möglichstes und antworten Ihnen so schnell wie möglich.',
     quando:'Tag', ora:'Wunschzeit',
@@ -539,6 +543,8 @@ const T = {
       molte:(n)=>`${n} treatments selected`, info:(n)=>`What is ${n}`,
       massimo:'You can choose up to eight treatments: remove one to add another.' },
     giorno:'Day', fascia:'Preferred time',
+    oraPrecisa:'Or at a precise time (optional)',
+    oraPrecisaNota:'If you give a time, that is the one we hold: we confirm it according to the spa’s availability.',
     mattina:'Morning', pomeriggio:'Afternoon', indifferente:'No preference',
       pocoPreavviso:'That is short notice. For treatments we usually ask for at least 48 hours: we will do our best and reply as soon as we can.',
     quando:'Day', ora:'Preferred time',
@@ -612,6 +618,8 @@ const T = {
       molte:(n)=>`${n} soins choisis`, info:(n)=>`Qu’est-ce que ${n}`,
       massimo:'Vous pouvez choisir huit soins au maximum : retirez-en un pour en ajouter un autre.' },
     giorno:'Jour', fascia:'Horaire préféré',
+    oraPrecisa:'Ou à une heure précise (facultatif)',
+    oraPrecisaNota:'Si vous indiquez une heure, c’est celle que nous retenons : nous la confirmons selon les disponibilités du spa.',
     mattina:'Matin', pomeriggio:'Après-midi', indifferente:'Peu importe',
       pocoPreavviso:'Le délai est court. Pour les soins nous demandons habituellement au moins 48 heures : nous ferons notre possible et vous répondrons au plus vite.',
     quando:'Jour', ora:'Heure souhaitée',
@@ -844,6 +852,16 @@ function campiTipo(t) {
           <option value="mattina">${esc(t.mattina)}</option>
           <option value="pomeriggio">${esc(t.pomeriggio)}</option>
         </select></div>
+    </div>
+    <!-- L'ORA PRECISA. Chi ha un treno alle sei o una cura alle dieci
+         non ha una preferenza generica: ha un'ora. Resta facoltativa,
+         perche' chi non ce l'ha non deve inventarsene una per poter
+         mandare la richiesta — ed e' per questo che la fascia non
+         sparisce. -->
+    <div style="margin-top:12px;">
+      <label for="fOraTratt">${esc(t.oraPrecisa)}</label>
+      <input type="time" id="fOraTratt" />
+      <div class="guida" style="margin-top:4px;">${esc(t.oraPrecisaNota)}</div>
     </div>
     <!-- POCO PREAVVISO. Non blocca niente: la richiesta si manda comunque e
          la reception decide. Bloccare vorrebbe dire rifiutare al posto suo
@@ -1651,7 +1669,7 @@ function raccogli() {
      attivaTrattamenti(). */
   return {
     voci: [...SCELTI_TRATT].map((i) => nomeCompleto(TRATTAMENTI[i])),
-    giorno: v('fGiorno'), fascia: v('fFascia'), note: v('fNote'),
+    giorno: v('fGiorno'), fascia: v('fFascia'), ora: v('fOraTratt'), note: v('fNote'),
   };
 }
 

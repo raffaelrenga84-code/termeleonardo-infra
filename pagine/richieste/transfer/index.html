@@ -131,7 +131,7 @@ import { corsaDiRitorno, navetta, ritiroPerVolo } from '/comune/navetta.js';
    stazioni, il porto — piu' i tre golf), non le prime N voci di LUOGHI_ATAM:
    vedi il commento in cima a quell'elenco in luoghi.js e la prova che lo
    tiene fermo in luoghi.test.ts. */
-import { LUOGHI_ATAM, PIU_RICHIESTI } from '/comune/luoghi.js';
+import { ICONA_META, LUOGHI_ATAM, PIU_RICHIESTI } from '/comune/luoghi.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 
@@ -501,10 +501,19 @@ function modulo() {
   const perVedere = (v) => v.replace(/[🌀-🫿☀-➿️]/gu, '')
     .replace(/\s{2,}/g, ' ').trim();
 
+  /* AEREO E TRENO, disegnati e non presi da un font di emoji: a questa
+     misura un'emoji cambia faccia da un telefono all'altro, e su qualcuno
+     diventa un rettangolo vuoto. Stessa scelta del piatto e della culla
+     sulla pagina di prenotazione. */
+  const SEGNI = {
+    aereo: `<svg class="segnoMeta" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M2 13.5l20-7-3.5 8.5L22 20l-4-1.5-3 3-1.5-4.5L2 13.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg>`,
+    treno: `<svg class="segnoMeta" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3.5" width="14" height="12" rx="3" /><path d="M5 9.5h14" /><path d="M9 12.5h.01M15 12.5h.01" /><path d="M7.5 15.5 5.5 19M16.5 15.5 18.5 19" /></g></svg>`,
+  };
+
   const primoGruppo = $('fLuogo').querySelector('optgroup');
   $('mete').innerHTML = [...(primoGruppo ? primoGruppo.children : [])]
     .map((o) => `<button type="button" class="meta" aria-pressed="false"
-      data-valore="${esc(o.value)}">${esc(perVedere(o.value))}</button>`).join('');
+      data-valore="${esc(o.value)}">${SEGNI[ICONA_META[o.value]] || ''}${esc(perVedere(o.value))}</button>`).join('');
 
   /* la tendina resta l'unico campo letto da invia(): le pastiglie non fanno
      altro che scriverci dentro il valore esatto. Un campo solo, una fonte

@@ -132,7 +132,7 @@ function righeMaestro(r: Record<string, unknown>, riga: (e: string, v: string, f
 function righeTrattamenti(r: Record<string, unknown>, riga: (e: string, v: string, f?: boolean) => string): string {
   const voci = Array.isArray(r.voci) ? (r.voci as string[]) : [];
   return [
-    riga('Giorno', `${data(String(r.giorno))} · ${String(r.fascia ?? '')}`, true),
+    riga('Giorno', `${data(String(r.giorno))} · ${String(r.ora || r.fascia || '')}`, true),
     riga('Trattamenti', voci.join(' · ')),
   ].join('');
 }

@@ -22,9 +22,13 @@ const SORGENTE = Deno.readTextFileSync(new URL('luoghi.js', import.meta.url));
    sostituiscono TUTTI gli `export const`, non solo il primo, o il secondo
    resterebbe con una sintassi che `new Function` non accetta fuori da un
    modulo. */
-function modulo(): { LUOGHI_ATAM: string[]; PIU_RICHIESTI: string[] } {
+function modulo(): {
+  LUOGHI_ATAM: string[];
+  PIU_RICHIESTI: string[];
+  ICONA_META: Record<string, string>;
+} {
   const corpo = SORGENTE.replace(/export const/g, 'const') +
-    '\nreturn { LUOGHI_ATAM, PIU_RICHIESTI };';
+    '\nreturn { LUOGHI_ATAM, PIU_RICHIESTI, ICONA_META };';
   return new Function(corpo)();
 }
 
@@ -50,14 +54,48 @@ Deno.test('i doppi spazi sopravvivono alla copia', () => {
   assert(c.includes('Terme  Euganee FS'), 'il doppio spazio di Terme Euganee e sparito');
 });
 
-/* PIU_RICHIESTI e' una curatela (i punti di arrivo piu' i tre golf), non
-   le prime N voci di LUOGHI_ATAM: senza questa prova, un domani in cui
-   qualcuno la "sistema" tagliandola dall'inizio dell'elenco passerebbe
-   inosservato. */
-Deno.test('i piu richiesti sono dodici, non un taglio dei primi N', () => {
-  const { PIU_RICHIESTI } = modulo();
-  assertEquals(PIU_RICHIESTI.length, 12,
-    `PIU_RICHIESTI ha ${PIU_RICHIESTI.length} voci, non dodici: la prova sotto girerebbe a vuoto o a meta`);
+/* PIU_RICHIESTI e' una curatela, non le prime N voci di LUOGHI_ATAM:
+   senza questa prova, un domani in cui qualcuno la "sistema" tagliandola
+   dall'inizio dell'elenco passerebbe inosservato.
+
+   DUE DAL 23 AGOSTO 2026, chieste dalla proprieta': l'aeroporto di Venezia
+   e la stazione di Padova, «gli altri metterli in Un'altra destinazione,
+   per rendere la schermata piu' leggera». Le altre dieci non sono sparite:
+   la tendina completa e' LUOGHI_ATAM meno queste, quindi ci sono entrate
+   da sole. */
+Deno.test('i piu richiesti sono due, e non sono le prime due dell elenco', () => {
+  const { LUOGHI_ATAM, PIU_RICHIESTI } = modulo();
+  assertEquals(PIU_RICHIESTI.length, 2,
+    `PIU_RICHIESTI ha ${PIU_RICHIESTI.length} voci, non due`);
+  assertEquals(
+    PIU_RICHIESTI.join(' | ') === LUOGHI_ATAM.slice(0, 2).join(' | '),
+    false,
+    'i piu richiesti sono diventati le prime due voci di LUOGHI_ATAM: ' +
+      'quelle sono Montegrotto e Padova citta, che sono a due passi dall hotel ' +
+      'e non sono punti di arrivo per un ospite',
+  );
+});
+
+Deno.test('e quello che esce dai piu richiesti resta nella tendina', () => {
+  /* e la ragione per cui accorciare l elenco non perde niente: la tendina
+     completa e LUOGHI_ATAM meno i piu richiesti, non una lista scritta a
+     parte che qualcuno deve ricordarsi di aggiornare */
+  const { LUOGHI_ATAM, PIU_RICHIESTI } = modulo();
+  for (const uscita of ['Treviso Aeroporto', 'Venezia porto', 'Mestre fs']) {
+    assert(LUOGHI_ATAM.includes(uscita), `"${uscita}" non e piu in LUOGHI_ATAM`);
+    assert(!PIU_RICHIESTI.includes(uscita), `"${uscita}" e tornata fra le pastiglie`);
+  }
+});
+
+Deno.test('e ognuna delle due ha la sua icona', () => {
+  /* la chiave e il valore ESATTO di ATAM, doppi spazi compresi: e quello
+     che il modulo ha in mano quando disegna la pastiglia */
+  const { PIU_RICHIESTI, ICONA_META } = modulo();
+  for (const meta of PIU_RICHIESTI) {
+    assert(ICONA_META[meta], `"${meta}" non ha un icona: uscirebbe nuda fra due che ce l hanno`);
+  }
+  assertEquals(Object.keys(ICONA_META).length, PIU_RICHIESTI.length,
+    'ci sono icone per mete che non stanno fra le pastiglie: non le vedra nessuno');
 });
 
 Deno.test('ogni voce dei piu richiesti esiste in LUOGHI_ATAM, parola per parola', () => {
