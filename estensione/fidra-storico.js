@@ -99,25 +99,47 @@
     return n || null;
   }
 
-  /* il valore visto al giro precedente: se non cambia, l'operatore ha
-     smesso di digitare */
-  let precedente = '';
+  /* ============================================================
+     v1.6 — QUANDO SI PUO' DIRE CHE UN CLIENTE E' STATO SCELTO
+     ------------------------------------------------------------
+     IL DIFETTO, VISTO DAL VIVO. Con «renga» appena digitato nel campo e
+     la tendina ancora aperta, il riquadro mostrava «+ Schurr Antonie»:
+     un cliente che nessuno aveva scelto, senza email e senza soggiorni.
+
+     Due cause, tutt'e due nostre.
+
+     1. «FERMO DA UN GIRO ALL'ALTRO» NON VUOL DIRE SCELTO. Chi digita si
+        ferma: basta una pausa di un secondo e mezzo davanti alla tendina
+        e «renga» passava per un nome scelto. Era il ripiego messo quando
+        l'eco del nome non si trovava, e ha fatto piu' danno del problema
+        che risolveva.
+
+     2. POI SI CARICAVA IL CLIENTE SBAGLIATO. Senza id, si prendeva il
+        primo link /customers/NNN che c'era in pagina — un link qualunque,
+        di un cliente qualunque. Da li' «+ Schurr Antonie».
+
+     LA REGOLA ADESSO E' UNA SOLA, e non si presta a interpretazioni:
+     Fidra scrive l'id del cliente in un campo SOLO quando lo si sceglie
+     dalla tendina. Nessun id, nessun riquadro. Digitare non basta,
+     fermarsi non basta, somigliare a un nome non basta.
+
+     Che quel campo ci sia lo sappiamo per prova: quando il riquadro
+     diceva «non trovo la scheda di 7324», 7324 era proprio l'id giusto
+     di Konold Otto — letto da li'.
+     ============================================================ */
+  function sceltaCorrente() {
+    const id = idDalCampo();
+    if (!id) return null;                 // non si e' ancora scelto nessuno
+    const i = campoCliente();
+    let v = ((i && i.value) || '').trim();
+    if (v.length < 3 || PARE_DATA.test(v) || /^cerca/i.test(v) ||
+        /^[0-9]+$/.test(v) || !/^\p{L}/u.test(v)) v = '';
+    return { id, nome: v };
+  }
 
   function nomeSelezionato() {
-    const i = campoCliente();
-    const v = ((i && i.value) || '').trim();
-    const prima = precedente;
-    precedente = v;
-    if (v.length < 3 || PARE_DATA.test(v) || /^cerca/i.test(v) || /^[0-9]+$/.test(v)) return '';
-
-    /* la scelta e' avvenuta se Fidra ripete il nome sotto il campo. Ma
-       l'eco da sola non basta come condizione: se il tema cambia e il nome
-       finisce dentro un elemento con figli, il riquadro sparisce del tutto
-       — ed e' successo. Percio' vale anche un valore che sta fermo da un
-       giro all'altro: chi digita cambia il campo di continuo. */
-    const eco = [...document.querySelectorAll('h1, h2, h3, div, span, p')]
-      .some(el => !el.children.length && el !== i && (el.textContent || '').trim() === v);
-    return (eco || v === prima) ? v : '';
+    const s = sceltaCorrente();
+    return s ? s.nome : '';
   }
 
   /* ---------- strato 1: l'id gia' scritto nel DOM ---------- */
@@ -126,11 +148,10 @@
        riempie scegliendo il cliente, ed e' il piu' affidabile dei tre */
     const dalCampo = idDalCampo();
     if (dalCampo) return dalCampo;
-    /* un link alla scheda, un attributo wire:key, un input nascosto:
-       Fidra cambia, e uno di questi di solito c'e' */
-    const a = document.querySelector('a[href*="/customers/"]');
-    const daLink = a && (a.getAttribute('href') || '').match(/\/customers\/(\d+)/);
-    if (daLink) return daLink[1];
+    /* v1.6 — IL PRIMO LINK /customers/ NON E' PIU' UN RIPIEGO. Era «un
+       cliente qualunque presente in pagina», e infatti ha caricato la
+       scheda di uno che nessuno aveva cercato. Meglio nessuna scheda che
+       la scheda di un altro: chi legge non ha modo di accorgersene. */
     for (const el of document.querySelectorAll('[wire\\:key],[data-id],[data-customer-id],input[type=hidden]')) {
       const v = el.getAttribute('data-customer-id') || el.getAttribute('data-id') ||
                 el.getAttribute('wire:key') || el.value || '';
@@ -140,31 +161,12 @@
     return null;
   }
 
-  /* ---------- strato 2: la ricerca di Fidra per nome ---------- */
-  async function idDallaRicerca(nome) {
-    const prove = [
-      '/customers?search=' + encodeURIComponent(nome),
-      '/customers?q=' + encodeURIComponent(nome)
-    ];
-    for (const url of prove) {
-      try {
-        const r = await fetch(url, { credentials: 'same-origin' });
-        if (!r.ok) { nota('ricerca non ok', { url, stato: r.status }); continue; }
-        const testo = await r.text();
-        /* si prende il primo /customers/NNN che non sia la pagina stessa */
-        const trovati = [...testo.matchAll(/\/customers\/(\d+)/g)].map(m => m[1]);
-        if (trovati.length) { nota('id dalla ricerca', { url, id: trovati[0] }); return trovati[0]; }
-        nota('ricerca senza risultati', { url });
-      } catch (e) { nota('ricerca fallita', { url, errore: String(e.message || e) }); }
-    }
-    return null;
-  }
-
   /* ---------- la scheda del cliente ---------- */
   async function leggiScheda(id) {
     const r = await fetch('/customers/' + id, { credentials: 'same-origin' });
     if (!r.ok) throw new Error('scheda non leggibile (' + r.status + ')');
-    const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+    const grezzo = await r.text();
+    const doc = new DOMParser().parseFromString(grezzo, 'text/html');
     const testo = (doc.body.textContent || '').replace(/\s+/g, ' ');
 
     /* v1.4 — L'EMAIL NON STA NEL TESTO. Il riquadro diceva «nessuna email
@@ -174,14 +176,24 @@
 
        Si guarda in tre posti, dal piu' attendibile al meno: il link
        mailto, i campi del modulo, e infine il testo. */
-    const RE_MAIL = /[\w.+-]+@(?!termeleonardo|hldv)[\w.-]+\.[a-z]{2,}/i;
+    const RE_MAIL = /[\w.+-]+@(?!termeleonardo|hldv|fidra|sentry|example|sentry\.io)[\w.-]+\.[a-z]{2,}/i;
     const daMailto = doc.querySelector('a[href^="mailto:"]');
     const daCampo = [...doc.querySelectorAll('input')]
       .map(i => (i.getAttribute('value') || '').trim())
       .find(v => RE_MAIL.test(v));
+    /* v1.6 — L'EMAIL NON E' NEMMENO NEI CAMPI. Il riquadro continuava a
+       dire «nessuna email in anagrafica» su un profilo che ce l'ha,
+       perche' quel campo sta dentro «Modifica profilo cliente», un modale
+       che Fidra disegna solo quando lo apri: nell'HTML della pagina il
+       campo non esiste ancora. Lo stato del componente pero' si', gia'
+       serializzato negli attributi (wire:snapshot). Percio' l'ultimo
+       tentativo guarda l'HTML COME ARRIVA, attributi compresi, invece del
+       solo testo — che degli attributi non sa niente. */
+    const daGrezzo = ((grezzo || '').match(new RegExp(RE_MAIL.source, 'gi')) || [])
+      .find(v => RE_MAIL.test(v));
     const email =
       (daMailto && (daMailto.getAttribute('href') || '').replace(/^mailto:/i, '').trim()) ||
-      daCampo || (testo.match(RE_MAIL) || [])[0] || '';
+      daCampo || (testo.match(RE_MAIL) || [])[0] || daGrezzo || '';
 
     const RE_TEL = /\+?\d[\d\s().\/-]{7,}\d/;
     const telCampo = [...doc.querySelectorAll('input')]
@@ -210,8 +222,15 @@
          «Apri >» puo' essere un'azione Livewire, e cercando solo <a href>
          non si trovava niente — percio' il trattamento restava vuoto.
          Si guarda tutta la riga: href, wire:click, data-*, qualunque cosa. */
-      const rid = (tr.outerHTML || '').match(/reservations[\/\\"']{1,3}(\d+)/);
-      soggiorni.push({ periodo, camera, stato, notti, rid: rid ? rid[1] : null });
+      /* v1.6 — E NON SI CHIAMA «reservations». Aprendo un soggiorno dalla
+         scheda si finisce su /customers/7324/stays/32795/charges: la riga
+         porta a «stays», non a «reservations», e cercando solo la seconda
+         parola non si trovava mai niente — percio' ogni riga diceva
+         «trattamento non raggiungibile». Si accettano entrambe, e la
+         pagina da leggere dipende da quale delle due c'e'. */
+      const q = (tr.outerHTML || '').match(/\/(stays|reservations)[\/\\"']{1,3}(\d+)/);
+      soggiorni.push({ periodo, camera, stato, notti,
+                       rid: q ? q[2] : null, via: q ? q[1] : null });
     }
     /* le prenotazioni cancellate non dicono niente sulle abitudini */
     const utili = soggiorni.filter(s => !/cancellat/i.test(s.stato));
@@ -219,10 +238,17 @@
   }
 
   /* ---------- il trattamento di un soggiorno ---------- */
-  async function leggiTrattamento(id, rid) {
+  async function leggiTrattamento(id, rid, via) {
+    /* v1.6: la pagina del soggiorno e' /customers/7324/stays/32795/charges,
+       ed e' li' che sta scritto «MIGLIOR PREZZO MEZZA PENSIONE», sotto il
+       titolo della camera. Se la riga porta a «reservations» si legge
+       quella, ma il caso vero e' il primo. */
+    const dove = via === 'reservations'
+      ? `/customers/${id}/reservations/${rid}`
+      : `/customers/${id}/stays/${rid}/charges`;
     try {
-      const r = await fetch(`/customers/${id}/reservations/${rid}`, { credentials: 'same-origin' });
-      if (!r.ok) return null;
+      const r = await fetch(dove, { credentials: 'same-origin' });
+      if (!r.ok) { nota('soggiorno non letto', { dove, stato: r.status }); return null; }
       const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
       const testo = (doc.body.textContent || '').replace(/\s+/g, ' ');
       /* v1.4: il trattamento si cerca fra gli elementi scritti TUTTI IN
@@ -230,16 +256,30 @@
          cercava nel testo intero con /i, e una parola come «pensione»
          dentro una frase qualunque bastava a far partire il taglio. */
       const PAROLE = /MIGLIOR PREZZO|SOGGIORNO|DOLCE VITA|PENSIONE|SPEZIAL|GOLF|BED\s*&\s*BREAKFAST|HALBPENSION/;
-      const t = [...doc.querySelectorAll('div, span, p, td, a')]
+      let t = [...doc.querySelectorAll('div, span, p, td, a')]
         .map(el => (el.textContent || '').replace(/\s+/g, ' ').trim())
         .find(x => x.length > 4 && x.length < 70 && x === x.toUpperCase() && PAROLE.test(x));
+      /* v1.6: nella pagina del soggiorno il trattamento sta in mezzo ad
+         altro — «< Prenotazione MIGLIOR PREZZO MEZZA PENSIONE» — e cosi'
+         l'elemento intero non e' tutto maiuscolo. Allora si cerca il tratto
+         maiuscolo DENTRO al testo, invece dell'elemento tutto maiuscolo. */
+      if (!t) {
+        t = (testo.match(/[A-ZÀ-Ü][A-ZÀ-Ü0-9 &'.\-]{4,60}/g) || [])
+          .map(x => x.replace(/\s+/g, ' ').trim())
+          .find(x => PAROLE.test(x));
+      }
       /* la sigla che serve a colpo d'occhio: BB, HB o FB */
       const sigla = !t ? null
         : /MEZZA\s*PENSIONE|HALBPENSION|HALF\s*BOARD/.test(t) ? 'HB'
         : /PENSIONE\s*COMPLETA|VOLLPENSION|FULL\s*BOARD/.test(t) ? 'FB'
         : /BED\s*&\s*BREAKFAST|B\s*&\s*B|COLAZIONE/.test(t) ? 'BB'
         : null;
-      const cure = /\bcure\b|\bfangh?[io]\b|dolce vita|spezial/i.test(testo);
+      /* v1.6 — «cure» DA SOLA NON VALE PIU'. Nella pagina del soggiorno
+         c'e' una linguetta che si chiama proprio «Cure», sempre, anche per
+         chi non ne ha fatte: bastava quella per scrivere «con cure» sotto
+         ogni riga. Meglio non dirlo che dirlo sbagliato, quindi servono
+         parole che compaiono solo se le cure ci sono davvero. */
+      const cure = /fangh[io]|bagno termale|cure termali|inalazion|percorso vascolare|dolce vita|spezial/i.test(testo);
       return { trattamento: t || null, sigla, cure };
     } catch (e) { return null; }
   }
@@ -305,7 +345,7 @@
       <tr><td style="padding:5px 0;border-top:1px solid #F0EBE1;vertical-align:top;">
         <div><strong>${esc(x.periodo)}</strong>${x.notti ? ` <span style="color:#8C8578;">&middot; ${esc(x.notti)} notti</span>` : ''}</div>
         ${x.camera ? `<div style="color:#55524B;">${esc(x.camera)}</div>` : ''}
-        <div class="tratt" data-rid="${x.rid || ''}" style="color:#0F5C64;">${
+        <div class="tratt" data-rid="${x.rid || ''}" data-via="${x.via || ''}" style="color:#0F5C64;">${
           x.rid ? '<span style="color:#A79E8F;">trattamento…</span>'
                 : '<span style="color:#C0AFA0;">trattamento non raggiungibile</span>'}</div>
       </td></tr>`).join('')}</table>`;
@@ -334,7 +374,7 @@
     for (const el of document.querySelectorAll(`#${ID} .tratt[data-rid]`)) {
       const rid = el.dataset.rid;
       if (!rid) continue;
-      const t = await leggiTrattamento(s.id, rid);
+      const t = await leggiTrattamento(s.id, rid, el.dataset.via);
       if (!document.getElementById(ID)) return;   // chiuso nel frattempo
       el.innerHTML = t && t.trattamento
         ? (t.sigla ? `<strong style="color:#0F5C64;">${t.sigla}</strong> &middot; ` : '') +
@@ -345,31 +385,27 @@
   }
 
   /* ---------- il giro ---------- */
-  let ultimoNome = '';
+  let ultimoId = '';
   let inCorso = false;
 
   async function guarda() {
-    const nome = nomeSelezionato();
-    if (!nome) {
-      if (ultimoNome) { ultimoNome = ''; document.getElementById(ID)?.remove(); }
+    const scelta = sceltaCorrente();
+    /* v1.6: finche' Fidra non ha scritto l'id, nessuno ha scelto nessuno
+       — e il riquadro non deve esserci. Sparisce anche quando si svuota
+       il campo per cercare un altro cliente: lasciarlo li' con il nome
+       di prima e' come mostrare la scheda sbagliata. */
+    if (!scelta) {
+      if (ultimoId) { ultimoId = ''; document.getElementById(ID)?.remove(); }
       return;
     }
-    if (nome === ultimoNome || inCorso) return;
-    ultimoNome = nome;
+    const nome = scelta.nome;
+    if (scelta.id === ultimoId || inCorso) return;
+    ultimoId = scelta.id;
     inCorso = true;
-    nota('cliente scelto', { nome });
-    disegna('<span style="color:#8C8578;">Cerco la sua scheda…</span>', nome);
+    nota('cliente scelto', { nome, id: scelta.id });
+    disegna('<span style="color:#8C8578;">Cerco la sua scheda…</span>', nome || 'Storico del cliente');
     try {
-      let id = idDalDom();
-      if (id) nota('id dal DOM', { id });
-      if (!id) id = await idDallaRicerca(nome);
-      if (!id) {
-        disegna(`<div>Non riesco a trovare la scheda di <strong>${esc(nome)}</strong>.</div>
-          <div style="color:#8C8578;padding-top:6px;">Apri la console di questa pagina e scrivi
-          <code>leoStorico()</code>: dice che cosa ha visto, e con quello si sistema.</div>`, nome);
-        return;
-      }
-      const s = await leggiScheda(id);
+      const s = await leggiScheda(scelta.id);
       nota('scheda letta', { id, soggiorni: s.soggiorni.length, email: !!s.email });
       await mostra(s);
     } catch (e) {

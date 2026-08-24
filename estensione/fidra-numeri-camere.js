@@ -1,5 +1,5 @@
 /* ============================================================
-   Offerta Leonardo — Numeri camera in Nuova Prenotazione (v1.6.1)
+   Offerta Leonardo — Numeri camera in Nuova Prenotazione (v1.2)
    ------------------------------------------------------------
    Gira su leonardo.fidra.cloud/booking. Al clic su una tipologia
    di camera (le schede "Doppia · 13 Disponibili" ecc.) apre un
@@ -15,6 +15,15 @@
   const ID = 'leoNumeriCamere';
   let cache = { chiave: null, quando: 0, dati: null };   // 3 minuti
   const CACHE_MS = 3 * 60 * 1000;
+
+  const VESTE = {
+    pieno:   { bordo: '#4A7A2E', testo: '#3B6325', sfondo: '#EEF6E8',
+               nota: 'si incastra perfettamente: all’arrivo parte qualcuno e alla partenza ne arriva un altro' },
+    mezzo:   { bordo: '#C9A227', testo: '#8A6D12', sfondo: '#FDF8E6',
+               nota: 'attacca da un lato solo' },
+    isolato: { bordo: '#D08A3C', testo: '#9A5B18', sfondo: '#FDF1E6',
+               nota: 'non attacca con nessuna prenotazione: lascia notti vuote prima e dopo' }
+  };
 
   /* ---------- date dal campo in alto ---------- */
   const MESI = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8,
@@ -46,20 +55,61 @@
   }
 
   /* ---------- dati ---------- */
+  const piuUnGiorno = (iso, quanti) => {
+    const d = new Date(iso + 'T12:00:00Z');
+    d.setUTCDate(d.getUTCDate() + quanti);
+    return d.toISOString().slice(0, 10);
+  };
+
+  /* ============================================================
+     v1.2 — COME SI INCASTRA UNA CAMERA (la stessa regola del pannello
+     «Disponibilità e prezzi», portata qui perche' e' qui che si sceglie).
+
+     Una camera libera non vale l'altra. Se il giorno dell'arrivo qualcuno
+     parte da quella stanza, e il giorno della partenza ne arriva un altro,
+     il soggiorno si infila fra due prenotazioni senza lasciare notti
+     vuote: e' la camera che rende di piu'.
+
+     · verde     parte qualcuno all'arrivo E ne arriva uno alla partenza
+     · giallo    attacca da un lato solo
+     · arancione non attacca con niente: apre un buco
+
+     PERCHE' SERVE UN GIORNO IN PIU' PER LATO. Le due notti da guardare
+     stanno FUORI dal periodo richiesto: chiedendo solo il periodo non si
+     vedono, e ogni camera sembrerebbe isolata. Ma allora stay_days
+     comprende anche i due giorni aggiunti, e usarlo per decidere chi e'
+     libero direbbe occupata una camera che invece si puo' vendere:
+     percio' le notti vere si contano a parte.
+     ============================================================ */
+  function incastro(camera, nottePrima, nottePartenza) {
+    const occupate = new Set((camera.unavailability || []).map(u => u.date));
+    const inArrivo = occupate.has(nottePrima);       // parte qualcuno
+    const inPartenza = occupate.has(nottePartenza);  // arriva qualcuno
+    if (inArrivo && inPartenza) return 'pieno';
+    if (inArrivo || inPartenza) return 'mezzo';
+    return 'isolato';
+  }
+
   async function camereLibere(da, a) {
     const chiave = da + '|' + a;
     if (cache.chiave === chiave && Date.now() - cache.quando < CACHE_MS) return cache.dati;
-    const r = await fetch(`/api/available/rooms?from_date=${da}&to_date=${a}&all=1`,
+    const r = await fetch(
+      `/api/available/rooms?from_date=${piuUnGiorno(da, -1)}&to_date=${piuUnGiorno(a, 1)}&all=1`,
       { credentials: 'same-origin', headers: { accept: 'application/json' } });
     if (!r.ok) throw new Error('Fidra ha risposto ' + r.status);
     const j = await r.json();
-    const giorni = j.stay_days || [];
-    const per = new Map();   // nome categoria → {libere:[], occupate:[]}
+    /* le notti VERE del soggiorno, non stay_days: quello ora e' allargato */
+    const giorni = [];
+    for (let g = da; g < a; g = piuUnGiorno(g, 1)) giorni.push(g);
+    const nottePrima = piuUnGiorno(da, -1), nottePartenza = a;
+    const per = new Map();   // nome categoria → {libere:[], occupate:[], incastri:{}}
     for (const c of j.rooms || []) {
       const nome = ((c.room_category || {}).name || '—').trim();
-      if (!per.has(nome)) per.set(nome, { libere: [], occupate: [] });
+      if (!per.has(nome)) per.set(nome, { libere: [], occupate: [], incastri: {} });
+      const v = per.get(nome);
       const occupata = (c.unavailability || []).some(u => giorni.includes(u.date));
-      per.get(nome)[occupata ? 'occupate' : 'libere'].push(c.number);
+      v[occupata ? 'occupate' : 'libere'].push(c.number);
+      if (!occupata) v.incastri[String(c.number)] = incastro(c, nottePrima, nottePartenza);
     }
     for (const v of per.values()) {
       v.libere.sort((x, y) => x - y);
@@ -232,15 +282,35 @@
           return;
         }
         try { await navigator.clipboard.writeText(n); } catch (e) { /* resta il numero a schermo */ }
+        /* v1.2 — QUANDO NON SI PUO', SI FA VEDERE PERCHE'.
+           Su /booking la prenotazione non esiste ancora: finche' non la si
+           crea non c'e' niente a cui attaccare un numero, e infatti un
+           campo per il numero qui non compare. Dirlo e basta pero' lascia
+           il dubbio che sia l'estensione a non saperlo cercare — percio'
+           l'elenco dei campi che vedo sta qui sotto, aperto con un clic,
+           invece che in una console che nessuno alla reception apre. */
         esito.style.color = '#8A6D12';
-        esito.textContent = `Qui Fidra non ha un campo per il numero: ${n} è negli appunti, `
-          + 'lo assegni nella pratica. (In console: leoCamere() dice cosa vedo.)';
+        const campi = campiCandidati()
+          .filter(c => c.tipo === 'select' || c.etichetta.trim())
+          .slice(0, 14)
+          .map(c => `${c.tipo === 'select' ? '▾' : '·'} ${c.etichetta.trim() || '(senza nome)'}`
+                    + (c.tipo === 'select'
+                        ? ` [${[...c.el.options].slice(0, 4).map(o => (o.textContent || '').trim()).join(', ')}]`
+                        : ''))
+          .join('\n') || '(nessun campo)';
+        esito.innerHTML =
+          `<div>La camera ${n} è negli appunti. Qui la prenotazione non esiste ancora,
+            quindi il numero si assegna dopo averla creata.</div>
+           <details style="margin-top:4px;"><summary style="cursor:pointer;color:#0F5C64;">campi che vedo
+             in questa pagina</summary>
+             <pre style="white-space:pre-wrap;font-size:11px;color:#55524B;margin:4px 0 0;"></pre></details>`;
+        esito.querySelector('pre').textContent = campi;
       });
     });
   }
 
   (typeof self !== 'undefined' ? self : window).leoCamere = () => ({
-    versione: '1.1',
+    versione: '1.2',
     campi: campiCandidati().map(c => ({
       tipo: c.tipo, etichetta: c.etichetta.trim(),
       valore: String(c.el.value || '').slice(0, 30),
@@ -273,17 +343,31 @@
       /* v1.1: i numeri erano etichette, e il clic passava sotto finendo
          sul tableau. Adesso sono pulsanti che provano ad assegnare la
          camera qui, senza aprire la pratica. */
-      const chips = v.libere.map(n =>
-        `<button type="button" class="num" data-num="${n}"
-          style="cursor:pointer;border:1px solid #9CC4C8;background:#EAF4F5;"
-          title="Assegna la camera ${n}">${n}</button>`).join('');
+      /* v1.2: il colore dice come si incastra con chi c'e' gia', come nel
+         pannello «Disponibilità e prezzi». Qui serve anche di piu': e' il
+         momento in cui la camera si sceglie. */
+      const conteggio = { pieno: 0, mezzo: 0, isolato: 0 };
+      const chips = v.libere.map(n => {
+        const tipo = (v.incastri || {})[String(n)] || 'isolato';
+        conteggio[tipo]++;
+        const ve = VESTE[tipo];
+        return `<button type="button" class="num" data-num="${n}"
+          style="cursor:pointer;border:1px solid ${ve.bordo};color:${ve.testo};background:${ve.sfondo};"
+          title="${ve.nota}">${n}</button>`;
+      }).join('');
+      const legenda = (conteggio.pieno || conteggio.mezzo)
+        ? `<div class="conto"><span style="color:#3B6325;">&#9632;</span> ${conteggio.pieno} si incastrano
+             &middot; <span style="color:#8A6D12;">&#9632;</span> ${conteggio.mezzo} da un lato
+             &middot; <span style="color:#9A5B18;">&#9632;</span> ${conteggio.isolato} lasciano buchi</div>`
+        : '';
       /* se i conteggi non tornano con la scheda, lo si dice invece di tacere */
       const nota = (scheda.dichiarate != null && v.libere.length !== scheda.dichiarate)
         ? `<div class="avviso">La scheda dice ${scheda.dichiarate} disponibili, l'API ne dà
            ${v.libere.length}: fa fede Fidra al momento della conferma.</div>` : '';
       corpo.innerHTML = `<div class="periodo">${periodo.testo}</div>
         <div class="numeri">${chips || '—'}</div>
-        <div class="conto"><b>${v.libere.length}</b> ${v.libere.length === 1 ? 'libera' : 'libere'}</div>${nota}
+        <div class="conto"><b>${v.libere.length}</b> ${v.libere.length === 1 ? 'libera' : 'libere'}</div>
+        ${legenda}${nota}
         <div class="esitoNum" style="padding-top:6px;font-size:12px;"></div>`;
       agganciaNumeri(corpo);
     } catch (e) {

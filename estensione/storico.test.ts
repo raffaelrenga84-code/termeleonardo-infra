@@ -40,9 +40,13 @@ Deno.test('lo storico e in sola lettura', () => {
 
 Deno.test('lo storico dice quando non ce la fa, invece di restare muto', () => {
   assert(/leoStorico/.test(STORICO), 'sparita la diagnostica');
+  /* v1.6: «non trovo la scheda di X» non serve piu' — senza id il riquadro
+     non compare affatto, ed e' giusto cosi'. Resta il caso in cui l'id c'e'
+     ma la scheda non si legge: quello va detto, altrimenti il riquadro
+     resta con «Cerco la sua scheda...» per sempre. */
   assert(
-    /Non riesco a trovare la scheda/.test(STORICO),
-    'se non trova il cliente non lo dice: il riquadro resterebbe vuoto senza motivo',
+    /per sapere dove si e' fermato/.test(STORICO),
+    'se la scheda non si legge il riquadro resta muto, fermo sul «cerco»',
   );
 });
 
@@ -116,22 +120,40 @@ Deno.test('lo storico non scambia le date per un nome', () => {
   );
 });
 
-Deno.test('lo storico aspetta che il cliente sia scelto, non digitato', () => {
-  /* si apriva mentre si stava ancora scrivendo «Muller». Il segnale non e'
-     il tempo: e' che Fidra ripete il nome in grande sotto il campo.
+Deno.test('finche non si sceglie un cliente, il riquadro non c e', () => {
+  /* IL DIFETTO, VISTO DAL VIVO. Con «renga» appena digitato e la tendina
+     ancora aperta, il riquadro mostrava «+ Schurr Antonie»: un cliente
+     che nessuno aveva scelto, senza email e senza soggiorni.
 
-     MA L'ECO DA SOLA NON PUO' ESSERE L'UNICA CONDIZIONE, e l'abbiamo
-     imparato subito dopo: con «Konold Otto» selezionato il riquadro non
-     compariva affatto. Se il nome finisce dentro un elemento con figli
-     l'eco non si trova, e il riquadro sparisce invece di sbagliare — che
-     e' il modo peggiore di fallire, perche' non lo segnala nessuno.
+     Due cause, tutt'e due nostre. La prima: valeva come scelta un valore
+     «fermo da un giro all'altro» — ma chi digita si ferma, e una pausa di
+     un secondo e mezzo davanti alla tendina bastava. La seconda: senza
+     id si prendeva il primo link /customers/NNN in pagina, cioe' un
+     cliente qualunque, ed e' da li' che veniva quel nome.
 
-     Percio' vale anche un valore fermo da un giro all'altro: chi digita
-     cambia il campo di continuo, chi ha scelto no. */
-  assert(/const eco = /.test(STORICO), 'sparita l eco del nome');
+     Adesso la regola e' una sola: Fidra scrive l'id in un campo SOLO
+     quando il cliente si sceglie dalla tendina. Nessun id, nessun
+     riquadro. */
   assert(
-    /return \(eco \|\| v === prima\) \? v : ''/.test(STORICO),
-    'e rimasta solo l eco: se il tema di Fidra cambia, il riquadro sparisce del tutto',
+    /if \(!id\) return null;/.test(STORICO),
+    'senza id si mostra di nuovo qualcosa: tornerebbe la scheda di un altro',
+  );
+  assert(
+    !/v === prima/.test(STORICO),
+    'torna a valere il valore fermo da un giro all altro: una pausa mentre si digita passa per una scelta',
+  );
+  assert(
+    !/document\.querySelector\('a\[href\*="\/customers\/"\]'\)/.test(STORICO),
+    'torna il ripiego del primo link /customers/: carica la scheda di un cliente qualunque',
+  );
+});
+
+Deno.test('un nome che non comincia per lettera non e un nome scelto', () => {
+  /* «+ Schurr Antonie» — la scheda caricata per sbaglio si annunciava
+     cosi'. Un cliente scelto non comincia con un segno di punteggiatura. */
+  assert(
+    /!\/\^\\p\{L\}\/u\.test\(v\)/.test(STORICO),
+    'un valore che non comincia per lettera torna a passare per un nome',
   );
 });
 
@@ -190,15 +212,67 @@ Deno.test('l email si cerca anche nei campi, non solo nel testo', () => {
     /getAttribute\('value'\)/.test(STORICO),
     'non guarda piu il valore dei campi: l email del profilo resta invisibile',
   );
+  /* E NEMMENO NEI CAMPI, alla fine. Continuava a dire «nessuna email in
+     anagrafica» su un profilo che ce l'ha, perche' quel campo sta dentro
+     «Modifica profilo cliente» — un modale che Fidra disegna solo quando
+     lo apri: nell'HTML della pagina il campo non esiste proprio. Lo stato
+     del componente pero' si', gia' serializzato negli attributi. Percio'
+     l'ultimo tentativo guarda l'HTML come arriva, attributi compresi. */
+  assert(
+    /const daGrezzo = /.test(STORICO),
+    'non guarda piu l HTML grezzo: l email nascosta nel componente resta invisibile',
+  );
+  assert(
+    /const grezzo = await r\.text\(\)/.test(STORICO),
+    'la pagina si riduce subito a testo: gli attributi si perdono prima di poterli guardare',
+  );
 });
 
-Deno.test('il numero della pratica si cerca in tutta la riga', () => {
-  /* «Apri >» puo' essere un azione Livewire e non un <a href>: cercando
-     solo gli href non si trovava niente, e il trattamento restava vuoto */
+Deno.test('il soggiorno si apre come «stays», non come «reservations»', () => {
+  /* IL DIFETTO CHE HA RESO OGNI RIGA MUTA. Sotto ogni soggiorno c'era
+     scritto «trattamento non raggiungibile», sempre. Cercavamo il numero
+     della pratica come /reservations/NNN, ma aprendo un soggiorno dalla
+     scheda del cliente si finisce su:
+
+         /customers/7324/stays/32795/charges
+
+     e' «stays». La parola che cercavamo non compare in quella riga, quindi
+     il numero era sempre null e non si tentava nemmeno la lettura.
+
+     Si accettano tutt'e due, e la pagina da leggere dipende da quale
+     delle due si e' trovata: sbagliare l'indirizzo darebbe un 404 e
+     torneremmo esattamente al punto di partenza. */
   assert(
-    /tr\.outerHTML \|\| ''\)\.match\(\/reservations/.test(STORICO),
-    'il numero della pratica si cerca di nuovo solo negli href',
+    /\/\(stays\|reservations\)/.test(STORICO),
+    'si torna a cercare solo «reservations»: le righe portano a «stays» e il trattamento sparisce di nuovo',
   );
+  assert(
+    /\/customers\/\$\{id\}\/stays\/\$\{rid\}\/charges/.test(STORICO),
+    'la pagina del soggiorno non si legge piu da /stays/NNN/charges',
+  );
+});
+
+Deno.test('il trattamento si legge anche se non e da solo nell elemento', () => {
+  /* nella pagina del soggiorno la riga e' «< Prenotazione MIGLIOR PREZZO
+     MEZZA PENSIONE»: l'elemento NON e' tutto maiuscolo, perche' contiene
+     anche «Prenotazione». Cercando elementi interamente maiuscoli non si
+     trovava niente. */
+  assert(
+    /A-ZÀ-Ü0-9 &'\.\\-/.test(STORICO),
+    'sparita la ricerca del tratto maiuscolo dentro al testo',
+  );
+});
+
+Deno.test('«cure» da sola non basta piu a dire che ci sono le cure', () => {
+  /* nella pagina del soggiorno c'e' una linguetta che si chiama «Cure»,
+     sempre, anche per chi non ne ha fatte: bastava quella per scrivere
+     «con cure» sotto ogni riga. Dire a un cliente abituale «lei fa le
+     cure» quando non le fa e' peggio che non dire niente. */
+  assert(
+    !/\\bcure\\b/.test(STORICO),
+    'la parola «cure» da sola torna a valere: la linguetta la fa scattare su ogni soggiorno',
+  );
+  assert(/fangh\[io\]/.test(STORICO), 'sparite le parole che compaiono solo con le cure vere');
 });
 
 Deno.test('il trattamento si legge dagli elementi in maiuscolo', () => {

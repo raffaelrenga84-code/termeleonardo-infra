@@ -70,16 +70,57 @@ Deno.test('non si scrive nel campo del cliente', () => {
   );
 });
 
-Deno.test('se il campo non c e, lo dice invece di fingere', () => {
+Deno.test('se il campo non c e, lo dice E FA VEDERE PERCHE', () => {
+  /* IL PRIMO USO HA DATO LA RISPOSTA: «Qui Fidra non ha un campo per il
+     numero». Ed e' giusto cosi' — su /booking la prenotazione non esiste
+     ancora, e finche' non la si crea non c'e' niente a cui attaccare un
+     numero. Ma detto e basta lascia il dubbio che sia l'estensione a non
+     saperlo cercare, e quel dubbio costa un giro di versioni.
+
+     Percio' l'elenco dei campi che vedo sta nel riquadro, a un clic, non
+     in una console che alla reception nessuno apre. */
   assert(
-    /Fidra non ha un campo per il numero/.test(NUMERI),
-    'senza campo tace: sembrerebbe assegnata una camera che non lo e',
+    /la prenotazione non esiste ancora/.test(NUMERI),
+    'non spiega piu perche non si puo assegnare: sembra un difetto invece di un fatto',
+  );
+  assert(
+    /<details/.test(NUMERI) && /campi che vedo/.test(NUMERI),
+    'l elenco dei campi e tornato solo in console: dalla reception non lo guardera nessuno',
   );
   assert(
     /clipboard\.writeText\(n\)/.test(NUMERI),
     'il numero non finisce piu negli appunti: il ripiego era quello',
   );
   assert(/leoCamere/.test(NUMERI), 'sparita la diagnostica sui campi');
+});
+
+Deno.test('i numeri sono colorati come nel pannello prezzi', () => {
+  /* la proprieta' li vuole colorati anche qui — anzi soprattutto qui, che
+     e' il momento in cui la camera si sceglie. Le tinte sono le stesse di
+     «Disponibilità e prezzi»: due codici diversi per la stessa cosa si
+     scollerebbero al primo ritocco. */
+  assert(/pieno:\s*\{ bordo: '#4A7A2E'/.test(NUMERI), 'sparito il verde');
+  assert(/mezzo:\s*\{ bordo: '#C9A227'/.test(NUMERI), 'sparito il giallo');
+  assert(/isolato:\s*\{ bordo: '#D08A3C'/.test(NUMERI), 'sparito l arancione');
+  assert(
+    /style="cursor:pointer;border:1px solid \$\{ve\.bordo\}/.test(NUMERI),
+    'i numeri tornano tutti dello stesso colore: l incastro non si vede piu',
+  );
+});
+
+Deno.test('la finestra si allarga di un giorno per lato, e le notti vere si contano a parte', () => {
+  /* le due notti che dicono l'incastro stanno FUORI dal periodo chiesto:
+     senza allargare, ogni camera sembrerebbe isolata. Ma allora stay_days
+     comprende anche i giorni aggiunti, e usarlo per decidere chi e' libero
+     direbbe occupata una camera vendibilissima. */
+  assert(
+    /piuUnGiorno\(da, -1\)/.test(NUMERI) && /piuUnGiorno\(a, 1\)/.test(NUMERI),
+    'la richiesta e tornata al solo periodo: i numeri sarebbero tutti arancioni',
+  );
+  assert(
+    !/const giorni = j\.stay_days/.test(NUMERI),
+    'si torna a stay_days: con la finestra allargata scarterebbe camere libere',
+  );
 });
 
 Deno.test('non si scrive dentro il nostro stesso riquadro', () => {
