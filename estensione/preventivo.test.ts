@@ -523,6 +523,48 @@ Deno.test('il pulsante finale non e travestito da pulsante secondario', () => {
   );
 });
 
+Deno.test('in italiano la camera si chiama «Camera», la suite no', () => {
+  /* Fidra scrive «DOPPIA», «MATRIMONIALE QUEEN»: il sostantivo non c'e'.
+     Nelle altre tre lingue e' dentro il nome (Doppelzimmer, Double room,
+     Chambre double), ed e' per questo che si vedeva solo in italiano. */
+  const m = modelli();
+  const html = m.html.it(DATI(), OPZ);
+  assert(/Camera Doppia/.test(html), 'la doppia si chiama ancora solo «Doppia»');
+  assert(!/Camera Junior/.test(html), '«Camera Junior Suite» non lo dice nessuno');
+  /* e nelle altre lingue non si aggiunge niente */
+  assert(!/Camera /.test(m.html.de(DATI(), OPZ)), 'la parola italiana e finita nel tedesco');
+});
+
+Deno.test('piu sistemazioni: il preventivo dice che sono alternative', () => {
+  /* LE ELENCAVA E BASTA. Chi riceve tre camere in fila puo' capire che
+     sono tutte prenotate: va detto che se ne sceglie una. */
+  const m = modelli();
+  const html = m.html.it(DATI(), OPZ);
+  assert(/ne scelga una/i.test(html), 'non dice che sono alternative');
+  assert(!/non si sommano[\s\S]*Totale delle sistemazioni/i.test(html), 'somma e non somma insieme');
+});
+
+Deno.test('con «servono insieme» i prezzi si sommano e lo dice', () => {
+  const m = modelli();
+  const d = DATI();
+  (d as unknown as Record<string, unknown>).insieme = true;
+  const html = m.html.it(d, OPZ);
+  assert(/insieme/i.test(html), 'non dice che le sistemazioni vanno prese insieme');
+  /* 780,00 + 690,00 = 1.470,00 — il separatore delle migliaia dipende
+     dai dati di localizzazione, quindi si accetta con e senza punto */
+  assert(/1\.?470,00/.test(html), 'manca il totale di tutte le sistemazioni');
+  assert(!/ne scelga una/i.test(html), 'dice insieme e alternative nello stesso documento');
+});
+
+Deno.test('una sistemazione sola non parla ne di scelta ne di insieme', () => {
+  const m = modelli();
+  const d = DATI();
+  d.voci = [d.voci[0]];
+  const html = m.html.it(d, OPZ);
+  assert(!/ne scelga una/i.test(html), 'chiede di scegliere fra una cosa sola');
+  assert(!/Totale delle sistemazioni/i.test(html), 'somma una sistemazione sola');
+});
+
 Deno.test('senza nome saluta comunque, senza scrivere «undefined»', () => {
   const m = modelli();
   const d = DATI();

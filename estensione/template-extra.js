@@ -716,7 +716,10 @@ const PREVENTIVO_T = {
     avviso: 'I prezzi sono le tariffe di oggi e cambiano con l&rsquo;occupazione. Questo preventivo <strong style="color:#2A2E2B;">non blocca la camera</strong>: la disponibilit&agrave; si verifica al momento della conferma.',
     chiudi: 'Se una di queste soluzioni le piace, ci risponda a questa email: le prepariamo l&rsquo;offerta e teniamo la camera.',
     noteCure: 'Con l&rsquo;impegnativa del suo medico il ticket &egrave; di <strong style="color:#0F5C64;">55 &euro;</strong> e copre visita medica, dodici fanghi e dodici bagni terapeutici. I turni sono al mattino.',
-    noteCane: 'Anche il suo cane &egrave; il benvenuto: <strong style="color:#0F5C64;">13 &euro;</strong> al giorno, da saldare in hotel; il cibo non &egrave; compreso.'
+    noteCane: 'Anche il suo cane &egrave; il benvenuto: <strong style="color:#0F5C64;">13 &euro;</strong> al giorno, da saldare in hotel; il cibo non &egrave; compreso.',
+    sceglie: (n) => `Sono ${n === 2 ? 'due' : n} soluzioni <strong style="color:#2A2E2B;">alternative</strong>: ne scelga una, i prezzi non si sommano.`,
+    insieme: (n) => `Le ${n === 2 ? 'due' : n} sistemazioni sono da prendere <strong style="color:#2A2E2B;">insieme</strong>: il totale qui sotto le comprende tutte.`,
+    totaleTutte: 'Totale delle sistemazioni'
   },
   de: {
     ogg: 'Ihr unverbindliches Angebot &mdash; Hotel Terme Leonardo',
@@ -735,7 +738,10 @@ const PREVENTIVO_T = {
     avviso: 'Die Preise sind die heutigen Tarife und &auml;ndern sich mit der Belegung. Mit dieser Preisangabe ist <strong style="color:#2A2E2B;">noch kein Zimmer reserviert</strong>: die Verf&uuml;gbarkeit wird bei der Best&auml;tigung gepr&uuml;ft.',
     chiudi: 'Wenn Ihnen eine dieser M&ouml;glichkeiten zusagt, antworten Sie einfach auf diese E-Mail: wir bereiten das Angebot vor und halten das Zimmer f&uuml;r Sie.',
     noteCure: 'Mit der &auml;rztlichen Verordnung betr&auml;gt der Ticketanteil <strong style="color:#0F5C64;">55 &euro;</strong> und umfasst die &auml;rztliche Untersuchung, zw&ouml;lf Fangopackungen und zw&ouml;lf Thermalb&auml;der. Die Anwendungen finden vormittags statt.',
-    noteCane: 'Auch Ihr Hund ist willkommen: <strong style="color:#0F5C64;">13 &euro;</strong> pro Tag, vor Ort zu zahlen; Futter nicht inbegriffen.'
+    noteCane: 'Auch Ihr Hund ist willkommen: <strong style="color:#0F5C64;">13 &euro;</strong> pro Tag, vor Ort zu zahlen; Futter nicht inbegriffen.',
+    sceglie: (n) => `Es sind ${n === 2 ? 'zwei' : n} <strong style="color:#2A2E2B;">Alternativen</strong>: w&auml;hlen Sie eine davon, die Preise werden nicht addiert.`,
+    insieme: (n) => `Die ${n === 2 ? 'beiden' : n} Unterk&uuml;nfte geh&ouml;ren <strong style="color:#2A2E2B;">zusammen</strong>: der Gesamtpreis unten umfasst alle.`,
+    totaleTutte: 'Gesamt aller Unterk&uuml;nfte'
   },
   en: {
     ogg: 'Your quotation &mdash; Hotel Terme Leonardo',
@@ -754,7 +760,10 @@ const PREVENTIVO_T = {
     avviso: 'These are today&rsquo;s rates and they change with occupancy. This quotation <strong style="color:#2A2E2B;">does not hold the room</strong>: availability is checked at the time of confirmation.',
     chiudi: 'If one of these suits you, just reply to this email: we will prepare the offer and hold the room for you.',
     noteCure: 'With your doctor&rsquo;s prescription the ticket is <strong style="color:#0F5C64;">&euro;55</strong> and covers the medical examination, twelve mud packs and twelve thermal baths. Treatments take place in the morning.',
-    noteCane: 'Your dog is welcome too: <strong style="color:#0F5C64;">&euro;13</strong> per day, payable at the hotel; food not included.'
+    noteCane: 'Your dog is welcome too: <strong style="color:#0F5C64;">&euro;13</strong> per day, payable at the hotel; food not included.',
+    sceglie: (n) => `These are ${n === 2 ? 'two' : n} <strong style="color:#2A2E2B;">alternatives</strong>: please choose one, the prices are not added together.`,
+    insieme: (n) => `The ${n === 2 ? 'two' : n} accommodations go <strong style="color:#2A2E2B;">together</strong>: the total below covers them all.`,
+    totaleTutte: 'Total for all accommodations'
   },
   fr: {
     ogg: 'Votre devis &mdash; Hotel Terme Leonardo',
@@ -773,7 +782,10 @@ const PREVENTIVO_T = {
     avviso: 'Ce sont les tarifs du jour et ils changent avec le taux d&rsquo;occupation. Ce devis <strong style="color:#2A2E2B;">ne bloque pas la chambre</strong> : la disponibilit&eacute; est v&eacute;rifi&eacute;e au moment de la confirmation.',
     chiudi: 'Si l&rsquo;une de ces solutions vous convient, r&eacute;pondez simplement &agrave; cet e-mail : nous pr&eacute;parons l&rsquo;offre et gardons la chambre.',
     noteCure: 'Avec l&rsquo;ordonnance de votre m&eacute;decin, le ticket est de <strong style="color:#0F5C64;">55 &euro;</strong> et comprend la visite m&eacute;dicale, douze applications de fango et douze bains thermaux. Les soins ont lieu le matin.',
-    noteCane: 'Votre chien est lui aussi le bienvenu : <strong style="color:#0F5C64;">13 &euro;</strong> par jour, &agrave; r&eacute;gler &agrave; l&rsquo;h&ocirc;tel ; nourriture non comprise.'
+    noteCane: 'Votre chien est lui aussi le bienvenu : <strong style="color:#0F5C64;">13 &euro;</strong> par jour, &agrave; r&eacute;gler &agrave; l&rsquo;h&ocirc;tel ; nourriture non comprise.',
+    sceglie: (n) => `Ce sont ${n === 2 ? 'deux' : n} <strong style="color:#2A2E2B;">solutions alternatives</strong> : choisissez-en une, les prix ne s&rsquo;additionnent pas.`,
+    insieme: (n) => `Les ${n === 2 ? 'deux' : n} h&eacute;bergements vont <strong style="color:#2A2E2B;">ensemble</strong> : le total ci-dessous les comprend tous.`,
+    totaleTutte: 'Total de tous les h&eacute;bergements'
   }
 };
 
@@ -784,8 +796,16 @@ function categoriaPreventivo(nome, adulti, lingua) {
   if (lingua === 'de') base = kategorieDE(base);
   else if (lingua === 'en') base = categoryEN(base);
   else if (lingua === 'fr') base = categorieFR(base);
-  else if (base === base.toUpperCase() && /[A-Z]/.test(base)) {
-    base = base.toLowerCase().replace(/(^|[\s&(\/-])([a-z\u00e0-\u00f9])/g, (m, p, c) => p + c.toUpperCase());
+  else {
+    if (base === base.toUpperCase() && /[A-Z]/.test(base)) {
+      base = base.toLowerCase().replace(/(^|[\s&(\/-])([a-z\u00e0-\u00f9])/g, (m, p, c) => p + c.toUpperCase());
+    }
+    /* v2.9.6: in italiano Fidra scrive \u00abDOPPIA\u00bb, \u00abMATRIMONIALE QUEEN\u00bb,
+       \u00abSINGOLA\u00bb \u2014 il sostantivo non c'e'. Nelle altre tre lingue c'e' gia'
+       dentro il nome (Doppelzimmer, Double room, Chambre double), ed e'
+       per questo che si vedeva solo in italiano.
+       Non davanti alle suite: \u00abCamera Junior Suite\u00bb non lo dice nessuno. */
+    if (!/suite/i.test(base)) base = 'Camera ' + base;
   }
   if ((adulti || 1) !== 1) return base;
   const t = PREVENTIVO_T[lingua] || PREVENTIVO_T.it;
@@ -873,8 +893,15 @@ function costruisciPreventivoBase(d, opzioni, lingua) {
 
   <tr><td style="padding:16px 36px 0 36px;">
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#1E7F88;padding-bottom:6px;">${dal} &ndash; ${al}</div>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;padding-bottom:14px;">${t.notti(d.notti)} &middot; ${t.ospiti(d.adulti, d.bambini || 0)}</div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;padding-bottom:8px;">${t.notti(d.notti)} &middot; ${t.ospiti(d.adulti, d.bambini || 0)}</div>
+    ${voci.length > 1 ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;padding-bottom:12px;">${
+      d.insieme ? t.insieme(voci.length) : t.sceglie(voci.length)}</div>` : '<div style="padding-bottom:6px;"></div>'}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${righe}</table>
+    ${d.insieme && voci.length > 1 ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#E3F0F1;margin-bottom:10px;">
+      <tr><td style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#3C6266;">
+        ${t.totaleTutte} <strong style="color:#0F5C64;font-size:17px;">${
+          soldi(voci.reduce((s2, v) => s2 + (v.totale || 0), 0))}</strong>
+      </td></tr></table>` : ''}
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#A79E8F;padding:2px 0 4px 0;">${dotazionePreventivo(lingua)}</div>
   </td></tr>
 

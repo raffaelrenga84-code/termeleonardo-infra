@@ -904,6 +904,7 @@
             </select>
             <label><input type="checkbox" id="dPrevCure" /> cure termali</label>
             <label><input type="checkbox" id="dPrevCane" /> cane</label>
+            <label title="Spuntato solo se all'ospite servono davvero tutte: altrimenti sono alternative e i prezzi non si sommano"><input type="checkbox" id="dPrevInsieme" /> servono insieme</label>
             <button class="prevVai" id="dPrevVai">Crea preventivo e apri Outlook</button>
           </div>
           <div id="dPrevNota" style="padding-top:6px;color:#8C7A45;"></div>`;
@@ -988,6 +989,10 @@
           annoPartenza: P.getFullYear(),
           notti: nNotti, adulti, bambini: etaBambini.length,
           etaBambini: etaBambini.slice(), voci: SCELTE.slice(),
+          /* v2.9.6: due sistemazioni scelte qui sono alternative per
+             definizione — stesse date, stessi ospiti. Se invece servono
+             tutte e due, lo dice questa spunta e i prezzi si sommano. */
+          insieme: !!(($('dPrevInsieme') || {}).checked),
           camere: [], nCamere: 0, caparraVersata: 0, caparraDovuta: null
         };
       }
