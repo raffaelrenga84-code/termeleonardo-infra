@@ -316,18 +316,26 @@ function parseCentralino(testo) {
     return anno;
   }
 
-  function parseLibera(testo, mittente) {
+  /* ============================================================
+     v2.9.3 — LE DATE SI LEGGONO IN UN POSTO SOLO
+     ------------------------------------------------------------
+     Questo blocco stava dentro parseLibera, e trovaRichiestaLibera
+     filtrava gli elementi della pagina con una SUA regola sulle date,
+     piu' stretta: conosceva «dal 12 al 13», «12-13» e «vom 12. bis»,
+     e basta. Su una richiesta inglese — «from 29 to 30 August» — il
+     corpo del messaggio non diventava mai candidato: passava solo
+     qualche elemento piu' grande che conteneva l'oggetto della mail,
+     con le date dentro e le persone, il cane e il trattamento fuori.
+     L'anteprima scriveva «Persone: non lette» su un'email che diceva
+     «2 adults, 1 girl, 15 year old».
+
+     E' lo stesso difetto della v2.7.10: il ciclo accettava piu' cose
+     della funzione che chiamava. Due grammatiche per la stessa cosa
+     divergono sempre — qui ce n'e' una sola, e la usano tutte e due.
+     ============================================================ */
+  function leggiDate(testo) {
     const t = String(testo || '');
-    const r = { fonte: 'Email', tipo: 'preventivo', testoOriginale: t.replace(/\s+/g, ' ').trim().slice(0, 600) };
-    if (mittente) {
-      if (mittente.email) r.email = mittente.email;
-      if (mittente.nome) {
-        r.ospite = mittente.nome;
-        const parti = mittente.nome.trim().split(/\s+/);
-        r.cognome = parti[parti.length - 1];
-        r.nome = parti.slice(0, -1).join(' ');
-      }
-    }
+    const r = {};
     // date: "dal 12 al 13 agosto (2026)" · "12-13 agosto" · "vom 12. bis 13. August"
     /* v2.7: due modi di scrivere le date che i clienti usano davvero e che
        prima sfuggivano — verificati sulle richieste di Ippolito e Kreiner:
@@ -427,6 +435,23 @@ function parseCentralino(testo) {
         }
       }
     }
+    return r.arrivo ? r : null;
+  }
+
+  function parseLibera(testo, mittente) {
+    const t = String(testo || '');
+    const r = { fonte: 'Email', tipo: 'preventivo', testoOriginale: t.replace(/\s+/g, ' ').trim().slice(0, 600) };
+    if (mittente) {
+      if (mittente.email) r.email = mittente.email;
+      if (mittente.nome) {
+        r.ospite = mittente.nome;
+        const parti = mittente.nome.trim().split(/\s+/);
+        r.cognome = parti[parti.length - 1];
+        r.nome = parti.slice(0, -1).join(' ');
+      }
+    }
+    const date = leggiDate(t);
+    if (date) { r.arrivo = date.arrivo; r.partenza = date.partenza; r.notti = date.notti; }
 
     /* "Person(en)?" e non "Personen?": il secondo vuol dire «Persone» con la
        n facoltativa, e lasciava fuori proprio "1 Person" — il caso di chi
@@ -434,8 +459,19 @@ function parseCentralino(testo) {
     /* v2.8.7: «adult[oi]» copriva adulto e adulti ma non l'inglese
        «1 adult» — proprio il caso di chi viaggia solo, dove serve il
        supplemento uso singola. */
-    let a = t.match(/(\d+)\s*(?:adult[oi]|adults?|person[ae]|Person(?:en)?|Erwachsene[rn]?|guests?|people|pax)\b/i);
-    if (a) r.adulti = +a[1];
+    /* v2.9.3 — «adulti» e «persone» non sono la stessa parola. Prendendo il
+       primo numero che capitava, «3 guests (2 adults, 1 child)» dava tre
+       adulti PIU' un bambino: quattro persone dove ce ne sono tre, ed e' il
+       numero che moltiplica il prezzo. Ora si cerca prima la parola che
+       parla solo di adulti; il totale vale come ripiego, e se i bambini si
+       sono letti si sottraggono da quel totale. */
+    let a = t.match(/(\d+)\s*(?:adult[oi]|adults?|adultes?|Erwachsene[rn]?)\b/i);
+    let daTotale = false;
+    if (!a) {
+      a = t.match(/(\d+)\s*(?:person[ae]|personnes?|Person(?:en)?|guests?|people|pax|H[oö]st)\b/i);
+      daTotale = !!a;
+    }
+    if (a) { r.adulti = +a[1]; r.adultiDaTotale = daTotale; }
     else if (/\bin due\b|\bper due\b|zu zweit/i.test(t)) r.adulti = 2;
     else {
       /* v2.7.1: chi scrive «una camera matrimoniale» quasi mai aggiunge «per
@@ -480,10 +516,51 @@ function parseCentralino(testo) {
         break;
       }
     }
-    const b = t.match(/(\d+)\s*(?:bambin[oi]|Kind(?:er)?)/i);
+    /* v2.9.3 \u2014 i bambini si leggevano solo in italiano e tedesco. \u00ab1 girl\u00bb,
+       \u00ab1 child\u00bb, \u00abun enfant\u00bb non li vedeva nessuno, e la richiesta di Una
+       Pipic \u2014 \u00ab2 adults, 1 girl, 15 year old\u00bb \u2014 usciva con \u00abPersone: non
+       lette\u00bb proprio nel numero che decide il prezzo. */
+    const b = t.match(/(\d+)\s*(?:bambin[oi]|ragazz[oai]|Kind(?:er)?|child(?:ren)?|kids?|enfants?|girls?|boys?)\b/i);
     if (b) r.bambini = +b[1];
-    if (/mezza\s*pensione|halbpension|half\s*board/i.test(t)) r.trattamento = 'Mezza Pensione';
-    else if (/colazione|fr\u00fchst\u00fcck|b\s*&\s*b|bed\s*(?:&|and)\s*breakfast/i.test(t)) r.trattamento = 'Bed & Breakfast';
+
+    /* il numero letto era un totale di persone e i bambini sono dentro:
+       si tolgono, altrimenti si contano due volte */
+    if (r.adultiDaTotale && r.bambini > 0 && r.adulti > r.bambini) {
+      r.adulti -= r.bambini;
+      r.adultiDedotti = true;
+    }
+
+    /* v2.9.3 \u2014 l'eta' scritta a parole: \u00ab15 year old\u00bb, \u00abdi 8 anni\u00bb,
+       \u00ab17 Jahre\u00bb, \u00ab5 ans\u00bb. Serve al prezzo quanto il numero: un bambino di
+       due anni e uno di sedici non costano uguale. Si accettano solo le
+       eta' da bambino, cosi' \u00ab7 nights\u00bb o un anno non finiscono qui. */
+    const eta = [...t.matchAll(/(\d{1,2})\s*(?:anni|anno|Jahre|Jahr|ans|years?\s*old)\b/gi)]
+      .map(x => +x[1]).filter(n => n >= 0 && n <= 17);
+    if (eta.length && (r.bambini || 0) > 0) r.etaBambini = eta.slice(0, r.bambini).join(' ');
+
+    /* v2.9.3 \u2014 chi scrive \u00abdinner on the 29th and breakfast on the 30th\u00bb
+       sta chiedendo la mezza pensione senza chiamarla per nome. Resta una
+       deduzione, e come tale viene dichiarata nell'anteprima. */
+    const cena = /\bcen[ae]\b|\bdinner\b|\bAbendessen\b|\bd[\u00eei]ner\b|\bsouper\b/i.test(t);
+    const colazione = /colazione|fr\u00fchst\u00fcck|fruehstueck|breakfast|petit\s*d[\u00e9e]jeuner/i.test(t);
+    if (/mezza\s*pensione|halbpension|half\s*board|demi[-\s]?pension/i.test(t)) {
+      r.trattamento = 'Mezza Pensione';
+    } else if (cena && colazione) {
+      r.trattamento = 'Mezza Pensione';
+      r.trattamentoDedotto = true;
+    } else if (colazione || /b\s*&\s*b|bed\s*(?:&|and)\s*breakfast/i.test(t)) {
+      r.trattamento = 'Bed & Breakfast';
+    }
+
+    /* v2.9.3 \u2014 il cane non si leggeva in nessuna lingua, e costa 13 \u20ac al
+       giorno. \u00abcan[ei]\u00bb e non \u00abcani?\u00bb: il secondo vuol dire \u00abcan\u00bb con la i
+       facoltativa e lasciava fuori proprio \u00abcane\u00bb. */
+    if (/\bcan[ei]\b|\bcagnolin\w*|\bHund(?:in)?\b|\bHunde\b|\bdogs?\b|\bchiens?\b/i.test(t)) {
+      r.cane = true;
+    }
+    if (/\bcure\s+termali\b|\bfangh?[io]\b|\bKuranwendung|\bthermal\s+(?:cure|treatment)/i.test(t)) {
+      r.cure = true;
+    }
     r.note = t.replace(/\s+/g, ' ').trim().slice(0, 300);
     return (r.arrivo || r.email) ? r : null;
   }
@@ -602,7 +679,10 @@ function parseCentralino(testo) {
       const txt = e.innerText || '';
       if (txt.length < 40 || txt.length > 2500) continue;
       if (!PAROLE_RICHIESTA.test(txt)) continue;
-      if (!/\d{1,2}\s*(?:al|[-–\/]|bis)\s*\d{1,2}|dal\s+\d{1,2}|vom\s+\d{1,2}/i.test(txt)) continue;
+      /* v2.9.3: si chiede al lettore, non a una seconda regola. Quella di
+         prima conosceva meno forme di leggiDate, e sulle richieste inglesi
+         scartava proprio il corpo del messaggio. */
+      if (!leggiDate(txt)) continue;
       if (!migliore || txt.length < (migliore.innerText || '').length) migliore = e;
     }
     return migliore;
@@ -743,13 +823,20 @@ function parseCentralino(testo) {
         'date non lette — attenzione, sono la cosa piu\' facile da sbagliare');
     const soli = dati.adulti === 1;
     agg('Persone', dati.adulti != null
-      ? `${dati.adulti} ${dati.adulti === 1 ? 'adulto' : 'adulti'}${dati.bambini ? `, ${dati.bambini} bambin${dati.bambini === 1 ? 'o' : 'i'}` : ''}` +
+      ? `${dati.adulti} ${dati.adulti === 1 ? 'adulto' : 'adulti'}${dati.bambini ? `, ${dati.bambini} bambin${dati.bambini === 1 ? 'o' : 'i'}${
+          dati.etaBambini ? ` di ${String(dati.etaBambini).trim().split(/\s+/).join(' e ')} anni` : ''}` : ''}` +
         (dati.adultiDedotti ? ` <span style="color:#8C7A45;">(dedotto da &laquo;${
-          dati.tipoCameraLetto || 'tipo di camera'}&raquo;${dati.nCamere > 1 ? `, ${dati.nCamere} camere` : ''} — verifica)</span>` : '')
+          dati.tipoCameraLetto || (dati.adultiDaTotale ? 'totale persone meno i bambini' : 'tipo di camera')
+          }&raquo;${dati.nCamere > 1 ? `, ${dati.nCamere} camere` : ''} — verifica)</span>` : '')
       : '', 'non lette');
     if (dati.categoria) agg('Camera', dati.categoria, '');
     if (dati.pacchetto) agg('Pacchetto', dati.pacchetto, '');
-    if (dati.trattamento) agg('Trattamento', dati.trattamento, '');
+    if (dati.trattamento) agg('Trattamento', dati.trattamento +
+      (dati.trattamentoDedotto
+        ? ' <span style="color:#8C7A45;">(dedotto da cena e colazione — verifica)</span>' : ''), '');
+    /* v2.9.3: il cane costa 13 € al giorno e prima non lo leggeva nessuno */
+    if (dati.cane) agg('Cane', 'sì, al seguito — 13 &euro; al giorno', '');
+    if (dati.cure) agg('Cure', 'nominate nella richiesta', '');
     if (dati.riferimento) agg('Riferimento', dati.riferimento, '');
 
     const scatola = document.createElement('div');
@@ -1254,5 +1341,5 @@ function parseCentralino(testo) {
 
   /* gancio per i test e per la console: parseLibera vive dentro l'IIFE */
   (typeof self !== 'undefined' ? self : globalThis).__leonardoInject =
-    { parseLibera, PAROLE_RICHIESTA, annoDedotto };
+    { parseLibera, leggiDate, PAROLE_RICHIESTA, annoDedotto };
 })();

@@ -39,6 +39,8 @@ import { assert, assertEquals } from 'jsr:@std/assert';
 const SORGENTE = Deno.readTextFileSync(new URL('outlook-inject.js', import.meta.url));
 
 type Richiesta = Record<string, unknown> | null;
+type Giorno = { g: number; m: number; a: number };
+type Periodo = { arrivo: Giorno; partenza: Giorno; notti?: number };
 type Lettori = {
   parseLibera: (testo: string, mittente?: unknown) => Richiesta;
   leggiDate: (testo: string) => Record<string, unknown> | null;
@@ -67,7 +69,10 @@ function lettori(): Lettori {
     documentElement: {},
   };
   const chrome = {
-    storage: { local: { get: () => Promise.resolve({}), set: nulla, remove: nulla } },
+    storage: {
+      local: { get: () => Promise.resolve({}), set: nulla, remove: nulla },
+      onChanged: { addListener: nulla },
+    },
     runtime: { sendMessage: nulla, onMessage: { addListener: nulla } },
     tabs: { create: nulla },
   };
@@ -113,10 +118,10 @@ Deno.test('1 — il corpo di una richiesta inglese e riconoscibile da solo', () 
      corpo non diventa mai candidato e vince un elemento piu' grande che
      contiene solo l'oggetto del messaggio: date lette, tutto il resto no. */
   const l = lettori();
-  const d = l.leggiDate(RICHIESTA_INGLESE);
+  const d = l.leggiDate(RICHIESTA_INGLESE) as Periodo | null;
   assert(d, 'leggiDate non riconosce «from 29 to 30 August»');
-  assertEquals(d!.giornoArrivo, 29);
-  assertEquals(d!.giornoPartenza, 30);
+  assertEquals(d!.arrivo.g, 29);
+  assertEquals(d!.partenza.g, 30);
 });
 
 Deno.test('1b — leggiDate copre tutte le forme che parseLibera sa leggere', () => {
@@ -130,10 +135,10 @@ Deno.test('1b — leggiDate copre tutte le forme che parseLibera sa leggere', ()
     ['du 3 au 5 juillet', 3, 5],
   ] as const;
   for (const [testo, a, p] of FORME) {
-    const d = l.leggiDate(testo);
+    const d = l.leggiDate(testo) as Periodo | null;
     assert(d, `leggiDate non riconosce «${testo}»`);
-    assertEquals(d!.giornoArrivo, a, `arrivo sbagliato in «${testo}»`);
-    assertEquals(d!.giornoPartenza, p, `partenza sbagliata in «${testo}»`);
+    assertEquals(d!.arrivo.g, a, `arrivo sbagliato in «${testo}»`);
+    assertEquals(d!.partenza.g, p, `partenza sbagliata in «${testo}»`);
   }
 });
 
@@ -160,6 +165,34 @@ Deno.test('2b — i bambini si leggono nelle quattro lingue', () => {
     assert(r, `non letta: «${testo}»`);
     assertEquals(r!.bambini, n, `bambini sbagliati in «${testo}»`);
   }
+});
+
+Deno.test('2c — «3 guests (2 adults, 1 child)» fa tre persone, non quattro', () => {
+  /* «guests» e' un totale, «adults» no. Prendendo il primo numero che
+     capita si leggevano 3 adulti PIU' 1 bambino: quattro persone dove ce
+     ne sono tre, ed e' il numero che moltiplica il prezzo.
+
+     La richiesta di Una Pipic era scritta cosi' — «for three guests (2
+     adults, 1 girl...)» — e non ha sbagliato solo perche' «three» e' una
+     parola e non una cifra. Con «3 guests» sarebbe uscita sbagliata. */
+  const l = lettori();
+  const CASI = [
+    'from 12 to 13 August, 3 guests (2 adults, 1 child)',
+    'dal 12 al 13 agosto, 3 persone: 2 adulti e 1 bambino',
+    'vom 12. bis 13. August, 3 Personen: 2 Erwachsene und 1 Kind',
+  ] as const;
+  for (const testo of CASI) {
+    const r = l.parseLibera(testo, null);
+    assert(r, `non letta: «${testo}»`);
+    assertEquals(r!.adulti, 2, `adulti sbagliati in «${testo}»`);
+    assertEquals(r!.bambini, 1, `bambini sbagliati in «${testo}»`);
+  }
+});
+
+Deno.test('2d — un totale senza bambini resta quel totale', () => {
+  const l = lettori();
+  const r = l.parseLibera('from 12 to 13 August for 3 guests', null);
+  assertEquals(r!.adulti, 3, 'senza bambini «3 guests» sono 3 adulti');
 });
 
 Deno.test('3 — cena piu colazione fa mezza pensione, e lo dichiara', () => {
