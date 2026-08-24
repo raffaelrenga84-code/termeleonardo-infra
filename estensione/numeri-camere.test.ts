@@ -123,7 +123,9 @@ Deno.test('si clicca UNA casella sola, e con eventi veri', () => {
      e' un gesto che si vede e si disfa; una manciata cliccata alla cieca
      no. */
   assert(
-    /clicVero\(cella\);\n\s*return \{ ok: true/.test(NUMERI),
+    /* \s*, non \n: su Windows git riscrive i fine riga al checkout, e una
+       prova ancorata a \n passa sul ramo e fallisce su main */
+    /clicVero\(cella\);\s*return \{ ok: true/.test(NUMERI),
     'si clicca piu di una casella: la selezione diventa impossibile da controllare a occhio',
   );
   assert(

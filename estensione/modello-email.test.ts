@@ -41,7 +41,12 @@ Deno.test('nasconde e rimpiazza, non si sovrappone', () => {
   /* si guarda il CSS che il pulsante riceve davvero, non il file: il
      commento qui sopra nomina position:absolute per spiegare perche' non
      si usa, e una prova che legge i commenti non prova niente */
-  const css = (SORGENTE.match(/cssText\s*=\s*([\s\S]*?);\n/g) || []).join(' ');
+  /* \r?\n, NON \n. Su Windows git riscrive i fine riga al checkout: questa
+     prova passava sul ramo e falliva su main appena ricreato — stesso
+     commit, stesso codice, solo byte diversi in fondo alle righe. Una
+     prova che dipende da come il file e' finito su disco non sta provando
+     il codice, e fa perdere mezz'ora a cercare una regressione che non c'e'. */
+  const css = (SORGENTE.match(/cssText\s*=\s*([\s\S]*?);\r?\n/g) || []).join(' ');
   assert(css.length > 50, 'non trovo piu il CSS del pulsante: la prova guarderebbe il vuoto');
   assert(
     !/position:\s*(absolute|fixed)/.test(css),
