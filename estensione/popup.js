@@ -116,6 +116,28 @@ function scadenzaPassata(s) {
   return new Date(+m[3], M[m[2]], +m[1]) < oggi;
 }
 
+/* v2.9.4 — camere alternative: l'ospite ne sceglie una.
+
+   Non si indovina dai dati: alternative, cambio camera e due soggiorni
+   distinti di persone diverse hanno lo stesso aspetto in Fidra. Lo dice
+   l'operatore con la spunta, e da qui in poi ogni camera diventa una
+   soluzione con il suo totale e la sua caparra — calcolata sui SUOI adulti,
+   con la stessa regola di sempre (75 € ad adulto), non sulla somma.
+
+   Si scrive dentro `d` invece di passare un parametro: `d` arriva gia' a
+   tutte e quattro le lingue, un parametro nuovo andrebbe aggiunto a otto
+   funzioni e dimenticato in una — ed e' il difetto che pulsanti.test.ts
+   sorveglia da mesi. */
+const CAPARRA_ADULTO = 75;
+function preparaAlternative(d, attivo) {
+  d.alternative = !!attivo;
+  (d.camere || []).forEach((c, i) => {
+    if (!attivo) { delete c.soluzione; delete c.accontoSoluzione; return; }
+    c.soluzione = i + 1;
+    c.accontoSoluzione = (c.adulti || 0) * CAPARRA_ADULTO;
+  });
+}
+
 /* --- deduzioni automatiche --- */
 function deduci(d) {
   const trattamenti = d.camere.map(c => (c.trattamento||'').toUpperCase()).join(' ');
@@ -169,21 +191,26 @@ async function disegna(d) {
     h += `<div class="${classe}"><strong>${titolo}</strong> ${esc(a.testo)}</div>`;
   });
 
-  /* v2.9.2: Fidra somma le persone di camere che non si sovrappongono.
-     La correzione la facciamo noi, ma va detta: chi guarda la pagina di
-     Fidra legge un numero e nell'email ne trova un altro, e senza una riga
-     che lo spieghi sembra un difetto nostro. */
-  if (d.occupazioneCorretta) {
-    const o = d.occupazioneCorretta;
-    h += `<div class="box"><strong>Persone corrette.</strong> Fidra ne conta
-      ${o.adultiFidra} ${o.adultiFidra === 1 ? 'adulto' : 'adulti'}${
-        o.bambiniFidra ? ` e ${o.bambiniFidra} bambin${o.bambiniFidra === 1 ? 'o' : 'i'}` : ''}
-      sommando camere con periodi che non si sovrappongono. Nell'email vanno
-      <strong>${d.adulti} ${d.adulti === 1 ? 'adulto' : 'adulti'}${
-        d.bambini ? ` e ${d.bambini} bambin${d.bambini === 1 ? 'o' : 'i'}` : ''}</strong>,
-      cio&egrave; il massimo presente nello stesso momento: due camere che non
-      si sovrappongono non ospitano persone diverse.
-      <div class="sub">La caparra segue lo stesso conto.</div></div>`;
+  /* v2.9.4: le camere non si sovrappongono. Puo' voler dire tre cose
+     diverse — alternative fra cui scegliere, stesse persone che cambiano
+     camera, oppure due soggiorni distinti di persone diverse — e nei dati
+     hanno lo stesso aspetto. Non si indovina: si chiede, e solo qui, dove
+     la domanda ha senso. */
+  if (d.camereNonSovrapposte) {
+    const u = d.personeUnaSoluzione || {};
+    const note = d.note.map(n => (n.testo || '').toLowerCase()).join(' ');
+    const spia = /alternativ|oppure|a scelta|x\s*\d\s*date|due date|2 date|opzion/i.exec(note);
+    h += `<div class="box"><strong>Camere con periodi che non si sovrappongono.</strong>
+      L&apos;offerta le somma: ${d.adulti} ${d.adulti === 1 ? 'adulto' : 'adulti'}${
+        d.bambini ? ` e ${d.bambini} bambin${d.bambini === 1 ? 'o' : 'i'}` : ''},
+      caparra ${esc(euroFmt(d.acconto))} &euro;. Giusto se all&apos;ospite servono
+      davvero tutte e due.
+      <label style="margin-top:6px;"><input type="checkbox" id="optAlternative"
+        ${spia ? 'checked' : ''} /> <strong>Sono alternative</strong>: l&apos;ospite ne sceglie una
+        ${u.adulti != null ? `<span class="sub">(${u.adulti} ${u.adulti === 1 ? 'adulto' : 'adulti'}${
+          u.bambini ? ` e ${u.bambini} bambin${u.bambini === 1 ? 'o' : 'i'}` : ''} per soluzione)</span>` : ''}</label>
+      ${spia ? `<div class="sub" style="color:#5A7A3E;">Spuntata dalla nota
+        &laquo;${esc(spia[0])}&raquo; &mdash; verifica prima di mandare.</div>` : ''}</div>`;
   }
   d.camere.forEach((c, i) => {
     if (c && c.soggiornanti && c.soggiornanti.length > 1 && (c.prezziDiversi || c.periodiOspitiDiversi)) {
@@ -799,6 +826,10 @@ $('copia').addEventListener('click', async () => {
     cane:   $('optCane')?.checked,
     promo:   $('optPromo')?.checked,
     fedelta: $('optFedelta')?.checked,
+    /* v2.9.4: camere alternative — l'ospite ne sceglie una. Lo dice
+       l'operatore: nei dati alternative, cambio camera e soggiorni
+       distinti si somigliano tutti. */
+    alternative: $('optAlternative')?.checked,
     dettaglio: $('dettaglio')?.value || '',
     dettaglioCamera: ($('dettaglio')?.value || '').trim() ? (window.__leoDettaglioCamera || '') : '',
     firma:  $('firma')?.value || 'La Reception',
@@ -819,6 +850,7 @@ $('copia').addEventListener('click', async () => {
     dayspa:   { it:[costruisciDaySpaIT, oggettoDaySpaIT], de:[costruisciDaySpaDE, oggettoDaySpaDE],
                 en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] }
   };
+  preparaAlternative(DATI, opzioni.alternative);
   const [fnHtml, fnOgg] = MODELLI[doc][lingua] || MODELLI[doc].it;
   // v1.1: la conferma stampa l'acconto dal campo modificabile, non solo dalla
   // lettura automatica (che poteva fallire lasciando "− 0,00 €" nell'email)
@@ -884,6 +916,10 @@ $('copiaOggetto').addEventListener('click', async () => {
     cane:   $('optCane')?.checked,
     promo:   $('optPromo')?.checked,
     fedelta: $('optFedelta')?.checked,
+    /* v2.9.4: camere alternative — l'ospite ne sceglie una. Lo dice
+       l'operatore: nei dati alternative, cambio camera e soggiorni
+       distinti si somigliano tutti. */
+    alternative: $('optAlternative')?.checked,
     dettaglio: $('dettaglio')?.value || '',
     dettaglioCamera: ($('dettaglio')?.value || '').trim() ? (window.__leoDettaglioCamera || '') : '',
     firma:  $('firma')?.value || 'La Reception',
@@ -902,6 +938,7 @@ $('copiaOggetto').addEventListener('click', async () => {
     dayspa:   { it:[costruisciDaySpaIT, oggettoDaySpaIT], de:[costruisciDaySpaDE, oggettoDaySpaDE],
                 en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] }
   };
+  preparaAlternative(DATI, opzioni.alternative);
   const [fnHtml, fnOgg] = MODELLI[doc][lingua] || MODELLI[doc].it;
   if (doc === 'conferma') {
     const campo = $('accontoRicevuto')?.value?.trim() || '';

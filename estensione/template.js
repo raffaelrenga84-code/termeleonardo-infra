@@ -214,9 +214,67 @@ function intestazioneCamera(c, d, lingua, nomeCategoria) {
   const PER = { it: 'per', de: 'f&uuml;r', en: 'for', fr: 'pour' };
   const q = c.quantita || 1;
   const base = `${q} ${nomeCategoria}`;
-  if (!periodiDiversi(d)) return base;
+  const testa = etichettaSoluzione(c, lingua);
+  if (!periodiDiversi(d)) return testa + base;
   const per = testoPeriodo(c, d, lingua);
-  return `${base} ${PER[lingua] || PER.it} ${(PERS[lingua] || PERS.it)(nOsp)}${per ? ' ' + per : ''}`;
+  return `${testa}${base} ${PER[lingua] || PER.it} ${(PERS[lingua] || PERS.it)(nOsp)}${per ? ' ' + per : ''}`;
+}
+
+/* ============================================================
+   v2.9.4 — CAMERE ALTERNATIVE
+   ------------------------------------------------------------
+   Quando l'operatore spunta «sono alternative», ogni camera smette
+   di essere un pezzo di un unico soggiorno e diventa una soluzione
+   a se': con il suo prezzo e la sua caparra, e senza che i due si
+   sommino.
+
+   NON SI DEDUCE DAI DATI. Alternative, cambio camera a meta'
+   soggiorno e due soggiorni distinti di persone diverse hanno in
+   Fidra lo stesso aspetto: due camere con periodi che non si
+   sovrappongono. Cambia solo l'intenzione di chi ha prenotato, e
+   quella la sa una persona sola. Per un giorno qui c'e' stata una
+   regola automatica, ed era sbagliata proprio sul caso piu' comune:
+   il cliente che ha davvero bisogno di due camere in due periodi.
+   ============================================================ */
+const ALT_T = {
+  it: {
+    h1: (n) => `${n === 2 ? 'Due soluzioni' : n + ' soluzioni'} fra cui scegliere`,
+    intro: (n, scad) => `Le proponiamo ${n === 2 ? 'due' : n} soluzioni alternative: <strong style="color:#2A2E2B;">ne scelga una</strong> e ce lo faccia sapere. I prezzi non si sommano &mdash; ognuna vale per conto suo. Teniamo la disponibilit&agrave; fino al <strong style="color:#2A2E2B;">${scad}</strong>.`,
+    soluzione: (i) => `Soluzione ${i}`,
+    caparra: (imp) => `caparra ${imp}`,
+    coda: 'Appena ci dice quale soluzione preferisce le mandiamo la conferma con i riferimenti per la caparra.'
+  },
+  de: {
+    h1: (n) => `${n === 2 ? 'Zwei M&ouml;glichkeiten' : n + ' M&ouml;glichkeiten'} zur Auswahl`,
+    intro: (n, scad) => `Wir schlagen Ihnen ${n === 2 ? 'zwei' : n} Alternativen vor: <strong style="color:#2A2E2B;">w&auml;hlen Sie eine davon</strong> und sagen Sie uns Bescheid. Die Preise werden nicht addiert &mdash; jede gilt f&uuml;r sich. Wir halten die Verf&uuml;gbarkeit bis zum <strong style="color:#2A2E2B;">${scad}</strong>.`,
+    soluzione: (i) => `M&ouml;glichkeit ${i}`,
+    caparra: (imp) => `Anzahlung ${imp}`,
+    coda: 'Sobald Sie uns Ihre Wahl mitteilen, senden wir Ihnen die Best&auml;tigung mit den Angaben zur Anzahlung.'
+  },
+  en: {
+    h1: (n) => `${n === 2 ? 'Two options' : n + ' options'} to choose from`,
+    intro: (n, scad) => `We are proposing ${n === 2 ? 'two' : n} alternative options: <strong style="color:#2A2E2B;">please choose one</strong> and let us know. The prices are not added together &mdash; each stands on its own. We will hold availability until <strong style="color:#2A2E2B;">${scad}</strong>.`,
+    soluzione: (i) => `Option ${i}`,
+    caparra: (imp) => `deposit ${imp}`,
+    coda: 'As soon as you tell us which option you prefer, we will send the confirmation with the deposit details.'
+  },
+  fr: {
+    h1: (n) => `${n === 2 ? 'Deux solutions' : n + ' solutions'} au choix`,
+    intro: (n, scad) => `Nous vous proposons ${n === 2 ? 'deux' : n} solutions alternatives : <strong style="color:#2A2E2B;">choisissez-en une</strong> et faites-le nous savoir. Les prix ne s&rsquo;additionnent pas &mdash; chacune vaut pour elle-m&ecirc;me. Nous gardons la disponibilit&eacute; jusqu&rsquo;au <strong style="color:#2A2E2B;">${scad}</strong>.`,
+    soluzione: (i) => `Solution ${i}`,
+    caparra: (imp) => `acompte ${imp}`,
+    coda: 'D&egrave;s que vous nous indiquez la solution retenue, nous vous envoyons la confirmation avec les coordonn&eacute;es pour l&rsquo;acompte.'
+  }
+};
+function altT(lingua) { return ALT_T[lingua] || ALT_T.it; }
+
+/* la targhetta «Soluzione 1» sopra il nome della camera. Vale per tutte e
+   quattro le lingue perche' intestazioneCamera e' una sola. */
+function etichettaSoluzione(c, lingua) {
+  if (!c || !c.soluzione) return '';
+  return `<span style="display:inline-block;font-family:Arial,Helvetica,sans-serif;font-size:10px;
+    letter-spacing:2px;text-transform:uppercase;color:#E8751A;padding-bottom:4px;">${
+    altT(lingua).soluzione(c.soluzione)}</span><br />`;
 }
 
 /* ============================================================
@@ -598,10 +656,16 @@ function totaleCameraRiga(c, d, lingua) {
                 de: q > 1 ? 'Zimmer gesamt' : 'Zimmer gesamt',
                 en: q > 1 ? 'Rooms total' : 'Room total',
                 fr: q > 1 ? 'Total chambres' : 'Total chambre' };
+  /* v2.9.4: con le alternative ogni soluzione porta anche la SUA caparra,
+     calcolata sui suoi adulti. Sommare le due caparre vorrebbe dire
+     chiedere il doppio per un soggiorno solo. */
+  const cap = (d && d.alternative && c.accontoSoluzione > 0)
+    ? ` <span style="color:#8C8578;">&middot; ${altT(lingua).caparra(importoLingua(c.accontoSoluzione, lingua))}</span>`
+    : '';
   return `<div style="padding-top:6px;margin-top:6px;border-top:1px solid #E9E2D5;
     font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#2A2E2B;">
     ${ETI[lingua] || ETI.it} <strong>${importoLingua(tot, lingua)}</strong>${
-      q > 1 ? ` <span style="color:#8C8578;">(${q} &times; ${importoLingua(uno, lingua)})</span>` : ''}</div>`;
+      q > 1 ? ` <span style="color:#8C8578;">(${q} &times; ${importoLingua(uno, lingua)})</span>` : ''}${cap}</div>`;
 }
 
 /* con la quota bambini esposta, il prezzo p.p. vale per i soli adulti */
@@ -926,10 +990,10 @@ function costruisciEmail(d, opzioni) {
   <tr><td style="padding:16px 36px 0 36px;">
     <p style="margin:0 0 14px 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:22px;color:#2A2E2B;">${saluto(d.intestatario, o.genere)},</p>
     <h1 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:31px;font-weight:normal;color:#2A2E2B;">
-      ${d.camere.length > 1 ? 'Le sue camere la aspettano' : 'La sua camera la aspetta'}${periodiDiversi(d) ? '' : `<br />dal ${arrivo} al ${partenza}`}
+      ${d.alternative ? altT('it').h1(d.camere.length) : `${d.camere.length > 1 ? 'Le sue camere la aspettano' : 'La sua camera la aspetta'}${periodiDiversi(d) ? '' : `<br />dal ${arrivo} al ${partenza}`}`}
     </h1>
     <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      ${periodiDiversi(d) ? `${ospiti} in ${d.camere.length} camere, con periodi diversi: li trova qui sotto accanto a ogni sistemazione. Le tratteniamo la disponibilit&agrave; fino al <strong style="color:#2A2E2B;">${scad}</strong>.` : `${notti} per ${ospiti}${d.camere.length > 1 ? ` in ${d.camere.length} camere` : ''}. Le tratteniamo la disponibilit&agrave; fino al <strong style="color:#2A2E2B;">${scad}</strong>.`}
+      ${d.alternative ? altT('it').intro(d.camere.length, scad) : `${periodiDiversi(d) ? `${ospiti} in ${d.camere.length} camere, con periodi diversi: li trova qui sotto accanto a ogni sistemazione. Le tratteniamo la disponibilit&agrave; fino al <strong style="color:#2A2E2B;">${scad}</strong>.` : `${notti} per ${ospiti}${d.camere.length > 1 ? ` in ${d.camere.length} camere` : ''}. Le tratteniamo la disponibilit&agrave; fino al <strong style="color:#2A2E2B;">${scad}</strong>.`}`}
     </p>
   </td></tr>
 
@@ -945,9 +1009,9 @@ ${blocchi.join('')}
         <td width="6" style="background-color:#1E7F88;font-size:0;line-height:0;">&nbsp;</td>
         <td style="padding:18px 20px 22px 22px;">
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#1E7F88;padding-bottom:6px;">Totale soggiorno</div>
-          <div style="font-family:Georgia,'Times New Roman',serif;font-size:38px;line-height:44px;color:#0F5C64;">${d.totaleFmt} &euro;</div>
+          ${d.alternative ? '' : `<div style="font-family:Georgia,'Times New Roman',serif;font-size:38px;line-height:44px;color:#0F5C64;">${d.totaleFmt} &euro;</div>`}
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:21px;color:#4A6E72;padding-top:4px;">
-            per ${ospiti}${periodiDiversi(d) ? '' : `, ${notti}`} &middot; tassa di soggiorno esclusa
+            ${d.alternative ? altT('it').coda : `per ${ospiti}${periodiDiversi(d) ? '' : `, ${notti}`} &middot; tassa di soggiorno esclusa`}
           </div>
 ${d.linkPagamento ? `          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px;"><tr>
             <td align="center" bgcolor="#E8751A" style="border-radius:4px;">
@@ -965,7 +1029,7 @@ ${d.linkPagamento ? `          <table role="presentation" cellpadding="0" cellsp
   <tr><td style="padding:22px 36px 0 36px;">
     <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Come si conferma</h2>
     <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      Serve un acconto di <strong style="color:#2A2E2B;">${d.accontoFmt} &euro;</strong> (${accPP} &euro; a persona).
+      ${d.alternative ? 'La caparra dipende dalla soluzione che sceglier&agrave;: la trova accanto a ognuna qui sopra.' : `Serve un acconto di <strong style="color:#2A2E2B;">${d.accontoFmt} &euro;</strong> (${accPP} &euro; a persona).`}
       <strong style="color:#2A2E2B;">Viene detratto dal totale</strong>: non &egrave; un costo in pi&ugrave;, alla partenza pagher&agrave; ${d.saldoFmt} &euro;.
     </p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-left:2px solid #C8BFAE;"><tr><td style="padding:2px 0 2px 16px;">

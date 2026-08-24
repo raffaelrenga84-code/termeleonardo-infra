@@ -200,10 +200,10 @@ function costruisciEmailDE(d, opzioni) {
   <tr><td style="padding:16px 36px 0 36px;">
     <p style="margin:0 0 14px 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:22px;color:#2A2E2B;">${anredeDE(d.intestatario, o.genere, o.titolo)},</p>
     <h1 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:31px;font-weight:normal;color:#2A2E2B;">
-      ${d.camere.length > 1 ? 'Ihre Zimmer erwarten Sie' : 'Ihr Zimmer erwartet Sie'}${periodiDiversi(d) ? '' : `<br />vom ${anreise} bis ${abreise}`}
+      ${d.alternative ? altT('de').h1(d.camere.length) : `${d.camere.length > 1 ? 'Ihre Zimmer erwarten Sie' : 'Ihr Zimmer erwartet Sie'}${periodiDiversi(d) ? '' : `<br />vom ${anreise} bis ${abreise}`}`}
     </h1>
     <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      ${periodiDiversi(d) ? `${gaeste} in ${d.camere.length} Zimmern, mit unterschiedlichen Zeiträumen: Sie finden sie unten bei jedem Zimmer. Wir halten Ihnen die Verfügbarkeit bis zum <strong style="color:#2A2E2B;">${frist}</strong> frei.` : `${naechte} für ${gaeste}${d.camere.length > 1 ? ` in ${d.camere.length} Zimmern` : ''}. Wir halten Ihnen die Verfügbarkeit bis zum <strong style="color:#2A2E2B;">${frist}</strong> frei.`}
+      ${d.alternative ? altT('de').intro(d.camere.length, frist) : `${periodiDiversi(d) ? `${gaeste} in ${d.camere.length} Zimmern, mit unterschiedlichen Zeiträumen: Sie finden sie unten bei jedem Zimmer. Wir halten Ihnen die Verfügbarkeit bis zum <strong style="color:#2A2E2B;">${frist}</strong> frei.` : `${naechte} für ${gaeste}${d.camere.length > 1 ? ` in ${d.camere.length} Zimmern` : ''}. Wir halten Ihnen die Verfügbarkeit bis zum <strong style="color:#2A2E2B;">${frist}</strong> frei.`}`}
     </p>
   </td></tr>
 
@@ -219,9 +219,9 @@ ${blocchi.join('')}
         <td width="6" style="background-color:#1E7F88;font-size:0;line-height:0;">&nbsp;</td>
         <td style="padding:22px 24px 22px 22px;">
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#1E7F88;padding-bottom:6px;">Gesamtpreis</div>
-          <div style="font-family:Georgia,'Times New Roman',serif;font-size:38px;line-height:44px;color:#0F5C64;">${d.totale.toLocaleString('de-DE',{minimumFractionDigits:2})} &euro;</div>
+          ${d.alternative ? '' : `<div style="font-family:Georgia,'Times New Roman',serif;font-size:38px;line-height:44px;color:#0F5C64;">${d.totale.toLocaleString('de-DE',{minimumFractionDigits:2})} &euro;</div>`}
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:21px;color:#4A6E72;padding-top:4px;">
-            für ${gaeste}${periodiDiversi(d) ? '' : `, ${naechte}`} &middot; zzgl. Kurtaxe
+            ${d.alternative ? altT('de').coda : `für ${gaeste}${periodiDiversi(d) ? '' : `, ${naechte}`} &middot; zzgl. Kurtaxe`}
           </div>
 ${d.linkPagamento ? `          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px;"><tr>
             <td align="center" bgcolor="#E8751A" style="border-radius:4px;">
@@ -239,7 +239,7 @@ ${d.linkPagamento ? `          <table role="presentation" cellpadding="0" cellsp
   <tr><td style="padding:22px 36px 0 36px;">
     <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">So bestätigen Sie Ihre Reservierung</h2>
     <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      Es genügt eine Anzahlung (Kaution) von <strong style="color:#2A2E2B;">${d.acconto.toLocaleString('de-DE',{minimumFractionDigits:2})} &euro;</strong> (${kautionPP} &euro; pro Person).
+      ${d.alternative ? 'Die Anzahlung h&auml;ngt von der gew&auml;hlten M&ouml;glichkeit ab: Sie finden sie oben bei jeder einzelnen.' : `Es genügt eine Anzahlung (Kaution) von <strong style="color:#2A2E2B;">${d.acconto.toLocaleString('de-DE',{minimumFractionDigits:2})} &euro;</strong> (${kautionPP} &euro; pro Person).`}
       <strong style="color:#2A2E2B;">Sie wird vom Gesamtpreis abgezogen</strong>: bei Abreise zahlen Sie noch ${d.saldo.toLocaleString('de-DE',{minimumFractionDigits:2})} &euro;.
     </p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-left:2px solid #C8BFAE;"><tr><td style="padding:2px 0 2px 16px;">

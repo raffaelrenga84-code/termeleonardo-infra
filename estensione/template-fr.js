@@ -192,10 +192,10 @@ function costruisciEmailFR(d, opzioni) {
   <tr><td style="padding:16px 36px 0 36px;">
     <p style="margin:0 0 14px 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:22px;color:#2A2E2B;">${politesseFR(d.intestatario, o.genere, o.titolo)},</p>
     <h1 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:31px;font-weight:normal;color:#2A2E2B;">
-      ${d.camere.length > 1 ? 'Vos chambres vous attendent' : 'Votre chambre vous attend'}${periodiDiversi(d) ? '' : `<br />du ${arrivee} au ${depart}`}
+      ${d.alternative ? altT('fr').h1(d.camere.length) : `${d.camere.length > 1 ? 'Vos chambres vous attendent' : 'Votre chambre vous attend'}${periodiDiversi(d) ? '' : `<br />du ${arrivee} au ${depart}`}`}
     </h1>
     <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      ${periodiDiversi(d) ? `${hotes} en ${d.camere.length} chambres, avec des périodes différentes : vous les trouverez ci-dessous, à côté de chaque chambre. Nous vous les réservons jusqu'au <strong style="color:#2A2E2B;">${limite}</strong>.` : `${nuits} pour ${hotes}${d.camere.length > 1 ? ` en ${d.camere.length} chambres` : ''}. Nous vous la réservons jusqu'au <strong style="color:#2A2E2B;">${limite}</strong>.`}
+      ${d.alternative ? altT('fr').intro(d.camere.length, limite) : `${periodiDiversi(d) ? `${hotes} en ${d.camere.length} chambres, avec des périodes différentes : vous les trouverez ci-dessous, à côté de chaque chambre. Nous vous les réservons jusqu'au <strong style="color:#2A2E2B;">${limite}</strong>.` : `${nuits} pour ${hotes}${d.camere.length > 1 ? ` en ${d.camere.length} chambres` : ''}. Nous vous la réservons jusqu'au <strong style="color:#2A2E2B;">${limite}</strong>.`}`}
     </p>
   </td></tr>
 
@@ -207,9 +207,9 @@ function costruisciEmailFR(d, opzioni) {
         <td width="6" style="background-color:#1E7F88;font-size:0;line-height:0;">&nbsp;</td>
         <td style="padding:22px 24px 22px 22px;">
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#1E7F88;padding-bottom:6px;">Total du séjour</div>
-          <div style="font-family:Georgia,'Times New Roman',serif;font-size:38px;line-height:44px;color:#0F5C64;">${argentFR(d.totale)}</div>
+          ${d.alternative ? '' : `<div style="font-family:Georgia,'Times New Roman',serif;font-size:38px;line-height:44px;color:#0F5C64;">${argentFR(d.totale)}</div>`}
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:21px;color:#4A6E72;padding-top:4px;">
-            pour ${hotes}${periodiDiversi(d) ? '' : `, ${nuits}`} &middot; taxe de séjour non comprise
+            ${d.alternative ? altT('fr').coda : `pour ${hotes}${periodiDiversi(d) ? '' : `, ${nuits}`} &middot; taxe de séjour non comprise`}
           </div>
 ${d.linkPagamento ? `          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px;"><tr>
             <td align="center" bgcolor="#E8751A" style="border-radius:4px;">
@@ -227,7 +227,7 @@ ${d.linkPagamento ? `          <table role="presentation" cellpadding="0" cellsp
   <tr><td style="padding:22px 36px 0 36px;">
     <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Comment confirmer</h2>
     <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      Des arrhes de <strong style="color:#2A2E2B;">${argentFR(d.acconto)}</strong> (${arrhPP} € par personne) suffisent.
+      ${d.alternative ? 'L&rsquo;acompte d&eacute;pend de la solution retenue : vous le trouvez ci-dessus &agrave; c&ocirc;t&eacute; de chacune.' : `Des arrhes de <strong style="color:#2A2E2B;">${argentFR(d.acconto)}</strong> (${arrhPP} € par personne) suffisent.`}
       <strong style="color:#2A2E2B;">Elles sont déduites du total</strong>: au départ, il vous restera ${argentFR(d.saldo)}.
     </p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-left:2px solid #C8BFAE;"><tr><td style="padding:2px 0 2px 16px;">

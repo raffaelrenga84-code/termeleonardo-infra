@@ -357,28 +357,31 @@ function estrai() {
     else totale += c.totalePP * c.adulti;
   });
 
-  /* v2.9.2 — LE PERSONE NON SI SOMMANO SE LE CAMERE NON SI SOVRAPPONGONO.
+  /* v2.9.4 — LE PERSONE SI SOMMANO, COME SEMPRE.
 
-     Fidra scrive in testa alla pratica «2 Camere prenotate con in totale 4
-     Adulti e 2 Bambini» e noi lo ripetevamo. Ma quelle due camere erano
-     25→26 e 26→27 settembre: in nessun istante sono occupate insieme, e le
-     persone sono tre, non sei. L'email diceva «6 persone, di cui 2 bambini»
-     a una signora che ne aveva chieste tre, e la caparra usciva 300 € invece
-     di 150.
+     Per un giorno qui c'e' stata una regola automatica: se le camere non si
+     sovrappongono, non sommare le persone. Sembrava solida — in un istante
+     due camere che non si sovrappongono ospitano una sola comitiva — ed e'
+     sbagliata, perche' un'offerta non descrive un istante.
 
-     Non e' un difetto delle alternative: e' dei periodi diversi. Una
-     famiglia che a meta' soggiorno cambia stanza — un cambio camera vero —
-     riceveva la stessa email con il doppio delle persone.
+     IL CASO CHE LA SMONTA: due camere 25→27 e 28→30 per persone diverse,
+     i genitori una settimana e il fratello quella dopo. Non si sovrappongono
+     mai, ma gli ospiti sono quattro e la caparra e' 4 × 75. Automatizzando
+     si sarebbero dimezzate le persone e la caparra di ogni prenotazione di
+     questo tipo — molto peggio del difetto che si voleva correggere.
 
-     La regola giusta non e' la somma, e' la MASSIMA OCCUPAZIONE
-     SIMULTANEA: per ogni notte si sommano le camere che quella notte sono
-     occupate, e si tiene la notte piu' affollata. Con le camere insieme il
-     massimo E' la somma, quindi il caso normale non cambia. */
+     Alternative, cambio camera e camere separate hanno lo stesso aspetto nei
+     dati: cambia solo l'intenzione di chi ha prenotato, e quella la sa una
+     persona sola. Percio' qui si somma, e l'operatore lo dice con una spunta
+     quando le camere sono alternative.
+
+     Resta il calcolo dell'occupazione, che non decide piu' niente: serve a
+     sapere QUANDO offrire la spunta (solo se le camere non si sovrappongono
+     — altrimenti non e' nemmeno una domanda) e con quante persone contare la
+     singola soluzione. */
   const occ = occupazioneMassima(s, anno, annoPartenza);
-  const adultiFidra = s.adulti ?? s.camere.reduce((a, c) => a + (c.adulti || 0), 0);
-  const bambiniFidra = s.bambini ?? s.camere.reduce((a, c) => a + (c.bambini || 0), 0);
-  const adulti  = occ ? occ.adulti : adultiFidra;
-  const bambini = occ ? occ.bambini : bambiniFidra;
+  const adulti  = s.adulti ?? s.camere.reduce((a, c) => a + (c.adulti || 0), 0);
+  const bambini = s.bambini ?? s.camere.reduce((a, c) => a + (c.bambini || 0), 0);
   const acconto = (s.caparraDovuta && s.caparraDovuta > 0)
       ? s.caparraDovuta
       : adulti * CAPARRA_PER_ADULTO;
@@ -419,8 +422,12 @@ function estrai() {
     anno, mese: s.mese, giornoArrivo: s.giornoArrivo, giornoPartenza: s.giornoPartenza,
     mesePartenza, annoPartenza,
     notti: s.notti, nCamere: s.nCamere, adulti, bambini,
-    /* quando Fidra e la realta' non coincidono, il pannello lo dice */
-    occupazioneCorretta: occ ? { adultiFidra, bambiniFidra } : null,
+    /* le camere non si sovrappongono: potrebbero essere alternative, un
+       cambio camera oppure due soggiorni distinti di persone diverse. Non
+       si decide qui: si offre la spunta all'operatore, con quante persone
+       avrebbe la singola soluzione. */
+    camereNonSovrapposte: !!occ,
+    personeUnaSoluzione: occ ? { adulti: occ.adulti, bambini: occ.bambini } : null,
     camere: s.camere,
     totale: calcolabile ? totale : null,
     totaleFmt: calcolabile ? euro(totale) : null,

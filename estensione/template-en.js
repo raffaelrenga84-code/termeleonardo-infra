@@ -212,10 +212,10 @@ function costruisciEmailEN(d, opzioni) {
   <tr><td style="padding:16px 36px 0 36px;">
     <p style="margin:0 0 14px 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:22px;color:#2A2E2B;">${greetingEN(d.intestatario, o.genere, o.titolo)},</p>
     <h1 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:31px;font-weight:normal;color:#2A2E2B;">
-      ${d.camere.length > 1 ? 'Your rooms are waiting' : 'Your room is waiting'}${periodiDiversi(d) ? '' : `<br />from ${arrival} to ${departure}`}
+      ${d.alternative ? altT('en').h1(d.camere.length) : `${d.camere.length > 1 ? 'Your rooms are waiting' : 'Your room is waiting'}${periodiDiversi(d) ? '' : `<br />from ${arrival} to ${departure}`}`}
     </h1>
     <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      ${periodiDiversi(d) ? `${guests} in ${d.camere.length} rooms, with different dates: you will find them below, next to each room. We will hold it for you until <strong style="color:#2A2E2B;">${deadline}</strong>.` : `${nights} for ${guests}${d.camere.length > 1 ? ` in ${d.camere.length} rooms` : ''}. We will hold it for you until <strong style="color:#2A2E2B;">${deadline}</strong>.`}
+      ${d.alternative ? altT('en').intro(d.camere.length, deadline) : `${periodiDiversi(d) ? `${guests} in ${d.camere.length} rooms, with different dates: you will find them below, next to each room. We will hold it for you until <strong style="color:#2A2E2B;">${deadline}</strong>.` : `${nights} for ${guests}${d.camere.length > 1 ? ` in ${d.camere.length} rooms` : ''}. We will hold it for you until <strong style="color:#2A2E2B;">${deadline}</strong>.`}`}
     </p>
   </td></tr>
 
@@ -227,9 +227,9 @@ function costruisciEmailEN(d, opzioni) {
         <td width="6" style="background-color:#1E7F88;font-size:0;line-height:0;">&nbsp;</td>
         <td style="padding:22px 24px 22px 22px;">
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#1E7F88;padding-bottom:6px;">Total for the stay</div>
-          <div style="font-family:Georgia,'Times New Roman',serif;font-size:38px;line-height:44px;color:#0F5C64;">${moneyEN(d.totale)}</div>
+          ${d.alternative ? '' : `<div style="font-family:Georgia,'Times New Roman',serif;font-size:38px;line-height:44px;color:#0F5C64;">${moneyEN(d.totale)}</div>`}
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:21px;color:#4A6E72;padding-top:4px;">
-            for ${guests}${periodiDiversi(d) ? '' : `, ${nights}`} &middot; tourist tax not included
+            ${d.alternative ? altT('en').coda : `for ${guests}${periodiDiversi(d) ? '' : `, ${nights}`} &middot; tourist tax not included`}
           </div>
 ${d.linkPagamento ? `          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px;"><tr>
             <td align="center" bgcolor="#E8751A" style="border-radius:4px;">
@@ -247,7 +247,7 @@ ${d.linkPagamento ? `          <table role="presentation" cellpadding="0" cellsp
   <tr><td style="padding:22px 36px 0 36px;">
     <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">How to confirm</h2>
     <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      A deposit of <strong style="color:#2A2E2B;">${moneyEN(d.acconto)}</strong> (€${depPP} per person) secures the booking.
+      ${d.alternative ? 'The deposit depends on the option you choose: you will find it next to each one above.' : `A deposit of <strong style="color:#2A2E2B;">${moneyEN(d.acconto)}</strong> (€${depPP} per person) secures the booking.`}
       <strong style="color:#2A2E2B;">It is deducted from the total</strong>: on departure you will pay ${moneyEN(d.saldo)}.
     </p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-left:2px solid #C8BFAE;"><tr><td style="padding:2px 0 2px 16px;">
