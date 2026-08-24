@@ -3,7 +3,8 @@
    ============================================================ */
 
 let DATI = null;
-let MODO = 'fidra';   // 'fidra' = dalla prenotazione aperta · 'rapido' = modulo manuale
+let MODO = 'fidra';   // 'fidra' = dalla prenotazione aperta · 'rapido' = fuori da Fidra
+let PREVENTIVO = null;   // leonardo_preventivo fresco, preparato dal riquadro in Fidra
 
 const FIRME = [
   'La Reception',
@@ -473,23 +474,27 @@ async function disegna(d) {
    Preventivo rapido — offerta senza prenotazione in Fidra
    ============================================================ */
 
-const CATEGORIE_RAPIDO = [
-  'Matrimoniale Queen','Doppia','Singola','Singola Parco',
-  'Junior Suite Abano','Junior Suite Monteortone','Junior Suite Colli Euganei',
-  'Suite Monteortone','Suite Colli Euganei'
-];
-const TRATTAMENTI_RAPIDO = ['Mezza Pensione','Bed & Breakfast','Pensione Completa',
-  'Dolce Vita 5 Cure','Dolce Vita 10 Cure','Soggiorno Smart','Soggiorno Escape','Soggiorno Deluxe'];
 const MESI_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const euroFmt = (n) => {
   const [int, dec] = n.toFixed(2).split('.');
   return int.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + dec;
 };
-const STILE_IN = 'width:100%;padding:7px;border:1px solid #ddd;border-radius:4px;font-family:inherit;font-size:13px;';
+
+/* '2026-08-23' → '23 ago 2026', solo per il riepilogo nel pannello:
+   nell'email le date le formatta il modello, in quattro lingue. */
+function dataBreve(iso) {
+  const M = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return String(iso || '');
+  return `${+m[3]} ${M[+m[2] - 1]} ${m[1]}`;
+}
 
 function linkRapido() {
+  /* v2.9: non dice piu' «preventivo rapido». Adesso il preventivo esiste
+     davvero, e nasce dal riquadro in Fidra: chiamare cosi' questo link
+     manderebbe a cercare un modulo che non c'e' piu'. */
   return `<div class="box sub" style="margin-top:10px;">Oppure <a href="#" id="vaiRapido"
-    style="color:#1E7F88;">prepara un preventivo rapido</a> senza leggere la pagina.</div>`;
+    style="color:#1E7F88;">rispondi senza leggere la pagina</a>.</div>`;
 }
 function agganciaLinkRapido() {
   const a = document.getElementById('vaiRapido');
@@ -502,6 +507,19 @@ async function disegnaRapido() {
   const salvate = await chrome.storage.local.get(['firma']);
   $('titolo').textContent = 'Fuori da Fidra';
 
+  /* v2.9: il preventivo preparato nel riquadro «Disponibilita' e prezzi».
+     Mezz'ora, come il dettaglio notte per notte: oltre, le tariffe possono
+     essere cambiate, e un preventivo vecchio e' peggio di nessun preventivo
+     perche' sembra giusto. */
+  PREVENTIVO = null;
+  try {
+    const r = await chrome.storage.local.get(['leonardo_preventivo']);
+    const p = r.leonardo_preventivo;
+    if (p && p.voci && p.voci.length && Date.now() - (p.quando || 0) <= 30 * 60 * 1000) {
+      PREVENTIVO = p;
+    }
+  } catch (e) { /* senza, la voce semplicemente non compare */ }
+
   $('corpo').innerHTML = `
     <div class="box">Offerte, conferme e solleciti si generano <strong>solo dalla
       prenotazione aperta in Fidra</strong>: apri la scheda del cliente e riapri
@@ -510,13 +528,32 @@ async function disegnaRapido() {
       in basso a destra.</div></div>
 
     <h3>Che cosa mandi</h3>
-    <div class="sub" style="margin-bottom:8px;">Questi due documenti non usano i dati del
-      soggiorno: prezzi e istruzioni sono nel modello, serve solo a chi &egrave; rivolto.
-      Sono le richieste che arrivano per email e non passano da Fidra.</div>
-    <label><input type="radio" name="doc" value="dayspa" checked /> Info Day Spa
+    <div class="sub" style="margin-bottom:8px;">Questi documenti non hanno una prenotazione
+      dietro: sono le richieste che arrivano per email e non passano da Fidra.</div>
+    <label><input type="radio" name="doc" value="dayspa" ${PREVENTIVO ? '' : 'checked '}/> Info Day Spa
       <span class="sub">(ingressi, orari, come prenotare)</span></label>
     <label><input type="radio" name="doc" value="buoni" /> Buoni regalo
       <span class="sub">(come si compone, prezzi, validit&agrave;, acquisto online)</span></label>
+    ${PREVENTIVO ? `<label><input type="radio" name="doc" value="preventivo" checked /> Preventivo soggiorno
+      <span class="sub">(le sistemazioni scelte in &laquo;Disponibilit&agrave; e prezzi&raquo;)</span></label>
+    <div class="box sub" style="margin-top:6px;">
+      <strong>${esc(dataBreve(PREVENTIVO.arrivo))} &rarr; ${esc(dataBreve(PREVENTIVO.partenza))}</strong>
+      &middot; ${PREVENTIVO.notti} ${PREVENTIVO.notti === 1 ? 'notte' : 'notti'}
+      &middot; ${PREVENTIVO.adulti} ${PREVENTIVO.adulti === 1 ? 'adulto' : 'adulti'}${
+        PREVENTIVO.etaBambini.length
+          ? ' &middot; ' + PREVENTIVO.etaBambini.length +
+            (PREVENTIVO.etaBambini.length === 1 ? ' bambino' : ' bambini') +
+            ' (' + PREVENTIVO.etaBambini.join(', ') + ' anni)'
+          : ''}
+      <div style="padding-top:5px;">${PREVENTIVO.voci.map(v =>
+        `${esc(v.categoria)} &middot; ${esc(v.trattamento)} &mdash;
+         <strong>${euroFmt(v.totale / 100)} &euro;</strong>`).join('<br />')}</div>
+      <div style="padding-top:5px;color:#7B756A;">Per cambiarle, torna sul riquadro in Fidra.</div>
+    </div>
+    <label style="margin-top:8px;"><input type="checkbox" id="optCure" /> Cure termali
+      <span class="sub">(impegnativa, ticket 55 &euro;, turni al mattino)</span></label>
+    <label><input type="checkbox" id="optCane" /> Cane al seguito
+      <span class="sub">(13 &euro; al giorno, si salda in hotel)</span></label>` : ''}
 
     <h3>A chi &egrave; rivolto</h3>
     <label>Cognome e nome <span class="sub">(facoltativo: senza, l&apos;email saluta
@@ -546,88 +583,13 @@ async function disegnaRapido() {
   $('copia').disabled = false;
 }
 
-function aggiungiCameraRapida() {
-  const box = $('rapCamere');
-  const div = document.createElement('div');
-  div.style.cssText = 'border:1px solid #EDE7DC;border-radius:5px;padding:10px;margin-bottom:8px;position:relative;';
-  div.className = 'camRapida';
-  div.innerHTML = `
-    ${box.children.length > 0 ? `<a href="#" class="rapTogli" title="Togli questa camera"
-      style="position:absolute;top:4px;right:10px;color:#C0392B;text-decoration:none;font-size:16px;">&times;</a>` : ''}
-    <label class="sub">Categoria</label>
-    <select class="rapCat" style="${STILE_IN}">
-      ${CATEGORIE_RAPIDO.map(c => `<option>${c}</option>`).join('')}
-      <option value="__altro">Altra sistemazione…</option>
-    </select>
-    <input class="rapCatAltro" placeholder="nome della sistemazione"
-      style="display:none;margin-top:6px;${STILE_IN}" />
-    <label class="sub" style="padding-top:6px;">Trattamento</label>
-    <input class="rapTratt" list="rapTrattList" value="Mezza Pensione" style="${STILE_IN}" />
-    <div style="display:flex;gap:10px;padding-top:6px;">
-      <div style="flex:1;"><label class="sub">Adulti</label>
-        <input class="rapAdulti" type="number" min="1" value="2" style="${STILE_IN}" /></div>
-      <div style="flex:1;"><label class="sub">Prezzo a persona (&euro;)</label>
-        <input class="rapPrezzo" type="number" min="0" step="0.01" placeholder="es. 590" style="${STILE_IN}" /></div>
-    </div>`;
-  box.appendChild(div);
-
-  if (!document.getElementById('rapTrattList')) {
-    const dl = document.createElement('datalist');
-    dl.id = 'rapTrattList';
-    dl.innerHTML = TRATTAMENTI_RAPIDO.map(x => `<option value="${x}"></option>`).join('');
-    document.body.appendChild(dl);
-  }
-  div.querySelector('.rapCat').addEventListener('change', e => {
-    div.querySelector('.rapCatAltro').style.display = e.target.value === '__altro' ? 'block' : 'none';
-  });
-  const togli = div.querySelector('.rapTogli');
-  if (togli) togli.addEventListener('click', ev => { ev.preventDefault(); div.remove(); aggiornaCalcoliRapidi(); });
-  aggiornaCalcoliRapidi();
-}
-
-function aggiornaCalcoliRapidi() {
-  const a = $('rapArrivo')?.value, p = $('rapPartenza')?.value;
-  let notti = null;
-  if (a && p) {
-    const A = new Date(a + 'T00:00'), P = new Date(p + 'T00:00');
-    notti = Math.round((P - A) / 86400000);
-    if (notti <= 0) {
-      $('rapNotti').innerHTML = '<span style="color:#C0392B;">La partenza deve essere dopo l\'arrivo.</span>';
-      notti = null;
-    } else {
-      $('rapNotti').textContent = notti === 1 ? '1 notte' : `${notti} notti`;
-    }
-  } else {
-    $('rapNotti').textContent = '';
-  }
-
-  const adulti = [...document.querySelectorAll('.rapAdulti')].reduce((s, el) => s + (+el.value || 0), 0);
-  if (!$('rapAcconto').dataset.mano) $('rapAcconto').value = adulti ? adulti * 75 : '';
-
-  let totale = 0, calcolabile = true;
-  document.querySelectorAll('.camRapida').forEach(div => {
-    const pr = parseFloat(div.querySelector('.rapPrezzo').value);
-    const ad = +div.querySelector('.rapAdulti').value || 0;
-    if (!(pr > 0) || ad < 1) calcolabile = false; else totale += pr * ad;
-  });
-  $('rapTotale').textContent = calcolabile && totale ? `${euroFmt(totale)} €` : '—';
-
-  const tratt = [...document.querySelectorAll('.rapTratt')].map(el => el.value.toUpperCase()).join(' ');
-  const daTratt = /\bCUR[AE]|FANGO|TERMAL|DOLCE VITA/.test(tratt);
-  const cure = daTratt || (notti || 0) > 5;
-  if (!$('optCure').dataset.mano) {
-    $('optCure').checked = cure;
-    $('rapCureNota').textContent = cure ? (daTratt ? '(dal trattamento)' : `(${notti} notti)`) : '';
-  }
-}
-
 /* legge il modulo e costruisce lo stesso oggetto dati dell'estrattore Fidra */
 function costruisciDatiRapidi() {
   const errori = [];
   const oggi0 = new Date(); oggi0.setHours(0, 0, 0, 0);
 
   const nome = $('rapNome').value.trim();
-  const senzaSoggiorno = ['dayspa', 'buoni'].includes(
+  const senzaSoggiorno = ['dayspa', 'buoni', 'preventivo'].includes(
     document.querySelector('input[name=doc]:checked')?.value);
   /* v2.0.5: per Info Day Spa e Buoni regalo il nome e' facoltativo — spesso
      la richiesta arriva da un indirizzo senza firma. Senza nome l'email
@@ -650,81 +612,37 @@ function costruisciDatiRapidi() {
     } };
   }
 
-  const a = $('rapArrivo').value, p = $('rapPartenza').value;
-  let anno = null, mese = null, gA = null, gP = null, notti = null;
-  let mesePartenza = null, annoPartenza = null;
-  if (!a || !p) {
-    errori.push('date di arrivo e partenza');
-  } else {
-    const A = new Date(a + 'T00:00'), P = new Date(p + 'T00:00');
-    notti = Math.round((P - A) / 86400000);
-    if (notti <= 0) errori.push('partenza successiva all\'arrivo');
-    else if (A < oggi0) errori.push('data di arrivo non gi\u00e0 passata');
-
-    else {
-      anno = A.getFullYear(); mese = MESI_ABBR[A.getMonth()];
-      gA = A.getDate(); gP = P.getDate();
-      /* soggiorno a cavallo di due mesi (o di due anni) */
-      mesePartenza = MESI_ABBR[P.getMonth()];
-      annoPartenza = P.getFullYear();
-    }
+  /* v2.9: il preventivo. I prezzi non si digitano: arrivano dal riquadro
+     «Disponibilita' e prezzi», che li ha letti dalle API di Fidra con
+     l'uso singola e i bambini per eta' gia' dentro. */
+  if (document.querySelector('input[name=doc]:checked')?.value === 'preventivo') {
+    if (!PREVENTIVO) return { errori: ['il preventivo preparato in Fidra (rifallo dal riquadro)'] };
+    if (errori.length) return { errori };
+    const A = new Date(PREVENTIVO.arrivo + 'T00:00');
+    const P = new Date(PREVENTIVO.partenza + 'T00:00');
+    return { dati: {
+      ok: true, rapido: true, preventivo: true, id: null, numeroOfferta: null,
+      linkPagamento: null, stato: 'preventivo',
+      intestatario: nome, email: $('rapEmail').value.trim(),
+      emailAlternative: [], note: [], mancanti: [], profilo: {},
+      giornoArrivo: A.getDate(), mese: MESI_ABBR[A.getMonth()], anno: A.getFullYear(),
+      giornoPartenza: P.getDate(), mesePartenza: MESI_ABBR[P.getMonth()], annoPartenza: P.getFullYear(),
+      notti: PREVENTIVO.notti, adulti: PREVENTIVO.adulti,
+      bambini: PREVENTIVO.etaBambini.length,
+      /* le eta' servono al modello: rigaBambini abbina prezzo ed eta' per
+         rango crescente, e senza le eta' scriverebbe solo la somma */
+      etaBambini: PREVENTIVO.etaBambini,
+      voci: PREVENTIVO.voci,
+      camere: [], nCamere: 0, caparraVersata: 0, caparraDovuta: null
+    } };
   }
 
-  const camere = [];
-  document.querySelectorAll('.camRapida').forEach((div, i) => {
-    let cat = div.querySelector('.rapCat').value;
-    if (cat === '__altro') cat = div.querySelector('.rapCatAltro').value.trim();
-    const trattamento = div.querySelector('.rapTratt').value.trim();
-    const adulti = +div.querySelector('.rapAdulti').value || 0;
-    const prezzo = parseFloat(div.querySelector('.rapPrezzo').value);
-    if (!cat) errori.push(`camera ${i + 1}: nome della sistemazione`);
-    if (adulti < 1) errori.push(`camera ${i + 1}: almeno un adulto`);
-    if (!(prezzo > 0)) errori.push(`camera ${i + 1}: prezzo a persona`);
-    camere.push({ categoria: cat, numero: null, ospiti: [], adulti, bambini: 0,
-                  trattamento, totalePP: prezzo, checkinFatti: 0 });
-  });
-  if (!camere.length) errori.push('almeno una camera');
-
-  const bambini = +$('rapBambini').value || 0;
-  const adulti = camere.reduce((s, c) => s + c.adulti, 0);
-
-  camere.forEach(c => {
-    const lim = limiteCategoria(c.categoria);
-    const persone = c.adulti + (camere.length === 1 ? bambini : 0);
-    if (lim && persone > lim.max) errori.push(`${c.categoria}: ${persone} persone, massimo ${lim.max}`);
-  });
-
-  let scadenza = null;
-  const s = $('rapScadenza').value;
-  if (!s) {
-    errori.push('scadenza dell\'opzione');
-  } else {
-    const S = new Date(s + 'T00:00');
-    if (S < oggi0) errori.push('scadenza non gi\u00e0 passata');
-    scadenza = `${S.getDate()} ${MESI_ABBR[S.getMonth()]} ${S.getFullYear()}`;
-  }
-
-  const acconto = parseFloat($('rapAcconto').value);
-  if (!(acconto > 0)) errori.push('acconto');
-  const rif = $('rapRif').value.trim();
-  if (!rif) errori.push('riferimento pratica');
-
-  if (errori.length) return { errori };
-
-  const totale = camere.reduce((s2, c) => s2 + c.totalePP * c.adulti, 0);
-  return { dati: {
-    ok: true, rapido: true, id: null, numeroOfferta: rif, linkPagamento: null,
-    stato: 'offerta', sorgente: null, fonteAnno: 'modulo manuale',
-    giaInCasa: false, checkinFatti: 0, arrivoPassato: false,
-    intestatario: nome, email: $('rapEmail').value.trim(), telefono: null,
-    eta: null, paese: null, citta: null, emailAlternative: [],
-    scadenza, anno, mese, mesePartenza, annoPartenza, giornoArrivo: gA, giornoPartenza: gP,
-    notti, nCamere: camere.length, adulti, bambini, camere,
-    totale, totaleFmt: euroFmt(totale),
-    acconto, accontoFmt: euroFmt(acconto),
-    saldo: totale - acconto, saldoFmt: euroFmt(totale - acconto),
-    caparraVersata: 0, caparraDovuta: null, note: [], mancanti: [], profilo: {}
-  } };
+  /* Non c'e' nessun altro documento che il pannello sappia fare fuori da
+     Fidra. Il modulo che chiedeva camere e prezzi a mano stava qui ed e'
+     stato tolto il 24 agosto 2026: e' il caso Kreiner, «ho copiato il
+     modello con prezzi dus non inseriti». Un prezzo digitato e' un prezzo
+     sbagliato, e adesso c'e' un modo di leggerlo. */
+  return { errori: ['un documento che il pannello sappia fare senza Fidra'] };
 }
 
 /* modulo → DATI. Usato da entrambi i pulsanti del footer.
@@ -942,7 +860,9 @@ $('copia').addEventListener('click', async () => {
     buoni:    { it:[costruisciBuoniIT, oggettoBuoniIT], de:[costruisciBuoniDE, oggettoBuoniDE],
                 en:[costruisciBuoniEN, oggettoBuoniEN], fr:[costruisciBuoniFR, oggettoBuoniFR] },
     dayspa:   { it:[costruisciDaySpaIT, oggettoDaySpaIT], de:[costruisciDaySpaDE, oggettoDaySpaDE],
-                en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] }
+                en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] },
+    preventivo: { it:[costruisciPreventivoIT, oggettoPreventivoIT], de:[costruisciPreventivoDE, oggettoPreventivoDE],
+                  en:[costruisciPreventivoEN, oggettoPreventivoEN], fr:[costruisciPreventivoFR, oggettoPreventivoFR] }
   };
   const [fnHtml, fnOgg] = MODELLI[doc][lingua] || MODELLI[doc].it;
   // v1.1: la conferma stampa l'acconto dal campo modificabile, non solo dalla
@@ -983,8 +903,8 @@ $('copia').addEventListener('click', async () => {
       chrome.tabs.create({ url: linkOutlook(dest, ogg) });
       $('esito').textContent = doc === 'conferma'
         ? 'Outlook aperto: il testo si inserisce da solo — poi "Invia online-checkin" in Fidra'
-        : (MODO === 'rapido' && doc === 'offerta'
-            ? 'Outlook aperto: il testo si inserisce da solo — quando l\'ospite accetta, registra l\'offerta in Fidra'
+        : (MODO === 'rapido' && doc === 'preventivo'
+            ? 'Outlook aperto: il testo si inserisce da solo — se l\'ospite accetta, apri la pratica in Fidra e manda l\'offerta'
             : 'Outlook aperto: il testo si inserisce da solo (in riserva: Ctrl+V)');
     } else {
       $('esito').textContent = dest
@@ -1027,7 +947,9 @@ $('copiaOggetto').addEventListener('click', async () => {
     buoni:    { it:[costruisciBuoniIT, oggettoBuoniIT], de:[costruisciBuoniDE, oggettoBuoniDE],
                 en:[costruisciBuoniEN, oggettoBuoniEN], fr:[costruisciBuoniFR, oggettoBuoniFR] },
     dayspa:   { it:[costruisciDaySpaIT, oggettoDaySpaIT], de:[costruisciDaySpaDE, oggettoDaySpaDE],
-                en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] }
+                en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] },
+    preventivo: { it:[costruisciPreventivoIT, oggettoPreventivoIT], de:[costruisciPreventivoDE, oggettoPreventivoDE],
+                  en:[costruisciPreventivoEN, oggettoPreventivoEN], fr:[costruisciPreventivoFR, oggettoPreventivoFR] }
   };
   const [fnHtml, fnOgg] = MODELLI[doc][lingua] || MODELLI[doc].it;
   if (doc === 'conferma') {

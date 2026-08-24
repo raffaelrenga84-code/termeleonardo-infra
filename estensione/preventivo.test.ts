@@ -413,6 +413,49 @@ Deno.test('le voci portano i prezzi dei bambini, non solo il conteggio', () => {
   );
 });
 
+/* ============================================================
+   Il pannello, come il modale, tocca il DOM e non si esegue qui. Ma la
+   cosa che deve restare vera e' testuale, e questa prova la sorveglia
+   meglio di quanto potrebbe farlo un click.
+   ============================================================ */
+const PANNELLO = Deno.readTextFileSync(new URL('popup.js', import.meta.url));
+
+Deno.test('nel pannello non esiste piu nessun campo dove digitare un prezzo', () => {
+  /* IL PUNTO DI TUTTA LA FUNZIONE. Se questi id tornano, e tornato anche
+     il caso Kreiner: un prezzo scritto a mano, senza uso singola. */
+  for (const id of ['rapPrezzo', 'rapAcconto', 'rapScadenza', 'rapRif', 'rapArrivo', 'camRapida']) {
+    assert(!PANNELLO.includes(id), `«${id}» e tornato nel pannello: i prezzi si digitano di nuovo`);
+  }
+  assert(
+    !PANNELLO.includes('aggiungiCameraRapida'),
+    'aggiungiCameraRapida e tornata: era il modulo manuale',
+  );
+});
+
+Deno.test('il preventivo e in tutte e due le tabelle MODELLI', () => {
+  /* MODELLI e' definito due volte in popup.js, una per «Copia» e una per
+     «Copia oggetto». Un documento presente in una sola delle due si
+     comporta diversamente secondo il pulsante premuto. */
+  const tabelle = (PANNELLO.match(/const MODELLI = \{/g) || []).length;
+  const righe = (PANNELLO.match(/preventivo:\s*\{\s*it:\s*\[costruisciPreventivoIT/g) || []).length;
+  assertEquals(righe, tabelle, `MODELLI e definito ${tabelle} volte ma il preventivo compare ${righe}`);
+});
+
+Deno.test('la voce compare solo con un preventivo fresco di mezz ora', () => {
+  assert(/30 \* 60 \* 1000/.test(PANNELLO), 'sparita la soglia della mezz ora');
+  assert(
+    /\$\{PREVENTIVO \?/.test(PANNELLO),
+    'la voce «Preventivo soggiorno» non e piu condizionata alla presenza del dato',
+  );
+});
+
+Deno.test('il pannello passa al modello le eta dei bambini', () => {
+  assert(
+    /etaBambini: PREVENTIVO\.etaBambini/.test(PANNELLO),
+    'senza le eta, rigaBambini scrive solo la somma invece del prezzo di ognuno',
+  );
+});
+
 Deno.test('senza nome saluta comunque, senza scrivere «undefined»', () => {
   const m = modelli();
   const d = DATI();
