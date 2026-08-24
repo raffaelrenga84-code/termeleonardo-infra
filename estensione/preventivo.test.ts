@@ -574,3 +574,26 @@ Deno.test('senza nome saluta comunque, senza scrivere «undefined»', () => {
     assert(!/undefined|null/.test(html), `«undefined» nel documento ${l}`);
   }
 });
+
+Deno.test('«Notte per notte» non copre il riquadro Prezzi di Fidra', () => {
+  /* il riquadro di Fidra si apre al centro: il nostro ci finiva sopra
+     proprio mentre si confrontano i due elenchi, che e' l'unico motivo
+     per cui e' aperto */
+  assert(
+    /box\.style\.cssText = 'position:fixed;top:34px;right:16px/.test(MODALE),
+    'il riquadro «Notte per notte» e tornato al centro, sopra i Prezzi di Fidra',
+  );
+});
+
+Deno.test('dopo aver compilato i prezzi si ricarica la pagina', () => {
+  /* IL PASSO CHE COSTAVA UN PREZZO SBAGLIATO. Senza il ricaricamento
+     l'estrattore rilegge la pagina vecchia e l'offerta esce col prezzo di
+     prima — e nessuno se ne accorge, perche' i numeri ci sono e sembrano
+     giusti. */
+  assert(/offriSalvaERicarica/.test(MODALE), 'sparito il passo del salva e ricarica');
+  assert(/location\.reload\(\)/.test(MODALE), 'non ricarica piu la pagina dopo il salvataggio');
+  assert(
+    /Non trovo il pulsante Salva di Fidra/.test(MODALE),
+    'se non trova Salva ricarica lo stesso: si butterebbe via quello che si e appena scritto',
+  );
+});

@@ -1428,7 +1428,11 @@
 
     const box = document.createElement('div');
     box.id = 'leoScorporo';
-    box.style.cssText = 'position:fixed;top:34px;left:max(8px,calc(50vw - 60px));z-index:2147483647;' +
+    /* v2.11.1: appoggiato al bordo destro invece che a meta' schermo.
+       Il riquadro «Prezzi» di Fidra si apre al centro, e questo ci finiva
+       sopra proprio mentre si guardano i due elenchi per confrontarli —
+       che e' l'unico motivo per cui e' aperto. Resta trascinabile. */
+    box.style.cssText = 'position:fixed;top:34px;right:16px;z-index:2147483647;' +
       'font-family:Arial,Helvetica,sans-serif;';
     box.innerHTML = `<div style="background:#FAF8F4;width:min(560px,94vw);border-radius:10px;overflow:hidden;box-shadow:0 14px 48px rgba(0,0,0,.44);max-height:calc(100vh - 60px);display:flex;flex-direction:column;">
       <div style="background:#0F5C64;color:#fff;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;">
@@ -1696,7 +1700,53 @@
       const box2 = document.getElementById('scEsito');
       box2.style.color = esito.ok ? '#0F5C64' : '#B3541E';
       box2.textContent = esito.messaggio;
+      if (esito.ok) offriSalvaERicarica();
     };
+
+    /* v2.11.1 — IL PASSO CHE MANCAVA, E CHE COSTAVA UN PREZZO SBAGLIATO.
+       Compilati i campi, restava da premere Salva in Fidra e POI ricaricare
+       la pagina: senza il ricaricamento l'estrattore rilegge la pagina
+       vecchia, e l'offerta esce con il prezzo di prima. Nessuno se ne
+       accorge, perche' i numeri ci sono e sembrano giusti.
+
+       Il pulsante lo fa in un gesto: preme Salva, aspetta che Fidra
+       risponda, e ricarica. Se non trova Salva lo dice, invece di
+       ricaricare buttando via quello che si e' appena scritto. */
+    function pulsanteSalvaFidra() {
+      return [...document.querySelectorAll('button')]
+        .filter(b => !b.closest('#leoScorporo') && !b.closest('#leoDispWrap'))
+        .find(b => /^salva$/i.test((b.textContent || '').replace(/\s+/g, ' ').trim())) || null;
+    }
+
+    function offriSalvaERicarica() {
+      if (document.getElementById('scSalva')) return;
+      const box2 = document.getElementById('scEsito');
+      if (!box2) return;
+      const b = document.createElement('button');
+      b.id = 'scSalva';
+      b.type = 'button';
+      b.textContent = 'Salva in Fidra e ricarica';
+      b.style.cssText = 'margin-top:10px;background:#E8751A;color:#fff;border:0;border-radius:6px;' +
+        'padding:10px 18px;font:600 13px Arial;cursor:pointer;';
+      b.onclick = async () => {
+        const salva = pulsanteSalvaFidra();
+        if (!salva) {
+          box2.style.color = '#B3541E';
+          box2.textContent = 'Non trovo il pulsante Salva di Fidra: premilo tu, '
+            + 'poi ricarica la pagina — se non ricarichi, l’offerta esce col prezzo vecchio.';
+          return;
+        }
+        b.disabled = true;
+        b.textContent = 'Salvo…';
+        salva.click();
+        /* Livewire risponde via rete: si aspetta un attimo perche' il
+           ricaricamento non arrivi prima del salvataggio */
+        await new Promise(r => setTimeout(r, 1500));
+        location.reload();
+      };
+      box2.parentNode.insertBefore(b, box2.nextSibling);
+      box2.textContent += ' Ora premi qui sotto: senza ricaricare, l’offerta uscirebbe col prezzo vecchio.';
+    }
     document.getElementById('scCopia').onclick = async () => {
       try { await navigator.clipboard.writeText(testoCopia); document.getElementById('scEsito').textContent = 'Copiato.'; }
       catch (e) { document.getElementById('scEsito').textContent = 'Copia non riuscita: selezionalo a mano.'; }
