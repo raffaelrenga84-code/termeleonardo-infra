@@ -335,3 +335,111 @@ Le prove del deposito — `orari.test.ts`, `pulsanti.test.ts`,
 `pacchetti.test.ts`, `tolti.test.ts` — guardano il codice che gira
 davvero, non un suo fratello. Prima sorvegliavano una copia che nessuno
 caricava, ed e' per questo che lo Shiatsu era sopravvissuto.
+
+---
+
+## v2.9.0 — il preventivo torna, con i prezzi letti (24/08/2026)
+
+Una richiesta di prezzi arriva per email e l'ospite non ha una pratica in
+Fidra: per rispondergli bisognava aprirgliene una.
+
+**Il preventivo fuori da Fidra c'era gia'.** Il codice era ancora tutto li',
+spento: `aggiungiCameraRapida()` definita e mai chiamata, `costruisciDatiRapidi()`
+che leggeva ancora `rapPrezzo` e `rapAcconto`, e nel gestore di «Copia» il
+messaggio «quando l'ospite accetta, registra l'offerta in Fidra». Fu tolto per
+una ragione buona: chiedeva **il prezzo a persona in una casella**, ed e' il
+caso Kreiner — «ho copiato il modello con prezzi dus non inseriti».
+
+Torna perche' quella ragione non c'e' piu'. «Disponibilita' e prezzi» i prezzi
+non li fa digitare: li legge da `/api/available/rooms` e `/api/available/rates`
+con la sessione dell'operatore, e `calcola()` ci mette dentro l'uso singola e i
+bambini per eta' — i due numeri che a mano non venivano messi.
+
+### Come si usa
+
+Nel riquadro, accanto a «Notte per notte», ogni riga ha `+ Prev.`. Se ne
+scelgono fino a quattro, si preme «Crea preventivo», si apre il pannello
+(Ctrl+Shift+L) e si sceglie «Preventivo soggiorno». Nome, lingua, e l'email
+esce in italiano, tedesco, inglese o francese.
+
+### Le tre regole che il codice fa rispettare
+
+- **Nel pannello non c'e' un solo campo dove digitare un prezzo.** Se il
+  preventivo non e' stato preparato, la voce non compare: non esiste un
+  ripiego manuale. Il vecchio modulo e' stato cancellato — settantacinque
+  righe — e `preventivo.test.ts` diventa rossa se `rapPrezzo` o
+  `aggiungiCameraRapida` tornano nel file.
+- **Non puo' somigliare a un'offerta.** Niente numero, acconto, scadenza,
+  «Conferma Ora», IBAN: una prova cerca quelle parole in tutte e quattro le
+  lingue, anche su un preventivo con pacchetto, e fallisce se ne trova una.
+  Dice invece, in tutte e quattro, che **non blocca la camera**.
+- **Una stima non si manda.** Con un pacchetto settimanale piu' una coda di
+  notti il 5% e' una stima — lo dice gia' il modale. Li' il pulsante e' spento
+  col motivo nel `title`; e se una voce cosi' arrivasse lo stesso al modello,
+  il modello solleva un errore invece di scriverla.
+
+### Che cosa c'e' dentro l'email
+
+Non solo il prezzo, perche' sono le stesse funzioni delle offerte vere:
+
+- **che cosa comprende il pacchetto** — `notaPacchetto`, col numero di
+  applicazioni letto dal nome della tariffa;
+- **com'e' fatta la camera** — metratura, letti, balcone, piu' la dotazione
+  comune, dai quattro dizionari;
+- **i bambini con il loro prezzo per eta'** — `rigaBambini`. Il modale quel
+  calcolo lo faceva gia' e finiva nel cestino: restava il conteggio;
+- **cure termali e cane**, con due spunte. Qui una riga, non i blocchi interi
+  dell'offerta: turni dei fanghi e condizioni stanno nell'offerta, che si manda
+  quando l'ospite accetta.
+
+La **culla** non c'e' perche' non c'e' nei modelli email, in nessuna lingua:
+sta nel modulo del sito.
+
+### Due cose trovate provando
+
+**Spezial e Dolce Vita non escono in italiano.** In `PACCHETTI` portano
+`lingue: ['de','en','fr']`, e i Soggiorni Smart, Escape e Deluxe portano
+`lingue: ['it']`. E' una divisione di mercato scritta nel codice, non un buco:
+adesso una prova la tiene ferma, cosi' chi un giorno «aggiunge l'italiano
+mancante» sa che sta cambiando una scelta commerciale.
+
+**«Bonifico» non puo' stare fra le parole vietate.** `AVVISO_PREZZO_SPECIALE`
+lo nomina legittimamente, perche' su quelle tariffe il prezzo vale solo con
+bonifico anticipato o in contanti. La prova gira ora anche su un preventivo con
+pacchetto, che e' dove una parola vietata si infilerebbe senza che nessuno la
+veda.
+
+### Dove sta
+
+Il documento e' in `template-extra.js`, insieme a Info Day Spa e Buoni regalo:
+sono i tre che non vengono da una prenotazione. Un solo costruttore e una
+tabella a quattro lingue, come gli altri due — non quattro file da ricordare a
+ogni modifica.
+
+Il modale **non traduce**: passa i nomi in italiano come li scrive Fidra, e a
+tradurre pensano `traduciTrattamento`, `kategorieDE`, `categoryEN`,
+`categorieFR`, che le offerte vere usano da mesi.
+
+### Niente link di pagamento, ed e' voluto
+
+Il link della caparra non lo fa Stripe e non lo fa Fidra: lo compone
+`extractor.js` con l'id della prenotazione, il numero d'offerta e l'importo, e
+`/deposit-payment` riconcilia l'incasso proprio attraverso quell'id. Fuori da
+una prenotazione non esiste nessuno dei tre.
+
+Prima ancora: il preventivo dichiara di non bloccare la camera. Incassare una
+caparra su una camera non tenuta vuol dire poterla vendere a un altro e avere
+in mano i soldi di chi resta senza. Quando l'ospite accetta si apre la pratica
+in Fidra, e l'offerta esce con il link che gia' funziona.
+
+### Scartato: check-availability
+
+L'endpoint Supabase esiste, ma e' un proxy verso il **sito pubblico** ed espone
+solo `rates`, non `rooms`. Senza `rooms` non ci sono numeri di camera ne'
+capienza, e `calcola()` non parte perche' la categoria che riceve viene da li'.
+Servirebbe se un giorno si volesse preventivare da Outlook senza aprire Fidra:
+allora andrebbe esteso, ed e' un altro progetto.
+
+### Perche' 2.9.0
+
+Funzione nuova, non correzione. Dopo il Ricarica, se leggi **2.9.0** e' entrata.
