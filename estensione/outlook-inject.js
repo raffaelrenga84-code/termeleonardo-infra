@@ -89,8 +89,31 @@
   /* stringhe che compaiono solo nella firma, non in un'email scritta a mano */
   const IMPRONTE_FIRMA = [
     'IT02042330288', 'M5UXCR1', 'admin.tria@pec-mail.it',
-    'Prima di stampare, pensa all', 'Think before you print'
+    'Prima di stampare, pensa all', 'Think before you print',
+    'D.Lgs. 196/2003'
   ];
+
+  /* v2.18.1 — LA FIRMA E' CRESCIUTA, E NOI NON CE NE SIAMO ACCORTI.
+     «Perche’ non si cancella piu’ la firma?» Perche’ l’azienda le ha
+     aggiunto due righe — l’informativa di riservatezza, in italiano e in
+     inglese — e questo elenco non le conosceva. Basta UNA riga non
+     riconosciuta perche’ `every` sia falso e non si tolga piu’ niente: il
+     messaggio usciva con il nostro pie’ di pagina e sotto la firma di
+     Outlook che ripete tutto.
+
+     Le due righe adesso ci sono. Ma aggiungerle e basta vuol dire tornare
+     qui alla prossima modifica della firma, e nel frattempo non se ne
+     accorge nessuno: non e’ un errore che salta all’occhio, e’ una
+     ripetizione che si vede solo riaprendo l’email mandata.
+
+     Percio’ oltre alle due righe c’e’ una regola che invecchia meglio: le
+     formule legali di coda — riservatezza, destinatario, privacy, GDPR, un
+     riferimento di legge — in un messaggio scritto alla reception non
+     compaiono mai. Restano fuori dal conteggio delle impronte, quindi da
+     sole non bastano a cancellare niente: allargano il riconoscimento,
+     non il permesso. */
+  const LEGALESE = /riservat|confidential|destinatario|recipient|privacy|gdpr|d\.?lgs|regolamento \(ue\)|679\/2016|196\/2003/i;
+  const RIGA_DI_FIRMA = /^(cordiali saluti|distinti saluti|mit freundlichen|kind regards|la reception|hotel terme leonardo|terme leonardo|via monteortone|societ|tria s\.?r\.?l|p\.\s?iva|pec|sdi|\+?39|www\.|info@|think before|prima di stampare|messaggio riservato|this message is confidential)/i;
 
   function togliFirmaOutlook(editor) {
     if (!editor) return 0;
@@ -138,11 +161,10 @@
     /* si svuota solo se OGNI blocco e' riconoscibile come parte della firma:
        se in mezzo c'e' del testo scritto da chi manda, non si tocca niente
        e si torna al controllo blocco per blocco */
-    const RIGA_DI_FIRMA = /^(cordiali saluti|distinti saluti|mit freundlichen|kind regards|la reception|hotel terme leonardo|terme leonardo|via monteortone|societ|tria s\.?r\.?l|p\.\s?iva|pec|sdi|\+?39|www\.|info@|think before|prima di stampare)/i;
     const figli = editor.children ? [...editor.children] : [];
     const soloFirma = figli.length > 0 && figli.every(f => {
       const t = testoDi(f);
-      return !t || quanteImpronte(t) > 0 || t.split('\n').every(r => !r.trim() || RIGA_DI_FIRMA.test(r.trim()));
+      return !t || quanteImpronte(t) > 0 || t.split('\n').every(r => !r.trim() || RIGA_DI_FIRMA.test(r.trim()) || LEGALESE.test(r.trim()));
     });
     if (!citazione && soloFirma && quanteImpronte(testoTot) >= 2 && testoTot.length < 1500) {
       figli.forEach(f => f.remove());
@@ -1450,5 +1472,6 @@ function parseCentralino(testo) {
 
   /* gancio per i test e per la console: parseLibera vive dentro l'IIFE */
   (typeof self !== 'undefined' ? self : globalThis).__leonardoInject =
-    { parseLibera, leggiDate, PAROLE_RICHIESTA, annoDedotto };
+    { parseLibera, leggiDate, PAROLE_RICHIESTA, annoDedotto,
+      IMPRONTE_FIRMA, RIGA_DI_FIRMA, LEGALESE };
 })();

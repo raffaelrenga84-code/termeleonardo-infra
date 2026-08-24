@@ -916,3 +916,25 @@ Deno.test('nel preventivo ad alternative si dicono tutt e due le cose', () => {
   assert(/con la sola colazione si aggiunge a/.test(html),
     'chi sceglie il B&B non sa che la cena si puo aggiungere');
 });
+
+Deno.test('la cena aggiunta si prenota in giornata, e lo dice', () => {
+  /* «Non serve prenotare in anticipo, si puo' avvisare in giornata.»
+     Senza questa mezza riga l'ospite legge un prezzo e presume che vada
+     organizzato prima — e magari rinuncia, o prenota altrove per la sera
+     stessa. E' la differenza fra un'informazione e un invito. */
+  const m = modelli();
+  const d = DATI();
+  d.voci = [voceCon('Miglior Prezzo Bed & Breakfast')];
+  const attese: Record<Lingua, RegExp> = {
+    it: /in giornata/,
+    de: /am selben Tag/,
+    en: /on the day/,
+    fr: /le jour m&ecirc;me/,
+  };
+  for (const l of LINGUE) {
+    assert(
+      attese[l].test(m.html[l](d, OPZ)),
+      `non dice che basta avvisare in giornata, in ${l}`,
+    );
+  }
+});

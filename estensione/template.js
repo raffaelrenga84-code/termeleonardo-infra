@@ -479,19 +479,19 @@ function rigaATavola(d, lingua) {
      solo la sorpresa al momento del conto, che e' il posto peggiore.
      ============================================================ */
   const CENA_AGGIUNTA = {
-    it: ' &middot; la <strong style="color:#2A2E2B;">cena a buffet al ristorante</strong> si pu&ograve; aggiungere a <strong style="color:#2A2E2B;">35 &euro; a persona</strong>, dalle 19:30 (ultimo ingresso alle 20:20)',
-    de: ' &middot; das <strong style="color:#2A2E2B;">Abendbuffet im Restaurant</strong> l&auml;sst sich f&uuml;r <strong style="color:#2A2E2B;">35 &euro; pro Person</strong> dazubuchen, ab 19:30 Uhr (letzter Einlass 20:20 Uhr)',
-    en: ' &middot; the <strong style="color:#2A2E2B;">evening buffet at the restaurant</strong> can be added for <strong style="color:#2A2E2B;">&euro;35 per person</strong>, from 7:30 pm (last entry 8:20 pm)',
-    fr: ' &middot; le <strong style="color:#2A2E2B;">d&icirc;ner buffet au restaurant</strong> peut &ecirc;tre ajout&eacute; pour <strong style="color:#2A2E2B;">35 &euro; par personne</strong>, d&egrave;s 19 h 30 (dernier acc&egrave;s &agrave; 20 h 20)'
+    it: ' &middot; la <strong style="color:#2A2E2B;">cena a buffet al ristorante</strong> si pu&ograve; aggiungere a <strong style="color:#2A2E2B;">35 &euro; a persona</strong>, dalle 19:30 (ultimo ingresso alle 20:20): basta dircelo in giornata, non serve prenotare in anticipo',
+    de: ' &middot; das <strong style="color:#2A2E2B;">Abendbuffet im Restaurant</strong> l&auml;sst sich f&uuml;r <strong style="color:#2A2E2B;">35 &euro; pro Person</strong> dazubuchen, ab 19:30 Uhr (letzter Einlass 20:20 Uhr): Bescheid am selben Tag gen&uuml;gt, eine Voranmeldung ist nicht n&ouml;tig',
+    en: ' &middot; the <strong style="color:#2A2E2B;">evening buffet at the restaurant</strong> can be added for <strong style="color:#2A2E2B;">&euro;35 per person</strong>, from 7:30 pm (last entry 8:20 pm): just let us know on the day, no need to book ahead',
+    fr: ' &middot; le <strong style="color:#2A2E2B;">d&icirc;ner buffet au restaurant</strong> peut &ecirc;tre ajout&eacute; pour <strong style="color:#2A2E2B;">35 &euro; par personne</strong>, d&egrave;s 19 h 30 (dernier acc&egrave;s &agrave; 20 h 20)&nbsp;: il suffit de nous pr&eacute;venir le jour m&ecirc;me, sans r&eacute;servation &agrave; l&rsquo;avance'
   };
   /* nel preventivo ad alternative le due frasi convivono: la prima resta
      quella di sempre, la seconda si aggancia in coda invece di
      riscriverla — un solo testo per la parte in comune */
   const ANCHE_BB = {
-    it: '; con la sola colazione si aggiunge a <strong style="color:#2A2E2B;">35 &euro; a persona</strong>',
-    de: '; bei &Uuml;bernachtung mit Fr&uuml;hst&uuml;ck f&uuml;r <strong style="color:#2A2E2B;">35 &euro; pro Person</strong> dazubuchbar',
-    en: '; with bed &amp; breakfast it can be added for <strong style="color:#2A2E2B;">&euro;35 per person</strong>',
-    fr: '&nbsp;; en formule petit-d&eacute;jeuner, il peut &ecirc;tre ajout&eacute; pour <strong style="color:#2A2E2B;">35 &euro; par personne</strong>'
+    it: '; con la sola colazione si aggiunge a <strong style="color:#2A2E2B;">35 &euro; a persona</strong>, avvisando in giornata',
+    de: '; bei &Uuml;bernachtung mit Fr&uuml;hst&uuml;ck f&uuml;r <strong style="color:#2A2E2B;">35 &euro; pro Person</strong> dazubuchbar, Bescheid am selben Tag gen&uuml;gt',
+    en: '; with bed &amp; breakfast it can be added for <strong style="color:#2A2E2B;">&euro;35 per person</strong>, just let us know on the day',
+    fr: '&nbsp;; en formule petit-d&eacute;jeuner, il peut &ecirc;tre ajout&eacute; pour <strong style="color:#2A2E2B;">35 &euro; par personne</strong>, en nous pr&eacute;venant le jour m&ecirc;me'
   };
   const stato = cenaCompresa(d);
   const coda = stato === 'si' ? (CENA[lingua] || CENA.it)
