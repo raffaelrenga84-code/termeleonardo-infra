@@ -364,6 +364,55 @@ Deno.test('cure e cane compaiono solo se richiesti', () => {
   }
 });
 
+/* ============================================================
+   Il modale non si puo' eseguire in Deno: e' una IIFE che tocca il DOM
+   di Fidra. Queste prove leggono il testo — meno di una prova vera, ma
+   tengono ferme le cose che, cambiando, romperebbero il preventivo in
+   silenzio invece che con un errore.
+   ============================================================ */
+const MODALE = Deno.readTextFileSync(new URL('fidra-disponibilita.js', import.meta.url));
+
+Deno.test('il modale deposita leonardo_preventivo, e non tocca il dettaglio', () => {
+  assert(
+    MODALE.includes('leonardo_preventivo'),
+    'il modale non scrive piu la chiave che il pannello legge',
+  );
+  assert(
+    MODALE.includes('leonardo_dettaglio'),
+    'la strada del dettaglio notte per notte e sparita: non andava toccata',
+  );
+});
+
+Deno.test('una tariffa con sconto stimato ha il pulsante spento', () => {
+  /* l'unica cosa che impedisce a una stima di diventare una promessa in
+     un'email: il modello la rifiuta, ma qui non deve nemmeno partire */
+  assert(
+    /sconto\s*&&\s*sconto\.stima/.test(MODALE),
+    'sparito il controllo su sconto.stima: le stime tornano preventivabili',
+  );
+  assert(
+    /data-stima/.test(MODALE) && /b\.dataset\.stima/.test(MODALE),
+    'il pulsante spento per stima non e piu riconoscibile: marcaPulsanti lo riaccenderebbe',
+  );
+});
+
+Deno.test('il massimo di quattro voci non e scritto a mano', () => {
+  const n = (MODALE.match(/MAX_SCELTE/g) || []).length;
+  assert(n >= 3, `MAX_SCELTE compare ${n} volte: non e usato dove serve`);
+  assert(
+    !/SCELTE\.length\s*[<>]=?\s*4\b/.test(MODALE),
+    'il numero quattro e scritto a mano invece di MAX_SCELTE',
+  );
+});
+
+Deno.test('le voci portano i prezzi dei bambini, non solo il conteggio', () => {
+  assert(/data-bimbi/.test(MODALE), 'sparito data-bimbi: i bambini tornano solo contati');
+  assert(
+    /bambiniPrezzi:/.test(MODALE),
+    'la voce non porta piu bambiniPrezzi: il modello non potra scrivere il prezzo per eta',
+  );
+});
+
 Deno.test('senza nome saluta comunque, senza scrivere «undefined»', () => {
   const m = modelli();
   const d = DATI();

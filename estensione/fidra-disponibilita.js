@@ -522,6 +522,12 @@
   function apri() {
     if (document.getElementById('leoDispWrap')) return;
     stile();
+    /* v2.9: le sistemazioni messe da parte per il preventivo. Vivono
+       quanto il riquadro: chiuderlo e riaprirlo azzera la scelta, ed e'
+       giusto — una selezione fatta su una ricerca non vale per la
+       successiva, e riproporla sarebbe peggio che non averla. */
+    const SCELTE = [];
+    const MAX_SCELTE = 4;
     const wrap = document.createElement('div');
     wrap.id = 'leoDispWrap';
     const pren = datiPrenotazione();
@@ -569,6 +575,9 @@
         </div>
         <div class="esito" id="dEsito"></div>
         <div id="dRis"></div>
+        <div id="dPrevBarra" style="display:none;position:sticky;bottom:0;background:#FAF8F4;
+             border-top:1px solid #EDE7DC;padding:10px 16px;font:13px Arial,Helvetica,sans-serif;
+             color:#55524B;align-items:center;gap:10px;flex-wrap:wrap;"></div>
       </div>
     </div>`;
     document.body.appendChild(wrap);
@@ -819,7 +828,15 @@
               <td class="pr">${
                 `<button class="usa scorpora"
                   data-cat="${esc(nome)}" data-tratt="${esc(rv.full_name || rv.name)}"
-                  data-idx="${variazioni.indexOf(rv)}">&#128208; Notte per notte</button>`}</td>
+                  data-idx="${variazioni.indexOf(rv)}">&#128208; Notte per notte</button>
+                <button class="usa prev"
+                  data-cat="${esc(nome)}" data-tratt="${esc(rv.full_name || rv.name)}"
+                  data-pp="${c.perPersona}" data-tot="${c.totale}" data-cure="${cureTot}"
+                  data-sc5="${sconto ? sconto.imp5 : 0}" data-sc3="${sconto ? sconto.imp3 : 0}"
+                  data-bimbi="${c.dettaglioB.map(b => b.prezzo || 0).join(',')}"
+                  ${sconto && sconto.stima
+                    ? 'disabled data-stima="1" title="Il 5% qui &egrave; una stima: il conto esatto sta in Notte per notte, e una stima non si manda a un cliente."'
+                    : ''}>+ Prev.</button>`}</td>
             </tr>`;
           }
           html += `</table>`;
@@ -838,6 +855,78 @@
         periodo.</div>`;
 
       $('dRis').innerHTML = html;
+
+      /* ---------- v2.9: il carrello del preventivo ---------- */
+      function aggiornaBarra() {
+        const b = $('dPrevBarra');
+        if (!b) return;
+        if (!SCELTE.length) { b.style.display = 'none'; return; }
+        b.style.display = 'flex';
+        b.innerHTML = `<span style="flex:1;">${SCELTE.length} ${SCELTE.length === 1
+            ? 'sistemazione scelta' : 'sistemazioni scelte'}${
+            SCELTE.length >= MAX_SCELTE ? ' &middot; il massimo &egrave; quattro' : ''}</span>
+          <button class="usa" id="dPrevSvuota">Svuota</button>
+          <button class="usa" id="dPrevCrea">Crea preventivo</button>`;
+        $('dPrevSvuota').onclick = () => { SCELTE.length = 0; marcaPulsanti(); aggiornaBarra(); };
+        $('dPrevCrea').onclick = creaPreventivo;
+      }
+
+      /* un pulsante gia' scelto lo dice, e ricliccandolo si toglie */
+      function marcaPulsanti() {
+        $('dRis').querySelectorAll('.prev').forEach(b => {
+          if (b.dataset.stima) return;              // stima: resta spento
+          const dentro = SCELTE.some(v => v.categoria === b.dataset.cat &&
+                                          v.trattamento === b.dataset.tratt);
+          b.textContent = dentro ? '✓ nel preventivo' : '+ Prev.';
+          b.disabled = !dentro && SCELTE.length >= MAX_SCELTE;
+        });
+      }
+
+      $('dRis').querySelectorAll('.prev').forEach(b => b.addEventListener('click', () => {
+        const i = SCELTE.findIndex(v => v.categoria === b.dataset.cat &&
+                                        v.trattamento === b.dataset.tratt);
+        if (i >= 0) SCELTE.splice(i, 1);
+        else if (SCELTE.length < MAX_SCELTE) SCELTE.push({
+          categoria:   b.dataset.cat,
+          trattamento: b.dataset.tratt,
+          prezzoPP: +b.dataset.pp   || 0,
+          totale:   +b.dataset.tot  || 0,
+          cure:     +b.dataset.cure || 0,
+          sconto5:  +b.dataset.sc5  || 0,
+          sconto3:  +b.dataset.sc3  || 0,
+          /* il prezzo di ogni bambino per eta', in centesimi: il modale lo
+             ha gia' calcolato, e buttarlo via vorrebbe dire farlo ricopiare
+             a mano proprio a chi non deve ricopiare niente. Uno zero e' un
+             bambino gratuito, e va detto anche quello. */
+          bambiniPrezzi: (b.dataset.bimbi || '').split(',').filter(x => x !== '').map(Number),
+          stima: false
+        });
+        marcaPulsanti();
+        aggiornaBarra();
+      }));
+
+      async function creaPreventivo() {
+        if (!SCELTE.length) return;
+        const box = $('dEsito');
+        try {
+          if (!ESTENSIONE) throw new Error('serve l’estensione, non il segnalibro');
+          await chrome.storage.local.set({ leonardo_preventivo: {
+            quando: Date.now(),
+            arrivo, partenza, notti: nNotti,
+            adulti, etaBambini: etaBambini.slice(),
+            voci: SCELTE.slice()
+          }});
+          box.style.color = '#0F5C64';
+          box.textContent = 'Preventivo pronto: apri il pannello (Ctrl+Shift+L) e scegli '
+            + '«Preventivo soggiorno». Vale mezz’ora.';
+        } catch (e) {
+          box.style.color = '#B3541E';
+          box.textContent = 'Preventivo non messo da parte: ' + e.message;
+        }
+      }
+
+      marcaPulsanti();
+      aggiornaBarra();
 
       $('dRis').querySelectorAll('.scorpora').forEach(b => b.addEventListener('click', () => {
         const nome = b.dataset.cat;
