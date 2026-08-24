@@ -755,7 +755,7 @@ Deno.test('la cena compare anche nel preventivo, che chiama «voci» le sue came
     'in un preventivo di sola colazione si dice che la cena e compresa',
   );
   assert(
-    /si pu&ograve; aggiungere a <strong[^>]*>35 &euro;/.test(htmlBB),
+    /si pu&ograve; aggiungere a <strong[^>]*>(35|25) &euro; a persona a notte/.test(htmlBB),
     'in un preventivo di sola colazione non si dice che la cena si puo aggiungere',
   );
 });
@@ -858,7 +858,7 @@ Deno.test('in camera e colazione si dice che la cena si può aggiungere, e quant
   d.voci = [voceCon('Miglior Prezzo Bed & Breakfast')];
   for (const l of LINGUE) {
     const html = m.html[l](d, OPZ);
-    assert(/35/.test(html), `manca il prezzo della cena in ${l}`);
+    assert(/35|25/.test(html), `manca il prezzo della cena in ${l}`);
     assert(
       /19:30|7:30 pm|19 h 30/.test(html),
       `manca l orario della cena in ${l}`,
@@ -937,4 +937,97 @@ Deno.test('la cena aggiunta si prenota in giornata, e lo dice', () => {
       `non dice che basta avvisare in giornata, in ${l}`,
     );
   }
+});
+
+/* ============================================================
+   IL PREZZO DELLA CENA DIPENDE DALLE NOTTI, e la prima versione di
+   questa riga non lo sapeva.
+
+   Diceva «35 € a persona», senza «a notte» e senza scaglione. Su un
+   soggiorno di tre notti — il piu' comune — avrebbe scritto a un ospite
+   un prezzo piu' alto di quello vero, e per giunta scambiando il totale
+   con la tariffa di una sera sola. Sul sito dell'hotel, la stessa
+   tariffa che vede chi prenota da solo, e' 35 € a persona a notte per
+   una o due notti e 25 € dalla terza.
+
+   Un prezzo sbagliato in un preventivo non e' un difetto: e' una
+   promessa scritta, e la si scopre quando l'ospite arriva col
+   preventivo in mano.
+   ============================================================ */
+function cena(html: string): string {
+  const i = html.indexOf('si pu&ograve; aggiungere a');
+  const j = html.indexOf('si aggiunge a');
+  const k = i >= 0 ? i : j;
+  return k >= 0 ? html.slice(k, k + 260) : '';
+}
+
+Deno.test('fino a due notti la cena costa 35 euro a persona a notte', () => {
+  const m = modelli();
+  for (const notti of [1, 2]) {
+    const d = DATI();
+    d.notti = notti;
+    d.voci = [voceCon('Miglior Prezzo Bed & Breakfast')];
+    const t = cena(m.html.it(d, OPZ));
+    assert(/35 &euro; a persona a notte/.test(t), `con ${notti} notti non dice 35 € a persona a notte: «${t.slice(0, 90)}»`);
+    assert(!/25 &euro;/.test(t), `con ${notti} notti compare anche la tariffa lunga`);
+  }
+});
+
+Deno.test('dalla terza notte la cena costa 25 euro a persona a notte', () => {
+  /* IL CONFINE E' QUI: due notti 35, tre notti 25. Se lo scaglione
+     scivola di uno, l'errore vale 10 € a testa a sera e non se ne
+     accorge nessuno finche' non arriva il conto. */
+  const m = modelli();
+  for (const notti of [3, 4, 7, 14]) {
+    const d = DATI();
+    d.notti = notti;
+    d.voci = [voceCon('Miglior Prezzo Bed & Breakfast')];
+    const t = cena(m.html.it(d, OPZ));
+    assert(/25 &euro; a persona a notte/.test(t), `con ${notti} notti non dice 25 € a persona a notte`);
+    assert(!/35 &euro;/.test(t), `con ${notti} notti compare ancora la tariffa breve`);
+  }
+});
+
+Deno.test('«a notte» non si perde: non e il totale del soggiorno', () => {
+  /* la prima versione diceva «35 € a persona» e basta. Un ospite di tre
+     notti l'avrebbe letto come il prezzo di tutto il soggiorno. */
+  const m = modelli();
+  const d = DATI();
+  d.voci = [voceCon('Miglior Prezzo Bed & Breakfast')];
+  const attese: Record<Lingua, RegExp> = {
+    it: /a persona a notte/,
+    de: /pro Person und Nacht/,
+    en: /per person per night/,
+    fr: /par personne et par nuit/,
+  };
+  for (const l of LINGUE) {
+    assert(attese[l].test(m.html[l](d, OPZ)), `manca «a notte» in ${l}: si legge come il totale`);
+  }
+});
+
+Deno.test('le bevande sono escluse, e si dice', () => {
+  const m = modelli();
+  const d = DATI();
+  d.voci = [voceCon('Miglior Prezzo Bed & Breakfast')];
+  const attese: Record<Lingua, RegExp> = {
+    it: /bevande escluse/,
+    de: /Getr&auml;nke nicht inbegriffen/,
+    en: /drinks not included/,
+    fr: /boissons non comprises/,
+  };
+  for (const l of LINGUE) {
+    assert(attese[l].test(m.html[l](d, OPZ)), `non dice che le bevande sono escluse, in ${l}`);
+  }
+});
+
+Deno.test('senza le notti si dicono tutt e due le tariffe, invece di sceglierne una', () => {
+  /* scegliere a caso vorrebbe dire sbagliare la meta' delle volte. Dire
+     tutt'e due e' sempre vero, e costa mezza riga. */
+  const m = modelli();
+  const d = DATI();
+  d.notti = 0;
+  d.voci = [voceCon('Miglior Prezzo Bed & Breakfast')];
+  const t = cena(m.html.it(d, OPZ));
+  assert(/35 &euro; a persona a notte/.test(t), 'senza le notti sparisce la tariffa breve');
+  assert(/25 &euro;/.test(t) && /terza notte/.test(t), 'senza le notti sparisce lo scaglione lungo');
 });
