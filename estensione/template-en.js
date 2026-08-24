@@ -290,29 +290,7 @@ ${d.linkPagamento ? `      <p style="margin:0 0 9px 0;font-family:Arial,Helvetic
     </td></tr></table>
   </td></tr>
 
-  <tr><td style="padding:22px 36px 0 36px;">
-    <h2 style="margin:0 0 12px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Included in the rate</h2>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      <tr><td width="30" valign="top" style="padding:0 6px 12px 0;font-size:17px;line-height:22px;">&#9832;</td>
-          <td valign="top" style="padding:0 0 12px 0;"><strong style="color:#2A2E2B;">Thermal area</strong><br />Three interconnected thermal pools, indoor and outdoor &middot; a pool with cool thermal water &middot; grottoes with bio-sauna and steam bath &middot; adults-only relaxation area</td></tr>
-      <tr><td valign="top" style="padding:0 6px 12px 0;font-size:17px;line-height:22px;">&#9749;</td>
-          <td valign="top" style="padding:0 0 12px 0;"><strong style="color:#2A2E2B;">At the table</strong><br />${rigaATavola(d, 'en')}</td></tr>
-      <tr><td valign="top" style="padding:0 6px 12px 0;font-size:17px;line-height:22px;">&#128716;</td>
-          <td valign="top" style="padding:0 0 12px 0;"><strong style="color:#2A2E2B;">In your room</strong><br />Bathrobe and towel per person &middot; fibre Wi-Fi &middot; balcony</td></tr>
-      <tr><td valign="top" style="padding:0 6px 0 0;font-size:17px;line-height:22px;">&#127939;</td>
-          <td valign="top" style="padding:0;"><strong style="color:#2A2E2B;">Active</strong><br />Gym &middot; park with hill views &middot; free parking &middot; reduced green fee</td></tr>
-    </table>
-    <p style="margin:14px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#8C8578;">
-      Not included: lunch at the Bistrot, drinks, wellness treatments, thermal cures and transfers.
-    </p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;background-color:#E3F0F1;">
-      <tr><td width="6" style="background-color:#1E7F88;font-size:0;line-height:0;">&nbsp;</td>
-      <td style="padding:14px 18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#3C6266;">
-        <strong style="color:#0F5C64;">Complete the online check-in before your arrival.</strong>
-        The pools are yours from <strong style="color:#0F5C64;">11:30</strong>, without waiting for the 15:00 room check-in.
-      </td></tr>
-    </table>
-  </td></tr>
+${compresoEN(d)}
 
   <tr><td style="padding:22px 36px 0 36px;">
     <h2 style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Would you like to add anything?</h2>
@@ -336,15 +314,7 @@ ${d.linkPagamento ? `      <p style="margin:0 0 9px 0;font-family:Arial,Helvetic
     </table>
   </td></tr>
 ${extra.join('')}
-  <tr><td style="padding:22px 36px 0 36px;">
-    <h2 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Good to know</h2>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      <tr><td width="130" valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Check-in</td><td valign="top" style="padding:0 0 10px 0;">From 15:00 &middot; check-out by 11:00</td></tr>
-      <tr><td valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Tourist tax</td><td valign="top" style="padding:0 0 10px 0;">€1.50 per person per night, up to 7 nights, settled at the hotel. Children under 13 and guests with disabilities are exempt</td></tr>
-      <tr><td valign="top" style="padding:0 12px 0 0;color:#8C8578;">Pools</td><td valign="top" style="padding:0;">Open from 8:00 to 19:30, until 22:30 on Fridays and Saturdays &middot; swimming cap required, on sale at reception for &euro;3</td></tr>
-      <tr><td valign="top" style="padding:8px 12px 0 0;color:#8C8578;">Smoking</td><td valign="top" style="padding:8px 0 0 0;">Non-smoking hotel: not in the rooms, on the balcony yes</td></tr>
-    </table>
-  </td></tr>
+${sapereEN()}
 ` + piedeEN(o.firma, 'If you have any questions, simply reply to this email or give us a call — we are here every day.');
 }
 
@@ -481,4 +451,46 @@ ${extra.join('')}
 
 function subjectConfirmEN(d) {
   return `Booking ${numeroConferma(d.numeroOfferta)} confirmed — see you on ${dateEN(d.giornoArrivo, d.mese, d.anno)}`;
+}
+
+/* estratto dall'offerta perche' serve identico anche nel preventivo:
+   un solo testo, un solo posto dove correggerlo */
+function compresoEN(d) {
+  return `  <tr><td style="padding:22px 36px 0 36px;">
+    <h2 style="margin:0 0 12px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Included in the rate</h2>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+      <tr><td width="30" valign="top" style="padding:0 6px 12px 0;font-size:17px;line-height:22px;">&#9832;</td>
+          <td valign="top" style="padding:0 0 12px 0;"><strong style="color:#2A2E2B;">Thermal area</strong><br />Three interconnected thermal pools, indoor and outdoor &middot; a pool with cool thermal water &middot; grottoes with bio-sauna and steam bath &middot; adults-only relaxation area</td></tr>
+      <tr><td valign="top" style="padding:0 6px 12px 0;font-size:17px;line-height:22px;">&#9749;</td>
+          <td valign="top" style="padding:0 0 12px 0;"><strong style="color:#2A2E2B;">At the table</strong><br />${rigaATavola(d, 'en')}</td></tr>
+      <tr><td valign="top" style="padding:0 6px 12px 0;font-size:17px;line-height:22px;">&#128716;</td>
+          <td valign="top" style="padding:0 0 12px 0;"><strong style="color:#2A2E2B;">In your room</strong><br />Bathrobe and towel per person &middot; fibre Wi-Fi &middot; balcony</td></tr>
+      <tr><td valign="top" style="padding:0 6px 0 0;font-size:17px;line-height:22px;">&#127939;</td>
+          <td valign="top" style="padding:0;"><strong style="color:#2A2E2B;">Active</strong><br />Gym &middot; park with hill views &middot; free parking &middot; reduced green fee</td></tr>
+    </table>
+    <p style="margin:14px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#8C8578;">
+      Not included: lunch at the Bistrot, drinks, wellness treatments, thermal cures and transfers.
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;background-color:#E3F0F1;">
+      <tr><td width="6" style="background-color:#1E7F88;font-size:0;line-height:0;">&nbsp;</td>
+      <td style="padding:14px 18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#3C6266;">
+        <strong style="color:#0F5C64;">Complete the online check-in before your arrival.</strong>
+        The pools are yours from <strong style="color:#0F5C64;">11:30</strong>, without waiting for the 15:00 room check-in.
+      </td></tr>
+    </table>
+  </td></tr>`;
+}
+
+/* estratto dall'offerta perche' serve identico anche nel preventivo:
+   un solo testo, un solo posto dove correggerlo */
+function sapereEN() {
+  return `  <tr><td style="padding:22px 36px 0 36px;">
+    <h2 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Good to know</h2>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+      <tr><td width="130" valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Check-in</td><td valign="top" style="padding:0 0 10px 0;">From 15:00 &middot; check-out by 11:00</td></tr>
+      <tr><td valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Tourist tax</td><td valign="top" style="padding:0 0 10px 0;">€1.50 per person per night, up to 7 nights, settled at the hotel. Children under 13 and guests with disabilities are exempt</td></tr>
+      <tr><td valign="top" style="padding:0 12px 0 0;color:#8C8578;">Pools</td><td valign="top" style="padding:0;">Open from 8:00 to 19:30, until 22:30 on Fridays and Saturdays &middot; swimming cap required, on sale at reception for &euro;3</td></tr>
+      <tr><td valign="top" style="padding:8px 12px 0 0;color:#8C8578;">Smoking</td><td valign="top" style="padding:8px 0 0 0;">Non-smoking hotel: not in the rooms, on the balcony yes</td></tr>
+    </table>
+  </td></tr>`;
 }

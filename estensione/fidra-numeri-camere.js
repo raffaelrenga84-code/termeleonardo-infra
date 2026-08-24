@@ -1,5 +1,5 @@
 /* ============================================================
-   Offerta Leonardo — Numeri camera in Nuova Prenotazione (v1.3)
+   Offerta Leonardo — Numeri camera in Nuova Prenotazione (v1.4)
    ------------------------------------------------------------
    Gira su leonardo.fidra.cloud/booking. Al clic su una tipologia
    di camera (le schede "Doppia · 13 Disponibili" ecc.) apre un
@@ -384,10 +384,21 @@
             + `Il numero è negli appunti.`;
           return;
         }
+        /* v1.4 — NON SI MANDA NESSUNO A CERCARE UN PULSANTE CHE NON C'E'.
+           Il messaggio diceva «apri < Camere qui sotto»: su /booking quella
+           sezione non esiste, compare solo sul tableau. Indicare un
+           pulsante inesistente e' peggio che non dire niente — chi legge
+           pensa di aver sbagliato lui. Adesso il riquadro guarda su che
+           pagina si trova e dice due cose diverse. */
+        const sulTableau = /availability|tableau/i.test(location.pathname);
+        const spiega = sulTableau
+          ? `Sono sul tableau, ma la riga della ${n} non la trovo:
+             scorri finché non la vedi e riclicca il numero, la casella la clicco io.`
+          : `Il numero si assegna nel <strong>tableau</strong>, la griglia con una riga
+             per ogni camera e una colonna per ogni giorno. Quando sei lì riclicca
+             il ${n}: clicco io la casella del giorno d'arrivo sulla sua riga.`;
         esito.innerHTML =
-          `<div>La camera ${n} è negli appunti. Il numero si assegna nel tableau:
-            apri <strong>&lt; Camere</strong> qui sotto e clicca la casella del giorno d'arrivo
-            sulla riga della ${n} &mdash; da li' il clic sul numero la seleziona da solo.</div>
+          `<div>La camera ${n} è negli appunti. ${spiega}</div>
            <details style="margin-top:4px;"><summary style="cursor:pointer;color:#0F5C64;">campi che vedo
              in questa pagina</summary>
              <pre style="white-space:pre-wrap;font-size:11px;color:#55524B;margin:4px 0 0;"></pre></details>`;
@@ -404,7 +415,7 @@
   }
 
   (typeof self !== 'undefined' ? self : window).leoCamere = () => ({
-    versione: '1.3',
+    versione: '1.4',
     campi: campiCandidati().map(c => ({
       tipo: c.tipo, etichetta: c.etichetta.trim(),
       valore: String(c.el.value || '').slice(0, 30),

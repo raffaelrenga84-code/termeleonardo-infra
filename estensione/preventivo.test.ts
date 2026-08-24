@@ -637,3 +637,126 @@ Deno.test('nel preventivo non c e il pulsante di pagamento con carta', () => {
     assert(!/deposit-payment/i.test(html), `c e il link di pagamento in ${l}`);
   }
 });
+
+/* ============================================================
+   «COSA COMPRENDE LA TARIFFA» — il pezzo che mancava.
+
+   «L'offerta che costruisci con disponibilità e prezzi non corrisponde
+   alle offerte che mandiamo via mail: manca cosa comprende la tariffa,
+   gli orari delle piscine, eccetera.» Il preventivo dava un prezzo e
+   basta, e un prezzo senza la merce si legge come caro.
+
+   IL RISCHIO ADESSO E' UN ALTRO, e queste prove sorvegliano quello: che
+   di quei testi ne nascano DUE. Sono in quattro lingue e sono stati
+   riletti da chi in hotel ci lavora; averne due copie vuol dire
+   correggere l'orario delle piscine in una e non nell'altra, e
+   accorgersene quando un ospite arriva alle 19:00 e trova chiuso.
+   ============================================================ */
+function offerteQui(): Record<string, (d: Record<string, unknown>, o: Opzioni) => string> {
+  const coda = `
+    return { it: costruisciEmail, de: costruisciEmailDE,
+             en: costruisciEmailEN, fr: costruisciEmailFR };`;
+  return new Function(SORGENTE + coda)() as Record<
+    string,
+    (d: Record<string, unknown>, o: Opzioni) => string
+  >;
+}
+
+/* la pratica minima che serve a far uscire un'offerta intera */
+function pratica(): Record<string, unknown> {
+  return {
+    ok: true, id: '19999', numeroOfferta: 'O26/19999', linkPagamento: null,
+    stato: 'offerta', intestatario: 'Bianchi Maria', email: 'ospite@esempio.it',
+    emailAlternative: [], note: [], mancanti: [], profilo: {}, avvisi: [], extra: [],
+    scadenza: '30 Aug 2026',
+    anno: 2026, mese: 'Aug', giornoArrivo: 23, giornoPartenza: 26,
+    mesePartenza: 'Aug', annoPartenza: 2026,
+    notti: 3, nCamere: 1, adulti: 2, bambini: 0, etaBambini: [],
+    camere: [{
+      categoria: 'Doppia', numero: null, adulti: 2, bambini: 0, etaBambini: '',
+      trattamento: 'MIGLIOR PREZZO MEZZA PENSIONE',
+      totalePP: 390, totaleCamera: 780, bambiniPrezzi: [],
+      periodo: { g1: 23, g2: 26, mese: 'Aug', notti: 3 },
+      soggiornanti: [], checkinFatti: 0,
+    }],
+    totale: 780, totaleFmt: '780,00', acconto: 150, accontoFmt: '150,00',
+    saldo: 630, saldoFmt: '630,00', caparraVersata: 0, caparraDovuta: null,
+  };
+}
+
+const SEZIONI: Record<Lingua, { compreso: RegExp; sapere: RegExp }> = {
+  it: { compreso: /Compreso nella tariffa/, sapere: /Da sapere/ },
+  de: { compreso: /Im Preis enthalten/, sapere: /Gut zu wissen/ },
+  en: { compreso: /Included in the rate/, sapere: /Good to know/ },
+  fr: { compreso: /Compris dans le tarif/, sapere: /Bon &agrave; savoir|Bon à savoir/ },
+};
+
+Deno.test('il preventivo dice cosa comprende la tariffa, in tutte e quattro le lingue', () => {
+  const m = modelli();
+  for (const l of LINGUE) {
+    const html = m.html[l](DATI(), OPZ);
+    assert(SEZIONI[l].compreso.test(html), `manca «compreso nella tariffa» in ${l}`);
+    assert(SEZIONI[l].sapere.test(html), `manca «da sapere» in ${l}`);
+  }
+});
+
+Deno.test('gli orari delle piscine ci sono, ed e la cosa che chiedono di piu', () => {
+  const m = modelli();
+  for (const l of LINGUE) {
+    const html = m.html[l](DATI(), OPZ);
+    assert(/8:00|8.00 ?am|8h/.test(html), `mancano gli orari delle piscine in ${l}`);
+    assert(/22:30|10.30 ?pm|22h30/.test(html), `manca l apertura serale in ${l}`);
+  }
+});
+
+Deno.test('il testo e LO STESSO dell offerta, non una seconda copia', () => {
+  /* si prende il blocco dall'offerta e lo si cerca, uguale, nel
+     preventivo: se qualcuno ne riscrive uno dei due, qui si spacca */
+  const m = modelli(), off = offerteQui();
+  for (const l of LINGUE) {
+    const a = off[l](pratica(), OPZ);
+    const b = m.html[l](DATI(), OPZ);
+    const inizio = a.search(SEZIONI[l].compreso);
+    assert(inizio > 0, `non trovo il blocco nell offerta ${l}`);
+    /* un pezzo ampio ma sicuro: dal titolo in avanti, dentro lo stesso
+       blocco, senza arrivare a quello che dipende dai dati */
+    const pezzo = a.slice(inizio, inizio + 700);
+    assert(
+      b.includes(pezzo),
+      `il blocco «compreso» del preventivo ${l} non e piu quello dell offerta: sono diventati due testi`,
+    );
+  }
+});
+
+Deno.test('la cena compare anche nel preventivo, che chiama «voci» le sue camere', () => {
+  /* includeCena guardava solo d.camere. Il preventivo le sue sistemazioni
+     le chiama «voci»: senza guardare anche quelle, in un preventivo in
+     mezza pensione la riga della cena non compariva mai — e la cena e'
+     meta' del prezzo. */
+  const m = modelli();
+  const d = DATI();
+  d.voci = [d.voci[0]];   // solo la mezza pensione
+  /* NON si cerca «19:30»: quell orario compare anche negli orari delle
+     piscine, e la prova passerebbe anche senza la cena */
+  assert(/cena a buffet/.test(m.html.it(d, OPZ)), 'la cena non compare nel preventivo in mezza pensione');
+  const soloBB = DATI();
+  soloBB.voci = [soloBB.voci[1]];   // solo bed & breakfast
+  assert(
+    !/cena a buffet/.test(m.html.it(soloBB, OPZ)),
+    'la cena compare in un preventivo di solo pernottamento e colazione',
+  );
+});
+
+Deno.test('i due titoli non si chiamano tutti e due «Da sapere»', () => {
+  /* il preventivo aveva gia' un suo «Da sapere» — quello che avverte che
+     i prezzi cambiano e che la camera non e' bloccata. Con l'arrivo del
+     «Da sapere» dell'offerta (check-in, tassa, piscine) sarebbero
+     diventati due sezioni con lo stesso nome nella stessa email. */
+  const m = modelli();
+  const html = m.html.it(DATI(), OPZ);
+  assert(
+    /Sul prezzo e sulla disponibilit/.test(html),
+    'l avviso sui prezzi ha di nuovo lo stesso titolo della sezione informativa',
+  );
+  assertEquals(quante(html, /&gt;Da sapere&lt;|>Da sapere</), 1, 'due sezioni si chiamano «Da sapere»');
+});

@@ -270,29 +270,7 @@ ${d.linkPagamento ? `      <p style="margin:0 0 9px 0;font-family:Arial,Helvetic
     </td></tr></table>
   </td></tr>
 
-  <tr><td style="padding:22px 36px 0 36px;">
-    <h2 style="margin:0 0 12px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Compris dans le tarif</h2>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      <tr><td width="30" valign="top" style="padding:0 6px 12px 0;font-size:17px;line-height:22px;">&#9832;</td>
-          <td valign="top" style="padding:0 0 12px 0;"><strong style="color:#2A2E2B;">Espace thermal</strong><br />Les trois bassins thermaux, intérieur et extérieur, reliés entre eux &middot; un bassin d'eau thermale fraîche &middot; grottes avec bio-sauna et bain turc &middot; espace détente réservé aux adultes</td></tr>
-      <tr><td valign="top" style="padding:0 6px 12px 0;font-size:17px;line-height:22px;">&#9749;</td>
-          <td valign="top" style="padding:0 0 12px 0;"><strong style="color:#2A2E2B;">À table</strong><br />${rigaATavola(d, 'fr')}</td></tr>
-      <tr><td valign="top" style="padding:0 6px 12px 0;font-size:17px;line-height:22px;">&#128716;</td>
-          <td valign="top" style="padding:0 0 12px 0;"><strong style="color:#2A2E2B;">En chambre</strong><br />Peignoir et serviette par personne &middot; Wi-Fi fibre &middot; balcon</td></tr>
-      <tr><td valign="top" style="padding:0 6px 0 0;font-size:17px;line-height:22px;">&#127939;</td>
-          <td valign="top" style="padding:0;"><strong style="color:#2A2E2B;">Activités</strong><br />Salle de sport &middot; parc avec vue sur les collines &middot; parking gratuit &middot; green fee réduit</td></tr>
-    </table>
-    <p style="margin:14px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#8C8578;">
-      Non compris : déjeuner au Bistrot, boissons, soins bien-être, cures thermales et transferts.
-    </p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;background-color:#E3F0F1;">
-      <tr><td width="6" style="background-color:#1E7F88;font-size:0;line-height:0;">&nbsp;</td>
-      <td style="padding:14px 18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#3C6266;">
-        <strong style="color:#0F5C64;">Faites le check-in en ligne avant votre arrivée.</strong>
-        Les piscines sont à vous dès <strong style="color:#0F5C64;">11h30</strong>, sans attendre 15h00, l'heure officielle d'accès à la chambre.
-      </td></tr>
-    </table>
-  </td></tr>
+${compresoFR(d)}
 
   <tr><td style="padding:22px 36px 0 36px;">
     <h2 style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Souhaitez-vous ajouter quelque chose ?</h2>
@@ -316,15 +294,7 @@ ${d.linkPagamento ? `      <p style="margin:0 0 9px 0;font-family:Arial,Helvetic
     </table>
   </td></tr>
 ${extra.join('')}
-  <tr><td style="padding:22px 36px 0 36px;">
-    <h2 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Bon à savoir</h2>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      <tr><td width="140" valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Arrivée</td><td valign="top" style="padding:0 0 10px 0;">À partir de 15h00 &middot; départ avant 11h00</td></tr>
-      <tr><td valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Taxe de séjour</td><td valign="top" style="padding:0 0 10px 0;">1,50 € par personne et par nuit, 7 nuits maximum, à régler à l'hôtel. Exonérés : les enfants jusqu'à 13 ans et les personnes en situation de handicap</td></tr>
-      <tr><td valign="top" style="padding:0 12px 0 0;color:#8C8578;">Piscines</td><td valign="top" style="padding:0;">Ouvertes de 8h &agrave; 19h30, jusqu'&agrave; 22h30 les vendredis et samedis &middot; bonnet de bain obligatoire, en vente à la réception à 3 €</td></tr>
-      <tr><td valign="top" style="padding:8px 12px 0 0;color:#8C8578;">Tabac</td><td valign="top" style="padding:8px 0 0 0;">Hôtel non-fumeurs : pas en chambre, sur le balcon oui</td></tr>
-    </table>
-  </td></tr>
+${sapereFR()}
 ` + piedeFR(o.firma, 'Pour toute question, répondez à cet e-mail ou appelez-nous : nous sommes là tous les jours.');
 }
 
@@ -461,4 +431,46 @@ ${extra.join('')}
 
 function objetConfirmFR(d) {
   return `Réservation ${numeroConferma(d.numeroOfferta)} confirmée — à bientôt le ${dateFR(d.giornoArrivo, d.mese, d.anno)}`;
+}
+
+/* estratto dall'offerta perche' serve identico anche nel preventivo:
+   un solo testo, un solo posto dove correggerlo */
+function compresoFR(d) {
+  return `  <tr><td style="padding:22px 36px 0 36px;">
+    <h2 style="margin:0 0 12px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Compris dans le tarif</h2>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+      <tr><td width="30" valign="top" style="padding:0 6px 12px 0;font-size:17px;line-height:22px;">&#9832;</td>
+          <td valign="top" style="padding:0 0 12px 0;"><strong style="color:#2A2E2B;">Espace thermal</strong><br />Les trois bassins thermaux, intérieur et extérieur, reliés entre eux &middot; un bassin d'eau thermale fraîche &middot; grottes avec bio-sauna et bain turc &middot; espace détente réservé aux adultes</td></tr>
+      <tr><td valign="top" style="padding:0 6px 12px 0;font-size:17px;line-height:22px;">&#9749;</td>
+          <td valign="top" style="padding:0 0 12px 0;"><strong style="color:#2A2E2B;">À table</strong><br />${rigaATavola(d, 'fr')}</td></tr>
+      <tr><td valign="top" style="padding:0 6px 12px 0;font-size:17px;line-height:22px;">&#128716;</td>
+          <td valign="top" style="padding:0 0 12px 0;"><strong style="color:#2A2E2B;">En chambre</strong><br />Peignoir et serviette par personne &middot; Wi-Fi fibre &middot; balcon</td></tr>
+      <tr><td valign="top" style="padding:0 6px 0 0;font-size:17px;line-height:22px;">&#127939;</td>
+          <td valign="top" style="padding:0;"><strong style="color:#2A2E2B;">Activités</strong><br />Salle de sport &middot; parc avec vue sur les collines &middot; parking gratuit &middot; green fee réduit</td></tr>
+    </table>
+    <p style="margin:14px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#8C8578;">
+      Non compris : déjeuner au Bistrot, boissons, soins bien-être, cures thermales et transferts.
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;background-color:#E3F0F1;">
+      <tr><td width="6" style="background-color:#1E7F88;font-size:0;line-height:0;">&nbsp;</td>
+      <td style="padding:14px 18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#3C6266;">
+        <strong style="color:#0F5C64;">Faites le check-in en ligne avant votre arrivée.</strong>
+        Les piscines sont à vous dès <strong style="color:#0F5C64;">11h30</strong>, sans attendre 15h00, l'heure officielle d'accès à la chambre.
+      </td></tr>
+    </table>
+  </td></tr>`;
+}
+
+/* estratto dall'offerta perche' serve identico anche nel preventivo:
+   un solo testo, un solo posto dove correggerlo */
+function sapereFR() {
+  return `  <tr><td style="padding:22px 36px 0 36px;">
+    <h2 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Bon à savoir</h2>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+      <tr><td width="140" valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Arrivée</td><td valign="top" style="padding:0 0 10px 0;">À partir de 15h00 &middot; départ avant 11h00</td></tr>
+      <tr><td valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Taxe de séjour</td><td valign="top" style="padding:0 0 10px 0;">1,50 € par personne et par nuit, 7 nuits maximum, à régler à l'hôtel. Exonérés : les enfants jusqu'à 13 ans et les personnes en situation de handicap</td></tr>
+      <tr><td valign="top" style="padding:0 12px 0 0;color:#8C8578;">Piscines</td><td valign="top" style="padding:0;">Ouvertes de 8h &agrave; 19h30, jusqu'&agrave; 22h30 les vendredis et samedis &middot; bonnet de bain obligatoire, en vente à la réception à 3 €</td></tr>
+      <tr><td valign="top" style="padding:8px 12px 0 0;color:#8C8578;">Tabac</td><td valign="top" style="padding:8px 0 0 0;">Hôtel non-fumeurs : pas en chambre, sur le balcon oui</td></tr>
+    </table>
+  </td></tr>`;
 }

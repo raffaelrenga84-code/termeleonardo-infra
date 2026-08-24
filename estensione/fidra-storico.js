@@ -248,7 +248,16 @@
       : `/customers/${id}/stays/${rid}/charges`;
     try {
       const r = await fetch(dove, { credentials: 'same-origin' });
-      if (!r.ok) { nota('soggiorno non letto', { dove, stato: r.status }); return null; }
+      /* v1.7 — «TRATTAMENTO NON LETTO» NON DICE NIENTE. E' comparso sotto
+         ogni soggiorno, e da fuori restano due spiegazioni opposte: la
+         pagina non si apre — indirizzo sbagliato — oppure si apre e non
+         contiene la parola che cerco. Sono guai diversi, si correggono in
+         punti diversi, e tenerli indistinti costa un giro di prove a ogni
+         tentativo. Percio' adesso il riquadro dice quale dei due e'. */
+      if (!r.ok) {
+        nota('soggiorno non letto', { dove, stato: r.status });
+        return { errore: 'pagina ' + r.status };
+      }
       const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
       const testo = (doc.body.textContent || '').replace(/\s+/g, ' ');
       /* v1.4: il trattamento si cerca fra gli elementi scritti TUTTI IN
@@ -280,8 +289,10 @@
          ogni riga. Meglio non dirlo che dirlo sbagliato, quindi servono
          parole che compaiono solo se le cure ci sono davvero. */
       const cure = /fangh[io]|bagno termale|cure termali|inalazion|percorso vascolare|dolce vita|spezial/i.test(testo);
-      return { trattamento: t || null, sigla, cure };
-    } catch (e) { return null; }
+      if (!t) nota('trattamento non trovato', { dove, lungh: testo.length });
+      return { trattamento: t || null, sigla, cure,
+               errore: t ? null : 'pagina letta, ma non dice il trattamento' };
+    } catch (e) { return { errore: String(e.message || e).slice(0, 40) }; }
   }
 
   /* ---------- il riquadro ---------- */
@@ -380,7 +391,8 @@
         ? (t.sigla ? `<strong style="color:#0F5C64;">${t.sigla}</strong> &middot; ` : '') +
           `<span style="color:#55524B;">${esc(t.trattamento.toLowerCase())}</span>` +
           (t.cure ? ' <span style="color:#7A8450;">&middot; con cure</span>' : '')
-        : '<span style="color:#A79E8F;">trattamento non letto</span>';
+        : '<span style="color:#A79E8F;">trattamento non letto' +
+          (t && t.errore ? ' &middot; ' + esc(t.errore) : '') + '</span>';
     }
   }
 

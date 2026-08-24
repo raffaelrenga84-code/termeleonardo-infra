@@ -410,7 +410,10 @@ function bloccoCertificazioni() {
    in solo pernottamento e colazione (tutti i trattamenti e i pacchetti
    dell'hotel, tranne il B&B, comprendono la cena). */
 function includeCena(d) {
-  const camere = (d && d.camere) || [];
+  /* il preventivo chiama le sue sistemazioni «voci», non «camere»:
+     senza guardare anche quelle, in un preventivo in mezza pensione la
+     riga della cena non compariva mai */
+  const camere = (d && (d.camere || d.voci)) || [];
   if (!camere.length) return false;
   const soloBB = (t) => /pernottamento\s*e\s*colazione|bed\s*&?\s*breakfast|b\s*&\s*b|&uuml;bernachtung\s*mit|übernachtung\s*mit/i.test(t || '');
   return camere.some(c => c.trattamento && !soloBB(c.trattamento));
@@ -1197,7 +1200,73 @@ ${d.linkPagamento ? `      <p style="margin:0 0 9px 0;font-family:Arial,Helvetic
     </td></tr></table>
   </td></tr>
 
+${compresoIT(d)}
+
   <tr><td style="padding:22px 36px 0 36px;">
+    <h2 style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Vuole aggiungere qualcosa?</h2>
+    <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#7B756A;">Ce lo scriva rispondendo a questa email.</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+        <strong style="color:#2A2E2B;">Massaggio antistress</strong> &middot; 55 &euro; (45 minuti)<br /><span style="color:#7B756A;font-size:13px;">Il pi&ugrave; richiesto. Gli orari si esauriscono presto</span><br /><a href="https://www.termeleonardo.com/pdf/listino-spa-trattamenti-e-massaggi-hotel-leonardo-da-vinci-terme.pdf" target="_blank" style="color:#0F5C64;font-size:13px;text-decoration:underline;">Scarichi il listino completo di trattamenti e massaggi (PDF)</a>${bottoneServizio('trattamenti', d, 'it')}
+      </td></tr>
+      <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+        <strong style="color:#2A2E2B;">Transfer dall'aeroporto</strong> &middot; Venezia, navetta da 65 &euro;<br /><span style="color:#7B756A;font-size:13px;">Va prenotato almeno 24 ore prima. Ci dica volo e orario</span>${bottoneServizio('transfer', d, 'it')}
+      </td></tr>
+      <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+        <strong style="color:#2A2E2B;">Si goda le terme fino all'ultimo</strong> &middot; piscine anche il giorno della partenza, fino alle 18:30 &middot; <span style="color:#7B756A;font-size:13px;">30 &euro; a persona, tariffa riservata ai nostri ospiti. Spogliatoi inclusi</span>
+      </td></tr>
+    </table>
+  </td></tr>
+${sapereIT()}
+
+  <tr><td style="padding:22px 36px 0 36px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="1" style="background-color:#E4DED2;font-size:0;line-height:0;">&nbsp;</td></tr></table>
+    <p style="margin:16px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">Per qualsiasi cosa risponda pure a questa email, oppure ci chiami: siamo qui tutti i giorni.</p>
+    <p style="margin:16px 0 0 0;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:24px;color:#2A2E2B;">
+      ${o.firma || 'La Reception'}<br />
+      <span style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#8C8578;">Ufficio prenotazioni</span>
+    </p>
+    <p style="margin:14px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#55524B;">
+      +39 049 9939 200 &nbsp;&middot;&nbsp; info@termeleonardo.com
+    </p>
+  </td></tr>
+
+  <tr><td align="center" style="padding:20px 36px 0 36px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="padding:9px 16px;background-color:#F1F4EA;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#5F6B44;">${typeof bloccoCertificazioni === 'function' ? bloccoCertificazioni() : ''}
+        <strong style="color:#4A5636;">Primo hotel termale in Europa</strong> certificato <strong style="color:#4A5636;">GSTC Hotel Standard</strong> per la sostenibilit&agrave; &middot; ente certificatore Vireo Srl
+      </td>
+    </tr></table>
+  </td></tr>
+
+  <tr><td align="center" style="padding:20px 36px 26px 36px;">
+    <div style="font-family:Georgia,'Times New Roman',serif;font-size:15px;letter-spacing:5px;color:#2A2E2B;">TERME LEONARDO</div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:20px;color:#8C8578;padding-top:10px;">
+      Via Monteortone, 46 &middot; 35037 Monteortone di Abano Terme (PD) &middot; <a href="https://www.hoteltermeleonardo.com" target="_blank" style="color:#8C8578;text-decoration:underline;">hoteltermeleonardo.com</a>
+    </div>
+  </td></tr>
+
+</table>
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+  <tr><td align="center" style="padding:14px 36px 0 36px;font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:17px;color:#A79E8F;">
+    Tria S.r.l. &middot; P.IVA IT 02042330288 &middot; CIN IT028089A18QYO48ED
+  </td></tr>
+</table>
+</td></tr>
+</table>`;
+}
+
+function oggetto(d) {
+  const arrivo = dataIT(d.giornoArrivo, d.mese, d.anno);
+  return `La sua proposta di soggiorno dal ${arrivo} — Hotel Terme Leonardo`;
+}
+
+/* estratto dall'offerta perche' serve identico anche nel preventivo:
+   un solo testo, un solo posto dove correggerlo */
+function compresoIT(d) {
+  return `  <tr><td style="padding:22px 36px 0 36px;">
     <h2 style="margin:0 0 12px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Compreso nella tariffa</h2>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
@@ -1244,26 +1313,13 @@ ${d.linkPagamento ? `      <p style="margin:0 0 9px 0;font-family:Arial,Helvetic
         </td>
       </tr>
     </table>
-  </td></tr>
+  </td></tr>`;
+}
 
-  <tr><td style="padding:22px 36px 0 36px;">
-    <h2 style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Vuole aggiungere qualcosa?</h2>
-    <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#7B756A;">Ce lo scriva rispondendo a questa email.</p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-        <strong style="color:#2A2E2B;">Massaggio antistress</strong> &middot; 55 &euro; (45 minuti)<br /><span style="color:#7B756A;font-size:13px;">Il pi&ugrave; richiesto. Gli orari si esauriscono presto</span><br /><a href="https://www.termeleonardo.com/pdf/listino-spa-trattamenti-e-massaggi-hotel-leonardo-da-vinci-terme.pdf" target="_blank" style="color:#0F5C64;font-size:13px;text-decoration:underline;">Scarichi il listino completo di trattamenti e massaggi (PDF)</a>${bottoneServizio('trattamenti', d, 'it')}
-      </td></tr>
-      <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
-      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-        <strong style="color:#2A2E2B;">Transfer dall'aeroporto</strong> &middot; Venezia, navetta da 65 &euro;<br /><span style="color:#7B756A;font-size:13px;">Va prenotato almeno 24 ore prima. Ci dica volo e orario</span>${bottoneServizio('transfer', d, 'it')}
-      </td></tr>
-      <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
-      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-        <strong style="color:#2A2E2B;">Si goda le terme fino all'ultimo</strong> &middot; piscine anche il giorno della partenza, fino alle 18:30 &middot; <span style="color:#7B756A;font-size:13px;">30 &euro; a persona, tariffa riservata ai nostri ospiti. Spogliatoi inclusi</span>
-      </td></tr>
-    </table>
-  </td></tr>
-  <tr><td style="padding:22px 36px 0 36px;">
+/* estratto dall'offerta perche' serve identico anche nel preventivo:
+   un solo testo, un solo posto dove correggerlo */
+function sapereIT() {
+  return `  <tr><td style="padding:22px 36px 0 36px;">
     <h2 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Da sapere</h2>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
       <tr><td width="130" valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Check-in</td><td valign="top" style="padding:0 0 10px 0;">Dalle 15:00 &middot; check-out entro le 11:00</td></tr>
@@ -1271,46 +1327,5 @@ ${d.linkPagamento ? `      <p style="margin:0 0 9px 0;font-family:Arial,Helvetic
       <tr><td valign="top" style="padding:0 12px 0 0;color:#8C8578;">Piscine</td><td valign="top" style="padding:0;">Aperte dalle 8:00 alle 19:30, il venerd&igrave; e il sabato fino alle 22:30 &middot; cuffia obbligatoria, in vendita in Reception a 3 &euro;</td></tr>
       <tr><td valign="top" style="padding:8px 12px 0 0;color:#8C8578;">Fumo</td><td valign="top" style="padding:8px 0 0 0;">Hotel per non fumatori: in camera non si fuma, sul balcone s&igrave;</td></tr>
     </table>
-  </td></tr>
-
-  <tr><td style="padding:22px 36px 0 36px;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="1" style="background-color:#E4DED2;font-size:0;line-height:0;">&nbsp;</td></tr></table>
-    <p style="margin:16px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">Per qualsiasi cosa risponda pure a questa email, oppure ci chiami: siamo qui tutti i giorni.</p>
-    <p style="margin:16px 0 0 0;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:24px;color:#2A2E2B;">
-      ${o.firma || 'La Reception'}<br />
-      <span style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#8C8578;">Ufficio prenotazioni</span>
-    </p>
-    <p style="margin:14px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#55524B;">
-      +39 049 9939 200 &nbsp;&middot;&nbsp; info@termeleonardo.com
-    </p>
-  </td></tr>
-
-  <tr><td align="center" style="padding:20px 36px 0 36px;">
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-      <td style="padding:9px 16px;background-color:#F1F4EA;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#5F6B44;">${typeof bloccoCertificazioni === 'function' ? bloccoCertificazioni() : ''}
-        <strong style="color:#4A5636;">Primo hotel termale in Europa</strong> certificato <strong style="color:#4A5636;">GSTC Hotel Standard</strong> per la sostenibilit&agrave; &middot; ente certificatore Vireo Srl
-      </td>
-    </tr></table>
-  </td></tr>
-
-  <tr><td align="center" style="padding:20px 36px 26px 36px;">
-    <div style="font-family:Georgia,'Times New Roman',serif;font-size:15px;letter-spacing:5px;color:#2A2E2B;">TERME LEONARDO</div>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:20px;color:#8C8578;padding-top:10px;">
-      Via Monteortone, 46 &middot; 35037 Monteortone di Abano Terme (PD) &middot; <a href="https://www.hoteltermeleonardo.com" target="_blank" style="color:#8C8578;text-decoration:underline;">hoteltermeleonardo.com</a>
-    </div>
-  </td></tr>
-
-</table>
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
-  <tr><td align="center" style="padding:14px 36px 0 36px;font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:17px;color:#A79E8F;">
-    Tria S.r.l. &middot; P.IVA IT 02042330288 &middot; CIN IT028089A18QYO48ED
-  </td></tr>
-</table>
-</td></tr>
-</table>`;
-}
-
-function oggetto(d) {
-  const arrivo = dataIT(d.giornoArrivo, d.mese, d.anno);
-  return `La sua proposta di soggiorno dal ${arrivo} — Hotel Terme Leonardo`;
+  </td></tr>`;
 }

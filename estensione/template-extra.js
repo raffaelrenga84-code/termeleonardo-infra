@@ -805,6 +805,7 @@ const PREVENTIVO_T = {
     sc5: 'sconto fedelt&agrave; 5% gi&agrave; compreso',
     sc3: 'e in pi&ugrave; 3% per il pagamento anticipato, reso alla partenza',
     sapereTitolo: 'Da sapere',
+    prezzoTitolo: 'Sul prezzo e sulla disponibilit&agrave;',
     avviso: 'I prezzi sono le tariffe di oggi e cambiano con l&rsquo;occupazione. Questo preventivo <strong style="color:#2A2E2B;">non blocca la camera</strong>: la disponibilit&agrave; si verifica al momento della conferma.',
     chiudi: 'Se una di queste soluzioni le piace, ci risponda a questa email: le prepariamo l&rsquo;offerta e teniamo la camera.',
     noteCure: 'Con l&rsquo;impegnativa del suo medico il ticket &egrave; di <strong style="color:#0F5C64;">55 &euro;</strong> e copre visita medica, dodici fanghi e dodici bagni terapeutici. I turni sono al mattino.',
@@ -833,6 +834,7 @@ const PREVENTIVO_T = {
     sc5: '5 % Treuerabatt bereits enthalten',
     sc3: 'zus&auml;tzlich 3 % bei Vorauszahlung, bei der Abreise verrechnet',
     sapereTitolo: 'Gut zu wissen',
+    prezzoTitolo: 'Zu Preis und Verf&uuml;gbarkeit',
     avviso: 'Die Preise sind die heutigen Tarife und &auml;ndern sich mit der Belegung. Mit dieser Preisangabe ist <strong style="color:#2A2E2B;">noch kein Zimmer reserviert</strong>: die Verf&uuml;gbarkeit wird bei der Best&auml;tigung gepr&uuml;ft.',
     chiudi: 'Wenn Ihnen eine dieser M&ouml;glichkeiten zusagt, antworten Sie einfach auf diese E-Mail: wir bereiten das Angebot vor und halten das Zimmer f&uuml;r Sie.',
     noteCure: 'Mit der &auml;rztlichen Verordnung betr&auml;gt der Ticketanteil <strong style="color:#0F5C64;">55 &euro;</strong> und umfasst die &auml;rztliche Untersuchung, zw&ouml;lf Fangopackungen und zw&ouml;lf Thermalb&auml;der. Die Anwendungen finden vormittags statt.',
@@ -861,6 +863,7 @@ const PREVENTIVO_T = {
     sc5: '5% loyalty discount already included',
     sc3: 'plus 3% for advance payment, refunded on departure',
     sapereTitolo: 'Good to know',
+    prezzoTitolo: 'About the price and availability',
     avviso: 'These are today&rsquo;s rates and they change with occupancy. This quotation <strong style="color:#2A2E2B;">does not hold the room</strong>: availability is checked at the time of confirmation.',
     chiudi: 'If one of these suits you, just reply to this email: we will prepare the offer and hold the room for you.',
     noteCure: 'With your doctor&rsquo;s prescription the ticket is <strong style="color:#0F5C64;">&euro;55</strong> and covers the medical examination, twelve mud packs and twelve thermal baths. Treatments take place in the morning.',
@@ -889,6 +892,7 @@ const PREVENTIVO_T = {
     sc5: 'remise fid&eacute;lit&eacute; de 5 % d&eacute;j&agrave; comprise',
     sc3: 'et 3 % pour le paiement anticip&eacute;, rendus au d&eacute;part',
     sapereTitolo: '&Agrave; savoir',
+    prezzoTitolo: 'Sur le prix et la disponibilit&eacute;',
     avviso: 'Ce sont les tarifs du jour et ils changent avec le taux d&rsquo;occupation. Ce devis <strong style="color:#2A2E2B;">ne bloque pas la chambre</strong> : la disponibilit&eacute; est v&eacute;rifi&eacute;e au moment de la confirmation.',
     chiudi: 'Si l&rsquo;une de ces solutions vous convient, r&eacute;pondez simplement &agrave; cet e-mail : nous pr&eacute;parons l&rsquo;offre et gardons la chambre.',
     noteCure: 'Avec l&rsquo;ordonnance de votre m&eacute;decin, le ticket est de <strong style="color:#0F5C64;">55 &euro;</strong> et comprend la visite m&eacute;dicale, douze applications de fango et douze bains thermaux. Les soins ont lieu le matin.',
@@ -1007,6 +1011,39 @@ function bloccoCaparra(d, lingua) {
   </td></tr>`;
 }
 
+/* ============================================================
+   QUELLO CHE IL PREVENTIVO NON DICEVA
+   ------------------------------------------------------------
+   «L'offerta che costruisci con disponibilità e prezzi non corrisponde
+   alle offerte che mandiamo via mail: manca cosa comprende la tariffa,
+   gli orari delle piscine, eccetera.» Vero. Il preventivo dava un
+   prezzo e basta, e un prezzo senza la merce si legge come caro.
+
+   NON SI RISCRIVE NIENTE. Quei due blocchi nell'offerta ci sono da
+   sempre, in quattro lingue, e sono stati riletti da chi in hotel ci
+   lavora. Riscriverli qui vorrebbe dire averne due versioni: si
+   correggerebbe l'orario delle piscine in una e non nell'altra, e il
+   giorno che succede nessuno se ne accorge finche' non arriva un ospite
+   alle 19:00 trovando chiuso.
+
+   Percio' stanno in una funzione sola per lingua, estratta LETTERALMENTE
+   dal punto in cui era: le otto istantanee — quattro offerte e quattro
+   preventivi — sono identiche al carattere prima e dopo l'estrazione.
+   ============================================================ */
+function bloccoCompreso(d, lingua) {
+  if (lingua === 'de') return compresoDE(d);
+  if (lingua === 'en') return compresoEN(d);
+  if (lingua === 'fr') return compresoFR(d);
+  return compresoIT(d);
+}
+
+function bloccoDaSapere(lingua) {
+  if (lingua === 'de') return sapereDE();
+  if (lingua === 'en') return sapereEN();
+  if (lingua === 'fr') return sapereFR();
+  return sapereIT();
+}
+
 function costruisciPreventivoBase(d, opzioni, lingua) {
   const o = opzioni || {};
   const t = PREVENTIVO_T[lingua] || PREVENTIVO_T.it;
@@ -1091,8 +1128,11 @@ function costruisciPreventivoBase(d, opzioni, lingua) {
     </table>
   </td></tr>` : ''}
 
+${bloccoCompreso(d, lingua)}
+${bloccoDaSapere(lingua)}
+
   <tr><td style="padding:16px 36px 0 36px;">
-    <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">${t.sapereTitolo}</h2>
+    <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">${t.prezzoTitolo}</h2>
     <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.avviso}</p>
     <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.chiudi}</p>
   </td></tr>

@@ -281,7 +281,78 @@ ${d.linkPagamento ? `      <p style="margin:0 0 9px 0;font-family:Arial,Helvetic
     </td></tr></table>
   </td></tr>
 
+${compresoDE(d)}
+
   <tr><td style="padding:22px 36px 0 36px;">
+    <h2 style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Möchten Sie etwas hinzufügen?</h2>
+    <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#7B756A;">Schreiben Sie uns einfach als Antwort auf diese E-Mail.</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+        <strong style="color:#2A2E2B;">Transfer ab Flughafen Venedig</strong> &middot; Sammeltaxi ab 65 &euro;<br /><span style="color:#7B756A;font-size:13px;">Mindestens 24 Stunden vorher zu buchen. Nennen Sie uns Flugnummer und Uhrzeit</span>${bottoneServizio('transfer', d, 'de')}
+      </td></tr>
+      <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+        <strong style="color:#2A2E2B;">Antistress-Massage</strong> &middot; 55 &euro; (45 Minuten)<br /><span style="color:#7B756A;font-size:13px;">Die beliebteste. Die Termine sind schnell vergeben</span><br /><a href="https://www.termeleonardo.com/pdf/listino-spa-trattamenti-e-massaggi-hotel-leonardo-da-vinci-terme-de.pdf" target="_blank" style="color:#0F5C64;font-size:13px;text-decoration:underline;">Die vollst&auml;ndige Preisliste der Behandlungen und Massagen herunterladen (PDF)</a>${bottoneServizio('trattamenti', d, 'de')}
+      </td></tr>
+      <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+        <strong style="color:#2A2E2B;">Golf direkt am Haus</strong> &middot; Rangefee 6 &euro; f&uuml;r Hotelg&auml;ste<br /><span style="color:#7B756A;font-size:13px;">Driving Range mit 15.000 m&sup2; und 10 Abschlagpl&auml;tzen direkt neben den Thermalpools: Putting Green, Pitching Green, Bunker. Erm&auml;&szlig;igte Green Fees bei Montecchia, Padova und Frassanelle (wenige Minuten entfernt), Stunden mit unserem Pro auf Anfrage</span>
+      </td></tr>
+      <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+        <strong style="color:#2A2E2B;">Thermalgenuss bis zuletzt</strong> &middot; Pools auch am Abreisetag, bis 18:30 Uhr &middot; <span style="color:#7B756A;font-size:13px;">30 &euro; pro Person, Vorzugspreis f&uuml;r unsere G&auml;ste. Umkleiden inklusive</span>
+      </td></tr>
+    </table>
+  </td></tr>
+${sapereDE()}
+
+  <tr><td style="padding:22px 36px 0 36px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="1" style="background-color:#E4DED2;font-size:0;line-height:0;">&nbsp;</td></tr></table>
+    <p style="margin:16px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+      Haben Sie Fragen zum Angebot? Bitte zögern Sie nicht, uns zu kontaktieren: wir sind jederzeit gerne für Sie da.
+    </p>
+    <p style="margin:16px 0 0 0;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:24px;color:#2A2E2B;">
+      Mit sonnigen Grüßen aus Monteortone,<br />
+      ${(o.firma || 'Die Reception').replace('La Reception','Die Reception')}
+    </p>
+    <p style="margin:12px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#55524B;">
+      +39 049 9939 200 &nbsp;&middot;&nbsp; info@termeleonardo.com
+    </p>
+  </td></tr>
+
+  <tr><td align="center" style="padding:20px 36px 0 36px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="padding:9px 16px;background-color:#F1F4EA;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#5F6B44;">${typeof bloccoCertificazioni === 'function' ? bloccoCertificazioni() : ''}
+        <strong style="color:#4A5636;">Erstes Thermenhotel Europas</strong> &ndash; zertifiziert nach <strong style="color:#4A5636;">GSTC Hotel Standard</strong> f&uuml;r Nachhaltigkeit &middot; Zertifizierungsstelle Vireo Srl
+      </td>
+    </tr></table>
+  </td></tr>
+
+  <tr><td align="center" style="padding:20px 36px 26px 36px;">
+    <div style="font-family:Georgia,'Times New Roman',serif;font-size:15px;letter-spacing:5px;color:#2A2E2B;">TERME LEONARDO</div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:20px;color:#8C8578;padding-top:10px;">
+      Via Monteortone, 46 &middot; 35037 Monteortone di Abano Terme (PD) &middot; <a href="https://www.hoteltermeleonardo.com" target="_blank" style="color:#8C8578;text-decoration:underline;">hoteltermeleonardo.com</a>
+    </div>
+  </td></tr>
+
+</table>
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+  <tr><td align="center" style="padding:14px 36px 0 36px;font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:17px;color:#A79E8F;">
+    Tria S.r.l. &middot; P.IVA IT 02042330288 &middot; CIN IT028089A18QYO48ED
+  </td></tr>
+</table>
+</td></tr>
+</table>`;
+}
+
+function betreffDE(d) {
+  return `Angebot N. #${d.numeroOfferta} — Hotel Terme Leonardo`;
+}
+
+/* estratto dall'offerta perche' serve identico anche nel preventivo:
+   un solo testo, un solo posto dove correggerlo */
+function compresoDE(d) {
+  return `  <tr><td style="padding:22px 36px 0 36px;">
     <h2 style="margin:0 0 12px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Im Preis enthalten</h2>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
@@ -328,30 +399,13 @@ ${d.linkPagamento ? `      <p style="margin:0 0 9px 0;font-family:Arial,Helvetic
         </td>
       </tr>
     </table>
-  </td></tr>
+  </td></tr>`;
+}
 
-  <tr><td style="padding:22px 36px 0 36px;">
-    <h2 style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Möchten Sie etwas hinzufügen?</h2>
-    <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#7B756A;">Schreiben Sie uns einfach als Antwort auf diese E-Mail.</p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-        <strong style="color:#2A2E2B;">Transfer ab Flughafen Venedig</strong> &middot; Sammeltaxi ab 65 &euro;<br /><span style="color:#7B756A;font-size:13px;">Mindestens 24 Stunden vorher zu buchen. Nennen Sie uns Flugnummer und Uhrzeit</span>${bottoneServizio('transfer', d, 'de')}
-      </td></tr>
-      <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
-      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-        <strong style="color:#2A2E2B;">Antistress-Massage</strong> &middot; 55 &euro; (45 Minuten)<br /><span style="color:#7B756A;font-size:13px;">Die beliebteste. Die Termine sind schnell vergeben</span><br /><a href="https://www.termeleonardo.com/pdf/listino-spa-trattamenti-e-massaggi-hotel-leonardo-da-vinci-terme-de.pdf" target="_blank" style="color:#0F5C64;font-size:13px;text-decoration:underline;">Die vollst&auml;ndige Preisliste der Behandlungen und Massagen herunterladen (PDF)</a>${bottoneServizio('trattamenti', d, 'de')}
-      </td></tr>
-      <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
-      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-        <strong style="color:#2A2E2B;">Golf direkt am Haus</strong> &middot; Rangefee 6 &euro; f&uuml;r Hotelg&auml;ste<br /><span style="color:#7B756A;font-size:13px;">Driving Range mit 15.000 m&sup2; und 10 Abschlagpl&auml;tzen direkt neben den Thermalpools: Putting Green, Pitching Green, Bunker. Erm&auml;&szlig;igte Green Fees bei Montecchia, Padova und Frassanelle (wenige Minuten entfernt), Stunden mit unserem Pro auf Anfrage</span>
-      </td></tr>
-      <tr><td height="8" style="font-size:0;line-height:0;">&nbsp;</td></tr>
-      <tr><td style="padding:12px 16px;background-color:#FAF8F4;border-left:3px solid #7A8450;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-        <strong style="color:#2A2E2B;">Thermalgenuss bis zuletzt</strong> &middot; Pools auch am Abreisetag, bis 18:30 Uhr &middot; <span style="color:#7B756A;font-size:13px;">30 &euro; pro Person, Vorzugspreis f&uuml;r unsere G&auml;ste. Umkleiden inklusive</span>
-      </td></tr>
-    </table>
-  </td></tr>
-  <tr><td style="padding:22px 36px 0 36px;">
+/* estratto dall'offerta perche' serve identico anche nel preventivo:
+   un solo testo, un solo posto dove correggerlo */
+function sapereDE() {
+  return `  <tr><td style="padding:22px 36px 0 36px;">
     <h2 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Gut zu wissen</h2>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
       <tr><td width="130" valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Check-in</td><td valign="top" style="padding:0 0 10px 0;">Ab 15:00 Uhr &middot; Check-out bis 11:00 Uhr</td></tr>
@@ -360,47 +414,5 @@ ${d.linkPagamento ? `      <p style="margin:0 0 9px 0;font-family:Arial,Helvetic
       <tr><td valign="top" style="padding:0 12px 0 0;color:#8C8578;">Pools</td><td valign="top" style="padding:0;">Ge&ouml;ffnet von 8:00 bis 19:30 Uhr, freitags und samstags bis 22:30 Uhr &middot; Badekappe erforderlich, an der Rezeption f&uuml;r 3 &euro; erh&auml;ltlich</td></tr>
       <tr><td valign="top" style="padding:8px 12px 0 0;color:#8C8578;">Rauchen</td><td valign="top" style="padding:8px 0 0 0;">Nichtraucherhotel: im Zimmer wird nicht geraucht, auf dem Balkon schon</td></tr>
     </table>
-  </td></tr>
-
-  <tr><td style="padding:22px 36px 0 36px;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="1" style="background-color:#E4DED2;font-size:0;line-height:0;">&nbsp;</td></tr></table>
-    <p style="margin:16px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      Haben Sie Fragen zum Angebot? Bitte zögern Sie nicht, uns zu kontaktieren: wir sind jederzeit gerne für Sie da.
-    </p>
-    <p style="margin:16px 0 0 0;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:24px;color:#2A2E2B;">
-      Mit sonnigen Grüßen aus Monteortone,<br />
-      ${(o.firma || 'Die Reception').replace('La Reception','Die Reception')}
-    </p>
-    <p style="margin:12px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#55524B;">
-      +39 049 9939 200 &nbsp;&middot;&nbsp; info@termeleonardo.com
-    </p>
-  </td></tr>
-
-  <tr><td align="center" style="padding:20px 36px 0 36px;">
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-      <td style="padding:9px 16px;background-color:#F1F4EA;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#5F6B44;">${typeof bloccoCertificazioni === 'function' ? bloccoCertificazioni() : ''}
-        <strong style="color:#4A5636;">Erstes Thermenhotel Europas</strong> &ndash; zertifiziert nach <strong style="color:#4A5636;">GSTC Hotel Standard</strong> f&uuml;r Nachhaltigkeit &middot; Zertifizierungsstelle Vireo Srl
-      </td>
-    </tr></table>
-  </td></tr>
-
-  <tr><td align="center" style="padding:20px 36px 26px 36px;">
-    <div style="font-family:Georgia,'Times New Roman',serif;font-size:15px;letter-spacing:5px;color:#2A2E2B;">TERME LEONARDO</div>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:20px;color:#8C8578;padding-top:10px;">
-      Via Monteortone, 46 &middot; 35037 Monteortone di Abano Terme (PD) &middot; <a href="https://www.hoteltermeleonardo.com" target="_blank" style="color:#8C8578;text-decoration:underline;">hoteltermeleonardo.com</a>
-    </div>
-  </td></tr>
-
-</table>
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
-  <tr><td align="center" style="padding:14px 36px 0 36px;font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:17px;color:#A79E8F;">
-    Tria S.r.l. &middot; P.IVA IT 02042330288 &middot; CIN IT028089A18QYO48ED
-  </td></tr>
-</table>
-</td></tr>
-</table>`;
-}
-
-function betreffDE(d) {
-  return `Angebot N. #${d.numeroOfferta} — Hotel Terme Leonardo`;
+  </td></tr>`;
 }
