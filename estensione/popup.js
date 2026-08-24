@@ -252,6 +252,31 @@ async function disegna(d) {
     }
   });
 
+  /* v2.10.0 — comunicanti: si dice anche quando NON lo sono.
+     Sapere che due Queen sono libere non basta: la 319 comunica con la 320
+     e con nessun'altra. Se l'ospite le ha chieste e le camere assegnate non
+     formano una coppia, meglio scoprirlo qui che all'arrivo. */
+  if (d.camere.length > 1) {
+    const numeri = d.camere.map(c => String(c.numero || '').trim()).filter(Boolean);
+    const coppie = coppieComunicanti(d.camere);
+    const possibili = numeri.filter(n => haComunicante(n));
+    if (coppie.length) {
+      h += `<div class="box"><strong>Camere comunicanti.</strong>
+        ${coppie.map(([a, b]) => `${esc(a)} e ${esc(b)}`).join(', ')} &mdash;
+        l&apos;email lo dice all&apos;ospite.</div>`;
+    } else if (numeri.length < d.camere.length) {
+      h += `<div class="box"><strong>Comunicanti?</strong> Le camere non hanno ancora
+        tutti i numeri, quindi non lo scrivo nell&apos;email. Le uniche coppie sono
+        <strong>319-320, 321-322, 323-324, 325-326, 327-328, 329-330</strong>
+        (Queen, terzo piano).</div>`;
+    } else if (possibili.length) {
+      h += `<div class="errore"><strong>Queen del terzo piano, ma non una coppia.</strong>
+        ${possibili.map(n => `la ${esc(n)} comunica con la ${esc(comunicanteDi(n))}`).join('; ')}.
+        Se all&apos;ospite servono comunicanti, cambia l&apos;assegnazione in Fidra:
+        l&apos;email non lo scrive finch&eacute; non &egrave; vero.</div>`;
+    }
+  }
+
   /* v2.9.4: le camere non si sovrappongono. Puo' voler dire tre cose
      diverse — alternative fra cui scegliere, stesse persone che cambiano
      camera, oppure due soggiorni distinti di persone diverse — e nei dati

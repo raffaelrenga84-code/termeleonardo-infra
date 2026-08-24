@@ -310,6 +310,61 @@ function dentroChiusura(iso) {
 }
 
 /* ============================================================
+   v2.10.0 — CAMERE COMUNICANTI
+   ------------------------------------------------------------
+   Sono dodici, sei coppie, tutte Queen al terzo piano. L'elenco
+   viene dalla proprieta' il 24 agosto 2026.
+
+   PERCHE' LE COPPIE E NON «Queen al terzo piano». Sapere che una
+   camera PUO' comunicare non basta: la 319 comunica con la 320 e
+   con nessun'altra. Con la sola categoria si sarebbero promesse
+   comunicanti due Queen del terzo piano che non lo sono — ed e'
+   una promessa che l'ospite scopre all'arrivo, con i bambini in
+   corridoio.
+
+   Se cambiano, si cambiano qui e basta.
+   ============================================================ */
+const COMUNICANTI = [
+  ['319', '320'], ['321', '322'], ['323', '324'],
+  ['325', '326'], ['327', '328'], ['329', '330']
+];
+
+const NUM_COMUNICANTI = new Set(COMUNICANTI.flat());
+
+/* il numero ha una camera comunicante? */
+function haComunicante(n) {
+  return NUM_COMUNICANTI.has(String(n || '').trim());
+}
+
+/* con quale? null se nessuna */
+function comunicanteDi(n) {
+  const s = String(n || '').trim();
+  for (const [a, b] of COMUNICANTI) {
+    if (s === a) return b;
+    if (s === b) return a;
+  }
+  return null;
+}
+
+/* questi due numeri sono una coppia comunicante? */
+function comunicano(a, b) {
+  const x = comunicanteDi(a);
+  return !!x && x === String(b || '').trim();
+}
+
+/* fra le camere di una prenotazione, le coppie che comunicano */
+function coppieComunicanti(camere) {
+  const num = (camere || []).map(c => String((c && c.numero) || '').trim()).filter(Boolean);
+  const fuori = [];
+  for (let i = 0; i < num.length; i++) {
+    for (let j = i + 1; j < num.length; j++) {
+      if (comunicano(num[i], num[j])) fuori.push([num[i], num[j]]);
+    }
+  }
+  return fuori;
+}
+
+/* ============================================================
    v1.7.4 — MARCHI DI CERTIFICAZIONE (GSTC + ente certificatore)
    ------------------------------------------------------------
    PER ATTIVARLI: incollare qui i due indirizzi delle immagini,
@@ -903,7 +958,45 @@ function bloccoCamere(camere, d) {
         </td>
       </tr>
     </table>`;
-  }).join('') + `<div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#A79E8F;padding:2px 0 4px 0;">${DOTAZIONE_IT}</div>`;
+  }).join('') + rigaComunicanti(camere, 'it')
+    + `<div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#A79E8F;padding:2px 0 4px 0;">${DOTAZIONE_IT}</div>`;
+}
+
+/* ============================================================
+   v2.10.0 — «le due camere sono comunicanti»
+   ------------------------------------------------------------
+   La reception l'ha scritta a mano su Cersosimo, in coda a
+   un'offerta gia' mandata. Chi viaggia con figli lo chiede spesso,
+   ed e' la riga che fa scegliere.
+
+   SI DICE SOLO SE E' VERO. Serve che le camere abbiano gia' un
+   numero in Fidra e che quel numero sia una delle sei coppie: senza
+   numero non si scrive niente, perche' una comunicante promessa e
+   non mantenuta la si scopre all'arrivo, con i bambini in corridoio.
+   ============================================================ */
+const COMUNICANTI_T = {
+  it: (n) => n === 1
+    ? 'Le due camere sono <strong style="color:#2A2E2B;">comunicanti</strong>: una porta interna le collega, comoda con i bambini.'
+    : `Le camere sono <strong style="color:#2A2E2B;">comunicanti</strong> a due a due: una porta interna collega ogni coppia.`,
+  de: (n) => n === 1
+    ? 'Die beiden Zimmer sind <strong style="color:#2A2E2B;">Verbindungszimmer</strong>: eine Innent&uuml;r verbindet sie &mdash; praktisch mit Kindern.'
+    : 'Die Zimmer sind paarweise <strong style="color:#2A2E2B;">Verbindungszimmer</strong>: eine Innent&uuml;r verbindet jedes Paar.',
+  en: (n) => n === 1
+    ? 'The two rooms are <strong style="color:#2A2E2B;">connecting</strong>: an internal door links them &mdash; handy with children.'
+    : 'The rooms are <strong style="color:#2A2E2B;">connecting</strong> in pairs: an internal door links each pair.',
+  fr: (n) => n === 1
+    ? 'Les deux chambres sont <strong style="color:#2A2E2B;">communicantes</strong> : une porte int&eacute;rieure les relie, pratique avec des enfants.'
+    : 'Les chambres sont <strong style="color:#2A2E2B;">communicantes</strong> deux &agrave; deux : une porte int&eacute;rieure relie chaque paire.'
+};
+
+function rigaComunicanti(camere, lingua) {
+  const coppie = coppieComunicanti(camere);
+  if (!coppie.length) return '';
+  const testo = (COMUNICANTI_T[lingua] || COMUNICANTI_T.it)(coppie.length);
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:10px;background-color:#F1F4EA;">
+    <tr><td width="4" style="background-color:#7A8450;font-size:0;line-height:0;">&nbsp;</td>
+    <td style="padding:10px 14px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#55524B;">
+      ${testo}</td></tr></table>`;
 }
 
 /* v2.1.4: con piu' camere il dettaglio veniva stampato in fondo e sembrava

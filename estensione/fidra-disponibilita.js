@@ -757,11 +757,27 @@
           </div>`;
 
         if (v.libere.length) {
+          /* v2.10.0: le coppie comunicanti libere TUTTE E DUE. E' la cosa
+             che serve quando una famiglia le chiede: sapere che la 319 e'
+             libera non aiuta se la 320 e' occupata. Le sei coppie stanno in
+             template.js, caricato anche qui. */
+          const libere = new Set(v.libere.map(String));
+          const coppieLibere = (typeof COMUNICANTI !== 'undefined' ? COMUNICANTI : [])
+            .filter(([a, b]) => libere.has(a) && libere.has(b));
+          const inCoppia = new Set(coppieLibere.flat());
           html += `<div class="numeri">` + v.libere.map(n =>
             `<button class="num${ACCESSIBILI.test(nome) ? ' acc' : ''}" data-num="${n}"${
               suaCategoria && String(n) === String(PREN.numeroCamera)
-                ? ` style="border-color:${ROSSO};color:${ROSSO};font-weight:bold;" title="camera di questa prenotazione"` : ''
-            }>${n}</button>`).join('') + `</div>`;
+                ? ` style="border-color:${ROSSO};color:${ROSSO};font-weight:bold;" title="camera di questa prenotazione"`
+                : (inCoppia.has(String(n))
+                    ? ` style="border-color:#7A8450;color:#4A5636;" title="comunicante con la ${esc(String(comunicanteDi(n)))}, libera anche lei"`
+                    : '')
+            }>${n}${inCoppia.has(String(n)) ? ' &#8646;' : ''}</button>`).join('') + `</div>`;
+          if (coppieLibere.length) {
+            html += `<div class="nota" style="padding:0 16px 8px;color:#4A5636;">
+              Comunicanti libere: ${coppieLibere.map(([a, b]) => `<strong>${a}&ndash;${b}</strong>`).join(', ')}
+              &middot; una porta interna collega le due camere.</div>`;
+          }
         }
 
         const variazioni = [];

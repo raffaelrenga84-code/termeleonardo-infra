@@ -90,7 +90,8 @@ function roomBlocksEN(camere, d) {
         </td>
       </tr>
     </table>`;
-  }).join('') + `<div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#A79E8F;padding:2px 0 4px 0;">${AMENITIES_EN}</div>`;
+  }).join('') + rigaComunicanti(camere, 'en')
+    + `<div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#A79E8F;padding:2px 0 4px 0;">${AMENITIES_EN}</div>`;
 }
 
 function intestazioneEN(etichetta, numero) {
