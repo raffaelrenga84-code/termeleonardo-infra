@@ -123,6 +123,26 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 /* ============================================================
+   Apri Outlook con l'email pronta (v2.9.1)
+   ------------------------------------------------------------
+   Il riquadro «Disponibilita' e prezzi» vive dentro la pagina di
+   Fidra, e un content script non puo' aprire una scheda: chrome.tabs
+   esiste solo qui. Prima il preventivo doveva passare per il pannello
+   laterale — due finestre e quattro clic per un gesto solo.
+   ============================================================ */
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.tipo !== 'LEONARDO_APRI_OUTLOOK') return;
+  if (typeof msg.url !== 'string' || !/^https:\/\/outlook\./.test(msg.url)) {
+    sendResponse({ ok: false, motivo: 'indirizzo non consentito' });
+    return true;
+  }
+  chrome.tabs.create({ url: msg.url })
+    .then(() => sendResponse({ ok: true }))
+    .catch((e) => sendResponse({ ok: false, motivo: String(e) }));
+  return true; // risposta asincrona
+});
+
+/* ============================================================
    Pannello laterale (v1.2)
    Edge non riapre il pannello dopo il riavvio e l'API non permette
    di aprirlo senza un gesto dell'operatore. Con la preferenza

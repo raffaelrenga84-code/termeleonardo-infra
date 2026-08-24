@@ -813,6 +813,26 @@ function parseCentralino(testo) {
       b.style.bottom = (PULSANTE_BASSO + i * PULSANTE_PASSO) + 'px';
     });
   }
+  /* v2.9.1 — quello che si e' letto qui serve dall'altra parte.
+     Il riquadro «Disponibilita' e prezzi» sta dentro Fidra e non sa a chi
+     stai rispondendo: senza questo, l'operatore ribatteva a mano nome ed
+     email che l'estensione aveva appena letto dalla mail sotto gli occhi.
+     Un'ora di validita': oltre, si sta rispondendo a un'altra richiesta. */
+  function ricordaRichiesta(dati) {
+    try {
+      if (!chrome?.storage?.local) return;
+      chrome.storage.local.set({ leonardo_richiesta: {
+        quando: Date.now(),
+        ospite: dati.ospite || '',
+        email: dati.email || '',
+        lingua: linguaTesto(dati.testoOriginale || dati.note || '') || 'it',
+        cure: !!dati.cure,
+        cane: !!dati.cane,
+        oggetto: (dati.testoOriginale || '').slice(0, 80)
+      }});
+    } catch (e) { /* il riquadro si compila a mano, come prima */ }
+  }
+
   function mostraPulsanteCentralino() {
     if (document.getElementById('leonardo-bozza-btn')) return;
     /* v2.7.10 — IL BACO CHE HA FATTO PERDERE QUATTRO VERSIONI.
@@ -853,6 +873,7 @@ function parseCentralino(testo) {
         avviso('Richiesta non leggibile: apri la mail per intero e riprova', '#B3541E');
         return;
       }
+      ricordaRichiesta(dati);
       mostraAnteprima(dati);
     });
     document.body.appendChild(btn);

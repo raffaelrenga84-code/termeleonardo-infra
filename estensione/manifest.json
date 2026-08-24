@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Offerta Leonardo",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "description": "Legge l'offerta aperta in Fidra e inserisce l'email impaginata direttamente in Outlook Web.",
   "permissions": [
     "activeTab",
@@ -76,6 +76,11 @@
         "https://leonardo.fidra.cloud/*"
       ],
       "js": [
+        "template.js",
+        "template-de.js",
+        "template-en.js",
+        "template-fr.js",
+        "template-extra.js",
         "fidra-disponibilita.js"
       ],
       "run_at": "document_idle"

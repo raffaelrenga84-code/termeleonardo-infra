@@ -372,14 +372,67 @@ Deno.test('cure e cane compaiono solo se richiesti', () => {
    ============================================================ */
 const MODALE = Deno.readTextFileSync(new URL('fidra-disponibilita.js', import.meta.url));
 
-Deno.test('il modale deposita leonardo_preventivo, e non tocca il dettaglio', () => {
+Deno.test('il modale costruisce l email e apre Outlook da solo', () => {
+  /* v2.9.1 — IL DIFETTO CHE LA RECEPTION HA VISTO SUBITO. Il modale
+     depositava un dato e toccava aprire il pannello laterale, scegliere il
+     documento e ribattere nome ed email: due finestre e quattro gesti per
+     una cosa sola. Adesso finisce il lavoro qui. */
   assert(
-    MODALE.includes('leonardo_preventivo'),
-    'il modale non scrive piu la chiave che il pannello legge',
+    /costruisciPreventivoIT/.test(MODALE),
+    'il modale non costruisce piu l email: e tornato il giro doppio',
+  );
+  assert(
+    /LEONARDO_APRI_OUTLOOK/.test(MODALE),
+    'il modale non chiede piu di aprire Outlook',
+  );
+  assert(
+    /leonardo_email_pendente/.test(MODALE),
+    'senza email pendente, outlook-inject non ha niente da inserire e la scheda si apre vuota',
   );
   assert(
     MODALE.includes('leonardo_dettaglio'),
     'la strada del dettaglio notte per notte e sparita: non andava toccata',
+  );
+});
+
+Deno.test('i modelli sono caricati dove il modale gira', () => {
+  /* il modale costruisce l'email dentro la pagina di Fidra: se il manifest
+     non ci carica i modelli, costruisciPreventivoIT non esiste e il
+     pulsante fallisce a ogni clic */
+  const manifest = JSON.parse(
+    Deno.readTextFileSync(new URL('manifest.json', import.meta.url)),
+  ) as { content_scripts: Array<{ matches: string[]; js: string[] }> };
+  const fidra = manifest.content_scripts.find((c) =>
+    c.matches.includes('https://leonardo.fidra.cloud/*')
+  );
+  assert(fidra, 'sparito il content script che gira su tutta Fidra');
+  for (const f of ['template.js', 'template-de.js', 'template-en.js', 'template-fr.js', 'template-extra.js']) {
+    assert(fidra!.js.includes(f), `${f} non e caricato in Fidra: il preventivo non si costruisce`);
+  }
+  assert(
+    fidra!.js.indexOf('template-extra.js') < fidra!.js.indexOf('fidra-disponibilita.js'),
+    'i modelli vanno caricati PRIMA del modale che li usa',
+  );
+});
+
+Deno.test('il service worker apre solo Outlook, non un indirizzo qualunque', () => {
+  const bg = Deno.readTextFileSync(new URL('background.js', import.meta.url));
+  assert(bg.includes('LEONARDO_APRI_OUTLOOK'), 'il service worker non sa aprire Outlook');
+  assert(
+    /\^https:\\\/\\\/outlook\\\./.test(bg),
+    'manca il controllo sull indirizzo: una pagina di Fidra compromessa aprirebbe qualsiasi cosa',
+  );
+});
+
+Deno.test('quello che si legge in Outlook arriva al riquadro in Fidra', () => {
+  const inject = Deno.readTextFileSync(new URL('outlook-inject.js', import.meta.url));
+  assert(
+    /leonardo_richiesta/.test(inject),
+    'outlook-inject non mette piu da parte la richiesta: nome ed email si ribattono a mano',
+  );
+  assert(
+    /leonardo_richiesta/.test(MODALE),
+    'il modale non rilegge la richiesta: i campi restano vuoti',
   );
 });
 
@@ -432,27 +485,41 @@ Deno.test('nel pannello non esiste piu nessun campo dove digitare un prezzo', ()
   );
 });
 
-Deno.test('il preventivo e in tutte e due le tabelle MODELLI', () => {
-  /* MODELLI e' definito due volte in popup.js, una per «Copia» e una per
-     «Copia oggetto». Un documento presente in una sola delle due si
-     comporta diversamente secondo il pulsante premuto. */
-  const tabelle = (PANNELLO.match(/const MODELLI = \{/g) || []).length;
-  const righe = (PANNELLO.match(/preventivo:\s*\{\s*it:\s*\[costruisciPreventivoIT/g) || []).length;
-  assertEquals(righe, tabelle, `MODELLI e definito ${tabelle} volte ma il preventivo compare ${righe}`);
-});
-
-Deno.test('la voce compare solo con un preventivo fresco di mezz ora', () => {
-  assert(/30 \* 60 \* 1000/.test(PANNELLO), 'sparita la soglia della mezz ora');
+Deno.test('il preventivo NON passa dal pannello: una strada sola', () => {
+  /* v2.9.1 — per un giorno ce ne sono state due, e la reception se n'e'
+     accorta subito: «sono operazioni doppie, serve una cosa veloce».
+     Il preventivo si fa nel riquadro, dove i prezzi sono sotto gli occhi.
+     Una voce nel pannello che non puo' mai comparire sarebbe peggio di
+     nessuna voce. */
   assert(
-    /\$\{PREVENTIVO \?/.test(PANNELLO),
-    'la voce «Preventivo soggiorno» non e piu condizionata alla presenza del dato',
+    !/value="preventivo"/.test(PANNELLO),
+    'e tornata la voce «Preventivo soggiorno» nel pannello: due strade per la stessa cosa',
+  );
+  assert(
+    !/costruisciPreventivo/.test(PANNELLO),
+    'il pannello costruisce di nuovo il preventivo: quel lavoro sta nel riquadro',
+  );
+  assert(
+    !/leonardo_preventivo/.test(PANNELLO),
+    'il pannello rilegge una chiave che nessuno scrive piu',
   );
 });
 
-Deno.test('il pannello passa al modello le eta dei bambini', () => {
+Deno.test('il modale passa al modello le eta dei bambini', () => {
   assert(
-    /etaBambini: PREVENTIVO\.etaBambini/.test(PANNELLO),
+    /etaBambini: etaBambini\.slice\(\)/.test(MODALE),
     'senza le eta, rigaBambini scrive solo la somma invece del prezzo di ognuno',
+  );
+});
+
+Deno.test('il pulsante finale non e travestito da pulsante secondario', () => {
+  /* era un .usa come «Notte per notte»: l'azione che chiude il lavoro
+     aveva lo stesso peso visivo di quella che apre un dettaglio, e non la
+     trovava nessuno */
+  assert(/class="prevVai"/.test(MODALE), 'il pulsante finale non ha piu uno stile suo');
+  assert(
+    /#leoDisp \.prevVai\{background:#E8751A/.test(MODALE),
+    'il pulsante finale non e piu arancione come «Cerca» e «Copia e apri Outlook»',
   );
 });
 

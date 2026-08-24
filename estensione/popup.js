@@ -4,7 +4,6 @@
 
 let DATI = null;
 let MODO = 'fidra';   // 'fidra' = dalla prenotazione aperta · 'rapido' = fuori da Fidra
-let PREVENTIVO = null;   // leonardo_preventivo fresco, preparato dal riquadro in Fidra
 
 const FIRME = [
   'La Reception',
@@ -480,15 +479,6 @@ const euroFmt = (n) => {
   return int.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + dec;
 };
 
-/* '2026-08-23' → '23 ago 2026', solo per il riepilogo nel pannello:
-   nell'email le date le formatta il modello, in quattro lingue. */
-function dataBreve(iso) {
-  const M = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
-  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return String(iso || '');
-  return `${+m[3]} ${M[+m[2] - 1]} ${m[1]}`;
-}
-
 function linkRapido() {
   /* v2.9: non dice piu' «preventivo rapido». Adesso il preventivo esiste
      davvero, e nasce dal riquadro in Fidra: chiamare cosi' questo link
@@ -507,19 +497,6 @@ async function disegnaRapido() {
   const salvate = await chrome.storage.local.get(['firma']);
   $('titolo').textContent = 'Fuori da Fidra';
 
-  /* v2.9: il preventivo preparato nel riquadro «Disponibilita' e prezzi».
-     Mezz'ora, come il dettaglio notte per notte: oltre, le tariffe possono
-     essere cambiate, e un preventivo vecchio e' peggio di nessun preventivo
-     perche' sembra giusto. */
-  PREVENTIVO = null;
-  try {
-    const r = await chrome.storage.local.get(['leonardo_preventivo']);
-    const p = r.leonardo_preventivo;
-    if (p && p.voci && p.voci.length && Date.now() - (p.quando || 0) <= 30 * 60 * 1000) {
-      PREVENTIVO = p;
-    }
-  } catch (e) { /* senza, la voce semplicemente non compare */ }
-
   $('corpo').innerHTML = `
     <div class="box">Offerte, conferme e solleciti si generano <strong>solo dalla
       prenotazione aperta in Fidra</strong>: apri la scheda del cliente e riapri
@@ -528,32 +505,15 @@ async function disegnaRapido() {
       in basso a destra.</div></div>
 
     <h3>Che cosa mandi</h3>
-    <div class="sub" style="margin-bottom:8px;">Questi documenti non hanno una prenotazione
-      dietro: sono le richieste che arrivano per email e non passano da Fidra.</div>
-    <label><input type="radio" name="doc" value="dayspa" ${PREVENTIVO ? '' : 'checked '}/> Info Day Spa
+    <div class="sub" style="margin-bottom:8px;">Questi due documenti non usano i dati del
+      soggiorno: prezzi e istruzioni sono nel modello, serve solo a chi &egrave; rivolto.
+      Sono le richieste che arrivano per email e non passano da Fidra.
+      <div style="padding-top:4px;">Il <strong>preventivo</strong> si fa invece dal riquadro
+      &#128270; Disponibilit&agrave; e prezzi dentro Fidra, che apre Outlook da solo.</div></div>
+    <label><input type="radio" name="doc" value="dayspa" checked /> Info Day Spa
       <span class="sub">(ingressi, orari, come prenotare)</span></label>
     <label><input type="radio" name="doc" value="buoni" /> Buoni regalo
       <span class="sub">(come si compone, prezzi, validit&agrave;, acquisto online)</span></label>
-    ${PREVENTIVO ? `<label><input type="radio" name="doc" value="preventivo" checked /> Preventivo soggiorno
-      <span class="sub">(le sistemazioni scelte in &laquo;Disponibilit&agrave; e prezzi&raquo;)</span></label>
-    <div class="box sub" style="margin-top:6px;">
-      <strong>${esc(dataBreve(PREVENTIVO.arrivo))} &rarr; ${esc(dataBreve(PREVENTIVO.partenza))}</strong>
-      &middot; ${PREVENTIVO.notti} ${PREVENTIVO.notti === 1 ? 'notte' : 'notti'}
-      &middot; ${PREVENTIVO.adulti} ${PREVENTIVO.adulti === 1 ? 'adulto' : 'adulti'}${
-        PREVENTIVO.etaBambini.length
-          ? ' &middot; ' + PREVENTIVO.etaBambini.length +
-            (PREVENTIVO.etaBambini.length === 1 ? ' bambino' : ' bambini') +
-            ' (' + PREVENTIVO.etaBambini.join(', ') + ' anni)'
-          : ''}
-      <div style="padding-top:5px;">${PREVENTIVO.voci.map(v =>
-        `${esc(v.categoria)} &middot; ${esc(v.trattamento)} &mdash;
-         <strong>${euroFmt(v.totale / 100)} &euro;</strong>`).join('<br />')}</div>
-      <div style="padding-top:5px;color:#7B756A;">Per cambiarle, torna sul riquadro in Fidra.</div>
-    </div>
-    <label style="margin-top:8px;"><input type="checkbox" id="optCure" /> Cure termali
-      <span class="sub">(impegnativa, ticket 55 &euro;, turni al mattino)</span></label>
-    <label><input type="checkbox" id="optCane" /> Cane al seguito
-      <span class="sub">(13 &euro; al giorno, si salda in hotel)</span></label>` : ''}
 
     <h3>A chi &egrave; rivolto</h3>
     <label>Cognome e nome <span class="sub">(facoltativo: senza, l&apos;email saluta
@@ -589,7 +549,7 @@ function costruisciDatiRapidi() {
   const oggi0 = new Date(); oggi0.setHours(0, 0, 0, 0);
 
   const nome = $('rapNome').value.trim();
-  const senzaSoggiorno = ['dayspa', 'buoni', 'preventivo'].includes(
+  const senzaSoggiorno = ['dayspa', 'buoni'].includes(
     document.querySelector('input[name=doc]:checked')?.value);
   /* v2.0.5: per Info Day Spa e Buoni regalo il nome e' facoltativo — spesso
      la richiesta arriva da un indirizzo senza firma. Senza nome l'email
@@ -612,36 +572,16 @@ function costruisciDatiRapidi() {
     } };
   }
 
-  /* v2.9: il preventivo. I prezzi non si digitano: arrivano dal riquadro
-     «Disponibilita' e prezzi», che li ha letti dalle API di Fidra con
-     l'uso singola e i bambini per eta' gia' dentro. */
-  if (document.querySelector('input[name=doc]:checked')?.value === 'preventivo') {
-    if (!PREVENTIVO) return { errori: ['il preventivo preparato in Fidra (rifallo dal riquadro)'] };
-    if (errori.length) return { errori };
-    const A = new Date(PREVENTIVO.arrivo + 'T00:00');
-    const P = new Date(PREVENTIVO.partenza + 'T00:00');
-    return { dati: {
-      ok: true, rapido: true, preventivo: true, id: null, numeroOfferta: null,
-      linkPagamento: null, stato: 'preventivo',
-      intestatario: nome, email: $('rapEmail').value.trim(),
-      emailAlternative: [], note: [], mancanti: [], profilo: {},
-      giornoArrivo: A.getDate(), mese: MESI_ABBR[A.getMonth()], anno: A.getFullYear(),
-      giornoPartenza: P.getDate(), mesePartenza: MESI_ABBR[P.getMonth()], annoPartenza: P.getFullYear(),
-      notti: PREVENTIVO.notti, adulti: PREVENTIVO.adulti,
-      bambini: PREVENTIVO.etaBambini.length,
-      /* le eta' servono al modello: rigaBambini abbina prezzo ed eta' per
-         rango crescente, e senza le eta' scriverebbe solo la somma */
-      etaBambini: PREVENTIVO.etaBambini,
-      voci: PREVENTIVO.voci,
-      camere: [], nCamere: 0, caparraVersata: 0, caparraDovuta: null
-    } };
-  }
-
   /* Non c'e' nessun altro documento che il pannello sappia fare fuori da
      Fidra. Il modulo che chiedeva camere e prezzi a mano stava qui ed e'
      stato tolto il 24 agosto 2026: e' il caso Kreiner, «ho copiato il
      modello con prezzi dus non inseriti». Un prezzo digitato e' un prezzo
-     sbagliato, e adesso c'e' un modo di leggerlo. */
+     sbagliato, e adesso c'e' un modo di leggerlo.
+
+     v2.9.1: e il preventivo non passa piu' di qui. Si fa per intero nel
+     riquadro «Disponibilita' e prezzi», che ha i prezzi sotto gli occhi e
+     apre Outlook da solo: farlo passare anche dal pannello voleva dire due
+     finestre e quattro gesti per una cosa sola. */
   return { errori: ['un documento che il pannello sappia fare senza Fidra'] };
 }
 
@@ -860,9 +800,7 @@ $('copia').addEventListener('click', async () => {
     buoni:    { it:[costruisciBuoniIT, oggettoBuoniIT], de:[costruisciBuoniDE, oggettoBuoniDE],
                 en:[costruisciBuoniEN, oggettoBuoniEN], fr:[costruisciBuoniFR, oggettoBuoniFR] },
     dayspa:   { it:[costruisciDaySpaIT, oggettoDaySpaIT], de:[costruisciDaySpaDE, oggettoDaySpaDE],
-                en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] },
-    preventivo: { it:[costruisciPreventivoIT, oggettoPreventivoIT], de:[costruisciPreventivoDE, oggettoPreventivoDE],
-                  en:[costruisciPreventivoEN, oggettoPreventivoEN], fr:[costruisciPreventivoFR, oggettoPreventivoFR] }
+                en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] }
   };
   const [fnHtml, fnOgg] = MODELLI[doc][lingua] || MODELLI[doc].it;
   // v1.1: la conferma stampa l'acconto dal campo modificabile, non solo dalla
@@ -903,9 +841,7 @@ $('copia').addEventListener('click', async () => {
       chrome.tabs.create({ url: linkOutlook(dest, ogg) });
       $('esito').textContent = doc === 'conferma'
         ? 'Outlook aperto: il testo si inserisce da solo — poi "Invia online-checkin" in Fidra'
-        : (MODO === 'rapido' && doc === 'preventivo'
-            ? 'Outlook aperto: il testo si inserisce da solo — se l\'ospite accetta, apri la pratica in Fidra e manda l\'offerta'
-            : 'Outlook aperto: il testo si inserisce da solo (in riserva: Ctrl+V)');
+        : 'Outlook aperto: il testo si inserisce da solo (in riserva: Ctrl+V)';
     } else {
       $('esito').textContent = dest
         ? `Copiata. Nuovo messaggio a ${dest}, poi Ctrl+V`
@@ -947,9 +883,7 @@ $('copiaOggetto').addEventListener('click', async () => {
     buoni:    { it:[costruisciBuoniIT, oggettoBuoniIT], de:[costruisciBuoniDE, oggettoBuoniDE],
                 en:[costruisciBuoniEN, oggettoBuoniEN], fr:[costruisciBuoniFR, oggettoBuoniFR] },
     dayspa:   { it:[costruisciDaySpaIT, oggettoDaySpaIT], de:[costruisciDaySpaDE, oggettoDaySpaDE],
-                en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] },
-    preventivo: { it:[costruisciPreventivoIT, oggettoPreventivoIT], de:[costruisciPreventivoDE, oggettoPreventivoDE],
-                  en:[costruisciPreventivoEN, oggettoPreventivoEN], fr:[costruisciPreventivoFR, oggettoPreventivoFR] }
+                en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] }
   };
   const [fnHtml, fnOgg] = MODELLI[doc][lingua] || MODELLI[doc].it;
   if (doc === 'conferma') {

@@ -174,6 +174,18 @@
   #leoDisp .avviso{background:#FFF6E8;border-left:4px solid #E8751A;padding:10px 14px;
     border-radius:0 6px 6px 0;font-size:13px;line-height:20px;color:#6B4A22;margin-top:12px;}
   #leoDisp .esito{font-size:13px;color:#0F5C64;min-height:18px;padding-top:8px;}
+  /* v2.9.1 — il preventivo si chiude qui dentro: era l'azione finale
+     travestita da pulsante secondario, e non la trovava nessuno. */
+  #leoDisp .prevBarra{position:sticky;bottom:0;z-index:3;background:#FFF6E8;
+    border-top:2px solid #E8751A;padding:12px 16px;font:13px Arial;color:#6B4A22;}
+  #leoDisp .prevRiga{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  #leoDisp .prevBarra input[type=text]{border:1px solid #D8CFBE;border-radius:4px;
+    padding:6px 8px;font:13px Arial;min-width:150px;}
+  #leoDisp .prevBarra label{display:inline-flex;align-items:center;gap:4px;cursor:pointer;}
+  #leoDisp .prevVai{background:#E8751A;color:#fff;border:0;border-radius:6px;
+    padding:11px 20px;font:600 14px Arial;cursor:pointer;white-space:nowrap;}
+  #leoDisp .prevVai:hover{background:#CF6414;}
+  #leoDisp .prevVai:disabled{background:#CFCABF;cursor:default;}
   #leoDispBtn{position:fixed;bottom:76px;right:24px;z-index:2147483645;padding:12px 20px;
     border:0;border-radius:8px;cursor:pointer;font:600 14px Arial;color:#fff;background:#1E7F88;
     box-shadow:0 3px 12px rgba(0,0,0,.3);}`;
@@ -575,9 +587,7 @@
         </div>
         <div class="esito" id="dEsito"></div>
         <div id="dRis"></div>
-        <div id="dPrevBarra" style="display:none;position:sticky;bottom:0;background:#FAF8F4;
-             border-top:1px solid #EDE7DC;padding:10px 16px;font:13px Arial,Helvetica,sans-serif;
-             color:#55524B;align-items:center;gap:10px;flex-wrap:wrap;"></div>
+        <div id="dPrevBarra" class="prevBarra" style="display:none;"></div>
       </div>
     </div>`;
     document.body.appendChild(wrap);
@@ -857,18 +867,77 @@
       $('dRis').innerHTML = html;
 
       /* ---------- v2.9: il carrello del preventivo ---------- */
+      /* v2.9.1: la barra e' il modulo intero e finisce il lavoro qui.
+         Prima depositava un dato e toccava aprire il pannello laterale,
+         scegliere il documento, ribattere nome ed email: due finestre e
+         quattro gesti per una cosa sola. Adesso l'email si costruisce in
+         questa pagina — i modelli sono caricati anche qui — e Outlook si
+         apre gia' pronto. Quello che l'operatore digita, lo digita una
+         volta e dentro il riquadro dove sta gia' guardando. */
       function aggiornaBarra() {
         const b = $('dPrevBarra');
         if (!b) return;
         if (!SCELTE.length) { b.style.display = 'none'; return; }
-        b.style.display = 'flex';
-        b.innerHTML = `<span style="flex:1;">${SCELTE.length} ${SCELTE.length === 1
-            ? 'sistemazione scelta' : 'sistemazioni scelte'}${
-            SCELTE.length >= MAX_SCELTE ? ' &middot; il massimo &egrave; quattro' : ''}</span>
-          <button class="usa" id="dPrevSvuota">Svuota</button>
-          <button class="usa" id="dPrevCrea">Crea preventivo</button>`;
+        /* si ridisegna solo il conteggio se il modulo c'e' gia': riscrivere
+           tutto cancellerebbe il nome mentre lo si sta scrivendo */
+        if ($('dPrevVai')) {
+          $('dPrevQuante').textContent = etichettaQuante();
+          return;
+        }
+        b.style.display = 'block';
+        b.innerHTML = `
+          <div class="prevRiga" style="padding-bottom:8px;">
+            <strong id="dPrevQuante" style="flex:1;">${etichettaQuante()}</strong>
+            <button class="usa" id="dPrevSvuota">Svuota</button>
+          </div>
+          <div class="prevRiga">
+            <input type="text" id="dPrevNome" placeholder="Cognome e nome (facoltativo)" />
+            <input type="text" id="dPrevEmail" placeholder="email dell&apos;ospite" />
+            <select id="dPrevLingua" style="border:1px solid #D8CFBE;border-radius:4px;padding:6px 8px;font:13px Arial;">
+              <option value="it">Italiano</option><option value="de">Deutsch</option>
+              <option value="en">English</option><option value="fr">Fran&ccedil;ais</option>
+            </select>
+            <select id="dPrevGenere" title="Come rivolgersi" style="border:1px solid #D8CFBE;border-radius:4px;padding:6px 8px;font:13px Arial;">
+              <option value="N">Neutro</option>
+              <option value="F">Signora / Frau</option>
+              <option value="M">Signor / Herr</option>
+            </select>
+            <label><input type="checkbox" id="dPrevCure" /> cure termali</label>
+            <label><input type="checkbox" id="dPrevCane" /> cane</label>
+            <button class="prevVai" id="dPrevVai">Crea preventivo e apri Outlook</button>
+          </div>
+          <div id="dPrevNota" style="padding-top:6px;color:#8C7A45;"></div>`;
         $('dPrevSvuota').onclick = () => { SCELTE.length = 0; marcaPulsanti(); aggiornaBarra(); };
-        $('dPrevCrea').onclick = creaPreventivo;
+        $('dPrevVai').onclick = creaPreventivo;
+        riempiDaRichiesta();
+      }
+
+      function etichettaQuante() {
+        return `${SCELTE.length} ${SCELTE.length === 1
+          ? 'sistemazione scelta' : 'sistemazioni scelte'}${
+          SCELTE.length >= MAX_SCELTE ? ' · il massimo è quattro' : ''}`;
+      }
+
+      /* Chi risponde a un'email non deve ribattere quello che l'estensione
+         ha gia' letto dall'email stessa. outlook-inject.js lo mette da
+         parte quando riconosce una richiesta; qui si riempie e si dice da
+         dove viene, perche' un campo che si compila da solo senza dirlo e'
+         un campo che nessuno rilegge. */
+      async function riempiDaRichiesta() {
+        if (!ESTENSIONE) return;
+        try {
+          const r = await chrome.storage.local.get(['leonardo_richiesta']);
+          const q = r.leonardo_richiesta;
+          if (!q || Date.now() - (q.quando || 0) > 60 * 60 * 1000) return;
+          if (q.ospite && $('dPrevNome') && !$('dPrevNome').value) $('dPrevNome').value = q.ospite;
+          if (q.email && $('dPrevEmail') && !$('dPrevEmail').value) $('dPrevEmail').value = q.email;
+          if (q.lingua && $('dPrevLingua')) $('dPrevLingua').value = q.lingua;
+          if (q.cane && $('dPrevCane')) $('dPrevCane').checked = true;
+          if (q.cure && $('dPrevCure')) $('dPrevCure').checked = true;
+          const n = $('dPrevNota');
+          if (n) n.textContent = 'Compilato dalla richiesta aperta in Outlook'
+            + (q.oggetto ? ' «' + q.oggetto.slice(0, 60) + '»' : '') + ' — rileggi prima di mandare.';
+        } catch (e) { /* si compila a mano, come prima */ }
       }
 
       /* un pulsante gia' scelto lo dice, e ricliccandolo si toglie */
@@ -905,23 +974,92 @@
         aggiornaBarra();
       }));
 
+      /* MESI_ABBR come li vogliono i modelli: 'Aug', non 7 */
+      const MESI_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+      function datiPreventivo(nome, lingua) {
+        const A = new Date(arrivo + 'T00:00'), P = new Date(partenza + 'T00:00');
+        return {
+          ok: true, rapido: true, preventivo: true, id: null, numeroOfferta: null,
+          linkPagamento: null, stato: 'preventivo',
+          intestatario: nome, emailAlternative: [], note: [], mancanti: [], profilo: {},
+          giornoArrivo: A.getDate(), mese: MESI_ABBR[A.getMonth()], anno: A.getFullYear(),
+          giornoPartenza: P.getDate(), mesePartenza: MESI_ABBR[P.getMonth()],
+          annoPartenza: P.getFullYear(),
+          notti: nNotti, adulti, bambini: etaBambini.length,
+          etaBambini: etaBambini.slice(), voci: SCELTE.slice(),
+          camere: [], nCamere: 0, caparraVersata: 0, caparraDovuta: null
+        };
+      }
+
+      const MODELLI_PREV = {
+        it: [() => costruisciPreventivoIT, () => oggettoPreventivoIT],
+        de: [() => costruisciPreventivoDE, () => oggettoPreventivoDE],
+        en: [() => costruisciPreventivoEN, () => oggettoPreventivoEN],
+        fr: [() => costruisciPreventivoFR, () => oggettoPreventivoFR]
+      };
+
       async function creaPreventivo() {
         if (!SCELTE.length) return;
         const box = $('dEsito');
+        const vai = $('dPrevVai');
+        const dice = (testo, male) => {
+          box.style.color = male ? '#B3541E' : '#0F5C64';
+          box.textContent = testo;
+        };
         try {
           if (!ESTENSIONE) throw new Error('serve l’estensione, non il segnalibro');
-          await chrome.storage.local.set({ leonardo_preventivo: {
-            quando: Date.now(),
-            arrivo, partenza, notti: nNotti,
-            adulti, etaBambini: etaBambini.slice(),
-            voci: SCELTE.slice()
+          if (typeof costruisciPreventivoIT !== 'function') {
+            throw new Error('i modelli non sono caricati in questa pagina: ricarica l’estensione');
+          }
+          const lingua = ($('dPrevLingua') || {}).value || 'it';
+          const nome = (($('dPrevNome') || {}).value || '').trim();
+          const dest = (($('dPrevEmail') || {}).value || '').trim();
+          /* la firma e' quella che l'operatore ha gia' scelto nel pannello:
+             non gliela si richiede in un secondo posto */
+          let firma = 'La Reception';
+          try {
+            const f = await chrome.storage.local.get(['firma']);
+            if (f && f.firma) firma = f.firma;
+          } catch (e) { /* resta quella predefinita */ }
+          const opzioni = {
+            genere: (($('dPrevGenere') || {}).value || 'N'), titolo: '', firma,
+            cure: !!($('dPrevCure') || {}).checked,
+            cane: !!($('dPrevCane') || {}).checked
+          };
+          const [fnHtml, fnOgg] = MODELLI_PREV[lingua] || MODELLI_PREV.it;
+          const d = datiPreventivo(nome, lingua);
+          const html = fnHtml()(d, opzioni);
+          const ogg = fnOgg()(d);
+
+          if (vai) { vai.disabled = true; vai.textContent = 'Apro Outlook…'; }
+
+          /* gli appunti restano la riserva, come nel pannello: se
+             l'inserimento automatico non scatta, c'e' Ctrl+V */
+          try {
+            await navigator.clipboard.write([new ClipboardItem({
+              'text/html': new Blob([html], { type: 'text/html' }),
+              'text/plain': new Blob([html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')], { type: 'text/plain' })
+            })]);
+          } catch (e) { /* alcuni contesti non danno gli appunti: si prosegue */ }
+
+          await chrome.storage.local.set({ leonardo_email_pendente: {
+            html, creato: Date.now(), firmaContenuto: 'prev#' + Date.now()
           }});
-          box.style.color = '#0F5C64';
-          box.textContent = 'Preventivo pronto: apri il pannello (Ctrl+Shift+L) e scegli '
-            + '«Preventivo soggiorno». Vale mezz’ora.';
+
+          const url = 'https://outlook.office.com/mail/deeplink/compose'
+            + '?to=' + encodeURIComponent(dest)
+            + '&subject=' + encodeURIComponent(ogg);
+          const esito = await chrome.runtime.sendMessage({ tipo: 'LEONARDO_APRI_OUTLOOK', url });
+          if (!esito || !esito.ok) throw new Error((esito && esito.motivo) || 'Outlook non si e’ aperto');
+
+          dice('Outlook aperto: il testo si inserisce da solo.'
+            + (dest ? '' : ' Manca il destinatario: mettilo tu nella scheda.')
+            + ' Se l’ospite accetta, apri la pratica in Fidra e manda l’offerta.');
         } catch (e) {
-          box.style.color = '#B3541E';
-          box.textContent = 'Preventivo non messo da parte: ' + e.message;
+          dice('Preventivo non mandato: ' + e.message, true);
+        } finally {
+          if (vai) { vai.disabled = false; vai.textContent = 'Crea preventivo e apri Outlook'; }
         }
       }
 

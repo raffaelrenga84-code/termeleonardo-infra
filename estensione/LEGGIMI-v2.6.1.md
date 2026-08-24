@@ -443,3 +443,60 @@ allora andrebbe esteso, ed e' un altro progetto.
 ### Perche' 2.9.0
 
 Funzione nuova, non correzione. Dopo il Ricarica, se leggi **2.9.0** e' entrata.
+
+---
+
+## v2.9.1 — un gesto solo (24/08/2026)
+
+La reception l'ha provata e ha detto due cose, tutte e due giuste:
+
+> «la faccenda crea preventivo e' poco visibile, e perche' non appena si
+> clicca crea preventivo non apre in Outlook ma devo cliccare anche sul
+> plugin? Non ha senso, sono operazioni doppie, serve una cosa veloce.»
+
+**Erano due interfacce per una cosa sola, ed e' un difetto di disegno mio.**
+Il riquadro metteva da parte un dato; poi bisognava aprire il pannello
+laterale, scegliere il documento, ribattere nome ed email — che l'estensione
+aveva gia' letto dalla mail — e premere un altro pulsante. Quattro gesti e
+due finestre per mandare un preventivo.
+
+### Adesso finisce dove comincia
+
+La barra in fondo al riquadro e' il modulo intero: nome, email, lingua, come
+rivolgersi, cure e cane, e **«Crea preventivo e apri Outlook»** arancione,
+come «Cerca». L'email si costruisce dentro la pagina di Fidra e Outlook si
+apre gia' pronto. Il pannello non si apre mai.
+
+**Nome, email e lingua arrivano da soli.** Quando in Outlook si preme
+«Prepara bozza in Fidra», quello che il lettore ha capito viene messo da
+parte (`leonardo_richiesta`, un'ora di validita'), e il riquadro lo trova
+gia' scritto — dicendo da dove viene, perche' un campo che si compila da
+solo senza dirlo e' un campo che nessuno rilegge.
+
+### Il preventivo non passa piu' dal pannello
+
+Tolto: la voce «Preventivo soggiorno», il riquadro di riepilogo, le due
+spunte, e le righe nelle due tabelle MODELLI. Nessuno scrive piu'
+`leonardo_preventivo`, quindi quella voce non sarebbe comunque mai comparsa
+— e una scelta che non puo' comparire e' peggio di nessuna scelta. Una prova
+diventa rossa se torna.
+
+Info Day Spa e Buoni regalo restano dove sono: quelli non hanno prezzi da
+guardare, e il pannello e' il posto giusto.
+
+### Due cose da sapere sul come
+
+**I modelli sono caricati anche in Fidra.** Il manifest porta `template.js`
+e le tre lingue piu' `template-extra.js` anche sul content script di
+`leonardo.fidra.cloud`: senza, `costruisciPreventivoIT` non esiste dove il
+riquadro gira. Provato che `template-conferma.js` non serve — quattro file
+in meno da caricare su ogni pagina di Fidra.
+
+**Il service worker apre la scheda.** Un content script non puo' chiamare
+`chrome.tabs`: il riquadro manda `LEONARDO_APRI_OUTLOOK` a `background.js`,
+che apre **solo** indirizzi `https://outlook.` — un controllo che costa una
+riga e chiude la porta a una pagina di Fidra compromessa.
+
+### Perche' 2.9.1
+
+Correzione di come si usa, non funzione nuova.
