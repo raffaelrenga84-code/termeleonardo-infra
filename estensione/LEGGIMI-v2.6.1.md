@@ -500,3 +500,53 @@ riga e chiude la porta a una pagina di Fidra compromessa.
 ### Perche' 2.9.1
 
 Correzione di come si usa, non funzione nuova.
+
+---
+
+## v2.9.7 — l'estensione si ricarica da sola (24/08/2026)
+
+**Il difetto della 2.8.8, moltiplicato per il numero di postazioni.** I file
+arrivano su tutti i computer da soli, perche' la cartella e' su OneDrive, ma
+Edge non guarda se sono cambiati: a ogni versione bisognava fare il giro
+delle postazioni e premere Ricarica. Quando non si faceva, un computer
+mandava le email col codice di due settimane prima e nessuno se ne accorgeva.
+
+Adesso il service worker confronta la versione che sta girando con quella
+scritta nel `manifest.json` sul disco. Se sul disco il numero e' piu' alto, i
+file nuovi sono arrivati e `chrome.runtime.reload()` fa ripartire
+l'estensione leggendoli. Controlla ogni cinque minuti e all'avvio di Edge.
+
+### Le tre precauzioni
+
+Un ricaricamento a meta' lavoro fa perdere quello che si stava facendo:
+
+- **solo se il numero e' piu' alto**, mai «diverso»: un numero che scende
+  sarebbe un file mezzo scritto da OneDrive, e ricaricare in ciclo e' peggio
+  che non ricaricare;
+- **mai mentre c'e' un'email in attesa** di essere inserita in Outlook o un
+  preventivo fresco nel riquadro: si aspetta il giro dopo;
+- **si ricorda l'ultima versione per cui ha ricaricato**, cosi' se il
+  ricaricamento non prende effetto non ci riprova all'infinito.
+
+### Che cosa resta da fare a mano, una volta sola
+
+Su ogni computer: aggiungere la cartella condivisa a OneDrive e caricare
+l'estensione scompattata da `chrome://extensions`. **Una volta sola.** Da li'
+in poi gli aggiornamenti arrivano e si applicano da soli.
+
+### Se non funzionasse
+
+Dipende da come Edge serve i file di un'estensione scompattata: se li rilegge
+dal disco a ogni richiesta o se li tiene in cache. Nel dubbio il manifest si
+chiede con `cache: 'no-store'` e una marca temporale, ma la prova vera e'
+usarlo.
+
+Dalla console del service worker (`chrome://extensions` → «service worker»):
+
+    leoAggiornamento()
+
+Risponde la versione che gira, quella sul disco, se la considera piu' nuova e
+perche' eventualmente non ha ricaricato. Se dice sempre la stessa versione per
+tutte e due anche dopo che i file sono cambiati, la cache vince e questa
+strada non regge: allora si passa a pubblicarla come estensione privata su
+Edge Add-ons, dove l'aggiornamento lo fa il browser.

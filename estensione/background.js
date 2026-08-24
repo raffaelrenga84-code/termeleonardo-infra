@@ -123,6 +123,97 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 /* ============================================================
+   L'estensione si ricarica da sola (v2.9.7)
+   ------------------------------------------------------------
+   IL PROBLEMA. L'estensione e' caricata scompattata da una cartella
+   di OneDrive: i file arrivano da soli su tutti i computer, ma Edge
+   non guarda se sono cambiati. A ogni versione qualcuno doveva fare
+   il giro dei computer e premere Ricarica su chrome://extensions —
+   e quando non lo faceva, un computer mandava le email con il codice
+   di due settimane prima senza che nessuno se ne accorgesse. E' lo
+   stesso difetto della v2.8.8, ma moltiplicato per il numero di
+   postazioni.
+
+   COME. Il manifest che sta girando dice la sua versione
+   (chrome.runtime.getManifest); quello sul disco dice la sua. Se sul
+   disco c'e' un numero piu' alto, i file nuovi sono arrivati e
+   chrome.runtime.reload() fa ripartire l'estensione leggendoli.
+
+   TRE PRECAUZIONI, perche' un ricaricamento a meta' lavoro fa perdere
+   quello che si stava facendo:
+   · solo se la versione sul disco e' STRETTAMENTE piu' alta, mai
+     "diversa": un numero che scende sarebbe un file mezzo scritto da
+     OneDrive, e ricaricare in un ciclo e' peggio di non ricaricare;
+   · mai mentre c'e' un'email in attesa di essere inserita in Outlook
+     o un preventivo fresco nel riquadro: si aspetta il giro dopo;
+   · si ricorda l'ultima versione per cui si e' ricaricato, cosi' se
+     il ricaricamento non prende effetto non ci si riprova all'infinito.
+
+   Da console del service worker: leoAggiornamento() dice cosa vede.
+   ============================================================ */
+const CHIAVE_RICARICA = 'leonardo_ultima_ricarica';
+
+function versioneMaggiore(a, b) {
+  const pa = String(a).split('.').map(Number), pb = String(b).split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] || 0, y = pb[i] || 0;
+    if (x !== y) return x > y;
+  }
+  return false;
+}
+
+async function versioneSulDisco() {
+  /* la marca temporale e no-store perche' un manifest servito dalla cache
+     direbbe per sempre la versione con cui l'estensione e' partita */
+  const url = chrome.runtime.getURL('manifest.json') + '?t=' + Date.now();
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error('manifest non leggibile: ' + r.status);
+  const j = await r.json();
+  if (!j || !j.version) throw new Error('manifest senza versione');
+  return String(j.version);
+}
+
+async function lavoroInCorso() {
+  try {
+    const s = await chrome.storage.local.get(['leonardo_email_pendente', 'leonardo_preventivo']);
+    if (s.leonardo_email_pendente && s.leonardo_email_pendente.html) return 'email in attesa in Outlook';
+    const p = s.leonardo_preventivo;
+    if (p && Date.now() - (p.quando || 0) < 30 * 60 * 1000) return 'preventivo appena preparato';
+  } catch (e) { /* nel dubbio si prosegue: il controllo e' una cortesia */ }
+  return null;
+}
+
+async function guardaAggiornamento(silenzioso) {
+  const ora = chrome.runtime.getManifest().version;
+  let disco;
+  try { disco = await versioneSulDisco(); }
+  catch (e) { return { ora, errore: String(e.message || e) }; }
+
+  const esito = { ora, disco, piuNuova: versioneMaggiore(disco, ora) };
+  if (!esito.piuNuova) return esito;
+
+  const occupato = await lavoroInCorso();
+  if (occupato) { esito.rimandato = occupato; return esito; }
+
+  const s = await chrome.storage.local.get([CHIAVE_RICARICA]);
+  if (s[CHIAVE_RICARICA] === disco) { esito.giaProvato = true; return esito; }
+
+  await chrome.storage.local.set({ [CHIAVE_RICARICA]: disco });
+  esito.ricarico = true;
+  if (!silenzioso) console.log(`Leonardo: ${ora} → ${disco}, ricarico`);
+  chrome.runtime.reload();
+  return esito;
+}
+
+self.leoAggiornamento = () => guardaAggiornamento(true);
+
+chrome.alarms?.create('leonardo-aggiornamento', { periodInMinutes: 5, delayInMinutes: 1 });
+chrome.alarms?.onAlarm.addListener((a) => {
+  if (a.name === 'leonardo-aggiornamento') guardaAggiornamento(false);
+});
+chrome.runtime.onStartup.addListener(() => guardaAggiornamento(false));
+
+/* ============================================================
    Apri Outlook con l'email pronta (v2.9.1)
    ------------------------------------------------------------
    Il riquadro «Disponibilita' e prezzi» vive dentro la pagina di
