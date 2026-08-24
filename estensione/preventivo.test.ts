@@ -739,11 +739,24 @@ Deno.test('la cena compare anche nel preventivo, che chiama «voci» le sue came
   /* NON si cerca «19:30»: quell orario compare anche negli orari delle
      piscine, e la prova passerebbe anche senza la cena */
   assert(/cena a buffet/.test(m.html.it(d, OPZ)), 'la cena non compare nel preventivo in mezza pensione');
+  /* LA REGOLA E' CAMBIATA, ed e' giusto che sia cambiata. Questa prova
+     pretendeva che in un preventivo di sola colazione della cena non si
+     parlasse affatto: era il comportamento di allora, non una regola. Ma
+     tacere costava due volte — all'ospite, che si perdeva una cosa che
+     voleva, e all'albergo, che aveva il posto a tavola e non l'ha
+     venduto. Adesso si dice che si puo' aggiungere, e quanto costa.
+     Quello che NON deve succedere e' scritto due prove piu' giu': che la
+     si offra a chi ce l'ha gia' compresa. */
   const soloBB = DATI();
   soloBB.voci = [soloBB.voci[1]];   // solo bed & breakfast
+  const htmlBB = m.html.it(soloBB, OPZ);
   assert(
-    !/cena a buffet/.test(m.html.it(soloBB, OPZ)),
-    'la cena compare in un preventivo di solo pernottamento e colazione',
+    !/&egrave; compresa la <strong[^>]*>cena a buffet/.test(htmlBB),
+    'in un preventivo di sola colazione si dice che la cena e compresa',
+  );
+  assert(
+    /si pu&ograve; aggiungere a <strong[^>]*>35 &euro;/.test(htmlBB),
+    'in un preventivo di sola colazione non si dice che la cena si puo aggiungere',
   );
 });
 
@@ -814,4 +827,92 @@ Deno.test('le quattro «da sapere» hanno lo stesso numero di righe', () => {
       LINGUE.map((l, i) => l + '=' + righe[i]).join(' ')
     }`,
   );
+});
+
+/* ============================================================
+   LA CENA PER CHI HA PRENOTATO CON LA SOLA COLAZIONE.
+
+   Fino a oggi, quando la cena non era compresa, «A tavola» diceva
+   soltanto «ricca colazione a buffet» e finiva lì: del ristorante, del
+   buffet della sera e dei suoi orari non c'era traccia. L'ospite lo
+   scopriva alla Reception — o non lo scopriva e andava a cena fuori.
+
+   Il silenzio costava due volte: all'ospite, che si perdeva una cosa
+   che voleva, e all'albergo, che aveva il posto a tavola e non l'ha
+   venduto.
+
+   MA UNA FRASE SBAGLIATA COSTA DI PIÙ DEL SILENZIO, e queste prove
+   sorvegliano quello: che «la cena si aggiunge a 35 €» non finisca mai
+   sotto gli occhi di chi la cena ce l'ha già pagata.
+   ============================================================ */
+function voceCon(trattamento: string): Voce {
+  return {
+    categoria: 'DOPPIA', trattamento, prezzoPP: 39000, totale: 78000,
+    cure: 0, sconto5: 0, sconto3: 0, bambiniPrezzi: [], stima: false,
+  };
+}
+
+Deno.test('in camera e colazione si dice che la cena si può aggiungere, e quanto costa', () => {
+  const m = modelli();
+  const d = DATI();
+  d.voci = [voceCon('Miglior Prezzo Bed & Breakfast')];
+  for (const l of LINGUE) {
+    const html = m.html[l](d, OPZ);
+    assert(/35/.test(html), `manca il prezzo della cena in ${l}`);
+    assert(
+      /19:30|7:30 pm|19 h 30/.test(html),
+      `manca l orario della cena in ${l}`,
+    );
+    assert(
+      /20:20|8:20 pm|20 h 20/.test(html),
+      `manca l ultimo ingresso in ${l}`,
+    );
+  }
+});
+
+Deno.test('a chi ha la mezza pensione non si chiedono 35 euro per la cena', () => {
+  /* LA COSA CHE NON DEVE SUCCEDERE MAI. Un ospite che ha gia' pagato la
+     cena dentro la tariffa leggerebbe che deve aggiungerla: telefonerebbe
+     in Reception, e avrebbe ragione lui. */
+  const m = modelli();
+  const d = DATI();
+  d.voci = [voceCon('Miglior Prezzo Mezza Pensione')];
+  for (const l of LINGUE) {
+    const html = m.html[l](d, OPZ);
+    assert(
+      !/si pu&ograve; aggiungere|dazubuchen|can be added|peut &ecirc;tre ajout/.test(html),
+      `si offre di aggiungere la cena a chi ce l ha gia compresa, in ${l}`,
+    );
+  }
+});
+
+Deno.test('«non lo so» torna a tacere, invece di dire «no»', () => {
+  /* LA TRAPPOLA DEL CAMBIAMENTO. includeCena rispondeva false anche dove
+     non sapeva, e finche' il caso negativo era il SILENZIO andava bene:
+     tacere non e' mai sbagliato. Diventato una frase, quel false
+     scriverebbe «la cena costa 35 €» su un documento in mezza pensione
+     di cui non abbiamo letto i trattamenti. */
+  const m = modelli();
+  const d = DATI();
+  d.voci = [{ categoria: 'DOPPIA', trattamento: '', prezzoPP: 39000, totale: 78000,
+              cure: 0, sconto5: 0, sconto3: 0, bambiniPrezzi: [], stima: false }];
+  const html = m.html.it(d, OPZ);
+  assert(
+    !/si pu&ograve; aggiungere/.test(html),
+    'senza trattamenti si afferma che la cena non e compresa: non lo sappiamo',
+  );
+});
+
+Deno.test('nel preventivo ad alternative si dicono tutt e due le cose', () => {
+  /* una soluzione in mezza pensione e una in camera e colazione, nella
+     stessa email: dire solo «nella mezza pensione la cena e' compresa»
+     lascia chi sceglie il B&B a credere che la cena non ci sia proprio */
+  const m = modelli();
+  const d = DATI();
+  d.voci = [voceCon('Miglior Prezzo Mezza Pensione'),
+            voceCon('Miglior Prezzo Bed & Breakfast')];
+  const html = m.html.it(d, OPZ);
+  assert(/&egrave; compresa la/.test(html), 'sparita la frase della mezza pensione');
+  assert(/con la sola colazione si aggiunge a/.test(html),
+    'chi sceglie il B&B non sa che la cena si puo aggiungere');
 });

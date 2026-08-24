@@ -419,6 +419,36 @@ function includeCena(d) {
   return camere.some(c => c.trattamento && !soloBB(c.trattamento));
 }
 
+/* ============================================================
+   «NO» E «NON LO SO» NON SONO LA STESSA COSA.
+   ------------------------------------------------------------
+   Finche' quando la cena non risultava compresa non si scriveva
+   niente, `includeCena` poteva permettersi di rispondere false anche
+   dove non sapeva: il silenzio non e' mai sbagliato.
+
+   Da oggi la risposta negativa diventa una FRASE — «la cena si puo'
+   aggiungere a 35 €» — e allora rispondere false quando non si sa
+   vorrebbe dire scrivere a un ospite in mezza pensione che la cena
+   deve pagarla. Un documento senza camere (o con i trattamenti non
+   letti) tornerebbe a essere false e la frase uscirebbe lo stesso.
+
+   Percio' gli stati sono tre, e il terzo torna a tacere.
+   ============================================================ */
+function cenaCompresa(d) {
+  const camere = (d && (d.camere || d.voci)) || [];
+  const conTrattamento = camere.filter(c => c && c.trattamento);
+  if (!conTrattamento.length) return 'nonSo';
+  const soloBB = (t) => /pernottamento\s*e\s*colazione|bed\s*&?\s*breakfast|b\s*&\s*b|&uuml;bernachtung\s*mit|übernachtung\s*mit/i.test(t || '');
+  const bb = conTrattamento.filter(c => soloBB(c.trattamento)).length;
+  if (!bb) return 'si';
+  if (bb === conTrattamento.length) return 'no';
+  /* IL CASO CHE NASCE DAI PREVENTIVI AD ALTERNATIVE: una soluzione in
+     mezza pensione e una in camera e colazione, nella stessa email.
+     Dire solo «nella mezza pensione la cena e' compresa» lascia chi
+     sceglie il B&B a credere che la cena non ci sia proprio. */
+  return 'misto';
+}
+
 function rigaATavola(d, lingua) {
   const COLAZIONE = {
     it: 'Ricca colazione a buffet, con alternative senza glutine, senza lattosio e vegetali',
@@ -432,7 +462,43 @@ function rigaATavola(d, lingua) {
     en: ' &middot; half board includes the <strong style="color:#2A2E2B;">evening buffet at the restaurant</strong>, from 7:30 pm (last entry 8:20 pm)',
     fr: ' &middot; la demi-pension comprend le <strong style="color:#2A2E2B;">d&icirc;ner buffet au restaurant</strong>, d&egrave;s 19 h 30 (dernier acc&egrave;s &agrave; 20 h 20)'
   };
-  return (COLAZIONE[lingua] || COLAZIONE.it) + (includeCena(d) ? (CENA[lingua] || CENA.it) : '');
+  /* ============================================================
+     CHI PRENOTA CON LA SOLA COLAZIONE NON SAPEVA DI POTER CENARE.
+     ------------------------------------------------------------
+     Qui, fino a oggi, quando la cena non era compresa non si diceva
+     NIENTE. L'ospite leggeva «A tavola: ricca colazione a buffet» e
+     finiva li': del ristorante, del buffet della sera e dei suoi orari
+     non c'era traccia. Poi arrivava e lo scopriva alla Reception — o non
+     lo scopriva affatto e andava a cena fuori.
+
+     E' il caso in cui il silenzio costa due volte: all'ospite, che si
+     perde una cosa che voleva, e all'albergo, che aveva il posto a
+     tavola e non l'ha venduto.
+
+     IL PREZZO CI VA. Dire «puo' cenare» senza dire quanto costa sposta
+     solo la sorpresa al momento del conto, che e' il posto peggiore.
+     ============================================================ */
+  const CENA_AGGIUNTA = {
+    it: ' &middot; la <strong style="color:#2A2E2B;">cena a buffet al ristorante</strong> si pu&ograve; aggiungere a <strong style="color:#2A2E2B;">35 &euro; a persona</strong>, dalle 19:30 (ultimo ingresso alle 20:20)',
+    de: ' &middot; das <strong style="color:#2A2E2B;">Abendbuffet im Restaurant</strong> l&auml;sst sich f&uuml;r <strong style="color:#2A2E2B;">35 &euro; pro Person</strong> dazubuchen, ab 19:30 Uhr (letzter Einlass 20:20 Uhr)',
+    en: ' &middot; the <strong style="color:#2A2E2B;">evening buffet at the restaurant</strong> can be added for <strong style="color:#2A2E2B;">&euro;35 per person</strong>, from 7:30 pm (last entry 8:20 pm)',
+    fr: ' &middot; le <strong style="color:#2A2E2B;">d&icirc;ner buffet au restaurant</strong> peut &ecirc;tre ajout&eacute; pour <strong style="color:#2A2E2B;">35 &euro; par personne</strong>, d&egrave;s 19 h 30 (dernier acc&egrave;s &agrave; 20 h 20)'
+  };
+  /* nel preventivo ad alternative le due frasi convivono: la prima resta
+     quella di sempre, la seconda si aggancia in coda invece di
+     riscriverla — un solo testo per la parte in comune */
+  const ANCHE_BB = {
+    it: '; con la sola colazione si aggiunge a <strong style="color:#2A2E2B;">35 &euro; a persona</strong>',
+    de: '; bei &Uuml;bernachtung mit Fr&uuml;hst&uuml;ck f&uuml;r <strong style="color:#2A2E2B;">35 &euro; pro Person</strong> dazubuchbar',
+    en: '; with bed &amp; breakfast it can be added for <strong style="color:#2A2E2B;">&euro;35 per person</strong>',
+    fr: '&nbsp;; en formule petit-d&eacute;jeuner, il peut &ecirc;tre ajout&eacute; pour <strong style="color:#2A2E2B;">35 &euro; par personne</strong>'
+  };
+  const stato = cenaCompresa(d);
+  const coda = stato === 'si' ? (CENA[lingua] || CENA.it)
+             : stato === 'no' ? (CENA_AGGIUNTA[lingua] || CENA_AGGIUNTA.it)
+             : stato === 'misto' ? (CENA[lingua] || CENA.it) + (ANCHE_BB[lingua] || ANCHE_BB.it)
+             : '';   // non lo so: si tace, come si e' sempre fatto
+  return (COLAZIONE[lingua] || COLAZIONE.it) + coda;
 }
 
 /* ============================================================
