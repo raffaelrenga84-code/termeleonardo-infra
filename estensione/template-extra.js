@@ -809,6 +809,12 @@ const PREVENTIVO_T = {
     chiudi: 'Se una di queste soluzioni le piace, ci risponda a questa email: le prepariamo l&rsquo;offerta e teniamo la camera.',
     noteCure: 'Con l&rsquo;impegnativa del suo medico il ticket &egrave; di <strong style="color:#0F5C64;">55 &euro;</strong> e copre visita medica, dodici fanghi e dodici bagni terapeutici. I turni sono al mattino.',
     noteCane: 'Anche il suo cane &egrave; il benvenuto: <strong style="color:#0F5C64;">13 &euro;</strong> al giorno, da saldare in hotel; il cibo non &egrave; compreso.',
+    caparraTitolo: 'Se decide di confermare',
+    caparra: (tot, pp) => `Per tenere la camera serve una caparra di <strong style="color:#0F5C64;">${tot}</strong> (${pp} a persona), che si versa con bonifico.`,
+    causale: (c) => `Causale: <strong style="color:#2A2E2B;">${c}</strong>`,
+    causaleSenzaNome: (data) => `Causale: <strong style="color:#2A2E2B;">il suo cognome e ${data}</strong>`,
+    causaleNota: 'Il cognome e la data di arrivo bastano a farci riconoscere il versamento.',
+    caparraDopo: 'Appena arriva le mandiamo la conferma con tutti i dettagli del soggiorno.',
     sceglie: (n) => `Sono ${n === 2 ? 'due' : n} soluzioni <strong style="color:#2A2E2B;">alternative</strong>: ne scelga una, i prezzi non si sommano.`,
     insieme: (n) => `Le ${n === 2 ? 'due' : n} sistemazioni sono da prendere <strong style="color:#2A2E2B;">insieme</strong>: il totale qui sotto le comprende tutte.`,
     totaleTutte: 'Totale delle sistemazioni'
@@ -831,6 +837,12 @@ const PREVENTIVO_T = {
     chiudi: 'Wenn Ihnen eine dieser M&ouml;glichkeiten zusagt, antworten Sie einfach auf diese E-Mail: wir bereiten das Angebot vor und halten das Zimmer f&uuml;r Sie.',
     noteCure: 'Mit der &auml;rztlichen Verordnung betr&auml;gt der Ticketanteil <strong style="color:#0F5C64;">55 &euro;</strong> und umfasst die &auml;rztliche Untersuchung, zw&ouml;lf Fangopackungen und zw&ouml;lf Thermalb&auml;der. Die Anwendungen finden vormittags statt.',
     noteCane: 'Auch Ihr Hund ist willkommen: <strong style="color:#0F5C64;">13 &euro;</strong> pro Tag, vor Ort zu zahlen; Futter nicht inbegriffen.',
+    caparraTitolo: 'Wenn Sie buchen m&ouml;chten',
+    caparra: (tot, pp) => `Um das Zimmer zu halten, ist eine Anzahlung von <strong style="color:#0F5C64;">${tot}</strong> (${pp} pro Person) n&ouml;tig, per &Uuml;berweisung.`,
+    causale: (c) => `Verwendungszweck: <strong style="color:#2A2E2B;">${c}</strong>`,
+    causaleSenzaNome: (data) => `Verwendungszweck: <strong style="color:#2A2E2B;">Ihr Nachname und ${data}</strong>`,
+    causaleNota: 'Nachname und Anreisedatum gen&uuml;gen, damit wir die Zahlung zuordnen k&ouml;nnen.',
+    caparraDopo: 'Sobald sie eingeht, senden wir Ihnen die Best&auml;tigung mit allen Einzelheiten.',
     sceglie: (n) => `Es sind ${n === 2 ? 'zwei' : n} <strong style="color:#2A2E2B;">Alternativen</strong>: w&auml;hlen Sie eine davon, die Preise werden nicht addiert.`,
     insieme: (n) => `Die ${n === 2 ? 'beiden' : n} Unterk&uuml;nfte geh&ouml;ren <strong style="color:#2A2E2B;">zusammen</strong>: der Gesamtpreis unten umfasst alle.`,
     totaleTutte: 'Gesamt aller Unterk&uuml;nfte'
@@ -853,6 +865,12 @@ const PREVENTIVO_T = {
     chiudi: 'If one of these suits you, just reply to this email: we will prepare the offer and hold the room for you.',
     noteCure: 'With your doctor&rsquo;s prescription the ticket is <strong style="color:#0F5C64;">&euro;55</strong> and covers the medical examination, twelve mud packs and twelve thermal baths. Treatments take place in the morning.',
     noteCane: 'Your dog is welcome too: <strong style="color:#0F5C64;">&euro;13</strong> per day, payable at the hotel; food not included.',
+    caparraTitolo: 'If you decide to confirm',
+    caparra: (tot, pp) => `To hold the room we need a deposit of <strong style="color:#0F5C64;">${tot}</strong> (${pp} per person), by bank transfer.`,
+    causale: (c) => `Reference: <strong style="color:#2A2E2B;">${c}</strong>`,
+    causaleSenzaNome: (data) => `Reference: <strong style="color:#2A2E2B;">your surname and ${data}</strong>`,
+    causaleNota: 'Your surname and the arrival date are enough for us to match the payment.',
+    caparraDopo: 'As soon as it arrives we will send you the confirmation with all the details.',
     sceglie: (n) => `These are ${n === 2 ? 'two' : n} <strong style="color:#2A2E2B;">alternatives</strong>: please choose one, the prices are not added together.`,
     insieme: (n) => `The ${n === 2 ? 'two' : n} accommodations go <strong style="color:#2A2E2B;">together</strong>: the total below covers them all.`,
     totaleTutte: 'Total for all accommodations'
@@ -875,6 +893,12 @@ const PREVENTIVO_T = {
     chiudi: 'Si l&rsquo;une de ces solutions vous convient, r&eacute;pondez simplement &agrave; cet e-mail : nous pr&eacute;parons l&rsquo;offre et gardons la chambre.',
     noteCure: 'Avec l&rsquo;ordonnance de votre m&eacute;decin, le ticket est de <strong style="color:#0F5C64;">55 &euro;</strong> et comprend la visite m&eacute;dicale, douze applications de fango et douze bains thermaux. Les soins ont lieu le matin.',
     noteCane: 'Votre chien est lui aussi le bienvenu : <strong style="color:#0F5C64;">13 &euro;</strong> par jour, &agrave; r&eacute;gler &agrave; l&rsquo;h&ocirc;tel ; nourriture non comprise.',
+    caparraTitolo: 'Si vous d&eacute;cidez de confirmer',
+    caparra: (tot, pp) => `Pour garder la chambre, il faut des arrhes de <strong style="color:#0F5C64;">${tot}</strong> (${pp} par personne), par virement.`,
+    causale: (c) => `Motif : <strong style="color:#2A2E2B;">${c}</strong>`,
+    causaleSenzaNome: (data) => `Motif : <strong style="color:#2A2E2B;">votre nom et ${data}</strong>`,
+    causaleNota: 'Votre nom et la date d&rsquo;arriv&eacute;e nous suffisent pour identifier le versement.',
+    caparraDopo: 'D&egrave;s r&eacute;ception, nous vous envoyons la confirmation avec tous les d&eacute;tails.',
     sceglie: (n) => `Ce sont ${n === 2 ? 'deux' : n} <strong style="color:#2A2E2B;">solutions alternatives</strong> : choisissez-en une, les prix ne s&rsquo;additionnent pas.`,
     insieme: (n) => `Les ${n === 2 ? 'deux' : n} h&eacute;bergements vont <strong style="color:#2A2E2B;">ensemble</strong> : le total ci-dessous les comprend tous.`,
     totaleTutte: 'Total de tous les h&eacute;bergements'
@@ -919,6 +943,68 @@ function dotazionePreventivo(lingua) {
   if (lingua === 'en') return AMENITIES_EN;
   if (lingua === 'fr') return EQUIPEMENTS_FR;
   return DOTAZIONE_IT;
+}
+
+/* ============================================================
+   v2.11.3 — LA CAPARRA NEL PREVENTIVO, SENZA NUMERO D'OFFERTA
+   ------------------------------------------------------------
+   Avevo escluso l'IBAN sostenendo che senza numero d'offerta il
+   bonifico arriva in banca «senza nulla a cui attaccarlo».
+   L'obiezione della proprieta' e' migliore: la causale non deve
+   essere per forza un numero. COGNOME + DATA DI ARRIVO si
+   riconcilia altrettanto bene, e sull'estratto conto si legge
+   pure meglio di «O26/19196».
+
+   Resta fuori il pulsante di pagamento con carta: quello si', ha
+   bisogno dell'id della pratica — /deposit-payment?id=... — e
+   senza pratica il link non esiste proprio.
+   ============================================================ */
+/* le coordinate bancarie NON si ricopiano qui: IBAN, BIC, BANCA e
+   INTESTAT stanno in template.js e le usa gia' l'offerta. Un IBAN
+   scritto in due posti e' un IBAN che un giorno cambia in uno solo. */
+const CAPARRA_A_PERSONA = 75;
+
+/* «Bianchi Maria 25/09/2026»: quello che l'ospite scrive nella causale */
+function causalePreventivo(d) {
+  const due = (n) => (n < 10 ? '0' : '') + n;
+  const mese = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
+                 Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 }[d.mese] || 0;
+  const data = mese ? `${due(d.giornoArrivo)}/${due(mese)}/${d.anno}` : '';
+  const nome = String(d.intestatario || '').trim();
+  return { data, testo: nome && data ? `${nome} ${data}` : '' };
+}
+
+function bloccoCaparra(d, lingua) {
+  const t = PREVENTIVO_T[lingua] || PREVENTIVO_T.it;
+  const persone = d.adulti || 1;
+  const totale = persone * CAPARRA_A_PERSONA;
+  const c = causalePreventivo(d);
+  if (!c.data) return '';   // senza data non si scrive una causale a meta'
+  const soldi = (n) => importoLingua(n, lingua);
+  return `
+  <tr><td style="padding:18px 36px 0 36px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FAF8F4;">
+      <tr><td width="4" style="background-color:#7A8450;font-size:0;line-height:0;">&nbsp;</td>
+      <td style="padding:14px 18px;">
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;letter-spacing:2px;
+          text-transform:uppercase;color:#7A8450;padding-bottom:6px;">${t.caparraTitolo}</div>
+        <p style="margin:0 0 10px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
+          ${t.caparra(soldi(totale), soldi(CAPARRA_A_PERSONA))}</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"
+          style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:21px;color:#55524B;">
+          <tr><td style="padding:0 10px 2px 0;color:#8C8578;">Intestato a</td><td style="padding:0 0 2px 0;">${INTESTAT}</td></tr>
+          <tr><td style="padding:0 10px 2px 0;color:#8C8578;">Banca</td><td style="padding:0 0 2px 0;">${BANCA}</td></tr>
+          <tr><td style="padding:0 10px 2px 0;color:#8C8578;">IBAN</td><td style="padding:0 0 2px 0;"><strong style="color:#2A2E2B;">${IBAN}</strong></td></tr>
+          <tr><td style="padding:0 10px 0 0;color:#8C8578;">BIC</td><td style="padding:0;">${BIC}</td></tr>
+        </table>
+        <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:21px;color:#55524B;">
+          ${c.testo ? t.causale(c.testo) : t.causaleSenzaNome(c.data)}<br />
+          <span style="color:#8C8578;font-size:12px;">${t.causaleNota}</span></p>
+        <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:21px;color:#55524B;">
+          ${t.caparraDopo}</p>
+      </td></tr>
+    </table>
+  </td></tr>`;
 }
 
 function costruisciPreventivoBase(d, opzioni, lingua) {
@@ -1009,7 +1095,8 @@ function costruisciPreventivoBase(d, opzioni, lingua) {
     <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">${t.sapereTitolo}</h2>
     <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.avviso}</p>
     <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.chiudi}</p>
-  </td></tr>`;
+  </td></tr>
+${bloccoCaparra(d, lingua)}`;
 
   return corniceExtra(t.banda, corpo, o, lingua);
 }

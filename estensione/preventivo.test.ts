@@ -143,18 +143,26 @@ Deno.test('non nomina MAI numero d offerta, acconto, scadenza, caparra', () => {
   const m = modelli();
   /* le parole che fanno leggere «camera tenuta» a chi riceve.
 
-     «bonifico» NON e' in questa lista, e non e' una dimenticanza:
-     AVVISO_PREZZO_SPECIALE lo nomina legittimamente («valido solo con
-     pagamento tramite bonifico prima dell'arrivo o in contanti») ed e'
-     una condizione della tariffa, non un invito a pagare una caparra.
-     Restano vietate «causale» e «IBAN», che compaiono solo nel blocco
-     delle istruzioni di pagamento dell'offerta vera. */
+     v2.11.3 — CAPARRA, IBAN E CAUSALE SONO USCITI DA QUESTA LISTA, e
+     vale la pena dire perche'. Li avevo vietati sostenendo che senza
+     numero d'offerta il bonifico arriva in banca «senza nulla a cui
+     attaccarlo». La proprieta' ha fatto notare che la causale non deve
+     essere un numero: COGNOME + DATA DI ARRIVO si riconcilia altrettanto
+     bene, e sull'estratto conto si legge meglio di «O26/19196». Aveva
+     ragione, e la regola e' cambiata.
+
+     Restano vietati il numero d'offerta, la scadenza dell'opzione e il
+     pulsante di pagamento con carta: quest'ultimo ha davvero bisogno
+     dell'id della pratica (/deposit-payment?id=...), e senza pratica il
+     link non esiste proprio.
+
+     «bonifico» non c'e' mai stato: AVVISO_PREZZO_SPECIALE lo nomina
+     legittimamente come condizione di una tariffa. */
   const VIETATE = [
     /offerta n\./i, /angebot nr/i, /offer no\./i, /offre n[°o]/i,
-    /acconto/i, /anzahlung/i, /deposit/i, /acompte/i,
-    /caparra/i, /conferma ora/i, /jetzt best/i, /confirm now/i,
-    /scade/i, /verf(a|&auml;)llt/i, /expires/i, /expire/i,
-    /causale/i, /IBAN/,
+    /conferma ora/i, /jetzt best/i, /confirm now/i, /confirmez maintenant/i,
+    /deposit-payment/i,
+    /scade/i, /verf(a|&auml;)llt/i, /expires/i,
   ];
   /* si prova anche su un pacchetto: il suo blocco porta testi che il
      preventivo semplice non ha, ed e' li' che una parola vietata si
@@ -596,4 +604,36 @@ Deno.test('dopo aver compilato i prezzi si ricarica la pagina', () => {
     /Non trovo il pulsante Salva di Fidra/.test(MODALE),
     'se non trova Salva ricarica lo stesso: si butterebbe via quello che si e appena scritto',
   );
+});
+
+Deno.test('la caparra c e, con IBAN e causale fatta di nome e data', () => {
+  /* la causale non e' un numero d'offerta — quello non esiste, il
+     preventivo non ha una pratica dietro — ma «Bianchi Maria 23/08/2026»,
+     che in banca si riconcilia altrettanto bene e si legge meglio */
+  const m = modelli();
+  for (const l of LINGUE) {
+    const html = m.html[l](DATI(), OPZ);
+    assert(/IT11C0306962321100000006041/.test(html), `manca l IBAN in ${l}`);
+    assert(/Bianchi Maria 23\/08\/2026/.test(html), `la causale non e nome + data in ${l}`);
+    assert(/150[.,]00/.test(html), `manca la caparra (75 x 2 adulti) in ${l}`);
+  }
+});
+
+Deno.test('senza nome la causale spiega cosa scrivere, invece di uscire monca', () => {
+  const m = modelli();
+  const d = DATI();
+  d.intestatario = '';
+  const html = m.html.it(d, OPZ);
+  assert(/23\/08\/2026/.test(html), 'manca la data nella causale');
+  assert(/cognome/i.test(html), 'non dice all ospite di mettere il cognome');
+});
+
+Deno.test('nel preventivo non c e il pulsante di pagamento con carta', () => {
+  /* quello si' che ha bisogno dell'id della pratica: senza, il link non
+     esiste proprio */
+  const m = modelli();
+  for (const l of LINGUE) {
+    const html = m.html[l](DATI(), OPZ);
+    assert(!/deposit-payment/i.test(html), `c e il link di pagamento in ${l}`);
+  }
 });

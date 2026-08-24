@@ -51,30 +51,44 @@
      si sta ancora digitando. */
   const PARE_DATA = /\d{1,2}\s*\w{0,4}\.?\s*20\d\d|\d{1,2}[\/.]\d{1,2}[\/.]\d{2,4}/;
 
+  /* v1.2 — risalire l'albero dall'etichetta era troppo grossolano: due
+     livelli sopra «Cliente» si arriva a un contenitore che comprende
+     anche il «Cerca...» della barra in alto, e quello e' vuoto — cosi'
+     il riquadro non compariva piu' affatto.
+
+     Adesso si prende il PRIMO input che viene DOPO l'etichetta
+     nell'ordine del documento: e' Cliente, e Committente viene dopo. */
   function campoCliente() {
-    /* si parte dall'etichetta: il campo e' il primo input che viene dopo */
-    const etichette = [...document.querySelectorAll('label, div, span, h3')]
-      .filter(el => !el.children.length && /^cliente$/i.test((el.textContent || '').trim()));
-    for (const et of etichette) {
-      const zona = et.parentElement && et.parentElement.parentElement;
-      const i = zona && zona.querySelector('input');
-      if (i) return i;
+    const etichetta = [...document.querySelectorAll('label, div, span, h3, p')]
+      .find(el => !el.children.length && /^cliente$/i.test((el.textContent || '').trim()));
+    if (etichetta) {
+      const dopo = [...document.querySelectorAll('input')].filter(i =>
+        etichetta.compareDocumentPosition(i) & Node.DOCUMENT_POSITION_FOLLOWING);
+      if (dopo.length) return dopo[0];
     }
-    /* ripiego: come fa fidra-booking.js, il primo campo di ricerca cliente */
     return [...document.querySelectorAll('input')]
       .find(i => /cerca\s*cliente/i.test(i.placeholder || '')) || null;
   }
 
+  /* il valore visto al giro precedente: se non cambia, l'operatore ha
+     smesso di digitare */
+  let precedente = '';
+
   function nomeSelezionato() {
     const i = campoCliente();
     const v = ((i && i.value) || '').trim();
+    const prima = precedente;
+    precedente = v;
     if (v.length < 3 || PARE_DATA.test(v) || /^cerca/i.test(v)) return '';
-    /* la scelta e' avvenuta solo se Fidra ripete il nome sotto il campo:
-       mentre si digita, il testo sta solo dentro l'input */
-    const eco = [...document.querySelectorAll('h1, h2, h3, div, span')]
-      .some(el => !el.children.length && el !== i &&
-                  (el.textContent || '').trim() === v);
-    return eco ? v : '';
+
+    /* la scelta e' avvenuta se Fidra ripete il nome sotto il campo. Ma
+       l'eco da sola non basta come condizione: se il tema cambia e il nome
+       finisce dentro un elemento con figli, il riquadro sparisce del tutto
+       — ed e' successo. Percio' vale anche un valore che sta fermo da un
+       giro all'altro: chi digita cambia il campo di continuo. */
+    const eco = [...document.querySelectorAll('h1, h2, h3, div, span, p')]
+      .some(el => !el.children.length && el !== i && (el.textContent || '').trim() === v);
+    return (eco || v === prima) ? v : '';
   }
 
   /* ---------- strato 1: l'id gia' scritto nel DOM ---------- */

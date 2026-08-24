@@ -118,10 +118,20 @@ Deno.test('lo storico non scambia le date per un nome', () => {
 
 Deno.test('lo storico aspetta che il cliente sia scelto, non digitato', () => {
   /* si apriva mentre si stava ancora scrivendo «Muller». Il segnale non e'
-     il tempo: e' che Fidra ripete il nome in grande sotto il campo. */
+     il tempo: e' che Fidra ripete il nome in grande sotto il campo.
+
+     MA L'ECO DA SOLA NON PUO' ESSERE L'UNICA CONDIZIONE, e l'abbiamo
+     imparato subito dopo: con «Konold Otto» selezionato il riquadro non
+     compariva affatto. Se il nome finisce dentro un elemento con figli
+     l'eco non si trova, e il riquadro sparisce invece di sbagliare — che
+     e' il modo peggiore di fallire, perche' non lo segnala nessuno.
+
+     Percio' vale anche un valore fermo da un giro all'altro: chi digita
+     cambia il campo di continuo, chi ha scelto no. */
+  assert(/const eco = /.test(STORICO), 'sparita l eco del nome');
   assert(
-    /const eco = /.test(STORICO) && /return eco \? v : ''/.test(STORICO),
-    'non aspetta piu l eco del nome: comparirebbe a meta digitazione',
+    /return \(eco \|\| v === prima\) \? v : ''/.test(STORICO),
+    'e rimasta solo l eco: se il tema di Fidra cambia, il riquadro sparisce del tutto',
   );
 });
 
