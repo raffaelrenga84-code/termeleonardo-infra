@@ -280,6 +280,57 @@ pratica si apre come si è sempre fatto, e da lì l'offerta vera esce come oggi.
 Nemmeno si toccano Info Day Spa e Buoni regalo, né la strada
 `leonardo_dettaglio` → «Dettaglio del soggiorno».
 
+## Corretto il 24 agosto, leggendo il codice per scrivere il piano
+
+Tre cose di questa specifica sono risultate sbagliate o incomplete. Restano
+scritte sopra com'erano, perché il piano è la versione che si implementa.
+
+**1. Il modello non va in `template.js` più le tre lingue, va in
+`template-extra.js`.** Gli altri due documenti senza prenotazione — Info Day
+Spa e Buoni regalo — vivono lì con **un solo** costruttore base e una tabella a
+quattro lingue. Spargere il preventivo su quattro file vorrebbe dire quattro
+posti da ricordare a ogni modifica, che è il difetto per cui esiste
+`pulsanti.test.ts`.
+
+**2. Mancavano cinque contenuti, e quattro erano già scritti.** Un preventivo
+con il solo prezzo è un prezzo senza merce. Vanno riusate, non riscritte:
+
+| cosa | dove sta già |
+|---|---|
+| che cosa comprende il pacchetto (Dolce Vita, Spezial, Golf, Smart, Escape, Deluxe…) | `notaPacchetto(trattamento, lingua)` — `template.js:679` |
+| descrizione della camera: metratura, letti, balcone | `CAMERE_IT` / `ZIMMER_DE` / `ROOMS_EN` / `CHAMBRES_FR` + `descrizioneCamera()` |
+| dotazione comune | `DOTAZIONE_IT` / `AUSSTATTUNG_DE` / `AMENITIES_EN` / `EQUIPEMENTS_FR` |
+| bambini con il prezzo per età | `rigaBambini(c, lingua)` — `template.js:533` |
+| cure termali e cane | riga nuova nelle quattro lingue, con due spunte nel pannello |
+
+Il quinto — cure e cane — non si riusa: i blocchi dell'offerta sono duplicati
+otto volte a mano nei quattro file, e toccarli metterebbe a rischio quello che
+funziona. Nel preventivo bastano due righe.
+
+Ne segue che `leonardo_preventivo` porta anche `bambiniPrezzi` per voce: il
+modale quel calcolo lo fa già (`dettaglioB`), e buttarlo via vorrebbe dire far
+ricopiare a mano proprio il numero che si è fatta la fatica di leggere.
+
+**La culla non c'è, e non è una dimenticanza:** nei modelli email non esiste in
+nessuna lingua. Sta nel modulo di richiesta del sito.
+
+**3. Il link della caparra: non c'è, ed è la scelta giusta.** Non lo genera
+Stripe e non lo genera Fidra — lo compone `extractor.js:322` con l'`id` della
+prenotazione, il numero d'offerta e l'importo, e `/deposit-payment` riconcilia
+l'incasso attraverso quell'`id`. Fuori da una prenotazione non esiste nessuno
+dei tre. E prima ancora: il preventivo dichiara di non bloccare la camera, e
+incassare su una camera non tenuta significa poterla vendere a un altro e avere
+in mano i soldi di chi resta senza.
+
+**Sul copiare testi da `/prenota`:** non si fa. Le descrizioni nel codice sono
+già la versione vagliata, e `template.js:755` porta un avviso che vale la pena
+rileggere — *«⚠ ABBINAMENTO DA VERIFICARE CON LA DIREZIONE: i nomi Fidra
+(Abano / Monteortone / Colli Euganei) non coincidono con quelli pubblicati su
+Booking. Metrature e dotazioni sono verificate; l'attribuzione a ciascun nome è
+una deduzione.»* Prendere testi dal sito creerebbe una seconda fonte che
+diverge dalla prima. Se l'abbinamento va sistemato, si sistema **lì**, e le
+offerte vere ne guadagnano insieme al preventivo.
+
 ## Come si consegna
 
 Si scrive in `estensione/` di questo repo, si provano le prove Deno, poi
