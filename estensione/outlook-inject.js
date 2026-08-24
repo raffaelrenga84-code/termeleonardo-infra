@@ -561,6 +561,31 @@ function parseCentralino(testo) {
     if (/\bcure\s+termali\b|\bfangh?[io]\b|\bKuranwendung|\bthermal\s+(?:cure|treatment)/i.test(t)) {
       r.cure = true;
     }
+
+    /* v2.9.9 — tre cose che l'operatore scriveva a mano ogni volta, lette
+       dalla posta inviata di agosto.
+
+       COMUNICANTI. Su Cersosimo la reception ha dovuto aggiungere in coda
+       «Le 2 matrimoniali sono comunicanti». Chi viaggia con figli lo chiede
+       spesso, e finora nessuno lo leggeva. */
+    if (/\bcomunicant\w*|\bcomunicanti\b|\bVerbindungst[üu]r|\bverbindend\w*|\bconnecting\s+rooms?\b|\badjoining\b|\bcommunicantes?\b/i.test(t)) {
+      r.comunicanti = true;
+    }
+
+    /* PENSIONE COMPLETA. Ferrario ha chiesto tre notti in pensione completa;
+       l'hotel fa solo mezza pensione e il pranzo e' al Bistrot a la carte.
+       La risposta e' sempre la stessa e si scriveva a mano. */
+    if (/\bpensione\s+completa\b|\bVollpension\b|\bfull\s*board\b|\bpension\s+compl[èe]te\b/i.test(t)) {
+      r.pensioneCompleta = true;
+      r.trattamento = r.trattamento || 'Mezza Pensione';
+    }
+
+    /* ALTERNATIVE. «Potremmo valutare una quadrupla oppure due doppie»: e'
+       il modo normale di chiedere, e la spunta del pannello finora si
+       accendeva solo da una nota di portineria scritta dopo. */
+    if (/\boppure\b|\bin alternativa\b|\bo in alternativa\b|\balternativ\w*|\boder\b|\bor\b\s+(?:two|a|an)\b|\balternatively\b|\bou\s+bien\b/i.test(t)) {
+      r.forseAlternative = true;
+    }
     r.note = t.replace(/\s+/g, ' ').trim().slice(0, 300);
     return (r.arrivo || r.email) ? r : null;
   }
@@ -1043,6 +1068,11 @@ function parseCentralino(testo) {
     const buoni = trovaRichiestaBuoni();
     if (buoni && !btnBuoni) mostraPulsanteBuoni();
     if (!buoni && btnBuoni) btnBuoni.remove();
+
+    const btnChiusura = document.getElementById('leonardo-chiusura-btn');
+    const chiusa = trovaRichiestaChiusura();
+    if (chiusa && !btnChiusura) mostraPulsanteChiusura();
+    if (!chiusa && btnChiusura) btnChiusura.remove();
   }, 1500);
 
   /* ==========================================================
@@ -1230,6 +1260,85 @@ function parseCentralino(testo) {
           const html = (build[lingua] || build.it)(d, o);
           chrome.storage.local.set({ [CHIAVE]: { html, creato: Date.now(), firmaContenuto: 'buoni-regalo' } }, () => {
             avviso('Buoni regalo pronto (' + lingua.toUpperCase() + '): premi Rispondi, il testo si inserisce da solo');
+          });
+        })
+      });
+    });
+    document.body.appendChild(btn);
+    impilaPulsanti();
+  }
+
+  /* ==========================================================
+     RISPOSTA CHIUSURA STAGIONALE (v2.9.9)
+     ----------------------------------------------------------
+     «Chiudiamo il 29 novembre e riapriamo a meta' febbraio»: nella
+     sola settimana del 22 agosto 2026 e' stata scritta a mano due
+     volte, uguale. Qui il pulsante compare da solo quando le date
+     chieste cadono nella chiusura — non serve accorgersene.
+
+     NON SI INDOVINA DAL TESTO, SI GUARDANO LE DATE. Cercare la
+     parola «dicembre» avrebbe pescato anche chi scrive a dicembre
+     per agosto. Si usa leggiDate(), lo stesso lettore dell'anteprima:
+     se l'arrivo cade dentro CHIUSURA, non c'e' niente da indovinare.
+     ========================================================== */
+  function isoDaLetta(g) {
+    if (!g || !g.a || !g.m || !g.g) return null;
+    const due = (n) => (n < 10 ? '0' : '') + n;
+    return `${g.a}-${due(g.m)}-${due(g.g)}`;
+  }
+
+  function trovaRichiestaChiusura() {
+    if (typeof dentroChiusura !== 'function' || !CHIUSURA || !CHIUSURA.dal) return null;
+    let migliore = null;
+    for (const e of elementiLettura('div, td, p')) {
+      if (!visibile(e)) continue;
+      const txt = e.innerText || '';
+      if (txt.length < 40 || txt.length > 2500) continue;
+      if (!PAROLE_RICHIESTA.test(txt)) continue;
+      const date = leggiDate(txt);
+      if (!date || !dentroChiusura(isoDaLetta(date.arrivo))) continue;
+      if (!migliore || txt.length < (migliore.innerText || '').length) migliore = e;
+    }
+    return migliore;
+  }
+
+  function mostraPulsanteChiusura() {
+    if (document.getElementById('leonardo-chiusura-btn')) return;
+    if (!trovaRichiestaChiusura()) return;
+    const btn = document.createElement('button');
+    btn.id = 'leonardo-chiusura-btn';
+    btn.textContent = '\u{1F6AA} Rispondi: siamo chiusi';
+    btn.style.cssText =
+      'position:fixed;right:24px;z-index:2147483647;' +
+      'padding:12px 20px;border:0;border-radius:8px;cursor:pointer;' +
+      'font:600 14px/18px Arial,Helvetica,sans-serif;color:#fff;' +
+      'background:#8C6239;box-shadow:0 3px 12px rgba(0,0,0,.3);';
+    btn.dataset.leoPulsante = '1';
+    btn.addEventListener('click', () => {
+      const el = trovaRichiestaChiusura();
+      if (!el) { avviso('Richiesta non più visibile: apri la mail e riprova', '#B3541E'); return; }
+      const testo = el.innerText || '';
+      const lingua = linguaTesto(testo);
+      const date = leggiDate(testo);
+      const mitt = mittenteDaPagina();
+      const nome = (mitt && mitt.nome) || '';
+      const arrivo = date ? dataLeggibile(date.arrivo) : '';
+      anteprimaRisposta({
+        titolo: 'Risposta: chiusura stagionale',
+        modello: 'Siamo chiusi in quel periodo, con invito a scegliere altre date',
+        lingua,
+        destinatario: nome ? { nome } : { nome: 'nome non letto', generico: true },
+        nota: arrivo
+          ? `Ha chiesto il ${arrivo}, dentro la chiusura. Verifica prima di mandare: le date sono la cosa piu' facile da sbagliare.`
+          : 'Il testo entra da solo quando premi Rispondi in Outlook.',
+        azione: () => chrome.storage.local.get(['firma'], (ris) => {
+          const o = { genere: 'N', firma: (ris && ris.firma) || 'La Reception' };
+          const d = { intestatario: nome };
+          const build = { it: costruisciChiusuraIT, de: costruisciChiusuraDE,
+                          en: costruisciChiusuraEN, fr: costruisciChiusuraFR };
+          const html = (build[lingua] || build.it)(d, o);
+          chrome.storage.local.set({ [CHIAVE]: { html, creato: Date.now(), firmaContenuto: 'chiusura-stagionale' } }, () => {
+            avviso('Chiusura stagionale pronta (' + lingua.toUpperCase() + '): premi Rispondi, il testo si inserisce da solo');
           });
         })
       });

@@ -282,6 +282,34 @@ function etichettaSoluzione(c, lingua) {
 }
 
 /* ============================================================
+   v2.9.9 — CHIUSURA STAGIONALE
+   ------------------------------------------------------------
+   «Chiudiamo il 29 novembre e riapriamo a meta' febbraio» e' una
+   risposta che nella sola settimana del 22 agosto 2026 e' stata
+   scritta a mano almeno due volte — Tonucci e Borrometi Piscine —
+   sempre uguale.
+
+   DA AGGIORNARE OGNI STAGIONE, ed e' l'unico posto da toccare:
+   queste righe alimentano il testo in quattro lingue, il pulsante
+   in Outlook e il riconoscimento delle date. Se restano quelle
+   vecchie, l'estensione dira' a un ospite che siamo chiusi in un
+   periodo in cui siamo aperti: meglio svuotare `dal` che lasciare
+   una stagione passata.
+   ============================================================ */
+const CHIUSURA = {
+  dal: '2026-11-29',       // primo giorno di chiusura
+  al:  '2027-02-15',       // riapertura, approssimata a «meta' febbraio»
+  riaperturaVaga: true     // true: si scrive «meta' febbraio», non il giorno
+};
+
+/* la data richiesta cade dentro la chiusura? Basta l'arrivo: chi
+   arriva a dicembre non ci trova nessuno, comunque riparta. */
+function dentroChiusura(iso) {
+  if (!CHIUSURA.dal || !iso) return false;
+  return iso >= CHIUSURA.dal && (!CHIUSURA.al || iso < CHIUSURA.al);
+}
+
+/* ============================================================
    v1.7.4 — MARCHI DI CERTIFICAZIONE (GSTC + ente certificatore)
    ------------------------------------------------------------
    PER ATTIVARLI: incollare qui i due indirizzi delle immagini,
@@ -293,6 +321,9 @@ function etichettaSoluzione(c, lingua) {
    un indirizzo pubblico https.
 
    Vincoli GSTC rispettati qui sotto e da non alterare:
+   ATTENZIONE — la chiusura stagionale sta qui sopra (const CHIUSURA):
+   e' l'unico posto da aggiornare a ogni stagione.
+
    · i due marchi hanno la STESSA altezza (proporzionalmente uguali)
    · zona di rispetto del 33% dell'altezza del logo GSTC tutt'intorno
    · il logo GSTC non compare mai da solo, sempre con l'ente

@@ -641,6 +641,8 @@ async function disegnaRapido() {
       <span class="sub">(ingressi, orari, come prenotare)</span></label>
     <label><input type="radio" name="doc" value="buoni" /> Buoni regalo
       <span class="sub">(come si compone, prezzi, validit&agrave;, acquisto online)</span></label>
+    <label><input type="radio" name="doc" value="chiusura" /> Chiusura stagionale
+      <span class="sub">(siamo chiusi in quel periodo, con invito ad altre date)</span></label>
 
     <h3>A chi &egrave; rivolto</h3>
     <label>Cognome e nome <span class="sub">(facoltativo: senza, l&apos;email saluta
@@ -676,7 +678,7 @@ function costruisciDatiRapidi() {
   const oggi0 = new Date(); oggi0.setHours(0, 0, 0, 0);
 
   const nome = $('rapNome').value.trim();
-  const senzaSoggiorno = ['dayspa', 'buoni'].includes(
+  const senzaSoggiorno = ['dayspa', 'buoni', 'chiusura'].includes(
     document.querySelector('input[name=doc]:checked')?.value);
   /* v2.0.5: per Info Day Spa e Buoni regalo il nome e' facoltativo — spesso
      la richiesta arriva da un indirizzo senza firma. Senza nome l'email
@@ -685,7 +687,7 @@ function costruisciDatiRapidi() {
   if (!nome && !senzaSoggiorno) errori.push('cognome e nome dell\'ospite');
 
   /* Info Day Spa: prezzi e istruzioni sono nel modello, serve solo l'ospite */
-  if (['dayspa', 'buoni'].includes(document.querySelector('input[name=doc]:checked')?.value)) {
+  if (['dayspa', 'buoni', 'chiusura'].includes(document.querySelector('input[name=doc]:checked')?.value)) {
     if (errori.length) return { errori };
     return { dati: {
       /* v2.0.4: vale sia per Info Day Spa sia per Buoni regalo — arrivano
@@ -951,7 +953,9 @@ $('copia').addEventListener('click', async () => {
     buoni:    { it:[costruisciBuoniIT, oggettoBuoniIT], de:[costruisciBuoniDE, oggettoBuoniDE],
                 en:[costruisciBuoniEN, oggettoBuoniEN], fr:[costruisciBuoniFR, oggettoBuoniFR] },
     dayspa:   { it:[costruisciDaySpaIT, oggettoDaySpaIT], de:[costruisciDaySpaDE, oggettoDaySpaDE],
-                en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] }
+                en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] },
+    chiusura: { it:[costruisciChiusuraIT, oggettoChiusuraIT], de:[costruisciChiusuraDE, oggettoChiusuraDE],
+                en:[costruisciChiusuraEN, oggettoChiusuraEN], fr:[costruisciChiusuraFR, oggettoChiusuraFR] }
   };
   preparaCamere(DATI, opzioni.camereModo);
   const [fnHtml, fnOgg] = MODELLI[doc][lingua] || MODELLI[doc].it;
@@ -1040,7 +1044,9 @@ $('copiaOggetto').addEventListener('click', async () => {
     buoni:    { it:[costruisciBuoniIT, oggettoBuoniIT], de:[costruisciBuoniDE, oggettoBuoniDE],
                 en:[costruisciBuoniEN, oggettoBuoniEN], fr:[costruisciBuoniFR, oggettoBuoniFR] },
     dayspa:   { it:[costruisciDaySpaIT, oggettoDaySpaIT], de:[costruisciDaySpaDE, oggettoDaySpaDE],
-                en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] }
+                en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] },
+    chiusura: { it:[costruisciChiusuraIT, oggettoChiusuraIT], de:[costruisciChiusuraDE, oggettoChiusuraDE],
+                en:[costruisciChiusuraEN, oggettoChiusuraEN], fr:[costruisciChiusuraFR, oggettoChiusuraFR] }
   };
   preparaCamere(DATI, opzioni.camereModo);
   const [fnHtml, fnOgg] = MODELLI[doc][lingua] || MODELLI[doc].it;

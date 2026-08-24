@@ -678,6 +678,98 @@ function oggettoBuoniEN() { return BUONI_T.en.ogg.replace(/&mdash;/g, '\u2014');
 function oggettoBuoniFR() { return BUONI_T.fr.ogg.replace(/&mdash;/g, '\u2014'); }
 
 /* ============================================================
+   CHIUSURA STAGIONALE \u2014 la risposta che si scriveva a mano (v1.0)
+   ------------------------------------------------------------
+   Le date e il periodo di riapertura NON stanno qui: stanno in
+   `CHIUSURA` dentro template.js, che e' l'unico posto da
+   aggiornare a ogni stagione. Qui c'e' solo come si dice.
+
+   NON E' UN NO SECCO. Chi scrive per dicembre spesso viene lo
+   stesso in un'altra data: l'email chiude la porta di quel periodo
+   e apre quella dopo, con l'invito a scriverci per la riapertura.
+   ============================================================ */
+const CHIUSURA_T = {
+  it: {
+    ogg: 'Chiusura stagionale &mdash; Hotel Terme Leonardo',
+    banda: 'CHIUSURA STAGIONALE',
+    h1: 'In quel periodo siamo chiusi',
+    intro: (dal, al) => `La ringraziamo per la Sua richiesta. Purtroppo non possiamo accoglierla: l&rsquo;Hotel Terme Leonardo chiude per la consueta pausa stagionale <strong style="color:#2A2E2B;">dal ${dal}</strong> e riapre <strong style="color:#2A2E2B;">${al}</strong>.`,
+    invito: 'Saremo felici di ospitarla in un altro periodo: ci scriva le date che ha in mente e le prepariamo volentieri una proposta.',
+    riapre: 'Se preferisce, ci risponda pure ora indicandoci un periodo dopo la riapertura: le rispondiamo appena il listino della nuova stagione &egrave; disponibile.'
+  },
+  de: {
+    ogg: 'Saisonschlie&szlig;ung &mdash; Hotel Terme Leonardo',
+    banda: 'SAISONSCHLIESSUNG',
+    h1: 'In diesem Zeitraum haben wir geschlossen',
+    intro: (dal, al) => `Vielen Dank f&uuml;r Ihre Anfrage. Leider k&ouml;nnen wir Sie nicht empfangen: das Hotel Terme Leonardo macht Betriebsferien <strong style="color:#2A2E2B;">ab dem ${dal}</strong> und &ouml;ffnet <strong style="color:#2A2E2B;">${al}</strong> wieder.`,
+    invito: 'Wir w&uuml;rden uns freuen, Sie zu einem anderen Zeitpunkt begr&uuml;&szlig;en zu d&uuml;rfen: schreiben Sie uns Ihre Wunschtermine, wir erstellen Ihnen gerne ein Angebot.',
+    riapre: 'Gerne k&ouml;nnen Sie uns auch jetzt schon einen Zeitraum nach der Wiederer&ouml;ffnung nennen: wir melden uns, sobald die Preise der neuen Saison vorliegen.'
+  },
+  en: {
+    ogg: 'Seasonal closure &mdash; Hotel Terme Leonardo',
+    banda: 'SEASONAL CLOSURE',
+    h1: 'We are closed in that period',
+    intro: (dal, al) => `Thank you for your enquiry. Unfortunately we cannot welcome you: Hotel Terme Leonardo closes for its usual seasonal break <strong style="color:#2A2E2B;">from ${dal}</strong> and reopens <strong style="color:#2A2E2B;">${al}</strong>.`,
+    invito: 'We would be delighted to host you at another time: send us the dates you have in mind and we will gladly prepare a proposal.',
+    riapre: 'If you prefer, reply now with a period after the reopening: we will get back to you as soon as the new season&rsquo;s rates are available.'
+  },
+  fr: {
+    ogg: 'Fermeture saisonni&egrave;re &mdash; Hotel Terme Leonardo',
+    banda: 'FERMETURE SAISONNI&Egrave;RE',
+    h1: 'Nous sommes ferm&eacute;s durant cette p&eacute;riode',
+    intro: (dal, al) => `Nous vous remercions de votre demande. Nous ne pouvons malheureusement pas vous accueillir : l&rsquo;Hotel Terme Leonardo ferme pour sa pause saisonni&egrave;re <strong style="color:#2A2E2B;">&agrave; partir du ${dal}</strong> et rouvre <strong style="color:#2A2E2B;">${al}</strong>.`,
+    invito: 'Nous serions heureux de vous accueillir &agrave; une autre p&eacute;riode : indiquez-nous les dates que vous avez en t&ecirc;te et nous vous pr&eacute;parerons volontiers une proposition.',
+    riapre: 'Si vous le souhaitez, r&eacute;pondez d&egrave;s maintenant en indiquant une p&eacute;riode apr&egrave;s la r&eacute;ouverture : nous vous r&eacute;pondrons d&egrave;s que les tarifs de la nouvelle saison seront disponibles.'
+  }
+};
+
+/* \u00ab29 novembre 2026\u00bb e \u00aba meta' febbraio 2027\u00bb nella lingua giusta */
+function dateChiusura(lingua) {
+  const pezzi = (iso) => {
+    const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? { g: +m[3], mese: MESI_ABBR_ISO[+m[2] - 1], a: +m[1] } : null;
+  };
+  const a = pezzi(CHIUSURA.dal), b = pezzi(CHIUSURA.al);
+  const dal = a ? dataExtra(a.g, a.mese, a.a, lingua) : '';
+  if (!b) return { dal, al: '' };
+  if (!CHIUSURA.riaperturaVaga) return { dal, al: dataExtra(b.g, b.mese, b.a, lingua) };
+  const META = {
+    it: (m, y) => `a met&agrave; ${m} ${y}`,
+    de: (m, y) => `Mitte ${m} ${y}`,
+    en: (m, y) => `in mid-${m} ${y}`,
+    fr: (m, y) => `&agrave; la mi-${m} ${y}`
+  };
+  const nomeMese = (MESI_LUNGHI[b.mese] || {})[lingua] || b.mese;
+  return { dal, al: (META[lingua] || META.it)(nomeMese, b.a) };
+}
+
+const MESI_ABBR_ISO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function costruisciChiusuraBase(d, opzioni, lingua) {
+  const o = opzioni || {};
+  const t = CHIUSURA_T[lingua] || CHIUSURA_T.it;
+  const q = dateChiusura(lingua);
+  const corpo = `
+  <tr><td style="padding:16px 36px 0 36px;">
+    <p style="margin:0 0 14px 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:22px;color:#2A2E2B;">${salutoExtra(d, o, lingua)},</p>
+    <h1 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:31px;font-weight:normal;color:#2A2E2B;">${t.h1}</h1>
+    <p style="margin:0 0 14px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.intro(q.dal, q.al)}</p>
+    <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.invito}</p>
+    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.riapre}</p>
+  </td></tr>`;
+  return corniceExtra(t.banda, corpo, o, lingua);
+}
+
+function costruisciChiusuraIT(d, o) { return costruisciChiusuraBase(d, o, 'it'); }
+function costruisciChiusuraDE(d, o) { return costruisciChiusuraBase(d, o, 'de'); }
+function costruisciChiusuraEN(d, o) { return costruisciChiusuraBase(d, o, 'en'); }
+function costruisciChiusuraFR(d, o) { return costruisciChiusuraBase(d, o, 'fr'); }
+function oggettoChiusuraIT() { return CHIUSURA_T.it.ogg.replace(/&mdash;/g, '\u2014'); }
+function oggettoChiusuraDE() { return CHIUSURA_T.de.ogg.replace(/&mdash;/g, '\u2014').replace(/&szlig;/g, '\u00df'); }
+function oggettoChiusuraEN() { return CHIUSURA_T.en.ogg.replace(/&mdash;/g, '\u2014'); }
+function oggettoChiusuraFR() { return CHIUSURA_T.fr.ogg.replace(/&mdash;/g, '\u2014').replace(/&egrave;/g, '\u00e8'); }
+
+/* ============================================================
    PREVENTIVO SOGGIORNO \u2014 il documento senza prenotazione (v1.0)
    ------------------------------------------------------------
    Le sistemazioni scelte in \u00abDisponibilita' e prezzi\u00bb con i loro
