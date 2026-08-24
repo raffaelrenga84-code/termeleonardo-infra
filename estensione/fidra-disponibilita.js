@@ -205,27 +205,73 @@
     return r.json();
   }
 
+  const piuUnGiorno = (iso, quanti) => {
+    const d = new Date(iso + 'T12:00:00Z');
+    d.setUTCDate(d.getUTCDate() + quanti);
+    return d.toISOString().slice(0, 10);
+  };
+
   async function cerca(arrivo, partenza) {
     const q = `from_date=${arrivo}&to_date=${partenza}`;
+    /* v2.12.0 — le camere si chiedono con un giorno in piu' da ogni lato.
+       Serve a sapere se la notte PRIMA dell'arrivo e quella DEL giorno di
+       partenza sono occupate: e' l'unico modo per dire se una camera si
+       incastra con chi c'e' gia' o se lascia un buco. Le tariffe restano
+       sul periodo vero — allargarle darebbe prezzi di giorni che non
+       riguardano questo soggiorno. */
+    const qLargo = `from_date=${piuUnGiorno(arrivo, -1)}&to_date=${piuUnGiorno(partenza, 1)}`;
     const [camere, tariffe] = await Promise.all([
-      chiedi(`/api/available/rooms?${q}&all=1`),
+      chiedi(`/api/available/rooms?${qLargo}&all=1`),
       chiedi(`/api/available/rates?${q}`)
     ]);
+    /* le notti VERE del soggiorno: stay_days ora comprende anche i due
+       giorni in piu', e usarlo direbbe occupata una camera libera */
+    const notti = [];
+    for (let g = arrivo; g < partenza; g = piuUnGiorno(g, 1)) notti.push(g);
+    camere.nottiRichieste = notti;
+    camere.nottePrima = piuUnGiorno(arrivo, -1);
+    camere.nottePartenza = partenza;
     return { camere, tariffe };
+  }
+
+  /* ============================================================
+     v2.12.0 — COME SI INCASTRA UNA CAMERA
+     ------------------------------------------------------------
+     Una camera libera non vale l'altra. Se il giorno dell'arrivo
+     qualcuno parte da quella stanza, e il giorno della partenza ne
+     arriva un altro, il soggiorno si infila fra due prenotazioni
+     senza lasciare notti vuote: e' la camera che rende di piu'.
+     Se attacca da un lato solo va comunque bene; se non attacca da
+     nessuno, apre un buco che poi bisogna riempire.
+
+     Si legge dalle notti occupate che l'API restituisce gia':
+     · notte PRIMA dell'arrivo occupata  → qualcuno parte quel giorno
+     · notte DEL giorno di partenza occupata → qualcuno arriva
+     ============================================================ */
+  function incastro(camera, camere) {
+    const occupate = new Set((camera.unavailability || []).map(u => u.date));
+    const inArrivo = occupate.has(camere.nottePrima);      // parte qualcuno
+    const inPartenza = occupate.has(camere.nottePartenza); // arriva qualcuno
+    if (inArrivo && inPartenza) return 'pieno';
+    if (inArrivo || inPartenza) return 'mezzo';
+    return 'isolato';
   }
 
   /* camere libere per l'intero periodo, raggruppate per categoria */
   function libere(camere) {
-    const giorni = camere.stay_days || [];
+    const giorni = camere.nottiRichieste || camere.stay_days || [];
     const per = new Map();
     for (const c of camere.rooms || []) {
       const nome = (c.room_category || {}).name || '—';
       if (FITTIZIA.test(nome)) continue;
       const occupata = (c.unavailability || []).some(u => giorni.includes(u.date));
-      if (!per.has(nome)) per.set(nome, { libere: [], totali: 0, categoria: c.room_category });
+      if (!per.has(nome)) per.set(nome, { libere: [], totali: 0, categoria: c.room_category, incastri: {} });
       const v = per.get(nome);
       v.totali++;
-      if (!occupata) v.libere.push(c.number);
+      if (!occupata) {
+        v.libere.push(c.number);
+        v.incastri[String(c.number)] = incastro(c, camere);
+      }
     }
     for (const v of per.values()) v.libere.sort((a, b) => a - b);
     return per;
@@ -765,14 +811,42 @@
           const coppieLibere = (typeof COMUNICANTI !== 'undefined' ? COMUNICANTI : [])
             .filter(([a, b]) => libere.has(a) && libere.has(b));
           const inCoppia = new Set(coppieLibere.flat());
-          html += `<div class="numeri">` + v.libere.map(n =>
-            `<button class="num${ACCESSIBILI.test(nome) ? ' acc' : ''}" data-num="${n}"${
-              suaCategoria && String(n) === String(PREN.numeroCamera)
-                ? ` style="border-color:${ROSSO};color:${ROSSO};font-weight:bold;" title="camera di questa prenotazione"`
-                : (inCoppia.has(String(n))
-                    ? ` style="border-color:#7A8450;color:#4A5636;" title="comunicante con la ${esc(String(comunicanteDi(n)))}, libera anche lei"`
-                    : '')
-            }>${n}${inCoppia.has(String(n)) ? ' &#8646;' : ''}</button>`).join('') + `</div>`;
+          /* v2.12.0: il colore dice come si incastra con chi c'e' gia'.
+             Verde = si infila fra due prenotazioni senza lasciare notti
+             vuote; giallo = attacca da un lato; arancione = apre un buco.
+             La camera di QUESTA pratica resta rossa: dire com'e' fatto
+             l'incastro di una camera gia' assegnata non serve a scegliere. */
+          const VESTE = {
+            pieno:   { bordo: '#4A7A2E', testo: '#3B6325', sfondo: '#EEF6E8',
+                       nota: 'si incastra perfettamente: quel giorno parte qualcuno e alla partenza ne arriva un altro' },
+            mezzo:   { bordo: '#C9A227', testo: '#8A6D12', sfondo: '#FDF8E6',
+                       nota: 'attacca da un lato solo' },
+            isolato: { bordo: '#D08A3C', testo: '#9A5B18', sfondo: '#FDF1E6',
+                       nota: 'non attacca con nessuna prenotazione: lascia notti vuote prima e dopo' }
+          };
+          const conteggio = { pieno: 0, mezzo: 0, isolato: 0 };
+          html += `<div class="numeri">` + v.libere.map(n => {
+            const chiave = String(n);
+            const tipo = (v.incastri || {})[chiave] || 'isolato';
+            conteggio[tipo]++;
+            if (suaCategoria && chiave === String(PREN.numeroCamera)) {
+              return `<button class="num${ACCESSIBILI.test(nome) ? ' acc' : ''}" data-num="${n}"
+                style="border-color:${ROSSO};color:${ROSSO};font-weight:bold;"
+                title="camera di questa prenotazione">${n}</button>`;
+            }
+            const veste = VESTE[tipo];
+            const com = inCoppia.has(chiave);
+            const titolo = veste.nota + (com ? ` · comunicante con la ${comunicanteDi(n)}, libera anche lei` : '');
+            return `<button class="num${ACCESSIBILI.test(nome) ? ' acc' : ''}" data-num="${n}"
+              style="border-color:${veste.bordo};color:${veste.testo};background:${veste.sfondo};"
+              title="${esc(titolo)}">${n}${com ? ' &#8646;' : ''}</button>`;
+          }).join('') + `</div>`;
+          if (conteggio.pieno || conteggio.mezzo) {
+            html += `<div class="nota" style="padding:0 16px 8px;font-size:12px;">
+              <span style="color:#3B6325;">&#9632;</span> ${conteggio.pieno} si incastrano fra due prenotazioni
+              &middot; <span style="color:#8A6D12;">&#9632;</span> ${conteggio.mezzo} attaccano da un lato
+              &middot; <span style="color:#9A5B18;">&#9632;</span> ${conteggio.isolato} lasciano notti vuote</div>`;
+          }
           if (coppieLibere.length) {
             html += `<div class="nota" style="padding:0 16px 8px;color:#4A5636;">
               Comunicanti libere: ${coppieLibere.map(([a, b]) => `<strong>${a}&ndash;${b}</strong>`).join(', ')}

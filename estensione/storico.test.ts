@@ -139,11 +139,43 @@ Deno.test('il riquadro sta in basso, lontano dall elenco dei clienti', () => {
   /* a 210px dall alto finiva sopra l elenco che si apre sotto il campo di
      ricerca — proprio sopra la cosa che si usa per farlo comparire */
   assert(
-    /position:fixed;bottom:96px;right:24px/.test(STORICO),
+    /position:fixed;bottom:150px;right:24px/.test(STORICO),
     'il riquadro e tornato in alto, sopra l elenco dei clienti',
   );
   assert(
     /box\.style\.bottom = 'auto'/.test(STORICO),
     'trascinandolo i due ancoraggi si litigano: bottom va spento',
+  );
+});
+
+Deno.test('l id non si scambia per il nome', () => {
+  /* IL DIFETTO: «non trovo la scheda di 7324» — e 7324 ERA l'id giusto di
+     Konold Otto. Fidra mette un campo con l'id subito dopo l'etichetta
+     «Cliente», prima di quello del nome: prendendo il primo si prendeva
+     l'id. Ottima notizia in realta', perche' vuol dire che l'id sta li'
+     pronto: ora i due campi si distinguono per quello che contengono. */
+  assert(/function idDalCampo\(\)/.test(STORICO), 'l id non si legge piu dal campo accanto all etichetta');
+  assert(
+    /\/\^\[0-9\]\+\$\/\.test\(v\)/.test(STORICO),
+    'un valore tutto cifre torna a passare per un nome',
+  );
+});
+
+Deno.test('i soggiorni dell anno in corso non si scartano', () => {
+  /* nella scheda di Konold Otto il soggiorno piu' recente e' «03 - 10
+     Oct», senza anno: pretendere l anno buttava via proprio le righe
+     piu' utili */
+  /* confronto letterale: una regex che descrive un'altra regex si sbaglia
+     a scappare, e la prova finisce per non provare niente */
+  assert(
+    STORICO.includes('\\s+\\w{3}|\\d{1,2}'),
+    'la data dei soggiorni pretende di nuovo l anno',
+  );
+});
+
+Deno.test('il riquadro non finisce sotto «Disponibilita e prezzi»', () => {
+  assert(
+    /bottom:150px/.test(STORICO),
+    'e tornato troppo in basso: il pulsante di Fidra gli passa sopra',
   );
 });

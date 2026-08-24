@@ -58,16 +58,36 @@
 
      Adesso si prende il PRIMO input che viene DOPO l'etichetta
      nell'ordine del documento: e' Cliente, e Committente viene dopo. */
-  function campoCliente() {
+  /* v1.3 — il campo subito dopo l'etichetta «Cliente» NON e' quello del
+     nome: Fidra ci mette prima un campo nascosto con l'id, e il riquadro
+     e' arrivato a dire «non trovo la scheda di 7324» — che era l'id
+     giusto, letto al posto del nome.
+
+     Ottima notizia in realta': l'id sta li', pronto. Ora i due campi si
+     distinguono per quello che contengono, non per l'ordine. */
+  function campiDopoCliente() {
     const etichetta = [...document.querySelectorAll('label, div, span, h3, p')]
       .find(el => !el.children.length && /^cliente$/i.test((el.textContent || '').trim()));
-    if (etichetta) {
-      const dopo = [...document.querySelectorAll('input')].filter(i =>
-        etichetta.compareDocumentPosition(i) & Node.DOCUMENT_POSITION_FOLLOWING);
-      if (dopo.length) return dopo[0];
-    }
+    if (!etichetta) return [];
+    return [...document.querySelectorAll('input')].filter(i =>
+      etichetta.compareDocumentPosition(i) & Node.DOCUMENT_POSITION_FOLLOWING);
+  }
+
+  function campoCliente() {
+    /* il nome: visibile, e non un numero secco */
+    const dopo = campiDopoCliente().filter(i =>
+      i.type !== 'hidden' && !/^\d+$/.test((i.value || '').trim()));
+    if (dopo.length) return dopo[0];
     return [...document.querySelectorAll('input')]
       .find(i => /cerca\s*cliente/i.test(i.placeholder || '')) || null;
+  }
+
+  /* l'id: un campo, anche nascosto, con dentro solo cifre */
+  function idDalCampo() {
+    const n = campiDopoCliente()
+      .map(i => (i.value || '').trim())
+      .find(v => /^\d{2,8}$/.test(v));
+    return n || null;
   }
 
   /* il valore visto al giro precedente: se non cambia, l'operatore ha
@@ -79,7 +99,7 @@
     const v = ((i && i.value) || '').trim();
     const prima = precedente;
     precedente = v;
-    if (v.length < 3 || PARE_DATA.test(v) || /^cerca/i.test(v)) return '';
+    if (v.length < 3 || PARE_DATA.test(v) || /^cerca/i.test(v) || /^[0-9]+$/.test(v)) return '';
 
     /* la scelta e' avvenuta se Fidra ripete il nome sotto il campo. Ma
        l'eco da sola non basta come condizione: se il tema cambia e il nome
@@ -93,6 +113,10 @@
 
   /* ---------- strato 1: l'id gia' scritto nel DOM ---------- */
   function idDalDom() {
+    /* v1.3: prima il campo accanto all'etichetta — e' quello che Fidra
+       riempie scegliendo il cliente, ed e' il piu' affidabile dei tre */
+    const dalCampo = idDalCampo();
+    if (dalCampo) return dalCampo;
     /* un link alla scheda, un attributo wire:key, un input nascosto:
        Fidra cambia, e uno di questi di solito c'e' */
     const a = document.querySelector('a[href*="/customers/"]');
@@ -146,7 +170,11 @@
       const celle = [...tr.querySelectorAll('td')].map(td => (td.textContent || '').replace(/\s+/g, ' ').trim());
       if (celle.length < 3) continue;
       const periodo = celle[0];
-      if (!/\d{1,2}\s*[-–]\s*\d{1,2}\s+\w{3}\s+20\d\d|\d{1,2}\s+\w{3}\s+20\d\d/.test(periodo)) continue;
+      /* v1.3: l'anno spesso non c'e'. Nella scheda di Konold Otto il
+         soggiorno piu' recente e' scritto «03 - 10 Oct», senza anno,
+         perche' e' dell'anno in corso: pretenderlo scartava proprio le
+         righe piu' utili, cioe' le ultime. */
+      if (!/\d{1,2}\s*[-–]\s*\d{1,2}\s+\w{3}|\d{1,2}\s+\w{3}\s+20\d\d/.test(periodo)) continue;
       const camera = celle.find(c => /^C\.\s*\d+|camera|zimmer/i.test(c)) || '';
       const stato = celle.find(c => /check-?out|check-?in|conferma|cancellat|opzione|offerta/i.test(c)) || '';
       const notti = (celle.find(c => /^\d{1,2}$/.test(c)) || '');
@@ -204,7 +232,7 @@
        campo qualunque sia la lunghezza dell'elenco, e sopra il pulsante
        «Disponibilita' e prezzi». Si sposta trascinando la testata. */
     box.style.cssText =
-      'position:fixed;bottom:96px;right:24px;width:360px;max-height:52vh;overflow:auto;' +
+      'position:fixed;bottom:150px;right:24px;width:360px;max-height:52vh;overflow:auto;' +
       'z-index:2147483644;background:#fff;border:1px solid #CBD5D8;border-radius:10px;' +
       'box-shadow:0 10px 30px rgba(15,92,100,.22);' +
       'font:13px/19px Arial,Helvetica,sans-serif;color:#2A2E2B;';
