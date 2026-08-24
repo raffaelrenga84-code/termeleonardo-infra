@@ -913,7 +913,7 @@ Deno.test('nel preventivo ad alternative si dicono tutt e due le cose', () => {
             voceCon('Miglior Prezzo Bed & Breakfast')];
   const html = m.html.it(d, OPZ);
   assert(/&egrave; compresa la/.test(html), 'sparita la frase della mezza pensione');
-  assert(/con la sola colazione si aggiunge a/.test(html),
+  assert(/Con la sola colazione si aggiunge a/.test(html),
     'chi sceglie il B&B non sa che la cena si puo aggiungere');
 });
 
@@ -1030,4 +1030,73 @@ Deno.test('senza le notti si dicono tutt e due le tariffe, invece di sceglierne 
   const t = cena(m.html.it(d, OPZ));
   assert(/35 &euro; a persona a notte/.test(t), 'senza le notti sparisce la tariffa breve');
   assert(/25 &euro;/.test(t) && /terza notte/.test(t), 'senza le notti sparisce lo scaglione lungo');
+});
+
+Deno.test('il totale della cena e quello del sito, e conta solo gli adulti', () => {
+  /* IL CONTO DA CUI SI PARTE. Sul sito dell'hotel, due adulti per tre
+     notti leggono «25,00 € a persona a notte · +150,00 € in tutto». Se
+     il preventivo dicesse un numero diverso, l'ospite avrebbe due
+     prezzi nostri sotto gli occhi e non saprebbe a quale credere.
+
+     E SI CONTANO SOLO GLI ADULTI: nella tariffa dei bambini la cena e'
+     gia' compresa, quindi contarli qui vorrebbe dire chiedere due volte
+     la stessa cena — e stavolta l'errore sarebbe contro l'ospite. */
+  const m = modelli();
+  const d = DATI();
+  d.notti = 3;
+  d.adulti = 2;
+  d.bambini = 0;
+  d.voci = [voceCon('Miglior Prezzo Bed & Breakfast')];
+  assert(/150 &euro; in tutto/.test(m.html.it(d, OPZ)), 'il totale non e 150 €, come sul sito');
+
+  /* con un bambino in piu' il totale NON cambia */
+  const conBimbo = DATI();
+  conBimbo.notti = 3;
+  conBimbo.adulti = 2;
+  conBimbo.bambini = 1;
+  conBimbo.voci = [voceCon('Miglior Prezzo Bed & Breakfast')];
+  const html = m.html.it(conBimbo, OPZ);
+  assert(/150 &euro; in tutto/.test(html), 'il bambino finisce nel conto della cena: la pagherebbe due volte');
+  assert(
+    /per i bambini &egrave; gi&agrave; compresa/.test(html),
+    'non si dice che nei bambini la cena e gia compresa: se lo chiederebbero',
+  );
+});
+
+Deno.test('dei bambini non si parla quando non ce ne sono', () => {
+  const m = modelli();
+  const d = DATI();
+  d.bambini = 0;
+  d.voci = [voceCon('Miglior Prezzo Bed & Breakfast')];
+  assert(
+    !/per i bambini/.test(m.html.it(d, OPZ)),
+    'si parla di bambini a chi viaggia senza: una riga in piu da leggere per niente',
+  );
+});
+
+Deno.test('senza gli adulti il totale non si inventa', () => {
+  /* meglio la sola tariffa, che e' sempre vera, di un conto sbagliato */
+  const m = modelli();
+  const d = DATI();
+  d.adulti = 0;
+  d.voci = [voceCon('Miglior Prezzo Bed & Breakfast')];
+  const t = m.html.it(d, OPZ);
+  assert(/25 &euro; a persona a notte/.test(t), 'sparita anche la tariffa');
+  assert(!/in tutto/.test(t), 'senza sapere quanti sono si scrive lo stesso un totale');
+});
+
+Deno.test('il tedesco non lascia il verbo per strada', () => {
+  /* «laesst sich fuer … dazubuchen» tiene il verbo in fondo. Diventato il
+     prezzo tre pezzi — tariffa, totale, bambini — quel «dazubuchen»
+     finiva dopo il punto e virgola: tedesco rotto, e in reception non se
+     ne sarebbe accorto nessuno. */
+  const m = modelli();
+  const d = DATI();
+  d.notti = 3;
+  d.adulti = 2;
+  d.bambini = 1;
+  d.voci = [voceCon('Miglior Prezzo Bed & Breakfast')];
+  const html = m.html.de(d, OPZ);
+  assert(/kann dazugebucht werden: /.test(html), 'il verbo tedesco e tornato in fondo alla frase');
+  assert(!/enthalten dazubuchen/.test(html), 'il verbo e finito dopo la frase sui bambini');
 });

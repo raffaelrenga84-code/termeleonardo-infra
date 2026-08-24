@@ -503,23 +503,65 @@ function rigaATavola(d, lingua) {
     fr: (n) => n ? `<strong style="color:#2A2E2B;">${CENA_PP_NOTTE(n)} &euro; par personne et par nuit</strong>, boissons non comprises`
                  : '<strong style="color:#2A2E2B;">35 &euro; par personne et par nuit</strong>, <strong style="color:#2A2E2B;">25 &euro;</strong> &agrave; partir de la troisi&egrave;me nuit, boissons non comprises'
   };
-  const notti = Number(d && d.notti) > 0 ? Number(d.notti) : 0;
-  const p = (PREZZI[lingua] || PREZZI.it)(notti);
+  /* ============================================================
+     IL CONTO IN FONDO, come lo fa il sito dell'hotel.
+     ------------------------------------------------------------
+     Chi prenota da solo, sulla nostra pagina, legge «25,00 € a persona
+     a notte · +150,00 € in tutto». Un preventivo che si ferma alla
+     tariffa costringe l'ospite a fare la moltiplicazione, e chi la fa
+     spesso la fa in eccesso — poi rinuncia.
 
+     SI CONTANO SOLO GLI ADULTI. Nella tariffa dei bambini la cena e'
+     gia' compresa: contarli qui vorrebbe dire chiedere due volte la
+     stessa cena, e stavolta l'errore sarebbe contro l'ospite. Quando ci
+     sono bambini lo si dice, cosi' nessuno se lo chiede.
+
+     E se adulti o notti non si sanno, il totale non si scrive: meglio la
+     sola tariffa, che e' sempre vera, di un conto inventato.
+     ============================================================ */
+  const notti = Number(d && d.notti) > 0 ? Number(d.notti) : 0;
+  const adulti = Number(d && d.adulti) > 0 ? Number(d.adulti) : 0;
+  const bambini = Number(d && d.bambini) > 0 ? Number(d.bambini) : 0;
+  const conto = notti && adulti ? CENA_PP_NOTTE(notti) * notti * adulti : 0;
+
+  const TOTALE = {
+    it: (t, a, n) => ` &mdash; per ${a} adult${a === 1 ? 'o' : 'i'} e ${n} nott${n === 1 ? 'e' : 'i'}, <strong style="color:#2A2E2B;">${t} &euro; in tutto</strong>`,
+    de: (t, a, n) => ` &mdash; f&uuml;r ${a === 1 ? 'einen Erwachsenen' : a + ' Erwachsene'} und ${n === 1 ? 'eine Nacht' : n + ' N&auml;chte'} insgesamt <strong style="color:#2A2E2B;">${t} &euro;</strong>`,
+    en: (t, a, n) => ` &mdash; for ${a} adult${a === 1 ? '' : 's'} and ${n} night${n === 1 ? '' : 's'}, <strong style="color:#2A2E2B;">&euro;${t}</strong> in total`,
+    fr: (t, a, n) => ` &mdash; pour ${a} adulte${a === 1 ? '' : 's'} et ${n} nuit${n === 1 ? '' : 's'}, <strong style="color:#2A2E2B;">${t} &euro;</strong> au total`
+  };
+  const BAMBINI = {
+    it: '; per i bambini &egrave; gi&agrave; compresa nella loro tariffa',
+    de: '; bei Kindern ist es in ihrem Preis bereits enthalten',
+    en: '; for children it is already included in their rate',
+    fr: '&nbsp;; pour les enfants, il est d&eacute;j&agrave; compris dans leur tarif'
+  };
+
+  const p = (PREZZI[lingua] || PREZZI.it)(notti)
+    + (conto ? (TOTALE[lingua] || TOTALE.it)(conto, adulti, notti) : '')
+    + (bambini ? (BAMBINI[lingua] || BAMBINI.it) : '');
+
+  /* IL TEDESCO VA COSTRUITO AL CONTRARIO. «l&auml;sst sich f&uuml;r … dazubuchen»
+     tiene il verbo in fondo, e con il prezzo diventato tre pezzi — tariffa,
+     totale, bambini — quel «dazubuchen» finiva dopo il punto e virgola:
+     tedesco rotto, e nessuno di noi in reception se ne sarebbe accorto.
+     Il verbo va prima, e il prezzo dopo i due punti. Per le stesse ragioni
+     gli orari sono una frase a parte in tutte e quattro: una sola frase
+     con tariffa, totale, bambini, orario e prenotazione non si legge. */
   const CENA_AGGIUNTA = {
-    it: ` &middot; la <strong style="color:#2A2E2B;">cena a buffet al ristorante</strong> si pu&ograve; aggiungere a ${p}, dalle 19:30 (ultimo ingresso alle 20:20): basta dircelo in giornata, non serve prenotare in anticipo`,
-    de: ` &middot; das <strong style="color:#2A2E2B;">Abendbuffet im Restaurant</strong> l&auml;sst sich f&uuml;r ${p} dazubuchen, ab 19:30 Uhr (letzter Einlass 20:20 Uhr): Bescheid am selben Tag gen&uuml;gt, eine Voranmeldung ist nicht n&ouml;tig`,
-    en: ` &middot; the <strong style="color:#2A2E2B;">evening buffet at the restaurant</strong> can be added for ${p}, from 7:30 pm (last entry 8:20 pm): just let us know on the day, no need to book ahead`,
-    fr: ` &middot; le <strong style="color:#2A2E2B;">d&icirc;ner buffet au restaurant</strong> peut &ecirc;tre ajout&eacute; pour ${p}, d&egrave;s 19 h 30 (dernier acc&egrave;s &agrave; 20 h 20)&nbsp;: il suffit de nous pr&eacute;venir le jour m&ecirc;me, sans r&eacute;servation &agrave; l&rsquo;avance`
+    it: ` &middot; la <strong style="color:#2A2E2B;">cena a buffet al ristorante</strong> si pu&ograve; aggiungere a ${p}. Dalle 19:30 (ultimo ingresso alle 20:20): basta dircelo in giornata, non serve prenotare in anticipo`,
+    de: ` &middot; das <strong style="color:#2A2E2B;">Abendbuffet im Restaurant</strong> kann dazugebucht werden: ${p}. Ab 19:30 Uhr (letzter Einlass 20:20 Uhr): Bescheid am selben Tag gen&uuml;gt, eine Voranmeldung ist nicht n&ouml;tig`,
+    en: ` &middot; the <strong style="color:#2A2E2B;">evening buffet at the restaurant</strong> can be added for ${p}. From 7:30 pm (last entry 8:20 pm): just let us know on the day, no need to book ahead`,
+    fr: ` &middot; le <strong style="color:#2A2E2B;">d&icirc;ner buffet au restaurant</strong> peut &ecirc;tre ajout&eacute; pour ${p}. D&egrave;s 19 h 30 (dernier acc&egrave;s &agrave; 20 h 20)&nbsp;: il suffit de nous pr&eacute;venir le jour m&ecirc;me, sans r&eacute;servation &agrave; l&rsquo;avance`
   };
   /* nel preventivo ad alternative le due frasi convivono: la prima resta
      quella di sempre, la seconda si aggancia in coda invece di
      riscriverla — un solo testo per la parte in comune */
   const ANCHE_BB = {
-    it: `; con la sola colazione si aggiunge a ${p}, avvisando in giornata`,
-    de: `; bei &Uuml;bernachtung mit Fr&uuml;hst&uuml;ck f&uuml;r ${p} dazubuchbar, Bescheid am selben Tag gen&uuml;gt`,
-    en: `; with bed &amp; breakfast it can be added for ${p}, just let us know on the day`,
-    fr: `&nbsp;; en formule petit-d&eacute;jeuner, il peut &ecirc;tre ajout&eacute; pour ${p}, en nous pr&eacute;venant le jour m&ecirc;me`
+    it: `. Con la sola colazione si aggiunge a ${p}, avvisando in giornata`,
+    de: `. Bei &Uuml;bernachtung mit Fr&uuml;hst&uuml;ck dazubuchbar: ${p}, Bescheid am selben Tag gen&uuml;gt`,
+    en: `. With bed &amp; breakfast it can be added for ${p}, just let us know on the day`,
+    fr: `. En formule petit-d&eacute;jeuner, il peut &ecirc;tre ajout&eacute; pour ${p}, en nous pr&eacute;venant le jour m&ecirc;me`
   };
   const stato = cenaCompresa(d);
   const coda = stato === 'si' ? (CENA[lingua] || CENA.it)
