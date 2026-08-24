@@ -104,3 +104,36 @@ Deno.test('i due script sono caricati dove servono', () => {
     'il pulsante «→ Offerta» non gira sulla scheda della pratica',
   );
 });
+
+Deno.test('lo storico non scambia le date per un nome', () => {
+  /* IL DIFETTO DEL PRIMO USO: il riquadro diceva «non trovo la scheda di
+     25 Aug. 2026 - 29 Aug. 2026». Prendeva il primo input di testo con
+     qualcosa dentro, e il primo e' il campo delle date. */
+  assert(/PARE_DATA/.test(STORICO), 'sparito il filtro sulle date: rileggerebbe il calendario');
+  assert(
+    /function campoCliente\(\)/.test(STORICO),
+    'il campo non si cerca piu a partire dall etichetta «Cliente»: torna a indovinare',
+  );
+});
+
+Deno.test('lo storico aspetta che il cliente sia scelto, non digitato', () => {
+  /* si apriva mentre si stava ancora scrivendo «Muller». Il segnale non e'
+     il tempo: e' che Fidra ripete il nome in grande sotto il campo. */
+  assert(
+    /const eco = /.test(STORICO) && /return eco \? v : ''/.test(STORICO),
+    'non aspetta piu l eco del nome: comparirebbe a meta digitazione',
+  );
+});
+
+Deno.test('il riquadro sta in basso, lontano dall elenco dei clienti', () => {
+  /* a 210px dall alto finiva sopra l elenco che si apre sotto il campo di
+     ricerca — proprio sopra la cosa che si usa per farlo comparire */
+  assert(
+    /position:fixed;bottom:96px;right:24px/.test(STORICO),
+    'il riquadro e tornato in alto, sopra l elenco dei clienti',
+  );
+  assert(
+    /box\.style\.bottom = 'auto'/.test(STORICO),
+    'trascinandolo i due ancoraggi si litigano: bottom va spento',
+  );
+});

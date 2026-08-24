@@ -36,18 +36,45 @@
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  /* ---------- il nome scelto nel campo Cliente ---------- */
-  function nomeSelezionato() {
-    /* dopo la scelta Fidra scrive il nome nell'input e lo ripete grande
-       sotto: si legge l'input, che e' il dato e non la sua eco */
-    for (const i of document.querySelectorAll('input')) {
-      if (!/cerca\s*cliente|cliente/i.test(i.placeholder || '') && i.type !== 'text') continue;
-      const v = (i.value || '').trim();
-      /* il campo Committente ha lo stesso aspetto: si prende il primo
-         pieno, che e' Cliente — stesso ordine che usa fidra-booking.js */
-      if (v.length > 2 && !/^cerca/i.test(v)) return v;
+  /* ---------- il nome scelto nel campo Cliente ----------
+     v1.1 — DUE DIFETTI VISTI AL PRIMO USO.
+
+     Il riquadro diceva «non trovo la scheda di 25 Aug. 2026 - 29 Aug.
+     2026»: prendeva il primo input di testo con qualcosa dentro, e il
+     primo e' il campo delle DATE. Adesso i valori che somigliano a una
+     data si scartano, e il campo si cerca a partire dall'etichetta
+     «Cliente» invece che a naso.
+
+     E si apriva mentre l'operatore stava ancora scrivendo «Muller».
+     Il segnale che la scelta e' avvenuta non e' il tempo: e' che Fidra
+     ripete il nome in grande sotto il campo. Finche' quell'eco non c'e',
+     si sta ancora digitando. */
+  const PARE_DATA = /\d{1,2}\s*\w{0,4}\.?\s*20\d\d|\d{1,2}[\/.]\d{1,2}[\/.]\d{2,4}/;
+
+  function campoCliente() {
+    /* si parte dall'etichetta: il campo e' il primo input che viene dopo */
+    const etichette = [...document.querySelectorAll('label, div, span, h3')]
+      .filter(el => !el.children.length && /^cliente$/i.test((el.textContent || '').trim()));
+    for (const et of etichette) {
+      const zona = et.parentElement && et.parentElement.parentElement;
+      const i = zona && zona.querySelector('input');
+      if (i) return i;
     }
-    return '';
+    /* ripiego: come fa fidra-booking.js, il primo campo di ricerca cliente */
+    return [...document.querySelectorAll('input')]
+      .find(i => /cerca\s*cliente/i.test(i.placeholder || '')) || null;
+  }
+
+  function nomeSelezionato() {
+    const i = campoCliente();
+    const v = ((i && i.value) || '').trim();
+    if (v.length < 3 || PARE_DATA.test(v) || /^cerca/i.test(v)) return '';
+    /* la scelta e' avvenuta solo se Fidra ripete il nome sotto il campo:
+       mentre si digita, il testo sta solo dentro l'input */
+    const eco = [...document.querySelectorAll('h1, h2, h3, div, span')]
+      .some(el => !el.children.length && el !== i &&
+                  (el.textContent || '').trim() === v);
+    return eco ? v : '';
   }
 
   /* ---------- strato 1: l'id gia' scritto nel DOM ---------- */
@@ -143,7 +170,10 @@
       if (!giu) return;
       box.style.left = Math.max(0, e.clientX - dx) + 'px';
       box.style.top = Math.max(0, e.clientY - dy) + 'px';
+      /* il riquadro nasce ancorato in basso a destra: spostandolo si passa
+         a top/left, e i due ancoraggi vanno spenti o si litigano */
       box.style.right = 'auto';
+      box.style.bottom = 'auto';
     });
     document.addEventListener('mouseup', () => { giu = false; });
   }
@@ -153,11 +183,14 @@
     if (box) return box;
     box = document.createElement('div');
     box.id = ID;
-    /* a destra, sotto il nome del cliente e sopra «Disponibilita' e
-       prezzi»: le tessere delle categorie stanno al centro e non vanno
-       coperte. Si puo' spostare trascinando la testata. */
+    /* v1.1: ancorato in BASSO a destra, non in alto.
+       A 210px dall'alto finiva sopra l'elenco dei clienti che si apre
+       sotto il campo di ricerca — cioe' proprio sopra la cosa che si sta
+       usando per farlo comparire. Ancorandolo al fondo resta lontano dal
+       campo qualunque sia la lunghezza dell'elenco, e sopra il pulsante
+       «Disponibilita' e prezzi». Si sposta trascinando la testata. */
     box.style.cssText =
-      'position:fixed;top:210px;right:24px;width:360px;max-height:60vh;overflow:auto;' +
+      'position:fixed;bottom:96px;right:24px;width:360px;max-height:52vh;overflow:auto;' +
       'z-index:2147483644;background:#fff;border:1px solid #CBD5D8;border-radius:10px;' +
       'box-shadow:0 10px 30px rgba(15,92,100,.22);' +
       'font:13px/19px Arial,Helvetica,sans-serif;color:#2A2E2B;';
@@ -259,8 +292,10 @@
   setInterval(guarda, 1200);
 
   (typeof self !== 'undefined' ? self : window).leoStorico = () => ({
-    versione: '1.0',
+    versione: '1.1',
     nomeLetto: nomeSelezionato(),
+    campoClienteValore: ((campoCliente() || {}).value || '').trim(),
+    campoClienteTrovato: !!campoCliente(),
     idDalDom: idDalDom(),
     linkClienti: document.querySelectorAll('a[href*="/customers/"]').length,
     inputTesto: [...document.querySelectorAll('input')].map(i => ({
