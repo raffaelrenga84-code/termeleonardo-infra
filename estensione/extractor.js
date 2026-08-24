@@ -983,6 +983,33 @@ async function arricchisciConAPI(d) {
         `Totale con extra ${euro(d.totale)} €. Controlla che coincida con Fidra.` });
   }
 
+  /* v2.9.8 — UN TOTALE DI ZERO NON E' UN TOTALE.
+
+     Il 12 agosto 2026 e' partito a Salvatore Ferrario un sollecito che
+     diceva «3 notti per 4 persone, 0,00 € in totale» e undici righe piu'
+     sotto «per bloccarla basta l'acconto di 300,00 €». Il soggiorno
+     costava 1.440 €: due Matrimoniale Queen, 2 x 360 €, tre notti.
+
+     Il conto e' `totale = somma(totalePP x adulti)`, e `calcolabile`
+     diventa falso SOLO se quei valori sono null. Se la pagina restituisce
+     zero, il totale e' zero ed e' considerato buono: passa tutti i
+     controlli e finisce nell'email. Zero, per il codice, e' un numero come
+     un altro — ed e' il tipo di difetto che non si vede provando, perche'
+     nelle prove i prezzi ci sono sempre.
+
+     Non si blocca l'email: si dice all'operatore, che il prezzo giusto ce
+     l'ha sotto gli occhi in Fidra e lo scrive nel campo del pannello. */
+  if (d.totale === 0 && (d.camere || []).length > 0) {
+    d.avvisi.push({
+      tipo: 'totale-zero',
+      testo: 'Il totale letto dalla pagina e\' 0,00 €, ma la prenotazione ha ' +
+             `${d.camere.length} camer${d.camere.length === 1 ? 'a' : 'e'}` +
+             (d.acconto ? ` e una caparra di ${euro(d.acconto)} €` : '') +
+             '. Scrivi tu l\'importo giusto qui sotto: senza, l\'email dice ' +
+             'all\'ospite che il soggiorno costa zero.'
+    });
+  }
+
   // caparra versata sopra il totale: il "saldo all'arrivo" sarebbe negativo
   if (d.totale != null && d.caparraVersata != null && d.caparraVersata - d.totale > 0.009) {
     d.avvisi.push({

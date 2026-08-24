@@ -128,6 +128,25 @@ function scadenzaPassata(s) {
    tutte e quattro le lingue, un parametro nuovo andrebbe aggiunto a otto
    funzioni e dimenticato in una — ed e' il difetto che pulsanti.test.ts
    sorveglia da mesi. */
+/* v2.9.8 — il totale scritto a mano quando la pagina ne ha dato zero.
+
+   Non si blocca l'email: il prezzo giusto sta sulla pagina di Fidra sotto
+   gli occhi dell'operatore, e un campo basta. Si ricalcola anche il saldo
+   all'arrivo, che è totale meno acconto: correggere un numero e lasciarne
+   un altro sbagliato accanto sarebbe peggio di non correggere niente. */
+function applicaTotaleManuale() {
+  const campo = $('totaleManuale')?.value?.trim();
+  if (!campo || !DATI) return;
+  const valore = parseFloat(campo.replace(/\./g, '').replace(',', '.'));
+  if (isNaN(valore) || valore <= 0) return;
+  DATI.totale = valore;
+  DATI.totaleFmt = euroFmt(valore);
+  if (DATI.acconto != null) {
+    DATI.saldo = valore - DATI.acconto;
+    DATI.saldoFmt = euroFmt(DATI.saldo);
+  }
+}
+
 const CAPARRA_ADULTO = 75;
 function preparaCamere(d, modo) {
   d.alternative = modo === 'alternative';
@@ -207,7 +226,8 @@ async function disegna(d) {
   /* v1.6: avvisi dall'estrattore. Non bloccano — l'email esce già con i
      numeri giusti — ma chiedono un controllo della pratica in Fidra. */
   (d.avvisi || []).forEach(a => {
-    const titolo = a.tipo === 'totale-divergente' ? 'Totale corretto con i prezzi per ospite.'
+    const titolo = a.tipo === 'totale-zero' ? 'Il totale &egrave; zero: scrivilo tu.'
+                 : a.tipo === 'totale-divergente' ? 'Totale corretto con i prezzi per ospite.'
                  : a.tipo === 'caparra-eccedente' ? 'Acconto superiore al totale.'
                  : a.tipo === 'scala-illeggibile' ? 'Prezzi API non decifrabili.'
                  : a.tipo === 'bambino-senza-prezzo' ? 'Quota bambino non trovata.'
@@ -217,6 +237,19 @@ async function disegna(d) {
                  : 'Avviso.';
     const classe = a.tipo === 'extra-inclusi' ? 'box' : 'errore';
     h += `<div class="${classe}"><strong>${titolo}</strong> ${esc(a.testo)}</div>`;
+
+    /* v2.9.8: il totale a zero non blocca, si corregge. Il prezzo giusto
+       e' sulla pagina di Fidra sotto gli occhi dell'operatore: qui basta
+       un campo. Senza, l'email dice all'ospite che il soggiorno e' gratis
+       e sotto gli chiede la caparra — e' successo il 12 agosto 2026. */
+    if (a.tipo === 'totale-zero') {
+      h += `<label style="padding-top:2px;">Totale del soggiorno in &euro;
+        <input id="totaleManuale" inputmode="decimal" placeholder="es. 1440,00"
+          style="width:100%;padding:7px;border:1px solid #C0392B;border-radius:4px;
+                 font-family:inherit;font-size:13px;margin-top:4px;" />
+        <span class="sub">Lasciandolo vuoto l&apos;email esce con 0,00 &euro;.
+          Il saldo all&apos;arrivo si ricalcola da qui.</span></label>`;
+    }
   });
 
   /* v2.9.4: le camere non si sovrappongono. Puo' voler dire tre cose
@@ -929,6 +962,7 @@ $('copia').addEventListener('click', async () => {
     const valore = campo ? parseFloat(campo.replace(/\./g, '').replace(',', '.')) : NaN;
     if (!isNaN(valore) && valore >= 0) DATI.caparraVersata = valore;
   }
+  applicaTotaleManuale();
   if (!(await risolviLinkArrivo(doc, lingua))) return;
   const html = fnHtml(DATI, opzioni);
   const ogg  = fnOgg(DATI);
@@ -1015,6 +1049,7 @@ $('copiaOggetto').addEventListener('click', async () => {
     const valore = campo ? parseFloat(campo.replace(/\./g, '').replace(',', '.')) : NaN;
     if (!isNaN(valore) && valore >= 0) DATI.caparraVersata = valore;
   }
+  applicaTotaleManuale();
   if (!(await risolviLinkArrivo(doc, lingua))) return;
   const html = fnHtml(DATI, opzioni);
   const ogg = fnOgg(DATI);
