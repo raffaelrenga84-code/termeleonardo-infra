@@ -406,7 +406,7 @@
     disegna('<span style="color:#8C8578;">Cerco la sua scheda…</span>', nome || 'Storico del cliente');
     try {
       const s = await leggiScheda(scelta.id);
-      nota('scheda letta', { id, soggiorni: s.soggiorni.length, email: !!s.email });
+      nota('scheda letta', { id: scelta.id, soggiorni: s.soggiorni.length, email: !!s.email });
       await mostra(s);
     } catch (e) {
       nota('errore', { errore: String(e.message || e) });

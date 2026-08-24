@@ -61,6 +61,22 @@ function versione() {
 
 function main() {
   const soloControllo = process.argv.includes('--controlla');
+
+  /* PRIMA DI COPIARE, LE VARIABILI. Il 24 agosto 2026 lo storico e'
+     arrivato in reception con «id is not defined»: una variabile
+     rinominata e un uso rimasto indietro. Le prove non potevano vederlo —
+     quei file fuori dal browser non si eseguono, e leggerli con
+     `new Function` non li esegue — ma un controllo che legge e basta si'.
+     Allora si fa qui, dove la copia si puo' ancora fermare: portare un
+     file rotto costa un giro di telefonate. */
+  const esito = require('./variabili.js').esamina();
+  if (esito.problemi.length) {
+    console.error('non copio: ci sono variabili che non esistono.\n');
+    for (const x of esito.problemi) console.error('  ' + x);
+    console.error('\nnode strumenti/variabili.js  per rivederle.');
+    process.exit(1);
+  }
+
   if (!fs.existsSync(FUORI)) {
     console.error('la cartella della reception non c\u0027e\u0027: ' + FUORI);
     console.error('se OneDrive non e\u0027 montato su questo computer, non c\u0027e\u0027 niente da copiare.');

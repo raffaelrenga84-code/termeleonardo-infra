@@ -1046,7 +1046,7 @@ function parseCentralino(testo) {
     /* v2.7.9: stampato come testo e non come oggetto. La console mostra
        gli oggetti chiusi («Object») e vanno aperti a mano: un rigo di JSON
        si seleziona e si incolla, che e' quello che serve davvero. */
-    const esito = leoDiagnostica();
+    const esito = window.leoDiagnostica();
     console.log('%cLeonardo — vedo una richiesta ma nessun pulsante. Copia le righe qui sotto:',
       'color:#B3541E;font-weight:bold');
     console.log(JSON.stringify(esito, null, 2));

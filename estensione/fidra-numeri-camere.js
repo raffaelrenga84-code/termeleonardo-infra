@@ -1,5 +1,5 @@
 /* ============================================================
-   Offerta Leonardo — Numeri camera in Nuova Prenotazione (v1.2)
+   Offerta Leonardo — Numeri camera in Nuova Prenotazione (v1.3)
    ------------------------------------------------------------
    Gira su leonardo.fidra.cloud/booking. Al clic su una tipologia
    di camera (le schede "Doppia · 13 Disponibili" ecc.) apre un
@@ -8,7 +8,13 @@
 
    Non tocca il comportamento di Fidra: il clic continua a
    selezionare la tipologia come sempre; il popup è solo in più.
-   SOLA LETTURA: usa /api/available/rooms, non salva nulla.
+
+   NON È PIÙ SOLA LETTURA, e va detto. Fino alla v1.2 leggeva e
+   basta. Dalla v1.3 il clic su un numero, se si è sul tableau,
+   clicca la casella del giorno d'arrivo su quella riga: è il gesto
+   che l'operatore farebbe a mano, fatto al posto suo. UN clic solo,
+   su una casella che si vede — niente che non si possa disfare
+   guardando la griglia. Non salva niente: «Crea» resta all'operatore.
    ============================================================ */
 
 (() => {
@@ -245,6 +251,79 @@
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
+  /* ============================================================
+     v1.3 — LA CAMERA SI ASSEGNA NEL TABLEAU, e adesso lo sappiamo.
+
+     Per due versioni ho cercato un campo «numero camera» in una pagina
+     che non ce l'ha, e il riquadro rispondeva — correttamente ma
+     inutilmente — che qui la prenotazione non esiste ancora. La
+     schermata giusta e' /booking/availability: la griglia con una RIGA
+     per ogni camera e una COLONNA per ogni giorno. Assegnare vuol dire
+     cliccare la casella del giorno d'arrivo nella riga di quella camera:
+     e' il gesto che l'operatore fa a mano, cercando la riga a occhio fra
+     un centinaio.
+
+     PERCHE' SI RIESCE A TROVARE QUELLA CASELLA. In una riga libera Fidra
+     scrive dentro ogni casella il numero del giorno — 22, 23, 24, 25 —
+     e a sinistra il numero della camera. Non serve indovinare nomi di
+     classi: si cerca la riga che comincia col numero della camera, e
+     dentro la casella che porta il giorno d'arrivo.
+
+     SI CLICCA UNA CASELLA SOLA. Il periodo Fidra ce l'ha gia' in cima
+     («4 Notti»), e allargare la selezione a mano vorrebbe dire indovinare
+     come funziona il trascinamento. Una casella e' un gesto che
+     l'operatore vede e puo' disfare; una manciata di caselle cliccate
+     alla cieca no.
+
+     E SE LA RIGA NON C'E' — perche' si e' ancora su /booking e non sul
+     tableau — non si finge: il riquadro lo dice e porta la riga sotto gli
+     occhi appena ci si arriva.
+     ============================================================ */
+  function foglie(radice) {
+    return [...radice.querySelectorAll('*')].filter(el => !el.children.length);
+  }
+
+  /* la riga della griglia che appartiene alla camera n */
+  function rigaCamera(n) {
+    for (const el of document.querySelectorAll('td, th, div, span')) {
+      if (el.children.length) continue;
+      if ((el.textContent || '').trim() !== n) continue;
+      if (el.closest('#' + ID)) continue;          // e' il nostro pulsante
+      /* si sale finche' non si trova qualcosa che somiglia a una riga di
+         calendario: tante celle, e quasi tutte con dentro un giorno */
+      let su = el.parentElement;
+      for (let i = 0; i < 4 && su && su !== document.body; i++, su = su.parentElement) {
+        const giorni = foglie(su).filter(f => /^\d{1,2}$/.test((f.textContent || '').trim()));
+        if (giorni.length >= 5) return { riga: su, celle: giorni };
+      }
+    }
+    return null;
+  }
+
+  function clicVero(el) {
+    for (const tipo of ['mousedown', 'mouseup', 'click']) {
+      el.dispatchEvent(new MouseEvent(tipo, { bubbles: true, cancelable: true, view: window }));
+    }
+  }
+
+  /* assegna dal tableau: la casella del giorno d'arrivo, nella riga della
+     camera. Restituisce anche il caso «riga trovata ma casella no», che
+     e' diverso da «non c'e' niente» e va detto in modo diverso. */
+  function assegnaDalTableau(numero, giornoArrivo) {
+    const n = String(numero);
+    const r = rigaCamera(n);
+    if (!r) return { ok: false, perche: 'nessuna riga' };
+    r.riga.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const g = String(giornoArrivo);
+    /* la casella dell'arrivo: quella che porta il giorno, e che non sia
+       il numero della camera stessa (219 e' di tre cifre, i giorni no,
+       ma una camera «25» esisterebbe eccome) */
+    const cella = r.celle.find(c => (c.textContent || '').trim() === g && c !== r.riga.firstElementChild);
+    if (!cella) return { ok: false, perche: 'riga senza il giorno', riga: r.riga };
+    clicVero(cella);
+    return { ok: true, dove: `casella del ${g} nella riga ${n}` };
+  }
+
   function assegna(numero) {
     const n = String(numero);
     /* 1. una tendina che ha proprio quel numero fra le opzioni: e' il
@@ -266,8 +345,9 @@
     return { ok: false };
   }
 
-  function agganciaNumeri(corpo) {
+  function agganciaNumeri(corpo, periodo) {
     const esito = corpo.querySelector('.esitoNum');
+    const giornoArrivo = periodo ? +periodo.da.slice(8, 10) : null;
     corpo.querySelectorAll('button.num').forEach(b => {
       b.addEventListener('click', async (ev) => {
         /* il clic non deve scivolare sotto: sulla scheda della categoria
@@ -275,6 +355,15 @@
         ev.preventDefault();
         ev.stopPropagation();
         const n = b.dataset.num;
+
+        /* PRIMA IL TABLEAU: e' li' che la camera si assegna davvero */
+        const t = giornoArrivo ? assegnaDalTableau(n, giornoArrivo) : { ok: false, perche: 'niente date' };
+        if (t.ok) {
+          esito.style.color = '#3B6325';
+          esito.textContent = `Ho cliccato la ${t.dove}. Controlla nel tableau prima di creare.`;
+          return;
+        }
+        /* poi un campo, se questa pagina ne ha uno */
         const r = assegna(n);
         if (r.ok) {
           esito.style.color = '#3B6325';
@@ -282,15 +371,27 @@
           return;
         }
         try { await navigator.clipboard.writeText(n); } catch (e) { /* resta il numero a schermo */ }
-        /* v1.2 — QUANDO NON SI PUO', SI FA VEDERE PERCHE'.
-           Su /booking la prenotazione non esiste ancora: finche' non la si
-           crea non c'e' niente a cui attaccare un numero, e infatti un
-           campo per il numero qui non compare. Dirlo e basta pero' lascia
-           il dubbio che sia l'estensione a non saperlo cercare — percio'
-           l'elenco dei campi che vedo sta qui sotto, aperto con un clic,
-           invece che in una console che nessuno alla reception apre. */
+        /* v1.3 — SI DICE DOVE SI ASSEGNA, non solo che qui non si puo'.
+           «Qui non c'e' un campo» era vero e inutile: chi legge resta con
+           il problema in mano. La camera si assegna nel tableau, e allora
+           il riquadro dice di andarci — e se la riga c'e' ma manca la
+           casella del giorno, dice anche quello, che e' un'altra cosa. */
         esito.style.color = '#8A6D12';
-        const campi = campiCandidati()
+        if (t.perche === 'riga senza il giorno') {
+          try { t.riga.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { /* niente */ }
+          esito.textContent = `Ho trovato la riga della ${n} e te l'ho portata sotto gli occhi, `
+            + `ma la casella del ${giornoArrivo} non la riconosco: cliccala tu. `
+            + `Il numero è negli appunti.`;
+          return;
+        }
+        esito.innerHTML =
+          `<div>La camera ${n} è negli appunti. Il numero si assegna nel tableau:
+            apri <strong>&lt; Camere</strong> qui sotto e clicca la casella del giorno d'arrivo
+            sulla riga della ${n} &mdash; da li' il clic sul numero la seleziona da solo.</div>
+           <details style="margin-top:4px;"><summary style="cursor:pointer;color:#0F5C64;">campi che vedo
+             in questa pagina</summary>
+             <pre style="white-space:pre-wrap;font-size:11px;color:#55524B;margin:4px 0 0;"></pre></details>`;
+        esito.querySelector('pre').textContent = campiCandidati()
           .filter(c => c.tipo === 'select' || c.etichetta.trim())
           .slice(0, 14)
           .map(c => `${c.tipo === 'select' ? '▾' : '·'} ${c.etichetta.trim() || '(senza nome)'}`
@@ -298,19 +399,12 @@
                         ? ` [${[...c.el.options].slice(0, 4).map(o => (o.textContent || '').trim()).join(', ')}]`
                         : ''))
           .join('\n') || '(nessun campo)';
-        esito.innerHTML =
-          `<div>La camera ${n} è negli appunti. Qui la prenotazione non esiste ancora,
-            quindi il numero si assegna dopo averla creata.</div>
-           <details style="margin-top:4px;"><summary style="cursor:pointer;color:#0F5C64;">campi che vedo
-             in questa pagina</summary>
-             <pre style="white-space:pre-wrap;font-size:11px;color:#55524B;margin:4px 0 0;"></pre></details>`;
-        esito.querySelector('pre').textContent = campi;
       });
     });
   }
 
   (typeof self !== 'undefined' ? self : window).leoCamere = () => ({
-    versione: '1.2',
+    versione: '1.3',
     campi: campiCandidati().map(c => ({
       tipo: c.tipo, etichetta: c.etichetta.trim(),
       valore: String(c.el.value || '').slice(0, 30),
@@ -369,7 +463,7 @@
         <div class="conto"><b>${v.libere.length}</b> ${v.libere.length === 1 ? 'libera' : 'libere'}</div>
         ${legenda}${nota}
         <div class="esitoNum" style="padding-top:6px;font-size:12px;"></div>`;
-      agganciaNumeri(corpo);
+      agganciaNumeri(corpo, periodo);
     } catch (e) {
       corpo.innerHTML = `<div class="periodo">${periodo.testo}</div>
         <div class="avviso">Non riesco a leggere le camere: ${String(e.message || e)}</div>`;

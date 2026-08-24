@@ -94,6 +94,59 @@ Deno.test('se il campo non c e, lo dice E FA VEDERE PERCHE', () => {
   assert(/leoCamere/.test(NUMERI), 'sparita la diagnostica sui campi');
 });
 
+Deno.test('la camera si assegna cliccando nel tableau', () => {
+  /* PER DUE VERSIONI HO CERCATO UN CAMPO CHE NON ESISTE. Il riquadro
+     rispondeva «qui Fidra non ha un campo per il numero» — vero, e
+     inutile: chi legge resta col problema in mano.
+
+     La schermata giusta e' /booking/availability, la griglia con una riga
+     per camera e una colonna per giorno. Assegnare vuol dire cliccare la
+     casella del giorno d'arrivo sulla riga di quella camera: il gesto che
+     l'operatore fa a mano cercando la riga a occhio fra un centinaio.
+
+     Si trova senza indovinare nomi di classi: in una riga libera Fidra
+     scrive dentro ogni casella il numero del giorno, e a sinistra il
+     numero della camera. */
+  assert(
+    /function assegnaDalTableau\(/.test(NUMERI),
+    'sparita l assegnazione dal tableau: si torna a cercare un campo che non c e',
+  );
+  assert(
+    /const t = giornoArrivo \? assegnaDalTableau/.test(NUMERI),
+    'il tableau non si prova piu per primo: e l unico posto dove l assegnazione avviene davvero',
+  );
+});
+
+Deno.test('si clicca UNA casella sola, e con eventi veri', () => {
+  /* il periodo Fidra ce l'ha gia' in cima; allargare la selezione a mano
+     vorrebbe dire indovinare come funziona il trascinamento. Una casella
+     e' un gesto che si vede e si disfa; una manciata cliccata alla cieca
+     no. */
+  assert(
+    /clicVero\(cella\);\n\s*return \{ ok: true/.test(NUMERI),
+    'si clicca piu di una casella: la selezione diventa impossibile da controllare a occhio',
+  );
+  assert(
+    /new MouseEvent\(tipo, \{ bubbles: true, cancelable: true, view: window \}\)/.test(NUMERI),
+    'si torna a .click(): i componenti di Fidra non sempre lo sentono',
+  );
+});
+
+Deno.test('«riga trovata ma casella no» non e «non c e niente»', () => {
+  /* sono due guai diversi e portano a due gesti diversi: nel primo la
+     riga si porta sotto gli occhi e la clicca l'operatore, nel secondo
+     bisogna proprio andare sul tableau. Dirli allo stesso modo farebbe
+     cercare la riga a chi non ce l'ha davanti. */
+  assert(
+    /perche: 'riga senza il giorno'/.test(NUMERI),
+    'i due casi tornano indistinguibili',
+  );
+  assert(
+    /scrollIntoView/.test(NUMERI),
+    'la riga non si porta piu sotto gli occhi: resta da cercare a mano fra cento',
+  );
+});
+
 Deno.test('i numeri sono colorati come nel pannello prezzi', () => {
   /* la proprieta' li vuole colorati anche qui — anzi soprattutto qui, che
      e' il momento in cui la camera si sceglie. Le tinte sono le stesse di
