@@ -676,3 +676,230 @@ function oggettoBuoniIT() { return BUONI_T.it.ogg.replace(/&mdash;/g, '\u2014');
 function oggettoBuoniDE() { return BUONI_T.de.ogg.replace(/&mdash;/g, '\u2014'); }
 function oggettoBuoniEN() { return BUONI_T.en.ogg.replace(/&mdash;/g, '\u2014'); }
 function oggettoBuoniFR() { return BUONI_T.fr.ogg.replace(/&mdash;/g, '\u2014'); }
+
+/* ============================================================
+   PREVENTIVO SOGGIORNO \u2014 il documento senza prenotazione (v1.0)
+   ------------------------------------------------------------
+   Le sistemazioni scelte in \u00abDisponibilita' e prezzi\u00bb con i loro
+   prezzi, e nient'altro: nessun numero d'offerta, nessun acconto,
+   nessuna scadenza, nessun pulsante \u00abConferma Ora\u00bb.
+
+   NON E' UN'OFFERTA PIU' CORTA, E' UN ALTRO DOCUMENTO. Chi legge un
+   numero d'offerta e un acconto capisce \u00abcamera tenuta\u00bb: qui non e'
+   stata tenuta nessuna camera, e il documento lo dice in chiaro.
+
+   I PREZZI ARRIVANO IN CENTESIMI, come li produce il modale: la
+   divisione per cento avviene qui e in nessun altro posto.
+
+   NON SI RISCRIVE NIENTE CHE ESISTA GIA'. La descrizione dei pacchetti
+   (notaPacchetto), quella delle camere (CAMERE_IT / ZIMMER_DE /
+   ROOMS_EN / CHAMBRES_FR), la dotazione e la riga dei bambini con il
+   prezzo per eta' (rigaBambini) sono le stesse funzioni che scrivono
+   le offerte vere da mesi. Una seconda copia divergerebbe dalla prima,
+   ed e' il difetto che pulsanti.test.ts e' nato per sorvegliare.
+   ============================================================ */
+const PREVENTIVO_T = {
+  it: {
+    ogg: 'Preventivo per il suo soggiorno &mdash; Hotel Terme Leonardo',
+    banda: 'PREVENTIVO',
+    h1: 'Il preventivo per il suo soggiorno',
+    intro: 'Ecco che cosa possiamo proporle per le date che ci ha indicato, con le tariffe di oggi.',
+    notti: (n) => `${n} ${n === 1 ? 'notte' : 'notti'}`,
+    ospiti: (a, b) => `${a} ${a === 1 ? 'adulto' : 'adulti'}${b ? ` e ${b} ${b === 1 ? 'bambino' : 'bambini'}` : ''}`,
+    usoSingola: 'in uso singola',
+    aPersona: 'a persona',
+    totale: 'totale soggiorno',
+    cure: 'di cui cure e trattamenti',
+    sc5: 'sconto fedelt&agrave; 5% gi&agrave; compreso',
+    sc3: 'e in pi&ugrave; 3% per il pagamento anticipato, reso alla partenza',
+    sapereTitolo: 'Da sapere',
+    avviso: 'I prezzi sono le tariffe di oggi e cambiano con l&rsquo;occupazione. Questo preventivo <strong style="color:#2A2E2B;">non blocca la camera</strong>: la disponibilit&agrave; si verifica al momento della conferma.',
+    chiudi: 'Se una di queste soluzioni le piace, ci risponda a questa email: le prepariamo l&rsquo;offerta e teniamo la camera.',
+    noteCure: 'Con l&rsquo;impegnativa del suo medico il ticket &egrave; di <strong style="color:#0F5C64;">55 &euro;</strong> e copre visita medica, dodici fanghi e dodici bagni terapeutici. I turni sono al mattino.',
+    noteCane: 'Anche il suo cane &egrave; il benvenuto: <strong style="color:#0F5C64;">13 &euro;</strong> al giorno, da saldare in hotel; il cibo non &egrave; compreso.'
+  },
+  de: {
+    ogg: 'Ihr unverbindliches Angebot &mdash; Hotel Terme Leonardo',
+    banda: 'PREISANFRAGE',
+    h1: 'Die Preise f&uuml;r Ihren Aufenthalt',
+    intro: 'Das k&ouml;nnen wir Ihnen f&uuml;r die genannten Termine anbieten, zu den heutigen Tarifen.',
+    notti: (n) => `${n} ${n === 1 ? 'Nacht' : 'N&auml;chte'}`,
+    ospiti: (a, b) => `${a} ${a === 1 ? 'Erwachsener' : 'Erwachsene'}${b ? ` und ${b} ${b === 1 ? 'Kind' : 'Kinder'}` : ''}`,
+    usoSingola: 'zur Alleinbenutzung',
+    aPersona: 'pro Person',
+    totale: 'Gesamt',
+    cure: 'davon Kuren und Behandlungen',
+    sc5: '5 % Treuerabatt bereits enthalten',
+    sc3: 'zus&auml;tzlich 3 % bei Vorauszahlung, bei der Abreise verrechnet',
+    sapereTitolo: 'Gut zu wissen',
+    avviso: 'Die Preise sind die heutigen Tarife und &auml;ndern sich mit der Belegung. Mit dieser Preisangabe ist <strong style="color:#2A2E2B;">noch kein Zimmer reserviert</strong>: die Verf&uuml;gbarkeit wird bei der Best&auml;tigung gepr&uuml;ft.',
+    chiudi: 'Wenn Ihnen eine dieser M&ouml;glichkeiten zusagt, antworten Sie einfach auf diese E-Mail: wir bereiten das Angebot vor und halten das Zimmer f&uuml;r Sie.',
+    noteCure: 'Mit der &auml;rztlichen Verordnung betr&auml;gt der Ticketanteil <strong style="color:#0F5C64;">55 &euro;</strong> und umfasst die &auml;rztliche Untersuchung, zw&ouml;lf Fangopackungen und zw&ouml;lf Thermalb&auml;der. Die Anwendungen finden vormittags statt.',
+    noteCane: 'Auch Ihr Hund ist willkommen: <strong style="color:#0F5C64;">13 &euro;</strong> pro Tag, vor Ort zu zahlen; Futter nicht inbegriffen.'
+  },
+  en: {
+    ogg: 'Your quotation &mdash; Hotel Terme Leonardo',
+    banda: 'QUOTATION',
+    h1: 'A quotation for your stay',
+    intro: 'Here is what we can offer for the dates you gave us, at today&rsquo;s rates.',
+    notti: (n) => `${n} ${n === 1 ? 'night' : 'nights'}`,
+    ospiti: (a, b) => `${a} ${a === 1 ? 'adult' : 'adults'}${b ? ` and ${b} ${b === 1 ? 'child' : 'children'}` : ''}`,
+    usoSingola: 'for single use',
+    aPersona: 'per person',
+    totale: 'total stay',
+    cure: 'of which spa treatments',
+    sc5: '5% loyalty discount already included',
+    sc3: 'plus 3% for advance payment, refunded on departure',
+    sapereTitolo: 'Good to know',
+    avviso: 'These are today&rsquo;s rates and they change with occupancy. This quotation <strong style="color:#2A2E2B;">does not hold the room</strong>: availability is checked at the time of confirmation.',
+    chiudi: 'If one of these suits you, just reply to this email: we will prepare the offer and hold the room for you.',
+    noteCure: 'With your doctor&rsquo;s prescription the ticket is <strong style="color:#0F5C64;">&euro;55</strong> and covers the medical examination, twelve mud packs and twelve thermal baths. Treatments take place in the morning.',
+    noteCane: 'Your dog is welcome too: <strong style="color:#0F5C64;">&euro;13</strong> per day, payable at the hotel; food not included.'
+  },
+  fr: {
+    ogg: 'Votre devis &mdash; Hotel Terme Leonardo',
+    banda: 'DEVIS',
+    h1: 'Le devis pour votre s&eacute;jour',
+    intro: 'Voici ce que nous pouvons vous proposer pour les dates indiqu&eacute;es, aux tarifs du jour.',
+    notti: (n) => `${n} ${n === 1 ? 'nuit' : 'nuits'}`,
+    ospiti: (a, b) => `${a} ${a === 1 ? 'adulte' : 'adultes'}${b ? ` et ${b} ${b === 1 ? 'enfant' : 'enfants'}` : ''}`,
+    usoSingola: 'en usage individuel',
+    aPersona: 'par personne',
+    totale: 's&eacute;jour complet',
+    cure: 'dont cures et soins',
+    sc5: 'remise fid&eacute;lit&eacute; de 5 % d&eacute;j&agrave; comprise',
+    sc3: 'et 3 % pour le paiement anticip&eacute;, rendus au d&eacute;part',
+    sapereTitolo: '&Agrave; savoir',
+    avviso: 'Ce sont les tarifs du jour et ils changent avec le taux d&rsquo;occupation. Ce devis <strong style="color:#2A2E2B;">ne bloque pas la chambre</strong> : la disponibilit&eacute; est v&eacute;rifi&eacute;e au moment de la confirmation.',
+    chiudi: 'Si l&rsquo;une de ces solutions vous convient, r&eacute;pondez simplement &agrave; cet e-mail : nous pr&eacute;parons l&rsquo;offre et gardons la chambre.',
+    noteCure: 'Avec l&rsquo;ordonnance de votre m&eacute;decin, le ticket est de <strong style="color:#0F5C64;">55 &euro;</strong> et comprend la visite m&eacute;dicale, douze applications de fango et douze bains thermaux. Les soins ont lieu le matin.',
+    noteCane: 'Votre chien est lui aussi le bienvenu : <strong style="color:#0F5C64;">13 &euro;</strong> par jour, &agrave; r&eacute;gler &agrave; l&rsquo;h&ocirc;tel ; nourriture non comprise.'
+  }
+};
+
+/* la categoria nella lingua del documento, con l'uso singola quando
+   l'ospite e' solo. Le mappe sono quelle delle offerte vere. */
+function categoriaPreventivo(nome, adulti, lingua) {
+  let base = nome || '';
+  if (lingua === 'de') base = kategorieDE(base);
+  else if (lingua === 'en') base = categoryEN(base);
+  else if (lingua === 'fr') base = categorieFR(base);
+  else if (base === base.toUpperCase() && /[A-Z]/.test(base)) {
+    base = base.toLowerCase().replace(/(^|[\s&(\/-])([a-z\u00e0-\u00f9])/g, (m, p, c) => p + c.toUpperCase());
+  }
+  if ((adulti || 1) !== 1) return base;
+  const t = PREVENTIVO_T[lingua] || PREVENTIVO_T.it;
+  return `${base} ${t.usoSingola}`;
+}
+
+/* la descrizione della camera e la dotazione: gli stessi dizionari delle
+   offerte vere, uno per lingua. Non se ne scrive un quinto. */
+function descrizionePreventivo(categoria, lingua) {
+  const diz = lingua === 'de' ? ZIMMER_DE
+            : lingua === 'en' ? ROOMS_EN
+            : lingua === 'fr' ? CHAMBRES_FR
+            : CAMERE_IT;
+  return descrizioneCamera(categoria, diz);
+}
+
+function dotazionePreventivo(lingua) {
+  if (lingua === 'de') return AUSSTATTUNG_DE;
+  if (lingua === 'en') return AMENITIES_EN;
+  if (lingua === 'fr') return EQUIPEMENTS_FR;
+  return DOTAZIONE_IT;
+}
+
+function costruisciPreventivoBase(d, opzioni, lingua) {
+  const o = opzioni || {};
+  const t = PREVENTIVO_T[lingua] || PREVENTIVO_T.it;
+  const voci = d.voci || [];
+
+  /* una stima non si manda: il modale non la fa passare, e se ci
+     arriva lo stesso e' un difetto, non un caso da gestire in silenzio */
+  if (voci.some(v => v.stima)) {
+    throw new Error('preventivo: una voce ha un prezzo stimato, non si manda');
+  }
+  if (!voci.length) throw new Error('preventivo: nessuna sistemazione scelta');
+
+  const soldi = (cent) => importoLingua((cent || 0) / 100, lingua);
+  const dal = dataExtra(d.giornoArrivo, d.mese, d.anno, lingua);
+  const al = dataExtra(d.giornoPartenza, d.mesePartenza || d.mese, d.annoPartenza || d.anno, lingua);
+
+  const righe = voci.map(v => {
+    const extra = [];
+    if (v.cure) extra.push(`${t.cure} ${soldi(v.cure)} ${t.aPersona}`);
+    if (v.sconto5) extra.push(t.sc5);
+    if (v.sconto3) extra.push(`${t.sc3} (${soldi(v.sconto3)})`);
+    const desc = descrizionePreventivo(v.categoria, lingua);
+    /* i bambini col loro prezzo per eta': rigaBambini li vuole in euro e
+       le eta' come stringa, ed e' la stessa funzione delle offerte vere */
+    const bimbi = (v.bambiniPrezzi && v.bambiniPrezzi.length)
+      ? rigaBambini({ bambiniPrezzi: v.bambiniPrezzi.map(x => x / 100),
+                      etaBambini: (d.etaBambini || []).join(' ') }, lingua)
+      : '';
+    return `
+    <tr><td style="padding:0 0 14px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FAF8F4;border-left:3px solid #1E7F88;">
+        <tr><td style="padding:14px 18px;">
+          <div style="font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;color:#2A2E2B;">${categoriaPreventivo(v.categoria, d.adulti, lingua)}</div>
+          ${desc ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#7B756A;padding-top:2px;">${desc}</div>` : ''}
+          <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;padding-top:6px;">${traduciTrattamento(v.trattamento, lingua)}</div>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;padding-top:8px;">
+            <tr><td style="padding:0 10px 3px 0;color:#8C8578;">${t.aPersona}</td>
+                <td align="right" style="padding:0 0 3px 0;">${soldi(v.prezzoPP)}${bimbi}</td></tr>
+            <tr><td style="padding:0 10px 0 0;color:#8C8578;">${t.totale}</td>
+                <td align="right" style="padding:0;white-space:nowrap;"><strong style="color:#0F5C64;font-size:16px;">${soldi(v.totale)}</strong></td></tr>
+          </table>
+          ${extra.length ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#7B756A;padding-top:6px;">${extra.join(' &middot; ')}</div>` : ''}
+          ${notaPacchetto(v.trattamento, lingua)}
+        </td></tr>
+      </table>
+    </td></tr>`;
+  }).join('');
+
+  /* cure e cane: due righe, non i blocchi interi dell'offerta. Un
+     preventivo non e' il posto per i turni dei fanghi e le condizioni:
+     quelle stanno nell'offerta, che si manda quando l'ospite accetta. */
+  const aggiunte = [];
+  if (o.cure) aggiunte.push(t.noteCure);
+  if (o.cane) aggiunte.push(t.noteCane);
+
+  const corpo = `
+  <tr><td style="padding:16px 36px 0 36px;">
+    <p style="margin:0 0 14px 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:22px;color:#2A2E2B;">${salutoExtra(d, o, lingua)},</p>
+    <h1 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:31px;font-weight:normal;color:#2A2E2B;">${t.h1}</h1>
+    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.intro}</p>
+  </td></tr>
+
+  <tr><td style="padding:16px 36px 0 36px;">
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#1E7F88;padding-bottom:6px;">${dal} &ndash; ${al}</div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;padding-bottom:14px;">${t.notti(d.notti)} &middot; ${t.ospiti(d.adulti, d.bambini || 0)}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${righe}</table>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#A79E8F;padding:2px 0 4px 0;">${dotazionePreventivo(lingua)}</div>
+  </td></tr>
+
+  ${aggiunte.length ? `<tr><td style="padding:14px 36px 0 36px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#E3F0F1;">
+      <tr><td style="padding:16px 20px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#3C6266;">
+        ${aggiunte.join('<br /><br />')}
+      </td></tr>
+    </table>
+  </td></tr>` : ''}
+
+  <tr><td style="padding:16px 36px 0 36px;">
+    <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">${t.sapereTitolo}</h2>
+    <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.avviso}</p>
+    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.chiudi}</p>
+  </td></tr>`;
+
+  return corniceExtra(t.banda, corpo, o, lingua);
+}
+
+function costruisciPreventivoIT(d, o) { return costruisciPreventivoBase(d, o, 'it'); }
+function costruisciPreventivoDE(d, o) { return costruisciPreventivoBase(d, o, 'de'); }
+function costruisciPreventivoEN(d, o) { return costruisciPreventivoBase(d, o, 'en'); }
+function costruisciPreventivoFR(d, o) { return costruisciPreventivoBase(d, o, 'fr'); }
+function oggettoPreventivoIT() { return PREVENTIVO_T.it.ogg.replace(/&mdash;/g, '\u2014'); }
+function oggettoPreventivoDE() { return PREVENTIVO_T.de.ogg.replace(/&mdash;/g, '\u2014'); }
+function oggettoPreventivoEN() { return PREVENTIVO_T.en.ogg.replace(/&mdash;/g, '\u2014'); }
+function oggettoPreventivoFR() { return PREVENTIVO_T.fr.ogg.replace(/&mdash;/g, '\u2014'); }
