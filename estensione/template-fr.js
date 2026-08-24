@@ -469,6 +469,7 @@ function sapereFR() {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
       <tr><td width="140" valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Arrivée</td><td valign="top" style="padding:0 0 10px 0;">À partir de 15h00 &middot; départ avant 11h00</td></tr>
       <tr><td valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Taxe de séjour</td><td valign="top" style="padding:0 0 10px 0;">1,50 € par personne et par nuit, 7 nuits maximum, à régler à l'hôtel. Exonérés : les enfants jusqu'à 13 ans et les personnes en situation de handicap</td></tr>
+      <tr><td valign="top" style="padding:0 12px 10px 0;color:#8C8578;">D&eacute;jeuner</td><td valign="top" style="padding:0 0 10px 0;">Au Bistrot La Piazza au bord de la piscine, peignoir bienvenu&nbsp;: tous les jours de 10h00 &agrave; 23h00, &agrave; la carte &middot; d&eacute;jeuner de 12h30 &agrave; 14h30, en-cas jusqu&rsquo;&agrave; 17h30</td></tr>
       <tr><td valign="top" style="padding:0 12px 0 0;color:#8C8578;">Piscines</td><td valign="top" style="padding:0;">Ouvertes de 8h &agrave; 19h30, jusqu'&agrave; 22h30 les vendredis et samedis &middot; bonnet de bain obligatoire, en vente à la réception à 3 €</td></tr>
       <tr><td valign="top" style="padding:8px 12px 0 0;color:#8C8578;">Tabac</td><td valign="top" style="padding:8px 0 0 0;">Hôtel non-fumeurs : pas en chambre, sur le balcon oui</td></tr>
     </table>

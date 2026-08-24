@@ -760,3 +760,58 @@ Deno.test('i due titoli non si chiamano tutti e due «Da sapere»', () => {
   );
   assertEquals(quante(html, /&gt;Da sapere&lt;|>Da sapere</), 1, 'due sezioni si chiamano «Da sapere»');
 });
+
+Deno.test('il Bistrot si legge in tutte e quattro le lingue, non solo in tedesco', () => {
+  /* IL DIFETTO CHE NESSUNO AVREBBE MAI VISTO LEGGENDO UNA SOLA EMAIL.
+     La riga del pranzo — «Bistrot La Piazza, tutti i giorni 10:00-23:00,
+     alla carta» — c'era SOLO nell'offerta tedesca. Un ospite italiano,
+     inglese o francese leggeva «Non inclusi: pranzo al Bistrot» e non
+     sapeva nemmeno che il Bistrot esistesse: gli restava un divieto senza
+     l'invito.
+
+     I quattro documenti devono dire le stesse cose. Quando divergono non
+     lo nota nessuno, perche' nessuno legge quattro lingue di fila. */
+  const m = modelli(), off = offerteQui();
+  for (const l of LINGUE) {
+    for (const [dove, html] of [['offerta', off[l](pratica(), OPZ)],
+                                ['preventivo', m.html[l](DATI(), OPZ)]] as const) {
+      assert(
+        /Bistrot La Piazza/.test(html),
+        `il Bistrot non compare nell ${dove} in ${l}`,
+      );
+      assert(
+        /12:30|12h30/.test(html),
+        `mancano gli orari del pranzo nell ${dove} in ${l}`,
+      );
+      assert(
+        /17:30|17h30/.test(html),
+        `mancano gli spuntini del pomeriggio nell ${dove} in ${l}`,
+      );
+    }
+  }
+});
+
+Deno.test('le quattro «da sapere» hanno lo stesso numero di righe', () => {
+  /* la prova di sopra guarda una riga sola; questa guarda che non se ne
+     perda un'altra domani, in una lingua sola, senza che nessuno se ne
+     accorga */
+  const off = offerteQui();
+  const conta = (html: string) => {
+    /* si conta DENTRO la tabella, non nei 3000 caratteri successivi:
+       il primo taglio approssimato dava all italiano una riga in piu
+       perche sconfinava nella sezione dopo — una prova che sbaglia a
+       contare fa perdere piu tempo di quanta ne faccia risparmiare */
+    const i = html.search(/Da sapere|Gut zu wissen|Good to know|Bon &agrave; savoir|Bon à savoir/);
+    const fine = html.indexOf('</table>', i);
+    const pezzo = html.slice(i, fine > 0 ? fine : i);
+    return (pezzo.match(/color:#8C8578;">/g) || []).length;
+  };
+  const righe = LINGUE.map((l) => conta(off[l](pratica(), OPZ)));
+  assertEquals(
+    new Set(righe).size,
+    1,
+    `le «da sapere» hanno un numero di righe diverso per lingua: ${
+      LINGUE.map((l, i) => l + '=' + righe[i]).join(' ')
+    }`,
+  );
+});

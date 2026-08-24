@@ -489,6 +489,7 @@ function sapereEN() {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
       <tr><td width="130" valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Check-in</td><td valign="top" style="padding:0 0 10px 0;">From 15:00 &middot; check-out by 11:00</td></tr>
       <tr><td valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Tourist tax</td><td valign="top" style="padding:0 0 10px 0;">€1.50 per person per night, up to 7 nights, settled at the hotel. Children under 13 and guests with disabilities are exempt</td></tr>
+      <tr><td valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Lunch</td><td valign="top" style="padding:0 0 10px 0;">At Bistrot La Piazza by the pool, bathrobes welcome: open daily 10:00&ndash;23:00, &agrave; la carte &middot; lunch 12:30&ndash;14:30, light bites until 17:30</td></tr>
       <tr><td valign="top" style="padding:0 12px 0 0;color:#8C8578;">Pools</td><td valign="top" style="padding:0;">Open from 8:00 to 19:30, until 22:30 on Fridays and Saturdays &middot; swimming cap required, on sale at reception for &euro;3</td></tr>
       <tr><td valign="top" style="padding:8px 12px 0 0;color:#8C8578;">Smoking</td><td valign="top" style="padding:8px 0 0 0;">Non-smoking hotel: not in the rooms, on the balcony yes</td></tr>
     </table>

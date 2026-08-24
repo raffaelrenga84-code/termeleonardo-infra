@@ -1324,6 +1324,7 @@ function sapereIT() {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
       <tr><td width="130" valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Check-in</td><td valign="top" style="padding:0 0 10px 0;">Dalle 15:00 &middot; check-out entro le 11:00</td></tr>
       <tr><td valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Tassa di soggiorno</td><td valign="top" style="padding:0 0 10px 0;">1,50 &euro; a persona al giorno, per un massimo di 7 notti. Si salda in hotel. Esenti i bambini fino a 13 anni e le persone con disabilit&agrave;</td></tr>
+      <tr><td valign="top" style="padding:0 12px 10px 0;color:#8C8578;">Pranzo</td><td valign="top" style="padding:0 0 10px 0;">Al Bistrot La Piazza a bordo piscina, anche in accappatoio: tutti i giorni dalle 10:00 alle 23:00, alla carta &middot; pranzo dalle 12:30 alle 14:30, spuntini fino alle 17:30</td></tr>
       <tr><td valign="top" style="padding:0 12px 0 0;color:#8C8578;">Piscine</td><td valign="top" style="padding:0;">Aperte dalle 8:00 alle 19:30, il venerd&igrave; e il sabato fino alle 22:30 &middot; cuffia obbligatoria, in vendita in Reception a 3 &euro;</td></tr>
       <tr><td valign="top" style="padding:8px 12px 0 0;color:#8C8578;">Fumo</td><td valign="top" style="padding:8px 0 0 0;">Hotel per non fumatori: in camera non si fuma, sul balcone s&igrave;</td></tr>
     </table>
