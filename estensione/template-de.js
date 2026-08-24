@@ -203,7 +203,7 @@ function costruisciEmailDE(d, opzioni) {
       ${d.alternative ? altT('de').h1(d.camere.length) : `${d.camere.length > 1 ? 'Ihre Zimmer erwarten Sie' : 'Ihr Zimmer erwartet Sie'}${periodiDiversi(d) ? '' : `<br />vom ${anreise} bis ${abreise}`}`}
     </h1>
     <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      ${d.alternative ? altT('de').intro(d.camere.length, frist) : `${periodiDiversi(d) ? `${gaeste} in ${d.camere.length} Zimmern, mit unterschiedlichen Zeiträumen: Sie finden sie unten bei jedem Zimmer. Wir halten Ihnen die Verfügbarkeit bis zum <strong style="color:#2A2E2B;">${frist}</strong> frei.` : `${naechte} für ${gaeste}${d.camere.length > 1 ? ` in ${d.camere.length} Zimmern` : ''}. Wir halten Ihnen die Verfügbarkeit bis zum <strong style="color:#2A2E2B;">${frist}</strong> frei.`}`}
+      ${d.alternative ? altT('de').intro(d.camere.length, frist) : (d.cambioCamera ? altT('de').cambio(gaeste, frist) : `${periodiDiversi(d) ? `${gaeste} in ${d.camere.length} Zimmern, mit unterschiedlichen Zeiträumen: Sie finden sie unten bei jedem Zimmer. Wir halten Ihnen die Verfügbarkeit bis zum <strong style="color:#2A2E2B;">${frist}</strong> frei.` : `${naechte} für ${gaeste}${d.camere.length > 1 ? ` in ${d.camere.length} Zimmern` : ''}. Wir halten Ihnen die Verfügbarkeit bis zum <strong style="color:#2A2E2B;">${frist}</strong> frei.`}`)}
     </p>
   </td></tr>
 

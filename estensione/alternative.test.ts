@@ -162,6 +162,31 @@ Deno.test('con la spunta l offerta dice che si sceglie, non che si somma', () =>
   }
 });
 
+Deno.test('cambio camera: le notti si pagano tutte, le persone no', () => {
+  /* IL CASO CHE LA RECEPTION HA PORTATO: prima una doppia con il partner,
+     poi una Queen in uso singola perche' lui riparte prima. Le stesse
+     persone si spostano, quindi il totale si somma (le notti si pagano
+     tutte) ma gli ospiti non sono la somma delle due camere. */
+  const off = offerte();
+  const d = pratica(false);
+  d.cambioCamera = true;
+  d.adulti = 2; d.bambini = 1;              // corretti da preparaCamere
+  d.acconto = 150; d.accontoFmt = '150,00';
+  d.saldo = 570; d.saldoFmt = '570,00';
+  const CAMBIO: Record<Lingua, RegExp> = {
+    it: /cambio di camera/i, de: /Zimmerwechsel/i,
+    en: /room change/i, fr: /changement de chambre/i,
+  };
+  for (const l of LINGUE) {
+    const html = off[l](d, OPZ);
+    assert(CAMBIO[l].test(html), `l'offerta ${l} non dice che si cambia camera`);
+    assert(quanteVolteImporto(html, '720') > 0, `il totale non si somma piu in ${l}: le notti si pagano tutte`);
+    assert(quanteVolteImporto(html, '150') > 0, `manca la caparra sulle persone vere in ${l}`);
+    assert(!/Soluzione 1|Option 1|Solution 1|M&ouml;glichkeit 1/.test(html),
+      `compaiono le soluzioni su un cambio camera in ${l}`);
+  }
+});
+
 Deno.test('senza spunta il numero delle persone resta quello di Fidra', () => {
   /* la regressione da cui guardarsi: 4 adulti e 2 bambini sono giusti
      quando le due camere servono davvero */

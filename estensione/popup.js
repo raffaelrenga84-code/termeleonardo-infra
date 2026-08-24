@@ -129,13 +129,41 @@ function scadenzaPassata(s) {
    funzioni e dimenticato in una — ed e' il difetto che pulsanti.test.ts
    sorveglia da mesi. */
 const CAPARRA_ADULTO = 75;
-function preparaAlternative(d, attivo) {
-  d.alternative = !!attivo;
+function preparaCamere(d, modo) {
+  d.alternative = modo === 'alternative';
+  d.cambioCamera = modo === 'cambio';
+
   (d.camere || []).forEach((c, i) => {
-    if (!attivo) { delete c.soluzione; delete c.accontoSoluzione; return; }
+    if (!d.alternative) { delete c.soluzione; delete c.accontoSoluzione; return; }
     c.soluzione = i + 1;
     c.accontoSoluzione = (c.adulti || 0) * CAPARRA_ADULTO;
   });
+
+  /* CAMBIO CAMERA: le stesse persone si spostano — succede spesso, per
+     esempio una doppia con il partner e poi una Queen in uso singola
+     perche' lui riparte prima. Le notti si pagano tutte (il totale non si
+     tocca) ma le persone non sono la somma delle due camere: sono quelle
+     presenti insieme. La caparra segue quel numero. */
+  const uno = d.personeUnaSoluzione;
+  if (d.cambioCamera && uno) {
+    if (d.adultiFidra == null) { d.adultiFidra = d.adulti; d.bambiniFidra = d.bambini; }
+    d.adulti = uno.adulti;
+    d.bambini = uno.bambini;
+    if (!d.caparraDovuta || d.caparraDovuta <= 0) {
+      d.acconto = d.adulti * CAPARRA_ADULTO;
+      d.accontoFmt = euroFmt(d.acconto);
+      if (d.totale != null) { d.saldo = d.totale - d.acconto; d.saldoFmt = euroFmt(d.saldo); }
+    }
+  } else if (d.adultiFidra != null) {
+    /* si torna indietro se l'operatore cambia idea senza riaprire */
+    d.adulti = d.adultiFidra;
+    d.bambini = d.bambiniFidra;
+    if (!d.caparraDovuta || d.caparraDovuta <= 0) {
+      d.acconto = d.adulti * CAPARRA_ADULTO;
+      d.accontoFmt = euroFmt(d.acconto);
+      if (d.totale != null) { d.saldo = d.totale - d.acconto; d.saldoFmt = euroFmt(d.saldo); }
+    }
+  }
 }
 
 /* --- deduzioni automatiche --- */
@@ -198,18 +226,26 @@ async function disegna(d) {
      la domanda ha senso. */
   if (d.camereNonSovrapposte) {
     const u = d.personeUnaSoluzione || {};
+    const persone = (a, b) => `${a} ${a === 1 ? 'adulto' : 'adulti'}${
+      b ? ` e ${b} bambin${b === 1 ? 'o' : 'i'}` : ''}`;
     const note = d.note.map(n => (n.testo || '').toLowerCase()).join(' ');
-    const spia = /alternativ|oppure|a scelta|x\s*\d\s*date|due date|2 date|opzion/i.exec(note);
-    h += `<div class="box"><strong>Camere con periodi che non si sovrappongono.</strong>
-      L&apos;offerta le somma: ${d.adulti} ${d.adulti === 1 ? 'adulto' : 'adulti'}${
-        d.bambini ? ` e ${d.bambini} bambin${d.bambini === 1 ? 'o' : 'i'}` : ''},
-      caparra ${esc(euroFmt(d.acconto))} &euro;. Giusto se all&apos;ospite servono
-      davvero tutte e due.
-      <label style="margin-top:6px;"><input type="checkbox" id="optAlternative"
-        ${spia ? 'checked' : ''} /> <strong>Sono alternative</strong>: l&apos;ospite ne sceglie una
-        ${u.adulti != null ? `<span class="sub">(${u.adulti} ${u.adulti === 1 ? 'adulto' : 'adulti'}${
-          u.bambini ? ` e ${u.bambini} bambin${u.bambini === 1 ? 'o' : 'i'}` : ''} per soluzione)</span>` : ''}</label>
-      ${spia ? `<div class="sub" style="color:#5A7A3E;">Spuntata dalla nota
+    const spiaAlt = /alternativ|oppure|a scelta|x\s*\d\s*date|due date|2 date|opzion/i.exec(note);
+    const spiaCam = /cambio camera|cambia camera|cambio stanza|spostano|si sposta/i.exec(note);
+    const spia = spiaAlt || spiaCam;
+    h += `<div class="box"><strong>${d.camere.length} camere con periodi che non si
+      sovrappongono.</strong> Solo tu sai quale dei tre casi &egrave;.
+      <label style="margin-top:6px;"><input type="radio" name="camereModo" value="insieme"
+        ${spia ? '' : 'checked'} /> <strong>Servono tutte e due</strong>
+        <span class="sub">&mdash; si sommano: ${persone(d.adulti, d.bambini)}, caparra ${esc(euroFmt(d.acconto))} &euro;</span></label>
+      <label><input type="radio" name="camereModo" value="alternative"
+        ${spiaAlt ? 'checked' : ''} /> <strong>Sono alternative</strong>
+        <span class="sub">&mdash; l&apos;ospite ne sceglie una${u.adulti != null
+          ? `: ${persone(u.adulti, u.bambini)} per soluzione, prezzi non sommati` : ''}</span></label>
+      <label><input type="radio" name="camereModo" value="cambio"
+        ${!spiaAlt && spiaCam ? 'checked' : ''} /> <strong>Cambio camera</strong>
+        <span class="sub">&mdash; le stesse persone si spostano${u.adulti != null
+          ? `: ${persone(u.adulti, u.bambini)}, ma le notti si pagano tutte` : ''}</span></label>
+      ${spia ? `<div class="sub" style="color:#5A7A3E;padding-top:4px;">Scelto dalla nota
         &laquo;${esc(spia[0])}&raquo; &mdash; verifica prima di mandare.</div>` : ''}</div>`;
   }
   d.camere.forEach((c, i) => {
@@ -423,6 +459,14 @@ async function disegna(d) {
       style="color:#1E7F88;text-decoration:none;font-size:13px;">&#128269; ${esc(r.et)}</a></div>`;
   });
 
+  /* v2.9.5: le stesse ricerche anche in cima. Erano in fondo alla pagina
+     insieme al pulsante, e per arrivarci si scorreva tre schermate. */
+  const alto = $('cercaAlto');
+  if (alto) {
+    alto.innerHTML = ricerche.map(r =>
+      `<a href="#" class="cerca" data-q="${esc(r.q)}">&#128269; ${esc(r.et)}</a>`).join('');
+  }
+
   if (d.note.length) {
     h += `<h3>Note dai reparti</h3>`;
     d.note.forEach(n => {
@@ -432,6 +476,12 @@ async function disegna(d) {
 
   $('corpo').innerHTML = h;
   $('copia').disabled = bloccante;
+  /* v2.9.5: la barra in alto compare solo qui, dalla prenotazione aperta:
+     fuori da Fidra il pannello e' gia' corto e non serve a niente. */
+  if ($('alto')) {
+    $('alto').hidden = false;
+    $('copiaAlto').disabled = bloccante;
+  }
 
   /* v1.9.9: se dal riquadro "Notte per notte" e' stato preparato un
      dettaglio, lo si trova gia' scritto qui invece di doverlo incollare.
@@ -817,6 +867,26 @@ function linkOutlook(dest, ogg) {
 }
 
 /* ---------- copia negli appunti ---------- */
+/* v2.9.5 — il pulsante in alto e' lo stesso di sotto, non una seconda
+   strada: fa scattare quello vero. Due gestori che fanno «quasi» la stessa
+   cosa divergono al primo cambio, e qui ce ne sono gia' due di tabelle
+   MODELLI a ricordarcelo. */
+$('copiaAlto')?.addEventListener('click', () => $('copia').click());
+
+/* l'esito si scrive in fondo, ma chi ha premuto il pulsante in alto sta
+   guardando in alto: si rispecchia, senza toccare le venti righe che
+   scrivono in $('esito'). */
+(() => {
+  const giu = $('esito'), su = $('alto');
+  if (!giu || !su) return;
+  const eco = document.createElement('div');
+  eco.className = 'sub';
+  eco.style.cssText = 'padding-top:6px;color:#1E7F88;';
+  su.appendChild(eco);
+  new MutationObserver(() => { eco.textContent = giu.textContent; })
+    .observe(giu, { childList: true, characterData: true, subtree: true });
+})();
+
 $('copia').addEventListener('click', async () => {
   if (MODO === 'rapido' && !(await preparaDatiRapidiConLink())) return;
   if (!DATI) return;
@@ -829,7 +899,7 @@ $('copia').addEventListener('click', async () => {
     /* v2.9.4: camere alternative — l'ospite ne sceglie una. Lo dice
        l'operatore: nei dati alternative, cambio camera e soggiorni
        distinti si somigliano tutti. */
-    alternative: $('optAlternative')?.checked,
+    camereModo: document.querySelector('input[name=camereModo]:checked')?.value || 'insieme',
     dettaglio: $('dettaglio')?.value || '',
     dettaglioCamera: ($('dettaglio')?.value || '').trim() ? (window.__leoDettaglioCamera || '') : '',
     firma:  $('firma')?.value || 'La Reception',
@@ -850,7 +920,7 @@ $('copia').addEventListener('click', async () => {
     dayspa:   { it:[costruisciDaySpaIT, oggettoDaySpaIT], de:[costruisciDaySpaDE, oggettoDaySpaDE],
                 en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] }
   };
-  preparaAlternative(DATI, opzioni.alternative);
+  preparaCamere(DATI, opzioni.camereModo);
   const [fnHtml, fnOgg] = MODELLI[doc][lingua] || MODELLI[doc].it;
   // v1.1: la conferma stampa l'acconto dal campo modificabile, non solo dalla
   // lettura automatica (che poteva fallire lasciando "− 0,00 €" nell'email)
@@ -919,7 +989,7 @@ $('copiaOggetto').addEventListener('click', async () => {
     /* v2.9.4: camere alternative — l'ospite ne sceglie una. Lo dice
        l'operatore: nei dati alternative, cambio camera e soggiorni
        distinti si somigliano tutti. */
-    alternative: $('optAlternative')?.checked,
+    camereModo: document.querySelector('input[name=camereModo]:checked')?.value || 'insieme',
     dettaglio: $('dettaglio')?.value || '',
     dettaglioCamera: ($('dettaglio')?.value || '').trim() ? (window.__leoDettaglioCamera || '') : '',
     firma:  $('firma')?.value || 'La Reception',
@@ -938,7 +1008,7 @@ $('copiaOggetto').addEventListener('click', async () => {
     dayspa:   { it:[costruisciDaySpaIT, oggettoDaySpaIT], de:[costruisciDaySpaDE, oggettoDaySpaDE],
                 en:[costruisciDaySpaEN, oggettoDaySpaEN], fr:[costruisciDaySpaFR, oggettoDaySpaFR] }
   };
-  preparaAlternative(DATI, opzioni.alternative);
+  preparaCamere(DATI, opzioni.camereModo);
   const [fnHtml, fnOgg] = MODELLI[doc][lingua] || MODELLI[doc].it;
   if (doc === 'conferma') {
     const campo = $('accontoRicevuto')?.value?.trim() || '';

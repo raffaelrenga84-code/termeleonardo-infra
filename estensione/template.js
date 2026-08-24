@@ -242,28 +242,32 @@ const ALT_T = {
     intro: (n, scad) => `Le proponiamo ${n === 2 ? 'due' : n} soluzioni alternative: <strong style="color:#2A2E2B;">ne scelga una</strong> e ce lo faccia sapere. I prezzi non si sommano &mdash; ognuna vale per conto suo. Teniamo la disponibilit&agrave; fino al <strong style="color:#2A2E2B;">${scad}</strong>.`,
     soluzione: (i) => `Soluzione ${i}`,
     caparra: (imp) => `caparra ${imp}`,
-    coda: 'Appena ci dice quale soluzione preferisce le mandiamo la conferma con i riferimenti per la caparra.'
+    coda: 'Appena ci dice quale soluzione preferisce le mandiamo la conferma con i riferimenti per la caparra.',
+    cambio: (chi, scad) => `${chi}, con <strong style="color:#2A2E2B;">cambio di camera</strong> durante il soggiorno: trova i periodi qui sotto accanto a ogni sistemazione. Le tratteniamo la disponibilit&agrave; fino al <strong style="color:#2A2E2B;">${scad}</strong>.`
   },
   de: {
     h1: (n) => `${n === 2 ? 'Zwei M&ouml;glichkeiten' : n + ' M&ouml;glichkeiten'} zur Auswahl`,
     intro: (n, scad) => `Wir schlagen Ihnen ${n === 2 ? 'zwei' : n} Alternativen vor: <strong style="color:#2A2E2B;">w&auml;hlen Sie eine davon</strong> und sagen Sie uns Bescheid. Die Preise werden nicht addiert &mdash; jede gilt f&uuml;r sich. Wir halten die Verf&uuml;gbarkeit bis zum <strong style="color:#2A2E2B;">${scad}</strong>.`,
     soluzione: (i) => `M&ouml;glichkeit ${i}`,
     caparra: (imp) => `Anzahlung ${imp}`,
-    coda: 'Sobald Sie uns Ihre Wahl mitteilen, senden wir Ihnen die Best&auml;tigung mit den Angaben zur Anzahlung.'
+    coda: 'Sobald Sie uns Ihre Wahl mitteilen, senden wir Ihnen die Best&auml;tigung mit den Angaben zur Anzahlung.',
+    cambio: (chi, scad) => `${chi}, mit <strong style="color:#2A2E2B;">Zimmerwechsel</strong> w&auml;hrend des Aufenthalts: die Zeitr&auml;ume finden Sie unten bei jedem Zimmer. Wir halten die Verf&uuml;gbarkeit bis zum <strong style="color:#2A2E2B;">${scad}</strong>.`
   },
   en: {
     h1: (n) => `${n === 2 ? 'Two options' : n + ' options'} to choose from`,
     intro: (n, scad) => `We are proposing ${n === 2 ? 'two' : n} alternative options: <strong style="color:#2A2E2B;">please choose one</strong> and let us know. The prices are not added together &mdash; each stands on its own. We will hold availability until <strong style="color:#2A2E2B;">${scad}</strong>.`,
     soluzione: (i) => `Option ${i}`,
     caparra: (imp) => `deposit ${imp}`,
-    coda: 'As soon as you tell us which option you prefer, we will send the confirmation with the deposit details.'
+    coda: 'As soon as you tell us which option you prefer, we will send the confirmation with the deposit details.',
+    cambio: (chi, scad) => `${chi}, with a <strong style="color:#2A2E2B;">room change</strong> during the stay: you will find the dates below, next to each room. We will hold it for you until <strong style="color:#2A2E2B;">${scad}</strong>.`
   },
   fr: {
     h1: (n) => `${n === 2 ? 'Deux solutions' : n + ' solutions'} au choix`,
     intro: (n, scad) => `Nous vous proposons ${n === 2 ? 'deux' : n} solutions alternatives : <strong style="color:#2A2E2B;">choisissez-en une</strong> et faites-le nous savoir. Les prix ne s&rsquo;additionnent pas &mdash; chacune vaut pour elle-m&ecirc;me. Nous gardons la disponibilit&eacute; jusqu&rsquo;au <strong style="color:#2A2E2B;">${scad}</strong>.`,
     soluzione: (i) => `Solution ${i}`,
     caparra: (imp) => `acompte ${imp}`,
-    coda: 'D&egrave;s que vous nous indiquez la solution retenue, nous vous envoyons la confirmation avec les coordonn&eacute;es pour l&rsquo;acompte.'
+    coda: 'D&egrave;s que vous nous indiquez la solution retenue, nous vous envoyons la confirmation avec les coordonn&eacute;es pour l&rsquo;acompte.',
+    cambio: (chi, scad) => `${chi}, avec <strong style="color:#2A2E2B;">changement de chambre</strong> pendant le s&eacute;jour : vous trouverez les p&eacute;riodes ci-dessous, &agrave; c&ocirc;t&eacute; de chaque chambre. Nous gardons la disponibilit&eacute; jusqu&rsquo;au <strong style="color:#2A2E2B;">${scad}</strong>.`
   }
 };
 function altT(lingua) { return ALT_T[lingua] || ALT_T.it; }
@@ -993,7 +997,7 @@ function costruisciEmail(d, opzioni) {
       ${d.alternative ? altT('it').h1(d.camere.length) : `${d.camere.length > 1 ? 'Le sue camere la aspettano' : 'La sua camera la aspetta'}${periodiDiversi(d) ? '' : `<br />dal ${arrivo} al ${partenza}`}`}
     </h1>
     <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      ${d.alternative ? altT('it').intro(d.camere.length, scad) : `${periodiDiversi(d) ? `${ospiti} in ${d.camere.length} camere, con periodi diversi: li trova qui sotto accanto a ogni sistemazione. Le tratteniamo la disponibilit&agrave; fino al <strong style="color:#2A2E2B;">${scad}</strong>.` : `${notti} per ${ospiti}${d.camere.length > 1 ? ` in ${d.camere.length} camere` : ''}. Le tratteniamo la disponibilit&agrave; fino al <strong style="color:#2A2E2B;">${scad}</strong>.`}`}
+      ${d.alternative ? altT('it').intro(d.camere.length, scad) : (d.cambioCamera ? altT('it').cambio(ospiti, scad) : `${periodiDiversi(d) ? `${ospiti} in ${d.camere.length} camere, con periodi diversi: li trova qui sotto accanto a ogni sistemazione. Le tratteniamo la disponibilit&agrave; fino al <strong style="color:#2A2E2B;">${scad}</strong>.` : `${notti} per ${ospiti}${d.camere.length > 1 ? ` in ${d.camere.length} camere` : ''}. Le tratteniamo la disponibilit&agrave; fino al <strong style="color:#2A2E2B;">${scad}</strong>.`}`)}
     </p>
   </td></tr>
 

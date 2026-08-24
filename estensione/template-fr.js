@@ -195,7 +195,7 @@ function costruisciEmailFR(d, opzioni) {
       ${d.alternative ? altT('fr').h1(d.camere.length) : `${d.camere.length > 1 ? 'Vos chambres vous attendent' : 'Votre chambre vous attend'}${periodiDiversi(d) ? '' : `<br />du ${arrivee} au ${depart}`}`}
     </h1>
     <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      ${d.alternative ? altT('fr').intro(d.camere.length, limite) : `${periodiDiversi(d) ? `${hotes} en ${d.camere.length} chambres, avec des périodes différentes : vous les trouverez ci-dessous, à côté de chaque chambre. Nous vous les réservons jusqu'au <strong style="color:#2A2E2B;">${limite}</strong>.` : `${nuits} pour ${hotes}${d.camere.length > 1 ? ` en ${d.camere.length} chambres` : ''}. Nous vous la réservons jusqu'au <strong style="color:#2A2E2B;">${limite}</strong>.`}`}
+      ${d.alternative ? altT('fr').intro(d.camere.length, limite) : (d.cambioCamera ? altT('fr').cambio(hotes, limite) : `${periodiDiversi(d) ? `${hotes} en ${d.camere.length} chambres, avec des périodes différentes : vous les trouverez ci-dessous, à côté de chaque chambre. Nous vous les réservons jusqu'au <strong style="color:#2A2E2B;">${limite}</strong>.` : `${nuits} pour ${hotes}${d.camere.length > 1 ? ` en ${d.camere.length} chambres` : ''}. Nous vous la réservons jusqu'au <strong style="color:#2A2E2B;">${limite}</strong>.`}`)}
     </p>
   </td></tr>
 

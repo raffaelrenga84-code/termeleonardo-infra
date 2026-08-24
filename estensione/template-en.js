@@ -215,7 +215,7 @@ function costruisciEmailEN(d, opzioni) {
       ${d.alternative ? altT('en').h1(d.camere.length) : `${d.camere.length > 1 ? 'Your rooms are waiting' : 'Your room is waiting'}${periodiDiversi(d) ? '' : `<br />from ${arrival} to ${departure}`}`}
     </h1>
     <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
-      ${d.alternative ? altT('en').intro(d.camere.length, deadline) : `${periodiDiversi(d) ? `${guests} in ${d.camere.length} rooms, with different dates: you will find them below, next to each room. We will hold it for you until <strong style="color:#2A2E2B;">${deadline}</strong>.` : `${nights} for ${guests}${d.camere.length > 1 ? ` in ${d.camere.length} rooms` : ''}. We will hold it for you until <strong style="color:#2A2E2B;">${deadline}</strong>.`}`}
+      ${d.alternative ? altT('en').intro(d.camere.length, deadline) : (d.cambioCamera ? altT('en').cambio(guests, deadline) : `${periodiDiversi(d) ? `${guests} in ${d.camere.length} rooms, with different dates: you will find them below, next to each room. We will hold it for you until <strong style="color:#2A2E2B;">${deadline}</strong>.` : `${nights} for ${guests}${d.camere.length > 1 ? ` in ${d.camere.length} rooms` : ''}. We will hold it for you until <strong style="color:#2A2E2B;">${deadline}</strong>.`}`)}
     </p>
   </td></tr>
 
