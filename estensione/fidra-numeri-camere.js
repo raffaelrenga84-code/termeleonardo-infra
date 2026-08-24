@@ -155,6 +155,100 @@
     return box;
   }
 
+  /* ============================================================
+     v1.1 — ASSEGNARE LA CAMERA DA QUI
+     ------------------------------------------------------------
+     Su /booking la prenotazione non esiste ancora: si sceglie la
+     categoria, e il numero di solito si assegna dopo, sulla pratica.
+     Se pero' Fidra un campo per il numero ce l'ha, tanto vale usarlo.
+
+     Percio' non si indovina: si cerca un campo che accetti quel
+     numero — una tendina che lo contenga fra le opzioni, o un campo
+     che parli di camera — e lo si scrive. Se non c'e', il numero
+     finisce negli appunti e il riquadro lo dice chiaro, invece di
+     fingere di aver fatto qualcosa.
+
+     `leoCamere()` in console elenca i campi visti: se un campo c'e'
+     e non l'ho riconosciuto, da li' si chiude in un colpo.
+     ============================================================ */
+  function campiCandidati() {
+    /* i campi del nostro riquadro non sono candidati: scriveremmo dentro
+       noi stessi invece che dentro Fidra */
+    const dentro = (el) => el.closest && el.closest('#' + ID);
+    const fuori = [];
+    for (const el of document.querySelectorAll('select, input')) {
+      if (dentro(el)) continue;
+      const et = ((el.getAttribute('placeholder') || '') + ' ' +
+                  (el.getAttribute('name') || '') + ' ' +
+                  (el.getAttribute('aria-label') || '')).toLowerCase();
+      fuori.push({ el, etichetta: et, tipo: el.tagName.toLowerCase() });
+    }
+    return fuori;
+  }
+
+  function scriviNativo(el, valore) {
+    const proto = el.tagName === 'SELECT' ? window.HTMLSelectElement.prototype
+                                          : window.HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+    if (setter) setter.call(el, valore); else el.value = valore;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function assegna(numero) {
+    const n = String(numero);
+    /* 1. una tendina che ha proprio quel numero fra le opzioni: e' il
+          segnale piu' forte che esista, e non richiede di indovinare */
+    for (const c of campiCandidati()) {
+      if (c.tipo !== 'select') continue;
+      const opz = [...c.el.options].find(o =>
+        (o.textContent || '').trim() === n || String(o.value).trim() === n);
+      if (opz) { scriviNativo(c.el, opz.value); return { ok: true, dove: 'tendina' }; }
+    }
+    /* 2. un campo che parla di camera e non e' quello del cliente */
+    for (const c of campiCandidati()) {
+      if (c.tipo !== 'input') continue;
+      if (!/camera|room|zimmer|numero/.test(c.etichetta)) continue;
+      if (/cliente|cerca cliente/.test(c.etichetta)) continue;
+      scriviNativo(c.el, n);
+      return { ok: true, dove: 'campo «' + (c.etichetta.trim() || 'camera') + '»' };
+    }
+    return { ok: false };
+  }
+
+  function agganciaNumeri(corpo) {
+    const esito = corpo.querySelector('.esitoNum');
+    corpo.querySelectorAll('button.num').forEach(b => {
+      b.addEventListener('click', async (ev) => {
+        /* il clic non deve scivolare sotto: sulla scheda della categoria
+           aprirebbe il tableau, che e' proprio quello che si voleva evitare */
+        ev.preventDefault();
+        ev.stopPropagation();
+        const n = b.dataset.num;
+        const r = assegna(n);
+        if (r.ok) {
+          esito.style.color = '#3B6325';
+          esito.textContent = `Camera ${n} scritta nella ${r.dove}. Controlla prima di salvare.`;
+          return;
+        }
+        try { await navigator.clipboard.writeText(n); } catch (e) { /* resta il numero a schermo */ }
+        esito.style.color = '#8A6D12';
+        esito.textContent = `Qui Fidra non ha un campo per il numero: ${n} è negli appunti, `
+          + 'lo assegni nella pratica. (In console: leoCamere() dice cosa vedo.)';
+      });
+    });
+  }
+
+  (typeof self !== 'undefined' ? self : window).leoCamere = () => ({
+    versione: '1.1',
+    campi: campiCandidati().map(c => ({
+      tipo: c.tipo, etichetta: c.etichetta.trim(),
+      valore: String(c.el.value || '').slice(0, 30),
+      opzioni: c.tipo === 'select' ? [...c.el.options].slice(0, 12)
+        .map(o => (o.textContent || '').trim()) : undefined
+    })).slice(0, 25)
+  });
+
   async function mostra(scheda, x, y) {
     const box = apriPopup(x, y);
     box.querySelector('.testata b').textContent = scheda.nome;
@@ -176,14 +270,22 @@
         return;
       }
       const v = per.get(k);
-      const chips = v.libere.map(n => `<span class="num">${n}</span>`).join('');
+      /* v1.1: i numeri erano etichette, e il clic passava sotto finendo
+         sul tableau. Adesso sono pulsanti che provano ad assegnare la
+         camera qui, senza aprire la pratica. */
+      const chips = v.libere.map(n =>
+        `<button type="button" class="num" data-num="${n}"
+          style="cursor:pointer;border:1px solid #9CC4C8;background:#EAF4F5;"
+          title="Assegna la camera ${n}">${n}</button>`).join('');
       /* se i conteggi non tornano con la scheda, lo si dice invece di tacere */
       const nota = (scheda.dichiarate != null && v.libere.length !== scheda.dichiarate)
         ? `<div class="avviso">La scheda dice ${scheda.dichiarate} disponibili, l'API ne dà
            ${v.libere.length}: fa fede Fidra al momento della conferma.</div>` : '';
       corpo.innerHTML = `<div class="periodo">${periodo.testo}</div>
         <div class="numeri">${chips || '—'}</div>
-        <div class="conto"><b>${v.libere.length}</b> ${v.libere.length === 1 ? 'libera' : 'libere'}</div>${nota}`;
+        <div class="conto"><b>${v.libere.length}</b> ${v.libere.length === 1 ? 'libera' : 'libere'}</div>${nota}
+        <div class="esitoNum" style="padding-top:6px;font-size:12px;"></div>`;
+      agganciaNumeri(corpo);
     } catch (e) {
       corpo.innerHTML = `<div class="periodo">${periodo.testo}</div>
         <div class="avviso">Non riesco a leggere le camere: ${String(e.message || e)}</div>`;
