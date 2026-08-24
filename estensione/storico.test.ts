@@ -211,3 +211,21 @@ Deno.test('il trattamento si legge dagli elementi in maiuscolo', () => {
   assert(/'HB'/.test(STORICO) && /'BB'/.test(STORICO) && /'FB'/.test(STORICO),
     'sparita la sigla BB/HB/FB, che e quello che si guarda a colpo d occhio');
 });
+
+Deno.test('il riquadro dice la sua versione', () => {
+  /* il 24 agosto 2026 abbiamo inseguito per due giri un difetto gia'
+     corretto: il riquadro sullo schermo era di due versioni prima e non
+     c'era modo di accorgersene */
+  assert(
+    /chrome\.runtime\.getManifest\(\)\.version/.test(STORICO),
+    'la versione non si vede piu: «l hai ricaricata?» torna a non avere risposta',
+  );
+});
+
+Deno.test('la scheda completa si apre dall alto', () => {
+  /* in fondo bisognava scorrere tutti i soggiorni per trovare il link, e
+     quando serve lo si vuole subito */
+  const i = STORICO.indexOf('Apri la scheda completa');
+  const j = STORICO.indexOf('Ultimi soggiorni');
+  assert(i > 0 && j > 0 && i < j, 'il link alla scheda e tornato in fondo');
+});

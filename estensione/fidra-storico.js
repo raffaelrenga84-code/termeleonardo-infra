@@ -36,6 +36,15 @@
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+  /* v1.5 — LA VERSIONE SI VEDE, e non e' un vezzo.
+     Il 24 agosto 2026 abbiamo inseguito per due giri un difetto gia'
+     corretto: il riquadro sullo schermo era di due versioni prima e non
+     c'era modo di accorgersene. Con il numero in testata la domanda
+     «l'hai ricaricata?» si risponde da sola. */
+  const versione = () => {
+    try { return 'v' + chrome.runtime.getManifest().version; } catch (e) { return ''; }
+  };
+
   /* ---------- il nome scelto nel campo Cliente ----------
      v1.1 — DUE DIFETTI VISTI AL PRIMO USO.
 
@@ -282,6 +291,7 @@
         border-radius:10px 10px 0 0;font-weight:bold;display:flex;justify-content:space-between;
         align-items:center;gap:8px;">
         <span>${esc(titolo)}</span>
+        <span style="font-weight:normal;opacity:.6;font-size:11px;">${esc(versione())}</span>
         <span id="${ID}X" style="cursor:pointer;font-weight:normal;opacity:.85;">&times;</span>
       </div>
       <div style="padding:10px 12px;">${html}</div>`;
@@ -307,13 +317,16 @@
               : '<span style="color:#B3261E;">nessuna email in anagrafica</span>',
       s.tel ? `&#9742; ${esc(s.tel)}` : ''
     ].filter(Boolean).join('<br />');
+    /* v1.5: il link alla scheda sta IN CIMA. In fondo bisognava scorrere
+       tutti i soggiorni per trovarlo, e quando serve — «voglio vedere il
+       resto» — si vuole subito, non dopo aver letto tutto. */
     disegna(
-      `<div style="padding-bottom:8px;">${contatti}</div>
+      `<div style="padding-bottom:8px;"><a href="/customers/${s.id}" target="_blank"
+         style="color:#1E7F88;">Apri la scheda completa &rarr;</a></div>
+       <div style="padding-bottom:8px;">${contatti}</div>
        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#1E7F88;
          padding:6px 0 2px;">Ultimi soggiorni</div>
-       ${righeSoggiorni(s)}
-       <div style="padding-top:8px;"><a href="/customers/${s.id}" target="_blank"
-         style="color:#1E7F88;">Apri la scheda completa &rarr;</a></div>`,
+       ${righeSoggiorni(s)}`,
       s.nome || 'Storico del cliente');
 
     /* i trattamenti arrivano dopo, uno per soggiorno: il riquadro e' gia'
