@@ -168,6 +168,23 @@ async function disegna(d) {
     const classe = a.tipo === 'extra-inclusi' ? 'box' : 'errore';
     h += `<div class="${classe}"><strong>${titolo}</strong> ${esc(a.testo)}</div>`;
   });
+
+  /* v2.9.2: Fidra somma le persone di camere che non si sovrappongono.
+     La correzione la facciamo noi, ma va detta: chi guarda la pagina di
+     Fidra legge un numero e nell'email ne trova un altro, e senza una riga
+     che lo spieghi sembra un difetto nostro. */
+  if (d.occupazioneCorretta) {
+    const o = d.occupazioneCorretta;
+    h += `<div class="box"><strong>Persone corrette.</strong> Fidra ne conta
+      ${o.adultiFidra} ${o.adultiFidra === 1 ? 'adulto' : 'adulti'}${
+        o.bambiniFidra ? ` e ${o.bambiniFidra} bambin${o.bambiniFidra === 1 ? 'o' : 'i'}` : ''}
+      sommando camere con periodi che non si sovrappongono. Nell'email vanno
+      <strong>${d.adulti} ${d.adulti === 1 ? 'adulto' : 'adulti'}${
+        d.bambini ? ` e ${d.bambini} bambin${d.bambini === 1 ? 'o' : 'i'}` : ''}</strong>,
+      cio&egrave; il massimo presente nello stesso momento: due camere che non
+      si sovrappongono non ospitano persone diverse.
+      <div class="sub">La caparra segue lo stesso conto.</div></div>`;
+  }
   d.camere.forEach((c, i) => {
     if (c && c.soggiornanti && c.soggiornanti.length > 1 && (c.prezziDiversi || c.periodiOspitiDiversi)) {
       const cosa = c.prezziDiversi && c.periodiOspitiDiversi ? 'prezzi e date'

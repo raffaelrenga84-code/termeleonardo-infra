@@ -276,6 +276,66 @@ function deduciAnno(mese, giorno, riferimento) {
   return dArr < dRif ? annoBase + 1 : annoBase;
 }
 
+/* ============================================================
+   v2.9.2 — MASSIMA OCCUPAZIONE SIMULTANEA
+   ------------------------------------------------------------
+   Due camere con periodi che non si sovrappongono non possono
+   ospitare persone diverse: in ogni istante ne e' occupata una
+   sola. Sommarle e' sbagliato sia con le alternative (l'ospite ne
+   sceglie una) sia con un cambio camera (le stesse persone si
+   spostano), e i due casi da qui non si distinguono — ma per
+   contare le persone non serve distinguerli.
+
+   Si guarda notte per notte: per ogni notte si sommano le camere
+   che quella notte sono occupate, e si tiene la notte piu'
+   affollata. Con le camere prenotate insieme il massimo E' la
+   somma, quindi il caso normale non cambia di una virgola.
+
+   Restituisce null quando non c'e' niente da correggere: nessuna
+   camera, date illeggibili, oppure il massimo coincide con la
+   somma. Meglio lasciare il numero di Fidra che inventarne uno.
+   ============================================================ */
+function occupazioneMassima(s, anno, annoPartenza) {
+  const camere = (s && s.camere) || [];
+  if (camere.length < 2) return null;
+
+  const giorno = (g, mese, a) => (g && mese && MESI[mese] && a)
+    ? Date.UTC(a, MESI[mese] - 1, g) / 86400000 : null;
+
+  const periodi = [];
+  for (const c of camere) {
+    const p = c.periodo || {};
+    const g1 = p.g1 || s.giornoArrivo;
+    const g2 = p.g2 || s.giornoPartenza;
+    const meseA = p.mese || s.mese;
+    const meseP = p.mesePartenza || p.mese || s.mesePartenza || s.mese;
+    /* l'anno della partenza cambia solo a cavallo di Capodanno, e in quel
+       caso lo sa gia' chi ci ha passato annoPartenza */
+    const t1 = giorno(g1, meseA, anno);
+    const t2 = giorno(g2, meseP, (MESI[meseP] < MESI[meseA]) ? annoPartenza : anno);
+    if (t1 == null || t2 == null || t2 <= t1) return null;   // date illeggibili: non si indovina
+    periodi.push({ t1, t2, adulti: c.adulti || 0, bambini: c.bambini || 0 });
+  }
+
+  const sommaAd = periodi.reduce((a, p) => a + p.adulti, 0);
+  const sommaBa = periodi.reduce((a, p) => a + p.bambini, 0);
+
+  let migliore = null;
+  const inizio = Math.min(...periodi.map(p => p.t1));
+  const fine = Math.max(...periodi.map(p => p.t2));
+  /* una notte per volta: la notte «n» va da n a n+1 */
+  for (let n = inizio; n < fine; n++) {
+    let ad = 0, ba = 0;
+    for (const p of periodi) if (n >= p.t1 && n < p.t2) { ad += p.adulti; ba += p.bambini; }
+    if (!migliore || (ad + ba) > (migliore.adulti + migliore.bambini)) {
+      migliore = { adulti: ad, bambini: ba };
+    }
+  }
+  if (!migliore) return null;
+  if (migliore.adulti === sommaAd && migliore.bambini === sommaBa) return null;
+  return migliore;
+}
+
 /* ---------- assemblaggio ---------- */
 function estrai() {
   const h = estraiHeader();
@@ -297,7 +357,28 @@ function estrai() {
     else totale += c.totalePP * c.adulti;
   });
 
-  const adulti  = s.adulti ?? s.camere.reduce((a, c) => a + (c.adulti || 0), 0);
+  /* v2.9.2 — LE PERSONE NON SI SOMMANO SE LE CAMERE NON SI SOVRAPPONGONO.
+
+     Fidra scrive in testa alla pratica «2 Camere prenotate con in totale 4
+     Adulti e 2 Bambini» e noi lo ripetevamo. Ma quelle due camere erano
+     25→26 e 26→27 settembre: in nessun istante sono occupate insieme, e le
+     persone sono tre, non sei. L'email diceva «6 persone, di cui 2 bambini»
+     a una signora che ne aveva chieste tre, e la caparra usciva 300 € invece
+     di 150.
+
+     Non e' un difetto delle alternative: e' dei periodi diversi. Una
+     famiglia che a meta' soggiorno cambia stanza — un cambio camera vero —
+     riceveva la stessa email con il doppio delle persone.
+
+     La regola giusta non e' la somma, e' la MASSIMA OCCUPAZIONE
+     SIMULTANEA: per ogni notte si sommano le camere che quella notte sono
+     occupate, e si tiene la notte piu' affollata. Con le camere insieme il
+     massimo E' la somma, quindi il caso normale non cambia. */
+  const occ = occupazioneMassima(s, anno, annoPartenza);
+  const adultiFidra = s.adulti ?? s.camere.reduce((a, c) => a + (c.adulti || 0), 0);
+  const bambiniFidra = s.bambini ?? s.camere.reduce((a, c) => a + (c.bambini || 0), 0);
+  const adulti  = occ ? occ.adulti : adultiFidra;
+  const bambini = occ ? occ.bambini : bambiniFidra;
   const acconto = (s.caparraDovuta && s.caparraDovuta > 0)
       ? s.caparraDovuta
       : adulti * CAPARRA_PER_ADULTO;
@@ -337,7 +418,9 @@ function estrai() {
     scadenza: h.scadenza,
     anno, mese: s.mese, giornoArrivo: s.giornoArrivo, giornoPartenza: s.giornoPartenza,
     mesePartenza, annoPartenza,
-    notti: s.notti, nCamere: s.nCamere, adulti, bambini: s.bambini,
+    notti: s.notti, nCamere: s.nCamere, adulti, bambini,
+    /* quando Fidra e la realta' non coincidono, il pannello lo dice */
+    occupazioneCorretta: occ ? { adultiFidra, bambiniFidra } : null,
     camere: s.camere,
     totale: calcolabile ? totale : null,
     totaleFmt: calcolabile ? euro(totale) : null,

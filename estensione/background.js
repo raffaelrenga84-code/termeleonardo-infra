@@ -143,6 +143,29 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 /* ============================================================
+   Apri il pannello dal pulsante messo al posto di «Modello Email»
+   ------------------------------------------------------------
+   chrome.sidePanel.open vuole un gesto dell'operatore. Il clic lo e',
+   ma passando dal content script al service worker il gesto non
+   sopravvive sempre: quando fallisce si risponde con il motivo, e il
+   pulsante dice di premere Ctrl+Shift+L invece di sembrare rotto.
+   ============================================================ */
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.tipo !== 'LEONARDO_APRI_PANNELLO') return;
+  (async () => {
+    try {
+      if (!chrome.sidePanel) throw new Error('pannello non disponibile');
+      const finestra = sender.tab?.windowId;
+      await chrome.sidePanel.open(finestra != null ? { windowId: finestra } : {});
+      sendResponse({ ok: true });
+    } catch (e) {
+      sendResponse({ ok: false, motivo: String(e && e.message || e) });
+    }
+  })();
+  return true; // risposta asincrona
+});
+
+/* ============================================================
    Pannello laterale (v1.2)
    Edge non riapre il pannello dopo il riavvio e l'API non permette
    di aprirlo senza un gesto dell'operatore. Con la preferenza
