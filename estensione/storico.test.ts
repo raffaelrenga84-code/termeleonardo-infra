@@ -179,3 +179,35 @@ Deno.test('il riquadro non finisce sotto «Disponibilita e prezzi»', () => {
     'e tornato troppo in basso: il pulsante di Fidra gli passa sopra',
   );
 });
+
+Deno.test('l email si cerca anche nei campi, non solo nel testo', () => {
+  /* IL DIFETTO: «nessuna email in anagrafica» su un profilo che ce l ha.
+     Nella scheda l indirizzo vive dentro il campo del modulo «Modifica
+     profilo cliente», e textContent legge il testo, non il valore dei
+     campi. */
+  assert(/a\[href\^="mailto:"\]/.test(STORICO), 'non guarda piu il link mailto');
+  assert(
+    /getAttribute\('value'\)/.test(STORICO),
+    'non guarda piu il valore dei campi: l email del profilo resta invisibile',
+  );
+});
+
+Deno.test('il numero della pratica si cerca in tutta la riga', () => {
+  /* «Apri >» puo' essere un azione Livewire e non un <a href>: cercando
+     solo gli href non si trovava niente, e il trattamento restava vuoto */
+  assert(
+    /tr\.outerHTML \|\| ''\)\.match\(\/reservations/.test(STORICO),
+    'il numero della pratica si cerca di nuovo solo negli href',
+  );
+});
+
+Deno.test('il trattamento si legge dagli elementi in maiuscolo', () => {
+  /* cercandolo nel testo intero con /i, una parola come «pensione» dentro
+     una frase qualunque bastava a far partire il taglio */
+  assert(
+    /x === x\.toUpperCase\(\) && PAROLE\.test\(x\)/.test(STORICO),
+    'il trattamento torna a pescare parole dentro le frasi',
+  );
+  assert(/'HB'/.test(STORICO) && /'BB'/.test(STORICO) && /'FB'/.test(STORICO),
+    'sparita la sigla BB/HB/FB, che e quello che si guarda a colpo d occhio');
+});

@@ -158,8 +158,27 @@
     const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
     const testo = (doc.body.textContent || '').replace(/\s+/g, ' ');
 
-    const email = (testo.match(/[\w.+-]+@(?!termeleonardo|hldv)[\w.-]+\.[a-z]{2,}/i) || [])[0] || '';
-    const tel = (testo.match(/\+?\d[\d\s().\/-]{7,}\d/) || [])[0] || '';
+    /* v1.4 — L'EMAIL NON STA NEL TESTO. Il riquadro diceva «nessuna email
+       in anagrafica» su un profilo che ce l'ha: nella scheda l'indirizzo
+       vive dentro il campo del modulo «Modifica profilo cliente», e
+       textContent non legge il valore dei campi — legge solo il testo.
+
+       Si guarda in tre posti, dal piu' attendibile al meno: il link
+       mailto, i campi del modulo, e infine il testo. */
+    const RE_MAIL = /[\w.+-]+@(?!termeleonardo|hldv)[\w.-]+\.[a-z]{2,}/i;
+    const daMailto = doc.querySelector('a[href^="mailto:"]');
+    const daCampo = [...doc.querySelectorAll('input')]
+      .map(i => (i.getAttribute('value') || '').trim())
+      .find(v => RE_MAIL.test(v));
+    const email =
+      (daMailto && (daMailto.getAttribute('href') || '').replace(/^mailto:/i, '').trim()) ||
+      daCampo || (testo.match(RE_MAIL) || [])[0] || '';
+
+    const RE_TEL = /\+?\d[\d\s().\/-]{7,}\d/;
+    const telCampo = [...doc.querySelectorAll('input')]
+      .map(i => (i.getAttribute('value') || '').trim())
+      .find(v => RE_TEL.test(v) && !RE_MAIL.test(v) && !/^\d{1,2}[\/.]\d{1,2}/.test(v));
+    const tel = telCampo || (testo.match(RE_TEL) || [])[0] || '';
     const nome = (doc.querySelector('h1, h2') || {}).textContent?.trim() || '';
 
     /* i soggiorni: righe con data, camera, stato, notti. Si leggono dalle
@@ -178,8 +197,11 @@
       const camera = celle.find(c => /^C\.\s*\d+|camera|zimmer/i.test(c)) || '';
       const stato = celle.find(c => /check-?out|check-?in|conferma|cancellat|opzione|offerta/i.test(c)) || '';
       const notti = (celle.find(c => /^\d{1,2}$/.test(c)) || '');
-      const link = tr.querySelector('a[href*="/reservations/"]');
-      const rid = link && (link.getAttribute('href') || '').match(/reservations\/(\d+)/);
+      /* v1.4 — il numero della pratica non e' per forza dentro un href:
+         «Apri >» puo' essere un'azione Livewire, e cercando solo <a href>
+         non si trovava niente — percio' il trattamento restava vuoto.
+         Si guarda tutta la riga: href, wire:click, data-*, qualunque cosa. */
+      const rid = (tr.outerHTML || '').match(/reservations[\/\\"']{1,3}(\d+)/);
       soggiorni.push({ periodo, camera, stato, notti, rid: rid ? rid[1] : null });
     }
     /* le prenotazioni cancellate non dicono niente sulle abitudini */
@@ -194,9 +216,22 @@
       if (!r.ok) return null;
       const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
       const testo = (doc.body.textContent || '').replace(/\s+/g, ' ');
-      const t = (testo.match(/(MIGLIOR PREZZO|SOGGIORNO|DOLCE VITA|PENSIONE|SPEZIAL|GOLF)[A-Z&\s]{0,40}/i) || [])[0];
+      /* v1.4: il trattamento si cerca fra gli elementi scritti TUTTI IN
+         MAIUSCOLO, che e' come Fidra lo stampa nella scheda. Prima si
+         cercava nel testo intero con /i, e una parola come «pensione»
+         dentro una frase qualunque bastava a far partire il taglio. */
+      const PAROLE = /MIGLIOR PREZZO|SOGGIORNO|DOLCE VITA|PENSIONE|SPEZIAL|GOLF|BED\s*&\s*BREAKFAST|HALBPENSION/;
+      const t = [...doc.querySelectorAll('div, span, p, td, a')]
+        .map(el => (el.textContent || '').replace(/\s+/g, ' ').trim())
+        .find(x => x.length > 4 && x.length < 70 && x === x.toUpperCase() && PAROLE.test(x));
+      /* la sigla che serve a colpo d'occhio: BB, HB o FB */
+      const sigla = !t ? null
+        : /MEZZA\s*PENSIONE|HALBPENSION|HALF\s*BOARD/.test(t) ? 'HB'
+        : /PENSIONE\s*COMPLETA|VOLLPENSION|FULL\s*BOARD/.test(t) ? 'FB'
+        : /BED\s*&\s*BREAKFAST|B\s*&\s*B|COLAZIONE/.test(t) ? 'BB'
+        : null;
       const cure = /\bcure\b|\bfangh?[io]\b|dolce vita|spezial/i.test(testo);
-      return { trattamento: t ? t.replace(/\s+/g, ' ').trim() : null, cure };
+      return { trattamento: t || null, sigla, cure };
     } catch (e) { return null; }
   }
 
@@ -261,7 +296,8 @@
         <div><strong>${esc(x.periodo)}</strong>${x.notti ? ` <span style="color:#8C8578;">&middot; ${esc(x.notti)} notti</span>` : ''}</div>
         ${x.camera ? `<div style="color:#55524B;">${esc(x.camera)}</div>` : ''}
         <div class="tratt" data-rid="${x.rid || ''}" style="color:#0F5C64;">${
-          x.rid ? '<span style="color:#A79E8F;">trattamento…</span>' : ''}</div>
+          x.rid ? '<span style="color:#A79E8F;">trattamento…</span>'
+                : '<span style="color:#C0AFA0;">trattamento non raggiungibile</span>'}</div>
       </td></tr>`).join('')}</table>`;
   }
 
@@ -288,7 +324,9 @@
       const t = await leggiTrattamento(s.id, rid);
       if (!document.getElementById(ID)) return;   // chiuso nel frattempo
       el.innerHTML = t && t.trattamento
-        ? esc(t.trattamento) + (t.cure ? ' <span style="color:#7A8450;">&middot; con cure</span>' : '')
+        ? (t.sigla ? `<strong style="color:#0F5C64;">${t.sigla}</strong> &middot; ` : '') +
+          `<span style="color:#55524B;">${esc(t.trattamento.toLowerCase())}</span>` +
+          (t.cure ? ' <span style="color:#7A8450;">&middot; con cure</span>' : '')
         : '<span style="color:#A79E8F;">trattamento non letto</span>';
     }
   }
