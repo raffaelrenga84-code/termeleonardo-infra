@@ -1,5 +1,5 @@
 /* ============================================================
-   Offerta Leonardo — il cliente nuovo si compila da sé (v1.0)
+   Offerta Leonardo — il cliente nuovo si compila da sé (v1.1)
    ------------------------------------------------------------
    PERCHE' ESISTE. «Quando il cliente non c'è bisogna crearlo, ma Fidra
    non ti ripropone il nome: anche se ho usato il pulsante di Outlook per
@@ -26,6 +26,19 @@
 
    SOLO I CAMPI VUOTI. Se l'operatore ha già scritto qualcosa, quello
    non si tocca: ha davanti l'email e ne sa più di me.
+
+   v1.1 — «AGGIORNA IL TELEFONO» SU UN PROFILO CHE ESISTE GIA'. Il
+   cellulare che l'ospite scrive nel modulo transfer arrivava alla
+   reception e ai tassisti, ma su Fidra restava da ricopiare a mano (la
+   proprietà, 2 settembre 2026). Quando il modulo si apre su un cliente
+   che c'è già, e la richiesta letta in Outlook ha un telefono diverso da
+   quello del profilo, compare la stessa riga con un solo pulsante, che
+   scrive SOLO il telefono. Due regole in più:
+   - solo se è lo stesso ospite: email uguale, o — quando una delle due
+     manca — cognome uguale. Due email diverse sono due persone, anche
+     con lo stesso cognome;
+   - solo se il numero è davvero diverso: «0049 162…» e «+49 162…» sono
+     lo stesso numero, e proporlo sarebbe rumore.
    ============================================================ */
 (() => {
   if (location.hostname !== 'leonardo.fidra.cloud') return;
@@ -55,7 +68,7 @@
       const parti = String(q.ospite || '').trim().split(/\s+/).filter(Boolean);
       return { cognome: parti.length > 1 ? parti[parti.length - 1] : (parti[0] || ''),
                nome: parti.length > 1 ? parti.slice(0, -1).join(' ') : '',
-               email: q.email || '', telefono: '',
+               email: q.email || '', telefono: q.telefono || '',
                lingua: q.lingua || '', da: 'l’ultima richiesta letta in Outlook' };
     }
     return null;
@@ -135,6 +148,61 @@
     return { scritti, saltati };
   }
 
+  /* ---------- il telefono su un profilo che esiste già (v1.1) ---------- */
+  function valoriProfilo(modale) {
+    const c = campi(modale);
+    const v = (el) => (el && el.value ? String(el.value) : '').trim();
+    return { cognome: v(c.cognome), nome: v(c.nome), email: v(c.email), telefono: v(c.telefono) };
+  }
+
+  /* «0049 162 9821106» e «+49 1629821106» sono lo stesso numero; «333
+     1234567» e «+39 333 1234567» pure. Si confrontano le cifre, tolto il
+     doppio zero: se una è la coda dell'altra ed è lunga almeno nove cifre,
+     cambia solo il prefisso. Senza numeri non c'è niente di uguale.
+     Funzione chiusa in sé: nuovo-cliente.test.ts la estrae e la esegue. */
+  function telefoniUguali(a, b) {
+    const cifre = (t) => String(t || '').replace(/\D/g, '').replace(/^00/, '');
+    const x = cifre(a), y = cifre(b);
+    if (!x || !y) return false;
+    if (x === y) return true;
+    const corto = x.length < y.length ? x : y;
+    const lungo = corto === x ? y : x;
+    return corto.length >= 9 && lungo.endsWith(corto);
+  }
+
+  /* Lo stesso ospite: l'email decide, se c'è da tutte e due le parti — due
+     email diverse sono due persone, anche con lo stesso cognome. Se una
+     manca (la richiesta dal centralino non ce l'ha, un profilo vecchio
+     nemmeno), decide il cognome. Senza nessuno dei due, no: scrivere il
+     telefono di un ospite sul profilo di un altro è il danno peggiore che
+     questo script possa fare. Anche questa chiusa in sé, per le prove. */
+  function stessoOspite(dati, profilo) {
+    const piatto = (s) => String(s || '').trim().toLowerCase();
+    const e1 = piatto(dati.email), e2 = piatto(profilo.email);
+    if (e1 && e2) return e1 === e2;
+    const c1 = piatto(dati.cognome), c2 = piatto(profilo.cognome);
+    return !!c1 && c1 === c2;
+  }
+
+  /* null se non c'è niente da proporre; altrimenti cosa c'è nel profilo,
+     cosa arriva dalla richiesta, e perché */
+  function telefonoDaAggiornare(modale) {
+    if (!dati || !dati.telefono) return null;
+    const profilo = valoriProfilo(modale);
+    if (!stessoOspite(dati, profilo)) return null;
+    if (telefoniUguali(profilo.telefono, dati.telefono)) return null;
+    return { nelProfilo: profilo.telefono, nuovo: dati.telefono,
+             perche: profilo.telefono ? 'diverso' : 'mancante' };
+  }
+
+  /* solo il telefono: su un profilo esistente il resto è dell'operatore */
+  function aggiornaTelefono(modale) {
+    const c = campi(modale);
+    if (!c.telefono) return { scritto: false, perche: 'campo non trovato' };
+    scriviNativo(c.telefono, dati.telefono);
+    return { scritto: true };
+  }
+
   /* ---------- la riga sopra il modulo ---------- */
   function modaleProfilo() {
     /* il modulo si riconosce dal titolo che l'operatore legge; se un
@@ -192,21 +260,70 @@
     });
   }
 
+  /* la riga del telefono, su un profilo che esiste già: stessa forma di
+     quella sopra, un valore in meno e un pulsante che tocca un campo solo */
+  const ID_TEL = ID + 'Tel';
+
+  function mostraTelefono(modale, da) {
+    if (document.getElementById(ID_TEL)) return;
+    const box = document.createElement('div');
+    box.id = ID_TEL;
+    box.style.cssText = 'margin:0 0 14px 0;padding:10px 14px;background:#EAF4F5;' +
+      'border-left:4px solid #1E7F88;border-radius:4px;' +
+      'font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#2A2E2B;';
+    box.innerHTML = `
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#1E7F88;">
+        Telefono dell&rsquo;ospite &middot; da ${esc(dati.da)}</div>
+      <div style="padding-top:2px;"><span style="color:#7B756A;">Nella richiesta</span> ${esc(da.nuovo)}</div>
+      <div style="padding-top:2px;"><span style="color:#7B756A;">Nel profilo</span> ${
+        da.nelProfilo ? esc(da.nelProfilo) : '<em>vuoto</em>'}</div>
+      <div style="padding-top:8px;">
+        <button type="button" id="${ID_TEL}Btn" style="cursor:pointer;background:#1E7F88;color:#fff;
+          border:none;border-radius:5px;padding:6px 12px;font-size:13px;">${
+          da.nelProfilo ? 'Aggiorna il telefono' : 'Scrivi il telefono'}</button>
+        <span id="${ID_TEL}Esito" style="padding-left:10px;color:#55524B;"></span>
+      </div>
+      <div style="padding-top:6px;color:#8C8578;font-size:12px;">
+        Tocco solo il telefono. Non salvo niente &mdash; <strong>Salva</strong> lo clicchi tu.</div>`;
+    const primo = modale.querySelector('input');
+    const dove = (primo && primo.closest('div')) || modale;
+    (dove.parentElement || modale).insertBefore(box, dove);
+    document.getElementById(ID_TEL + 'Btn').addEventListener('click', () => {
+      const r = aggiornaTelefono(modale);
+      /* dopo il clic la riga resta con l'esito finché il modulo è aperto:
+         il numero ormai coincide e il ciclo qui sotto la toglierebbe */
+      box.dataset.fatto = '1';
+      document.getElementById(ID_TEL + 'Esito').textContent = r.scritto
+        ? 'Scritto: telefono. Ora Salva.' : 'Non scritto: ' + r.perche;
+    });
+  }
+
   /* Fidra si ridisegna da sola: si guarda a intervalli invece di
      agganciarsi a un elemento che sparisce */
   setInterval(() => {
     if (!dati) return;
     const m = modaleProfilo();
-    if (!m) { document.getElementById(ID)?.remove(); return; }
-    if (vuoto(m)) mostra(m);
+    if (!m) {
+      document.getElementById(ID)?.remove();
+      document.getElementById(ID_TEL)?.remove();
+      return;
+    }
+    if (vuoto(m)) { mostra(m); return; }
+    /* profilo esistente: si propone solo il telefono, e solo finché serve */
+    const da = telefonoDaAggiornare(m);
+    const box = document.getElementById(ID_TEL);
+    if (da) mostraTelefono(m, da);
+    else if (box && !box.dataset.fatto) box.remove();
   }, 900);
 
   (typeof self !== 'undefined' ? self : window).leoNuovoCliente = () => {
     const m = modaleProfilo();
     return {
-      versione: '1.0', dati,
+      versione: '1.1', dati,
       modaleTrovato: !!m,
       vuoto: m ? vuoto(m) : null,
+      profilo: m ? valoriProfilo(m) : null,
+      telefono: m ? telefonoDaAggiornare(m) : null,
       campi: m ? Object.entries(campi(m)).map(([k, v]) => ({
         campo: k, trovato: !!v, valore: v ? String(v.value || '').slice(0, 30) : null
       })) : null

@@ -655,8 +655,12 @@ function parseCentralino(testo) {
     const rif = t.match(/\bRS-20\d\d-\d{3,}\b/i);
     if (rif) r.riferimento = rif[0].toUpperCase();
 
-    /* il nome sta fra l'intestazione e il riferimento */
-    const mn = t.match(/RICHIESTA\s+DAL\s+SITO\s*\n+\s*([^\n]{2,60})/i);
+    /* il nome sta fra l'intestazione e il riferimento. L'intestazione
+       cambia col tipo di richiesta (email-richiesta.ts, ETICHETTA): prima
+       si leggeva solo «RICHIESTA DAL SITO», e da un transfer il nome non
+       usciva mai — e senza cognome, sul profilo Fidra il telefono si
+       propone solo se l'email combacia. */
+    const mn = t.match(/(?:RICHIESTA\s+(?:DAL\s+SITO|TRANSFER|GREEN\s+FEE|TRATTAMENTI|FATTURA)|LEZIONE\s+CON\s+IL\s+MAESTRO|INGRESSO\s+DAY\s+SPA|CHECK-IN\s+ONLINE)\s*\n+\s*([^\n]{2,60})/i);
     if (mn && !/^RS-/i.test(mn[1].trim())) {
       r.ospite = mn[1].trim();
       const parti = r.ospite.split(/\s+/);
@@ -959,6 +963,10 @@ function parseCentralino(testo) {
         quando: Date.now(),
         ospite: dati.ospite || '',
         email: dati.email || '',
+        /* v2.24: serve a fidra-nuovo-cliente.js per proporre «aggiorna il
+           telefono» sul profilo — dal transfer, il numero arrivava a
+           reception e tassisti e su Fidra restava da ricopiare a mano */
+        telefono: dati.telefono || '',
         lingua: linguaTesto(dati.testoOriginale || dati.note || '') || 'it',
         cure: !!dati.cure,
         cane: !!dati.cane,
