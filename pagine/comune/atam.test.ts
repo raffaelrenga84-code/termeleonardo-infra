@@ -25,7 +25,7 @@
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 import {
-  datiATAM, datiATAMRitorno, indirizzoATAM, indirizzoATAMRitorno, riepilogoATAM, vociATAM,
+  datiATAM, datiATAMRitorno, indirizzoATAM, indirizzoATAMRitorno, riepilogoATAM, vociATAM, vociATAMRitorno,
 } from './atam.js';
 
 /* il formattatore di data lo passa la pagina: questo modulo non possiede il
@@ -319,4 +319,50 @@ Deno.test('anche il ritorno, che e una seconda prenotazione, porta il cellulare'
 
 Deno.test('il blocco unito lo dice nella riga del cliente', () => {
   assert(riepilogoATAM(CON_TELEFONO, dataFinta).includes('Nome del cliente: Raffael Renga · 00491629821106'));
+});
+
+/* ============================================================
+   LE VOCI DEL RITORNO, come quelle dell'andata.
+
+   Nel back office l'andata aveva la sua tabella — una riga per campo del
+   modulo dei tassisti, col pulsante Copia — e il ritorno soltanto un
+   pulsante: chi non ha l'estensione doveva ricostruirlo a mano, e chi ce
+   l'ha non vedeva cosa stava per aprire. La proprieta', 2 settembre 2026:
+   «andata e poi pulsante, ritorno e poi pulsante: metti un po' di ordine».
+   Le voci nascono dagli stessi valori grezzi del ritorno (datiATAMRitorno),
+   cosi' tabella e modulo compilato non possono dire due cose diverse.
+   ============================================================ */
+
+Deno.test('il ritorno ha le sue voci, nel verso opposto e col suo servizio', () => {
+  const voci = vociATAMRitorno(CON_RITORNO, dataFinta);
+  assert(voci, 'nessuna voce per un ritorno che c e');
+  const per = (eti: string) => voci!.find((v) => v.eti === eti)?.val;
+  assertEquals(per('Data'), dataFinta('2026-08-22'));
+  assertEquals(per('Ora'), '18:00');
+  assertEquals(per('Pax'), '2');
+  assertEquals(per('Servizio'), 'Auto privata (individuale)', 'il servizio del ritorno non e quello dell andata');
+  assertEquals(per('Partenza per'), 'Venezia  aeroporto', 'chi arriva dall aeroporto torna in aeroporto');
+  assertEquals(per('Arrivo da'), undefined);
+  assertEquals(per('Dettagli arrivo'), 'FR5678', 'il volo e quello del ritorno');
+  assertEquals(per('Nome del cliente'), 'Raffael Renga');
+});
+
+Deno.test('le voci del ritorno tengono separate etichetta e valore, come l andata', () => {
+  for (const v of vociATAMRitorno(CON_RITORNO, dataFinta) || []) {
+    assert(v.eti && v.val !== undefined && !String(v.val).startsWith(v.eti + ':'), v.eti);
+  }
+});
+
+Deno.test('le voci del ritorno non chiedono un altro ritorno', () => {
+  const voci = vociATAMRitorno(CON_RITORNO, dataFinta) || [];
+  assert(!voci.some((v) => /ritorno/i.test(String(v.val))), '«serve anche il ritorno» sulla prenotazione del ritorno');
+});
+
+Deno.test('senza ritorno non ci sono voci del ritorno', () => {
+  assertEquals(vociATAMRitorno(RICHIESTA, dataFinta), null);
+});
+
+Deno.test('anche nelle voci del ritorno il cellulare sta accanto al nome', () => {
+  const voci = vociATAMRitorno({ ...CON_RITORNO, telefono: '00491629821106' }, dataFinta) || [];
+  assertEquals(voci.find((v) => v.eti === 'Nome del cliente')?.val, 'Raffael Renga · 00491629821106');
 });

@@ -139,6 +139,33 @@ export function datiATAMRitorno(r) {
   };
 }
 
+/* Le voci del ritorno per gli occhi di chi legge, nell'ordine del modulo
+   dei tassisti, come vociATAM per l'andata. Nel back office l'andata aveva
+   la sua tabella e il ritorno soltanto un pulsante: chi non ha l'estensione
+   doveva ricostruirlo a mano, e chi ce l'ha non vedeva cosa stava per
+   aprire (la proprieta', 2 settembre 2026: «andata e poi pulsante, ritorno
+   e poi pulsante: metti un po' di ordine»).
+
+   Nascono dai valori grezzi (datiATAMRitorno) e non dalla richiesta: cosi'
+   la tabella e il modulo aperto gia' compilato non possono dire due cose
+   diverse. null senza ritorno, come datiATAMRitorno: un blocco vuoto e' un
+   blocco che si prenota per sbaglio. */
+export function vociATAMRitorno(r, dataIT) {
+  const g = datiATAMRitorno(r);
+  if (!g) return null;
+  const voci = [
+    { eti: 'Data', val: dataIT(g.data) },
+    { eti: 'Ora', val: g.ora },
+    { eti: 'Pax', val: g.pax },
+    { eti: 'Servizio', val: g.collettivo ? 'Navetta condivisa (collettivo)' : 'Auto privata (individuale)' },
+    { eti: g.verso === 'partenza' ? 'Partenza per' : 'Arrivo da', val: g.luogo },
+    { eti: 'Nome del cliente', val: g.nome },
+  ];
+  if (g.volo) voci.push({ eti: 'Dettagli arrivo', val: g.volo });
+  if (g.note) voci.push({ eti: 'Note', val: g.note });
+  return voci;
+}
+
 /* L'indirizzo che apre il modulo dei tassisti gia' compilato per il
    RITORNO. Stesso frammento, stesso meccanismo: sono due prenotazioni, e
    quindi due indirizzi. */

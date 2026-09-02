@@ -154,7 +154,7 @@ import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, cate
 /* stessa regola di sopra: percorso assoluto, non relativo — `/comune/date.js`,
    mai `./date.js` o `../comune/date.js`. Vedi il commento in date.js. */
 import { attivaDate } from '/comune/date.js';
-import { vociATAM, riepilogoATAM, indirizzoATAM, indirizzoATAMRitorno } from '/comune/atam.js';
+import { vociATAM, vociATAMRitorno, riepilogoATAM, indirizzoATAM, indirizzoATAMRitorno } from '/comune/atam.js';
 import { LUOGHI_ATAM } from '/comune/luoghi.js';
 /* Il listino dei transfer: PROPONE una cifra, non la decide. La conferma
    umana e' quello che rende onesto il prezzo che arriva all'ospite — vedi
@@ -1115,6 +1115,18 @@ function boxAltreDifferenze(r) {
    si rimanda con ?a=conferma, qui si costruisce solo il modulo che lo
    raccoglie. I campi che un tipo non espone qui (es. golfcar del green fee)
    restano quelli che c'erano: vedi lo spread di r.dati in datiCorretti(). */
+/* Una riga della tabella per il modulo dei tassisti: etichetta, valore e il
+   pulsante che copia il VALORE e basta. Serve all'andata e al ritorno, che
+   hanno la stessa tabella. */
+function rigaAtam(v) {
+  return `<tr>
+        <th>${esc(v.eti)}</th>
+        <td>${esc(v.val)}</td>
+        <td>${v.soloDaLeggere || !v.val ? ''
+          : `<button type="button" class="copiaVoce" data-val="${esc(v.val)}">Copia</button>`}</td>
+      </tr>`;
+}
+
 function campiTransfer(r) {
   const d = r.dati || {};
   const opzLuogo = LUOGHI_ATAM.map((l) =>
@@ -1625,6 +1637,56 @@ function dettaglioRichiesta(r) {
       ${r.conferma_esito === 'fallita'
         ? '<span class="nonconsegnato">EMAIL NON PARTITA</span>' : ''}</div>` : ''}
 
+    ${r.tipo === 'transfer' ? `<div style="margin-top:18px;padding-top:16px;border-top:1px solid #E6E2D8;">
+      <h2 style="font-size:18px;">Per il modulo dei tassisti</h2>
+      <!-- ANDATA E RITORNO UNO SOTTO L'ALTRO, OGNUNO CON LA SUA TABELLA E IL
+           SUO PULSANTE, e PRIMA della conferma all'ospite. «Apri in ATAM lo
+           posizionerei sotto ogni richiesta: andata e poi pulsante, ritorno
+           e poi pulsante, e poi conferma al cliente. Metti un po' di
+           ordine» (2 settembre 2026). Prima la tabella dell'andata stava in
+           fondo, il ritorno aveva un pulsante senza tabella, e in mezzo
+           c'era il modulo della conferma: tre cose impilate senza un ordine.
+
+           Una riga per campo, e si copia il VALORE: il blocco unico di prima
+           finiva in un campo solo, «Data: 15 agosto 2026» con dentro la
+           parola «Data:», e il loro calendario non la sapeva leggere. -->
+      <div class="mini" style="padding-bottom:4px;">Una riga per ogni campo del loro modulo, e
+        si copia il valore. Il luogo è già scritto come nel loro elenco. Per aprire il
+        modulo già compilato serve l'estensione Offerta Leonardo: <strong>Prenota lo premi
+        tu</strong>, dopo aver riletto.</div>
+      <div style="margin-top:10px;padding:12px 0 12px 14px;border-left:3px solid #1E7F88;">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;
+          color:#1E7F88;font-weight:700;padding-bottom:8px;">Andata</div>
+        <table class="atam">${vociATAM(r, dataIT).map(rigaAtam).join('')}</table>
+        <textarea id="cAtam" rows="2" readonly hidden>${esc(riepilogoATAM(r, dataIT))}</textarea>
+        <!-- Il modulo dei tassisti si compila da solo: l'estensione legge i
+             dati dal FRAMMENTO dell'indirizzo (dopo il #), che il browser non
+             manda mai al server. Chi non ha l'estensione usa il copia, che
+             resta. Provato che un link con la query NON funziona: la loro
+             vista Django ignora ?pax=3, i campi restano vuoti. -->
+        <a class="azione" id="bApriAtam" href="${esc(indirizzoATAM(r))}"
+          target="_blank" rel="noopener noreferrer"
+          style="display:block;text-align:center;text-decoration:none;">Apri l’andata su ATAM già compilata</a>
+        <button class="azione sec" id="bCopiaAtam" style="margin-top:8px;">Copia tutto in blocco</button>
+      </div>
+      <!-- IL RITORNO E' UNA SECONDA PRENOTAZIONE. Su atam.biz non esiste un
+           campo «ritorno»: si prenota da capo, con la sua data, la sua ora e
+           il VERSO OPPOSTO — chi arriva dall'aeroporto torna in aeroporto.
+           Prima c'era solo una nota nelle note e la reception rifaceva tutto
+           a mano, indovinando il verso. La tabella nasce dagli stessi valori
+           del modulo compilato (vociATAMRitorno), quindi non possono
+           divergere. -->
+      ${vociATAMRitorno(r, dataIT) ? `
+      <div style="margin-top:14px;padding:12px 0 12px 14px;border-left:3px solid #8FA98A;">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;
+          color:#5F7A5A;font-weight:700;padding-bottom:8px;">Ritorno · seconda prenotazione, verso opposto</div>
+        <table class="atam">${vociATAMRitorno(r, dataIT).map(rigaAtam).join('')}</table>
+        <a class="azione" id="bApriAtamRitorno" href="${esc(indirizzoATAMRitorno(r))}"
+          target="_blank" rel="noopener noreferrer"
+          style="display:block;text-align:center;text-decoration:none;">Apri il ritorno su ATAM già compilato</a>
+      </div>` : ''}
+    </div>` : ''}
+
     ${r.tipo !== 'soggiorno' ? `<div style="margin-top:18px;padding-top:16px;border-top:1px solid #E6E2D8;">
       <h2 style="font-size:18px;">Conferma all’ospite</h2>
       <div class="mini" style="padding-bottom:6px;">Correggi qui se hai spostato qualcosa:
@@ -1638,48 +1700,6 @@ function dettaglioRichiesta(r) {
         <input type="checkbox" id="cSegnala" ${segnalaDiDefault ? 'checked' : ''}
           style="width:auto;margin:0;" /> segnala all’ospite cosa è cambiato</label>
       <button class="azione" id="bConferma">Conferma e avvisa l’ospite</button>
-    </div>` : ''}
-
-    ${r.tipo === 'transfer' ? `<div style="margin-top:18px;padding-top:16px;border-top:1px solid #E6E2D8;">
-      <h2 style="font-size:18px;">Per il modulo dei tassisti</h2>
-      <!-- Una riga per campo, e si copia il VALORE. Il blocco unico di prima
-           invitava a incollarlo tutto su atam.biz: finiva in un campo solo,
-           «Data: 15 agosto 2026» con dentro la parola «Data:», e il loro
-           calendario non la sapeva leggere. -->
-      <div class="mini" style="padding-bottom:8px;">Una riga per ogni campo del loro
-        modulo. Il luogo è già scritto come nel loro elenco: si copia e si incolla
-        senza toccarlo.</div>
-      <table class="atam">${vociATAM(r, dataIT).map((v) => `<tr>
-        <th>${esc(v.eti)}</th>
-        <td>${esc(v.val)}</td>
-        <td>${v.soloDaLeggere || !v.val ? ''
-          : `<button type="button" class="copiaVoce" data-val="${esc(v.val)}">Copia</button>`}</td>
-      </tr>`).join('')}</table>
-      <textarea id="cAtam" rows="2" readonly hidden>${esc(riepilogoATAM(r, dataIT))}</textarea>
-      <!-- Il modulo dei tassisti si compila da solo: l'estensione legge i dati
-           dal FRAMMENTO dell'indirizzo (dopo il #), che il browser non manda
-           mai al server. Chi non ha l'estensione usa il copia qui sotto, che
-           resta. Provato che un link con la query NON funziona: la loro vista
-           Django ignora ?pax=3, i campi restano vuoti. -->
-      <a class="azione" id="bApriAtam" href="${esc(indirizzoATAM(r))}"
-        target="_blank" rel="noopener noreferrer"
-        style="display:block;text-align:center;text-decoration:none;">Apri su ATAM già compilato</a>
-      <div class="mini" style="padding-top:6px;">Serve l'estensione Offerta Leonardo.
-        Il modulo si compila da solo: <strong>Prenota lo premi tu</strong>, dopo aver riletto.</div>
-      <button class="azione sec" id="bCopiaAtam">Copia tutto in blocco</button>
-      <!-- IL RITORNO E' UNA SECONDA PRENOTAZIONE. Su atam.biz non esiste un
-           campo «ritorno»: si prenota da capo, con la sua data, la sua ora e
-           il VERSO OPPOSTO — chi arriva dall'aeroporto torna in aeroporto.
-           Prima c'era solo una nota nelle note e la reception rifaceva tutto
-           a mano, indovinando il verso. -->
-      ${indirizzoATAMRitorno(r) ? `
-      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #F0EBE1;">
-        <div class="mini" style="padding-bottom:6px;">Il ritorno è una <strong>seconda
-          prenotazione</strong> su ATAM, nel verso opposto.</div>
-        <a class="azione" href="${esc(indirizzoATAMRitorno(r))}"
-          target="_blank" rel="noopener noreferrer"
-          style="display:block;text-align:center;text-decoration:none;">Apri il ritorno su ATAM già compilato</a>
-      </div>` : ''}
     </div>` : ''}
 
     <div class="due" style="margin-top:16px;">
