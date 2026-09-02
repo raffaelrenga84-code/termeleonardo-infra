@@ -258,3 +258,29 @@ Deno.test('la scelta di partenza resta «servono tutte»', () => {
     'la scelta di partenza non e piu «servono tutte»: le offerte normali cambierebbero da sole',
   );
 });
+
+Deno.test('nelle alternative non si scrive un saldo che non esiste', () => {
+  /* SEGNALATO SU UN'OFFERTA TEDESCA A DUE SOLUZIONI: la riga diceva «bei
+     Abreise zahlen Sie noch 3.719,50 €», cioe' il totale di TUTTE le
+     camere meno la caparra. Ma l'ospite ne sceglie una: quel numero non e'
+     il suo saldo, e' la somma di due soggiorni di cui ne fara' uno.
+
+     La riga sopra lo sapeva gia' — «la caparra dipende dalla soluzione, la
+     trova sopra in ognuna» — e poi quella sotto tornava a sommare tutto.
+
+     Non si sostituisce con un altro numero: finche' la scelta non c'e', un
+     saldo NON ESISTE. Si dice che la caparra si detrae, e si tace il
+     resto. */
+  const off = offerte();
+  const alt = pratica(true), somma = pratica(false);
+  for (const l of LINGUE) {
+    assert(
+      !/420[.,]00/.test(off[l](alt, OPZ)),
+      `nelle alternative compare ancora il saldo sommato (420,00), in ${l}`,
+    );
+    assert(
+      /420[.,]00/.test(off[l](somma, OPZ)),
+      `il saldo e sparito anche quando le camere si sommano, in ${l}`,
+    );
+  }
+});

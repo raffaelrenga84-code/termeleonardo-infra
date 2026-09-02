@@ -89,13 +89,47 @@ const ETICHETTA: Record<string, string> = {
   fattura: 'RICHIESTA FATTURA',
 };
 
+/* IL RITORNO E' UNA SECONDA CORSA, e in questa email non c'era.
+
+   Segnalato dalla reception: «se un cliente ha compilato l'andata e anche
+   il ritorno, riceviamo solo la mail dell'arrivo». Non mancava l'email:
+   mancavano i DATI. Di tutto il ritorno arrivava un «· con ritorno» in
+   coda ai passeggeri, e giorno, ora, volo e servizio restavano nel back
+   office — cosi' chi lavorava sull'email prenotava una corsa sola.
+
+   Su atam.biz il ritorno e' una prenotazione a parte, e qui e' un blocco a
+   parte: stessa forma dell'andata, cosi' si legge allo stesso modo e le due
+   ore non si confondono.
+
+   IL VERSO E' OPPOSTO — chi arriva dall'aeroporto torna in aeroporto.
+   Scriverlo uguale all'andata manderebbe il tassista dalla parte sbagliata,
+   ed e' un errore che si scopre a corsa iniziata. */
 function righeTransfer(r: Record<string, unknown>, riga: (e: string, v: string, f?: boolean) => string): string {
   const verso = r.verso === 'partenza' ? 'Partenza per' : 'Arrivo da';
-  return [
-    riga('Quando', `${data(String(r.quando))} alle ${String(r.ora ?? '')}`, true),
+  const servizio = (c: unknown) => c === true ? 'navetta condivisa' : 'auto privata';
+  /* l'ora del volo accanto a quella del ritiro, quando c'e': sono due cose
+     diverse e distano tre ore — mostrarne una sola le fa scambiare */
+  const conVolo = (ora: unknown, oraVolo: unknown) =>
+    `${String(ora ?? '')}${oraVolo ? ` (volo alle ${String(oraVolo)})` : ''}`;
+
+  const andata = [
+    riga('Quando', `${data(String(r.quando))} alle ${conVolo(r.ora, r.ora_volo)}`, true),
     riga(verso, String(r.luogo ?? '')),
-    riga('Passeggeri', `${r.pax}${r.ritorno === true ? ' · con ritorno' : ''}`),
+    riga('Passeggeri', String(r.pax ?? '')),
     riga('Volo / treno', String(r.volo ?? '')),
+    riga('Servizio', servizio(r.collettivo)),
+  ].join('');
+
+  if (r.ritorno !== true || !r.ritorno_quando) return andata;
+
+  /* il ritorno di un arrivo e' una partenza, e viceversa */
+  const versoR = r.verso === 'partenza' ? 'Arrivo da' : 'Partenza per';
+  return andata + [
+    riga('RITORNO', 'seconda prenotazione su ATAM, nel verso opposto', true),
+    riga('Quando', `${data(String(r.ritorno_quando))} alle ${conVolo(r.ritorno_ora, r.ritorno_ora_volo)}`, true),
+    riga(versoR, String(r.luogo ?? '')),
+    riga('Volo / treno', String(r.ritorno_volo ?? '')),
+    riga('Servizio', servizio(r.ritorno_collettivo)),
   ].join('');
 }
 

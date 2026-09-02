@@ -229,7 +229,7 @@ ${d.linkPagamento ? `          <table role="presentation" cellpadding="0" cellsp
     <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">Comment confirmer</h2>
     <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
       ${d.alternative ? 'L&rsquo;acompte d&eacute;pend de la solution retenue : vous le trouvez ci-dessus &agrave; c&ocirc;t&eacute; de chacune.' : `Des arrhes de <strong style="color:#2A2E2B;">${argentFR(d.acconto)}</strong> (${arrhPP} € par personne) suffisent.`}
-      <strong style="color:#2A2E2B;">Elles sont déduites du total</strong>: au départ, il vous restera ${argentFR(d.saldo)}.
+      <strong style="color:#2A2E2B;">Elles sont déduites du total</strong>${d.alternative ? '.' : `: au départ, il vous restera ${argentFR(d.saldo)}.`}
     </p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-left:2px solid #C8BFAE;"><tr><td style="padding:2px 0 2px 16px;">
 ${d.linkPagamento ? `      <p style="margin:0 0 9px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">

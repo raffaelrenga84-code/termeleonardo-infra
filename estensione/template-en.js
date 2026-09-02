@@ -249,7 +249,7 @@ ${d.linkPagamento ? `          <table role="presentation" cellpadding="0" cellsp
     <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">How to confirm</h2>
     <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
       ${d.alternative ? 'The deposit depends on the option you choose: you will find it next to each one above.' : `A deposit of <strong style="color:#2A2E2B;">${moneyEN(d.acconto)}</strong> (€${depPP} per person) secures the booking.`}
-      <strong style="color:#2A2E2B;">It is deducted from the total</strong>: on departure you will pay ${moneyEN(d.saldo)}.
+      <strong style="color:#2A2E2B;">It is deducted from the total</strong>${d.alternative ? '.' : `: on departure you will pay ${moneyEN(d.saldo)}.`}
     </p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-left:2px solid #C8BFAE;"><tr><td style="padding:2px 0 2px 16px;">
 ${d.linkPagamento ? `      <p style="margin:0 0 9px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">

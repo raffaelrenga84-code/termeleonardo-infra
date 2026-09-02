@@ -433,6 +433,12 @@ function modulo() {
              ritorno» non fa capire se e' l'ora del volo o quella del ritiro
              in hotel — e le due cose distano tre ore. -->
         <div class="guida" id="notaVersoRitorno" style="margin-top:8px;"></div>
+        <!-- L'ORA DEL RITIRO, SCRITTA ALL'OSPITE. Gli chiediamo l'ora del
+             volo e prenotiamo tre ore prima: se il conto non glielo facciamo
+             vedere, lui crede di essere preso all'ora che ha scritto. E se
+             il volo e' di notte il ritiro cade il giorno prima — non dirlo
+             manda una persona ad aspettare la sera sbagliata. -->
+        <div class="guida" id="notaRitiroRitorno" style="margin-top:4px;"></div>
         <label for="fRitornoVolo">${esc(t.ritornoVolo)}</label>
         <input type="text" id="fRitornoVolo" placeholder="${esc(t.voloPh)}" />
         <!-- CON CHE SERVIZIO. Chi sceglie la navetta per l'andata da' per
@@ -610,9 +616,20 @@ function modulo() {
       luogo: $('fLuogo').value, pax: $('fPax').value, verso: VERSO,
       ritorno_quando: $('fRitornoQuando').value, ritorno_ora: $('fRitornoOra').value,
     });
-    $('notaVersoRitorno').textContent = (r && r.verso === 'arrivo')
+    const versoArrivo = !!(r && r.verso === 'arrivo');
+    $('notaVersoRitorno').textContent = versoArrivo
       ? t.ritornoVersoArrivo
       : t.ritornoVersoPartenza;
+
+    /* il ritiro calcolato, scritto all'ospite: gli chiediamo l'ora del volo
+       e lo prendiamo tre ore prima. Vale solo quando il ritorno lo porta
+       all'aeroporto — nell'altro verso l'ora che scrive e' gia' quella
+       dell'atterraggio, e non c'e' niente da anticipare. */
+    const ritiro = versoArrivo ? null : ritiroPerVolo($('fRitornoOra').value);
+    $('notaRitiroRitorno').textContent = !ritiro ? ''
+      : (ritiro.giornoPrima && $('fRitornoQuando').value
+          ? t.ritiroGiornoPrima(giornoPrimaDi($('fRitornoQuando').value), ritiro.ora)
+          : t.ritiroAlle(ritiro.ora));
 
     /* il servizio si dice solo a chi ha scelto la navetta per l'andata:
        a chi ha scelto l'auto privata non interessa e sarebbe rumore */
@@ -654,6 +671,10 @@ function modulo() {
   $('fQuando').addEventListener('change', legaDateRitorno);
   for (const id of ['fRitornoQuando', 'fRitornoOra']) {
     $(id).addEventListener('change', () => { legaDateRitorno(); aggiornaRitornoNote(); });
+    /* anche su «input», come l'andata: l'ora del ritiro deve comparire
+       mentre si digita, non quando si esce dal campo — chi non esce dal
+       campo non la vedrebbe mai */
+    $(id).addEventListener('input', () => { legaDateRitorno(); aggiornaRitornoNote(); });
   }
 
   /* le etichette dei gruppi si traducono qui: nel modello sono segnaposto */
@@ -736,6 +757,52 @@ function corsaVera() {
   return { quando: giorno, ora: r.ora, ora_volo: scritta };
 }
 
+/* IL RITORNO SEGUE LA STESSA REGOLA, e finora non la seguiva.
+
+   IL DIFETTO, e non era piccolo. Il riquadro del ritorno dice all'ospite, in
+   tutte e quattro le lingue e SENZA CONDIZIONI: «Il ritorno la riporta
+   all'aeroporto o alla stazione: indichi l'ora del volo o del treno». Lui
+   scrive l'ora del volo — gliel'abbiamo chiesta noi — e quell'ora finiva
+   dritta su ATAM come ora del RITIRO. Il tassista si presentava all'ora in
+   cui l'aereo decolla.
+
+   Non e' successo perche' la reception se ne accorge e corregge a mano: la
+   signora Sommer aveva scritto 17:55 e l'operatore ha messo 14:55 prima di
+   esportare. Un conto fatto a mano ogni volta e' un conto che prima o poi
+   salta — e quella volta l'ospite perde l'aereo.
+
+   L'effetto secondario era altrettanto brutto: correggendo a mano, il
+   sistema registrava una DIFFERENZA («aveva chiesto: 17:55») e la scriveva
+   nella conferma all'ospite. Ma nessuno gli aveva cambiato niente: gli
+   avevamo chiesto il volo e calcolato il ritiro. Ora che il conto e'
+   automatico quella riga sparisce, perche' non c'e' piu' niente di diverso.
+
+   PERCHE' QUI NON SI GUARDA IL SERVIZIO. Sull'andata la traduzione scatta
+   solo con la navetta, perche' li' l'etichetta del campo cambia di
+   conseguenza: «Ora del volo» con la condivisa, «Ora» con l'auto privata.
+   Sul ritorno la guida chiede l'ora del volo SEMPRE — e allora sempre va
+   tradotta, o si scrive una cosa e se ne registra un'altra. */
+function corsaVeraRitorno() {
+  const quando = v('fRitornoQuando');
+  const scritta = v('fRitornoOra');
+  /* il ritorno di un arrivo e' una partenza: e' quello il verso che porta
+     all'aeroporto, ed e' l'unico in cui esiste un'ora del volo da anticipare */
+  if (VERSO === 'partenza') return { ritorno_quando: quando, ritorno_ora: scritta };
+
+  const r = ritiroPerVolo(scritta);
+  if (!r) return { ritorno_quando: quando, ritorno_ora: scritta };
+
+  let giorno = quando;
+  if (r.giornoPrima && quando) {
+    const d = new Date(quando + 'T12:00:00');
+    d.setDate(d.getDate() - 1);
+    giorno = d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+  return { ritorno_quando: giorno, ritorno_ora: r.ora, ritorno_ora_volo: scritta };
+}
+
 async function invia() {
   const t = T[LNG];
   if (INVIANDO) return;
@@ -784,7 +851,9 @@ async function invia() {
           ...corsaVera(),
           pax: Number(v('fPax') || 2),
           verso: VERSO, luogo: v('fLuogo'), volo: v('fVolo'), collettivo: COLLETTIVO,
-          ritorno_quando: v('fRitornoQuando'), ritorno_ora: v('fRitornoOra'),
+          /* nemmeno il ritorno prende giorno e ora dai campi: li da'
+             corsaVeraRitorno(), che traduce l'ora del volo in ora del ritiro */
+          ...corsaVeraRitorno(),
           ritorno_volo: v('fRitornoVolo'), ritorno_collettivo: RITORNO_COLLETTIVO,
           ritorno: $('fRitorno').checked, note: v('fNote'),
         },

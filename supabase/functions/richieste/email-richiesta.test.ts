@@ -83,10 +83,56 @@ Deno.test('l avviso di un transfer racconta il transfer, non un soggiorno', () =
   assert(!h.includes('notti'), 'un transfer non ha notti');
 });
 
-Deno.test('il transfer dice se serve anche il ritorno', () => {
-  assertStringIncludes(richiestaHTML(trasferimento as never), 'con ritorno');
+Deno.test('il ritorno arriva TUTTO, non come una nota in coda', () => {
+  /* IL DIFETTO, segnalato dalla reception: «se un cliente ha compilato
+     l'andata e anche il ritorno, riceviamo solo la mail dell'arrivo». Non
+     mancava l'email: mancavano i dati. Di tutto il ritorno arrivava un
+     «· con ritorno» accanto ai passeggeri, e giorno, ora, volo e servizio
+     restavano nel back office — cosi' chi lavorava sull'email prenotava
+     una corsa sola, e la seconda non la prenotava nessuno.
+
+     Su atam.biz il ritorno e' una prenotazione a parte: qui dev'essere un
+     blocco a parte, con dentro tutto quello che serve a farla. */
+  const con = {
+    ...trasferimento,
+    ritorno_quando: '2026-09-17', ritorno_ora: '11:55',
+    ritorno_ora_volo: '14:55', ritorno_volo: 'FR5678', ritorno_collettivo: true,
+  };
+  const h = richiestaHTML(con as never);
+  assertStringIncludes(h, 'RITORNO');
+  assertStringIncludes(h, '17/09/2026');
+  assertStringIncludes(h, '11:55');
+  assertStringIncludes(h, 'FR5678');
+  /* IL VERSO E' OPPOSTO: l'andata e' un arrivo, il ritorno una partenza.
+     Scriverlo uguale manderebbe il tassista dalla parte sbagliata. */
+  assertStringIncludes(h, 'Partenza per');
+
   const senza = richiestaHTML({ ...trasferimento, ritorno: false } as never);
-  assert(!senza.includes('con ritorno'));
+  assert(!senza.includes('RITORNO'), 'il blocco del ritorno compare anche senza ritorno');
+});
+
+Deno.test('l ora del volo si vede accanto a quella del ritiro', () => {
+  /* le due distano TRE ORE. Mostrarne una sola le fa scambiare, ed e'
+     l'equivoco che ha costretto la reception a correggere a mano l'ora
+     della signora Sommer prima di esportarla su ATAM. */
+  const h = richiestaHTML({
+    ...trasferimento,
+    ritorno_quando: '2026-09-17', ritorno_ora: '11:55', ritorno_ora_volo: '14:55',
+  } as never);
+  assertStringIncludes(h, '11:55 (volo alle 14:55)');
+});
+
+Deno.test('il servizio si legge: navetta condivisa o auto privata', () => {
+  /* il tassista deve sapere se manda un'auto sola o passa a raccogliere:
+     era un dato che c'era nella richiesta e non compariva nell'avviso */
+  assertStringIncludes(
+    richiestaHTML({ ...trasferimento, collettivo: true } as never),
+    'navetta condivisa',
+  );
+  assertStringIncludes(
+    richiestaHTML({ ...trasferimento, collettivo: false } as never),
+    'auto privata',
+  );
 });
 
 Deno.test('l avviso porta il marchio dell hotel', () => {

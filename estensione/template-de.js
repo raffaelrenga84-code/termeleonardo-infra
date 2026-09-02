@@ -241,7 +241,7 @@ ${d.linkPagamento ? `          <table role="presentation" cellpadding="0" cellsp
     <h2 style="margin:0 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:24px;font-weight:normal;color:#2A2E2B;">So bestätigen Sie Ihre Reservierung</h2>
     <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">
       ${d.alternative ? 'Die Anzahlung h&auml;ngt von der gew&auml;hlten M&ouml;glichkeit ab: Sie finden sie oben bei jeder einzelnen.' : `Es genügt eine Anzahlung (Kaution) von <strong style="color:#2A2E2B;">${d.acconto.toLocaleString('de-DE',{minimumFractionDigits:2})} &euro;</strong> (${kautionPP} &euro; pro Person).`}
-      <strong style="color:#2A2E2B;">Sie wird vom Gesamtpreis abgezogen</strong>: bei Abreise zahlen Sie noch ${d.saldo.toLocaleString('de-DE',{minimumFractionDigits:2})} &euro;.
+      <strong style="color:#2A2E2B;">Sie wird vom Gesamtpreis abgezogen</strong>${d.alternative ? '.' : `: bei Abreise zahlen Sie noch ${d.saldo.toLocaleString('de-DE',{minimumFractionDigits:2})} &euro;.`}
     </p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-left:2px solid #C8BFAE;"><tr><td style="padding:2px 0 2px 16px;">
 ${d.linkPagamento ? `      <p style="margin:0 0 9px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">

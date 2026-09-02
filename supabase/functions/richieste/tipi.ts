@@ -128,6 +128,23 @@ function validaTransfer(d: Record<string, unknown>, oggi: Date): Esito {
     oraVolo = ov.valore ?? null;
   }
 
+  /* E L'ORA DEL VOLO DEL RITORNO, per la stessa ragione e con piu' urgenza.
+     Il riquadro del ritorno chiede l'ora del volo SEMPRE — lo dice la guida
+     in tutte e quattro le lingue — e da oggi `ritorno_ora` porta il ritiro,
+     tre ore prima. Senza questo campo il dato di partenza sparirebbe: chi
+     rilegge la richiesta vedrebbe un'ora sola e non saprebbe se e' quella
+     del volo o quella dell'auto — che e' esattamente l'equivoco costato la
+     correzione a mano sulla richiesta della signora Sommer.
+
+     Un campo non previsto qui viene scartato IN SILENZIO: lo dice il
+     commento sul prezzo qui sotto, e vale identico per questo. */
+  let ritornoOraVolo: string | null = null;
+  if (testo(d.ritorno_ora_volo)) {
+    const rv = ora(d.ritorno_ora_volo);
+    if (rv.errore) return { errore: `ora del volo del ritorno: ${rv.errore}` };
+    ritornoOraVolo = rv.valore ?? null;
+  }
+
   /* IL PREZZO NON LO SCRIVE L'OSPITE: lo conferma la reception prima di
      mandare la conferma, e finisce nell'email come cifra da dare
      all'autista. Sta qui perche' `?a=conferma` rivalida i dati con queste
@@ -153,6 +170,7 @@ function validaTransfer(d: Record<string, unknown>, oggi: Date): Esito {
       prezzo_cent: prezzoCent,
       luogo: testo(d.luogo), volo, ritorno: vuoleRitorno, note,
       ritorno_quando: ritornoQuando, ritorno_ora: ritornoOra, ora_volo: oraVolo,
+      ritorno_ora_volo: ritornoOraVolo,
       ritorno_volo: ritornoVolo, ritorno_collettivo: d.ritorno_collettivo === true,
     },
   };
