@@ -514,3 +514,28 @@ Deno.test('nessun tipo riceve una conferma col solo riferimento dentro', () => {
     assert(!h.includes('undefined'), `${tipo}: c e un undefined a video`);
   }
 });
+
+Deno.test('la conferma arriva anche alla reception, in copia nascosta', async () => {
+  /* IL DIFETTO, segnalato dalla reception: «quando ho avvisato e
+     confermato modifiche all'ospite, la reception non ha ricevuto la
+     mail». Questa email partiva SOLO all'ospite, e in casa non restava
+     traccia di cosa gli fosse stato scritto — l'orario spostato, il
+     prezzo confermato, il messaggio libero. Chi risponde al telefono il
+     giorno dopo non aveva modo di sapere cosa l'ospite ha in mano.
+
+     COPIA, non secondo invio: e' la stessa email, con lo stesso testo e
+     lo stesso numero, quindi non ci sono due versioni che divergono.
+
+     NASCOSTA: all'ospite l'indirizzo interno non serve, e vedersi in
+     copia lo farebbe rispondere a tutti. */
+  Deno.env.set('RESEND_API_KEY', 'finta');
+  const i = intercetta();
+  try {
+    assertEquals(await inviaConferma(transfer), true);
+    assertEquals(i.spedite.length, 1, 'due invii invece di uno: i testi possono divergere');
+    const m = i.spedite[0] as Record<string, unknown>;
+    assertEquals(m.to, 'klaus@example.de', 'l ospite non e piu il destinatario');
+    assertEquals(m.bcc, ['info@termeleonardo.com'], 'la reception non riceve piu la copia');
+    assertEquals(m.cc, undefined, 'la copia e visibile all ospite: risponderebbe a tutti');
+  } finally { i.ripristina(); }
+});

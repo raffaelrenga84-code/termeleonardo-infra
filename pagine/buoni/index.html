@@ -1119,10 +1119,41 @@ function campiTransfer(r) {
   const d = r.dati || {};
   const opzLuogo = LUOGHI_ATAM.map((l) =>
     `<option value="${esc(l)}" ${d.luogo === l ? 'selected' : ''}>${esc(l)}</option>`).join('');
-  return `<div class="due">
+  /* ============================================================
+     ANDATA E RITORNO, IN DUE BLOCCHI SEPARATI.
+     ------------------------------------------------------------
+     «Suddividi visualmente meglio l'andata dal ritorno: ci sono molte
+     informazioni ed e' facile sbagliare.» Aveva ragione, e il difetto era
+     peggio di un problema di spaziatura: i campi erano MESCOLATI. Il
+     «Servizio» dell'andata stava sotto «Servizio del ritorno», e le due
+     tendine, identiche parola per parola, si leggevano una accanto
+     all'altra senza niente che dicesse a quale corsa appartenessero.
+
+     Sbagliarle non da' nessun errore: manda un'auto privata dove serviva
+     la navetta, e lo si scopre in aeroporto.
+
+     Ora ogni blocco tiene TUTTI i campi della sua corsa, con
+     un'intestazione e un filetto a sinistra. Il ritorno compare solo se
+     serve: un blocco vuoto e' un blocco che si compila per sbaglio.
+     ============================================================ */
+  const servizio = (id, scelto, eti) => `<div><label>${eti}</label><select id="${id}">
+        <option value="no" ${scelto ? '' : 'selected'}>Auto privata (individuale)</option>
+        <option value="si" ${scelto ? 'selected' : ''}>Navetta condivisa (collettivo)</option>
+      </select>`;
+  const titolo = (t) => `<div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;
+    color:#1E7F88;font-weight:700;padding-bottom:8px;">${t}</div>`;
+  const blocco = (t, dentro, colore) => `<div style="margin-top:14px;padding:12px 0 12px 14px;
+    border-left:3px solid ${colore};">${titolo(t)}${dentro}</div>`;
+
+  const andata = `<div class="due">
       <div><label>Giorno</label><input type="date" id="cQuando" value="${esc(d.quando || '')}" />${avevaChiesto(r, 'Data')}</div>
       <div><label>Ora</label><input type="time" id="cOra" value="${esc(d.ora || '')}" />${avevaChiesto(r, 'Ora')}</div>
     </div>
+    <!-- L'ora del VOLO, quando la navetta parte tre ore prima: «Ora» qui
+         sopra e' gia' l'ora del RITIRO in hotel, che e' quello che chiede il
+         modulo dei tassisti. Questa e' il dato da cui quel conto nasce. -->
+    ${d.ora_volo ? `<div class="mini">Ora del volo dichiarata dall'ospite:
+      <strong>${esc(d.ora_volo)}</strong> — il ritiro qui sopra e' tre ore prima.</div>` : ''}
     <div class="due">
       <div><label>Passeggeri</label><input type="number" id="cPax" min="1" max="8" value="${esc(d.pax || 2)}" />${avevaChiesto(r, 'Passeggeri')}</div>
       <div><label>Arrivo o partenza</label><select id="cVerso">
@@ -1135,40 +1166,38 @@ function campiTransfer(r) {
     ${avevaChiesto(r, 'Luogo')}
     <div class="due">
       <div><label>Volo / treno</label><input type="text" id="cVolo" value="${esc(d.volo || '')}" />${avevaChiesto(r, 'Volo')}</div>
-      <div><label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:400;margin-top:24px;">
-        <input type="checkbox" id="cRitorno" ${d.ritorno ? 'checked' : ''}
-          style="width:auto;margin:0;" /> serve anche il ritorno</label>${avevaChiesto(r, 'Ritorno incluso')}</div>
-    </div>
-    <!-- IL RITORNO, con giorno e ora. Prima arrivava solo il booleano e
-         bisognava telefonare all'ospite per sapere quando. Sul modulo dei
-         tassisti il ritorno e' una SECONDA corsa, da prenotare a parte. -->
-    <div class="due">
+      ${servizio('cCollettivo', d.collettivo, 'Servizio')}${avevaChiesto(r, 'Servizio')}</div>
+    </div>`;
+
+  /* il servizio del ritorno e' SUO: alle 22:00 la navetta non e' in
+     servizio, quindi un ritorno puo' essere privato anche quando l'andata
+     era condivisa */
+  const ritorno = `<div class="due">
       <div><label>Giorno del ritorno</label>
         <input type="date" id="cRitornoQuando" value="${esc(d.ritorno_quando || '')}" />${avevaChiesto(r, 'Giorno del ritorno')}</div>
       <div><label>Ora del ritorno</label>
         <input type="time" id="cRitornoOra" value="${esc(d.ritorno_ora || '')}" />${avevaChiesto(r, 'Ora del ritorno')}</div>
     </div>
+    ${d.ritorno_ora_volo ? `<div class="mini">Ora del volo dichiarata dall'ospite:
+      <strong>${esc(d.ritorno_ora_volo)}</strong> — il ritiro qui sopra e' tre ore prima.</div>` : ''}
     <div class="due">
       <div><label>Volo / treno del ritorno</label>
         <input type="text" id="cRitornoVolo" value="${esc(d.ritorno_volo || '')}" />${avevaChiesto(r, 'Volo del ritorno')}</div>
-      <!-- il servizio del ritorno e' SUO: alle 22:00 la navetta non e' in
-           servizio, quindi un ritorno puo' essere privato anche quando
-           l'andata era condivisa -->
-      <div><label>Servizio del ritorno</label><select id="cRitornoCollettivo">
-        <option value="no" ${d.ritorno_collettivo ? '' : 'selected'}>Auto privata (individuale)</option>
-        <option value="si" ${d.ritorno_collettivo ? 'selected' : ''}>Navetta condivisa (collettivo)</option>
-      </select>${avevaChiesto(r, 'Servizio del ritorno')}</div>
+      ${servizio('cRitornoCollettivo', d.ritorno_collettivo, 'Servizio del ritorno')}${avevaChiesto(r, 'Servizio del ritorno')}</div>
+    </div>`;
+
+  return `${blocco('Andata', andata, '#1E7F88')}
+    <div style="margin-top:12px;">
+      <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:400;">
+        <input type="checkbox" id="cRitorno" ${d.ritorno ? 'checked' : ''}
+          style="width:auto;margin:0;" /> serve anche il ritorno</label>${avevaChiesto(r, 'Ritorno incluso')}
     </div>
-    <!-- L'ora del VOLO, quando la navetta parte tre ore prima: «Ora» qui
-         sopra e' gia' l'ora del RITIRO in hotel, che e' quello che chiede il
-         modulo dei tassisti. Questa e' il dato da cui quel conto nasce. -->
-    ${d.ora_volo ? `<div class="mini" style="margin-top:8px;">Ora del volo dichiarata
-      dall'ospite: <strong>${esc(d.ora_volo)}</strong> — il ritiro qui sopra e' tre ore prima.</div>` : ''}
-    <div class="due">
-      <div><label>Servizio</label><select id="cCollettivo">
-        <option value="no" ${d.collettivo ? '' : 'selected'}>Auto privata (individuale)</option>
-        <option value="si" ${d.collettivo ? 'selected' : ''}>Navetta condivisa (collettivo)</option>
-      </select>${avevaChiesto(r, 'Servizio')}</div>
+    <!-- IL RITORNO E' UNA SECONDA CORSA: sul modulo dei tassisti si prenota
+         a parte, e qui si compila a parte. Nascosto quando non serve. -->
+    <div id="cBoxRitorno" style="display:${d.ritorno ? 'block' : 'none'};">
+      ${blocco('Ritorno · seconda corsa, verso opposto', ritorno, '#7A8450')}
+    </div>
+    <div class="due" style="margin-top:14px;">
       <!-- IL PREZZO. Prima si scriveva a mano dentro il messaggio libero, e
            chi se ne dimenticava mandava una conferma senza cifra. Qui arriva
            gia' proposto dal listino, e chi conferma lo guarda: e' quella
@@ -1178,6 +1207,7 @@ function campiTransfer(r) {
         <input type="number" id="cPrezzo" step="0.01" min="0"
           value="${d.prezzo_cent != null ? (d.prezzo_cent / 100).toFixed(2) : ''}" />
         <div class="mini" id="cPrezzoNota"></div>${avevaChiesto(r, 'Prezzo')}</div>
+      <div></div>
     </div>
     <label>Note</label><textarea id="cNote">${esc(d.note || '')}</textarea>${avevaChiesto(r, 'Note')}`;
 }
@@ -1727,6 +1757,15 @@ async function vistaRichieste() {
           aggiornaPrezzoTransfer();
           for (const id of ['cLuogo', 'cPax', 'cCollettivo', 'cRitorno']) {
             if ($(id)) $(id).addEventListener('change', aggiornaPrezzoTransfer);
+          }
+          /* il blocco del ritorno segue la spunta: un riquadro vuoto sempre
+             aperto e' un riquadro che prima o poi qualcuno compila per
+             sbaglio, e allora la reception prenota una corsa che nessuno
+             ha chiesto */
+          if ($('cRitorno') && $('cBoxRitorno')) {
+            $('cRitorno').addEventListener('change', () => {
+              $('cBoxRitorno').style.display = $('cRitorno').checked ? 'block' : 'none';
+            });
           }
 
           /* le camere dello stesso gruppo si aprono da qui: cercarle a

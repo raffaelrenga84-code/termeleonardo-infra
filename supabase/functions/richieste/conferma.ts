@@ -176,6 +176,20 @@ export async function inviaConferma(r: Richiesta): Promise<boolean> {
       body: JSON.stringify({
         from: Deno.env.get('MITTENTE_EMAIL') || 'Hotel Terme Leonardo <noreply@hoteltermeleonardo.com>',
         to: r.email,
+        /* LA COPIA ALLA RECEPTION, che non c'era. Segnalato: «quando ho
+           avvisato e confermato modifiche all'ospite, la reception non ha
+           ricevuto la mail». Questa email partiva SOLO all'ospite, e in
+           casa non restava traccia di cosa gli fosse stato scritto:
+           l'orario spostato, il prezzo confermato, il messaggio libero.
+           Chi risponde al telefono il giorno dopo non aveva modo di
+           sapere che cosa l'ospite ha in mano.
+
+           IN COPIA NASCOSTA, e non un secondo invio: e' la stessa email,
+           con lo stesso testo e lo stesso numero, quindi non ci sono due
+           versioni che possono divergere. Nascosta perche' all'ospite
+           l'indirizzo interno non serve — e vedere se stesso in copia lo
+           farebbe rispondere a tutti. */
+        bcc: [Deno.env.get('EMAIL_HOTEL') || EMAIL_HOTEL],
         /* rispondendo, l'ospite scrive all'hotel: e' la sua via per
            correggere qualcosa senza cercare l'indirizzo */
         reply_to: Deno.env.get('EMAIL_HOTEL') || EMAIL_HOTEL,

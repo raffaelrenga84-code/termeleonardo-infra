@@ -335,7 +335,19 @@ export function richiestaHTML(r: ConNumero): string {
     /* il soggiorno chiama questo campo `messaggio`, gli altri tipi `note`:
        guardarne uno solo faceva sparire in silenzio quello che l'ospite ha
        scritto, ed e' spesso la cosa piu' importante della richiesta */
-    const libero = String(r.messaggio ?? r.note ?? '').trim();
+    /* VIA IL RIFERIMENTO DELL'OFFERTA. Il modulo del transfer, quando si
+       arriva dal link dentro un'offerta, precompila le note con «Rif.
+       offerta / Angebotsreferenz: O26/19226». Chiesto di toglierlo: quel
+       numero in reception non si riesce a verificare nel gestionale, e su
+       ATAM non serve a niente. Quello che resta e' una riga di rumore in
+       cima al posto dove si guarda se l'ospite ha scritto qualcosa —
+       e una nota che sembra piena quando invece e' vuota.
+
+       Si toglie QUI e non nel modulo: se un giorno quel riferimento
+       tornera' utile, il dato e' ancora nella richiesta. */
+    const libero = String(r.messaggio ?? r.note ?? '')
+      .replace(/^\s*Rif\.?\s*offerta[^\n]*\n?/gim, '')
+      .trim();
     return libero
       ? `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:18px;border-collapse:collapse;">
       <tr><td style="border-left:3px solid #C9A961;background:#FBFAF7;padding:14px 16px;

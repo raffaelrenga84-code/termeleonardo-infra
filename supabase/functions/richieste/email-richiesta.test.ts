@@ -473,3 +473,32 @@ Deno.test('una fattura arriva in copia all amministrazione', async () => {
     Deno.env.delete('EMAIL_AMMINISTRAZIONE');
   }
 });
+
+Deno.test('il riferimento dell offerta non finisce nell avviso', () => {
+  /* CHIESTO DALLA RECEPTION: «togliere la referenza dell'offerta, perche'
+     non riusciamo a verificarla col numero nel gestionale e in piu' ATAM
+     non se ne fa nulla».
+
+     Il modulo del transfer, quando si arriva dal link dentro un'offerta,
+     precompila le note con «Rif. offerta / Angebotsreferenz: O26/19226».
+     Quel riquadro e' il posto dove si guarda se l'ospite ha scritto
+     qualcosa: riempirlo con un numero che non serve lo fa sembrare pieno
+     quando invece e' vuoto. */
+  const h = richiestaHTML({
+    ...trasferimento,
+    note: 'Rif. offerta / Angebotsreferenz: O26/19226',
+  } as never);
+  assert(!h.includes('O26/19226'), 'il riferimento dell offerta e tornato nell avviso');
+  assert(!h.includes('Angebotsreferenz'), 'l etichetta del riferimento e tornata nell avviso');
+});
+
+Deno.test('quello che l ospite ha scritto DAVVERO resta', () => {
+  /* togliere il riferimento non deve portarsi via la nota vera: e' spesso
+     la cosa piu' importante della richiesta */
+  const h = richiestaHTML({
+    ...trasferimento,
+    note: 'Rif. offerta / Angebotsreferenz: O26/19226\nTre valigie grandi e un passeggino.',
+  } as never);
+  assert(!h.includes('O26/19226'), 'il riferimento e rimasto');
+  assertStringIncludes(h, 'Tre valigie grandi e un passeggino');
+});
