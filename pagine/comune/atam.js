@@ -16,6 +16,24 @@
    possiede il modo di scrivere una data, e due copie di quella regola
    divergerebbero. */
 
+/* IL CELLULARE, ACCANTO AL NOME. Il modulo dei tassisti non ha un campo
+   telefono: ha il campo del cliente, quello che l'autista legge per sapere
+   chi cerca. Il numero va li', cosi' se il volo ritarda o non si trovano
+   in aeroporto l'autista puo' chiamare. Prima restava nella scheda del
+   back office e nell'email alla reception, e ai tassisti non arrivava mai
+   (segnalato il 2 settembre 2026). Sull'andata e sul ritorno, che su
+   atam.biz sono due prenotazioni.
+
+   Solo il numero, non l'email: e' quello che serve a eseguire la corsa che
+   l'ospite ha chiesto, e niente di piu'. Nelle email all'ospite non
+   compare: il suo numero lo conosce, e quelle email girano. Non e' una
+   voce a parte: sarebbe un valore senza un campo dove incollarlo. */
+export function clienteATAM(r) {
+  const nome = String((r && r.nome) || '').trim();
+  const telefono = String((r && r.telefono) || '').trim();
+  return [nome, telefono].filter(Boolean).join(' · ');
+}
+
 /* Nell'ordine in cui il modulo dei tassisti chiede le cose, cosi' chi copia
    scende una volta sola invece di saltare avanti e indietro. */
 export function vociATAM(r, dataIT) {
@@ -28,7 +46,7 @@ export function vociATAM(r, dataIT) {
        lo chiede: fra i passeggeri e la direzione */
     { eti: 'Servizio', val: d.collettivo ? 'Navetta condivisa (collettivo)' : 'Auto privata (individuale)' },
     { eti: d.verso === 'partenza' ? 'Partenza per' : 'Arrivo da', val: d.luogo || '' },
-    { eti: 'Nome del cliente', val: (r && r.nome) || '' },
+    { eti: 'Nome del cliente', val: clienteATAM(r) },
   ];
   if (d.volo) voci.push({ eti: 'Dettagli arrivo', val: String(d.volo) });
   /* il ritorno non e' un valore da incollare in un campo: e' una cosa che
@@ -62,7 +80,7 @@ export function datiATAM(r) {
        esattamente quello che facevamo prima di chiederlo nel modulo. */
     collettivo: d.collettivo === true,
     luogo: d.luogo || '',
-    nome: (r && r.nome) || '',
+    nome: clienteATAM(r),
     volo: d.volo ? String(d.volo) : '',
     note,
   };
@@ -115,7 +133,7 @@ export function datiATAMRitorno(r) {
     verso: d.verso === 'partenza' ? 'arrivo' : 'partenza',
     collettivo: d.ritorno_collettivo === true,
     luogo: d.luogo || '',
-    nome: (r && r.nome) || '',
+    nome: clienteATAM(r),
     volo: d.ritorno_volo ? String(d.ritorno_volo) : '',
     note: d.note ? String(d.note) : '',
   };

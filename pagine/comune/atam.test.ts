@@ -263,3 +263,60 @@ Deno.test('l indirizzo del ritorno usa lo stesso frammento', () => {
 Deno.test('la nota del ritorno non chiede un altro ritorno', () => {
   assert(!String(datiATAMRitorno(CON_RITORNO)?.note ?? '').toLowerCase().includes('ritorno'));
 });
+
+/* ============================================================
+   IL CELLULARE DELL'OSPITE ARRIVA AI TASSISTI.
+
+   Segnalato il 2 settembre 2026: «il numero di cellulare che il cliente
+   ha inserito si perde: non arriva alla compagnia taxi». Restava nella
+   scheda del back office e nell'email alla reception, ma le voci per il
+   modulo dei tassisti — e l'indirizzo che lo apre gia' compilato — non lo
+   portavano. Il loro modulo non ha un campo telefono: ha il campo del
+   cliente, quello che l'autista legge per sapere chi cerca. Il numero va
+   li', accanto al nome, cosi' se il volo ritarda l'autista puo' chiamare.
+   Sull'andata e sul ritorno, che su atam.biz sono due prenotazioni.
+
+   NON in una voce a parte: sarebbe un valore senza un campo dove
+   incollarlo, e il numero in chiaro sta gia' in testa alla scheda.
+   ============================================================ */
+const CON_TELEFONO = { ...RICHIESTA, telefono: '00491629821106' };
+
+Deno.test('il cellulare sta accanto al nome nella voce del cliente', () => {
+  const cliente = vociATAM(CON_TELEFONO, dataFinta).find((v) => v.eti === 'Nome del cliente');
+  assertEquals(cliente?.val, 'Raffael Renga · 00491629821106');
+});
+
+Deno.test('senza cellulare la voce del cliente e il nome e basta, senza separatore appeso', () => {
+  const cliente = vociATAM(RICHIESTA, dataFinta).find((v) => v.eti === 'Nome del cliente');
+  assertEquals(cliente?.val, 'Raffael Renga');
+  const vuoto = vociATAM({ ...RICHIESTA, telefono: '   ' }, dataFinta).find((v) => v.eti === 'Nome del cliente');
+  assertEquals(vuoto?.val, 'Raffael Renga', 'un telefono di soli spazi ha lasciato il separatore');
+});
+
+Deno.test('il cellulare compare in una voce sola, non anche nelle note', () => {
+  const dove = vociATAM(CON_TELEFONO, dataFinta).filter((v) => String(v.val).includes('00491629821106'));
+  assertEquals(dove.map((v) => v.eti), ['Nome del cliente']);
+});
+
+Deno.test('gli spazi attorno al numero non arrivano ai tassisti', () => {
+  const g = datiATAM({ ...RICHIESTA, telefono: '  +49 162 9821106 ' });
+  assertEquals(g.nome, 'Raffael Renga · +49 162 9821106');
+});
+
+Deno.test('il cellulare viaggia nei valori grezzi e quindi nel campo del cliente su atam.biz', () => {
+  assertEquals(datiATAM(CON_TELEFONO).nome, 'Raffael Renga · 00491629821106');
+  const dentro = JSON.parse(decodeURIComponent(indirizzoATAM(CON_TELEFONO).split('#leo=')[1]));
+  assertEquals(dentro.nome, 'Raffael Renga · 00491629821106');
+});
+
+Deno.test('anche il ritorno, che e una seconda prenotazione, porta il cellulare', () => {
+  const g = datiATAMRitorno({ ...CON_RITORNO, telefono: '00491629821106' });
+  assertEquals(g?.nome, 'Raffael Renga · 00491629821106');
+  const dentro = JSON.parse(decodeURIComponent(
+    String(indirizzoATAMRitorno({ ...CON_RITORNO, telefono: '00491629821106' })).split('#leo=')[1]));
+  assertEquals(dentro.nome, 'Raffael Renga · 00491629821106');
+});
+
+Deno.test('il blocco unito lo dice nella riga del cliente', () => {
+  assert(riepilogoATAM(CON_TELEFONO, dataFinta).includes('Nome del cliente: Raffael Renga · 00491629821106'));
+});
