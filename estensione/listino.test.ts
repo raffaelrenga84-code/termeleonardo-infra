@@ -173,14 +173,45 @@ Deno.test('il 29 novembre non e prenotabile: l hotel chiude', () => {
   );
 });
 
-Deno.test('la Queen dello Spezial e il suo supplemento tornano', () => {
-  /* il listino scrive «Einzelzimmer Queen (101+25)»: 101 a persona piu'
-     25 di supplemento uso singola, cioe' i 126 della colonna. E' l'unica
-     riga che mostra il conto, e serve a tenere separate le due cifre —
-     usare i 126 anche in due gonfiava il prezzo di 25 € a testa. */
+Deno.test('con questi pacchetti la Queen esiste SOLO in uso singola', () => {
+  /* QUESTA PROVA E' NATA SBAGLIATA, ed e' istruttivo che lo sia stata.
+     La prima versione pretendeva che la Queen Spezial valesse «101 a
+     persona», perche' il listino scrive «Einzelzimmer Queen (101+25)» e
+     quel 101 sembra una tariffa. Non lo e': e' il modo in cui il listino
+     spiega come si arriva ai 126 dell'uso singola.
+
+     La proprieta' ha chiuso la questione in una riga: «con questi
+     pacchetti le queen vengono vendute solo come singola». Ed era la
+     terza risposta possibile — non 105, non 115: nessuna delle due,
+     perche' quel prodotto non si vende.
+
+     Un prezzo inventato per un prodotto che non esiste e' peggio di un
+     prezzo sbagliato: non c'e' nessun listino con cui smentirlo. */
   const L = listino();
-  const q = L.spezial.camere['Matrimoniale Queen'] as { cent: number; singola: number };
-  assertEquals(q.cent / 100, 101, 'la Queen Spezial a persona non e piu 101');
-  assertEquals(q.singola / 100, 126, 'la Queen Spezial in uso singola non e piu 126');
-  assertEquals((q.singola - q.cent) / 100, 25, 'il supplemento uso singola non fa piu 25');
+  for (const st of ['werbesaison', 'spezial']) {
+    const q = L[st].camere['Matrimoniale Queen'] as
+      { cent?: number; singola: number; soloSingola?: boolean };
+    assert(q.soloSingola === true, `${st}: la Queen e tornata vendibile in due`);
+    assertEquals(q.cent, undefined, `${st}: e tornato un prezzo a persona per la Queen, che non esiste`);
+  }
+  assertEquals(euro(L.werbesaison.camere['Matrimoniale Queen'], 'singola'), 130, 'la Queen Werbesaison non e piu 130');
+  assertEquals(euro(L.spezial.camere['Matrimoniale Queen'], 'singola'), 126, 'la Queen Spezial non e piu 126');
+});
+
+Deno.test('per la Queen in due il prezzo non si inventa: lo da Fidra, e si dice', () => {
+  /* il pannello non deve tacere ne' indovinare. Se il listino conosce la
+     camera ma non quel modo di venderla, il prezzo viene da Fidra — che
+     sa cosa sta vendendo davvero — e il riquadro scrive da dove viene. */
+  assert(
+    /if \(dettagliato && v\.soloSingola && adulti !== 1\)/.test(SORGENTE),
+    'sparito il controllo: per la Queen in due tornerebbe un prezzo da listino inventato',
+  );
+  assert(
+    /solo in uso singola<\/strong>, e qui gli adulti sono/.test(SORGENTE),
+    'il riquadro non spiega piu perche il prezzo non viene dal listino',
+  );
+  assert(
+    /listino && listino\.cent != null/.test(SORGENTE),
+    'il chiamante non guarda piu se il listino ha davvero un prezzo: uscirebbe «NaN € a notte»',
+  );
 });

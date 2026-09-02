@@ -345,20 +345,42 @@
      passare un prezzo storto. */
   const KURPAKET_5_CURE = 39800;
 
+  /* ============================================================
+     v2.21.0 — LA QUEEN, NEL DOLCE VITA, SI VENDE SOLO IN USO SINGOLA.
+     ------------------------------------------------------------
+     Qui c'era un prezzo «a persona» anche per la Queen: 115 in
+     Werbesaison, 101 in Spezial. Il primo non compare da nessuna parte
+     nel listino; il secondo compare solo dentro il conto «(101+25)», che
+     e' il modo in cui il listino spiega come si arriva ai 126 dell'uso
+     singola — non una tariffa che si vende.
+
+     La riga del listino, in tutte e due le stagioni, si chiama
+     «Einzelzimmer Queen»: camera singola. Con questi pacchetti la Queen
+     entra soltanto cosi'.
+
+     Percio' `soloSingola` non e' un dettaglio tecnico: dice che per due
+     persone quel prodotto NON ESISTE, e un prezzo inventato per un
+     prodotto che non esiste e' peggio di un prezzo sbagliato — perche'
+     non c'e' nessun listino con cui smentirlo. Quando capita, il prezzo
+     si prende da Fidra e il riquadro dice da dove viene.
+     ============================================================ */
   const LISTINO_PACCHETTI = {
     werbesaison: {
       etichetta: 'Werbesaison',
       periodi: [['2026-03-07', '2026-06-13'], ['2026-06-27', '2026-11-07']],
       camere: { 'Doppia': 11500, 'Doppia Superior': 11500,
-                'Matrimoniale Queen': { cent: 11500, singola: 13000 },
+                'Matrimoniale Queen': { singola: 13000, soloSingola: true },
                 'Junior Suite': 12600, 'Junior Suite Abano': 12600, 'Junior Suite Colli Euganei': 12600,
                 'Suite': 13600, 'Suite Colli Euganei': 13600, 'Suite Monteortone': 13600 }
     },
     spezial: {
       etichetta: 'Spezial',
       periodi: [['2026-02-14', '2026-03-07'], ['2026-06-13', '2026-06-27'], ['2026-11-07', '2026-11-29']],
+      /* i 126 dell'uso singola il listino li scrive «(101+25)»: 101 e' la
+         base del conto, non una tariffa per due — la Queen in due, con
+         questo pacchetto, non si vende */
       camere: { 'Doppia': 11200, 'Doppia Superior': 11200,
-                'Matrimoniale Queen': { cent: 10100, singola: 12600 },
+                'Matrimoniale Queen': { singola: 12600, soloSingola: true },
                 'Junior Suite': 12200, 'Junior Suite Abano': 12200, 'Junior Suite Colli Euganei': 12200,
                 'Suite': 13100, 'Suite Colli Euganei': 13100, 'Suite Monteortone': 13100 }
     }
@@ -403,9 +425,17 @@
     if (!chiave) return null;
     const v = tab[chiave];
     const dettagliato = (v && typeof v === 'object');
+    /* la Queen, con questi pacchetti, si vende solo in uso singola: per
+       due persone non c'e' un prezzo da dare, e inventarlo sarebbe peggio
+       che non darlo. Si dice com'e' stanno le cose e il prezzo lo mette
+       Fidra, che sa cosa sta vendendo davvero. */
+    if (dettagliato && v.soloSingola && adulti !== 1) {
+      return { cent: null, soloSingola: true, stagione: LISTINO_PACCHETTI[st].etichetta };
+    }
     const cent = dettagliato
       ? ((adulti === 1 && v.singola != null) ? v.singola : v.cent)
       : v;
+    if (cent == null) return null;
     return {
       cent,
       stagione: LISTINO_PACCHETTI[st].etichetta,
@@ -1420,7 +1450,12 @@
     const supplPacch = supplPerTariffa(nomeCat, (pacchetto && (pacchetto.full_name || pacchetto.name)) || '', supplBase);
     const supplExtra = supplPerTariffa(nomeCat, (extra && (extra.full_name || extra.name)) || '', supplBase);
     const supplCent = supplExtra.centesimi;   // vale per le notti fuori pacchetto
-    const prezzoPacc = listino ? listino.cent : Math.round((pacchetto.total || 0) / nNotti);
+    /* `listino.cent` puo' essere nullo quando il listino conosce la camera
+       ma non quel modo di venderla — la Queen in due. Allora il prezzo lo
+       da' Fidra, come quando il listino non copre il periodo. */
+    const prezzoPacc = (listino && listino.cent != null)
+      ? listino.cent
+      : Math.round((pacchetto.total || 0) / nNotti);
     /* A settimane va solo il Dolce Vita. Gli altri trattamenti — Smart,
        Deluxe, e le righe senza cure — vanno notte per notte alla PROPRIA
        tariffa del giorno, più l'uso singola: comodo per riempire il
@@ -1548,7 +1583,12 @@
                        il pacchetto${calcolo.nNotti - calcolo.inizioPacchetto - calcolo.nPacchetto > 0
                          ? `, e ${calcolo.nNotti - calcolo.inizioPacchetto - calcolo.nPacchetto} alla fine` : ''}</span>`
                    : ''}.<br />
-               Pacchetto a ${euro(prezzoPacc)} &euro; a notte ${listino
+               Pacchetto a ${euro(prezzoPacc)} &euro; a notte ${
+                 listino && listino.soloSingola
+                   ? `<span style="color:#8C7A45;">(ricavato da Fidra: nel listino
+                      ${esc(listino.stagione)} la Queen con questo pacchetto c&rsquo;&egrave;
+                      <strong>solo in uso singola</strong>, e qui gli adulti sono ${adulti})</span>`
+                 : listino
                  ? `(listino ${esc(listino.stagione)}${
                       listino.singolaInclusa ? ', uso singola gi&agrave; incluso'
                       : (adulti === 1 && supplPacch.centesimi
