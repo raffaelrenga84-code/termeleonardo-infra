@@ -194,3 +194,67 @@ Deno.test('senza spunta il numero delle persone resta quello di Fidra', () => {
   const html = off.it(pratica(false), OPZ);
   assert(/6 persone/.test(html), 'le persone non sono piu quelle di Fidra');
 });
+
+/* ============================================================
+   DOVE COMPARE LA DOMANDA SULLE PIU' CAMERE.
+
+   Il pannello e' uno script che vive nel DOM del popup e fuori dal
+   browser non si esegue: queste prove leggono il sorgente. Guardano una
+   cosa sola, ma e' quella che e' andata storta — QUANDO la domanda si fa.
+
+   IL DIFETTO, segnalato sulla 19238: due camere dal 15 al 25 settembre,
+   Junior Suite Colli Euganei e Doppia, due adulti ciascuna, e del
+   riquadro nessuna traccia. Si chiedeva solo quando i periodi NON si
+   sovrapponevano, mentre il caso piu' frequente e' l'opposto: stesse
+   date, due categorie a confronto. «Le mando la Junior Suite e la
+   Doppia, scelga lei.» Nei dati e' identico a quattro persone in due
+   camere, e sommandolo si scrive un totale doppio e una caparra doppia.
+
+   Nessuna prova sorvegliava quel cancello: e' per questo che si e'
+   potuto restringere senza che se ne accorgesse nessuno.
+   ============================================================ */
+const POPUP = Deno.readTextFileSync(new URL('popup.js', import.meta.url));
+
+Deno.test('la domanda si fa con piu di una camera, non solo con periodi diversi', () => {
+  assert(
+    /if \(\(d\.camere \|\| \[\]\)\.length > 1\) \{/.test(POPUP),
+    'il riquadro e tornato a comparire solo con periodi non sovrapposti: due categorie a confronto sulle stesse date verrebbero sommate',
+  );
+  assert(
+    !/^\s*if \(d\.camereNonSovrapposte\) \{/m.test(POPUP),
+    'il cancello e di nuovo camereNonSovrapposte',
+  );
+});
+
+Deno.test('con una camera sola la domanda non si fa', () => {
+  /* «se e' solo una camera di sicuro non serve»: una domanda che ha una
+     risposta sola e' rumore, e il rumore si impara a saltare — anche
+     quando smette di esserlo */
+  assert(
+    /\.length > 1\)/.test(POPUP),
+    'la domanda comparirebbe anche su una camera sola',
+  );
+});
+
+Deno.test('il cambio camera si offre solo dove e possibile', () => {
+  /* le stesse persone non possono spostarsi da una camera all altra
+     restando in tutt e due: con le date sovrapposte quel caso non esiste,
+     e offrire una scelta impossibile e un modo di far sbagliare */
+  assert(
+    /const separate = !!d\.camereNonSovrapposte;/.test(POPUP),
+    'sparita la distinzione fra periodi separati e sovrapposti',
+  );
+  assert(
+    /\$\{separate \? `<label><input type="radio" name="camereModo" value="cambio"/.test(POPUP),
+    'il cambio camera si offre anche quando i periodi si sovrappongono, dove non puo avvenire',
+  );
+});
+
+Deno.test('la scelta di partenza resta «servono tutte»', () => {
+  /* il caso comune non deve cambiare comportamento per il fatto che ora
+     la domanda si vede: chi non tocca niente manda l offerta di prima */
+  assert(
+    /value="insieme"\s*\n?\s*\$\{spia \? '' : 'checked'\}/.test(POPUP),
+    'la scelta di partenza non e piu «servono tutte»: le offerte normali cambierebbero da sole',
+  );
+});

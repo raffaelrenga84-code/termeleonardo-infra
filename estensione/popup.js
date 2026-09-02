@@ -277,32 +277,58 @@ async function disegna(d) {
     }
   }
 
-  /* v2.9.4: le camere non si sovrappongono. Puo' voler dire tre cose
-     diverse — alternative fra cui scegliere, stesse persone che cambiano
-     camera, oppure due soggiorni distinti di persone diverse — e nei dati
-     hanno lo stesso aspetto. Non si indovina: si chiede, e solo qui, dove
-     la domanda ha senso. */
-  if (d.camereNonSovrapposte) {
+  /* ============================================================
+     v2.22.0 — LA DOMANDA SI FA CON PIU' DI UNA CAMERA, non solo quando i
+     periodi non si sovrappongono.
+     ------------------------------------------------------------
+     Segnalato sulla 19238: due camere dal 15 al 25 settembre — Junior
+     Suite Colli Euganei e Doppia, stesso trattamento, due adulti ciascuna
+     — e del riquadro nessuna traccia. Il cancello era
+     `camereNonSovrapposte`: si chiedeva solo quando i periodi erano
+     diversi.
+
+     MA IL CASO PIU' FREQUENTE E' PROPRIO QUESTO: stesse date, due
+     categorie a confronto. «Le mando la Junior Suite e la Doppia, scelga
+     lei.» Nei dati e' identico a quattro persone in due camere, e
+     sommandolo si scrive un totale doppio e una caparra doppia.
+
+     La richiesta della proprieta' era gia' questa: «puoi anche far
+     apparire la spunta solo se vedi piu' camere, perche' se e' solo una
+     camera di sicuro non serve». Una camera: niente domanda. Due o piu':
+     la domanda si fa.
+
+     IL CAMBIO CAMERA PERO' NO, quando le date si sovrappongono: le stesse
+     persone non possono spostarsi da una camera all'altra restando in
+     tutt'e due. Offrire una scelta impossibile e' un modo di far
+     sbagliare, percio' quel terzo caso compare solo dove ha senso. */
+  if ((d.camere || []).length > 1) {
+    /* periodi diversi: allora il cambio camera e' una possibilita' vera */
+    const separate = !!d.camereNonSovrapposte;
     const u = d.personeUnaSoluzione || {};
     const persone = (a, b) => `${a} ${a === 1 ? 'adulto' : 'adulti'}${
       b ? ` e ${b} bambin${b === 1 ? 'o' : 'i'}` : ''}`;
     const note = d.note.map(n => (n.testo || '').toLowerCase()).join(' ');
     const spiaAlt = /alternativ|oppure|a scelta|x\s*\d\s*date|due date|2 date|opzion/i.exec(note);
-    const spiaCam = /cambio camera|cambia camera|cambio stanza|spostano|si sposta/i.exec(note);
+    const spiaCam = separate
+      ? /cambio camera|cambia camera|cambio stanza|spostano|si sposta/i.exec(note) : null;
     const spia = spiaAlt || spiaCam;
-    h += `<div class="box"><strong>${d.camere.length} camere con periodi che non si
-      sovrappongono.</strong> Solo tu sai quale dei tre casi &egrave;.
+    const quante = d.camere.length === 2 ? 'tutte e due' : 'tutte';
+    h += `<div class="box"><strong>${d.camere.length} camere${separate
+        ? ' con periodi che non si sovrappongono' : ' nello stesso periodo'}.</strong>
+      ${separate ? 'Solo tu sai quale dei tre casi &egrave;.'
+                 : 'Servono tutte, oppure sono alternative fra cui far scegliere?'}
       <label style="margin-top:6px;"><input type="radio" name="camereModo" value="insieme"
-        ${spia ? '' : 'checked'} /> <strong>Servono tutte e due</strong>
+        ${spia ? '' : 'checked'} /> <strong>Servono ${quante}</strong>
         <span class="sub">&mdash; si sommano: ${persone(d.adulti, d.bambini)}, caparra ${esc(euroFmt(d.acconto))} &euro;</span></label>
       <label><input type="radio" name="camereModo" value="alternative"
         ${spiaAlt ? 'checked' : ''} /> <strong>Sono alternative</strong>
-        <span class="sub">&mdash; l&apos;ospite ne sceglie una${u.adulti != null
-          ? `: ${persone(u.adulti, u.bambini)} per soluzione, prezzi non sommati` : ''}</span></label>
-      <label><input type="radio" name="camereModo" value="cambio"
+        <span class="sub">&mdash; l&apos;ospite ne sceglie una${separate && u.adulti != null
+          ? `: ${persone(u.adulti, u.bambini)} per soluzione, prezzi non sommati`
+          : ': prezzi non sommati, una caparra per soluzione'}</span></label>
+      ${separate ? `<label><input type="radio" name="camereModo" value="cambio"
         ${!spiaAlt && spiaCam ? 'checked' : ''} /> <strong>Cambio camera</strong>
         <span class="sub">&mdash; le stesse persone si spostano${u.adulti != null
-          ? `: ${persone(u.adulti, u.bambini)}, ma le notti si pagano tutte` : ''}</span></label>
+          ? `: ${persone(u.adulti, u.bambini)}, ma le notti si pagano tutte` : ''}</span></label>` : ''}
       ${spia ? `<div class="sub" style="color:#5A7A3E;padding-top:4px;">Scelto dalla nota
         &laquo;${esc(spia[0])}&raquo; &mdash; verifica prima di mandare.</div>` : ''}</div>`;
   }
