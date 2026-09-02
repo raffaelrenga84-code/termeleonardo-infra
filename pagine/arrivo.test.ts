@@ -321,14 +321,20 @@ Deno.test('l etichetta "ora" diventa "ora del volo" solo con partenza e navetta 
   assert(/conNavettaInPartenzaTr\(\)/.test(ag[1]), 'aggiornaRitiroTr non controlla conNavettaInPartenzaTr()');
   assert(/getElementById\(\s*['"]trEtiOra['"]\s*\)/.test(ag[1]),
     'aggiornaRitiroTr non legge l etichetta trEtiOra');
-  assert(/firstChild\.nodeValue\s*=\s*\w+\s*\?\s*t\.trOraVolo\s*:\s*t\.trOra\b/.test(ag[1]),
-    'aggiornaRitiroTr non scambia l etichetta fra "Ora" e "Ora del volo"');
+  /* tre etichette, non due: con la navetta in partenza l'ora del volo,
+     altrimenti l'ora del ritiro (partenza) o quella a cui atterra (arrivo) */
+  assert(/firstChild\.nodeValue\s*=\s*\w+\s*\?\s*t\.trOraVolo\s*:\s*\(\s*\w+\s*\?\s*t\.trOraRitiro\s*:\s*t\.trOraArrivo\s*\)/.test(ag[1]),
+    'aggiornaRitiroTr non sceglie l etichetta fra ora del volo, ora del ritiro e ora di arrivo');
   assert(/ritiroPerVolo\(/.test(ag[1]), 'aggiornaRitiroTr non calcola il ritiro vero da ritiroPerVolo()');
 
-  /* niente \s* prima dei due punti: senza, "t.trOraVolo : t.trOra" nel
-     ternario di aggiornaRitiroTr() conterebbe come una quinta "definizione" */
+  /* niente \s* prima dei due punti: senza, "t.trOraVolo :" nel ternario di
+     aggiornaRitiroTr() conterebbe come una quinta "definizione" */
   assert((SORGENTE.match(/trOraVolo:/g) || []).length === 4,
     'l etichetta "ora del volo" non e in tutte e quattro le lingue');
+  assert((SORGENTE.match(/trOraArrivo:/g) || []).length === 4,
+    'l etichetta "ora di arrivo del volo o treno" non e in tutte e quattro le lingue');
+  assert((SORGENTE.match(/trOraRitiro:/g) || []).length === 4,
+    'l etichetta "ora del ritiro in hotel" non e in tutte e quattro le lingue');
   assert((SORGENTE.match(/trRitiroAlle:/g) || []).length === 4,
     'la nota del ritiro non e in tutte e quattro le lingue');
 });
@@ -534,7 +540,7 @@ Deno.test('alzando i passeggeri, l etichetta e la nota tornano allo stato normal
 
   assert(!s.visibile(), 'il blocco del servizio e rimasto visibile a cinque passeggeri');
   assertEquals(s.servizio(), '0', 'il servizio non e tornato ad "auto privata"');
-  assertEquals(s.etichetta(), 'Ora',
+  assertEquals(s.etichetta(), 'Ora del ritiro in hotel',
     'l etichetta e rimasta "Ora del volo" dopo che la navetta e sparita: l ospite legge un orario che non prenotiamo');
   assertEquals(s.nota(), '',
     'la nota promette ancora un ritiro alle 16:00 mentre alla reception arriva 19:00');
@@ -551,7 +557,7 @@ Deno.test('cambiando la meta, l etichetta e la nota tornano allo stato normale',
 
   assert(!s.visibile(), 'il blocco del servizio e rimasto visibile su una meta senza navetta');
   assertEquals(s.servizio(), '0', 'il servizio non e tornato ad "auto privata"');
-  assertEquals(s.etichetta(), 'Ora',
+  assertEquals(s.etichetta(), 'Ora del ritiro in hotel',
     'l etichetta e rimasta "Ora del volo" su una meta dove la navetta non esiste');
   assertEquals(s.nota(), '', 'la nota promette ancora un ritiro che non prenotiamo');
 });
@@ -567,7 +573,8 @@ Deno.test('spostando l ora fuori fascia, l etichetta e la nota tornano allo stat
 
   assert(!s.visibile(), 'il blocco del servizio e rimasto visibile per un ritiro alle 06:00');
   assertEquals(s.servizio(), '0', 'il servizio non e tornato ad "auto privata"');
-  assertEquals(s.etichetta(), 'Ora', 'l etichetta e rimasta "Ora del volo" con la navetta sparita');
+  assertEquals(s.etichetta(), 'Ora del ritiro in hotel',
+    'l etichetta e rimasta "Ora del volo" con la navetta sparita');
   assertEquals(s.nota(), '', 'la nota promette ancora un ritiro che non prenotiamo');
 });
 
@@ -591,13 +598,14 @@ Deno.test('il ritorno dell etichetta non fa rimbalzare il cancello all infinito'
    in italiano: il difetto stava nel cablaggio, ma quello che si vede e'
    un'etichetta, e ogni lingua ha la sua. */
 Deno.test('l etichetta torna indietro in tutte e quattro le lingue', () => {
-  const attese: Record<string, [string, string]> = {
-    it: ['Ora del volo', 'Ora'],
-    de: ['Abflugzeit', 'Uhrzeit'],
-    en: ['Flight time', 'Time'],
-    fr: ['Heure du vol', 'Heure'],
+  /* [con la navetta, in partenza con l'auto privata, in arrivo] */
+  const attese: Record<string, [string, string, string]> = {
+    it: ['Ora del volo', 'Ora del ritiro in hotel', 'Ora di arrivo del volo o treno'],
+    de: ['Abflugzeit', 'Uhrzeit der Abholung am Hotel', 'Ankunftszeit von Flug oder Zug'],
+    en: ['Flight time', 'Pick-up time at the hotel', 'Flight or train arrival time'],
+    fr: ['Heure du vol', 'Heure de prise en charge à l’hôtel', 'Heure d’arrivée du vol ou du train'],
   };
-  for (const [lingua, [volo, normale]] of Object.entries(attese)) {
+  for (const [lingua, [volo, ritiro, arrivo]] of Object.entries(attese)) {
     const s = scenaTr(PARTENZA_CON_NAVETTA, lingua);
     s.campo('trServizio').value = '1';
     s.campo('trServizio').scatena('change');
@@ -605,9 +613,40 @@ Deno.test('l etichetta torna indietro in tutte e quattro le lingue', () => {
     assert(s.nota().length > 0, 'in ' + lingua + ' la nota del ritiro resta vuota');
     s.campo('trPax').value = '5';
     s.campo('trPax').scatena('input');
-    assertEquals(s.etichetta(), normale, 'in ' + lingua + ' l etichetta non torna indietro');
+    assertEquals(s.etichetta(), ritiro, 'in ' + lingua + ' l etichetta non torna a quella del ritiro');
     assertEquals(s.nota(), '', 'in ' + lingua + ' la nota del ritiro non si cancella');
+    s.campo('trTipo').value = 'arrivo';
+    s.campo('trTipo').scatena('change');
+    assertEquals(s.etichetta(), arrivo, 'in ' + lingua + ' passando all arrivo l etichetta non dice che e l ora a cui atterra');
   }
+});
+
+/* «ORA» E BASTA NON DICE CHE ORA. La proprieta', il 2 settembre 2026, davanti
+   al modulo transfer del sito: «anche qui specificherei Ora di arrivo del
+   volo o treno». Questa pagina ha lo stesso campo con la stessa etichetta,
+   e la stessa ambiguita': l'ospite in arrivo scriveva l'ora a cui pensava di
+   essere in hotel, non quella a cui atterra, e il tassista lo aspettava
+   all'orario sbagliato. Adesso l'etichetta dice da sola cosa chiediamo, e
+   cambia col verso: all'arrivo l'ora del volo o del treno, alla partenza
+   con l'auto privata l'ora del ritiro in hotel. */
+Deno.test('in arrivo l etichetta chiede l ora a cui atterra o arriva il treno, e cambia col verso', () => {
+  const s = scenaTr({
+    trTipo: 'arrivo', trLuogo: 'Venezia  aeroporto', trPax: '2',
+    trQuando: fraGiorni(30), trOra: '11:00', trServizio: '0',
+  });
+  assertEquals(s.etichetta(), 'Ora di arrivo del volo o treno',
+    'al montaggio, in arrivo, l etichetta non dice che vogliamo l ora a cui atterra');
+  assertEquals(s.nota(), '', 'in arrivo non c e nessun ritiro da calcolare, la nota deve restare vuota');
+
+  s.campo('trTipo').value = 'partenza';
+  s.campo('trTipo').scatena('change');
+  assertEquals(s.etichetta(), 'Ora del ritiro in hotel',
+    'passando alla partenza con l auto privata l etichetta non dice che e l ora del ritiro');
+
+  s.campo('trTipo').value = 'arrivo';
+  s.campo('trTipo').scatena('change');
+  assertEquals(s.etichetta(), 'Ora di arrivo del volo o treno',
+    'tornando all arrivo l etichetta non torna quella del volo o treno');
 });
 
 /* GIRO DI CORREZIONE 4, punto 2. Un commento invecchiato che accusa un

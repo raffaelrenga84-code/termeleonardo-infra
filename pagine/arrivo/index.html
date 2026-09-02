@@ -139,7 +139,7 @@ const T = {
   transferT:'Transfer', transferI:'Vorrei un transfer',
   trTipo:'Per', trTipi:['L\u2019arrivo','La partenza'],
   trLuogo:'Da dove / verso dove', trVolo:'Numero volo o treno',
-  trQuando:'Giorno', trOra:'Ora', trPax:'Persone', trCell:'Cellulare per l\u2019autista',
+  trQuando:'Giorno', trOraArrivo:'Ora di arrivo del volo o treno', trOraRitiro:'Ora del ritiro in hotel', trPax:'Persone', trCell:'Cellulare per l\u2019autista',
   trServizio:'Il servizio', trPrivata:'Auto solo per lei', trNavetta:'Navetta condivisa',
   trNavettaCostaMeno:'Si divide l\u2019auto con altri ospiti, e costa meno.',
   trNavettaStessoPrezzo:'Si divide l\u2019auto con altri ospiti; a tre persone costa come il taxi privato.',
@@ -185,7 +185,7 @@ const T = {
   transferT:'Transfer', transferI:'Ich möchte einen Transfer',
   trTipo:'Für', trTipi:['Die Anreise','Die Abreise'],
   trLuogo:'Von wo / wohin', trVolo:'Flug- oder Zugnummer',
-  trQuando:'Tag', trOra:'Uhrzeit', trPax:'Personen', trCell:'Handy für den Fahrer',
+  trQuando:'Tag', trOraArrivo:'Ankunftszeit von Flug oder Zug', trOraRitiro:'Uhrzeit der Abholung am Hotel', trPax:'Personen', trCell:'Handy für den Fahrer',
   trServizio:'Der Service', trPrivata:'Wagen nur für Sie', trNavetta:'Sammeltransfer',
   trNavettaCostaMeno:'Sie teilen den Wagen mit anderen Gästen und zahlen weniger.',
   trNavettaStessoPrezzo:'Sie teilen den Wagen mit anderen Gästen; zu dritt kostet er gleich viel wie das Privattaxi.',
@@ -228,7 +228,7 @@ const T = {
   transferT:'Transfer', transferI:'I\u2019d like a transfer',
   trTipo:'For', trTipi:['Arrival','Departure'],
   trLuogo:'From / to', trVolo:'Flight or train number',
-  trQuando:'Day', trOra:'Time', trPax:'People', trCell:'Mobile for the driver',
+  trQuando:'Day', trOraArrivo:'Flight or train arrival time', trOraRitiro:'Pick-up time at the hotel', trPax:'People', trCell:'Mobile for the driver',
   trServizio:'The service', trPrivata:'A car just for you', trNavetta:'Shared shuttle',
   trNavettaCostaMeno:'You share the car with other guests, and it costs less.',
   trNavettaStessoPrezzo:'You share the car with other guests; for three people it costs the same as the private taxi.',
@@ -271,7 +271,7 @@ const T = {
   transferT:'Transfert', transferI:'Je souhaite un transfert',
   trTipo:'Pour', trTipi:['L\u2019arrivée','Le départ'],
   trLuogo:'D\u2019où / vers où', trVolo:'N° de vol ou de train',
-  trQuando:'Jour', trOra:'Heure', trPax:'Personnes', trCell:'Portable pour le chauffeur',
+  trQuando:'Jour', trOraArrivo:'Heure d’arrivée du vol ou du train', trOraRitiro:'Heure de prise en charge à l’hôtel', trPax:'Personnes', trCell:'Portable pour le chauffeur',
   trServizio:'Le service', trPrivata:'Une voiture pour vous seul', trNavetta:'Navette partagée',
   trNavettaCostaMeno:'Vous partagez la voiture avec d\u2019autres clients, et cela coûte moins cher.',
   trNavettaStessoPrezzo:'Vous partagez la voiture avec d\u2019autres clients ; à trois, le prix est le même que le taxi privé.',
@@ -446,7 +446,13 @@ function aggiornaRitiroTr(){
   const nota = document.getElementById('trNotaRitiro');
   if (!eti || !nota) return;
   const attivo = conNavettaInPartenzaTr();
-  eti.firstChild.nodeValue = attivo ? t.trOraVolo : t.trOra;
+  /* l'etichetta dice DA SOLA che ora chiediamo — «Ora» nudo mandava chi
+     arriva a scrivere l'ora a cui contava di essere in hotel, non quella a
+     cui atterra: all'arrivo l'ora del volo o del treno, alla partenza
+     l'ora del ritiro in hotel, con la navetta in partenza l'ora del volo
+     (stessa regola di etichettaOra() nel modulo transfer del sito) */
+  const partenza = document.getElementById('trTipo').value === 'partenza';
+  eti.firstChild.nodeValue = attivo ? t.trOraVolo : (partenza ? t.trOraRitiro : t.trOraArrivo);
   const r = attivo ? ritiroPerVolo(document.getElementById('trOra').value) : null;
   if (!r) { nota.textContent = ''; return; }
   const quando = document.getElementById('trQuando').value;
@@ -566,13 +572,15 @@ function modulo(){
       <select id="trLuogo"></select>
       <div class="due">
         <div><label>${t.trQuando}</label><input type="date" id="trQuando" /></div>
-        <!-- L'ETICHETTA E LA NOTA CAMBIANO SOLO con partenza + navetta
-             condivisa: e' l'unico caso in cui "Ora" smette di essere
-             l'orario della corsa e diventa l'ora del volo, da cui il
-             ritiro si ricava (navetta.js, ritiroPerVolo). Vedi
-             aggiornaRitiroTr() e corsaVeraTr() piu' sotto — stessa forma
-             di aggiornaRitiro()/corsaVera() nel modulo transfer del sito. -->
-        <div><label id="trEtiOra">${t.trOra}</label><input type="time" id="trOra" />
+        <!-- L'ETICHETTA DICE CHE ORA CHIEDIAMO e segue il verso: all'arrivo
+             l'ora del volo o del treno, alla partenza l'ora del ritiro in
+             hotel; con partenza + navetta condivisa diventa l'ora del volo,
+             da cui il ritiro si ricava (navetta.js, ritiroPerVolo). Qui si
+             disegna quella dell'arrivo, il primo valore del select:
+             aggiornaRitiroTr() la riallinea al montaggio e a ogni cambio.
+             Vedi corsaVeraTr() piu' sotto — stessa forma di
+             aggiornaRitiro()/corsaVera() nel modulo transfer del sito. -->
+        <div><label id="trEtiOra">${t.trOraArrivo}</label><input type="time" id="trOra" />
           <div class="nota-invio" style="text-align:left;margin-top:4px;" id="trNotaRitiro"></div>
         </div>
       </div>

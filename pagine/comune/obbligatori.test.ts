@@ -19,7 +19,7 @@
    diversi, ed e' esattamente cosi' che divergono.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { campiObbligatori, mancanti, segnaEtichette, TIPI_MODULO, voloRichiesto , nomiMancanti } from './obbligatori.js';
+import { campiObbligatori, mancanti, segnaEtichette, TIPI_MODULO, voloRichiesto , nomiMancanti, chiaveOraTransfer } from './obbligatori.js';
 
 /* i tipi che il modulo delle richieste sa disegnare (percorso.js), piu' il
    transfer, che ha una pagina sua ma le stesse tre righe di contatto */
@@ -147,10 +147,17 @@ Deno.test('ogni campo obbligatorio esiste sulla pagina che lo disegna', () => {
        volo quando la destinazione ne ha uno, giorno e ora del ritorno quando
        la spunta e' accesa. Se non esistessero sulla pagina, l'asterisco non
        comparirebbe e il controllo cercherebbe un campo che non c'e'. */
-    const contesto = tipo === 'transfer'
-      ? { luogo: 'Venezia  aeroporto', ritorno: true }
-      : {};
-    for (const c of campiObbligatori(tipo, contesto)) {
+    /* per il transfer in tutti e tre i versi dell'ora: il nome del campo
+       cambia col verso e col servizio, e ognuno dei tre deve esistere fra i
+       testi della pagina, non solo quello dell'arrivo */
+    const contesti = tipo === 'transfer'
+      ? [
+        { luogo: 'Venezia  aeroporto', ritorno: true },
+        { luogo: 'Venezia  aeroporto', ritorno: true, verso: 'partenza' },
+        { luogo: 'Venezia  aeroporto', ritorno: true, verso: 'partenza', collettivo: true },
+      ]
+      : [{}];
+    for (const c of contesti.flatMap((contesto) => campiObbligatori(tipo, contesto))) {
       /* il prefisso e non la stringa intera: un'etichetta puo' avere altri
          attributi (id, class) e resta la stessa etichetta */
       assert(
@@ -165,12 +172,17 @@ Deno.test('ogni campo obbligatorio esiste sulla pagina che lo disegna', () => {
           `${tipo}: ${c.id} rimanda a #${c.mostra}, che in ${dove} non c'e'`,
         );
       }
-      assert(
-        /* String.raw: dentro un template normale `\b` e' il carattere
-           backspace, non il confine di parola, e la prova passava sempre */
-        new RegExp(String.raw`\bt\.${c.eti}\b`).test(sorgente),
-        `${tipo}: il nome tradotto t.${c.eti} non esiste in ${dove}`,
-      );
+      /* String.raw: dentro un template normale `\b` e' il carattere
+         backspace, non il confine di parola, e la prova passava sempre.
+         Il nome puo' essere usato per esteso (t.nome) oppure raggiunto
+         dalla chiave — il transfer sceglie l'ora con t[chiaveOraTransfer()]
+         e non scrive mai t.oraArrivo — e allora a garantire che il
+         messaggio non stampi «undefined» sono le quattro definizioni nella
+         tabella dei testi, una per lingua. */
+      const usato = new RegExp(String.raw`\bt\.${c.eti}\b`).test(sorgente);
+      const definito = (sorgente.match(new RegExp(String.raw`\b${c.eti}\s*:`, 'g')) || []).length >= 4;
+      assert(usato || definito,
+        `${tipo}: il nome tradotto ${c.eti} non esiste in ${dove}, ne' come t.${c.eti} ne' definito nelle quattro lingue`);
     }
   }
 });
@@ -232,6 +244,57 @@ Deno.test('senza contesto l elenco resta quello di sempre', () => {
     campiObbligatori('transfer').map((c) => c.id),
     campiObbligatori('transfer', {}).map((c) => c.id),
   );
+});
+
+/* ============================================================
+   L'ORA SI CHIAMA COME SULL'ETICHETTA.
+
+   «Ora» e basta non diceva che ora: chi arrivava scriveva l'ora a cui
+   contava di essere in hotel, non quella a cui atterra. L'etichetta ora lo
+   dice — «Ora di arrivo del volo o treno», «Ora del ritiro in hotel», «Ora
+   del volo» — e il messaggio «Manca ancora: …» deve usare la STESSA frase,
+   altrimenti nomina un campo che sul modulo non esiste.
+   ============================================================ */
+Deno.test('la chiave dell ora segue il verso e il servizio', () => {
+  assertEquals(chiaveOraTransfer({}), 'oraArrivo', 'senza contesto e un arrivo');
+  assertEquals(chiaveOraTransfer({ verso: 'arrivo' }), 'oraArrivo');
+  assertEquals(chiaveOraTransfer({ verso: 'arrivo', collettivo: true }), 'oraArrivo',
+    'la navetta non cambia l ora di un arrivo: non c e nessun ritiro da calcolare');
+  assertEquals(chiaveOraTransfer({ verso: 'partenza' }), 'oraRitiro');
+  assertEquals(chiaveOraTransfer({ verso: 'partenza', collettivo: false }), 'oraRitiro');
+  assertEquals(chiaveOraTransfer({ verso: 'partenza', collettivo: true }), 'oraVolo');
+});
+
+Deno.test('il campo dell ora del transfer porta la chiave del verso, e il messaggio la usa', () => {
+  const ora = (contesto: Record<string, unknown>) =>
+    campiObbligatori('transfer', contesto).find((c) => c.id === 'fOra');
+  assertEquals(ora({})?.eti, 'oraArrivo');
+  assertEquals(ora({ verso: 'partenza' })?.eti, 'oraRitiro');
+  assertEquals(ora({ verso: 'partenza', collettivo: true })?.eti, 'oraVolo');
+  assert(!campiObbligatori('transfer', { verso: 'partenza' }).some((c) => c.eti === 'ora'),
+    'la chiave nuda "ora" e ancora in giro: il messaggio direbbe «Ora» mentre l etichetta dice altro');
+
+  /* il messaggio, con i testi della pagina: nomina l ora come l etichetta */
+  const t = {
+    luogo: 'Da dove / verso dove', quando: 'Giorno',
+    oraArrivo: 'Ora di arrivo del volo o treno', oraRitiro: 'Ora del ritiro in hotel', oraVolo: 'Ora del volo',
+    nome: 'Nome e cognome', email: 'Email', tel: 'Telefono',
+  };
+  const soloOraVuota = (id: string) => (id === 'fOra' ? '' : 'x');
+  assertEquals(nomiMancanti(mancanti('transfer', soloOraVuota, { verso: 'arrivo' }), t),
+    'Ora di arrivo del volo o treno');
+  assertEquals(nomiMancanti(mancanti('transfer', soloOraVuota, { verso: 'partenza' }), t),
+    'Ora del ritiro in hotel');
+  assertEquals(nomiMancanti(mancanti('transfer', soloOraVuota, { verso: 'partenza', collettivo: true }), t),
+    'Ora del volo');
+});
+
+/* gli altri moduli hanno un'ora sola e continuano a chiamarla «ora» */
+Deno.test('il green fee e la lezione col maestro chiamano l ora ancora «ora»', () => {
+  for (const tipo of ['greenfee', 'maestro']) {
+    const c = campiObbligatori(tipo, { verso: 'partenza' }).find((x) => x.id === 'fOra');
+    assertEquals(c?.eti, 'ora', tipo + ': il verso del transfer non deve toccare gli altri moduli');
+  }
 });
 
 /* ============================================================

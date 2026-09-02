@@ -122,7 +122,7 @@ import { oggiISO, attivaDate } from '/comune/date.js';
    il perche' e il contratto (ripulisce, non fa escaping: tocca comunque
    a `esc()` qui sotto, come per ogni altro campo di questa pagina). */
 import { normalizzaLingua, parametriOspite } from '/comune/ospite-url.js';
-import { mancanti, segnaEtichette, segnaVuoti, nomiMancanti } from '/comune/obbligatori.js';
+import { mancanti, segnaEtichette, segnaVuoti, nomiMancanti, chiaveOraTransfer } from '/comune/obbligatori.js';
 /* La regola della navetta condivisa: quando si offre e cosa dice. Sta in un
    modulo suo perche' e' fatta dei numeri del listino, non di grafica, ed e'
    la parte che si prova da sola — vedi navetta.test.ts. */
@@ -177,7 +177,7 @@ const T = {
     verso:'Arrivo o partenza', arrivo:'Arrivo', arrivoSotto:'vengo verso l’hotel',
     partenza:'Partenza', partenzaSotto:'parto dall’hotel',
     luogo:'Da dove / verso dove', comuni:'I più richiesti', tutte:'Tutte le destinazioni', altreMete:'Un’altra destinazione…', tornaMete:'Torna alle più richieste',
-    quando:'Giorno', ora:'Ora', pax:'Passeggeri',
+    quando:'Giorno', oraArrivo:'Ora di arrivo del volo o treno', oraRitiro:'Ora del ritiro in hotel', pax:'Passeggeri',
     volo:'Volo o treno', voloPh:'es. FR1234',
     oraVolo:'Ora del volo', ritiroAlle:(o)=>`La prendiamo in hotel alle ${o}.`,
     ritiroGiornoPrima:(g,o)=>`La prendiamo in hotel il ${g} alle ${o} — il giorno prima del volo.`,
@@ -212,7 +212,7 @@ const T = {
     verso:'Ankunft oder Abfahrt', arrivo:'Ankunft', arrivoSotto:'zum Hotel',
     partenza:'Abfahrt', partenzaSotto:'vom Hotel',
     luogo:'Von wo / wohin', comuni:'Am häufigsten', tutte:'Alle Ziele', altreMete:'Ein anderes Ziel…', tornaMete:'Zurück zu den häufigsten',
-    quando:'Tag', ora:'Uhrzeit', pax:'Personen',
+    quando:'Tag', oraArrivo:'Ankunftszeit von Flug oder Zug', oraRitiro:'Uhrzeit der Abholung am Hotel', pax:'Personen',
     volo:'Flug oder Zug', voloPh:'z. B. FR1234',
     oraVolo:'Abflugzeit', ritiroAlle:(o)=>`Wir holen Sie um ${o} am Hotel ab.`,
     ritiroGiornoPrima:(g,o)=>`Wir holen Sie am ${g} um ${o} ab — am Tag vor dem Flug.`,
@@ -247,7 +247,7 @@ const T = {
     verso:'Arrival or departure', arrivo:'Arrival', arrivoSotto:'coming to the hotel',
     partenza:'Departure', partenzaSotto:'leaving the hotel',
     luogo:'From / to', comuni:'Most requested', tutte:'All destinations', altreMete:'Another destination…', tornaMete:'Back to the most requested',
-    quando:'Day', ora:'Time', pax:'Passengers',
+    quando:'Day', oraArrivo:'Flight or train arrival time', oraRitiro:'Pick-up time at the hotel', pax:'Passengers',
     volo:'Flight or train', voloPh:'e.g. FR1234',
     oraVolo:'Flight time', ritiroAlle:(o)=>`We pick you up at the hotel at ${o}.`,
     ritiroGiornoPrima:(g,o)=>`We pick you up on ${g} at ${o} — the day before your flight.`,
@@ -282,7 +282,7 @@ const T = {
     verso:'Arrivée ou départ', arrivo:'Arrivée', arrivoSotto:'vers l’hôtel',
     partenza:'Départ', partenzaSotto:'depuis l’hôtel',
     luogo:'D’où / vers où', comuni:'Les plus demandés', tutte:'Toutes les destinations', altreMete:'Une autre destination…', tornaMete:'Retour aux plus demandées',
-    quando:'Jour', ora:'Heure', pax:'Passagers',
+    quando:'Jour', oraArrivo:'Heure d’arrivée du vol ou du train', oraRitiro:'Heure de prise en charge à l’hôtel', pax:'Passagers',
     volo:'Vol ou train', voloPh:'ex. FR1234',
     oraVolo:'Heure du vol', ritiroAlle:(o)=>`Nous venons vous chercher à l’hôtel à ${o}.`,
     ritiroGiornoPrima:(g,o)=>`Nous venons vous chercher le ${g} à ${o} — la veille du vol.`,
@@ -353,6 +353,25 @@ function testata() {
     <a href="https://www.hoteltermeleonardo.com/" target="_blank" rel="noopener noreferrer">hoteltermeleonardo.com</a>`;
 }
 
+/* CHE ORA CHIEDIAMO. L'etichetta diceva «Ora» e basta, e la riga di guida
+   in cima al riquadro e' proprio quella che l'ospite salta: chi arrivava
+   scriveva l'ora a cui contava di essere in hotel, non quella a cui
+   atterra. La proprieta', 2 settembre 2026: «anche qui specificherei Ora
+   di arrivo del volo o treno». Adesso l'etichetta lo dice da sola e segue
+   il verso e il servizio:
+   - arrivo: l'ora a cui atterra o arriva il treno (la navetta non conta:
+     non c'e' nessun ritiro da calcolare);
+   - partenza con auto privata: l'ora a cui passiamo a prenderlo in hotel;
+   - partenza con navetta condivisa: l'ora del VOLO, da cui ricaviamo il
+     ritiro tre ore prima (ritiroPerVolo) e glielo scriviamo sotto.
+   La scelta della chiave sta in /comune/obbligatori.js (chiaveOraTransfer),
+   perche' la stessa frase la usa anche «Manca ancora: …»: qui c'e' solo il
+   passaggio dalla chiave al testo. Funzione a se', senza DOM, cosi'
+   transfer.test.ts la esegue davvero. */
+function etichettaOra(t, verso, collettivo) {
+  return t[chiaveOraTransfer({ verso, collettivo })];
+}
+
 function modulo() {
   const t = T[LNG];
   $('app').innerHTML = `
@@ -384,7 +403,7 @@ function modulo() {
       <div class="due">
         <div><label for="fQuando">${esc(t.quando)}</label>
           <input type="date" id="fQuando" min="${oggiISO()}" value="${esc(dataPerVerso())}" /></div>
-        <div><label for="fOra" id="etiOra">${esc(t.ora)}</label>
+        <div><label for="fOra" id="etiOra">${esc(etichettaOra(t, VERSO, COLLETTIVO))}</label>
           <input type="time" id="fOra" />
           <!-- LE TRE ORE. Con la navetta in partenza il campo qui sopra chiede
                l'ORA DEL VOLO, e questa riga dice quando passiamo a prenderlo:
@@ -579,7 +598,9 @@ function modulo() {
      (chi va a Golf Frassanelle non ne ha uno), la spunta decide se servono
      giorno e ora del ritorno. Si ridisegna a ogni cambiamento, perche'
      segnaEtichette sa anche TOGLIERE la stella. */
-  const contesto = () => ({ luogo: $('fLuogo').value, ritorno: $('fRitorno').checked });
+  const contesto = () => ({
+    luogo: $('fLuogo').value, ritorno: $('fRitorno').checked, verso: VERSO, collettivo: COLLETTIVO,
+  });
   const aggiornaObbligatori = () => segnaEtichette('transfer', document, contesto());
 
   /* LE TRE ORE PRIMA DEL VOLO. Con la navetta in partenza il campo dell'ora
@@ -599,7 +620,7 @@ function modulo() {
 
   const aggiornaRitiro = () => {
     const attivo = conNavettaInPartenza();
-    $('etiOra').firstChild.nodeValue = attivo ? t.oraVolo : t.ora;
+    $('etiOra').firstChild.nodeValue = etichettaOra(t, VERSO, COLLETTIVO);
     const r = attivo ? ritiroPerVolo($('fOra').value) : null;
     if (!r) { $('notaRitiro').textContent = ''; return; }
     $('notaRitiro').textContent = r.giornoPrima && $('fQuando').value
@@ -711,7 +732,7 @@ function modulo() {
   $('bArrivo').onclick = () => scegli('arrivo');
   $('bPartenza').onclick = () => scegli('partenza');
   segnaEtichette('transfer', document,
-    { luogo: $('fLuogo').value, ritorno: $('fRitorno').checked });
+    { luogo: $('fLuogo').value, ritorno: $('fRitorno').checked, verso: VERSO, collettivo: COLLETTIVO });
   $('bInvia').onclick = invia;
 
   /* la data che il modello ha appena scritto e' NOSTRA: senza ricordarla,
@@ -815,7 +836,12 @@ async function invia() {
      SEMPRE («destinazione, giorno, ora, nome, email e telefono»), anche
      quando ne mancava uno solo, e chi lo leggeva doveva ricontrollarli a
      uno a uno. */
-  const contestoOra = { luogo: v('fLuogo'), ritorno: $('fRitorno').checked };
+  /* verso e servizio ci sono perche' il messaggio deve chiamare l'ora come
+     l'etichetta sul campo: «Manca ancora: Ora di arrivo del volo o treno»,
+     non un «Ora» che sul modulo non c'e' piu' */
+  const contestoOra = {
+    luogo: v('fLuogo'), ritorno: $('fRitorno').checked, verso: VERSO, collettivo: COLLETTIVO,
+  };
   const vuoti = mancanti('transfer', (id) => ($(id) ? $(id).value : ''), contestoOra);
   if (vuoti.length) {
     $('esito').innerHTML = `<div class="errore">${esc(t.mancaChe(nomiMancanti(vuoti, t)))}</div>`;

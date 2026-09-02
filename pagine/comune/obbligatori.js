@@ -57,7 +57,9 @@ const PER_TIPO = {
        senza mostrare dove sceglierla. */
     { id: 'fLuogo', eti: 'luogo', mostra: 'mete' },
     { id: 'fQuando', eti: 'quando' },
-    { id: 'fOra', eti: 'ora' },
+    /* il nome dell'ora dipende dal verso: e' quello dell'arrivo finche'
+       campiObbligatori() non lo sostituisce con chiaveOraTransfer() */
+    { id: 'fOra', eti: 'oraArrivo' },
   ],
   trattamenti: [{ id: 'fGiorno', eti: 'giorno' }],
   dayspa: [{ id: 'fGiorno', eti: 'giorno' }],
@@ -85,13 +87,34 @@ export function voloRichiesto(luogo) {
   return /aeroport|\bfs\b|porto|p\.le roma/.test(p);
 }
 
+/* CHE ORA CHIEDIAMO nel modulo transfer, come chiave del nome tradotto.
+   «Ora» e basta non lo diceva, e chi arrivava scriveva l'ora a cui contava
+   di essere in hotel invece di quella a cui atterra (la proprieta', 2
+   settembre 2026: «anche qui specificherei Ora di arrivo del volo o
+   treno»). La regola vive qui perche' la leggono due cose che devono dire
+   la stessa frase: l'etichetta sul campo (etichettaOra() nella pagina) e il
+   messaggio «Manca ancora: …» (nomiMancanti). Scritta in due posti,
+   l'etichetta direbbe «Ora di arrivo del volo o treno» e il messaggio
+   «Ora».
+   - arrivo: l'ora a cui atterra o arriva il treno; la navetta non conta,
+     non c'e' nessun ritiro da calcolare;
+   - partenza con auto privata: l'ora a cui passiamo a prenderlo in hotel;
+   - partenza con navetta condivisa: l'ora del VOLO, da cui il ritiro si
+     ricava tre ore prima (navetta.js, ritiroPerVolo). */
+export function chiaveOraTransfer(contesto = {}) {
+  if (contesto.verso !== 'partenza') return 'oraArrivo';
+  return contesto.collettivo ? 'oraVolo' : 'oraRitiro';
+}
+
 /* `contesto` e' quello che la pagina sa in questo momento — la destinazione
-   scelta, se e' spuntato il ritorno — e serve per i campi che diventano
-   obbligatori solo in certe situazioni. Chiamare senza contesto continua a
-   dare l'elenco di sempre: gli altri moduli non ne hanno bisogno. */
+   scelta, se e' spuntato il ritorno, il verso e il servizio — e serve per i
+   campi che diventano obbligatori solo in certe situazioni e per il nome
+   dell'ora, che segue il verso. Chiamare senza contesto continua a dare
+   l'elenco di sempre: gli altri moduli non ne hanno bisogno. */
 export function campiObbligatori(tipo, contesto = {}) {
-  const propri = [...(PER_TIPO[tipo] || GIORNO_E_ORA)];
+  let propri = [...(PER_TIPO[tipo] || GIORNO_E_ORA)];
   if (tipo === 'transfer') {
+    propri = propri.map((c) => c.id === 'fOra' ? { ...c, eti: chiaveOraTransfer(contesto) } : c);
     if (voloRichiesto(contesto.luogo)) propri.push({ id: 'fVolo', eti: 'volo' });
     /* la spunta del ritorno apre due campi: senza, la reception riceve un
        booleano e deve telefonare per sapere quando */
