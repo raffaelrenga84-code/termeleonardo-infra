@@ -539,3 +539,27 @@ Deno.test('la conferma arriva anche alla reception, in copia nascosta', async ()
     assertEquals(m.cc, undefined, 'la copia e visibile all ospite: risponderebbe a tutti');
   } finally { i.ripristina(); }
 });
+
+Deno.test('nel ritorno l ospite vede il suo volo accanto al ritiro, nella sua lingua', () => {
+  /* LA DOMANDA DELLA PROPRIETA': «le mail arrivano nella lingua del
+     cliente?» Si', e proprio per questo il buco si vedeva bene: nel
+     ritorno un ospite tedesco leggeva «Rückfahrt: 09/11/2026 · 14:55» e
+     basta. Ma lei aveva scritto 17:55 — l'ora del suo volo — e 14:55 e'
+     il ritiro che abbiamo calcolato noi. Senza il volo accanto, sembra
+     che le abbiamo spostato l'aereo.
+
+     L'andata lo faceva gia' («(Flug 17:15)»); il ritorno no. */
+  const h = confermaHTML({
+    ...transfer,
+    dati: { ...transfer.dati, ritorno: true, ritorno_quando: '2026-11-09',
+            ritorno_ora: '14:55', ritorno_ora_volo: '17:55' },
+  });
+  assertStringIncludes(h, '14:55');
+  assertStringIncludes(h, '(Flug 17:55)');
+  /* e senza ora del volo — richieste vecchie — non si inventa una parentesi vuota */
+  const senza = confermaHTML({
+    ...transfer,
+    dati: { ...transfer.dati, ritorno: true, ritorno_quando: '2026-11-09', ritorno_ora: '14:55' },
+  });
+  assert(!senza.includes('(Flug )'), 'parentesi vuota quando l ora del volo manca');
+});

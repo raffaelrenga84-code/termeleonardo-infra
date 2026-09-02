@@ -289,7 +289,12 @@ function vociDettagli(tipo: string, t: Record<string, string>): Voce[] {
           d.ritorno !== true
             ? ''
             : (d.ritorno_quando
-              ? `${data(d.ritorno_quando)}${d.ritorno_ora ? ' · ' + String(d.ritorno_ora) : ''}`
+              /* l'ora del VOLO accanto a quella del ritiro, come per
+                 l'andata: da oggi `ritorno_ora` e' tre ore prima del volo,
+                 e un ospite che si vede confermare «14:55» senza il suo
+                 17:55 accanto pensa che gli abbiamo cambiato l'aereo */
+              ? `${data(d.ritorno_quando)}${d.ritorno_ora ? ' · ' + String(d.ritorno_ora) : ''}` +
+                (d.ritorno_ora_volo ? ` (${t.oraVolo} ${String(d.ritorno_ora_volo)})` : '')
               : '✓'),
       },
       /* il prezzo lo conferma la reception: senza, la riga non c'e' —
