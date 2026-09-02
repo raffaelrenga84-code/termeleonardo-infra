@@ -364,9 +364,33 @@
     }
   };
 
+  /* ============================================================
+     v2.20.0 — IL CONFINE FRA LE STAGIONI, E DUE PREZZI SBAGLIATI.
+     ------------------------------------------------------------
+     Segnalato dalla proprieta' sulla 19242: soggiorno dal 7 al 15
+     novembre, il pannello diceva «pacchetto a 115,00 € a notte
+     (listino Werbesaison)» e la reception aveva gia' scritto 112 a
+     mano. Il listino cartaceo da' novembre allo Spezial.
+
+     LA CAUSA NON ERA UNA CIFRA: le due stagioni CONDIVIDONO le date
+     di confine — il Dolce Vita comincia di sabato e finisce di
+     sabato, quindi il giorno in cui una finisce e' lo stesso in cui
+     l'altra comincia. Con gli estremi tutti e due compresi, quel
+     giorno cadeva in tutt'e due gli intervalli, e vinceva quello
+     dichiarato per primo nell'oggetto: sempre la Werbesaison.
+
+     Su quattro confini due erano sbagliati — il 13 giugno e il 7
+     novembre — e tutti e due IN ECCESSO: 115 invece di 112, cioe' 21 €
+     a persona su una settimana, scritti in un'offerta.
+
+     LA REGOLA GIUSTA: chi COMINCIA batte chi finisce. Si ottiene
+     escludendo la data finale, che e' il giorno di partenza, non un
+     giorno di arrivo. Cosi' il 29 novembre — giorno in cui l'hotel
+     chiude — smette anche di risultare prenotabile.
+     ============================================================ */
   function stagionePacchetto(iso) {
     for (const [chiave, s] of Object.entries(LISTINO_PACCHETTI))
-      for (const [da, a] of s.periodi) if (iso >= da && iso <= a) return chiave;
+      for (const [da, a] of s.periodi) if (iso >= da && iso < a) return chiave;
     return null;
   }
 
