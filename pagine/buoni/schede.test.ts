@@ -25,7 +25,7 @@ const SORGENTE = Deno.readTextFileSync(new URL('index.html', import.meta.url));
 function pulsanti(): string[] {
   const elenco = SORGENTE.match(/const SCHEDE = \[[\s\S]*?\];/);
   assert(elenco, 'const SCHEDE non si trova in pagine/buoni/index.html: la pagina e cambiata, aggiornare questa prova');
-  return [...elenco![0].matchAll(/\['([a-z]+)',/g)].map((m) => m[1]);
+  return [...elenco![0].matchAll(/\['([a-zA-Z]+)',/g)].map((m) => m[1]);
 }
 
 /** La mappa che smista: nome della scheda -> nome della funzione. */

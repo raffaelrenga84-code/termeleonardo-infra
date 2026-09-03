@@ -180,6 +180,8 @@ const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
 /* le richieste di preventivo dal sito nuovo stanno in una funzione a parte,
    ma si guardano da qui: la reception ha gia' un posto dove va a guardare */
 const FUNZIONE_RICHIESTE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
+/* il Day Spa venduto da noi (3 settembre 2026): posti, prenotazioni, arrivi */
+const FUNZIONE_DAYSPA = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/dayspa';
 
 /* ---------- catalogo: dal listino spa del sito ---------- */
 /* il Day Spa sta in cima perché è quello che chiedono di più */
@@ -273,6 +275,10 @@ const SCHEDE = [
   ['verifica', 'Verifica / riscuoti'],
   ['richieste', 'Richieste dal sito'],
   ['arrivi', 'Arrivi del giorno'],
+  /* il Day Spa venduto da noi, dal 3 settembre 2026 (in prova) */
+  ['dayspaOggi', 'Day Spa oggi'],
+  ['dayspaDisponibilita', 'Disponibilit\u00e0 Day Spa'],
+  ['dayspaPrenotazioni', 'Prenotazioni Day Spa'],
 ];
 
 /* CHI NON VEDE COSA. Alla spa «Emetti un buono» non serve e non
@@ -309,8 +315,8 @@ function schedeNascoste(email) {
    ereditata. Gli indirizzi sono quelli di ruoli.ts (il server): la copia
    e' inevitabile, che divergano no — scheda-iniziale.test.ts. */
 const ORDINE_SCHEDE = new Map([
-  ['reception@termeleonardo.com', ['richieste', 'arrivi', 'emetti', 'elenco', 'verifica']],
-  ['spa@termeleonardo.com', ['richieste', 'arrivi', 'elenco', 'verifica']],
+  ['reception@termeleonardo.com', ['richieste', 'arrivi', 'dayspaOggi', 'emetti', 'elenco', 'verifica', 'dayspaDisponibilita', 'dayspaPrenotazioni']],
+  ['spa@termeleonardo.com', ['richieste', 'arrivi', 'dayspaOggi', 'elenco', 'verifica', 'dayspaDisponibilita', 'dayspaPrenotazioni']],
 ]);
 
 /** L'ordine delle schede per questo indirizzo; chi non e' in tabella tiene
@@ -408,7 +414,8 @@ function disegna() {
   document.querySelectorAll('.schede button').forEach(b =>
     b.onclick = () => { VISTA = b.dataset.scheda; disegna(); });
   ({ emetti: vistaEmetti, elenco: vistaElenco, verifica: vistaVerifica,
-     richieste: vistaRichieste, arrivi: vistaArrivi })[VISTA]();
+     richieste: vistaRichieste, arrivi: vistaArrivi, dayspaOggi: vistaDayspaOggi,
+     dayspaDisponibilita: vistaDayspaDisponibilita, dayspaPrenotazioni: vistaDayspaPrenotazioni })[VISTA]();
   aggiornaContatore();
 }
 
@@ -2144,6 +2151,234 @@ function vistaArrivi() {
 
   $('aVai').onclick = carica;
   $('aGiorno').onchange = carica;
+  carica();
+}
+
+/* ---------- 6. il Day Spa venduto da noi (3 settembre 2026) ----------
+   Tre schede: gli arrivi di oggi con lo scanner, i posti settimanali, le
+   prenotazioni. Le regole stanno nel server (supabase/functions/dayspa):
+   qui si disegna quello che arriva e si mandano i gesti della reception.
+   Specifica: docs/superpowers/specs/2026-09-03-day-spa-online-design.md */
+
+const FASCE_DAYSPA = { giornaliero: 'Giornaliero 9:00\u201318:30', serale: 'Serale 18:00\u201322:30' };
+const TIPI_DAYSPA = ['feriale', 'prefestivo', 'festivo'];
+const STATI_PRENOTAZIONE_DAYSPA = {
+  in_pagamento: 'in pagamento', pagata: 'pagata', annullata: 'annullata', rimborsata: 'rimborsata', scaduta: 'scaduta',
+};
+const RICEVUTA_DAYSPA = { da_battere: 'da battere', battuta: 'battuta', errore: 'errore', non_richiesta: '\u2014' };
+const giornoDopoDayspa = (iso, n = 1) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const giornoIT = (iso) => new Date(iso + 'T12:00:00Z').toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+
+/* CHI RIMBORSA. Copia di puoRimborsare + ruoloDi di
+   supabase/functions/dayspa/ruoli.ts: una pagina servita da Vercel non
+   importa un modulo Deno. dayspa-schede.test.ts esegue questa funzione e
+   la confronta con quella del server, cosi' non divergono. Nascondere il
+   pulsante non e' proteggere: il cancello resta nel server. */
+function puoRimborsareDayspa(email) {
+  const e = String(email ?? '').trim().toLowerCase();
+  return e === 'reception@termeleonardo.com' || e === 'amministrazione@termeleonardo.com';
+}
+
+function vistaDayspaOggi() {
+  $('vista').innerHTML = `<div class="riquadro">
+    <div class="due">
+      <div><label>Giorno</label><input id="dOggiGiorno" type="date" value="${oggiISO()}" /></div>
+      <div><label>Codice dal lettore, o numero della prenotazione</label>
+        <input id="dOggiCod" placeholder="QR o DS-2026-0001" style="font-family:monospace;text-transform:uppercase;" /></div>
+    </div>
+    <div class="esito" id="dOggiScan"></div>
+    <div class="esito" id="dOggiRicevute"></div>
+    <div class="esito" id="dOggiEsito">Carico\u2026</div>
+    <div id="dOggiTab"></div></div>`;
+
+  const carica = async () => {
+    $('dOggiEsito').textContent = 'Carico\u2026';
+    $('dOggiTab').innerHTML = '';
+    try {
+      const j = await chiama('?a=oggi&giorno=' + encodeURIComponent($('dOggiGiorno').value), {}, FUNZIONE_DAYSPA);
+      const pren = j.prenotazioni || [];
+      const fasce = j.fasce || [];
+      /* le ricevute che aspettano da piu' di dieci minuti: il PC della
+         reception e' spento o la stampante non risponde. Nessuna si perde,
+         si accodano; ma va detto in rosso. */
+      const inAttesa = pren.filter((p) => p.stato === 'pagata' && p.ricevuta_stato === 'da_battere');
+      $('dOggiRicevute').innerHTML = inAttesa.length
+        ? `<span class="errore">${inAttesa.length} ricevut${inAttesa.length === 1 ? 'a' : 'e'} da battere (la stampa automatica non \u00e8 ancora attiva: fase 3)</span>`
+        : '';
+      if (!pren.length) { $('dOggiEsito').textContent = 'Nessuna prenotazione Day Spa per questo giorno.'; return; }
+      $('dOggiEsito').textContent = '';
+      $('dOggiTab').innerHTML = Object.keys(FASCE_DAYSPA).map((fascia) => {
+        const righe = pren.filter((p) => p.fascia === fascia);
+        if (!righe.length) return '';
+        const f = fasce.find((x) => x.fascia === fascia);
+        const presenti = righe.filter((p) => p.stato === 'pagata').reduce((t, p) => t + (p.presenti || 0), 0);
+        const attesi = righe.filter((p) => p.stato === 'pagata').reduce((t, p) => t + p.persone, 0);
+        return `<div style="margin-top:14px;"><div class="mini" style="padding-bottom:6px;"><b>${esc(FASCE_DAYSPA[fascia])}</b>
+            \u00b7 presenti ${presenti} su ${attesi} attesi${f ? ` \u00b7 posti ${f.venduti}/${f.posti}` : ''}</div>
+          <table><tr><th>Numero</th><th>Ospite</th><th>Persone</th><th>Presenti</th><th>Stato</th></tr>` +
+          righe.map((p) => `<tr>
+            <td class="cod">${esc(p.numero)}${p.prova ? '<div class="mini">prova</div>' : ''}</td>
+            <td>${esc(p.nome)}<div class="mini">${esc(p.email || '')}${p.telefono ? ' \u00b7 ' + esc(p.telefono) : ''}</div>${p.note ? `<div class="mini errore">${esc(p.note)}</div>` : ''}</td>
+            <td>${p.persone} <span class="mini">(${p.adulti} ad.${p.bambini ? ' + ' + p.bambini + ' bamb.' : ''})</span></td>
+            <td>${p.stato === 'pagata'
+              ? `<input type="number" min="0" max="${p.persone}" value="${p.presenti || 0}" data-numero="${esc(p.numero)}" style="width:64px;display:inline-block;margin:0 6px 0 0;" />
+                 <button class="azione sec" data-segna="${esc(p.numero)}">Segna</button>`
+              : '\u2014'}</td>
+            <td>${esc(STATI_PRENOTAZIONE_DAYSPA[p.stato] || p.stato)}${p.arrivato_il ? `<div class="mini">arrivati ${new Date(p.arrivato_il).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</div>` : ''}
+              <div class="mini">ricevuta: ${esc(RICEVUTA_DAYSPA[p.ricevuta_stato] || p.ricevuta_stato || '')}</div></td>
+          </tr>`).join('') + '</table></div>';
+      }).join('');
+      document.querySelectorAll('[data-segna]').forEach((b) => b.onclick = () => {
+        const inp = document.querySelector(`input[data-numero="${b.dataset.segna}"]`);
+        segna({ numero: b.dataset.segna, presenti: Number(inp.value) });
+      });
+    } catch (e) { $('dOggiEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  };
+
+  /* segna i presenti; senza `presenti` il server mette tutte le persone
+     della prenotazione, che e' il caso normale del QR allo sportello */
+  const segna = async (corpo) => {
+    $('dOggiScan').textContent = 'Un momento\u2026';
+    try {
+      const j = await chiama('?a=presenti', { method: 'POST', body: JSON.stringify(corpo) }, FUNZIONE_DAYSPA);
+      const p = j.prenotazione;
+      $('dOggiScan').innerHTML = `<span class="fatto">\u2713 ${esc(p.nome)}: presenti ${p.presenti} su ${p.persone}${j.oggi ? '' : ` <span class="errore">\u2014 attenzione: la prenotazione \u00e8 per il ${dataIT(p.giorno)}, non per oggi</span>`}</span>`;
+      if (p.giorno === $('dOggiGiorno').value) carica();
+    } catch (e) { $('dOggiScan').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  };
+
+  /* il lettore 2D della portineria digita il codice e preme Invio, come
+     per i buoni (vistaVerifica) */
+  $('dOggiCod').onkeydown = (ev) => {
+    if (ev.key !== 'Enter') return;
+    const v = $('dOggiCod').value.trim().toUpperCase();
+    if (!v) return;
+    $('dOggiCod').value = '';
+    segna(/^DS-\d{4}-\d+$/.test(v) ? { numero: v } : { codice: v });
+  };
+  $('dOggiGiorno').onchange = carica;
+  carica();
+  /* il fuoco al campo appena si apre la scheda: chi scansiona non deve
+     prima cliccarci dentro */
+  $('dOggiCod').focus();
+}
+
+function vistaDayspaDisponibilita() {
+  $('vista').innerHTML = `<div class="riquadro">
+    <div class="mini" style="padding-bottom:10px;">I posti in vendita, giorno per giorno: come in Fidra, ma qui. Tipo e prezzo li propone
+      la regola (sabato prefestivo, domenica e feste festivo): si possono correggere sul singolo giorno.
+      Una riga senza posti non \u00e8 in vendita.</div>
+    <div class="due">
+      <div><label>Dal giorno</label><input id="dDispDa" type="date" value="${oggiISO()}" /></div>
+      <div style="align-self:end;"><button id="dDispVai" class="primario">Guarda due settimane</button></div>
+    </div>
+    <div class="esito" id="dDispEsito">Carico\u2026</div>
+    <div id="dDispTab"></div>
+    <button class="azione" id="dDispSalva" style="margin-top:12px;" disabled>Salva</button>
+    <div class="esito" id="dDispEsito2"></div></div>`;
+
+  const carica = async () => {
+    $('dDispEsito').textContent = 'Carico\u2026';
+    $('dDispTab').innerHTML = '';
+    $('dDispSalva').disabled = true;
+    const da = $('dDispDa').value;
+    try {
+      const j = await chiama(`?a=disponibilita&da=${encodeURIComponent(da)}&fino=${encodeURIComponent(giornoDopoDayspa(da, 13))}`, {}, FUNZIONE_DAYSPA);
+      const giorni = j.giorni || [];
+      $('dDispEsito').textContent = '';
+      $('dDispTab').innerHTML = `<table><tr><th>Giorno</th><th>Fascia</th><th>Tipo</th><th>Posti</th><th>Prezzo \u20ac</th><th>Venduti</th></tr>` +
+        giorni.map((g) => g.fasce.map((f, i) => `<tr${g.chiuso ? ' style="opacity:.5"' : ''}>
+          ${i === 0 ? `<td rowspan="${g.fasce.length}"><b>${esc(giornoIT(g.giorno))}</b><div class="mini">${esc(g.giorno)}${g.chiuso ? ' \u00b7 chiusi' : ''}</div></td>` : ''}
+          <td>${esc(FASCE_DAYSPA[f.fascia] || f.fascia)}</td>
+          <td><select data-campo="tipo" data-giorno="${g.giorno}" data-fascia="${f.fascia}" style="width:auto;margin:0;">
+            ${TIPI_DAYSPA.map((t) => `<option value="${t}"${(f.tipo || g.tipoProposto) === t ? ' selected' : ''}>${t}</option>`).join('')}</select></td>
+          <td><input type="number" min="0" max="500" data-campo="posti" data-giorno="${g.giorno}" data-fascia="${f.fascia}" value="${f.caricata ? f.posti : ''}" placeholder="\u2014" style="width:80px;margin:0;"${g.chiuso ? ' disabled' : ''} /></td>
+          <td><input type="number" min="1" step="1" data-campo="prezzo" data-giorno="${g.giorno}" data-fascia="${f.fascia}" value="${Math.round(f.prezzo_cent / 100)}" style="width:80px;margin:0;"${g.chiuso ? ' disabled' : ''} /></td>
+          <td class="mini">${f.venduti}${f.caricata ? '' : ' <span class="mini">(non in vendita)</span>'}</td>
+        </tr>`).join('')).join('') + '</table>';
+      $('dDispSalva').disabled = false;
+      document.querySelectorAll('#dDispTab input, #dDispTab select').forEach((el) => el.oninput = () => { el.dataset.toccato = '1'; });
+    } catch (e) { $('dDispEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  };
+
+  /* si salvano SOLO le righe toccate, e solo se hanno i posti: caricare
+     tutto ogni volta riscriverebbe righe che nessuno ha guardato */
+  const salva = async () => {
+    const righe = [];
+    const toccate = new Set();
+    document.querySelectorAll('#dDispTab [data-toccato]').forEach((el) => toccate.add(el.dataset.giorno + '|' + el.dataset.fascia));
+    for (const chiave of toccate) {
+      const [giorno, fascia] = chiave.split('|');
+      const q = (campo) => document.querySelector(`#dDispTab [data-campo="${campo}"][data-giorno="${giorno}"][data-fascia="${fascia}"]`);
+      const posti = q('posti').value;
+      if (posti === '') continue;
+      righe.push({ giorno, fascia, tipo: q('tipo').value, posti: Number(posti), prezzo_cent: Math.round(Number(q('prezzo').value) * 100) });
+    }
+    if (!righe.length) { $('dDispEsito2').textContent = 'Niente da salvare: nessuna riga toccata con i posti.'; return; }
+    $('dDispEsito2').textContent = 'Salvo\u2026';
+    try {
+      const j = await chiama('?a=disponibilita', { method: 'POST', body: JSON.stringify({ righe }) }, FUNZIONE_DAYSPA);
+      $('dDispEsito2').innerHTML = `<span class="fatto">\u2713 ${j.salvate} righe salvate.</span>`;
+      carica();
+    } catch (e) { $('dDispEsito2').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  };
+  $('dDispVai').onclick = carica;
+  $('dDispSalva').onclick = salva;
+  carica();
+}
+
+function vistaDayspaPrenotazioni() {
+  const oggi = oggiISO();
+  $('vista').innerHTML = `<div class="riquadro">
+    <div class="due">
+      <div><label>Cerca (nome, email, numero, codice)</label><input id="dPrenCerca" /></div>
+      <div><label>Dal giorno</label><input id="dPrenDa" type="date" value="${oggi}" /></div>
+      <div><label>Al giorno</label><input id="dPrenFino" type="date" value="${giornoDopoDayspa(oggi, 60)}" /></div>
+      <div style="align-self:end;"><button id="dPrenVai" class="primario">Cerca</button></div>
+    </div>
+    <div class="esito" id="dPrenEsito">Carico\u2026</div>
+    <div id="dPrenTab"></div></div>`;
+
+  const carica = async () => {
+    $('dPrenEsito').textContent = 'Carico\u2026';
+    $('dPrenTab').innerHTML = '';
+    try {
+      const qs = `?a=elenco&cerca=${encodeURIComponent($('dPrenCerca').value.trim())}&da=${encodeURIComponent($('dPrenDa').value)}&fino=${encodeURIComponent($('dPrenFino').value)}`;
+      const j = await chiama(qs, {}, FUNZIONE_DAYSPA);
+      const pren = j.prenotazioni || [];
+      $('dPrenEsito').textContent = pren.length ? `${pren.length} prenotazion${pren.length === 1 ? 'e' : 'i'}` : 'Nessuna prenotazione.';
+      if (!pren.length) return;
+      $('dPrenTab').innerHTML = `<table><tr><th>Numero</th><th>Giorno</th><th>Ospite</th><th>Persone</th><th>Importo</th><th>Stato</th><th>Ricevuta</th><th></th></tr>` +
+        pren.map((p) => `<tr>
+          <td class="cod">${esc(p.numero)}${p.prova ? '<div class="mini">prova</div>' : ''}<div class="mini">${esc(p.codice)}</div></td>
+          <td>${dataIT(p.giorno)}<div class="mini">${esc(FASCE_DAYSPA[p.fascia] || p.fascia)}</div></td>
+          <td>${esc(p.nome)}<div class="mini">${esc(p.email || '')}${p.telefono ? ' \u00b7 ' + esc(p.telefono) : ''} \u00b7 ${esc(p.lingua)}</div></td>
+          <td>${p.persone}${p.presenti ? ` <span class="mini">(presenti ${p.presenti})</span>` : ''}</td>
+          <td>${eur(p.importo_cent / 100)} \u20ac</td>
+          <td>${esc(STATI_PRENOTAZIONE_DAYSPA[p.stato] || p.stato)}${p.note ? `<div class="mini errore">${esc(p.note)}</div>` : ''}</td>
+          <td class="mini">${esc(RICEVUTA_DAYSPA[p.ricevuta_stato] || p.ricevuta_stato || '')}${p.ricevuta_numero ? ' ' + esc(p.ricevuta_numero) : ''}</td>
+          <td>${p.stato === 'pagata' && puoRimborsareDayspa(EMAIL)
+            ? `<button class="azione sec" data-rimborsa="${esc(p.numero)}" data-importo="${p.importo_cent}" style="border-color:var(--allarme);color:var(--allarme);">Annulla e rimborsa</button>`
+            : ''}</td>
+        </tr>`).join('') + '</table>';
+      /* uno strumento nostro, non un diritto dell'ospite: l'ingresso pagato
+         non si rimborsa (proprieta', 3 settembre 2026). Serve quando siamo
+         noi a non poter dare il servizio. */
+      document.querySelectorAll('[data-rimborsa]').forEach((b) => b.onclick = async () => {
+        const numero = b.dataset.rimborsa;
+        const motivo = prompt(`Annullare la prenotazione ${numero} e rimborsare ${eur(Number(b.dataset.importo) / 100)} \u20ac?\n\nL'ingresso pagato non si rimborsa all'ospite: questo serve solo se siamo NOI a non poter dare il servizio. Scriva il motivo:`);
+        if (motivo === null) return;
+        if (!confirm(`Confermo il rimborso di ${numero}. L'operazione NON si pu\u00f2 annullare.`)) return;
+        b.disabled = true;
+        try {
+          await chiama('?a=rimborsa', { method: 'POST', body: JSON.stringify({ numero, motivo }) }, FUNZIONE_DAYSPA);
+          carica();
+        } catch (e) { $('dPrenEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; b.disabled = false; }
+      });
+    } catch (e) { $('dPrenEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  };
+  $('dPrenVai').onclick = carica;
+  $('dPrenCerca').onkeydown = (ev) => { if (ev.key === 'Enter') carica(); };
   carica();
 }
 

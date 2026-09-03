@@ -88,7 +88,7 @@ const schedeDi = new Function(
    `schedaIniziale` restituisse un nome che non esiste, il back office si
    aprirebbe su una pagina vuota — e nessuno saprebbe perché. */
 function schedeDellaPagina(): string[] {
-  return [...ELENCO![0].matchAll(/\['([a-z]+)',/g)].map((m) => m[1]);
+  return [...ELENCO![0].matchAll(/\['([a-zA-Z]+)',/g)].map((m) => m[1]);
 }
 
 Deno.test('la spa si apre sulle richieste, non sui buoni che non puo emettere', () => {
@@ -107,7 +107,10 @@ Deno.test('la reception e l amministrazione si aprono dove lavorano', () => {
 Deno.test('la reception vede prima le richieste, poi gli arrivi, poi i buoni', () => {
   assertEquals(
     schedeDi('reception@termeleonardo.com').map(([v]) => v),
-    ['richieste', 'arrivi', 'emetti', 'elenco', 'verifica'],
+    /* «Day Spa oggi» subito dopo gli arrivi (3 settembre 2026): e' la
+       scheda dello sportello; posti e prenotazioni in coda, si guardano
+       una volta a settimana */
+    ['richieste', 'arrivi', 'dayspaOggi', 'emetti', 'elenco', 'verifica', 'dayspaDisponibilita', 'dayspaPrenotazioni'],
   );
 });
 
@@ -122,7 +125,7 @@ Deno.test('l amministrazione tiene l ordine di sempre, con i buoni davanti', () 
 Deno.test('la spa vede prima le richieste e gli arrivi, senza la scheda che il server le rifiuta', () => {
   assertEquals(
     schedeDi('spa@termeleonardo.com').map(([v]) => v),
-    ['richieste', 'arrivi', 'elenco', 'verifica'],
+    ['richieste', 'arrivi', 'dayspaOggi', 'elenco', 'verifica', 'dayspaDisponibilita', 'dayspaPrenotazioni'],
   );
 });
 
