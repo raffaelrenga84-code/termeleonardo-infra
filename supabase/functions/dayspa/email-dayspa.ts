@@ -16,6 +16,9 @@ type Testi = {
   fascia: Record<Fascia, string>;
   qrTitolo: string;
   qrIstruzioni: string;
+  /* con piu' persone: il codice e' uno solo, vale per tutti, e se non
+     arrivano insieme si inoltra l'email. Vuoto con una persona sola. */
+  qrPerTutti: (n: number) => string;
   codice: string;
   neonati: string;
   nonRimborsabile: string;
@@ -34,6 +37,7 @@ export const TESTI_EMAIL: Record<string, Testi> = {
     fascia: { giornaliero: 'Ingresso giornaliero', serale: 'Ingresso serale' },
     qrTitolo: 'Il suo codice d\'ingresso',
     qrIstruzioni: 'All\'arrivo mostri questo codice alla reception, anche dal telefono.',
+    qrPerTutti: (n) => n === 1 ? '' : `Il codice è uno solo e vale per tutte e ${n} le persone della prenotazione. Se non arrivate insieme, inoltri questa email a chi la accompagna: alla reception segniamo gli ingressi man mano.`,
     codice: 'Codice',
     neonati: 'I neonati fino a 1 anno entrano gratuitamente e non vanno contati.',
     nonRimborsabile: 'Ingresso non rimborsabile e non modificabile.',
@@ -50,6 +54,7 @@ export const TESTI_EMAIL: Record<string, Testi> = {
     fascia: { giornaliero: 'Tageseintritt', serale: 'Abendeintritt' },
     qrTitolo: 'Ihr Eintrittscode',
     qrIstruzioni: 'Zeigen Sie diesen Code bei der Ankunft an der Rezeption, gern auch auf dem Handy.',
+    qrPerTutti: (n) => n === 1 ? '' : `Der Code ist nur einer und gilt für alle ${n} Personen der Buchung. Wenn Sie nicht zusammen ankommen, leiten Sie diese E-Mail an Ihre Begleitung weiter: an der Rezeption tragen wir die Eintritte nach und nach ein.`,
     codice: 'Code',
     neonati: 'Babys bis 1 Jahr haben freien Eintritt und werden nicht mitgezählt.',
     nonRimborsabile: 'Der Eintritt ist nicht erstattungsfähig und nicht änderbar.',
@@ -66,6 +71,7 @@ export const TESTI_EMAIL: Record<string, Testi> = {
     fascia: { giornaliero: 'Day entry', serale: 'Evening entry' },
     qrTitolo: 'Your entry code',
     qrIstruzioni: 'On arrival, show this code at reception, on your phone is fine.',
+    qrPerTutti: (n) => n === 1 ? '' : `There is one code only and it covers all ${n} people in the booking. If you do not arrive together, forward this email to the others: reception marks the entries as each of you arrives.`,
     codice: 'Code',
     neonati: 'Babies up to 1 year enter free and do not count.',
     nonRimborsabile: 'Entry is non-refundable and cannot be changed.',
@@ -82,6 +88,7 @@ export const TESTI_EMAIL: Record<string, Testi> = {
     fascia: { giornaliero: 'Entrée journée', serale: 'Entrée soirée' },
     qrTitolo: 'Votre code d\'entrée',
     qrIstruzioni: 'À l\'arrivée, présentez ce code à la réception, sur le téléphone aussi.',
+    qrPerTutti: (n) => n === 1 ? '' : `Le code est unique et vaut pour les ${n} personnes de la réservation. Si vous n'arrivez pas ensemble, transférez cet e-mail à vos accompagnants : à la réception nous enregistrons les entrées au fur et à mesure.`,
     codice: 'Code',
     neonati: 'Les bébés jusqu\'à 1 an entrent gratuitement et ne sont pas comptés.',
     nonRimborsabile: 'Entrée non remboursable et non modifiable.',
@@ -140,6 +147,7 @@ export function emailConferma(p: Prenotazione, linkQr: string): { oggetto: strin
       <img src="${esc(linkQr)}" width="220" height="220" alt="QR ${esc(p.codice)}" style="display:block;margin:12px auto;" />
       <div style="font-family:ui-monospace,Menlo,monospace;font-size:20px;letter-spacing:3px;">${esc(p.codice)}</div>
       <p style="font-size:13px;color:#5A5A5A;margin:10px 0 0;">${esc(t.qrIstruzioni)}</p>
+      ${t.qrPerTutti(p.persone) ? `<p style="font-size:13px;color:#1A3626;margin:10px 0 0;"><strong>${esc(t.qrPerTutti(p.persone))}</strong></p>` : ''}
     </div>
     <p style="font-size:13px;color:#5A5A5A;">${esc(t.portare)}</p>
     <p style="font-size:13px;color:#5A5A5A;">${esc(t.neonati)}</p>
@@ -150,7 +158,7 @@ export function emailConferma(p: Prenotazione, linkQr: string): { oggetto: strin
   const testo = [
     t.saluto(p.nome), t.intro, '',
     ...righe.map(([k, v]) => (k ? `${k}: ${v}` : v)),
-    '', `${t.qrTitolo}: ${p.codice}`, t.qrIstruzioni, linkQr, '',
+    '', `${t.qrTitolo}: ${p.codice}`, t.qrIstruzioni, t.qrPerTutti(p.persone), linkQr, '',
     t.portare, t.neonati, t.nonRimborsabile, '', t.firma,
   ].join('\n');
   return { oggetto: t.oggetto(p.numero), html, testo };

@@ -36,6 +36,21 @@ Deno.test('la conferma porta QR, giorno, orario, persone, importo, numero e la r
   assert(e.testo.includes('DS-2026-0007') && !/<[a-z]/.test(e.testo), 'la versione solo testo esiste e non ha tag');
 });
 
+Deno.test('con piu persone l email dice che il QR e uno solo, vale per tutti, e cosa fare se non arrivano insieme', () => {
+  /* «il cliente e informato che ha un QR per prenotazione? e puo
+     condividerlo con un altra persona?» (la proprieta', 3 settembre 2026) */
+  const e = emailConferma(P, QR);
+  assert(/un solo codice|uno solo/i.test(e.html), 'deve dire che il codice e uno solo');
+  assert(/tutte e 3 le persone|3 persone/.test(e.html));
+  assert(/inoltri/i.test(e.html), 'deve dire come fare se non arrivano insieme: inoltrare l email');
+  assert(/inoltri/i.test(e.testo));
+  const uno = emailConferma({ ...P, persone: 1 }, QR);
+  assert(!/inoltri/i.test(uno.html), 'con una persona sola la riga non serve');
+  for (const [l, parola] of [['de', /weiterleiten|weiter/i], ['en', /forward/i], ['fr', /transf[ée]rez|transf[ée]rer/i]] as [string, RegExp][]) {
+    assert(parola.test(emailConferma({ ...P, lingua: l }, QR).html), `${l}: manca la riga sul QR unico`);
+  }
+});
+
 Deno.test('una persona sola e al singolare', () => {
   assert(/1 persona\b/.test(emailConferma({ ...P, persone: 1 }, QR).html));
 });
