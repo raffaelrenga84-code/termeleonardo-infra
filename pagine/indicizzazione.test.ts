@@ -49,11 +49,13 @@ const NASCOSTE = [
      titolo suo, passa fra le VISIBILI e robots.txt del sito smette di
      escluderlo */
   'dayspa/index.html',
+  /* lo sportello del Day Spa: pagina del tablet della reception */
+  'ingresso/index.html',
 ];
 
 Deno.test('gli elenchi non sono vuoti, altrimenti i cicli girano a vuoto', () => {
   assertEquals(VISIBILI.length, 3);
-  assertEquals(NASCOSTE.length, 7);
+  assertEquals(NASCOSTE.length, 8);
 });
 
 Deno.test('ogni pagina riservata dichiara noindex', () => {

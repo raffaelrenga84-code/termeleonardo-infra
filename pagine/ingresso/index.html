@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta name="theme-color" content="#1A3626" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Ingresso Day Spa — Hotel Terme Leonardo</title>
+<!-- si installa sul tablet dello sportello come un'app a tutto schermo -->
+<link rel="manifest" href="/ingresso/manifest.webmanifest" />
+<link rel="icon" href="/buoni/img/logo-quadrato.svg" type="image/svg+xml" />
+<style>
+/* LO SPORTELLO DEL DAY SPA. Una pagina per il tablet della reception, con
+   tre cose e basta: il lettore (a tastiera o fotocamera), l'esito grande,
+   gli arrivi del giorno. Niente schede, niente link fuori. Il cancello e'
+   il server: qui si mostra e si segna, con l'accesso dell'hotel. */
+:root{--verde:#1A3626;--verde-medio:#3C5346;--acqua:#8FC4BC;--acqua-chiara:#E4F0EA;--oro:#C9A961;--bronzo:#8A6A38;
+  --crema:#F9F6F0;--grigio:#7B756A;--allarme:#C0392B;--pietra:#EDE7DC;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--crema);color:#2A2E2B;font:17px/1.5 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;}
+header{background:var(--verde);color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+header img{height:30px;width:auto;filter:brightness(0) invert(1);}
+header .chi{font-size:14px;opacity:.85;}
+header button{background:none;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-size:13px;cursor:pointer;}
+main{max-width:720px;margin:0 auto;padding:14px 14px 40px;}
+.riquadro{background:#fff;border:1px solid var(--pietra);border-radius:14px;padding:16px;margin-bottom:14px;}
+label{display:block;font-size:14px;color:var(--verde-medio);font-weight:600;margin-top:10px;}
+input{width:100%;margin-top:6px;padding:14px;font:inherit;border:1px solid #DCD6CB;border-radius:10px;background:#FCFBF8;}
+input:focus{outline:3px solid var(--acqua);border-color:transparent;}
+#codice{font-family:ui-monospace,Menlo,monospace;font-size:24px;text-transform:uppercase;letter-spacing:2px;}
+.bottone{width:100%;margin-top:12px;padding:16px;border:0;border-radius:12px;background:var(--verde);color:#fff;font:600 18px inherit;cursor:pointer;}
+.bottone.sec{background:#fff;color:var(--verde);border:2px solid var(--verde);}
+.bottone:disabled{opacity:.5;}
+video{display:block;width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top:10px;background:#000;}
+/* l'esito: grande, verde o rosso, si legge da un metro */
+.esitoGrande{font-size:26px;line-height:1.25;padding:18px;border-radius:14px;margin:12px 0;}
+.esitoGrande.ok{background:#E6F0EC;color:var(--verde);}
+.esitoGrande.no{background:#FBE9E7;color:#8C2F28;}
+.esitoGrande small{display:block;font-size:15px;margin-top:6px;opacity:.85;}
+.esitoGrande.attesa{background:var(--pietra);color:var(--grigio);font-size:18px;}
+h2{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:24px;color:var(--verde);margin:0 0 6px;}
+.mini{font-size:13px;color:var(--grigio);}
+.errore{color:var(--allarme);}
+.fasciaTit{font-weight:600;color:var(--verde);margin:12px 0 6px;font-size:15px;}
+.riga{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px 0;border-top:1px solid #F0EBE1;}
+.riga .nome{font-weight:600;}
+.riga .dett{font-size:13px;color:var(--grigio);}
+.riga .presenti{display:flex;align-items:center;gap:6px;}
+.riga .presenti input{width:64px;margin:0;padding:10px;text-align:center;font-size:18px;}
+.riga .presenti button{padding:10px 12px;border-radius:10px;border:1px solid var(--verde);background:#fff;color:var(--verde);font:inherit;font-size:14px;cursor:pointer;}
+.riga.pieno .nome::after{content:" \2713";color:var(--verde);}
+.avviso{padding:10px 13px;border-radius:8px;background:#FFF6E8;border-left:3px solid var(--oro);color:#6B4A22;font-size:14px;margin-bottom:10px;}
+</style>
+</head>
+<body>
+<header>
+  <img src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" />
+  <span class="chi" id="chiSono">Ingresso Day Spa</span>
+  <button type="button" id="esci" hidden>esci</button>
+</header>
+<main id="app"></main>
+
+<script type="module">
+'use strict';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://mvuiuwakuseockotlcnp.supabase.co';
+/* chiave pubblica ("anon"): serve solo per l'accesso e non da' accesso ai
+   dati, che restano protetti dalla funzione */
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12dWl1d2FrdXNlb2Nrb3RsY25wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNzUwMzYsImV4cCI6MjA5OTk1MTAzNn0.CtYh0IMhsfvvL19i_v6ZiQXaBOxF27yKlKz9m36kaHk';
+const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/dayspa';
+const FASCE = { giornaliero: 'Giornaliero 9:00–18:30', serale: 'Serale 18:00–22:30' };
+const OGNI_QUANTO = 20000; // l'elenco si rilegge da solo: due tablet vedono la stessa cosa
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const oggiISO = () => {
+  const d = new Date(); const due = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${due(d.getMonth() + 1)}-${due(d.getDate())}`;
+};
+const dataIT = (iso) => iso ? new Date(iso + 'T12:00:00Z').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) : '';
+
+let SB = null, TOKEN = '', OPERATORE = '';
+
+async function chiama(qs, opz = {}) {
+  const r = await fetch(FUNZIONE + qs, { ...opz, headers: { 'content-type': 'application/json', authorization: 'Bearer ' + TOKEN, ...(opz.headers || {}) } });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { await esci(false); throw new Error(j.errore || 'sessione scaduta'); }
+  if (!r.ok) throw new Error(j.errore || ('errore ' + r.status));
+  return j;
+}
+
+async function esci(chiedi = true) {
+  /* uscire e' l'unico gesto che porta via dallo sportello: si chiede */
+  if (chiedi && !confirm('Uscire dallo sportello? Per rientrare servono email e password.')) return;
+  try { if (SB) await SB.auth.signOut(); } catch (e) { /* gia' fuori */ }
+  TOKEN = ''; OPERATORE = '';
+  chiediAccesso('');
+}
+
+/* ---------- accesso, lo stesso del back office ---------- */
+function chiediAccesso(messaggio) {
+  $('chiSono').textContent = 'Ingresso Day Spa';
+  $('esci').hidden = true;
+  $('app').innerHTML = `<div class="riquadro" style="max-width:420px;margin:30px auto;">
+    <h2>Accesso reception</h2>
+    <label>Email dell'hotel</label><input type="email" id="kMail" placeholder="reception@termeleonardo.com" autocomplete="username" />
+    <label>Password</label><input type="password" id="kPwd" autocomplete="current-password" />
+    <button class="bottone" id="kEntra">Entra</button>
+    <div class="mini" id="kEsito" style="padding-top:10px;">${messaggio ? `<span class="errore">${esc(messaggio)}</span>` : ''}</div></div>`;
+  const entra = async () => {
+    const email = $('kMail').value.trim(), pwd = $('kPwd').value;
+    if (!email || !pwd) { $('kEsito').innerHTML = '<span class="errore">Servono email e password.</span>'; return; }
+    $('kEntra').disabled = true;
+    try {
+      const { data, error } = await SB.auth.signInWithPassword({ email, password: pwd });
+      if (error) throw new Error('Email o password non validi.');
+      TOKEN = data.session.access_token;
+      OPERATORE = data.user.user_metadata?.nome || email.split('@')[0];
+      sportello();
+    } catch (e) {
+      $('kEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
+      $('kEntra').disabled = false;
+    }
+  };
+  $('kEntra').onclick = entra;
+  $('kPwd').onkeydown = (ev) => { if (ev.key === 'Enter') entra(); };
+}
+
+/* ---------- lo sportello ---------- */
+function sportello() {
+  $('chiSono').textContent = `${OPERATORE} · ${dataIT(oggiISO())}`;
+  $('esci').hidden = false;
+  $('app').innerHTML = `
+    <div class="riquadro">
+      <label for="codice">Il QR dell'ospite, o il numero della prenotazione</label>
+      <input id="codice" placeholder="inquadri o digiti" autocomplete="off" />
+      <button type="button" class="bottone sec" id="cam">Scansiona con la fotocamera</button>
+      <video id="video" hidden playsinline muted></video>
+      <div id="esito"><div class="esitoGrande attesa">In attesa di un codice…</div></div>
+    </div>
+    <div class="riquadro">
+      <h2>Arrivi di oggi</h2>
+      <div class="mini" id="riassunto">Carico…</div>
+      <div id="elenco"></div>
+    </div>`;
+
+  const mostra = (classe, testo, sotto) => {
+    $('esito').innerHTML = `<div class="esitoGrande ${classe}">${testo}${sotto ? `<small>${sotto}</small>` : ''}</div>`;
+  };
+
+  /* segna i presenti; senza `presenti` il server mette tutte le persone,
+     che e' il caso normale del QR mostrato allo sportello */
+  const segna = async (corpo) => {
+    mostra('attesa', 'Un momento…');
+    try {
+      const j = await chiama('?a=presenti', { method: 'POST', body: JSON.stringify(corpo) });
+      const p = j.prenotazione;
+      if (j.oggi) {
+        mostra('ok', `✓ ${esc(p.nome)} · presenti ${p.presenti} su ${p.persone}`, `${esc(FASCE[p.fascia] || p.fascia)} · ${esc(p.numero)}`);
+        if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+      } else {
+        mostra('no', `✗ ${esc(p.nome)}: la prenotazione è per ${esc(dataIT(p.giorno))}, non per oggi`, `presenti segnati ${p.presenti} su ${p.persone} · ${esc(p.numero)}`);
+        if (navigator.vibrate) navigator.vibrate(300);
+      }
+      carica();
+    } catch (e) {
+      mostra('no', `✗ ${esc(e.message)}`);
+      if (navigator.vibrate) navigator.vibrate(300);
+    }
+  };
+
+  const leggiTesto = (v) => {
+    const t = v.trim().toUpperCase();
+    if (!t) return;
+    segna(/^DS-\d{4}-\d+$/.test(t) ? { numero: t } : { codice: t });
+  };
+
+  /* il lettore a tastiera digita e preme Invio */
+  $('codice').onkeydown = (ev) => {
+    if (ev.key !== 'Enter') return;
+    leggiTesto($('codice').value);
+    $('codice').value = '';
+  };
+
+  /* l'elenco del giorno, per fascia, con i presenti modificabili a mano */
+  const carica = async () => {
+    try {
+      const j = await chiama('?a=oggi&giorno=' + oggiISO());
+      const pren = (j.prenotazioni || []).filter((p) => p.stato === 'pagata');
+      const fasce = j.fasce || [];
+      const attesi = pren.reduce((t, p) => t + p.persone, 0);
+      const presenti = pren.reduce((t, p) => t + (p.presenti || 0), 0);
+      $('riassunto').textContent = pren.length
+        ? `${pren.length} prenotazioni · ${presenti} presenti su ${attesi} attesi`
+        : 'Nessuna prenotazione per oggi.';
+      $('elenco').innerHTML = Object.keys(FASCE).map((fascia) => {
+        const righe = pren.filter((p) => p.fascia === fascia);
+        if (!righe.length) return '';
+        const f = fasce.find((x) => x.fascia === fascia);
+        return `<div class="fasciaTit">${esc(FASCE[fascia])}${f ? ` · posti ${f.venduti}/${f.posti}` : ''}</div>` +
+          righe.map((p) => `<div class="riga${p.presenti >= p.persone ? ' pieno' : ''}">
+            <div><div class="nome">${esc(p.nome)}</div>
+              <div class="dett">${p.persone} ${p.persone === 1 ? 'persona' : 'persone'} · ${esc(p.numero)}${p.prova ? ' · prova' : ''}${p.note ? ` · <span class="errore">${esc(p.note)}</span>` : ''}</div></div>
+            <div class="presenti"><input type="number" min="0" max="${p.persone}" value="${p.presenti || 0}" data-numero="${esc(p.numero)}" aria-label="presenti" />
+              <button type="button" data-segna="${esc(p.numero)}">Segna</button></div>
+          </div>`).join('');
+      }).join('');
+      document.querySelectorAll('[data-segna]').forEach((b) => b.onclick = () => {
+        const inp = document.querySelector(`input[data-numero="${b.dataset.segna}"]`);
+        segna({ numero: b.dataset.segna, presenti: Number(inp.value) });
+      });
+    } catch (e) {
+      $('riassunto').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
+    }
+  };
+  carica();
+  const orologio = setInterval(() => { if (!document.body.contains($('elenco'))) { clearInterval(orologio); return; } carica(); }, OGNI_QUANTO);
+
+  /* LA FOTOCAMERA: la posteriore inquadra il QR sul telefono dell'ospite.
+     BarcodeDetector dove c'e' (Chrome, Android), altrimenti jsQR dalla
+     copia locale (Safari su iPad). Lo schermo resta acceso finche' e'
+     aperta; lo stesso codice letto due volte di seguito si segna una volta. */
+  let flusso = null, blocco = null, fermo = true;
+  const chiudiCam = async () => {
+    fermo = true;
+    if (flusso) { flusso.getTracks().forEach((t) => t.stop()); flusso = null; }
+    if (blocco) { try { await blocco.release(); } catch (e) { /* gia' rilasciato */ } blocco = null; }
+    $('video').hidden = true; $('video').srcObject = null;
+    $('cam').textContent = 'Scansiona con la fotocamera';
+  };
+  const apriCam = async () => {
+    if (!fermo) { chiudiCam(); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { mostra('no', 'Questo browser non dà accesso alla fotocamera.'); return; }
+    const video = $('video');
+    try {
+      flusso = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    } catch (e) { mostra('no', `Fotocamera non disponibile: ${esc(e.message)}`); return; }
+    video.srcObject = flusso; video.hidden = false; await video.play();
+    fermo = false;
+    $('cam').textContent = 'Ferma la fotocamera';
+    try { if (navigator.wakeLock) blocco = await navigator.wakeLock.request('screen'); } catch (e) { /* lo schermo si spegne come sempre */ }
+    let leggi;
+    if ('BarcodeDetector' in window) {
+      const rilevatore = new window.BarcodeDetector({ formats: ['qr_code'] });
+      leggi = async () => { const r = await rilevatore.detect(video); return r.length ? String(r[0].rawValue || '') : ''; };
+    } else {
+      if (!window.jsQR) {
+        await new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = '/comune/jsqr.js'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
+      }
+      const tela = document.createElement('canvas');
+      const ctx = tela.getContext('2d', { willReadFrequently: true });
+      leggi = async () => {
+        if (!video.videoWidth) return '';
+        tela.width = video.videoWidth; tela.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        const img = ctx.getImageData(0, 0, tela.width, tela.height);
+        const r = window.jsQR(img.data, img.width, img.height);
+        return r ? String(r.data || '') : '';
+      };
+    }
+    let ultimo = '', ultimoQuando = 0;
+    const giro = async () => {
+      if (fermo) return;
+      try {
+        const testo = (await leggi()).trim().toUpperCase();
+        if (testo && (testo !== ultimo || Date.now() - ultimoQuando > 4000)) {
+          ultimo = testo; ultimoQuando = Date.now();
+          leggiTesto(testo);
+        }
+      } catch (e) { /* un fotogramma perso non e' un errore */ }
+      setTimeout(giro, 250);
+    };
+    giro();
+  };
+  $('cam').onclick = apriCam;
+  /* lo schermo resta acceso anche senza fotocamera, finche' la pagina e' aperta */
+  (async () => { try { if (navigator.wakeLock && !blocco) blocco = await navigator.wakeLock.request('screen'); } catch (e) { /* niente */ } })();
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && navigator.wakeLock && !blocco) { try { blocco = await navigator.wakeLock.request('screen'); } catch (e) { /* niente */ } }
+  });
+  /* il fuoco al campo: il lettore a tastiera scrive qui senza toccare niente */
+  $('codice').focus();
+}
+
+$('esci').onclick = () => esci(true);
+
+(async () => {
+  try { SB = createClient(SUPABASE_URL, SUPABASE_ANON); }
+  catch (e) { $('app').innerHTML = '<div class="riquadro">Non riesco a caricare il sistema di accesso. Ricarichi la pagina.</div>'; return; }
+  const { data } = await SB.auth.getSession();
+  if (data?.session) {
+    TOKEN = data.session.access_token;
+    OPERATORE = data.session.user.user_metadata?.nome || data.session.user.email.split('@')[0];
+    sportello();
+    return;
+  }
+  chiediAccesso('');
+})();
+</script>
+</body>
+</html>
