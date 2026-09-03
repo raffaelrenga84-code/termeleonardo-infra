@@ -36,10 +36,20 @@ label{display:block;font-size:13.5px;color:var(--verde-medio);font-weight:500;ma
 input,select{width:100%;margin-top:6px;padding:12px 13px;font:15px inherit;border:1px solid #DCD6CB;border-radius:9px;background:#FCFBF8;color:#2A2E2B;}
 input:focus,select:focus{outline:2px solid var(--acqua);border-color:transparent;}
 input.vuoto{border-color:var(--allarme);}
-.campoDate{width:100%;margin-top:6px;padding:12px 13px;font:15px inherit;border:1px solid #DCD6CB;border-radius:9px;background:#FCFBF8;color:#2A2E2B;text-align:left;cursor:pointer;}
-.campoDate:focus{outline:2px solid var(--acqua);border-color:transparent;}
-.campoDate.vuoto{color:#8C8578;}
-.calBox{position:relative;}
+/* i sette giorni in fila: pulsanti grandi, uno per giorno, con la parola
+   dello stato sotto; il giorno scelto e' verde pieno */
+.giorni{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin-top:8px;}
+.gg{border:1px solid #DCD6CB;border-radius:10px;background:#FCFBF8;padding:8px 2px 6px;text-align:center;cursor:pointer;font:inherit;color:#2A2E2B;min-height:78px;}
+.gg .s{display:block;font-size:11px;color:var(--grigio);text-transform:uppercase;letter-spacing:.5px;}
+.gg .n{display:block;font-size:20px;line-height:1.25;font-family:"Cormorant Garamond",Georgia,serif;}
+.gg .m{display:block;font-size:11px;color:var(--grigio);}
+.gg .st{display:block;font-size:10px;line-height:1.2;color:var(--bronzo);margin-top:3px;min-height:12px;}
+.gg:focus{outline:2px solid var(--acqua);}
+.gg.scelto{background:var(--verde);color:#fff;border-color:var(--verde);}
+.gg.scelto .s,.gg.scelto .m,.gg.scelto .st{color:rgba(255,255,255,.8);}
+.gg:disabled{opacity:.5;cursor:default;}
+.gg.chiuso{background:#F1EEE8;}
+.gg.esaurito .n{text-decoration:line-through;}
 /* le fasce: schede radio, una per riga, con orario, prezzo e la parola dello stato */
 .fasce{display:grid;gap:10px;margin-top:14px;}
 .fascia{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #DCD6CB;border-radius:11px;background:#FCFBF8;cursor:pointer;}
@@ -91,8 +101,11 @@ input.vuoto{border-color:var(--allarme);}
   <section class="riquadro" id="passoQuando">
     <h2><small>1</small><span id="tQuando"></span></h2>
     <p class="guida" id="tQuandoGuida"></p>
-    <label for="fGiorno" id="tGiorno"></label>
-    <input type="date" id="fGiorno" />
+    <p class="nota" id="tOrizzonte"></p>
+    <div class="avviso" id="notaChiusura" hidden></div>
+    <label id="tGiorno"></label>
+    <div class="giorni" id="giorni"></div>
+    <input type="hidden" id="fGiorno" />
     <div class="fasce" id="fasce"></div>
   </section>
 
@@ -136,7 +149,8 @@ input.vuoto{border-color:var(--allarme);}
 /* PERCORSI ASSOLUTI, come in tutte queste pagine: sul dominio dell'hotel la
    pagina vive sotto una riscrittura e un percorso relativo si romperebbe
    (vedi il commento in prenota/index.html). */
-import { innestaGiorno, leggiChiusure, oggiLocale } from '/comune/calendario.js';
+import { leggiChiusure, notaChiusura, oggiLocale, TESTI as TESTI_CAL } from '/comune/calendario.js';
+import { ORIZZONTE_GIORNI, pezziGiorno, setteGiorni, statoDelGiorno } from '/dayspa/giorni.js';
 import { normalizzaLingua, parametriOspite } from '/comune/ospite-url.js';
 import { T } from '/dayspa/testi.js';
 
@@ -191,29 +205,46 @@ function testi() {
   scrivi('tGrazieTitolo', x.grazieTitolo); scrivi('tGrazieNumero', x.grazieNumero);
   scrivi('tPie', x.pie);
   scrivi('avvisoProva', x.prova);
-  const btn = $('fGiornoBtn');
-  if (btn && !$('fGiorno').value) btn.textContent = x.scegliGiorno;
+  scrivi('tOrizzonte', x.orizzonte);
+  disegnaGiorni();
   disegnaFasce();
   disegnaTotale();
 }
 
 /* ---------- i giorni dal server: una parola per fascia ---------- */
-function statoExtra(iso) {
-  const g = GIORNI.get(iso);
-  if (!g) return GIORNI.size ? 'non-in-vendita' : null;
-  const stati = g.fasce.map((f) => f.stato);
-  if (stati.every((s) => s === 'esaurito' || s === 'non-in-vendita' || s === 'chiuso')) {
-    return stati.includes('esaurito') ? 'esaurito' : 'non-in-vendita';
-  }
-  if (!stati.includes('disponibile') && stati.includes('ultimi')) return 'ultimi';
-  return null;
+/* la fila dei sette giorni: da oggi, ognuno con la sua parola. Un giorno
+   chiuso per stagione lo dice il server (stato 'chiuso' su ogni fascia)
+   e, se il server ancora tace, le chiusure lette a parte; sopra la fila la
+   riga con le date della chiusura, come nel calendario di Prenota. */
+function disegnaGiorni() {
+  const x = t();
+  const scelto = $('fGiorno').value;
+  const chiusoPerStagione = (iso) => CHIUSURE.some((c) => iso >= c.chiusura && iso < c.riapertura);
+  $('giorni').innerHTML = setteGiorni(oggiLocale()).map((iso) => {
+    const stato = chiusoPerStagione(iso) ? 'chiuso' : statoDelGiorno(GIORNI.get(iso) || null);
+    const p = pezziGiorno(iso, LNG, TESTI_CAL);
+    const usabile = stato === 'disponibile' || stato === 'ultimi';
+    return `<button type="button" class="gg ${stato}${iso === scelto ? ' scelto' : ''}" data-iso="${iso}"${usabile ? '' : ' disabled'} aria-pressed="${iso === scelto}">
+      <span class="s">${esc(p.settimana)}</span><span class="n">${p.giorno}</span><span class="m">${esc(p.mese)}</span>
+      <span class="st">${stato === 'disponibile' ? '' : esc(x.stati[stato] || stato)}</span></button>`;
+  }).join('');
+  $('giorni').querySelectorAll('.gg').forEach((b) => b.addEventListener('click', () => {
+    $('fGiorno').value = b.dataset.iso;
+    FASCIA = '';
+    disegnaGiorni();
+    disegnaFasce();
+  }));
+  const nota = notaChiusura(CHIUSURE, LNG);
+  $('notaChiusura').textContent = nota;
+  $('notaChiusura').hidden = !nota;
 }
 
 const piuGiorni = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
 async function caricaGiorni() {
   const oggi = oggiLocale();
-  const fino = piuGiorni(oggi, 61);
+  /* solo i sette giorni: oltre, la disponibilita' non esiste ancora */
+  const fino = piuGiorni(oggi, ORIZZONTE_GIORNI - 1);
   try {
     const r = await fetch(`${FUNZIONE}?a=giorni&da=${oggi}&fino=${fino}`);
     const d = await r.json();
@@ -222,6 +253,7 @@ async function caricaGiorni() {
   } catch (e) {
     console.error('giorni non letti', e);
   }
+  disegnaGiorni();
   disegnaFasce();
 }
 
@@ -370,14 +402,12 @@ if (PROVA && Q.get('k') !== CHIAVE_PROVA && !Q.get('grazie')) {
   if (DA_URL.tel) $('fTelefono').value = DA_URL.tel;
   const persone = Number(Q.get('persone'));
   if (Number.isInteger(persone) && persone >= 1 && persone <= 8) { ADULTI = persone; BAMBINI = 0; }
+  /* un giorno precompilato da un link vale solo se sta nei sette giorni */
   const giorno = Q.get('giorno');
-  if (giorno && /^\d{4}-\d{2}-\d{2}$/.test(giorno) && giorno >= oggiLocale()) $('fGiorno').value = giorno;
+  if (giorno && setteGiorni(oggiLocale()).includes(giorno)) $('fGiorno').value = giorno;
 
-  $('fGiorno').min = oggiLocale();
-  $('fGiorno').addEventListener('change', () => { FASCIA = ''; disegnaFasce(); });
-  innestaGiorno({ campo: $('fGiorno'), lingua: LNG, chiusure: () => CHIUSURE, statoExtra, testoVuoto: t().scegliGiorno });
   testi();
-  leggiChiusure(RICHIESTE).then((c) => { CHIUSURE = c; });
+  leggiChiusure(RICHIESTE).then((c) => { CHIUSURE = c; disegnaGiorni(); });
   caricaListino();
   caricaGiorni();
   if (Q.get('grazie')) grazie(Q.get('grazie'));

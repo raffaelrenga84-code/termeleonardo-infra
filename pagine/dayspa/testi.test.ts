@@ -11,6 +11,14 @@ Deno.test('le quattro lingue hanno le stesse chiavi', () => {
   for (const l of ['de', 'en', 'fr']) assertEquals(Object.keys(TT[l]).sort(), chiavi, `chiavi diverse in ${l}`);
 });
 
+Deno.test('la riga dei sette giorni dice il perche, in ogni lingua, con il numero', () => {
+  for (const l of ['it', 'de', 'en', 'fr']) {
+    const o = String(TT[l].orizzonte);
+    assert(/7|sette|sieben|seven|sept/i.test(o), `${l}: manca il numero dei giorni`);
+    assert(/tempo|meteo|Wetter|weather|météo/i.test(o), `${l}: non dice che dipende dal tempo`);
+  }
+});
+
 Deno.test('la riga non rimborsabile e le parole degli stati ci sono, nella lingua giusta', () => {
   assert(/non (è )?rimborsabile/i.test(String(TT.it.nonRimborsabile)));
   assert(/nicht erstattungs/i.test(String(TT.de.nonRimborsabile)));

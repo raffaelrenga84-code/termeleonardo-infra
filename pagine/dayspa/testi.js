@@ -9,7 +9,8 @@ export const T = {
   it: {
     occhiello: 'Day Spa', titolo: 'Una giornata alle piscine termali',
     sotto: 'Scelga il giorno, la fascia e quante persone: paga online e riceve il biglietto con il QR per email.',
-    quando: 'Quando', quandoGuida: 'I giorni grigi sono chiusi, esauriti o non ancora in vendita: i posti si aprono di settimana in settimana.',
+    quando: 'Quando', quandoGuida: 'Scelga il giorno e la fascia.',
+    orizzonte: 'Si prenota fino a 7 giorni prima. I posti dipendono dal tempo e da quanti ospiti ha l\'hotel: li apriamo giorno per giorno, e qui vede quelli già in vendita.',
     giorno: 'Giorno', fascia: 'Fascia', scegliGiorno: 'Scelga il giorno', scegliFascia: 'Scelga la fascia',
     fasce: { giornaliero: 'Ingresso giornaliero', serale: 'Ingresso serale' },
     stati: { chiuso: 'chiusi', 'non-in-vendita': 'non ancora in vendita', esaurito: 'esaurito', ultimi: 'ultimi posti', disponibile: 'disponibile' },
@@ -38,7 +39,8 @@ export const T = {
   de: {
     occhiello: 'Day Spa', titolo: 'Ein Tag in den Thermalbecken',
     sotto: 'Wählen Sie Tag, Zeitfenster und Personenzahl: Sie zahlen online und erhalten das Ticket mit QR-Code per E-Mail.',
-    quando: 'Wann', quandoGuida: 'Graue Tage sind geschlossen, ausverkauft oder noch nicht im Verkauf: die Plätze werden Woche für Woche freigegeben.',
+    quando: 'Wann', quandoGuida: 'Wählen Sie Tag und Zeitfenster.',
+    orizzonte: 'Buchbar bis 7 Tage im Voraus. Die Plätze hängen vom Wetter und von der Belegung des Hotels ab: wir geben sie Tag für Tag frei, hier sehen Sie die bereits verfügbaren.',
     giorno: 'Tag', fascia: 'Zeitfenster', scegliGiorno: 'Tag wählen', scegliFascia: 'Zeitfenster wählen',
     fasce: { giornaliero: 'Tageseintritt', serale: 'Abendeintritt' },
     stati: { chiuso: 'geschlossen', 'non-in-vendita': 'noch nicht im Verkauf', esaurito: 'ausverkauft', ultimi: 'letzte Plätze', disponibile: 'verfügbar' },
@@ -67,7 +69,8 @@ export const T = {
   en: {
     occhiello: 'Day Spa', titolo: 'A day at the thermal pools',
     sotto: 'Choose the day, the time slot and how many people: pay online and receive the ticket with a QR code by email.',
-    quando: 'When', quandoGuida: 'Grey days are closed, sold out or not yet on sale: places open week by week.',
+    quando: 'When', quandoGuida: 'Choose the day and the time slot.',
+    orizzonte: 'Bookable up to 7 days ahead. Places depend on the weather and on how full the hotel is: we open them day by day, and here you see those already on sale.',
     giorno: 'Day', fascia: 'Time slot', scegliGiorno: 'Choose the day', scegliFascia: 'Choose the time slot',
     fasce: { giornaliero: 'Day entry', serale: 'Evening entry' },
     stati: { chiuso: 'closed', 'non-in-vendita': 'not yet on sale', esaurito: 'sold out', ultimi: 'last places', disponibile: 'available' },
@@ -96,7 +99,8 @@ export const T = {
   fr: {
     occhiello: 'Day Spa', titolo: 'Une journée aux piscines thermales',
     sotto: 'Choisissez le jour, le créneau et le nombre de personnes : vous payez en ligne et recevez le billet avec QR code par e-mail.',
-    quando: 'Quand', quandoGuida: 'Les jours gris sont fermés, complets ou pas encore en vente : les places s\'ouvrent semaine après semaine.',
+    quando: 'Quand', quandoGuida: 'Choisissez le jour et le créneau.',
+    orizzonte: 'Réservable jusqu\'à 7 jours à l\'avance. Les places dépendent de la météo et du taux d\'occupation de l\'hôtel : nous les ouvrons jour après jour, et vous voyez ici celles déjà en vente.',
     giorno: 'Jour', fascia: 'Créneau', scegliGiorno: 'Choisissez le jour', scegliFascia: 'Choisissez le créneau',
     fasce: { giornaliero: 'Entrée journée', serale: 'Entrée soirée' },
     stati: { chiuso: 'fermé', 'non-in-vendita': 'pas encore en vente', esaurito: 'complet', ultimi: 'dernières places', disponibile: 'disponible' },

@@ -18,13 +18,21 @@ Deno.test('e nascosta finche e di prova: noindex, chiave nell indirizzo, e la co
   assert(/\.get\('k'\) !== CHIAVE_PROVA/.test(modulo()), 'senza ?k= la pagina di prova non si apre');
 });
 
-Deno.test('usa il calendario comune con statoExtra, legge chiusure e giorni dal server, e i testi da testi.js', () => {
-  assert(/from '\/comune\/calendario\.js'/.test(P));
+Deno.test('sette giorni in fila al posto del calendario, giorni dal server, testi da testi.js', () => {
+  /* «al massimo 7 giorni: la disponibilita dipende dal meteo e
+     dall occupazione dell hotel» (la proprieta', 3 settembre 2026) */
+  assert(/from '\/dayspa\/giorni\.js'/.test(P), 'i sette giorni stanno in un modulo loro');
   assert(/from '\/dayspa\/testi\.js'/.test(P), 'i testi stanno in un modulo loro');
-  assert(/innestaGiorno\(\{[^}]*\bstatoExtra\b/.test(modulo()), 'il calendario deve ricevere statoExtra');
-  assert(/leggiChiusure\(/.test(modulo()));
+  assert(!/innestaGiorno\(/.test(modulo()) && !/apriCalendario\(/.test(modulo()), 'niente calendario a mesi: sette giorni bastano');
+  assert(P.includes('id="giorni"'), 'manca la fila dei giorni');
+  assert(/ORIZZONTE_GIORNI/.test(modulo()), 'quanti giorni si chiedono lo dice il modulo, non un numero scritto qui');
   assert(/a=giorni/.test(modulo()) && /a=listino/.test(modulo()) && /a=prenota/.test(modulo()) && /a=stato/.test(modulo()));
-  assert(/innestaGiorno\(\{/.test(modulo()), 'il giorno si sceglie con l innesto a un giorno solo');
+  assert(/t\(\)\.orizzonte|x\.orizzonte/.test(modulo()), 'la riga che spiega i sette giorni va mostrata');
+  /* «e nel calendario fai vedere la chiusura stagionale»: la riga con le
+     date, come in Prenota, e i giorni chiusi segnati */
+  assert(/leggiChiusure\(/.test(modulo()) && /notaChiusura\(/.test(modulo()), 'la chiusura stagionale va letta e detta con le date');
+  assert(P.includes('id="notaChiusura"'), 'manca il posto per la riga della chiusura');
+  assert(/'chiuso'/.test(modulo()), 'un giorno chiuso deve dirsi chiuso anche nella fila');
 });
 
 Deno.test('la riga non rimborsabile sta prima del pulsante di pagamento', () => {
