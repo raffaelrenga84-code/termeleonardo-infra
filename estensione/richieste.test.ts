@@ -269,3 +269,21 @@ Deno.test('5a-bis — etichettate coi mesi a parole e il giorno della settimana 
   assertEquals(g(d!.arrivo), '2026-11-15');
   assertEquals(g(d!.partenza), '2026-11-20');
 });
+
+Deno.test('5b — le forme compatte tedesche e l apostrofo italiano', () => {
+  const l = lettori();
+  const CASI = [
+    ['Zeitraum 12.-19.10.2026, 2 Personen', '2026-10-12', '2026-10-19'],
+    ['wir möchten 12. bis 19. Oktober 2026 kommen', '2026-10-12', '2026-10-19'],
+    ['vom 3. bis zum 10. Oktober 2026, Einzelzimmer', '2026-10-03', '2026-10-10'],
+    ['vom 3. bis einschließlich 10. Oktober 2026', '2026-10-03', '2026-10-10'],
+    ["dal 6 all'8 dicembre 2026 per due coppie", '2026-12-06', '2026-12-08'],
+    ["dal 6 all' 8 dicembre 2026", '2026-12-06', '2026-12-08'],
+  ] as const;
+  for (const [testo, a, p] of CASI) {
+    const d = l.leggiDate(testo) as Letta | null;
+    assert(d, `leggiDate non riconosce «${testo}»`);
+    assertEquals(g(d!.arrivo), a, `arrivo sbagliato in «${testo}»`);
+    assertEquals(g(d!.partenza), p, `partenza sbagliata in «${testo}»`);
+  }
+});

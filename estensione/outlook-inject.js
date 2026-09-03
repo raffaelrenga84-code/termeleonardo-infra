@@ -401,9 +401,11 @@ function parseCentralino(testo) {
       }
     }
 
-    let m = r.arrivo ? null : t.match(/dal\s+(\d{1,2})\s+al\s+(\d{1,2})\s+([a-zà-ù]+)(?:\s+(\d{4}))?/i)
+    /* v2.25: «dal 6 all'8 dicembre», con o senza spazio dopo l'apostrofo */
+    let m = r.arrivo ? null : t.match(/dal\s+(\d{1,2})\s+(?:al|all['’])\s*(\d{1,2})\s+([a-zà-ù]+)(?:\s+(\d{4}))?/i)
          || t.match(/(\d{1,2})\s*[-–\/]\s*(\d{1,2})\s+([a-zà-ù]+)(?:\s+(\d{4}))?/i)
-         || t.match(/vom\s+(\d{1,2})\.?\s*(?:bis|[-–])\s*(\d{1,2})\.?\s*([A-Za-zäöü]+)(?:\s+(\d{4}))?/i)
+         /* v2.25: anche senza «vom», e con «bis zum» / «bis einschließlich» */
+         || t.match(/(?:vom\s+)?(\d{1,2})\.?\s*(?:bis|[-–])\s*(?:zum\s+|einschließlich\s+|einschl\.\s+)?(\d{1,2})\.?\s+([A-Za-zäöü]+)(?:\s+(\d{4}))?/i)
          /* v2.7.3: inglese e francese. Il tipo di camera lo leggevamo gia'
             in tutte e quattro le lingue, ma senza le date la richiesta non
             veniva riconosciuta affatto e la deduzione non serviva a niente. */
@@ -488,6 +490,21 @@ function parseCentralino(testo) {
           r.arrivo = { g: g1, m: me1, a: a1 };
           r.partenza = { g: g2, m: me2, a: a2 };
           r.notti = n;
+        }
+      }
+    }
+    /* v2.25 — «12.-19.10.2026»: il primo giorno senza mese, il mese scritto
+       una volta sola sul secondo. Tedesco puro, e frequentissimo. Solo se
+       niente ha ancora letto una data: «12-13 agosto» ha gia' il suo modo. */
+    if (!r.arrivo) {
+      const mc = t.match(/(?:vom\s+|ab\s+)?(\d{1,2})\.?\s*[-–]\s*(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\.?/);
+      if (mc) {
+        const g1 = +mc[1], g2 = +mc[2], me = +mc[3];
+        if (g1 >= 1 && g1 <= 31 && g2 >= 1 && g2 <= 31 && me >= 1 && me <= 12 && g2 > g1) {
+          const a = mc[4] ? (+mc[4] < 100 ? 2000 + +mc[4] : +mc[4]) : annoDedotto(me, g1);
+          r.arrivo = { g: g1, m: me, a };
+          r.partenza = { g: g2, m: me, a };
+          r.notti = g2 - g1;
         }
       }
     }
