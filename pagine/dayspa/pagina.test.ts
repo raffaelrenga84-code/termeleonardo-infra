@@ -35,6 +35,13 @@ Deno.test('sette giorni in fila al posto del calendario, giorni dal server, test
   assert(/'chiuso'/.test(modulo()), 'un giorno chiuso deve dirsi chiuso anche nella fila');
 });
 
+Deno.test('il serale del venerdi e del sabato si vede sul giorno e si vende sotto la fascia', () => {
+  const m = modulo();
+  assert(/haSerale\(/.test(m), 'il segno «sera» sul giorno viene da haSerale');
+  assert(/\.seraBadge\b/.test(m), 'il segno sul giorno ha il suo testo');
+  assert(/\.seraleVendita\b/.test(m), 'sotto la fascia serale va la riga che la vende');
+});
+
 Deno.test('la riga non rimborsabile sta prima del pulsante di pagamento', () => {
   /* nell'HTML, non nel copione: e' l'ordine sulla pagina che conta */
   const riga = P.indexOf('id="tNonRimborsabile"'), paga = P.indexOf('id="bPaga"');

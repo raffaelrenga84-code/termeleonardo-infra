@@ -60,6 +60,9 @@ input.vuoto{border-color:var(--allarme);}
 .fascia .ore{font-size:13px;color:var(--grigio);}
 .fascia .prezzo{margin-left:auto;font-family:"Cormorant Garamond",Georgia,serif;font-size:22px;color:var(--verde);white-space:nowrap;}
 .fascia .stato{font-size:12px;color:var(--bronzo);margin-left:8px;}
+/* la riga che vende il serale: sotto orario e prezzo, in piccolo */
+.fascia .vendi{display:block;font-size:12.5px;color:var(--verde-medio);margin-top:4px;line-height:1.4;}
+.gg.sera .st{color:var(--verde);font-weight:600;}
 /* i contatori: pulsanti da 44 px, che si toccano col dito */
 .conta{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px;}
 .conta .eti{flex:1;}
@@ -150,7 +153,7 @@ input.vuoto{border-color:var(--allarme);}
    pagina vive sotto una riscrittura e un percorso relativo si romperebbe
    (vedi il commento in prenota/index.html). */
 import { leggiChiusure, notaChiusura, oggiLocale, TESTI as TESTI_CAL } from '/comune/calendario.js';
-import { ORIZZONTE_GIORNI, pezziGiorno, setteGiorni, statoDelGiorno } from '/dayspa/giorni.js';
+import { haSerale, ORIZZONTE_GIORNI, pezziGiorno, setteGiorni, statoDelGiorno } from '/dayspa/giorni.js';
 import { normalizzaLingua, parametriOspite } from '/comune/ospite-url.js';
 import { T } from '/dayspa/testi.js';
 
@@ -221,12 +224,17 @@ function disegnaGiorni() {
   const scelto = $('fGiorno').value;
   const chiusoPerStagione = (iso) => CHIUSURE.some((c) => iso >= c.chiusura && iso < c.riapertura);
   $('giorni').innerHTML = setteGiorni(oggiLocale()).map((iso) => {
-    const stato = chiusoPerStagione(iso) ? 'chiuso' : statoDelGiorno(GIORNI.get(iso) || null);
+    const g = GIORNI.get(iso) || null;
+    const stato = chiusoPerStagione(iso) ? 'chiuso' : statoDelGiorno(g);
     const p = pezziGiorno(iso, LNG, TESTI_CAL);
     const usabile = stato === 'disponibile' || stato === 'ultimi';
-    return `<button type="button" class="gg ${stato}${iso === scelto ? ' scelto' : ''}" data-iso="${iso}"${usabile ? '' : ' disabled'} aria-pressed="${iso === scelto}">
+    /* sotto il numero: la parola dello stato se c'e' qualcosa da dire,
+       altrimenti «+ sera» se quel giorno ha il serale in vendita (venerdi'
+       e sabato): si vede prima di scegliere */
+    const sotto = stato !== 'disponibile' ? (x.stati[stato] || stato) : (haSerale(g) ? x.seraBadge : '');
+    return `<button type="button" class="gg ${stato}${iso === scelto ? ' scelto' : ''}${haSerale(g) && usabile ? ' sera' : ''}" data-iso="${iso}"${usabile ? '' : ' disabled'} aria-pressed="${iso === scelto}">
       <span class="s">${esc(p.settimana)}</span><span class="n">${p.giorno}</span><span class="m">${esc(p.mese)}</span>
-      <span class="st">${stato === 'disponibile' ? '' : esc(x.stati[stato] || stato)}</span></button>`;
+      <span class="st">${esc(sotto)}</span></button>`;
   }).join('');
   $('giorni').querySelectorAll('.gg').forEach((b) => b.addEventListener('click', () => {
     $('fGiorno').value = b.dataset.iso;
@@ -287,7 +295,8 @@ function disegnaFasce() {
       <input type="radio" name="fascia" value="${esc(f.fascia)}" ${scelta ? 'checked' : ''} ${spenta ? 'disabled' : ''} />
       <span><span class="nome">${esc(x.fasce[f.fascia] || f.fascia)}</span><br />
         <span class="ore">${esc(LISTINO.orari[f.fascia] || '')}</span>
-        ${f.stato !== 'disponibile' ? `<span class="stato">${esc(x.stati[f.stato] || f.stato)}</span>` : ''}</span>
+        ${f.stato !== 'disponibile' ? `<span class="stato">${esc(x.stati[f.stato] || f.stato)}</span>` : ''}
+        ${f.fascia === 'serale' && !spenta ? `<span class="vendi">${esc(x.seraleVendita)}</span>` : ''}</span>
       <span class="prezzo">${esc(euro(f.prezzoCent))} <small style="font-size:12px;color:#7B756A;">${esc(x.aPersona)}</small></span>
     </label>`;
   }).join('');

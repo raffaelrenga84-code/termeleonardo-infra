@@ -29,6 +29,14 @@ export function pezziGiorno(iso, lingua, testi) {
   return { settimana: t.giorni[(d.getUTCDay() + 6) % 7], giorno: d.getUTCDate(), mese: t.mesiBrevi[d.getUTCMonth()] };
 }
 
+/** Vero se il giorno ha il serale e lo si puo' comprare: e' il segno «sera»
+ *  sul pulsante del giorno, che fa notare il venerdi' e il sabato prima
+ *  ancora di scegliere. */
+export function haSerale(g) {
+  if (!g || !Array.isArray(g.fasce)) return false;
+  return g.fasce.some((f) => f.fascia === 'serale' && (f.stato === 'disponibile' || f.stato === 'ultimi'));
+}
+
 /** La parola del giorno intero, dalle parole delle sue fasce: chiuso se
  *  sono chiuse tutte; poi la migliore che c'e' (disponibile, ultimi,
  *  esaurito); non in vendita se il server non ha mandato niente. */

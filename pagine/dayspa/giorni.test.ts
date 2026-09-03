@@ -8,7 +8,7 @@
    giorni da oggi, ognuno con la sua parola.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { ORIZZONTE_GIORNI, pezziGiorno, setteGiorni, statoDelGiorno } from './giorni.js';
+import { haSerale, ORIZZONTE_GIORNI, pezziGiorno, setteGiorni, statoDelGiorno } from './giorni.js';
 /* i nomi dei giorni e dei mesi sono quelli del calendario comune: il modulo
    li riceve come parametro, cosi' non importa un percorso web che Deno non
    saprebbe aprire */
@@ -38,4 +38,15 @@ Deno.test('lo stato del giorno riassume le sue fasce: la parola migliore vince, 
   assertEquals(statoDelGiorno(g(['chiuso', 'chiuso'])), 'chiuso');
   assertEquals(statoDelGiorno(null), 'non-in-vendita', 'un giorno che il server non ha mandato non e in vendita');
   assert(['disponibile', 'ultimi'].includes(statoDelGiorno(g(['ultimi', 'disponibile']))));
+});
+
+Deno.test('il serale si segnala sul giorno solo se c e e si puo comprare: venerdi e sabato', () => {
+  /* «ricordati che il venerdi e il sabato c e anche il serale: come
+     venderlo al meglio?» (la proprieta', 3 settembre 2026) */
+  const g = (fasce: [string, string][]) => ({ fasce: fasce.map(([fascia, stato]) => ({ fascia, stato })) });
+  assert(haSerale(g([['giornaliero', 'disponibile'], ['serale', 'disponibile']])));
+  assert(haSerale(g([['giornaliero', 'esaurito'], ['serale', 'ultimi']])));
+  assert(!haSerale(g([['giornaliero', 'disponibile'], ['serale', 'esaurito']])), 'un serale esaurito non si vende');
+  assert(!haSerale(g([['giornaliero', 'disponibile']])), 'un mercoledi non ha il serale');
+  assert(!haSerale(null));
 });

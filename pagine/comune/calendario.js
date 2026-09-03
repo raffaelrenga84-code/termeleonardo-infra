@@ -296,9 +296,15 @@ export function apriCalendario({ radice, lingua, oggi, chiusure, arrivo, partenz
         <button type="button" class="calConferma">${esc(t.conferma)}</button></div></div>`;
     radice.querySelector('.calConferma').disabled = !pronta();
     radice.querySelectorAll('.g').forEach((b) => b.addEventListener('click', () => {
-      const dopo = unGiorno
-        ? { arrivo: toccaGiorno(b.dataset.iso, ctx) || scelta.arrivo, partenza: '' }
-        : tocca(scelta, b.dataset.iso, ctx);
+      /* A UN GIORNO SOLO UN TOCCO BASTA: «se uno seleziona una data non
+         chiedere conferma, chiudi il calendario» (la proprieta', 3
+         settembre 2026). Un giorno che non si puo' toccare non fa niente. */
+      if (unGiorno) {
+        const dopo = { arrivo: toccaGiorno(b.dataset.iso, ctx), partenza: '' };
+        if (unGiorno && dopo.arrivo) { chiudi(); if (onConferma) onConferma({ ...dopo }); }
+        return;
+      }
+      const dopo = tocca(scelta, b.dataset.iso, ctx);
       if (dopo.arrivo === scelta.arrivo && dopo.partenza === scelta.partenza) return;
       scelta = dopo;
       disegna();

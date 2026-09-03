@@ -19,6 +19,14 @@ Deno.test('la riga dei sette giorni dice il perche, in ogni lingua, con il numer
   }
 });
 
+Deno.test('il serale ha una riga che lo vende, con l orario, e un segno corto per il giorno', () => {
+  for (const l of ['it', 'de', 'en', 'fr']) {
+    /* 22:30, 22.30 o, alla francese, 22h30 */
+    assert(/22[:.h]30/.test(String(TT[l].seraleVendita)), `${l}: la riga del serale deve dire fino a che ora`);
+    assert(String(TT[l].seraBadge).length <= 6, `${l}: il segno sul giorno deve stare in un pulsante stretto`);
+  }
+});
+
 Deno.test('la riga non rimborsabile e le parole degli stati ci sono, nella lingua giusta', () => {
   assert(/non (è )?rimborsabile/i.test(String(TT.it.nonRimborsabile)));
   assert(/nicht erstattungs/i.test(String(TT.de.nonRimborsabile)));

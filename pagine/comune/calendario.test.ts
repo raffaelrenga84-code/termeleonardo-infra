@@ -198,6 +198,15 @@ Deno.test('la legenda dei nuovi stati esiste nelle quattro lingue, lo stile li d
   assert(/innestaGiorno\(\{ campo, lingua, chiusure, testoVuoto, statoExtra \}\)/.test(MODULO), 'l innesto deve accettare statoExtra e passarlo');
 });
 
+Deno.test('a un giorno solo, un tocco basta: si chiude e conferma da se, senza il pulsante', () => {
+  /* «se uno seleziona una data non chiedere conferma, chiudi il
+     calendario» (la proprieta', 3 settembre 2026). Vale per il modo a un
+     giorno (trattamenti, transfer, green fee, maestro); Prenota, che
+     chiede due date, tiene la conferma dopo la seconda. */
+  assert(/if \(unGiorno && dopo\.arrivo\) \{[\s\S]*?chiudi\(\);[\s\S]*?onConferma\(\{ \.\.\.dopo \}\)/.test(MODULO),
+    'nel modo a un giorno il tocco deve chiudere e confermare');
+});
+
 Deno.test('le chiusure dal server: la stagione, o niente', () => {
   const m = MODULO.match(/export async function leggiChiusure\([\s\S]*?\n\}/);
   assert(m, 'leggiChiusure non si trova per intero');
