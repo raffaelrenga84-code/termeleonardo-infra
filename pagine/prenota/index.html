@@ -47,6 +47,12 @@ input,select,textarea{width:100%;margin-top:6px;padding:12px 13px;font:15px inhe
 input:focus,select:focus,textarea:focus{outline:2px solid var(--acqua);border-color:transparent;}
 textarea{min-height:80px;resize:vertical;}
 .due{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+/* il campo unico delle date: si veste come un campo, ma e' un pulsante che apre il calendario */
+.campoDate{width:100%;margin-top:6px;padding:12px 13px;font:15px inherit;border:1px solid #DCD6CB;border-radius:9px;
+  background:#FCFBF8;color:#2A2E2B;text-align:left;cursor:pointer;}
+.campoDate:focus{outline:2px solid var(--acqua);border-color:transparent;}
+.campoDate.vuoto{color:#8C8578;}
+#calendarioBox{position:relative;}
 .tre{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
 @media(max-width:560px){.due,.tre{grid-template-columns:1fr 1fr;}}
 /* SOTTO I 420px il prezzo va a capo sotto il nome della tariffa: su un
@@ -365,6 +371,8 @@ import { accorpa } from '/prenota/famiglie.js';
 import { indirizzoModulo } from '/comune/percorso.js';
 /* la chiusura invernale: testi e regole in un modulo provato, le date dal server */
 import { dataEstesa, dateDallaRiapertura, messaggioChiuso, rigaChiusiOra, TESTI } from '/prenota/chiusura.js';
+/* il calendario a due tocchi: un campo solo, i valori ISO nei campi nascosti di sempre */
+import { apriCalendario, riassunto, TESTI as TESTI_CAL } from '/comune/calendario.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Dopo una certa ora il giorno stesso
    non si prenota da qui — il perche' sta in giorno-stesso.js. */
 import { chiusoPerOggi, oraLimite } from '/prenota/giorno-stesso.js';
@@ -1008,12 +1016,17 @@ function schermaRicerca(erroreIniziale) {
       : ''}
     <div class="riquadro">
       <h2>${esc(t.dateTit)}</h2><div class="guida">${esc(t.dateGuida)}</div>
-      <div class="due">
-        <div><label for="fArrivo">${esc(t.arrivo)}</label>
-          <input type="date" id="fArrivo" name="arrivo" min="${oggiISO()}" value="${esc(r.arrivo)}" /></div>
-        <div><label for="fPartenza">${esc(t.partenza)}</label>
-          <input type="date" id="fPartenza" name="partenza" min="${oggiISO()}" value="${esc(r.partenza)}" /></div>
-      </div>
+      <!-- IL CALENDARIO A DUE TOCCHI (3 settembre 2026). I due campi nativi
+           del telefono — due pannelli, il secondo che si apre su oggi —
+           spariscono dalla vista ma restano qui, nascosti, con gli stessi id
+           e i valori ISO: ricerca, chiusura e riepilogo leggono gli stessi
+           campi di prima. Il campo unico mostra le date e le notti. -->
+      <label for="bDate">${esc(TESTI_CAL[LNG].campo)}</label>
+      <button type="button" id="bDate" class="campoDate${r.arrivo && r.partenza ? '' : ' vuoto'}">${
+        esc(riassunto({ arrivo: r.arrivo, partenza: r.partenza }, LNG) || TESTI_CAL[LNG].scegli)}</button>
+      <div id="calendarioBox"></div>
+      <input type="hidden" id="fArrivo" name="arrivo" value="${esc(r.arrivo)}" />
+      <input type="hidden" id="fPartenza" name="partenza" value="${esc(r.partenza)}" />
       <div id="avvisoOggi"></div>
       <div id="avvisoPersone"></div>
       <div class="due">
@@ -1049,6 +1062,21 @@ function schermaRicerca(erroreIniziale) {
     $('bAvantiCarrello').onclick = () => { STATO = 'dati'; disegna(); };
   }
   $('fArrivo').addEventListener('change', avvisoGiornoStesso);
+  /* il campo unico apre il calendario; alla conferma i valori ISO vanno nei
+     campi nascosti e parte `change`, perche' gli avvisi di oggi e il
+     collegamento arrivo/partenza continuino a sentire */
+  $('bDate').onclick = () => apriCalendario({
+    radice: $('calendarioBox'), lingua: LNG, oggi: oggiISO(),
+    chiusure: STAGIONE ? [STAGIONE] : [],
+    arrivo: $('fArrivo').value, partenza: $('fPartenza').value,
+    onConferma: ({ arrivo, partenza }) => {
+      $('fArrivo').value = arrivo;
+      $('fPartenza').value = partenza;
+      for (const id of ['fArrivo', 'fPartenza']) $(id).dispatchEvent(new Event('change', { bubbles: true }));
+      $('bDate').textContent = riassunto({ arrivo, partenza }, LNG) || TESTI_CAL[LNG].scegli;
+      $('bDate').classList.toggle('vuoto', !(arrivo && partenza));
+    },
+  });
   avvisoGiornoStesso();
   /* e l'avviso sulle piu' camere: si dice PRIMA di cercare, cosi' il
      filtro parte gia' giusto invece di far arrivare a un elenco corto
