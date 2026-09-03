@@ -89,3 +89,19 @@ Deno.test('la lingua viene dall indirizzo e i dati precompilati pure', () => {
   assert(/normalizzaLingua\(/.test(m) && /parametriOspite\(/.test(m));
   assertEquals((P.match(/<select id="lng"/g) ?? []).length, 1, 'una select vera per la lingua, come Prenota');
 });
+
+Deno.test('«sistema» (3 settembre, notte): numero del passo leggibile, errore che porta al primo campo mancante, consenso segnato', () => {
+  /* Nella schermata «3 I suoi dati» il 3 era un pedice di 13 px in
+     Cormorant: un tondino col numero si legge. E premuto «Paga» con i
+     campi vuoti si vedeva solo «Manca qualcosa»: ora si segna anche il
+     consenso, il fuoco va al primo campo mancante, e il rosso sparisce
+     mentre si scrive. */
+  const tondino = P.slice(P.indexOf('h2 small{'), P.indexOf('}', P.indexOf('h2 small{')));
+  assert(tondino.includes('border-radius:50%'), 'il numero del passo e un tondino, non un pedice');
+  assert(P.includes('id="lConsenso"'), 'la riga del consenso ha un id per poterla segnare');
+  const M = (P.match(/<script type="module">([\s\S]*?)<\/script>/) ?? ['', ''])[1];
+  const p = M.slice(M.indexOf('async function paga('), M.indexOf("addEventListener('click', paga)"));
+  assert(p.includes("$('lConsenso').classList.toggle('vuoto'"), 'anche il consenso mancante si segna in rosso');
+  assert(p.includes('.focus(') && p.includes('scrollIntoView('), 'il fuoco e lo scorrimento vanno al primo campo mancante');
+  assert(M.includes("addEventListener('input'"), 'il rosso sparisce mentre si scrive');
+});

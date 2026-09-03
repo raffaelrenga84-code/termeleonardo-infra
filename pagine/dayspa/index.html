@@ -32,7 +32,7 @@ h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:34px
 main{max-width:640px;margin:0 auto;padding:26px 18px 60px;}
 .riquadro{background:#fff;border:1px solid #E5E0D8;border-radius:14px;padding:22px;margin-bottom:18px;}
 h2{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:23px;color:var(--verde);margin:0 0 4px;}
-h2 small{font-size:13px;color:var(--bronzo);letter-spacing:2px;margin-right:8px;font-family:inherit;}
+h2 small{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:1px solid var(--bronzo);font:600 12px/1 system-ui,-apple-system,"Segoe UI",sans-serif;color:#6E5228;margin-right:10px;vertical-align:4px;letter-spacing:0;}
 .guida{color:var(--grigio);font-size:13.5px;margin-bottom:16px;}
 label{display:block;font-size:13.5px;color:var(--verde-medio);font-weight:500;margin-top:15px;}
 input,select{width:100%;margin-top:6px;padding:12px 13px;font:15px inherit;border:1px solid #DCD6CB;border-radius:9px;background:#FCFBF8;color:#2A2E2B;}
@@ -81,6 +81,8 @@ input.vuoto{border-color:var(--allarme);}
 .nonRimb{margin-top:16px;padding:10px 13px;border-left:3px solid var(--bronzo);background:#FBF6EA;color:#6B4A22;font-size:13.5px;}
 .avviso{padding:10px 13px;border-radius:8px;background:#FFF6E8;border-left:3px solid var(--oro);color:#6B4A22;margin-bottom:16px;font-size:13.5px;}
 .errore{color:var(--allarme);font-size:13.5px;margin-top:12px;}
+.consenso.vuoto{color:var(--allarme);}
+.consenso.vuoto input{outline:2px solid var(--allarme);outline-offset:2px;}
 .bottone{width:100%;margin-top:18px;padding:16px;border:0;border-radius:999px;background:var(--verde);color:#fff;font:600 16px inherit;cursor:pointer;}
 .bottone:disabled{opacity:.5;cursor:default;}
 .grazie{text-align:center;padding:30px 20px;}
@@ -135,7 +137,7 @@ input.vuoto{border-color:var(--allarme);}
     <label for="fNome" id="tNome"></label><input id="fNome" autocomplete="name" />
     <label for="fEmail" id="tEmail"></label><input id="fEmail" type="email" autocomplete="email" inputmode="email" />
     <label for="fTelefono" id="tTelefono"></label><input id="fTelefono" type="tel" autocomplete="tel" inputmode="tel" />
-    <label class="consenso"><input type="checkbox" id="fConsenso" /><span id="tConsenso"></span></label>
+    <label class="consenso" id="lConsenso"><input type="checkbox" id="fConsenso" /><span id="tConsenso"></span></label>
     <div class="nonRimb" id="tNonRimborsabile"></div>
     <p class="errore" id="errore" hidden></p>
     <button type="button" class="bottone" id="bPaga"></button>
@@ -350,11 +352,20 @@ async function paga() {
   const x = t();
   mostraErrore('');
   const nome = $('fNome').value.trim(), email = $('fEmail').value.trim();
+  const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+  const consenso = $('fConsenso').checked;
+  /* si segna in rosso tutto quello che manca in una volta, consenso
+     compreso, e il fuoco va al primo campo mancante: da telefono e' l'unico
+     modo per farlo notare, il messaggio sta sotto il bordo dello schermo */
   $('fNome').classList.toggle('vuoto', !nome);
-  $('fEmail').classList.toggle('vuoto', !email);
-  if (!nome || !email) return mostraErrore(x.erroreCampi);
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { $('fEmail').classList.add('vuoto'); return mostraErrore(x.erroreEmail); }
-  if (!$('fConsenso').checked) return mostraErrore(x.erroreConsenso);
+  $('fEmail').classList.toggle('vuoto', !email || !emailOk);
+  $('lConsenso').classList.toggle('vuoto', !consenso);
+  const primo = !nome ? 'fNome' : (!email || !emailOk) ? 'fEmail' : !consenso ? 'fConsenso' : '';
+  if (primo) {
+    $(primo).scrollIntoView({ block: 'center', behavior: 'smooth' });
+    $(primo).focus({ preventScroll: true });
+    return mostraErrore(!nome || !email ? x.erroreCampi : !emailOk ? x.erroreEmail : x.erroreConsenso);
+  }
   const f = fasciaScelta();
   if (!$('fGiorno').value || !f) return mostraErrore(x.scegliGiorno);
   $('bPaga').disabled = true;
@@ -385,6 +396,8 @@ async function paga() {
   $('bPaga').textContent = x.paga;
 }
 $('bPaga').addEventListener('click', paga);
+for (const id of ['fNome', 'fEmail']) $(id).addEventListener('input', () => $(id).classList.remove('vuoto'));
+$('fConsenso').addEventListener('change', () => $('lConsenso').classList.remove('vuoto'));
 
 /* ---------- il ritorno da Stripe: si aspetta il webhook ---------- */
 async function grazie(numero) {
