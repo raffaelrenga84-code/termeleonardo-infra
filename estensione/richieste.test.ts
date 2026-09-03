@@ -234,3 +234,38 @@ Deno.test('4b — non si inventa un cane che non c e', () => {
     assert(!r!.cane, `cane inventato in «${testo}»`);
   }
 });
+
+/* ============================================================
+   5 — LE FORME CHE IL 3 SETTEMBRE 2026 SFUGGIVANO, in tedesco e in
+   italiano. Dieci richieste per lingua, realistiche, fatte leggere al
+   lettore vero: sei tedesche e cinque italiane uscivano senza date.
+   Ogni prova qui sotto e' una di quelle forme.
+   ============================================================ */
+type Letta = { arrivo: Giorno; partenza: Giorno; notti?: number; nottiDedotte?: boolean };
+const g = (x: Giorno) => `${x.a}-${String(x.m).padStart(2, '0')}-${String(x.g).padStart(2, '0')}`;
+
+Deno.test('5a — le date etichettate: Anreise/Abreise, Arrivo/partenza, Arrival/departure, Arrivée/départ', () => {
+  const l = lettori();
+  const CASI = [
+    ['Guten Tag, Anreise: 05.11.2026, Abreise: 12.11.2026, 2 Erwachsene', '2026-11-05', '2026-11-12'],
+    ['Arrivo 05/11/2026 partenza 12/11/2026, 2 adulti', '2026-11-05', '2026-11-12'],
+    ['Arrival: 05.11.2026 / Departure: 12.11.2026', '2026-11-05', '2026-11-12'],
+    ['Arrivée le 05/11/2026, départ le 12/11/2026', '2026-11-05', '2026-11-12'],
+    ['Anreise Sonntag 15.11.2026, Abreise Freitag 20.11.2026', '2026-11-15', '2026-11-20'],
+    ['Check-in 24.12.2026, check-out 02.01.2027', '2026-12-24', '2027-01-02'],
+  ] as const;
+  for (const [testo, a, p] of CASI) {
+    const d = l.leggiDate(testo) as Letta | null;
+    assert(d, `leggiDate non riconosce «${testo}»`);
+    assertEquals(g(d!.arrivo), a, `arrivo sbagliato in «${testo}»`);
+    assertEquals(g(d!.partenza), p, `partenza sbagliata in «${testo}»`);
+  }
+});
+
+Deno.test('5a-bis — etichettate coi mesi a parole e il giorno della settimana in mezzo', () => {
+  const l = lettori();
+  const d = l.leggiDate('Anreise Sonntag 15. November 2026, Abreise Freitag 20. November 2026') as Letta | null;
+  assert(d, 'non letta');
+  assertEquals(g(d!.arrivo), '2026-11-15');
+  assertEquals(g(d!.partenza), '2026-11-20');
+});

@@ -366,8 +366,42 @@ function parseCentralino(testo) {
        Il giorno della settimana in mezzo va saltato, e i due mesi possono
        essere scritti entrambi (anche diversi: 30 ottobre - 2 novembre). */
     const GIORNI = String.raw`(?:lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica|` +
-                   String.raw`Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag)`;
-    let m = t.match(/dal\s+(\d{1,2})\s+al\s+(\d{1,2})\s+([a-zà-ù]+)(?:\s+(\d{4}))?/i)
+                   String.raw`Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag|` +
+                   String.raw`Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|` +
+                   String.raw`lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)`;
+
+    /* v2.25 — LE DATE ETICHETTATE. «Anreise: 05.11.2026, Abreise: 12.11.2026»,
+       «Arrivo 05/11/2026 partenza 12/11/2026», «Arrival … Departure»,
+       «Arrivée … départ». Il 3 settembre 2026, su dieci richieste tedesche
+       realistiche, questa era la forma piu' comune fra quelle che sfuggivano:
+       nessuno dei modi di prima la prendeva perche' cercano tutti un
+       separatore fra le due date, e qui in mezzo c'e' una parola. Si prova
+       per prima: e' la forma piu' esplicita, e non puo' abboccare per
+       sbaglio su un'altra. */
+    const ARRIVO_ETI = String.raw`(?:anreise|ankunft|check-?in|arrivo|arrival|arriv[ée]e)`;
+    const PARTENZA_ETI = String.raw`(?:abreise|abfahrt|check-?out|partenza|departure|d[ée]part)`;
+    const DATA_NUM = String.raw`(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?`;
+    const PREPOSIZIONE = String.raw`(?:am\s+|il\s+|on\s+|le\s+|the\s+)?(?:` + GIORNI + String.raw`\s*,?\s*)?`;
+    const eti = t.match(new RegExp(
+      ARRIVO_ETI + String.raw`\s*:?\s*` + PREPOSIZIONE + DATA_NUM + String.raw`\.?[\s\S]{0,60}?` +
+      PARTENZA_ETI + String.raw`\s*:?\s*` + PREPOSIZIONE + DATA_NUM, 'i'));
+    if (eti) {
+      const g1 = +eti[1], me1 = +eti[2], g2 = +eti[4], me2 = +eti[5];
+      const valida = (g, me) => g >= 1 && g <= 31 && me >= 1 && me <= 12;
+      if (valida(g1, me1) && valida(g2, me2)) {
+        const norm = (v) => v == null ? null : (+v < 100 ? 2000 + +v : +v);
+        const a1 = norm(eti[3]) || annoDedotto(me1, g1);
+        const a2 = norm(eti[6]) || (me2 < me1 ? a1 + 1 : a1);
+        const n = Math.round((new Date(a2, me2 - 1, g2) - new Date(a1, me1 - 1, g1)) / 86400000);
+        if (n > 0 && n < 60) {
+          r.arrivo = { g: g1, m: me1, a: a1 };
+          r.partenza = { g: g2, m: me2, a: a2 };
+          r.notti = n;
+        }
+      }
+    }
+
+    let m = r.arrivo ? null : t.match(/dal\s+(\d{1,2})\s+al\s+(\d{1,2})\s+([a-zà-ù]+)(?:\s+(\d{4}))?/i)
          || t.match(/(\d{1,2})\s*[-–\/]\s*(\d{1,2})\s+([a-zà-ù]+)(?:\s+(\d{4}))?/i)
          || t.match(/vom\s+(\d{1,2})\.?\s*(?:bis|[-–])\s*(\d{1,2})\.?\s*([A-Za-zäöü]+)(?:\s+(\d{4}))?/i)
          /* v2.7.3: inglese e francese. Il tipo di camera lo leggevamo gia'
