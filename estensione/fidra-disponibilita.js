@@ -1,5 +1,5 @@
 /* ============================================================
-   Offerta Leonardo — Disponibilità e prezzi (v1.3)
+   Offerta Leonardo — Disponibilità e prezzi (v1.4)
    ------------------------------------------------------------
    Pannello dentro Fidra che risponde alle due domande che il
    gestionale lascia scoperte:
