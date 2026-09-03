@@ -2159,6 +2159,13 @@ function vistaArrivi() {
   if (data?.session) {
     TOKEN = data.session.access_token;
     OPERATORE = data.session.user.user_metadata?.nome || data.session.user.email.split('@')[0];
+    /* L'INDIRIZZO ANCHE QUI. Questa strada non passa dall'accesso, e senza
+       queste due righe EMAIL restava vuoto: ordine delle schede e scheda
+       d'apertura tornavano quelli di default per chiunque avesse la
+       sessione gia' aperta — cioe' per la reception, sempre. Visto in
+       reception il 3 settembre 2026: intestazione nuova, ordine vecchio. */
+    EMAIL = data.session.user.email || '';
+    VISTA = schedaIniziale(EMAIL);
     try { await chiama('?a=elenco'); disegna(); return; }
     catch (e) { await esci(); chiediAccesso(e.message); return; }
   }

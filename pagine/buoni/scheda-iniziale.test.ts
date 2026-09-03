@@ -291,3 +291,20 @@ Deno.test('e la striscia dei pulsanti si disegna da quell elenco', () => {
     'ci sono ancora pulsanti scritti a mano nel markup: quelli non si nascondono',
   );
 });
+
+/* ---------- anche con la sessione gia' aperta ---------- */
+
+Deno.test('la sessione gia aperta imposta indirizzo e scheda come l accesso', () => {
+  /* Visto in reception il 3 settembre 2026: intestazione nuova, ordine
+     vecchio. La pagina con la sessione gia' aperta non passa dall'accesso,
+     e EMAIL restava vuoto: schedeDi('') e schedaIniziale('') danno i
+     default, per chiunque avesse la sessione aperta — la reception, sempre. */
+  const ripristino = SORGENTE.match(/const \{ data \} = await SB\.auth\.getSession\(\);([\s\S]*?)chiediAccesso\(''\);/);
+  assert(ripristino, 'il ripristino della sessione non si trova');
+  assert(/EMAIL = data\.session\.user\.email/.test(ripristino![1]),
+    'con la sessione gia aperta EMAIL resta vuoto: ordine e scheda d apertura tornano ai default');
+  assert(/VISTA = schedaIniziale\(EMAIL\)/.test(ripristino![1]),
+    'con la sessione gia aperta la scheda d apertura non si decide dall indirizzo');
+  assert(ripristino![1].indexOf('VISTA = schedaIniziale(EMAIL)') < ripristino![1].indexOf('disegna()'),
+    'la scheda si decide dopo aver gia disegnato');
+});
