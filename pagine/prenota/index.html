@@ -417,7 +417,7 @@ async function leggiStagione() {
   if (STAGIONE) disegna();
 }
 const oggiISOUTC = () => new Date().toISOString().slice(0, 10);
-const nottiFra = (a, p) => Math.round((new Date(p + 'T12:00:00Z') - new Date(a + 'T12:00:00Z')) / 86400000);
+/* nottiFra arriva da /comune/date.js (import in cima): il 3 settembre 2026 una copia locale qui sotto ha spento la pagina per ore, «Identifier nottiFra has already been declared» */
 function rigaChiusura() {
   const testo = rigaChiusiOra(STAGIONE, oggiISOUTC(), LNG);
   return testo ? `<div class="avviso" style="border-left-color:#C9A961;background:#FBF6EA;">${esc(testo)}</div>` : '';
