@@ -76,6 +76,15 @@ Il documento del protocollo XML non è pubblico: lo ha l'assistenza
 5. **Prima una pagina nascosta** con Stripe in modalità di prova; si va in
    linea quando disponibilità e ricevute sono a posto.
 
+E le risposte ai punti aperti, la sera stessa:
+
+6. **Il documento commerciale serve, e si emette alla vendita.**
+7. **Gli ingressi pagati non si annullano e non si rimborsano.**
+8. **L'abbonato** scala l'ingresso alla prenotazione, e l'ingresso torna se
+   annulla entro il giorno prima.
+9. **I bambini dai 2 anni** pagano prezzo pieno, come oggi.
+10. **Sulla ricevuta il nome del cliente**, come fa Fidra.
+
 ## Il disegno
 
 ### I prodotti e i prezzi
@@ -228,9 +237,10 @@ della stampante se il modello la offre, e solo dopo aver ricevuto da
 Vettori il documento «Protocollo XML PRT FX». Nessuna porta nuova aperta
 sul router: il PC della reception è già nella rete della stampante.
 
-Se il commercialista dicesse che per una vendita online con carta il
-documento commerciale non serve, la coda si spegne con una impostazione e
-resta la fattura XML su richiesta, che c'è già.
+Il documento commerciale **serve e si emette alla vendita** (proprietà, 3
+settembre): la coda non ha un interruttore per spegnerla. La fattura XML
+su richiesta, per chi la chiede al posto del documento, resta quella che
+c'è già per i buoni Day Spa.
 
 ### L'arrivo
 
@@ -252,20 +262,32 @@ decide allora.
 
 - **Conferma con QR**: giorno, fascia e orari, persone, importo, cosa
   portare, il regolamento (il PDF esiste già sul sito vecchio; si copia
-  da noi), come annullare e entro quando.
+  da noi), e la riga «ingresso non rimborsabile».
 - **Promemoria** il giorno prima, con lo stesso QR (il lavoro periodico
   dei promemoria dei buoni, riusato).
 - **Abbonamento**: codice, QR, ingressi rimasti, scadenza, il link per
   prenotare.
-- **Ricevuta di annullamento** con l'importo rimborsato.
+- **Abbonato, prenotazione annullata**: l'ingresso è tornato, quanti ne
+  restano.
+- **Rimborso** con l'importo, solo quando è la reception a rimborsare.
 
 ### Annullare e rimborsare
 
-L'ospite annulla dal link nell'email **fino alle 18:00 del giorno prima**:
-rimborso intero con Stripe (`rimborso.ts`, già scritto) e posti liberati.
-Dopo, non si rimborsa; la reception può sempre annullare e rimborsare dal
-back office, per esempio se chiudiamo per maltempo. *La soglia delle 18:00
-è una proposta: la decide la proprietà.*
+**Un ingresso pagato non si annulla e non si rimborsa** (proprietà, 3
+settembre). La pagina lo dice **prima** del pulsante di pagamento, in una
+riga sopra «Paga»: «Ingresso non rimborsabile», e l'email lo ripete. Non
+c'è un link per annullare.
+
+**La prenotazione di un abbonato** invece si annulla dal link nell'email
+fino al giorno prima, e l'ingresso torna sul suo abbonamento: non ha
+pagato niente per quel giorno, ha solo bloccato un posto.
+
+*Decisione presa senza chiedere, ribaltabile:* la reception conserva nel
+back office il pulsante «Annulla e rimborsa», con la stessa regola dei
+buoni (`rimborso.ts`, solo la reception), per il caso in cui siamo noi a
+non poter dare il servizio — le piscine chiuse per un guasto, una giornata
+di maltempo con la struttura chiusa. Non è un diritto dell'ospite: è uno
+strumento nostro.
 
 ### Chi vede cosa
 
@@ -326,18 +348,27 @@ reception per la coda delle ricevute è una chiave sua, revocabile.
 - L'app per il telefono: la pagina è già fatta per il telefono.
 - Gruppi oltre le 8 persone: richiesta alla reception, che esiste.
 
-## Punti aperti, per la proprietà
+## Punti aperti
 
-1. **Commercialista**: per un ingresso Day Spa pagato online con carta
-   serve il documento commerciale, e va emesso alla vendita o all'ingresso?
-2. **Vettori**: il documento «Protocollo XML» della PRT 80 FX.
-3. **Annullamento**: fino alle 18:00 del giorno prima, o un'altra soglia?
-4. **Abbonati**: l'ingresso si scala alla prenotazione e torna se annulla
-   entro il giorno prima. Va bene così?
-5. **Bambini**: dai 2 anni prezzo pieno come oggi, o una tariffa loro?
-6. **Ricevuta intestata**: Fidra stampa il nome del cliente sul documento.
-   Lo vogliamo anche noi (serve il codice fiscale? no, solo per la
-   fattura) o basta il documento senza nome?
+Uno solo, e non dipende da noi: **Vettori** deve mandare il documento
+«Protocollo XML» della PRT 80 FX e dire il numero del reparto «pool» sulla
+stampante. Finché non arriva, tutto il resto si costruisce e si prova; la
+coda delle ricevute si riempie e si vede, e la stampa vera aspetta il
+collaudo col tecnico.
+
+## In che ordine si costruisce
+
+Tre piani, uno per fase, ognuno con software che funziona da solo:
+
+1. **Gli ingressi**: listino, disponibilità nostra, la pagina, il
+   pagamento, il QR, l'email, la scheda «Day Spa oggi» e la scansione, la
+   scheda «Disponibilità». Alla fine si prova tutto sulla pagina nascosta
+   con Stripe in modalità di prova.
+2. **Gli abbonamenti**: vendita online, prenotazione con il codice,
+   importazione di quelli di Fidra, distribuzione dei codici.
+3. **Le ricevute**: il modulo che compone il documento XML (puro, provato
+   contro il documento Olivetti), la coda, il programma della reception,
+   il collaudo col tecnico. Poi il passaggio in linea.
 
 ## Rischi noti
 
