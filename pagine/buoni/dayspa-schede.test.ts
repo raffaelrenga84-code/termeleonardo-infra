@@ -72,6 +72,10 @@ Deno.test('«Disponibilità»: quattordici giorni, tipo e prezzo proposti dalla 
   assert(/tipoProposto/.test(f), 'il tipo del giorno lo propone il server');
   assert(/\{ righe \}|righe:/.test(f) && /method: ?'POST'/.test(f), 'si salva con un POST di righe');
   assert(/venduti/.test(f), 'i posti gia venduti si vedono accanto ai posti caricati');
+  /* «da disponibilita puoi aggiornarla con l API del sito vecchio»: un
+     pulsante che riempie le righe da Fidra, e poi si salva come sempre */
+  assert(/id="dDispFidra"/.test(f) && /a=fidra/.test(f), 'manca il pulsante che legge i posti da Fidra');
+  assert(/liberiFidra/.test(f), 'accanto ai posti va detto quanti sono liberi in Fidra');
 });
 
 Deno.test('«Prenotazioni»: ricerca, e il rimborso solo a chi tocca il denaro, con la stessa regola del server', () => {

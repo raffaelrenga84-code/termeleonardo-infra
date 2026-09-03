@@ -17,6 +17,7 @@
      POST ?a=presenti           → segna quante persone sono entrate
      GET  ?a=elenco&cerca=      → le prenotazioni
      GET/POST ?a=disponibilita  → i posti settimanali, letti e caricati
+     GET  ?a=fidra&da=&fino=    → i posti come li ha caricati la reception in Fidra, pronti da salvare
      POST ?a=rimborsa           → solo reception e amministrazione: rimborso e posti liberati
 
    Le regole stanno nei moduli puri accanto (listino, posti, validazione,
@@ -31,6 +32,7 @@ import { dataEstesa, emailConferma, TESTI_EMAIL } from './email-dayspa.ts';
 import { creaFrenoIp } from './limite-ip.ts';
 import { generaPngQR } from './qr.js';
 import { puoRimborsare, ruoloDi, vedeDayspa, type Ruolo } from './ruoli.ts';
+import { righeDaFidra, URL_FIDRA } from './fidra.ts';
 
 /* MODALITA' DI PROVA: chiavi Stripe di prova, prenotazioni col segno
    `prova`, da cancellare prima di andare in linea. */
@@ -441,6 +443,31 @@ Deno.serve(async (req) => {
     const { error } = await db.from('dayspa_giorno').upsert(pulite.map((p) => ({ ...p, aggiornato_il: new Date().toISOString() })), { onConflict: 'giorno,fascia' });
     if (error) return risposta({ errore: error.message }, 500);
     return risposta({ esito: 'ok', salvate: pulite.length });
+  }
+
+  /* I POSTI LETTI DA FIDRA. Finche' la reception carica i posti in Fidra,
+     qui si leggono dall'API del sito precedente invece di ribatterli: la
+     scheda li mostra, la reception li guarda e li salva. Non si salva
+     niente da qui: e' una lettura. */
+  if (azione === 'fidra') {
+    const oggi = oggiRoma();
+    const da = url.searchParams.get('da') || oggi;
+    let a = url.searchParams.get('fino') || '';
+    if (!dataValida(da)) return risposta({ errore: 'data non valida' }, 400);
+    if (!dataValida(a)) { a = da; for (let i = 0; i < 13; i++) a = giornoDopo(a); }
+    let grezzo: unknown = null;
+    try {
+      const r = await fetch(URL_FIDRA(da, a), { headers: { 'user-agent': 'Mozilla/5.0 (compatible; HotelTermeLeonardo back office)' } });
+      grezzo = r.ok ? await r.json() : null;
+      if (!r.ok) console.error('Fidra availability ha risposto', r.status);
+    } catch (e) {
+      console.error('Fidra availability non raggiungibile', e);
+    }
+    if (grezzo === null) return risposta({ errore: 'il sito precedente non risponde' }, 502);
+    const { data: nostre } = await db.from('dayspa_giorno').select('giorno, fascia, venduti').gte('giorno', da).lte('giorno', a);
+    const venduti = (giorno: string, fascia: string) =>
+      (nostre ?? []).find((r) => r.giorno === giorno && r.fascia === fascia)?.venduti ?? 0;
+    return risposta({ esito: 'ok', da, fino: a, righe: righeDaFidra(grezzo, venduti) });
   }
 
   if (azione === 'rimborsa') {

@@ -2270,7 +2270,8 @@ function vistaDayspaDisponibilita() {
       Una riga senza posti non \u00e8 in vendita.</div>
     <div class="due">
       <div><label>Dal giorno</label><input id="dDispDa" type="date" value="${oggiISO()}" /></div>
-      <div style="align-self:end;"><button id="dDispVai" class="primario">Guarda due settimane</button></div>
+      <div style="align-self:end;"><button id="dDispVai" class="primario">Guarda due settimane</button>
+        <button id="dDispFidra" class="azione sec" title="Legge i posti come li ha caricati in Fidra e riempie le righe: poi Salva">Prendi da Fidra</button></div>
     </div>
     <div class="esito" id="dDispEsito">Carico\u2026</div>
     <div id="dDispTab"></div>
@@ -2322,7 +2323,32 @@ function vistaDayspaDisponibilita() {
       carica();
     } catch (e) { $('dDispEsito2').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
   };
+  /* i posti come stanno in Fidra: riempie le righe (posti = liberi in
+     Fidra + venduti da noi, tipo e prezzo di Fidra) e le segna toccate,
+     cosi' Salva le manda. Nessun salvataggio automatico: la reception
+     guarda e conferma. */
+  const daFidra = async () => {
+    $('dDispEsito2').textContent = 'Leggo da Fidra\u2026';
+    const da = $('dDispDa').value;
+    try {
+      const j = await chiama(`?a=fidra&da=${encodeURIComponent(da)}&fino=${encodeURIComponent(giornoDopoDayspa(da, 13))}`, {}, FUNZIONE_DAYSPA);
+      let n = 0;
+      for (const r of j.righe || []) {
+        const q = (campo) => document.querySelector(`#dDispTab [data-campo="${campo}"][data-giorno="${r.giorno}"][data-fascia="${r.fascia}"]`);
+        if (!q('posti') || q('posti').disabled) continue;
+        q('posti').value = r.posti; q('posti').dataset.toccato = '1';
+        q('tipo').value = r.tipo; q('tipo').dataset.toccato = '1';
+        q('prezzo').value = Math.round(r.prezzo_cent / 100); q('prezzo').dataset.toccato = '1';
+        q('posti').title = `liberi in Fidra: ${r.liberiFidra}`;
+        n++;
+      }
+      $('dDispEsito2').innerHTML = n
+        ? `<span class="fatto">\u2713 ${n} righe lette da Fidra: le controlli e prema Salva.</span>`
+        : 'Fidra non ha posti caricati per questi giorni.';
+    } catch (e) { $('dDispEsito2').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  };
   $('dDispVai').onclick = carica;
+  $('dDispFidra').onclick = daFidra;
   $('dDispSalva').onclick = salva;
   carica();
 }
