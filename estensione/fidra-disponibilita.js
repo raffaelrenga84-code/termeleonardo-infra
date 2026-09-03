@@ -631,6 +631,40 @@
     };
   }
 
+  /* v2.25 — LE PROPOSTE. Da una richiesta letta in Outlook e dalle righe
+     appena disegnate, al massimo due sistemazioni: la categoria chiesta col
+     trattamento chiesto, piu' quella subito piu' cara (o subito meno cara,
+     se la chiesta e' gia' la piu' cara); senza categoria chiesta, le due
+     meno care che tengono le persone. Le stime non si propongono mai: una
+     stima non si manda a un cliente. Funzione pura, senza DOM: le prove la
+     estraggono e la eseguono. */
+  function proposteDaRichiesta(righe, richiesta) {
+    const norm = (x) => String(x || '').toLowerCase().replace(/&/g, ' e ').replace(/[^a-z0-9]+/g, ' ').replace(/\band\b/g, 'e').replace(/\s+/g, ' ').trim();
+    const persone = (+richiesta.adulti || 0) + (+richiesta.bambini || 0);
+    const buone = righe.filter(r => !r.stima && r.libere > 0 && (r.maxAdulti == null || persone === 0 || r.maxAdulti >= persone));
+    const tratt = norm(richiesta.trattamento);
+    /* per ogni categoria una riga sola: quella col trattamento chiesto, o la prima */
+    const perCat = new Map();
+    for (const r of buone) {
+      const c = perCat.get(r.categoria);
+      const suoTratt = !!tratt && norm(r.trattamento).includes(tratt);
+      if (!c || (suoTratt && !c.suoTratt)) perCat.set(r.categoria, { riga: r, suoTratt });
+    }
+    const ordinate = [...perCat.values()].map(v => v.riga).sort((a, b) => a.totale - b.totale);
+    if (!ordinate.length) return [];
+    const CHIAVI = { junior: /junior/, suite: /suite/, superior: /superior/, queen: /queen/, singola: /singol|einzel|single/ };
+    const chiave = CHIAVI[richiesta.categoriaChiesta];
+    const chiesta = chiave ? ordinate.find(r => chiave.test(norm(r.categoria)) &&
+      (richiesta.categoriaChiesta !== 'suite' || !/junior/.test(norm(r.categoria)))) : null;
+    const esci = (r) => ({ categoria: r.categoria, trattamento: r.trattamento });
+    if (chiesta) {
+      const i = ordinate.indexOf(chiesta);
+      const alternativa = ordinate[i + 1] || ordinate[i - 1] || null;
+      return alternativa ? [esci(chiesta), esci(alternativa)] : [esci(chiesta)];
+    }
+    return ordinate.slice(0, 2).map(esci);
+  }
+
   function apri() {
     if (document.getElementById('leoDispWrap')) return;
     stile();
@@ -818,6 +852,8 @@
     function disegna(camere, tariffe, arrivo, partenza, adulti, etaBambini) {
       const nNotti = notti(arrivo, partenza);
       const perCat = libere(camere);
+      /* v2.25: le righe che le proposte guardano, una per tariffa disegnata */
+      const RIGHE = [];
       const tariffePerCat = new Map();
       for (const t of tariffe || []) tariffePerCat.set((t.room_category || {}).name, t);
 
@@ -992,6 +1028,9 @@
               const imp3 = con3 ? Math.round((base - imp5) * 3 / 100) : 0;
               sconto = { imp5, imp3, base, stima, dove, con5, con3 };
             }
+            RIGHE.push({ categoria: nome, trattamento: rv.full_name || rv.name, totale: c.totale,
+                         libere: v.libere.length, maxAdulti: cat.max_adults != null ? cat.max_adults : null,
+                         stima: !!(sconto && sconto.stima) });
             const extra = [];
             if (c.cure) extra.push(`di cui cure e trattamenti ${euro(c.cure)} &euro; a persona`);
             if (c.suppl) extra.push(`uso singola +${euro(c.suppl)} &euro; (${euro(c.perNotte)} &euro; a notte${
@@ -1137,7 +1176,8 @@
         });
       }
 
-      $('dRis').querySelectorAll('.prev').forEach(b => b.addEventListener('click', () => {
+      /* v2.25 — la stessa logica per il clic e per le proposte: una via sola */
+      function togliOMetti(b) {
         const i = SCELTE.findIndex(v => v.categoria === b.dataset.cat &&
                                         v.trattamento === b.dataset.tratt);
         if (i >= 0) SCELTE.splice(i, 1);
@@ -1158,7 +1198,25 @@
         });
         marcaPulsanti();
         aggiornaBarra();
-      }));
+      }
+      $('dRis').querySelectorAll('.prev').forEach(b => b.addEventListener('click', () => togliOMetti(b)));
+
+      /* v2.25 — LE PROPOSTE, solo se non c'e' gia' una scelta: una selezione
+         fatta dall'operatore non si sovrascrive. Passano dagli stessi
+         pulsanti, quindi stessi prezzi, sconti e bambini. */
+      function proponi(righe) {
+        const scelte = proposteDaRichiesta(righe, RICHIESTA_LETTA || {});
+        for (const sc of scelte) {
+          const b = [...$('dRis').querySelectorAll('.prev')].find(x => x.dataset.cat === sc.categoria && x.dataset.tratt === sc.trattamento && !x.disabled);
+          if (b) togliOMetti(b);
+        }
+        const n = SCELTE.length;
+        if (n && $('dPrevNota')) {
+          $('dPrevNota').textContent += (n === 1 ? ' · 1 proposta dalla richiesta' : ' · ' + n + ' proposte dalla richiesta') +
+            ': rileggi, un clic le toglie.';
+        }
+      }
+      if (RICHIESTA_LETTA && !SCELTE.length) proponi(RIGHE);
 
       /* MESI_ABBR come li vogliono i modelli: 'Aug', non 7 */
       const MESI_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
