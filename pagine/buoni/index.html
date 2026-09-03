@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex, nofollow" />
 <title>Buoni regalo — back office</title>
+<!-- la pagina si installa sul tablet dello sportello come un'app a tutto
+     schermo: manifest.webmanifest apre direttamente «Day Spa oggi» in
+     modalita' sportello -->
+<link rel="manifest" href="/buoni/manifest.webmanifest" />
 <style>
 :root{--acqua:#1E7F88;--acqua-scura:#0F5C64;--acqua-chiara:#E3F0F1;
 --pietra:#EDE7DC;--carta:#FAF8F4;--inchiostro:#2A2E2B;--grigio:#7B756A;
@@ -131,6 +135,14 @@ border-radius:0 8px 8px 0;padding:14px 16px;margin-top:14px;}
    office ha anche altro da mostrare (la pagina pubblica invece no, e lo
    tiene visibile — vedi il commento in cima a stampa.css). */
 #stampa{display:none;}
+/* l'esito della scansione allo sportello: grande, verde o rosso, si legge
+   da un metro */
+.esitoGrande{font-size:22px;line-height:1.3;padding:14px 16px;border-radius:12px;margin:10px 0;}
+.esitoGrande.ok{background:#E6F0EC;color:#1A3626;}
+.esitoGrande.no{background:#FBE9E7;color:#8C2F28;}
+.esitoGrande small{display:block;font-size:14px;margin-top:4px;opacity:.8;}
+body.sportello .chi a{display:none;}
+body.sportello #dOggiCod{font-size:22px;padding:14px;}
 </style>
 <link rel="stylesheet" href="/buoni/stampa.css" />
 </head>
@@ -336,6 +348,16 @@ function schedeDi(email) {
     .slice().sort((a, b) => posto(a[0]) - posto(b[0]));
 }
 
+/** MODALITA' SPORTELLO (?sportello=1): solo «Day Spa oggi», senza la barra
+ *  delle schede e senza «esci». «Devo creargli una app dedicata perche'
+ *  per sbaglio non tocchino o escano?» (la proprieta', 3 settembre 2026):
+ *  no. Questa modalita' toglie di mezzo cio' che si puo' toccare per
+ *  sbaglio; il blocco su app di Android fa il resto. Non e' una
+ *  protezione: il cancello resta nel server. */
+function sportello() {
+  return new URLSearchParams(location.search).get('sportello') === '1';
+}
+
 /** La scheda chiesta nell'indirizzo (?scheda=dayspaOggi): il tablet allo
  *  sportello si apre direttamente li'. Solo una scheda che esiste; il
  *  server resta il cancello, come per tutto il resto. */
@@ -412,6 +434,13 @@ function chiediAccesso(messaggio) {
 /* ---------- struttura ---------- */
 function disegna() {
   $('chiSono').textContent = OPERATORE ? OPERATORE + ' \u00b7' : '';
+  if (sportello()) {
+    document.body.classList.add('sportello');
+    VISTA = 'dayspaOggi';
+    $('app').innerHTML = '<div id="vista"></div>';
+    vistaDayspaOggi();
+    return;
+  }
   const visibili = schedeDi(EMAIL);
   /* se la scheda corrente non e' fra quelle visibili si torna alla prima:
      senza, la pagina disegnerebbe una vista senza il pulsante per uscirne */
@@ -2252,9 +2281,15 @@ function vistaDayspaOggi() {
     try {
       const j = await chiama('?a=presenti', { method: 'POST', body: JSON.stringify(corpo) }, FUNZIONE_DAYSPA);
       const p = j.prenotazione;
-      $('dOggiScan').innerHTML = `<span class="fatto">\u2713 ${esc(p.nome)}: presenti ${p.presenti} su ${p.persone}${j.oggi ? '' : ` <span class="errore">\u2014 attenzione: la prenotazione \u00e8 per il ${dataIT(p.giorno)}, non per oggi</span>`}</span>`;
+      /* grande e colorato: l'operatore legge da un metro chi e', quanti sono,
+         quanti sono entrati, e se il giorno e' quello giusto */
+      $('dOggiScan').innerHTML = j.oggi
+        ? `<div class="esitoGrande ok">\u2713 ${esc(p.nome)} \u00b7 presenti ${p.presenti} su ${p.persone}
+             <small>${esc(FASCE_DAYSPA[p.fascia] || p.fascia)} \u00b7 ${esc(p.numero)}</small></div>`
+        : `<div class="esitoGrande no">\u2717 ${esc(p.nome)}: la prenotazione \u00e8 per ${dataIT(p.giorno)}, non per oggi
+             <small>presenti segnati ${p.presenti} su ${p.persone} \u00b7 ${esc(p.numero)}</small></div>`;
       if (p.giorno === $('dOggiGiorno').value) carica();
-    } catch (e) { $('dOggiScan').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+    } catch (e) { $('dOggiScan').innerHTML = `<div class="esitoGrande no">\u2717 ${esc(e.message)}</div>`; }
   };
 
   /* il lettore 2D della portineria digita il codice e preme Invio, come

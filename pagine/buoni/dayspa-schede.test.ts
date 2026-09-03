@@ -86,6 +86,29 @@ Deno.test('«Day Spa oggi» legge il QR anche con la fotocamera: un tablet basta
   assert((SORGENTE.match(/schedaDaUrl\(\) \|\| schedaIniziale\(EMAIL\)/g) ?? []).length >= 1, 'all apertura la scheda dall indirizzo vince su quella iniziale');
 });
 
+Deno.test('modalita sportello: solo «Day Spa oggi», senza le altre schede ne esci, e la pagina si installa come app', () => {
+  /* «devo creargli una app dedicata per far in modo che per sbaglio non
+     tocchino o escano?» (la proprieta', 3 settembre 2026): no. Con
+     ?sportello=1 la pagina mostra solo la scheda dello sportello, senza
+     la barra delle schede e senza «esci»; il manifest la fa installare
+     sul tablet come un'app a tutto schermo, e il blocco su app di Android
+     fa il resto. */
+  const s = fonteDi('sportello');
+  assert(/\.get\('sportello'\)/.test(s), 'la modalita sportello si accende dall indirizzo');
+  const d = fonteDi('disegna');
+  assert(/sportello\(\)/.test(d), 'disegna() deve sapere della modalita sportello');
+  assert(/class="schede"/.test(d), 'la barra delle schede resta per tutti gli altri');
+  assert(/<link rel="manifest" href="\/buoni\/manifest\.webmanifest"/.test(SORGENTE), 'manca il manifest');
+  const m = JSON.parse(Deno.readTextFileSync(new URL('manifest.webmanifest', import.meta.url))) as Record<string, unknown>;
+  assertEquals(m.display, 'standalone');
+  assert(String(m.start_url).includes('scheda=dayspaOggi') && String(m.start_url).includes('sportello=1'));
+  assert(Array.isArray(m.icons) && (m.icons as unknown[]).length >= 1);
+  /* «e l operatore come fa a controllare?»: dopo la scansione un riquadro
+     grande, verde o rosso, con nome, persone, presenti e giorno */
+  const f = fonteDi('vistaDayspaOggi');
+  assert(/esitoGrande ok/.test(f) && /esitoGrande no/.test(f), 'l esito della scansione deve essere grande e colorato');
+});
+
 Deno.test('«Disponibilità»: quattordici giorni, tipo e prezzo proposti dalla regola, salvataggio in un colpo', () => {
   const f = fonteDi('vistaDayspaDisponibilita');
   assert(/a=disponibilita/.test(f));

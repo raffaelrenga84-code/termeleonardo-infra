@@ -1,0 +1,15 @@
+{
+  "name": "Leonardo · Day Spa sportello",
+  "short_name": "Day Spa",
+  "description": "Lo sportello del Day Spa: scansione del QR e presenti del giorno.",
+  "start_url": "/buoni/?scheda=dayspaOggi&sportello=1",
+  "scope": "/buoni/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F9F6F0",
+  "theme_color": "#1A3626",
+  "lang": "it",
+  "icons": [
+    { "src": "/buoni/img/logo-quadrato.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
