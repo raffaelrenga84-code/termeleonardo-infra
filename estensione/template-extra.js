@@ -690,6 +690,11 @@ function oggettoBuoniFR() { return BUONI_T.fr.ogg.replace(/&mdash;/g, '\u2014');
    ============================================================ */
 const CHIUSURA_T = {
   it: {
+    orari: 'luned&igrave;&ndash;venerd&igrave; 9&ndash;17',
+    ufficio: (da, orari) => `L&rsquo;ufficio prenotazioni riapre <strong style="color:#2A2E2B;">l&rsquo;${da}</strong>, ${orari}.`,
+    auguri: 'Le auguriamo buone feste.',
+    h1Ora: 'In questo momento siamo chiusi',
+    introOra: (ultimo, da, orari) => `La ringraziamo per la Sua richiesta. L&rsquo;Hotel Terme Leonardo &egrave; chiuso per la pausa stagionale <strong style="color:#2A2E2B;">fino al ${ultimo}</strong>. L&rsquo;ufficio prenotazioni riapre <strong style="color:#2A2E2B;">l&rsquo;${da}</strong> (${orari}) e Le risponder&agrave; con una proposta per la nuova stagione.`,
     ogg: 'Chiusura stagionale &mdash; Hotel Terme Leonardo',
     banda: 'CHIUSURA STAGIONALE',
     h1: 'In quel periodo siamo chiusi',
@@ -698,6 +703,11 @@ const CHIUSURA_T = {
     riapre: 'Se preferisce, ci risponda pure ora indicandoci un periodo dopo la riapertura: le rispondiamo appena il listino della nuova stagione &egrave; disponibile.'
   },
   de: {
+    orari: 'Montag&ndash;Freitag 9&ndash;17 Uhr',
+    ufficio: (da, orari) => `Unser Reservierungsb&uuml;ro ist ab dem <strong style="color:#2A2E2B;">${da}</strong> wieder f&uuml;r Sie da, ${orari}.`,
+    auguri: 'Wir w&uuml;nschen Ihnen frohe Festtage.',
+    h1Ora: 'Zurzeit haben wir geschlossen',
+    introOra: (ultimo, da, orari) => `Vielen Dank f&uuml;r Ihre Anfrage. Das Hotel Terme Leonardo macht Betriebsferien <strong style="color:#2A2E2B;">bis zum ${ultimo}</strong>. Unser Reservierungsb&uuml;ro ist ab dem <strong style="color:#2A2E2B;">${da}</strong> (${orari}) wieder f&uuml;r Sie da und meldet sich dann mit einem Angebot f&uuml;r die neue Saison.`,
     ogg: 'Saisonschlie&szlig;ung &mdash; Hotel Terme Leonardo',
     banda: 'SAISONSCHLIESSUNG',
     h1: 'In diesem Zeitraum haben wir geschlossen',
@@ -706,6 +716,11 @@ const CHIUSURA_T = {
     riapre: 'Gerne k&ouml;nnen Sie uns auch jetzt schon einen Zeitraum nach der Wiederer&ouml;ffnung nennen: wir melden uns, sobald die Preise der neuen Saison vorliegen.'
   },
   en: {
+    orari: 'Monday&ndash;Friday 9am&ndash;5pm',
+    ufficio: (da, orari) => `Our reservations office reopens on <strong style="color:#2A2E2B;">${da}</strong>, ${orari}.`,
+    auguri: 'We wish you a happy holiday season.',
+    h1Ora: 'We are currently closed',
+    introOra: (ultimo, da, orari) => `Thank you for your enquiry. Hotel Terme Leonardo is closed for its seasonal break <strong style="color:#2A2E2B;">until ${ultimo}</strong>. Our reservations office reopens on <strong style="color:#2A2E2B;">${da}</strong> (${orari}) and will get back to you with a proposal for the new season.`,
     ogg: 'Seasonal closure &mdash; Hotel Terme Leonardo',
     banda: 'SEASONAL CLOSURE',
     h1: 'We are closed in that period',
@@ -714,6 +729,11 @@ const CHIUSURA_T = {
     riapre: 'If you prefer, reply now with a period after the reopening: we will get back to you as soon as the new season&rsquo;s rates are available.'
   },
   fr: {
+    orari: 'lundi&ndash;vendredi 9h&ndash;17h',
+    ufficio: (da, orari) => `Notre bureau des r&eacute;servations rouvre le <strong style="color:#2A2E2B;">${da}</strong>, ${orari}.`,
+    auguri: 'Nous vous souhaitons de bonnes f&ecirc;tes.',
+    h1Ora: 'Nous sommes actuellement ferm&eacute;s',
+    introOra: (ultimo, da, orari) => `Nous vous remercions de votre demande. L&rsquo;Hotel Terme Leonardo est ferm&eacute; pour sa pause saisonni&egrave;re <strong style="color:#2A2E2B;">jusqu&rsquo;au ${ultimo}</strong>. Notre bureau des r&eacute;servations rouvre le <strong style="color:#2A2E2B;">${da}</strong> (${orari}) et vous r&eacute;pondra avec une proposition pour la nouvelle saison.`,
     ogg: 'Fermeture saisonni&egrave;re &mdash; Hotel Terme Leonardo',
     banda: 'FERMETURE SAISONNI&Egrave;RE',
     h1: 'Nous sommes ferm&eacute;s durant cette p&eacute;riode',
@@ -729,10 +749,19 @@ function dateChiusura(lingua) {
     const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
     return m ? { g: +m[3], mese: MESI_ABBR_ISO[+m[2] - 1], a: +m[1] } : null;
   };
+  /* il giorno prima della riapertura: l'ultimo giorno chiuso, senza fusi */
+  const giornoPrima = (iso) => {
+    const d = new Date(iso + 'T12:00:00Z');
+    d.setUTCDate(d.getUTCDate() - 1);
+    return d.toISOString().slice(0, 10);
+  };
+  const scrivi = (p) => p ? dataExtra(p.g, p.mese, p.a, lingua) : '';
   const a = pezzi(CHIUSURA.dal), b = pezzi(CHIUSURA.al);
-  const dal = a ? dataExtra(a.g, a.mese, a.a, lingua) : '';
-  if (!b) return { dal, al: '' };
-  if (!CHIUSURA.riaperturaVaga) return { dal, al: dataExtra(b.g, b.mese, b.a, lingua) };
+  const dal = scrivi(a);
+  const ultimo = b ? scrivi(pezzi(giornoPrima(CHIUSURA.al))) : '';
+  const ufficioDal = scrivi(pezzi(CHIUSURA.ufficioDal));
+  if (!b) return { dal, al: '', ultimo, ufficioDal };
+  if (!CHIUSURA.riaperturaVaga) return { dal, al: scrivi(b), ultimo, ufficioDal };
   const META = {
     it: (m, y) => `a met&agrave; ${m} ${y}`,
     de: (m, y) => `Mitte ${m} ${y}`,
@@ -740,7 +769,7 @@ function dateChiusura(lingua) {
     fr: (m, y) => `&agrave; la mi-${m} ${y}`
   };
   const nomeMese = (MESI_LUNGHI[b.mese] || {})[lingua] || b.mese;
-  return { dal, al: (META[lingua] || META.it)(nomeMese, b.a) };
+  return { dal, al: (META[lingua] || META.it)(nomeMese, b.a), ultimo, ufficioDal };
 }
 
 const MESI_ABBR_ISO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -749,13 +778,29 @@ function costruisciChiusuraBase(d, opzioni, lingua) {
   const o = opzioni || {};
   const t = CHIUSURA_T[lingua] || CHIUSURA_T.it;
   const q = dateChiusura(lingua);
+  /* 3 settembre 2026 — due varianti e due date: «periodo» (l'arrivo chiesto
+     cade nella chiusura) e «chiusoOra» (siamo chiusi, l'ufficio non e'
+     ancora tornato, la richiesta e' per dopo). `oggi` decide la riga
+     dell'ufficio e gli auguri; arriva da fuori per poterlo provare. */
+  const oggi = o.oggi || new Date().toISOString().slice(0, 10);
+  const variante = o.variante === 'chiusoOra' ? 'chiusoOra' : 'periodo';
+  const P = (testo, margine) => `<p style="margin:0 0 ${margine}px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${testo}</p>`;
+  const righe = [];
+  if (variante === 'chiusoOra') {
+    righe.push(P(t.introOra(q.ultimo, q.ufficioDal, t.orari), 14));
+    righe.push(P(t.invito, 12));
+  } else {
+    righe.push(P(t.intro(q.dal, q.al), 14));
+    righe.push(P(t.invito, 12));
+    if (CHIUSURA.ufficioDal && oggi < CHIUSURA.ufficioDal) righe.push(P(t.ufficio(q.ufficioDal, t.orari), 12));
+    righe.push(P(t.riapre, 12));
+  }
+  if (auguri(oggi)) righe.push(P(t.auguri, 0));
   const corpo = `
   <tr><td style="padding:16px 36px 0 36px;">
     <p style="margin:0 0 14px 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:22px;color:#2A2E2B;">${salutoExtra(d, o, lingua)},</p>
-    <h1 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:31px;font-weight:normal;color:#2A2E2B;">${t.h1}</h1>
-    <p style="margin:0 0 14px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.intro(q.dal, q.al)}</p>
-    <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.invito}</p>
-    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#55524B;">${t.riapre}</p>
+    <h1 style="margin:0 0 10px 0;font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:31px;font-weight:normal;color:#2A2E2B;">${variante === 'chiusoOra' ? t.h1Ora : t.h1}</h1>
+    ${righe.join('\n    ')}
   </td></tr>`;
   return corniceExtra(t.banda, corpo, o, lingua);
 }

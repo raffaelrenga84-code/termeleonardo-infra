@@ -297,9 +297,11 @@ function etichettaSoluzione(c, lingua) {
    una stagione passata.
    ============================================================ */
 const CHIUSURA = {
-  dal: '2026-11-29',       // primo giorno di chiusura
-  al:  '2027-02-15',       // riapertura, approssimata a «meta' febbraio»
-  riaperturaVaga: true     // true: si scrive «meta' febbraio», non il giorno
+  dal: '2026-11-29',          // primo giorno di chiusura
+  al:  '2027-02-13',          // riapertura: primo arrivo (esatta, decisa il 3 settembre 2026)
+  riaperturaVaga: false,      // la data e' esatta: si scrive il giorno
+  ufficioDal: '2027-01-08',   // l'ufficio prenotazioni torna operativo (lun-ven 9-17: negli extra)
+  auguriFinoAl: '2027-01-06'  // fino all'Epifania i testi augurano buone feste
 };
 
 /* la data richiesta cade dentro la chiusura? Basta l'arrivo: chi
@@ -307,6 +309,29 @@ const CHIUSURA = {
 function dentroChiusura(iso) {
   if (!CHIUSURA.dal || !iso) return false;
   return iso >= CHIUSURA.dal && (!CHIUSURA.al || iso < CHIUSURA.al);
+}
+
+/* Dove siamo oggi rispetto alla chiusura: aperti, chiusi con l'ufficio
+   ancora fermo, chiusi con l'ufficio che risponde (dall'8 gennaio). */
+function faseChiusura(oggi) {
+  if (!dentroChiusura(oggi)) return 'aperto';
+  return (CHIUSURA.ufficioDal && oggi < CHIUSURA.ufficioDal) ? 'chiusoPrimaUfficio' : 'chiusoUfficioAperto';
+}
+
+/* gli auguri di buone feste: dalla chiusura all'Epifania compresa */
+function auguri(oggi) {
+  return !!CHIUSURA.dal && !!CHIUSURA.auguriFinoAl && oggi >= CHIUSURA.dal && oggi <= CHIUSURA.auguriFinoAl;
+}
+
+/* Quale risposta di chiusura: «periodo» se l'arrivo chiesto cade nella
+   chiusura; «chiusoOra» se siamo chiusi, l'ufficio non e' ancora tornato,
+   e la richiesta e' per dopo la riapertura o senza date; altrimenti niente
+   — dall'8 gennaio a quelle richieste si risponde con l'offerta normale.
+   Pura: chiusura.test.ts la esegue su date scelte. */
+function varianteChiusura(arrivoISO, oggi) {
+  if (arrivoISO && dentroChiusura(arrivoISO)) return 'periodo';
+  if (faseChiusura(oggi) === 'chiusoPrimaUfficio' && (!arrivoISO || arrivoISO >= CHIUSURA.al)) return 'chiusoOra';
+  return null;
 }
 
 /* ============================================================

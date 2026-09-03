@@ -31,7 +31,10 @@ type Modelli = {
   html: Record<string, (d: Record<string, unknown>, o: Record<string, unknown>) => string>;
   ogg: Record<string, () => string>;
   dentro: (iso: string) => boolean;
-  chiusura: { dal: string; al: string; riaperturaVaga: boolean };
+  chiusura: { dal: string; al: string; riaperturaVaga: boolean; ufficioDal: string; auguriFinoAl: string };
+  fase: (oggi: string) => string;
+  auguri: (oggi: string) => boolean;
+  variante: (arrivo: string | null, oggi: string) => string | null;
 };
 
 function modelli(): Modelli {
@@ -41,7 +44,8 @@ function modelli(): Modelli {
               en: costruisciChiusuraEN, fr: costruisciChiusuraFR },
       ogg:  { it: oggettoChiusuraIT, de: oggettoChiusuraDE,
               en: oggettoChiusuraEN, fr: oggettoChiusuraFR },
-      dentro: dentroChiusura, chiusura: CHIUSURA
+      dentro: dentroChiusura, chiusura: CHIUSURA,
+      fase: faseChiusura, auguri, variante: varianteChiusura
     };`;
   return new Function(SORGENTE + coda)() as Modelli;
 }
@@ -61,10 +65,11 @@ Deno.test('le date dentro la chiusura si riconoscono, quelle fuori no', () => {
 Deno.test('la risposta esce nelle quattro lingue, con le date giuste', () => {
   const m = modelli();
   const ATTESE: Record<Lingua, RegExp> = {
-    it: /29 novembre 2026[\s\S]*met&agrave; febbraio 2027/,
-    de: /29\. November 2026[\s\S]*Mitte Februar 2027/,
-    en: /29 November 2026[\s\S]*mid-February 2027/,
-    fr: /29 novembre 2026[\s\S]*mi-f&eacute;vrier 2027/,
+    /* 3 settembre 2026: la riapertura e' una data esatta, non «meta' febbraio» */
+    it: /29 novembre 2026[\s\S]*13 febbraio 2027/,
+    de: /29\. November 2026[\s\S]*13\. Februar 2027/,
+    en: /29 November 2026[\s\S]*13 February 2027/,
+    fr: /29 novembre 2026[\s\S]*13 f(?:&eacute;|é)vrier 2027/,
   };
   for (const l of LINGUE) {
     const html = m.html[l](D, OPZ);
@@ -93,7 +98,7 @@ Deno.test('la chiusura si aggiorna in un posto solo', () => {
      prossima se ne aggiornerebbero tre su quattro */
   const extra = Deno.readTextFileSync(new URL('template-extra.js', import.meta.url));
   assert(
-    !/2026-11-29|2027-02-15/.test(extra),
+    !/2026-11-29|2027-02-13|2027-01-08/.test(extra),
     'le date della chiusura sono ricopiate in template-extra.js: vanno solo in CHIUSURA',
   );
   const base = Deno.readTextFileSync(new URL('template.js', import.meta.url));
@@ -133,4 +138,68 @@ Deno.test('il pulsante in Outlook guarda le date, non le parole', () => {
     /leonardo-chiusura-btn/.test(inject),
     'il pulsante non ha piu un suo identificativo: comparirebbe due volte',
   );
+});
+
+/* ============================================================
+   3 SETTEMBRE 2026 — LA CHIUSURA DETTA BENE. Riapertura esatta (13
+   febbraio 2027), l'ufficio prenotazioni dall'8 gennaio, gli auguri fino
+   all'Epifania, e una seconda variante per chi scrive durante la chiusura
+   per dopo la riapertura. Le regole sono funzioni pure: qui si eseguono.
+   ============================================================ */
+Deno.test('le fasi della chiusura, per data', () => {
+  const m = modelli();
+  assertEquals(m.fase('2026-11-28'), 'aperto');
+  assertEquals(m.fase('2026-11-29'), 'chiusoPrimaUfficio');
+  assertEquals(m.fase('2027-01-07'), 'chiusoPrimaUfficio');
+  assertEquals(m.fase('2027-01-08'), 'chiusoUfficioAperto');
+  assertEquals(m.fase('2027-02-12'), 'chiusoUfficioAperto');
+  assertEquals(m.fase('2027-02-13'), 'aperto');
+});
+
+Deno.test('gli auguri solo dalla chiusura all Epifania', () => {
+  const m = modelli();
+  assertEquals(m.auguri('2026-11-28'), false);
+  assertEquals(m.auguri('2026-11-29'), true);
+  assertEquals(m.auguri('2027-01-06'), true);
+  assertEquals(m.auguri('2027-01-07'), false);
+});
+
+Deno.test('la variante: date dentro → «in quel periodo»; date dopo o assenti, chiusi e prima dell ufficio → «chiusi ora»; dall 8 gennaio niente', () => {
+  const m = modelli();
+  assertEquals(m.variante('2026-12-20', '2026-10-01'), 'periodo');
+  assertEquals(m.variante('2026-12-20', '2027-01-20'), 'periodo');
+  assertEquals(m.variante('2027-03-10', '2026-12-15'), 'chiusoOra');
+  assertEquals(m.variante(null, '2026-12-15'), 'chiusoOra');
+  assertEquals(m.variante('2027-03-10', '2027-01-20'), null);
+  assertEquals(m.variante(null, '2026-10-01'), null);
+});
+
+Deno.test('«chiusi ora» dice fino a quando, e da quando risponde l ufficio, in quattro lingue', () => {
+  const m = modelli();
+  const ATTESE: Record<Lingua, RegExp> = {
+    it: /12 febbraio 2027[\s\S]*8 gennaio 2027[\s\S]*luned&igrave;&ndash;venerd&igrave; 9&ndash;17/,
+    de: /12\. Februar 2027[\s\S]*8\. Januar 2027[\s\S]*Montag&ndash;Freitag 9&ndash;17 Uhr/,
+    en: /12 February 2027[\s\S]*8 January 2027[\s\S]*Monday&ndash;Friday 9am&ndash;5pm/,
+    fr: /12 f(?:&eacute;|é)vrier 2027[\s\S]*8 janvier 2027[\s\S]*lundi&ndash;vendredi 9h&ndash;17h/,
+  };
+  for (const l of LINGUE) {
+    const html = m.html[l](D, { ...OPZ, variante: 'chiusoOra', oggi: '2026-12-15' });
+    assert(ATTESE[l].test(html), `«chiusi ora» sbagliata in ${l}`);
+    assert(!/met&agrave; febbraio|Mitte Februar|mid-February|mi-f&eacute;vrier/.test(html), `«meta' febbraio» ancora in ${l}`);
+  }
+});
+
+Deno.test('gli auguri stanno in coda quando e il periodo, e non ci stanno altrimenti', () => {
+  const m = modelli();
+  const AUGURI: Record<Lingua, RegExp> = { it: /buone feste/i, de: /frohe Festtage/i, en: /happy holiday season/i, fr: /bonnes f&ecirc;tes/i };
+  for (const l of LINGUE) {
+    assert(AUGURI[l].test(m.html[l](D, { ...OPZ, variante: 'periodo', oggi: '2026-12-15' })), `auguri mancanti in ${l}`);
+    assert(!AUGURI[l].test(m.html[l](D, { ...OPZ, variante: 'periodo', oggi: '2027-01-20' })), `auguri fuori periodo in ${l}`);
+  }
+});
+
+Deno.test('«in quel periodo» prima dell 8 gennaio dice anche da quando risponde l ufficio', () => {
+  const m = modelli();
+  assert(/8 gennaio 2027/.test(m.html.it(D, { ...OPZ, variante: 'periodo', oggi: '2026-12-15' })));
+  assert(!/8 gennaio 2027/.test(m.html.it(D, { ...OPZ, variante: 'periodo', oggi: '2027-01-20' })));
 });
