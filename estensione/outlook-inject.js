@@ -581,7 +581,7 @@ function parseCentralino(testo) {
       }
     }
     const date = leggiDate(t);
-    if (date) { r.arrivo = date.arrivo; r.partenza = date.partenza; r.notti = date.notti; }
+    if (date) { r.arrivo = date.arrivo; r.partenza = date.partenza; r.notti = date.notti; if (date.nottiDedotte) r.nottiDedotte = true; }
 
     /* "Person(en)?" e non "Personen?": il secondo vuol dire «Persone» con la
        n facoltativa, e lasciava fuori proprio "1 Person" — il caso di chi
@@ -631,7 +631,7 @@ function parseCentralino(testo) {
       const DA_CAMERA = [
         [/\buso\s+singol\w*|\bd\.?u\.?s\.?\b|\bAlleinbenutzung\b|\bEinzelnutzung\b|\bEinzelbelegung\b|\bsingle\s+(?:use|occupancy)\b|\busage\s+individuel\b/i, 1],
         [/\bsingol[aei]\b|\bEinzelzimmer\b|\bEZ\b|\bsingle\s*rooms?\b|\bSGL\b|\bchambres?\s+simples?\b/i, 1],
-        [/\bmatrimonial[aei]\b|\bdoppi[ae]\b|\bDoppelzimmer\b|\bDZ\b|\bdouble\s*rooms?\b|\bDBL\b|\btwin\b|\bTWN\b|\bchambres?\s+doubles?\b|\bqueen\b/i, 2],
+        [/\bmatrimonial[aei]\b|\bdoppi[ae]\b|\bDoppelzimmer\b|\bZweibettzimmer\b|\bDZ\b|\bdouble\s*rooms?\b|\bDBL\b|\btwin\b|\bTWN\b|\bchambres?\s+doubles?\b|\bqueen\b/i, 2],
         [/\btripl[ae]\b|\bDreibettzimmer\b|\bDreibett\b|\btriple\b|\bTRPL\b|\bchambres?\s+triples?\b/i, 3],
         [/\bquadrupl[ae]\b|\bfamiliare\b|\bFamilienzimmer\b|\bfamily\s*room\b|\bVierbettzimmer\b/i, 4]
       ];
@@ -708,22 +708,28 @@ function parseCentralino(testo) {
        deduzione, e come tale viene dichiarata nell'anteprima. */
     const cena = /\bcen[ae]\b|\bdinner\b|\bAbendessen\b|\bd[\u00eei]ner\b|\bsouper\b/i.test(t);
     const colazione = /colazione|fr\u00fchst\u00fcck|fruehstueck|breakfast|petit\s*d[\u00e9e]jeuner/i.test(t);
-    if (/mezza\s*pensione|halbpension|half\s*board|demi[-\s]?pension/i.test(t)) {
+    /* v2.25 — le sigle, solo come parola intera in MAIUSCOLO: HP/HB mezza
+       pensione, VP/FB pensione completa, ÜF/BB colazione. «hp» dentro
+       un'altra parola non e' niente. \b non conosce le lettere accentate:
+       per ÜF si guarda a mano cosa c'e' prima e dopo. */
+    const siglaMP = /\b(?:HP|HB)\b/.test(t), siglaPC = /\b(?:VP|FB)\b/.test(t);
+    const siglaBB = /(?<![A-Za-zÀ-ÿ])(?:ÜF|UeF)(?![A-Za-zÀ-ÿ])|\bBB\b/.test(t) || /Übernachtung\s+mit\s+Frühstück/i.test(t);
+    if (/mezza\s*pensione|halbpension|half\s*board|demi[-\s]?pension/i.test(t) || siglaMP) {
       r.trattamento = 'Mezza Pensione';
     } else if (cena && colazione) {
       r.trattamento = 'Mezza Pensione';
       r.trattamentoDedotto = true;
-    } else if (colazione || /b\s*&\s*b|bed\s*(?:&|and)\s*breakfast/i.test(t)) {
+    } else if (colazione || siglaBB || /b\s*&\s*b|bed\s*(?:&|and)\s*breakfast/i.test(t)) {
       r.trattamento = 'Bed & Breakfast';
     }
 
     /* v2.9.3 \u2014 il cane non si leggeva in nessuna lingua, e costa 13 \u20ac al
        giorno. \u00abcan[ei]\u00bb e non \u00abcani?\u00bb: il secondo vuol dire \u00abcan\u00bb con la i
        facoltativa e lasciava fuori proprio \u00abcane\u00bb. */
-    if (/\bcan[ei]\b|\bcagnolin\w*|\bHund(?:in)?\b|\bHunde\b|\bdogs?\b|\bchiens?\b/i.test(t)) {
+    if (/\bcan[ei]\b|\bcagnolin\w*|\bHund(?:in)?\b|\bH[üu]ndin\b|\bHunde\b|\bVierbeiner\b|\bdogs?\b|\bchiens?\b/i.test(t)) {
       r.cane = true;
     }
-    if (/\bcure\s+termali\b|\bfangh?[io]\b|\bKuranwendung|\bthermal\s+(?:cure|treatment)/i.test(t)) {
+    if (/\bcure\s+termali\b|\bfangh?[io]\b|\bfango\w+|\bKur\b|Kuranwendung|Thermalkur|Kuraufenthalt|\bAnwendungen\b|\bthermal\s+(?:cure|treatment)/i.test(t)) {
       r.cure = true;
     }
 
@@ -740,7 +746,7 @@ function parseCentralino(testo) {
     /* PENSIONE COMPLETA. Ferrario ha chiesto tre notti in pensione completa;
        l'hotel fa solo mezza pensione e il pranzo e' al Bistrot a la carte.
        La risposta e' sempre la stessa e si scriveva a mano. */
-    if (/\bpensione\s+completa\b|\bVollpension\b|\bfull\s*board\b|\bpension\s+compl[èe]te\b/i.test(t)) {
+    if (/\bpensione\s+completa\b|\bVollpension\b|\bfull\s*board\b|\bpension\s+compl[èe]te\b/i.test(t) || siglaPC) {
       r.pensioneCompleta = true;
       r.trattamento = r.trattamento || 'Mezza Pensione';
     }
@@ -750,6 +756,22 @@ function parseCentralino(testo) {
        accendeva solo da una nota di portineria scritta dopo. */
     if (/\boppure\b|\bin alternativa\b|\bo in alternativa\b|\balternativ\w*|\boder\b|\bor\b\s+(?:two|a|an)\b|\balternatively\b|\bou\s+bien\b/i.test(t)) {
       r.forseAlternative = true;
+    }
+
+    /* v2.25 — LA CATEGORIA CHIESTA, per parole chiave. Non e' un nome: e'
+       la parola che poi si cerca nel nome della categoria che il motore
+       restituisce. Qui, e solo qui, si aggiungono sinonimi e nomi vecchi
+       delle categorie: una riga, una prova. L'ordine conta: «Junior Suite»
+       contiene «suite», e va letta come junior. */
+    const CATEGORIE_CHIESTE = [
+      [/junior[\s-]?suite|juniorsuite/i, 'junior'],
+      [/\bsuiten?\b/i, 'suite'],
+      [/\bsuperior\w*/i, 'superior'],
+      [/\bqueen\b/i, 'queen'],
+      [/\bsingol[aei]\b|\bEinzelzimmer\b|\bEZ\b|\bsingle\s*rooms?\b|\bSGL\b|\bchambres?\s+simples?\b/i, 'singola'],
+    ];
+    for (const [cerca, chiave] of CATEGORIE_CHIESTE) {
+      if (cerca.test(t)) { r.categoriaChiesta = chiave; break; }
     }
     r.note = t.replace(/\s+/g, ' ').trim().slice(0, 300);
     return (r.arrivo || r.email) ? r : null;
@@ -1276,10 +1298,10 @@ function parseCentralino(testo) {
   function linguaTesto(t) {
     const s = ' ' + String(t || '').toLowerCase() + ' ';
     const punte = {
-      de: (s.match(/\b(und|ich|wir|bitte|preise?|f\u00fcr|m\u00f6chten?|guten|sehr|danke|\u00f6ffnungszeiten|eintritt|kostet)\b/g) || []).length,
+      de: (s.match(/\b(und|ich|wir|bitte|preise?|f\u00fcr|m\u00f6chten?|guten|sehr|danke|\u00f6ffnungszeiten|eintritt|kostet|anreise|abreise|zimmer|nächte|übernachtung|doppelzimmer|einzelzimmer|halbpension|angebot|anfrage)\b/g) || []).length,
       en: (s.match(/\b(the|and|please|price|prices|would|hello|thanks|open|how|much|ticket|pools?)\b/g) || []).length,
       fr: (s.match(/\b(bonjour|merci|vous|tarifs?|combien|est-ce|nous|entr\u00e9e|horaires?|piscines?)\b/g) || []).length,
-      it: (s.match(/\b(buongiorno|buonasera|salve|grazie|vorrei|vorremmo|quanto|costa|orari|ingresso|prezzi|piscine|informazioni|sapere)\b/g) || []).length
+      it: (s.match(/\b(buongiorno|buonasera|salve|grazie|vorrei|vorremmo|quanto|costa|orari|ingresso|prezzi|piscine|informazioni|sapere|arrivo|partenza|camera|notti|preventivo|adulti|doppia|matrimoniale)\b/g) || []).length
     };
     let scelta = 'it', max = 0;
     for (const l of Object.keys(punte)) if (punte[l] > max) { max = punte[l]; scelta = l; }
@@ -1623,6 +1645,6 @@ function parseCentralino(testo) {
 
   /* gancio per i test e per la console: parseLibera vive dentro l'IIFE */
   (typeof self !== 'undefined' ? self : globalThis).__leonardoInject =
-    { parseLibera, leggiDate, PAROLE_RICHIESTA, annoDedotto,
+    { parseLibera, leggiDate, PAROLE_RICHIESTA, annoDedotto, linguaTesto, ricordaRichiesta, isoDaLetta,
       IMPRONTE_FIRMA, RIGA_DI_FIRMA, LEGALESE };
 })();

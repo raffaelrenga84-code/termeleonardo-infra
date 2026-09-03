@@ -44,6 +44,8 @@ type Periodo = { arrivo: Giorno; partenza: Giorno; notti?: number };
 type Lettori = {
   parseLibera: (testo: string, mittente?: unknown) => Richiesta;
   leggiDate: (testo: string) => Record<string, unknown> | null;
+  linguaTesto: (t: string) => string;
+  ricordaRichiesta: (dati: Record<string, unknown>) => void;
 };
 
 /* outlook-inject.js e' una IIFE che al caricamento tocca window, chrome e
@@ -369,4 +371,53 @@ Deno.test('6c — le eta si leggono tutte: «6 und 9 Jahre», «6 e 9 anni», «
     const r = l.parseLibera(testo, null);
     assertEquals(String(r!.etaBambini ?? ''), eta, `eta sbagliate in «${testo}»`);
   }
+});
+
+Deno.test('7a — HP/HB, VP/FB, ÜF/BB come parola intera', () => {
+  const l = lettori();
+  const p = (t: string) => l.parseLibera(t, null)!;
+  assertEquals(p('vom 3.10. bis 10.10.2026, DZ HP, 2 Pers.').trattamento, 'Mezza Pensione');
+  assertEquals(p('dal 3 al 10 ottobre 2026, 2 adulti, HB').trattamento, 'Mezza Pensione');
+  assert(p('vom 3.10. bis 10.10.2026, 2 Erw., VP').pensioneCompleta, 'VP e pensione completa');
+  assertEquals(p('vom 3.10. bis 10.10.2026, DZ mit Frühstück (ÜF)').trattamento, 'Bed & Breakfast');
+  assertEquals(p('from 3 to 10 October 2026, 2 adults, BB').trattamento, 'Bed & Breakfast');
+  /* «hp» dentro un'altra parola non conta */
+  assertEquals(p('dal 3 al 10 ottobre 2026, 2 adulti, vorremmo un chpiaro preventivo').trattamento, undefined);
+});
+
+Deno.test('7b — cure e cane in tedesco: Fangokur, Kur, Anwendungen, Hündin, Vierbeiner', () => {
+  const l = lettori();
+  for (const t of ['vom 3.10. bis 10.10.2026, Fangokur', 'vom 3.10. bis 10.10.2026, Kur mit Fangopackungen',
+                   'vom 3.10. bis 10.10.2026, Thermalkur und Anwendungen', 'dal 3 al 10 ottobre 2026, ciclo di fangoterapia']) {
+    assert(l.parseLibera(t, null)!.cure, `cure non lette in «${t}»`);
+  }
+  for (const t of ['vom 3.10. bis 10.10.2026, mit Hündin', 'vom 3.10. bis 10.10.2026, unser Vierbeiner kommt mit']) {
+    assert(l.parseLibera(t, null)!.cane, `cane non letto in «${t}»`);
+  }
+  assert(!l.parseLibera('vom 3.10. bis 10.10.2026, wir kommen aus Kurort Bad Ischl', null)!.cure, '«Kurort» non e una cura');
+});
+
+Deno.test('7c — la categoria chiesta, per parole chiave, in quattro lingue', () => {
+  const l = lettori();
+  const CASI = [
+    ['vom 24.12.2026 bis 02.01.2027, Juniorsuite', 'junior'],
+    ['dal 3 al 10 ottobre 2026, junior suite se disponibile', 'junior'],
+    ['from 3 to 10 October 2026, a suite please', 'suite'],
+    ['4 notti a novembre 2026, arrivo domenica 15, camera superior', 'superior'],
+    ['vom 3.10. bis 10.10.2026, Doppelzimmer Superior', 'superior'],
+    ['dal 3 al 10 ottobre 2026, matrimoniale queen', 'queen'],
+    ['vom 3. bis 10. Oktober 2026, Einzelzimmer', 'singola'],
+    ['dal 3 al 10 ottobre 2026, camera matrimoniale', undefined],
+    ['vom 3.10. bis 10.10.2026, Zweibettzimmer', undefined],
+  ] as const;
+  for (const [testo, cat] of CASI) {
+    assertEquals(l.parseLibera(testo, null)!.categoriaChiesta, cat, `categoria sbagliata in «${testo}»`);
+  }
+  assertEquals(l.parseLibera('vom 3.10. bis 10.10.2026, Zweibettzimmer', null)!.adulti, 2, 'Zweibettzimmer e una doppia');
+});
+
+Deno.test('7d — un email tedesca di due righe e riconosciuta come tedesca', () => {
+  const l = lettori();
+  assertEquals(l.linguaTesto('Anreise 12.10., Abreise 19.10., Doppelzimmer Halbpension. Angebot bitte.'), 'de');
+  assertEquals(l.linguaTesto('Arrivo 12/10, partenza 19/10, doppia mezza pensione. Grazie, un preventivo.'), 'it');
 });
