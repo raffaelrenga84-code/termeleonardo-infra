@@ -26,7 +26,7 @@ import { type Ruolo, ruoloDi, tipiVisibili, vedeTutto } from './ruoli.ts';
 import { pocoPreavviso } from './preavviso.ts';
 import { componiRisposta, corpoDisponibilita } from './disponibilita.ts';
 import {
-  aHotelChiuso, distanzaGiorni, esitoDisponibilita, ORIZZONTE_GIORNI, type Stagione,
+  chiusuraCheCopre, aHotelChiuso, distanzaGiorni, esitoDisponibilita, ORIZZONTE_GIORNI, type Stagione,
 } from './dayspa-disponibilita.ts';
 import { LINGUE } from './condizioni.ts';
 import { creaFrenoIp } from './limite-ip.ts';
@@ -220,6 +220,17 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   const url = new URL(req.url);
   const azione = url.searchParams.get('a') || '';
+
+  /* ---------- pubblico: la stagione di chiusura in corso o prossima ----------
+     La pagina Prenota la chiede per dire «siamo chiusi fino al…» invece di
+     «nessuna camera». Solo chiusura e riapertura: i giorni dell'ufficio stanno
+     nei testi della pagina. Tabella non leggibile: null, non un errore —
+     niente date inventate, la pagina resta com'era. */
+  if (azione === 'stagione') {
+    const oggi = new Date().toISOString().slice(0, 10);
+    const stagione = (await leggiStagioni()).find((s) => s.riapertura > oggi) ?? null;
+    return risposta({ esito: 'ok', stagione });
+  }
 
   /* ---------- pubblico: una nuova richiesta ---------- */
   if (!azione) {
@@ -590,6 +601,12 @@ Deno.serve(async (req) => {
     const { adulti } = v.dati;
 
     const lingua = LINGUE.includes(String(b?.lingua)) ? String(b.lingua) : 'it';
+
+    /* SIAMO CHIUSI IN QUELLE DATE: si dice, senza chiamare il motore — che
+       risponderebbe «nessuna camera», ed e' un'altra cosa. La regola e' in
+       dayspa-disponibilita.ts, pura e collaudata. */
+    const chiuso = chiusuraCheCopre(v.dati.check_in, v.dati.check_out, await leggiStagioni());
+    if (chiuso) return risposta({ esito: 'ok', proposte: [], chiuso });
     const r = await fetch(
       Deno.env.get('SUPABASE_URL') + '/functions/v1/check-availability',
       {
