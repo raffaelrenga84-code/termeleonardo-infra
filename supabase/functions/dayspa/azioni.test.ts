@@ -71,7 +71,9 @@ Deno.test('la disponibilita non scende mai sotto i posti gia venduti', () => {
 Deno.test('la lettura da Fidra e riservata, passa dal modulo puro e chiede una persona per un intervallo', () => {
   assert(/azione === 'fidra'/.test(riservata()), '?a=fidra deve stare fra le riservate: legge il sito dell hotel per conto della reception');
   assert(/righeDaFidra\(/.test(riservata()) && /URL_FIDRA\(/.test(riservata()));
-  assert(!/termeleonardo\.com/.test(senzaCommenti(S)), 'l indirizzo del sito precedente sta in fidra.ts, non qui');
+  /* l'indirizzo dell'API del sito precedente sta in fidra.ts, non qui (gli
+     indirizzi email @termeleonardo.com invece qui ci stanno) */
+  assert(!/termeleonardo\.com\/it\/api/.test(senzaCommenti(S)), 'l indirizzo dell API del sito precedente sta in fidra.ts, non qui');
 });
 
 Deno.test('in modalita di prova ogni prenotazione porta il segno', () => {
