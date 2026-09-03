@@ -45,11 +45,15 @@ const NASCOSTE = [
   'buoni/index.html',
   'buoni/stampa/index.html',
   'richieste/index.html',
+  /* il Day Spa e' di prova (3 settembre 2026): quando andra' in linea con un
+     titolo suo, passa fra le VISIBILI e robots.txt del sito smette di
+     escluderlo */
+  'dayspa/index.html',
 ];
 
 Deno.test('gli elenchi non sono vuoti, altrimenti i cicli girano a vuoto', () => {
   assertEquals(VISIBILI.length, 3);
-  assertEquals(NASCOSTE.length, 6);
+  assertEquals(NASCOSTE.length, 7);
 });
 
 Deno.test('ogni pagina riservata dichiara noindex', () => {

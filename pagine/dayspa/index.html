@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#1A3626" />
+<!-- di prova, dal 3 settembre 2026: quando andra' in linea diventa
+     index,follow ed entra fra le VISIBILI di indicizzazione.test.ts -->
+<meta name="robots" content="noindex, follow" />
+<title>Day Spa — Hotel Terme Leonardo</title>
+<link rel="icon" href="/buoni/img/logo-quadrato.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --verde:#1A3626; --verde-medio:#3C5346; --acqua:#8FC4BC; --acqua-chiara:#E4F0EA;
+  --oro:#C9A961; --bronzo:#8A6A38; --crema:#F9F6F0; --grigio:#7B756A; --allarme:#C0392B;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--crema);color:#2A2E2B;font:15px/1.6 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;}
+.testata{background:var(--acqua-chiara);padding:34px 20px 30px;text-align:center;position:relative;}
+.sceltaLingua{position:absolute;top:12px;right:12px;}
+.sceltaLingua select{width:auto;margin:0;padding:6px 26px 6px 9px;font-size:14px;border-radius:8px;
+  border:1px solid rgba(26,54,38,.15);background:rgba(255,255,255,.8);color:var(--verde-medio);cursor:pointer;}
+.testata img{width:210px;max-width:60%;height:auto;display:block;margin:0 auto;}
+h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:34px;line-height:1.2;color:var(--verde);margin:20px 0 8px;}
+.occhiello{font-size:11px;letter-spacing:3px;color:var(--bronzo);text-transform:uppercase;}
+.sotto{color:var(--verde-medio);max-width:560px;margin:0 auto;}
+main{max-width:640px;margin:0 auto;padding:26px 18px 60px;}
+.riquadro{background:#fff;border:1px solid #E5E0D8;border-radius:14px;padding:22px;margin-bottom:18px;}
+h2{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:23px;color:var(--verde);margin:0 0 4px;}
+h2 small{font-size:13px;color:var(--bronzo);letter-spacing:2px;margin-right:8px;font-family:inherit;}
+.guida{color:var(--grigio);font-size:13.5px;margin-bottom:16px;}
+label{display:block;font-size:13.5px;color:var(--verde-medio);font-weight:500;margin-top:15px;}
+input,select{width:100%;margin-top:6px;padding:12px 13px;font:15px inherit;border:1px solid #DCD6CB;border-radius:9px;background:#FCFBF8;color:#2A2E2B;}
+input:focus,select:focus{outline:2px solid var(--acqua);border-color:transparent;}
+input.vuoto{border-color:var(--allarme);}
+.campoDate{width:100%;margin-top:6px;padding:12px 13px;font:15px inherit;border:1px solid #DCD6CB;border-radius:9px;background:#FCFBF8;color:#2A2E2B;text-align:left;cursor:pointer;}
+.campoDate:focus{outline:2px solid var(--acqua);border-color:transparent;}
+.campoDate.vuoto{color:#8C8578;}
+.calBox{position:relative;}
+/* le fasce: schede radio, una per riga, con orario, prezzo e la parola dello stato */
+.fasce{display:grid;gap:10px;margin-top:14px;}
+.fascia{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #DCD6CB;border-radius:11px;background:#FCFBF8;cursor:pointer;}
+.fascia input{width:20px;height:20px;margin:0;accent-color:var(--verde);}
+.fascia.scelta{border-color:var(--verde);background:#F1F6F3;}
+.fascia.spenta{opacity:.55;cursor:default;}
+.fascia .nome{font-weight:500;color:var(--verde);}
+.fascia .ore{font-size:13px;color:var(--grigio);}
+.fascia .prezzo{margin-left:auto;font-family:"Cormorant Garamond",Georgia,serif;font-size:22px;color:var(--verde);white-space:nowrap;}
+.fascia .stato{font-size:12px;color:var(--bronzo);margin-left:8px;}
+/* i contatori: pulsanti da 44 px, che si toccano col dito */
+.conta{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px;}
+.conta .eti{flex:1;}
+.conta .eti small{display:block;color:var(--grigio);font-size:12.5px;}
+.passo{display:flex;align-items:center;gap:8px;}
+.passo button{width:44px;height:44px;border-radius:50%;border:1px solid #DCD6CB;background:#fff;font:22px inherit;color:var(--verde);cursor:pointer;}
+.passo button:disabled{opacity:.35;cursor:default;}
+.passo output{width:32px;text-align:center;font-size:18px;font-variant-numeric:tabular-nums;}
+.totale{display:flex;justify-content:space-between;align-items:baseline;margin-top:18px;padding-top:14px;border-top:1px solid #EFEAE0;}
+.totale strong{font-family:"Cormorant Garamond",Georgia,serif;font-size:30px;font-weight:400;color:var(--verde);}
+.nota{color:var(--grigio);font-size:13px;margin-top:8px;}
+.consenso{display:flex;gap:10px;align-items:flex-start;margin-top:16px;font-size:13.5px;color:var(--verde-medio);}
+.consenso input{width:20px;height:20px;margin:2px 0 0;flex:none;accent-color:var(--verde);}
+.nonRimb{margin-top:16px;padding:10px 13px;border-left:3px solid var(--bronzo);background:#FBF6EA;color:#6B4A22;font-size:13.5px;}
+.avviso{padding:10px 13px;border-radius:8px;background:#FFF6E8;border-left:3px solid var(--oro);color:#6B4A22;margin-bottom:16px;font-size:13.5px;}
+.errore{color:var(--allarme);font-size:13.5px;margin-top:12px;}
+.bottone{width:100%;margin-top:18px;padding:16px;border:0;border-radius:999px;background:var(--verde);color:#fff;font:600 16px inherit;cursor:pointer;}
+.bottone:disabled{opacity:.5;cursor:default;}
+.grazie{text-align:center;padding:30px 20px;}
+.grazie .numero{font-family:ui-monospace,Menlo,monospace;font-size:20px;letter-spacing:2px;color:var(--verde);margin-top:8px;}
+.pie{max-width:640px;margin:0 auto;padding:0 18px 40px;color:var(--grigio);font-size:12px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="testata">
+  <div class="sceltaLingua"><select id="lng" aria-label="Lingua">
+    <option value="it">IT</option><option value="de">DE</option><option value="en">EN</option><option value="fr">FR</option>
+  </select></div>
+  <a href="https://www.hoteltermeleonardo.com/" target="_blank" rel="noopener noreferrer" title="Hotel Terme Leonardo">
+    <img src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" /></a>
+  <div class="occhiello" style="margin-top:22px;" id="tOcchiello"></div>
+  <h1 id="tTitolo"></h1>
+  <p class="sotto" id="tSotto"></p>
+</div>
+
+<main>
+  <div class="avviso" id="avvisoProva" hidden></div>
+
+  <section class="riquadro" id="passoQuando">
+    <h2><small>1</small><span id="tQuando"></span></h2>
+    <p class="guida" id="tQuandoGuida"></p>
+    <label for="fGiorno" id="tGiorno"></label>
+    <input type="date" id="fGiorno" />
+    <div class="fasce" id="fasce"></div>
+  </section>
+
+  <section class="riquadro" id="passoChi">
+    <h2><small>2</small><span id="tChi"></span></h2>
+    <p class="guida" id="tChiGuida"></p>
+    <div class="conta"><div class="eti" id="tAdulti"></div>
+      <div class="passo"><button type="button" id="adultiMeno" aria-label="−">−</button><output id="adulti">2</output><button type="button" id="adultiPiu" aria-label="+">+</button></div></div>
+    <div class="conta"><div class="eti" id="tBambini"></div>
+      <div class="passo"><button type="button" id="bambiniMeno" aria-label="−">−</button><output id="bambini">0</output><button type="button" id="bambiniPiu" aria-label="+">+</button></div></div>
+    <p class="nota" id="tNeonati"></p>
+    <p class="nota" id="tMassimo"></p>
+    <div class="totale"><span id="tTotaleEti"></span><strong id="totale">—</strong></div>
+    <p class="nota" id="totaleDettaglio"></p>
+  </section>
+
+  <section class="riquadro" id="passoDati">
+    <h2><small>3</small><span id="tDati"></span></h2>
+    <p class="guida" id="tDatiGuida"></p>
+    <label for="fNome" id="tNome"></label><input id="fNome" autocomplete="name" />
+    <label for="fEmail" id="tEmail"></label><input id="fEmail" type="email" autocomplete="email" inputmode="email" />
+    <label for="fTelefono" id="tTelefono"></label><input id="fTelefono" type="tel" autocomplete="tel" inputmode="tel" />
+    <label class="consenso"><input type="checkbox" id="fConsenso" /><span id="tConsenso"></span></label>
+    <div class="nonRimb" id="tNonRimborsabile"></div>
+    <p class="errore" id="errore" hidden></p>
+    <button type="button" class="bottone" id="bPaga"></button>
+  </section>
+
+  <section class="riquadro grazie" id="grazie" hidden>
+    <h2 id="tGrazieTitolo"></h2>
+    <p id="grazieTesto"></p>
+    <p class="nota" id="tGrazieNumero"></p>
+    <div class="numero" id="grazieNumero"></div>
+  </section>
+</main>
+
+<div class="pie" id="tPie"></div>
+
+<script type="module">
+'use strict';
+/* PERCORSI ASSOLUTI, come in tutte queste pagine: sul dominio dell'hotel la
+   pagina vive sotto una riscrittura e un percorso relativo si romperebbe
+   (vedi il commento in prenota/index.html). */
+import { innestaGiorno, leggiChiusure, oggiLocale } from '/comune/calendario.js';
+import { normalizzaLingua, parametriOspite } from '/comune/ospite-url.js';
+import { T } from '/dayspa/testi.js';
+
+/* DI PROVA. Finche' PROVA e' vero la pagina si apre solo con ?k= e dice che
+   i pagamenti sono finti. Il giorno del passaggio in linea: PROVA = false,
+   robots index, riga fra le VISIBILI, e il pulsante del sito che punta qui. */
+const PROVA = true;
+const CHIAVE_PROVA = 'prova-dayspa-2026';
+const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/dayspa';
+/* le chiusure stagionali le sa la funzione richieste (?a=stagione) */
+const RICHIESTE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const Q = new URLSearchParams(normalizzaLingua(location.search));
+const LINGUE = ['it', 'de', 'en', 'fr'];
+let LNG = LINGUE.includes(Q.get('l')) ? Q.get('l') : (LINGUE.includes((navigator.language || '').slice(0, 2)) ? navigator.language.slice(0, 2) : 'it');
+const t = () => T[LNG] || T.it;
+const DA_URL = parametriOspite(location.search);
+
+const euro = (cent) => new Intl.NumberFormat({ it: 'it-IT', de: 'de-DE', en: 'en-GB', fr: 'fr-FR' }[LNG] || 'it-IT',
+  { style: 'currency', currency: 'EUR' }).format(cent / 100);
+
+/* lo stato della pagina */
+let LISTINO = null;          // da ?a=listino: fasce, orari, prezzi, personeMax
+let GIORNI = new Map();      // iso -> { tipo, fasce: [{ fascia, stato, prezzoCent }] }
+let CHIUSURE = [];
+let FASCIA = '';
+let ADULTI = 2, BAMBINI = 0;
+
+/* ---------- i testi, nella lingua scelta ---------- */
+function testi() {
+  const x = t();
+  document.documentElement.lang = LNG;
+  $('lng').value = LNG;
+  const scrivi = (id, testo) => { const el = $(id); if (el) el.textContent = testo; };
+  scrivi('tOcchiello', x.occhiello); scrivi('tTitolo', x.titolo); scrivi('tSotto', x.sotto);
+  scrivi('tQuando', x.quando); scrivi('tQuandoGuida', x.quandoGuida); scrivi('tGiorno', x.giorno);
+  scrivi('tChi', x.chi); scrivi('tChiGuida', x.chiGuida);
+  $('tAdulti').innerHTML = esc(x.adulti);
+  $('tBambini').innerHTML = esc(x.bambini);
+  scrivi('tNeonati', x.neonati);
+  scrivi('tMassimo', LISTINO ? x.massimo(LISTINO.personeMax) : '');
+  scrivi('tTotaleEti', x.totale);
+  scrivi('tDati', x.dati); scrivi('tDatiGuida', x.datiGuida);
+  scrivi('tNome', x.nome); scrivi('tEmail', x.email); scrivi('tTelefono', x.telefono);
+  scrivi('tConsenso', x.consenso);
+  /* la riga «non rimborsabile» sta qui, sopra il pulsante: l'ospite la
+     legge prima di pagare (decisione della proprieta', 3 settembre 2026) */
+  scrivi('tNonRimborsabile', x.nonRimborsabile);
+  scrivi('bPaga', x.paga);
+  scrivi('tGrazieTitolo', x.grazieTitolo); scrivi('tGrazieNumero', x.grazieNumero);
+  scrivi('tPie', x.pie);
+  scrivi('avvisoProva', x.prova);
+  const btn = $('fGiornoBtn');
+  if (btn && !$('fGiorno').value) btn.textContent = x.scegliGiorno;
+  disegnaFasce();
+  disegnaTotale();
+}
+
+/* ---------- i giorni dal server: una parola per fascia ---------- */
+function statoExtra(iso) {
+  const g = GIORNI.get(iso);
+  if (!g) return GIORNI.size ? 'non-in-vendita' : null;
+  const stati = g.fasce.map((f) => f.stato);
+  if (stati.every((s) => s === 'esaurito' || s === 'non-in-vendita' || s === 'chiuso')) {
+    return stati.includes('esaurito') ? 'esaurito' : 'non-in-vendita';
+  }
+  if (!stati.includes('disponibile') && stati.includes('ultimi')) return 'ultimi';
+  return null;
+}
+
+const piuGiorni = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+
+async function caricaGiorni() {
+  const oggi = oggiLocale();
+  const fino = piuGiorni(oggi, 61);
+  try {
+    const r = await fetch(`${FUNZIONE}?a=giorni&da=${oggi}&fino=${fino}`);
+    const d = await r.json();
+    if (d.esito !== 'ok') throw new Error(d.errore || r.status);
+    GIORNI = new Map(d.giorni.map((g) => [g.giorno, g]));
+  } catch (e) {
+    console.error('giorni non letti', e);
+  }
+  disegnaFasce();
+}
+
+async function caricaListino() {
+  try {
+    const r = await fetch(`${FUNZIONE}?a=listino`);
+    const d = await r.json();
+    if (d.esito !== 'ok') throw new Error(d.errore || r.status);
+    LISTINO = d;
+    $('avvisoProva').hidden = !d.prova;
+  } catch (e) {
+    console.error('listino non letto', e);
+    mostraErrore(t().erroreServer);
+  }
+  testi();
+}
+
+/* ---------- le fasce del giorno scelto ---------- */
+function disegnaFasce() {
+  const x = t();
+  const iso = $('fGiorno').value;
+  const box = $('fasce');
+  const g = iso ? GIORNI.get(iso) : null;
+  if (!iso || !g || !LISTINO) { box.innerHTML = ''; FASCIA = ''; disegnaTotale(); return; }
+  const usabili = g.fasce.filter((f) => f.stato === 'disponibile' || f.stato === 'ultimi');
+  if (!usabili.some((f) => f.fascia === FASCIA)) FASCIA = usabili.length ? usabili[0].fascia : '';
+  box.innerHTML = g.fasce.map((f) => {
+    const spenta = !(f.stato === 'disponibile' || f.stato === 'ultimi');
+    const scelta = f.fascia === FASCIA;
+    return `<label class="fascia${scelta ? ' scelta' : ''}${spenta ? ' spenta' : ''}">
+      <input type="radio" name="fascia" value="${esc(f.fascia)}" ${scelta ? 'checked' : ''} ${spenta ? 'disabled' : ''} />
+      <span><span class="nome">${esc(x.fasce[f.fascia] || f.fascia)}</span><br />
+        <span class="ore">${esc(LISTINO.orari[f.fascia] || '')}</span>
+        ${f.stato !== 'disponibile' ? `<span class="stato">${esc(x.stati[f.stato] || f.stato)}</span>` : ''}</span>
+      <span class="prezzo">${esc(euro(f.prezzoCent))} <small style="font-size:12px;color:#7B756A;">${esc(x.aPersona)}</small></span>
+    </label>`;
+  }).join('');
+  box.querySelectorAll('input[name="fascia"]').forEach((r) => r.addEventListener('change', () => { FASCIA = r.value; disegnaFasce(); }));
+  disegnaTotale();
+}
+
+function fasciaScelta() {
+  const g = GIORNI.get($('fGiorno').value);
+  return g ? g.fasce.find((f) => f.fascia === FASCIA) : null;
+}
+
+/* ---------- le persone e il totale ---------- */
+function disegnaTotale() {
+  const x = t();
+  const max = LISTINO ? LISTINO.personeMax : 8;
+  if (ADULTI + BAMBINI > max) BAMBINI = Math.max(0, max - ADULTI);
+  $('adulti').value = ADULTI; $('bambini').value = BAMBINI;
+  $('adultiMeno').disabled = ADULTI <= 1;
+  $('adultiPiu').disabled = ADULTI + BAMBINI >= max;
+  $('bambiniMeno').disabled = BAMBINI <= 0;
+  $('bambiniPiu').disabled = ADULTI + BAMBINI >= max;
+  const f = fasciaScelta();
+  const persone = ADULTI + BAMBINI;
+  if (!f) { $('totale').textContent = '—'; $('totaleDettaglio').textContent = ''; $('bPaga').disabled = true; return; }
+  /* il prezzo e' quello che il server ha mandato per quella fascia: la
+     pagina moltiplica, non decide */
+  $('totale').textContent = euro(f.prezzoCent * persone);
+  $('totaleDettaglio').textContent = `${x.persone(persone)} × ${euro(f.prezzoCent)}`;
+  $('bPaga').disabled = false;
+}
+
+for (const [id, f] of [['adultiMeno', () => { ADULTI = Math.max(1, ADULTI - 1); }], ['adultiPiu', () => { ADULTI += 1; }],
+  ['bambiniMeno', () => { BAMBINI = Math.max(0, BAMBINI - 1); }], ['bambiniPiu', () => { BAMBINI += 1; }]]) {
+  $(id).addEventListener('click', () => { f(); disegnaTotale(); });
+}
+
+/* ---------- i dati e il pagamento ---------- */
+function mostraErrore(testo) { const e = $('errore'); e.textContent = testo; e.hidden = !testo; }
+
+async function paga() {
+  const x = t();
+  mostraErrore('');
+  const nome = $('fNome').value.trim(), email = $('fEmail').value.trim();
+  $('fNome').classList.toggle('vuoto', !nome);
+  $('fEmail').classList.toggle('vuoto', !email);
+  if (!nome || !email) return mostraErrore(x.erroreCampi);
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { $('fEmail').classList.add('vuoto'); return mostraErrore(x.erroreEmail); }
+  if (!$('fConsenso').checked) return mostraErrore(x.erroreConsenso);
+  const f = fasciaScelta();
+  if (!$('fGiorno').value || !f) return mostraErrore(x.scegliGiorno);
+  $('bPaga').disabled = true;
+  $('bPaga').textContent = x.pagaAttesa;
+  try {
+    const r = await fetch(`${FUNZIONE}?a=prenota`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        giorno: $('fGiorno').value, fascia: FASCIA, adulti: ADULTI, bambini: BAMBINI,
+        nome, email, telefono: $('fTelefono').value.trim(), lingua: LNG,
+      }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d.esito === 'ok' && d.url) { location.href = d.url; return; }
+    if (r.status === 409) {
+      /* esaurito, chiuso o non in vendita nel frattempo: si rilegge il
+         server e si dice cosa scegliere */
+      await caricaGiorni();
+      mostraErrore(d.stato === 'esaurito' ? x.esauritoNelFrattempo : x.nonDisponibile);
+    } else {
+      mostraErrore(d.errore ? `${x.erroreServer} (${d.errore})` : x.erroreServer);
+    }
+  } catch (e) {
+    console.error(e);
+    mostraErrore(x.erroreServer);
+  }
+  $('bPaga').disabled = false;
+  $('bPaga').textContent = x.paga;
+}
+$('bPaga').addEventListener('click', paga);
+
+/* ---------- il ritorno da Stripe: si aspetta il webhook ---------- */
+async function grazie(numero) {
+  const x = t();
+  for (const id of ['passoQuando', 'passoChi', 'passoDati']) $(id).hidden = true;
+  $('grazie').hidden = false;
+  $('grazieNumero').textContent = numero;
+  $('grazieTesto').textContent = x.grazieAttesa;
+  let tentativi = 0;
+  const controlla = async () => {
+    tentativi++;
+    try {
+      const r = await fetch(`${FUNZIONE}?a=stato&numero=${encodeURIComponent(numero)}`);
+      const d = await r.json();
+      if (d.stato === 'pagata') { $('grazieTesto').textContent = x.grazieOk; return; }
+    } catch (e) { console.error(e); }
+    if (tentativi < 40) setTimeout(controlla, 3000);
+    else $('grazieTesto').textContent = x.grazieProblema;
+  };
+  controlla();
+}
+
+/* ---------- avvio ---------- */
+$('lng').addEventListener('change', () => { LNG = $('lng').value; testi(); });
+
+if (PROVA && Q.get('k') !== CHIAVE_PROVA && !Q.get('grazie')) {
+  document.querySelector('main').innerHTML = `<div class="riquadro"><p>${esc(t().provaChiusa)}</p></div>`;
+  testi();
+} else {
+  /* dati precompilati dai link della reception e delle email */
+  if (DA_URL.nome) $('fNome').value = DA_URL.nome;
+  if (DA_URL.email) $('fEmail').value = DA_URL.email;
+  if (DA_URL.tel) $('fTelefono').value = DA_URL.tel;
+  const persone = Number(Q.get('persone'));
+  if (Number.isInteger(persone) && persone >= 1 && persone <= 8) { ADULTI = persone; BAMBINI = 0; }
+  const giorno = Q.get('giorno');
+  if (giorno && /^\d{4}-\d{2}-\d{2}$/.test(giorno) && giorno >= oggiLocale()) $('fGiorno').value = giorno;
+
+  $('fGiorno').min = oggiLocale();
+  $('fGiorno').addEventListener('change', () => { FASCIA = ''; disegnaFasce(); });
+  innestaGiorno({ campo: $('fGiorno'), lingua: LNG, chiusure: () => CHIUSURE, statoExtra, testoVuoto: t().scegliGiorno });
+  testi();
+  leggiChiusure(RICHIESTE).then((c) => { CHIUSURE = c; });
+  caricaListino();
+  caricaGiorni();
+  if (Q.get('grazie')) grazie(Q.get('grazie'));
+}
+</script>
+</body>
+</html>
