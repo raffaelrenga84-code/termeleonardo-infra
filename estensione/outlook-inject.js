@@ -1498,14 +1498,26 @@ function parseCentralino(testo) {
      per agosto. Si usa leggiDate(), lo stesso lettore dell'anteprima:
      se l'arrivo cade dentro CHIUSURA, non c'e' niente da indovinare.
      ========================================================== */
+  /* l'inverso: da «2027-02-13» a {g, m, a}, per scriverla con dataLeggibile */
+  function letta(iso) {
+    const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? { a: +m[1], m: +m[2], g: +m[3] } : null;
+  }
+
   function isoDaLetta(g) {
     if (!g || !g.a || !g.m || !g.g) return null;
     const due = (n) => (n < 10 ? '0' : '') + n;
     return `${g.a}-${due(g.m)}-${due(g.g)}`;
   }
 
+  /* La richiesta e il perche' del pulsante: {el, variante, arrivo, oggi} o
+     null. La variante la decide varianteChiusura() in template.js, pura e
+     provata: «periodo» se l'arrivo chiesto cade nella chiusura, «chiusoOra»
+     se siamo chiusi, l'ufficio non e' ancora tornato e la richiesta e' per
+     dopo (o senza date). Dall'8 gennaio a quelle si risponde con l'offerta. */
   function trovaRichiestaChiusura() {
-    if (typeof dentroChiusura !== 'function' || !CHIUSURA || !CHIUSURA.dal) return null;
+    if (typeof varianteChiusura !== 'function' || !CHIUSURA || !CHIUSURA.dal) return null;
+    const oggi = new Date().toISOString().slice(0, 10);
     let migliore = null;
     for (const e of elementiLettura('div, td, p')) {
       if (!visibile(e)) continue;
@@ -1513,8 +1525,10 @@ function parseCentralino(testo) {
       if (txt.length < 40 || txt.length > 2500) continue;
       if (!PAROLE_RICHIESTA.test(txt)) continue;
       const date = leggiDate(txt);
-      if (!date || !dentroChiusura(isoDaLetta(date.arrivo))) continue;
-      if (!migliore || txt.length < (migliore.innerText || '').length) migliore = e;
+      const arrivo = date ? isoDaLetta(date.arrivo) : null;
+      const variante = varianteChiusura(arrivo, oggi);
+      if (!variante) continue;
+      if (!migliore || txt.length < (migliore.el.innerText || '').length) migliore = { el: e, variante, arrivo, oggi };
     }
     return migliore;
   }
@@ -1532,24 +1546,27 @@ function parseCentralino(testo) {
       'background:#8C6239;box-shadow:0 3px 12px rgba(0,0,0,.3);';
     btn.dataset.leoPulsante = '1';
     btn.addEventListener('click', () => {
-      const el = trovaRichiestaChiusura();
-      if (!el) { avviso('Richiesta non più visibile: apri la mail e riprova', '#B3541E'); return; }
+      const r = trovaRichiestaChiusura();
+      if (!r) { avviso('Richiesta non pi\u00f9 visibile: apri la mail e riprova', '#B3541E'); return; }
+      const { el, variante, arrivo, oggi } = r;
       const testo = el.innerText || '';
       const lingua = linguaTesto(testo);
-      const date = leggiDate(testo);
       const mitt = mittenteDaPagina();
       const nome = (mitt && mitt.nome) || '';
-      const arrivo = date ? dataLeggibile(date.arrivo) : '';
+      const arrivoLeggibile = arrivo ? dataLeggibile(letta(arrivo)) : '';
+      const oggiLeggibile = dataLeggibile(letta(oggi));
       anteprimaRisposta({
         titolo: 'Risposta: chiusura stagionale',
-        modello: 'Siamo chiusi in quel periodo, con invito a scegliere altre date',
+        modello: variante === 'chiusoOra'
+          ? 'Chiusi ora: riapriamo il 13 febbraio, l\u2019ufficio prenotazioni risponde dall\u20198 gennaio'
+          : 'Siamo chiusi in quel periodo, con invito a scegliere altre date',
         lingua,
         destinatario: nome ? { nome } : { nome: 'nome non letto', generico: true },
-        nota: arrivo
-          ? `Ha chiesto il ${arrivo}, dentro la chiusura. Verifica prima di mandare: le date sono la cosa piu' facile da sbagliare.`
-          : 'Il testo entra da solo quando premi Rispondi in Outlook.',
+        nota: variante === 'chiusoOra'
+          ? `Oggi ${oggiLeggibile}: chiusi, l\u2019ufficio risponde dall\u20198 gennaio. ${arrivoLeggibile ? 'Ha chiesto il ' + arrivoLeggibile + ', dopo la riapertura.' : 'Nessuna data letta.'}`
+          : `Ha chiesto il ${arrivoLeggibile}, in quel periodo siamo chiusi. Verifica prima di mandare: le date sono la cosa piu' facile da sbagliare.`,
         azione: () => chrome.storage.local.get(['firma'], (ris) => {
-          const o = { genere: 'N', firma: (ris && ris.firma) || 'La Reception' };
+          const o = { genere: 'N', firma: (ris && ris.firma) || 'La Reception', variante, oggi };
           const d = { intestatario: nome };
           const build = { it: costruisciChiusuraIT, de: costruisciChiusuraDE,
                           en: costruisciChiusuraEN, fr: costruisciChiusuraFR };

@@ -130,7 +130,7 @@ Deno.test('il pulsante in Outlook guarda le date, non le parole', () => {
   const inject = Deno.readTextFileSync(new URL('outlook-inject.js', import.meta.url));
   assert(/trovaRichiestaChiusura/.test(inject), 'sparito il riconoscimento della chiusura');
   assert(
-    /dentroChiusura\(isoDaLetta\(date\.arrivo\)\)/.test(inject),
+    /varianteChiusura\(arrivo, oggi\)/.test(inject) && /isoDaLetta\(date\.arrivo\)/.test(inject),
     'il riconoscimento non passa piu dalle date lette: cercare «dicembre» nel testo ' +
       'pescherebbe anche chi scrive a dicembre per agosto',
   );
@@ -202,4 +202,15 @@ Deno.test('«in quel periodo» prima dell 8 gennaio dice anche da quando rispond
   const m = modelli();
   assert(/8 gennaio 2027/.test(m.html.it(D, { ...OPZ, variante: 'periodo', oggi: '2026-12-15' })));
   assert(!/8 gennaio 2027/.test(m.html.it(D, { ...OPZ, variante: 'periodo', oggi: '2027-01-20' })));
+});
+
+Deno.test('il pulsante in Outlook sceglie la variante dalle date e la dichiara nell anteprima', () => {
+  const inject = Deno.readTextFileSync(new URL('outlook-inject.js', import.meta.url));
+  const trova = inject.match(/function trovaRichiestaChiusura\(\) \{([\s\S]*?)\n  \}/);
+  assert(trova, 'trovaRichiestaChiusura non si trova');
+  assert(/varianteChiusura\(/.test(trova![1]), 'il riconoscimento non passa da varianteChiusura(): «chiusi ora» non comparirebbe mai');
+  const mostra = inject.match(/function mostraPulsanteChiusura\(\) \{([\s\S]*?)\n  \}/);
+  assert(mostra, 'mostraPulsanteChiusura non si trova');
+  assert(/variante, oggi \}/.test(mostra![1]), 'la variante e la data di oggi non arrivano al modello');
+  assert(/Chiusi ora/.test(mostra![1]) && /in quel periodo/.test(mostra![1]), 'l anteprima non dice quale variante ha scelto');
 });
