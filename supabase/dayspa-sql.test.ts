@@ -15,6 +15,8 @@ Deno.test('le due tabelle e la sequenza esistono', () => {
   assert(/create table if not exists dayspa_giorno/i.test(SQL));
   assert(/create table if not exists dayspa_prenotazione/i.test(SQL));
   assert(/create sequence if not exists dayspa_numero_seq/i.test(SQL));
+  assert(/create or replace function dayspa_prossimo_numero\(\)[\s\S]*nextval\('dayspa_numero_seq'\)/i.test(SQL),
+    'la funzione legge il prossimo numero dalla sequenza');
 });
 
 Deno.test('i posti si prendono in UNA istruzione, con la condizione dentro l update', () => {

@@ -30,6 +30,14 @@ create table if not exists dayspa_giorno (
 
 create sequence if not exists dayspa_numero_seq;
 
+-- Il prossimo progressivo, letto dalla funzione: supabase-js non chiama
+-- nextval direttamente. Un buco nella numerazione (Stripe fallito dopo il
+-- numero) e' innocuo; un doppione no, e la sequenza non ne fa.
+create or replace function dayspa_prossimo_numero()
+returns bigint language sql as $$
+  select nextval('dayspa_numero_seq');
+$$;
+
 create table if not exists dayspa_prenotazione (
   id               bigserial primary key,
   numero           text not null unique,        -- DS-2026-0001
