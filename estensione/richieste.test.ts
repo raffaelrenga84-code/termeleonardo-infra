@@ -51,7 +51,7 @@ type Lettori = {
 /* outlook-inject.js e' una IIFE che al caricamento tocca window, chrome e
    i timer. Si carica con dei sostituti minimi e si prende il gancio che
    il file espone gia' in fondo (__leonardoInject). */
-function lettori(): Lettori {
+function lettori(set: (o: unknown) => void = () => {}): Lettori {
   const nulla = () => {};
   const finto: Record<string, unknown> = {};
   const win: Record<string, unknown> = {
@@ -72,7 +72,7 @@ function lettori(): Lettori {
   };
   const chrome = {
     storage: {
-      local: { get: () => Promise.resolve({}), set: nulla, remove: nulla },
+      local: { get: () => Promise.resolve({}), set, remove: nulla },
       onChanged: { addListener: nulla },
     },
     runtime: { sendMessage: nulla, onMessage: { addListener: nulla } },
@@ -420,4 +420,40 @@ Deno.test('7d — un email tedesca di due righe e riconosciuta come tedesca', ()
   const l = lettori();
   assertEquals(l.linguaTesto('Anreise 12.10., Abreise 19.10., Doppelzimmer Halbpension. Angebot bitte.'), 'de');
   assertEquals(l.linguaTesto('Arrivo 12/10, partenza 19/10, doppia mezza pensione. Grazie, un preventivo.'), 'it');
+});
+
+Deno.test('8 — quello che il lettore ha letto arriva al pannello, in forma ISO', () => {
+  const presa: { q?: Record<string, unknown> } = {};
+  const l = lettori((o) => { presa.q = (o as Record<string, Record<string, unknown>>).leonardo_richiesta; });
+  const r = l.parseLibera('vom 3.10. bis 10.10.2026, 2 Erwachsene und 1 Kind (8 Jahre), Juniorsuite, Halbpension, mit Hund', null)!;
+  l.ricordaRichiesta(r);
+  assert(presa.q, 'ricordaRichiesta non ha scritto niente');
+  const q = presa.q!;
+  assertEquals(q.arrivo, '2026-10-03');
+  assertEquals(q.partenza, '2026-10-10');
+  assertEquals(q.notti, 7);
+  assertEquals(q.adulti, 2);
+  assertEquals(q.bambini, 1);
+  assertEquals(q.etaBambini, '8');
+  assertEquals(q.trattamento, 'Mezza Pensione');
+  assertEquals(q.categoriaChiesta, 'junior');
+  assertEquals(q.cane, true);
+  assertEquals(q.dedotti, []);
+});
+
+Deno.test('8b — cio che e dedotto viene detto, e cio che manca non si scrive', () => {
+  const presa: { q?: Record<string, unknown> } = {};
+  const l = lettori((o) => { presa.q = (o as Record<string, Record<string, unknown>>).leonardo_richiesta; });
+  const r = l.parseLibera('Ich möchte für 10 Tage kommen, Anreise 12.10.2026, Einzelzimmer. Abendessen und Frühstück bitte.', null)!;
+  l.ricordaRichiesta(r);
+  const q = presa.q!;
+  assertEquals((q.dedotti as string[]).sort(), ['adulti', 'notti', 'trattamento']);
+  assert(!('bambini' in q), 'bambini non letti: non si scrive uno zero inventato');
+  assert(!('nCamere' in q), 'camere non lette: non si scrive');
+});
+
+Deno.test('8c — l anteprima dichiara le notti dedotte', () => {
+  const fonte = SORGENTE.match(/function mostraAnteprima\(dati\) \{[\s\S]*?\n  \}/);
+  assert(fonte, 'mostraAnteprima non si trova');
+  assert(/nottiDedotte/.test(fonte![0]), 'l anteprima non dice che le notti da «10 Tage» sono una deduzione');
 });

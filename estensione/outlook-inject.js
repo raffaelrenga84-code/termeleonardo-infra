@@ -1035,7 +1035,7 @@ function parseCentralino(testo) {
     agg('Ospite', dati.ospite || dati.nome || '', 'non letto — lo scrivi in Fidra');
     agg('Email', dati.email || '', 'non letta');
     const a = dataLeggibile(dati.arrivo), p = dataLeggibile(dati.partenza);
-    agg('Periodo', a && p ? `dal ${a} al ${p}${dati.notti ? ` &middot; ${dati.notti} ${dati.notti === 1 ? 'notte' : 'notti'}` : ''}` : '',
+    agg('Periodo', a && p ? `dal ${a} al ${p}${dati.notti ? ` &middot; ${dati.notti} ${dati.notti === 1 ? 'notte' : 'notti'}` : ''}${dati.nottiDedotte ? ' <span style="color:#8C7A45;">(notti dedotte dai giorni scritti — verifica)</span>' : ''}` : '',
         'date non lette — attenzione, sono la cosa piu\' facile da sbagliare');
     const soli = dati.adulti === 1;
     agg('Persone', dati.adulti != null
@@ -1124,6 +1124,27 @@ function parseCentralino(testo) {
   function ricordaRichiesta(dati) {
     try {
       if (!chrome?.storage?.local) return;
+      /* v2.25 — QUELLO CHE SERVE AL PANNELLO per compilare i filtri e
+         proporre: date in ISO, persone, trattamento, categoria chiesta.
+         Un campo che il lettore non ha prodotto NON si scrive: uno zero
+         inventato nei bambini sarebbe un dato falso che il pannello
+         prenderebbe per buono. */
+      const iso = (d) => typeof d === 'string' ? d : isoDaLetta(d);
+      const extra = {};
+      if (dati.arrivo && iso(dati.arrivo)) extra.arrivo = iso(dati.arrivo);
+      if (dati.partenza && iso(dati.partenza)) extra.partenza = iso(dati.partenza);
+      if (dati.notti != null) extra.notti = +dati.notti;
+      if (dati.adulti != null) extra.adulti = +dati.adulti;
+      if (dati.bambini != null) extra.bambini = +dati.bambini;
+      if (dati.etaBambini) extra.etaBambini = String(dati.etaBambini).trim();
+      if (dati.trattamento) extra.trattamento = dati.trattamento;
+      if (dati.categoriaChiesta) extra.categoriaChiesta = dati.categoriaChiesta;
+      if (dati.nCamere) extra.nCamere = +dati.nCamere;
+      extra.dedotti = [
+        dati.adultiDedotti ? 'adulti' : '',
+        dati.trattamentoDedotto ? 'trattamento' : '',
+        dati.nottiDedotte ? 'notti' : '',
+      ].filter(Boolean);
       chrome.storage.local.set({ leonardo_richiesta: {
         quando: Date.now(),
         ospite: dati.ospite || '',
@@ -1135,7 +1156,8 @@ function parseCentralino(testo) {
         lingua: linguaTesto(dati.testoOriginale || dati.note || '') || 'it',
         cure: !!dati.cure,
         cane: !!dati.cane,
-        oggetto: (dati.testoOriginale || '').slice(0, 80)
+        oggetto: (dati.testoOriginale || '').slice(0, 80),
+        ...extra
       }});
     } catch (e) { /* il riquadro si compila a mano, come prima */ }
   }
