@@ -137,3 +137,29 @@ Deno.test('il disegno: giorni come pulsanti con lo stato, conferma solo con le d
   assert(/notaChiusura\(/.test(MODULO), 'la testa non dice quando siamo chiusi');
   assert(/modo === 'giorno'/.test(MODULO), 'manca il modo a un giorno solo per gli altri moduli');
 });
+
+/* ---------- il limite del soggiorno, e l'innesto sui moduli a un giorno ---------- */
+Deno.test('oltre il limite del soggiorno i giorni sono spenti, e non si toccano', () => {
+  assertEquals(statoGiorno('2026-10-20', { ...C, fine: '2026-10-15' }), 'oltre');
+  assertEquals(statoGiorno('2026-10-15', { ...C, fine: '2026-10-15' }), 'libero', 'il giorno del limite si puo scegliere');
+  assertEquals(toccaGiorno('2026-10-20', { ...C, fine: '2026-10-15' }), '');
+  assertEquals(tocca({ arrivo: '2026-10-10', partenza: '' }, '2026-10-20', { ...C, fine: '2026-10-15' }), { arrivo: '2026-10-10', partenza: '' });
+});
+
+Deno.test('l innesto su un campo esistente: nascosto, stesso id, pulsante, riallineamento, eventi', () => {
+  const m = MODULO.match(/export function innestaGiorno\([\s\S]*?\n\}/);
+  assert(m, 'innestaGiorno non si trova per intero');
+  const f = m![0];
+  assert(/campo\.type = 'hidden'/.test(f), 'il campo non diventa nascosto');
+  assert(/campo\.id \+ 'Btn'/.test(f), 'il pulsante non prende il nome dal campo');
+  assert(/setInterval\(/.test(f), 'un valore scritto dal codice non si vedrebbe');
+  assert(/\['input', 'change'\]/.test(f), 'la conferma non avvisa chi ascolta');
+  assert(/campo\.min/.test(f) && /campo\.max/.test(f), 'min e max del campo non contano');
+  assert(/modo: 'giorno'/.test(f), 'non e il calendario a un giorno solo');
+});
+
+Deno.test('le chiusure dal server: la stagione, o niente', () => {
+  const m = MODULO.match(/export async function leggiChiusure\([\s\S]*?\n\}/);
+  assert(m, 'leggiChiusure non si trova per intero');
+  assert(/\?a=stagione/.test(m![0]) && /return \[\]/.test(m![0]), 'non legge la stagione, o non tace su errore');
+});

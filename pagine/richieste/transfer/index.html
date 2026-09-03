@@ -116,6 +116,8 @@ input.vuoto:focus,select.vuoto:focus,textarea.vuoto:focus{outline:2px solid var(
    del file, e sotto un indirizzo tradotto la pagina resta bianca — vedi il
    commento in prenota/index.html e in date.js per il dettaglio. */
 import { oggiISO, attivaDate } from '/comune/date.js';
+/* il calendario a un giorno solo, con i giorni chiusi in grigio (3 settembre 2026) */
+import { innestaGiorno, leggiChiusure } from '/comune/calendario.js';
 /* IDEM PERCORSO ASSOLUTO: i parametri che i pulsanti delle email della
    reception scrivono nell'indirizzo (rif, nome, email, tel, arrivo,
    partenza, adulti, lang) — vedi il commento in cima a ospite-url.js per
@@ -134,6 +136,10 @@ import { corsaDiRitorno, navetta, ritiroPerVolo } from '/comune/navetta.js';
 import { ICONA_META, LUOGHI_ATAM, PIU_RICHIESTI } from '/comune/luoghi.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
+/* le chiusure per il calendario, dal server: arrivano dopo, il calendario le
+   legge al momento dell'apertura */
+let CHIUSURE = [];
+leggiChiusure(FUNZIONE).then((c) => { CHIUSURE = c; });
 
 const $ = (id) => document.getElementById(id);
 /* IL VALORE DI UN CAMPO. Cancellata per sbaglio il 18 agosto 2026 da una
@@ -743,6 +749,14 @@ function modulo() {
   /* #fQuando e' ricreato qui a ogni disegno di modulo(): riattivarlo in
      questo punto, non solo al primo caricamento. */
   attivaDate();
+  /* giorno della corsa e giorno del ritorno: calendario a un giorno. Il
+     ritorno tiene il suo min (il giorno dell'andata, legaDateRitorno) sul
+     campo nascosto, e il calendario lo legge quando si apre. La data
+     precompilata dall'offerta e il cambio di verso scrivono nel campo dal
+     codice: il pulsante si riallinea da solo. */
+  for (const id of ['fQuando', 'fRitornoQuando']) {
+    if ($(id)) innestaGiorno({ campo: $(id), lingua: LNG, chiusure: () => CHIUSURE });
+  }
 
   /* chi arriva dall'email della reception ha gia' meta e date nell'indirizzo:
      la navetta deve essere gia' al posto giusto, non comparire al primo tocco */

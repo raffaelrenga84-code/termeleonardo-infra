@@ -216,6 +216,8 @@ input.vuoto:focus,select.vuoto:focus,textarea.vuoto:focus{outline:2px solid var(
    del file, e sotto un indirizzo tradotto la pagina resta bianca — vedi il
    commento in prenota/index.html e in date.js per il dettaglio. */
 import { oggiISO, attivaDate, primoGiornoUtileTrattamenti } from '/comune/date.js';
+/* il calendario a un giorno solo, con i giorni chiusi in grigio (3 settembre 2026) */
+import { innestaGiorno, leggiChiusure } from '/comune/calendario.js';
 /* Tipo e lingua vanno letti anche dal PERCORSO, non solo dalla query: sotto
    un indirizzo tradotto come /it/trattamenti la query della riscrittura non
    arriva alla pagina, e leggendo solo location.search questa pagina apriva
@@ -242,6 +244,11 @@ import { codiceDaUrl, normalizzaCodice, coperturaBuono, differenzaBuono, contien
 import { mancanti, segnaEtichette, segnaVuoti, nomiMancanti } from '/comune/obbligatori.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
+/* le chiusure per il calendario, dal server: arrivano dopo, il calendario le
+   legge al momento dell'apertura; senza, nessun giorno grigio e il server
+   rifiuta comunque le date chiuse */
+let CHIUSURE = [];
+leggiChiusure(FUNZIONE).then((c) => { CHIUSURE = c; });
 /* i buoni stanno su un'altra funzione: ?a=verifica e' una LETTURA pubblica
    che dice validita' e contenuto e nessun dato personale (vedi l'azione in
    supabase/functions/buoni/index.ts). Non riscuote niente: il buono lo
@@ -1612,6 +1619,12 @@ function modulo() {
      primo caricamento. */
   attivaDate();
   if (TIPO === 'trattamenti') attivaTrattamenti(t);
+  /* il campo data del tipo (#fData o #fGiorno) diventa un calendario a un
+     giorno: min e max (il soggiorno dell'ospite, il preavviso dei
+     trattamenti) restano sul campo nascosto e il calendario li legge */
+  for (const id of ['fData', 'fGiorno']) {
+    if ($(id)) innestaGiorno({ campo: $(id), lingua: LNG, chiusure: () => CHIUSURE });
+  }
   /* La disponibilità della piscina serve al Day Spa e ai trattamenti con un
      buono che comprende anche un ingresso: in quel secondo caso il riquadro
      esiste nel markup, e senza di lui attivaDayspa() non farebbe niente. */
