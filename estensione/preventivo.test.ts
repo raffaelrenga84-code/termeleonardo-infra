@@ -1124,3 +1124,70 @@ Deno.test('la prima ricerca parte una volta sola, dopo aver compilato', () => {
     'la ricerca parte prima dei filtri compilati, o due volte');
   assert(!/addEventListener\('click', esegui\);\s*esegui\(\);/.test(MODALE), 'la ricerca parte ancora sui filtri di default, prima di compilarli');
 });
+
+/* ============================================================
+   LE PROPOSTE: la categoria chiesta piu' un'alternativa (v2.25).
+   La regola sta in una funzione pura, estratta ed ESEGUITA qui.
+   ============================================================ */
+type Riga = { categoria: string; trattamento: string; totale: number; libere: number; maxAdulti: number | null; stima?: boolean };
+const proposteDaRichiesta = (() => {
+  const m = MODALE.match(/\n  function proposteDaRichiesta\([^)]*\) \{[\s\S]*?\n  \}/);
+  if (!m) return null;
+  return new Function(m[0] + '\nreturn proposteDaRichiesta;')() as
+    (righe: Riga[], richiesta: Record<string, unknown>) => { categoria: string; trattamento: string }[];
+})();
+const RIGHE_PROVA: Riga[] = [
+  { categoria: 'Doppia', trattamento: 'Miglior Prezzo Bed & Breakfast', totale: 50000, libere: 3, maxAdulti: 2 },
+  { categoria: 'Doppia', trattamento: 'Miglior Prezzo Mezza Pensione', totale: 70000, libere: 3, maxAdulti: 2 },
+  { categoria: 'Doppia Superior', trattamento: 'Miglior Prezzo Bed & Breakfast', totale: 60000, libere: 2, maxAdulti: 2 },
+  { categoria: 'Doppia Superior', trattamento: 'Miglior Prezzo Mezza Pensione', totale: 80000, libere: 2, maxAdulti: 2 },
+  { categoria: 'Junior Suite', trattamento: 'Miglior Prezzo Mezza Pensione', totale: 100000, libere: 1, maxAdulti: 3 },
+  { categoria: 'Suite', trattamento: 'Miglior Prezzo Mezza Pensione', totale: 140000, libere: 1, maxAdulti: 4 },
+  { categoria: 'Singola Parco', trattamento: 'Miglior Prezzo Mezza Pensione', totale: 45000, libere: 1, maxAdulti: 1 },
+];
+const nomiProposte = (p: { categoria: string; trattamento: string }[]) => p.map((x) => x.categoria + ' · ' + x.trattamento);
+const proponiProva = (righe: Riga[], richiesta: Record<string, unknown>) => {
+  assert(proposteDaRichiesta, 'proposteDaRichiesta() non si trova per intero nel pannello');
+  return proposteDaRichiesta!(righe, richiesta);
+};
+
+Deno.test('proposte: la categoria chiesta col trattamento chiesto, piu quella subito piu cara', () => {
+  assertEquals(nomiProposte(proponiProva(RIGHE_PROVA, { categoriaChiesta: 'superior', trattamento: 'Mezza Pensione', adulti: 2 })),
+    ['Doppia Superior · Miglior Prezzo Mezza Pensione', 'Junior Suite · Miglior Prezzo Mezza Pensione']);
+});
+
+Deno.test('proposte: se la chiesta e la piu cara, l alternativa e quella subito sotto', () => {
+  assertEquals(nomiProposte(proponiProva(RIGHE_PROVA, { categoriaChiesta: 'suite', trattamento: 'Mezza Pensione', adulti: 2 })),
+    ['Suite · Miglior Prezzo Mezza Pensione', 'Junior Suite · Miglior Prezzo Mezza Pensione']);
+});
+
+Deno.test('proposte: senza categoria chiesta, le due meno care che tengono le persone', () => {
+  assertEquals(nomiProposte(proponiProva(RIGHE_PROVA, { trattamento: 'Mezza Pensione', adulti: 2 })),
+    ['Doppia · Miglior Prezzo Mezza Pensione', 'Doppia Superior · Miglior Prezzo Mezza Pensione']);
+  assertEquals(nomiProposte(proponiProva(RIGHE_PROVA, { trattamento: 'Mezza Pensione', adulti: 2, bambini: 1 })),
+    ['Junior Suite · Miglior Prezzo Mezza Pensione', 'Suite · Miglior Prezzo Mezza Pensione']);
+});
+
+Deno.test('proposte: trattamento non offerto per quella categoria, prima tariffa; categoria chiesta non libera, regola delle due meno care', () => {
+  assertEquals(nomiProposte(proponiProva(RIGHE_PROVA, { categoriaChiesta: 'junior', trattamento: 'Bed & Breakfast', adulti: 2 })),
+    ['Junior Suite · Miglior Prezzo Mezza Pensione', 'Suite · Miglior Prezzo Mezza Pensione']);
+  assertEquals(nomiProposte(proponiProva(RIGHE_PROVA, { categoriaChiesta: 'queen', trattamento: 'Mezza Pensione', adulti: 2 })),
+    ['Doppia · Miglior Prezzo Mezza Pensione', 'Doppia Superior · Miglior Prezzo Mezza Pensione']);
+});
+
+Deno.test('proposte: le stime non si propongono mai, e una categoria sola da una proposta sola', () => {
+  const conStima = RIGHE_PROVA.map((r) => r.categoria === 'Junior Suite' ? { ...r, stima: true } : r);
+  assertEquals(nomiProposte(proponiProva(conStima, { categoriaChiesta: 'superior', trattamento: 'Mezza Pensione', adulti: 2 })),
+    ['Doppia Superior · Miglior Prezzo Mezza Pensione', 'Suite · Miglior Prezzo Mezza Pensione']);
+  assertEquals(nomiProposte(proponiProva(RIGHE_PROVA.filter((r) => r.categoria === 'Doppia'), { trattamento: 'Mezza Pensione', adulti: 2 })),
+    ['Doppia · Miglior Prezzo Mezza Pensione']);
+  assertEquals(proponiProva([], { adulti: 2 }), []);
+});
+
+Deno.test('le proposte entrano dai pulsanti «+ Prev.», la barra lo dice, e niente parte da solo', () => {
+  assert(/function togliOMetti\(b\)/.test(MODALE), 'la logica di «+ Prev.» non e una funzione riusabile');
+  assert(/RIGHE\.push\(\{ categoria: nome, trattamento: rv\.full_name \|\| rv\.name, totale: c\.totale/.test(MODALE), 'le righe non si raccolgono per le proposte');
+  assert(/if \(RICHIESTA_LETTA && !SCELTE\.length\) proponi\(RIGHE\)/.test(MODALE), 'le proposte non partono dopo i risultati, o partono sopra una scelta gia fatta');
+  assert(/proposte dalla richiesta/.test(MODALE), 'la barra non dice che le sistemazioni sono proposte');
+  assert(!/creaPreventivo\(\);?\s*\}\)\(\)/.test(MODALE), 'il preventivo parte da solo');
+});
