@@ -640,6 +640,10 @@
        successiva, e riproporla sarebbe peggio che non averla. */
     const SCELTE = [];
     const MAX_SCELTE = 4;
+    /* v2.25 — la richiesta letta in Outlook, se fresca: da qui prendono i
+       filtri (compilaDaRichiesta) e le proposte (proponi). Null se non c'e'
+       o e' vecchia: allora il pannello lavora come sempre. */
+    let RICHIESTA_LETTA = null;
     const wrap = document.createElement('div');
     wrap.id = 'leoDispWrap';
     const pren = datiPrenotazione();
@@ -741,7 +745,43 @@
       if ($('dPartenza').value <= $('dArrivo').value) $('dPartenza').value = piuGiorni($('dArrivo').value, 1);
     });
     $('dCerca').addEventListener('click', esegui);
-    esegui();
+
+    /* v2.25 — CHI RISPONDE A UN'EMAIL NON RIBATTE LE DATE. Senza una
+       prenotazione aperta, i filtri si compilano dalla richiesta letta in
+       Outlook e la ricerca parte da sola; con una prenotazione aperta
+       comanda la prenotazione, come sempre. La prima ricerca parte UNA
+       volta, dopo: prima partiva sui filtri di default e la seconda
+       avrebbe sovrascritto la prima. */
+    async function compilaDaRichiesta() {
+      if (!ESTENSIONE) return false;
+      try {
+        const r = await chrome.storage.local.get(['leonardo_richiesta']);
+        const q = r.leonardo_richiesta;
+        if (!q || Date.now() - (q.quando || 0) > 60 * 60 * 1000 || !q.arrivo) return false;
+        RICHIESTA_LETTA = q;
+        $('dArrivo').value = q.arrivo;
+        $('dPartenza').value = q.partenza || piuGiorni(q.arrivo, q.notti || 3);
+        const avvisi = [];
+        if (q.adulti) $('dAdulti').value = String(Math.min(6, q.adulti));
+        else avvisi.push('persone non lette: controlla');
+        $('dBambini').value = String(Math.min(4, q.bambini || 0));
+        campiEta();
+        const eta = String(q.etaBambini || '').trim().split(/\s+/).filter(Boolean);
+        [...$('dEta').querySelectorAll('input')].forEach((inp, i) => { if (eta[i] != null) inp.value = eta[i]; });
+        if ((q.dedotti || []).includes('notti')) avvisi.push('notti dedotte dai giorni scritti: controlla la partenza');
+        if ((q.dedotti || []).includes('adulti')) avvisi.push('adulti dedotti dal tipo di camera: controlla');
+        if (!q.partenza && !q.notti) avvisi.push('partenza non letta: messa a tre notti');
+        $('dEsito').innerHTML = '<span style="color:#8C7A45;">Compilato dalla richiesta aperta in Outlook' +
+          (q.oggetto ? ' &laquo;' + esc(q.oggetto.slice(0, 60)) + '&raquo;' : '') + ' &mdash; rileggi prima di mandare' +
+          (avvisi.length ? ' &middot; ' + avvisi.map(esc).join(' &middot; ') : '') + '.</span>';
+        return true;
+      } catch (e) { return false; }
+    }
+
+    (async () => {
+      const compilato = !pren && await compilaDaRichiesta();
+      esegui();
+    })();
 
     async function esegui() {
       const arrivo = $('dArrivo').value, partenza = $('dPartenza').value;
@@ -752,7 +792,7 @@
         return;
       }
       $('dCerca').disabled = true;
-      $('dEsito').textContent = 'Chiedo a Fidra\u2026';
+      if (!RICHIESTA_LETTA) $('dEsito').textContent = 'Chiedo a Fidra\u2026';
       SUPPL = await leggiSupplementi();
       $('dRis').innerHTML = '';
       try {
@@ -763,7 +803,8 @@
           $('dEsito').innerHTML = `<span style="color:#B3261E;">In questo periodo il
             <strong>${ch.motivo}</strong> (${ch.da.slice(8)}/${ch.da.slice(5,7)} &ndash;
             ${ch.a.slice(8)}/${ch.a.slice(5,7)}): le tariffe con cure non sono utilizzabili.</span>`;
-        } else {
+        } else if (!RICHIESTA_LETTA) {
+          /* la nota «compilato dalla richiesta» resta a video */
           $('dEsito').textContent = '';
         }
       } catch (e) {

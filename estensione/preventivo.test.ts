@@ -1100,3 +1100,27 @@ Deno.test('il tedesco non lascia il verbo per strada', () => {
   assert(/kann dazugebucht werden: /.test(html), 'il verbo tedesco e tornato in fondo alla frase');
   assert(!/enthalten dazubuchen/.test(html), 'il verbo e finito dopo la frase sui bambini');
 });
+
+/* ============================================================
+   IL PANNELLO COMPILA I FILTRI DALLA RICHIESTA E CERCA DA SOLO (v2.25).
+   Date e persone le ribatteva l'operatore. Prove sul sorgente: il pannello
+   vive dentro Fidra e fuori dal browser non si esegue.
+   ============================================================ */
+Deno.test('il pannello compila arrivo, partenza, adulti e bambini dalla richiesta, solo senza prenotazione aperta', () => {
+  const f = MODALE.match(/async function compilaDaRichiesta\(\) \{([\s\S]*?)\n    \}/);
+  assert(f, 'compilaDaRichiesta() non si trova per intero');
+  for (const campo of ['dArrivo', 'dPartenza', 'dAdulti', 'dBambini']) {
+    assert(f![1].includes("$('" + campo + "').value = "), `non scrive ${campo}`);
+  }
+  assert(/60 \* 60 \* 1000/.test(f![1]), 'una richiesta vecchia verrebbe usata lo stesso');
+  assert(/Compilato dalla richiesta/.test(f![1]), 'non dice che i filtri vengono dalla richiesta');
+  assert(/persone non lette/.test(f![1]), 'con gli adulti non letti non lo dice');
+  assert(/notti dedotte/.test(f![1]), 'con le notti dedotte non lo dice');
+  assert(/!pren && await compilaDaRichiesta\(\)/.test(MODALE), 'compila anche con una prenotazione aperta, che invece comanda');
+});
+
+Deno.test('la prima ricerca parte una volta sola, dopo aver compilato', () => {
+  assert(/const compilato = !pren && await compilaDaRichiesta\(\);\s*esegui\(\);/.test(MODALE),
+    'la ricerca parte prima dei filtri compilati, o due volte');
+  assert(!/addEventListener\('click', esegui\);\s*esegui\(\);/.test(MODALE), 'la ricerca parte ancora sui filtri di default, prima di compilarli');
+});
