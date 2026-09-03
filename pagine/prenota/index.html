@@ -363,6 +363,8 @@ import { accorpa } from '/prenota/famiglie.js';
 /* PERCORSO ASSOLUTO, stessa ragione. L'indirizzo pubblico dei moduli
    transfer e trattamenti, coi dati dell'ospite gia' dentro. */
 import { indirizzoModulo } from '/comune/percorso.js';
+/* la chiusura invernale: testi e regole in un modulo provato, le date dal server */
+import { dataEstesa, dateDallaRiapertura, messaggioChiuso, rigaChiusiOra, TESTI } from '/prenota/chiusura.js';
 /* PERCORSO ASSOLUTO, stessa ragione. Dopo una certa ora il giorno stesso
    non si prenota da qui — il perche' sta in giorno-stesso.js. */
 import { chiusoPerOggi, oraLimite } from '/prenota/giorno-stesso.js';
@@ -391,6 +393,27 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
    dell'hotel gli indirizzi sono /it/prenota, /de/buchen, /en/book,
    /fr/reserver e li' `?l=` non c'e'. Regole e precedenze in logica.js. */
 let LNG = linguaScelta(location.pathname, normalizzaLingua(location.search), navigator.language);
+
+/* LA STAGIONE DI CHIUSURA, letta dal server all'avvio (a=stagione): null
+   finche' non arriva, e null se il server non la sa — niente date inventate,
+   la pagina resta com'era. Con la stagione in corso, in cima compare la riga
+   «siamo chiusi fino al…»; con date dentro la chiusura la ricerca risponde
+   «chiuso» (vedi cercaDisponibilita). Deciso il 3 settembre 2026. */
+let STAGIONE = null;
+async function leggiStagione() {
+  try {
+    const r = await fetch(FUNZIONE + '?a=stagione');
+    const d = await r.json().catch(() => ({}));
+    STAGIONE = d && d.stagione && d.stagione.chiusura ? d.stagione : null;
+  } catch (e) { STAGIONE = null; }
+  if (STAGIONE) disegna();
+}
+const oggiISOUTC = () => new Date().toISOString().slice(0, 10);
+const nottiFra = (a, p) => Math.round((new Date(p + 'T12:00:00Z') - new Date(a + 'T12:00:00Z')) / 86400000);
+function rigaChiusura() {
+  const testo = rigaChiusiOra(STAGIONE, oggiISOUTC(), LNG);
+  return testo ? `<div class="avviso" style="border-left-color:#C9A961;background:#FBF6EA;">${esc(testo)}</div>` : '';
+}
 
 /* Il ripiego per chi non ha un token: dati dell'ospite letti dall'indirizzo
    stesso, come li scrivono i pulsanti delle email della reception. Questa
@@ -973,6 +996,7 @@ function schermaRicerca(erroreIniziale) {
   const t = T[LNG];
   const r = RICERCA || { arrivo: ARRIVO_URL, partenza: PARTENZA_URL, adulti: DA_URL.adulti || 2, bambini: 0 };
   $('app').innerHTML = `
+    ${rigaChiusura()}
     <div class="avviso">${esc(t.sotto)}</div>
     ${quantaCameraHTML(t)}
     ${carrelloHTML(t)}
@@ -1107,6 +1131,25 @@ async function cercaDisponibilita() {
     BUONO = null;
     BUONO_KO = '';
 
+    /* SIAMO CHIUSI IN QUELLE DATE: non e' «nessuna camera». Si dicono le
+       date e si offre di cercare dalla riapertura con le stesse notti. */
+    if (d.chiuso) {
+      CERCANDO = false;
+      $('bCerca').disabled = false;
+      $('bCerca').textContent = t.cerca;
+      const nuove = dateDallaRiapertura(d.chiuso.riapertura, nottiFra(arrivo, partenza));
+      const testoCerca = (TESTI[LNG] || TESTI.it).cerca(dataEstesa(d.chiuso.riapertura, LNG));
+      $('esitoRicerca').innerHTML = `<div class="errore" style="border-left-color:#C9A961;background:#FBF6EA;color:#5C4A1E;">
+        ${esc(messaggioChiuso(d.chiuso, LNG))}
+        <div style="margin-top:10px;"><button type="button" id="bDallaRiapertura" class="azione">${esc(testoCerca)}</button></div>
+      </div>`;
+      $('bDallaRiapertura').onclick = () => {
+        $('fArrivo').value = nuove.arrivo;
+        $('fPartenza').value = nuove.partenza;
+        cercaDisponibilita();
+      };
+      return;
+    }
     if (!PROPOSTE.length) {
       CERCANDO = false;
       $('bCerca').disabled = false;
@@ -2183,6 +2226,7 @@ if (DA_URL.insieme) {
   )}</div>`;
 }
 disegna();
+leggiStagione();
 </script>
 </body>
 </html>

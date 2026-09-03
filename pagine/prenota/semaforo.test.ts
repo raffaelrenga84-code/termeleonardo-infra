@@ -34,14 +34,15 @@ function daAccensione(nome: string): string {
 
 const quante = (testo: string, pezzo: string) => testo.split(pezzo).length - 1;
 
-Deno.test('la ricerca spegne il semaforo su tutte e tre le strade', () => {
-  /* nessuna camera, camere trovate, guasto: tre uscite, tre spegnimenti.
-     Erano due su tre, e la mancante era proprio quella che si percorre
-     sempre. */
+Deno.test('la ricerca spegne il semaforo su tutte e quattro le strade', () => {
+  /* chiuso in quelle date, nessuna camera, camere trovate, guasto: quattro
+     uscite, quattro spegnimenti. Erano due su tre, e la mancante era
+     proprio quella che si percorre sempre; la quarta e' del 3 settembre
+     2026, quando la ricerca ha imparato a dire «siamo chiusi». */
   const dopo = daAccensione('CERCANDO');
   assertEquals(
     quante(dopo, 'CERCANDO = false'),
-    3,
+    4,
     'il semaforo della ricerca non si spegne su tutte le uscite: ' +
       'tornando indietro il pulsante «Vedi le camere» resta morto',
   );

@@ -59,3 +59,27 @@ Deno.test('il messaggio della ricerca dice le date e la riapertura, in quattro l
   assert(messaggioChiuso(S, 'fr').includes('13 février 2027'));
   assertEquals(TESTI.it.cerca('13 febbraio 2027'), 'Cerca dal 13 febbraio 2027');
 });
+
+/* ---------- e la pagina li usa davvero ---------- */
+const PAGINA = Deno.readTextFileSync(new URL('index.html', import.meta.url));
+
+Deno.test('la pagina legge la stagione dal server e mostra la riga in cima', () => {
+  assert(/from '\/prenota\/chiusura\.js'/.test(PAGINA), 'la pagina non importa chiusura.js');
+  assert(/FUNZIONE \+ '\?a=stagione'/.test(PAGINA), 'la pagina non chiede la stagione al server');
+  assert(/rigaChiusiOra\(STAGIONE, /.test(PAGINA), 'la riga in cima non si disegna dalla stagione letta');
+  const riga = PAGINA.indexOf('rigaChiusura()');
+  const guida = PAGINA.indexOf('<div class="avviso">${esc(t.sotto)}</div>');
+  assert(riga > 0 && guida > 0 && riga < guida, 'la riga della chiusura non sta sopra la guida');
+  assert(/\nleggiStagione\(\);/.test(PAGINA), 'nessuno chiama leggiStagione(): la stagione non arriverebbe mai');
+});
+
+Deno.test('con «chiuso» la ricerca non dice «nessuna camera»: dice le date e offre di cercare dalla riapertura', () => {
+  const m = PAGINA.match(/if \(d\.chiuso\) \{([\s\S]*?)\n    \}/);
+  assert(m, 'manca il ramo chiuso nella ricerca');
+  assert(/messaggioChiuso\(d\.chiuso, LNG\)/.test(m![1]), 'non usa il messaggio del modulo');
+  assert(/dateDallaRiapertura\(d\.chiuso\.riapertura, /.test(m![1]), 'il pulsante non riparte dalla riapertura con le stesse notti');
+  assert(/cercaDisponibilita\(\)/.test(m![1]), 'il pulsante non rilancia la ricerca');
+  const chiuso = PAGINA.indexOf('if (d.chiuso) {');
+  const nessuna = PAGINA.indexOf('${esc(t.nessunaCamera)}');
+  assert(chiuso > 0 && chiuso < nessuna, 'il ramo chiuso viene dopo «nessuna camera»: non si vedrebbe mai');
+});
