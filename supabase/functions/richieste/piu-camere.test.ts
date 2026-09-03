@@ -24,6 +24,24 @@
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { altreCamere, CAMERE_MAX, conIlNumero } from './piu-camere.ts';
 
+/* DATE RELATIVE A OGGI, NON FISSE. Il validatore rifiuta un arrivo nel
+   passato (valida.ts: `arrivo < adesso`) e con le date scritte a mano
+   queste prove sono diventate rosse da sole il 3 settembre 2026, il giorno
+   dopo la data che avevano dentro, senza che nessuno avesse toccato
+   niente. Trenta giorni avanti: lontano da oggi, dentro i due anni del
+   limite. Le distanze fra le date restano quelle di prima: diciotto notti
+   la prima camera, due la seconda. */
+const fra = (n: number): string => {
+  const o = new Date();
+  return new Date(Date.UTC(o.getUTCFullYear(), o.getUTCMonth(), o.getUTCDate() + n))
+    .toISOString().slice(0, 10);
+};
+const ARRIVO = fra(30);            // era '2026-09-02'
+const PARTENZA_18 = fra(48);       // era '2026-09-20': diciotto notti
+const PARTENZA_2 = fra(32);        // era '2026-09-04': due notti
+const PRIMA_DELL_ARRIVO = fra(29); // era '2026-09-01': la partenza precede l'arrivo
+
+
 const PERSONA = {
   nome: 'Mario Rossi',
   email: 'mario@example.com',
@@ -33,8 +51,8 @@ const PERSONA = {
 };
 
 const CAMERA_1 = {
-  check_in: '2026-09-02',
-  check_out: '2026-09-20',
+  check_in: ARRIVO,
+  check_out: PARTENZA_18,
   ospiti: 1,
   tipo_camera: 'Matrimoniale Queen',
   pacchetto: 'Dolce Vita',
@@ -43,8 +61,8 @@ const CAMERA_1 = {
 
 /* la seconda camera della #18968: due notti invece di diciotto */
 const CAMERA_2 = {
-  check_in: '2026-09-02',
-  check_out: '2026-09-04',
+  check_in: ARRIVO,
+  check_out: PARTENZA_2,
   ospiti: 2,
   tipo_camera: 'Doppia',
   pacchetto: 'Soggiorno breve',
@@ -63,8 +81,8 @@ Deno.test('una seconda camera con date SUE passa e resta sua', () => {
   assertEquals(e.errore, undefined);
   assertEquals(e.camere?.length, 1);
   const c = e.camere![0];
-  assertEquals(c.colonne?.check_in, '2026-09-02');
-  assertEquals(c.colonne?.check_out, '2026-09-04', 'la seconda camera ha preso le date della prima');
+  assertEquals(c.colonne?.check_in, ARRIVO);
+  assertEquals(c.colonne?.check_out, PARTENZA_2, 'la seconda camera ha preso le date della prima');
   assertEquals(c.colonne?.tipo_camera, 'Doppia');
   assertEquals(c.dati?.prezzo_cent, 29000);
 });
@@ -88,7 +106,7 @@ Deno.test('una camera in piu si convalida come la prima', () => {
   const e = altreCamere({
     ...PERSONA,
     ...CAMERA_1,
-    altre: [{ ...CAMERA_2, check_out: '2026-09-01' }],
+    altre: [{ ...CAMERA_2, check_out: PRIMA_DELL_ARRIVO }],
   });
   assert(e.errore, 'una partenza prima dell arrivo e passata');
 });

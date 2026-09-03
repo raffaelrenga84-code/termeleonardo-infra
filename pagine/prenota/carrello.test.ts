@@ -35,6 +35,23 @@ import { SUPPLEMENTO_CANE_CENT } from './cane.js';
 import { SUPPLEMENTO_CULLA_CENT } from './culla.js';
 import { altreCamere, CAMERE_MAX } from '../../supabase/functions/richieste/piu-camere.ts';
 
+/* DATE RELATIVE A OGGI, NON FISSE. Il validatore rifiuta un arrivo nel
+   passato (valida.ts: `arrivo < adesso`) e con le date scritte a mano
+   queste prove sono diventate rosse da sole il 3 settembre 2026, il giorno
+   dopo la data che avevano dentro, senza che nessuno avesse toccato
+   niente. Trenta giorni avanti: lontano da oggi, dentro i due anni del
+   limite. Le distanze fra le date restano quelle di prima: diciotto notti
+   la prima camera, due la seconda. */
+const fra = (n: number): string => {
+  const o = new Date();
+  return new Date(Date.UTC(o.getUTCFullYear(), o.getUTCMonth(), o.getUTCDate() + n))
+    .toISOString().slice(0, 10);
+};
+const ARRIVO = fra(30);            // era '2026-09-02'
+const PARTENZA_18 = fra(48);       // era '2026-09-20': diciotto notti
+const PARTENZA_2 = fra(32);        // era '2026-09-04': due notti
+
+
 const PAGINA = Deno.readTextFileSync(new URL('index.html', import.meta.url))
   .split('\r\n').join('\n');
 
@@ -132,7 +149,7 @@ const T = {
 
 /* la prenotazione #18968, quella vera: due camere, periodi diversi */
 const DICIOTTO_NOTTI: Camera = {
-  ricerca: { arrivo: '2026-09-02', partenza: '2026-09-20', adulti: 1, bambini: 0 },
+  ricerca: { arrivo: ARRIVO, partenza: PARTENZA_18, adulti: 1, bambini: 0 },
   scelta: {
     nome: 'Matrimoniale Queen', tariffa: 'Dolce Vita 10 cure', trattamento: 'Mezza Pensione',
     camera_id: 6, variante_id: 61, prezzo_cent: 319100,
@@ -140,7 +157,7 @@ const DICIOTTO_NOTTI: Camera = {
   caparraCent: 30000,
 };
 const DUE_NOTTI: Camera = {
-  ricerca: { arrivo: '2026-09-02', partenza: '2026-09-04', adulti: 2, bambini: 0 },
+  ricerca: { arrivo: ARRIVO, partenza: PARTENZA_2, adulti: 2, bambini: 0 },
   scelta: {
     nome: 'Doppia', tariffa: 'Soggiorno breve', trattamento: 'Mezza Pensione',
     camera_id: 5, variante_id: 52, prezzo_cent: 29000,
@@ -170,8 +187,8 @@ Deno.test('ogni camera si porta dietro le SUE date, non le ultime', () => {
      condividesse, la seconda camera cambierebbe le date della prima. */
   banco.metti([DICIOTTO_NOTTI], DUE_NOTTI.scelta, DUE_NOTTI.ricerca, 0);
   const [a, b] = banco.tutteLeCamere();
-  assertEquals(a.ricerca.partenza, '2026-09-20');
-  assertEquals(b.ricerca.partenza, '2026-09-04');
+  assertEquals(a.ricerca.partenza, PARTENZA_18);
+  assertEquals(b.ricerca.partenza, PARTENZA_2);
 });
 
 Deno.test('la camera in mano e una COPIA della ricerca, non un riferimento', () => {
@@ -181,7 +198,7 @@ Deno.test('la camera in mano e una COPIA della ricerca, non un riferimento', () 
   banco.metti([], DUE_NOTTI.scelta, ricerca, 0);
   const prima = banco.tutteLeCamere()[0];
   ricerca.partenza = '2026-12-31';
-  assertEquals(prima.ricerca.partenza, '2026-09-04');
+  assertEquals(prima.ricerca.partenza, PARTENZA_2);
 });
 
 /* ============ quello che si vede ============ */
@@ -195,9 +212,9 @@ Deno.test('il carrello mostra nome, date, tariffa, prezzo e il totale', () => {
   banco.metti([DICIOTTO_NOTTI, DUE_NOTTI], null, {}, 0);
   const html = banco.carrelloHTML(T);
   assertStringIncludes(html, 'Matrimoniale Queen');
-  assertStringIncludes(html, '2026-09-20');
+  assertStringIncludes(html, PARTENZA_18);
   assertStringIncludes(html, 'Doppia');
-  assertStringIncludes(html, '2026-09-04');
+  assertStringIncludes(html, PARTENZA_2);
   assertStringIncludes(html, euroDaCentesimi(319100));
   assertStringIncludes(html, 'Totale');
   assertStringIncludes(html, euroDaCentesimi(348100));
@@ -309,8 +326,8 @@ Deno.test('il corpo che costruisce la pagina lo accetta il server', () => {
   assertEquals(esito.errore, undefined);
   assertEquals(esito.camere?.length, 1);
   const seconda = esito.camere![0].colonne as Record<string, unknown>;
-  assertEquals(seconda.check_in, '2026-09-02');
-  assertEquals(seconda.check_out, '2026-09-04');
+  assertEquals(seconda.check_in, ARRIVO);
+  assertEquals(seconda.check_out, PARTENZA_2);
   assertEquals(seconda.tipo_camera, 'Doppia');
   /* i contatti restano quelli della PERSONA, una volta sola */
   assertEquals(seconda.email, 'mario@example.com');
@@ -318,13 +335,13 @@ Deno.test('il corpo che costruisce la pagina lo accetta il server', () => {
 
 Deno.test('e cinque camere passano, sei no', () => {
   const una = corpoCamera({
-    scelta: DUE_NOTTI.scelta, checkIn: '2026-09-02', checkOut: '2026-09-04',
+    scelta: DUE_NOTTI.scelta, checkIn: ARRIVO, checkOut: PARTENZA_2,
     adulti: 2, bambini: 0, caparraCent: 0,
   });
   const conQuante = (n: number) => {
     const corpo: Record<string, unknown> = componiCorpo({
       scelta: DUE_NOTTI.scelta, nome: 'Mario Rossi', email: 'mario@example.com',
-      telefono: '3331234567', checkIn: '2026-09-02', checkOut: '2026-09-04',
+      telefono: '3331234567', checkIn: ARRIVO, checkOut: PARTENZA_2,
       adulti: 2, bambini: 0, caparraCent: 0, note: '', lingua: 'it',
     });
     corpo.altre = Array.from({ length: n - 1 }, () => ({ ...una }));
