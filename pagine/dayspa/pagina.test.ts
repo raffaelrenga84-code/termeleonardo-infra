@@ -68,6 +68,22 @@ Deno.test('la pagina di grazie aspetta il webhook interrogando lo stato, e i tre
   for (const id of ['passoQuando', 'passoChi', 'passoDati']) assert(P.includes(`id="${id}"`), `manca ${id}`);
 });
 
+Deno.test('niente salti mentre carica: l avviso di prova si decide subito, la nota della chiusura sta sotto i giorni, il pulsante dice cosa manca', () => {
+  /* Lighthouse da telefono, 3 settembre 2026: CLS 0,69. L'avviso di prova
+     compariva in cima quando rispondeva il server e spingeva tutto giu';
+     la nota della chiusura pure, sopra i sette giorni. */
+  const m = modulo();
+  assert(/\$\('avvisoProva'\)\.hidden = !PROVA/.test(m), 'l avviso di prova viene dalla costante della pagina, non dal server');
+  assert(P.indexOf('id="giorni"') < P.indexOf('id="notaChiusura"'), 'la nota della chiusura sta sotto i giorni, cosi non li sposta');
+  assert(/\$\('bPaga'\)\.textContent = [^;]*scegliGiorno/.test(m), 'senza giorno e fascia il pulsante dice «Scelga il giorno», non un «Paga» spento');
+});
+
+Deno.test('i testi piccoli si leggono: giorno e mese sui pulsanti, occhiello e pie di pagina non in grigio chiaro', () => {
+  assert(/\.gg \.s\{[^}]*var\(--verde-medio\)/.test(P) && /\.gg \.m\{[^}]*var\(--verde-medio\)/.test(P), 'giorno della settimana e mese sui pulsanti');
+  assert(/\.occhiello\{[^}]*#6E5228/.test(P), 'l occhiello sul verde chiaro della testata');
+  assert(/\.pie\{[^}]*#5E5A52/.test(P), 'il pie di pagina');
+});
+
 Deno.test('la lingua viene dall indirizzo e i dati precompilati pure', () => {
   const m = modulo();
   assert(/normalizzaLingua\(/.test(m) && /parametriOspite\(/.test(m));

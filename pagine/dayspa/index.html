@@ -25,7 +25,9 @@ body{margin:0;background:var(--crema);color:#2A2E2B;font:15px/1.6 -apple-system,
   border:1px solid rgba(26,54,38,.15);background:rgba(255,255,255,.8);color:var(--verde-medio);cursor:pointer;}
 .testata img{width:210px;max-width:60%;height:auto;display:block;margin:0 auto;}
 h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:34px;line-height:1.2;color:var(--verde);margin:20px 0 8px;}
-.occhiello{font-size:11px;letter-spacing:3px;color:var(--bronzo);text-transform:uppercase;}
+/* bronzo scuro: sul verde chiaro della testata il bronzo normale non
+   arrivava al contrasto minimo per un testo di 11 px */
+.occhiello{font-size:11px;letter-spacing:3px;color:#6E5228;text-transform:uppercase;}
 .sotto{color:var(--verde-medio);max-width:560px;margin:0 auto;}
 main{max-width:640px;margin:0 auto;padding:26px 18px 60px;}
 .riquadro{background:#fff;border:1px solid #E5E0D8;border-radius:14px;padding:22px;margin-bottom:18px;}
@@ -40,9 +42,9 @@ input.vuoto{border-color:var(--allarme);}
    dello stato sotto; il giorno scelto e' verde pieno */
 .giorni{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin-top:8px;}
 .gg{border:1px solid #DCD6CB;border-radius:10px;background:#FCFBF8;padding:8px 2px 6px;text-align:center;cursor:pointer;font:inherit;color:#2A2E2B;min-height:78px;}
-.gg .s{display:block;font-size:11px;color:var(--grigio);text-transform:uppercase;letter-spacing:.5px;}
+.gg .s{display:block;font-size:11.5px;color:var(--verde-medio);text-transform:uppercase;letter-spacing:.5px;}
 .gg .n{display:block;font-size:20px;line-height:1.25;font-family:"Cormorant Garamond",Georgia,serif;}
-.gg .m{display:block;font-size:11px;color:var(--grigio);}
+.gg .m{display:block;font-size:11.5px;color:var(--verde-medio);}
 .gg .st{display:block;font-size:10px;line-height:1.2;color:var(--bronzo);margin-top:3px;min-height:12px;}
 .gg:focus{outline:2px solid var(--acqua);}
 .gg.scelto{background:var(--verde);color:#fff;border-color:var(--verde);}
@@ -83,7 +85,7 @@ input.vuoto{border-color:var(--allarme);}
 .bottone:disabled{opacity:.5;cursor:default;}
 .grazie{text-align:center;padding:30px 20px;}
 .grazie .numero{font-family:ui-monospace,Menlo,monospace;font-size:20px;letter-spacing:2px;color:var(--verde);margin-top:8px;}
-.pie{max-width:640px;margin:0 auto;padding:0 18px 40px;color:var(--grigio);font-size:12px;text-align:center;}
+.pie{max-width:640px;margin:0 auto;padding:0 18px 40px;color:#5E5A52;font-size:12px;text-align:center;}
 </style>
 </head>
 <body>
@@ -105,9 +107,11 @@ input.vuoto{border-color:var(--allarme);}
     <h2><small>1</small><span id="tQuando"></span></h2>
     <p class="guida" id="tQuandoGuida"></p>
     <p class="nota" id="tOrizzonte"></p>
-    <div class="avviso" id="notaChiusura" hidden></div>
     <label id="tGiorno"></label>
     <div class="giorni" id="giorni"></div>
+    <!-- sotto i giorni, non sopra: arriva dal server dopo, e sopra li
+         spingerebbe giu' mentre l'ospite sta per toccarli -->
+    <div class="avviso" id="notaChiusura" hidden style="margin-top:10px;"></div>
     <input type="hidden" id="fGiorno" />
     <div class="fasce" id="fasce"></div>
   </section>
@@ -271,7 +275,6 @@ async function caricaListino() {
     const d = await r.json();
     if (d.esito !== 'ok') throw new Error(d.errore || r.status);
     LISTINO = d;
-    $('avvisoProva').hidden = !d.prova;
   } catch (e) {
     console.error('listino non letto', e);
     mostraErrore(t().erroreServer);
@@ -321,11 +324,17 @@ function disegnaTotale() {
   $('bambiniPiu').disabled = ADULTI + BAMBINI >= max;
   const f = fasciaScelta();
   const persone = ADULTI + BAMBINI;
-  if (!f) { $('totale').textContent = '—'; $('totaleDettaglio').textContent = ''; $('bPaga').disabled = true; return; }
+  if (!f) {
+    /* il pulsante dice cosa manca invece di stare spento senza spiegazione */
+    $('totale').textContent = '—'; $('totaleDettaglio').textContent = '';
+    $('bPaga').textContent = x.scegliGiorno; $('bPaga').disabled = true;
+    return;
+  }
   /* il prezzo e' quello che il server ha mandato per quella fascia: la
      pagina moltiplica, non decide */
   $('totale').textContent = euro(f.prezzoCent * persone);
   $('totaleDettaglio').textContent = `${x.persone(persone)} × ${euro(f.prezzoCent)}`;
+  $('bPaga').textContent = `${x.paga} ${euro(f.prezzoCent * persone)}`;
   $('bPaga').disabled = false;
 }
 
@@ -415,6 +424,9 @@ if (PROVA && Q.get('k') !== CHIAVE_PROVA && !Q.get('grazie')) {
   const giorno = Q.get('giorno');
   if (giorno && setteGiorni(oggiLocale()).includes(giorno)) $('fGiorno').value = giorno;
 
+  /* l'avviso di prova si decide qui, subito: aspettare il server lo faceva
+     comparire dopo, spingendo giu' tutta la pagina */
+  $('avvisoProva').hidden = !PROVA;
   testi();
   leggiChiusure(RICHIESTE).then((c) => { CHIUSURE = c; disegnaGiorni(); });
   caricaListino();

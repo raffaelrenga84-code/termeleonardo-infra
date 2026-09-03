@@ -76,6 +76,23 @@ Deno.test('la lettura da Fidra e riservata, passa dal modulo puro e chiede una p
   assert(!/termeleonardo\.com\/it\/api/.test(senzaCommenti(S)), 'l indirizzo dell API del sito precedente sta in fidra.ts, non qui');
 });
 
+Deno.test('il totem in hall segna i presenti con la sua chiave, solo col QR, solo per oggi, e non legge altro', () => {
+  /* «procedi»: l'obliterazione fai da te in hall (la proprieta', 3
+     settembre 2026). La chiave del totem apre UNA cosa sola: segnare i
+     presenti della prenotazione di cui ha letto il QR, e solo se e' per
+     oggi. Niente numero digitato, niente elenco, niente email o telefono
+     nella risposta. */
+  const s = S.slice(S.indexOf("azione === 'presenti'"), S.indexOf("azione === 'elenco'"));
+  assert(/Deno\.env\.get\('TOTEM_KEY'\)/.test(s) && /x-totem-key/.test(s), 'manca la chiave del totem');
+  assert(/totem && !codice/.test(s) || /totem && numero/.test(s), 'col totem vale solo il codice del QR');
+  assert(/totem && p\.giorno !== oggiRoma\(\)/.test(s), 'col totem vale solo oggi');
+  assert(/totem \? \{ nome: agg\.nome, persone: agg\.persone, presenti: agg\.presenti \}/.test(s), 'al totem torna il minimo: nome, persone, presenti');
+  /* e la presenza del totem non apre le altre azioni riservate */
+  const confine = S.indexOf('/* ---------- riservati');
+  const riservate = S.slice(confine, S.indexOf("azione === 'presenti'"));
+  assert(!/x-totem-key/.test(riservate), 'la chiave del totem non deve passare dal cancello generale');
+});
+
 Deno.test('in modalita di prova ogni prenotazione porta il segno', () => {
   assert(/const PROVA = Deno\.env\.get\('DAYSPA_PROVA'\) === '1'/.test(S));
   assert(/prova: PROVA/.test(S));

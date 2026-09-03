@@ -49,6 +49,22 @@ Deno.test('l esito e grande, verde o rosso, e l elenco del giorno permette di se
   assert(/setInterval\(/.test(m), 'l elenco si aggiorna da solo: due tablet o il PC vedono la stessa cosa');
 });
 
+Deno.test('modalita totem: senza accesso, con la chiave del dispositivo, solo il QR, nessun elenco, torna al riposo da sola', () => {
+  /* la convalida fai da te in hall, come il totem di Fidra: un campo col
+     fuoco per il lettore, un benvenuto grande per qualche secondo, poi di
+     nuovo «Appoggi il QR». Il totem e' pubblico: mai l'elenco del giorno. */
+  const m = modulo();
+  assert(/\.get\('totem'\)/.test(m), 'la modalita totem si accende dall indirizzo, con la chiave');
+  assert(/'x-totem-key': TOTEM/.test(m), 'le chiamate del totem portano la chiave del dispositivo, non un token');
+  assert(/if \(TOTEM\) \{[\s\S]*?totem\(\);[\s\S]*?return;/.test(m), 'col totem non si chiede l accesso');
+  const t = m.slice(m.indexOf('function totem('), m.indexOf('function sportello('));
+  assert(t.length > 200, 'la modalita totem e una funzione sua');
+  assert(!/a=oggi/.test(t) && !/data-segna/.test(t), 'il totem non legge e non mostra l elenco del giorno');
+  assert(/a=presenti/.test(t) && /\{ codice \}|codice:/.test(t), 'il totem manda solo il codice del QR');
+  assert(/setTimeout\([^)]*riposo/.test(t) || /riposo\(\)/.test(t), 'dopo il benvenuto si torna al riposo');
+  assert(/Benvenut/.test(t), 'al totem si dice benvenuto, non «presenti su persone»');
+});
+
 Deno.test('niente da toccare per sbaglio: nessuna barra di schede, nessun link fuori, esci solo con conferma', () => {
   assert(!/class="schede"/.test(P), 'niente schede');
   assert(!/<a href="http/.test(P), 'niente link verso fuori');

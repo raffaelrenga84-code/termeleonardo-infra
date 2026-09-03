@@ -42,7 +42,7 @@ const EMAIL_HOTEL = Deno.env.get('EMAIL_HOTEL') || 'info@termeleonardo.com';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type, authorization, x-hotel-key, x-cron-key',
+  'Access-Control-Allow-Headers': 'content-type, authorization, x-hotel-key, x-cron-key, x-totem-key',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
@@ -335,6 +335,45 @@ Deno.serve(async (req) => {
     return risposta({ esito: 'ok', scadute: n });
   }
 
+  /* ---------- i presenti: dallo sportello, o dal totem in hall ----------
+     Sta PRIMA del cancello generale perche' il totem non ha un utente: ha
+     una chiave sua (TOTEM_KEY) che apre una cosa sola, segnare i presenti
+     della prenotazione di cui ha letto il QR, e solo se e' per oggi.
+     Niente numero digitato, niente elenco, e nella risposta solo nome,
+     persone e presenti. Chi non e' il totem passa dal cancello come sempre. */
+  if (azione === 'presenti') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const chiaveTotem = Deno.env.get('TOTEM_KEY');
+    const totem = !!chiaveTotem && req.headers.get('x-totem-key') === chiaveTotem;
+    if (!totem) {
+      const acc = await autorizzato(req);
+      if (!acc.ok) return risposta({ errore: 'non autorizzato' }, 401);
+      if (!acc.chiave && !vedeDayspa(acc.ruolo)) return risposta({ errore: 'non autorizzato' }, 403);
+    }
+    const b = await req.json().catch(() => ({})) as Record<string, unknown>;
+    const numero = String(b.numero ?? '').trim();
+    const codice = String(b.codice ?? '').trim().toUpperCase();
+    if (totem && numero) return risposta({ errore: 'al totem vale solo il QR' }, 400);
+    if (!numero && !codice) return risposta({ errore: 'serve il numero o il codice' }, 400);
+    let q = db.from('dayspa_prenotazione').select('numero, persone, stato, giorno');
+    q = numero ? q.eq('numero', numero) : q.eq('codice', codice);
+    const { data: p } = await q.maybeSingle();
+    if (!p) return risposta({ errore: 'prenotazione non trovata' }, 404);
+    if (totem && p.giorno !== oggiRoma()) return risposta({ errore: 'la prenotazione non e per oggi: si rivolga alla reception' }, 409);
+    if (p.stato !== 'pagata') return risposta({ errore: `la prenotazione e ${p.stato}, non pagata` }, 409);
+    const presenti = totem || b.presenti === undefined ? p.persone : Number(b.presenti);
+    if (!Number.isInteger(presenti) || presenti < 0 || presenti > p.persone) return risposta({ errore: `presenti fra 0 e ${p.persone}` }, 400);
+    const { data: agg, error } = await db.from('dayspa_prenotazione')
+      .update({ presenti, arrivato_il: presenti > 0 ? new Date().toISOString() : null }).eq('numero', p.numero)
+      .select('numero, giorno, fascia, persone, presenti, nome, arrivato_il').single();
+    if (error) return risposta({ errore: error.message }, 500);
+    return risposta({
+      esito: 'ok',
+      prenotazione: totem ? { nome: agg.nome, persone: agg.persone, presenti: agg.presenti } : agg,
+      oggi: agg.giorno === oggiRoma(),
+    });
+  }
+
   /* ---------- riservati al back office ---------- */
   const accesso = await autorizzato(req);
   if (!accesso.ok) return risposta({ errore: 'non autorizzato' }, 401);
@@ -349,26 +388,6 @@ Deno.serve(async (req) => {
       .eq('giorno', giorno).in('stato', ['pagata', 'rimborsata']).order('fascia').order('nome');
     if (error) return risposta({ errore: error.message }, 500);
     return risposta({ esito: 'ok', giorno, fasce: fasce ?? [], prenotazioni: prenotazioni ?? [] });
-  }
-
-  if (azione === 'presenti') {
-    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
-    const b = await req.json().catch(() => ({})) as Record<string, unknown>;
-    const numero = String(b.numero ?? '').trim();
-    const codice = String(b.codice ?? '').trim().toUpperCase();
-    if (!numero && !codice) return risposta({ errore: 'serve il numero o il codice' }, 400);
-    let q = db.from('dayspa_prenotazione').select('numero, persone, stato, giorno');
-    q = numero ? q.eq('numero', numero) : q.eq('codice', codice);
-    const { data: p } = await q.maybeSingle();
-    if (!p) return risposta({ errore: 'prenotazione non trovata' }, 404);
-    if (p.stato !== 'pagata') return risposta({ errore: `la prenotazione e ${p.stato}, non pagata` }, 409);
-    const presenti = b.presenti === undefined ? p.persone : Number(b.presenti);
-    if (!Number.isInteger(presenti) || presenti < 0 || presenti > p.persone) return risposta({ errore: `presenti fra 0 e ${p.persone}` }, 400);
-    const { data: agg, error } = await db.from('dayspa_prenotazione')
-      .update({ presenti, arrivato_il: presenti > 0 ? new Date().toISOString() : null }).eq('numero', p.numero)
-      .select('numero, giorno, fascia, persone, presenti, nome, arrivato_il').single();
-    if (error) return risposta({ errore: error.message }, 500);
-    return risposta({ esito: 'ok', prenotazione: agg, oggi: agg.giorno === oggiRoma() });
   }
 
   if (azione === 'elenco') {

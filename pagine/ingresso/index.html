@@ -50,6 +50,15 @@ h2{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:24px
 .riga .presenti button{padding:10px 12px;border-radius:10px;border:1px solid var(--verde);background:#fff;color:var(--verde);font:inherit;font-size:14px;cursor:pointer;}
 .riga.pieno .nome::after{content:" \2713";color:var(--verde);}
 .avviso{padding:10px 13px;border-radius:8px;background:#FFF6E8;border-left:3px solid var(--oro);color:#6B4A22;font-size:14px;margin-bottom:10px;}
+/* il totem: una schermata sola, grande, che si legge in piedi */
+body.totem main{max-width:820px;padding-top:40px;}
+.totemRiposo{text-align:center;padding:48px 24px;min-height:60vh;display:flex;flex-direction:column;justify-content:center;gap:12px;}
+.totemRiposo.ok{background:#E6F0EC;border-color:var(--verde);}
+.totemRiposo.no{background:#FBE9E7;border-color:#8C2F28;}
+.totemTitolo{font-family:"Cormorant Garamond",Georgia,serif;font-size:44px;line-height:1.15;color:var(--verde);}
+.totemRiposo.no .totemTitolo{color:#8C2F28;}
+.totemTesto{font-size:22px;color:var(--verde-medio);margin:0;}
+.totemCampo{position:absolute;opacity:0;width:1px;height:1px;}
 </style>
 </head>
 <body>
@@ -81,9 +90,15 @@ const oggiISO = () => {
 const dataIT = (iso) => iso ? new Date(iso + 'T12:00:00Z').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) : '';
 
 let SB = null, TOKEN = '', OPERATORE = '';
+/* MODALITA' TOTEM (?totem=<chiave del dispositivo>): la convalida fai da te
+   in hall, come il totem di Fidra per il conto camera. Nessun accesso:
+   la chiave apre nel server una cosa sola, segnare i presenti del QR
+   letto, solo per oggi. Il totem e' pubblico: mai l'elenco del giorno. */
+const TOTEM = new URLSearchParams(location.search).get('totem') || '';
 
 async function chiama(qs, opz = {}) {
-  const r = await fetch(FUNZIONE + qs, { ...opz, headers: { 'content-type': 'application/json', authorization: 'Bearer ' + TOKEN, ...(opz.headers || {}) } });
+  const testa = TOTEM ? { 'x-totem-key': TOTEM } : { authorization: 'Bearer ' + TOKEN };
+  const r = await fetch(FUNZIONE + qs, { ...opz, headers: { 'content-type': 'application/json', ...testa, ...(opz.headers || {}) } });
   const j = await r.json().catch(() => ({}));
   if (r.status === 401) { await esci(false); throw new Error(j.errore || 'sessione scaduta'); }
   if (!r.ok) throw new Error(j.errore || ('errore ' + r.status));
@@ -125,6 +140,53 @@ function chiediAccesso(messaggio) {
   };
   $('kEntra').onclick = entra;
   $('kPwd').onkeydown = (ev) => { if (ev.key === 'Enter') entra(); };
+}
+
+/* ---------- il totem in hall ---------- */
+function totem() {
+  $('chiSono').textContent = 'Day Spa';
+  $('esci').hidden = true;
+  document.body.classList.add('totem');
+  const riposo = () => {
+    $('app').innerHTML = `<div class="riquadro totemRiposo">
+      <div class="totemTitolo">Benvenuti al Day Spa</div>
+      <p class="totemTesto">Appoggi al lettore il QR del biglietto, dal telefono o stampato.</p>
+      <p class="mini">Per ogni altra cosa c'è la reception, qui accanto.</p>
+      <input id="codiceTotem" autocomplete="off" aria-label="codice" class="totemCampo" /></div>`;
+    const campo = $('codiceTotem');
+    campo.onkeydown = (ev) => {
+      if (ev.key !== 'Enter') return;
+      const codice = campo.value.trim().toUpperCase();
+      campo.value = '';
+      if (codice) convalida(codice);
+    };
+    campo.focus();
+    /* qualunque tocco sullo schermo riporta il fuoco al campo: il lettore
+       scrive li' e da nessun'altra parte */
+    document.onclick = () => { const c = $('codiceTotem'); if (c) c.focus(); };
+  };
+  const convalida = async (codice) => {
+    $('app').innerHTML = '<div class="riquadro totemRiposo"><div class="totemTitolo">Un momento…</div></div>';
+    let durata = 8000;
+    try {
+      const j = await chiama('?a=presenti', { method: 'POST', body: JSON.stringify({ codice }) });
+      const p = j.prenotazione;
+      $('app').innerHTML = `<div class="riquadro totemRiposo ok">
+        <div class="totemTitolo">✓ Benvenuti, ${esc(p.nome)}</div>
+        <p class="totemTesto">${p.persone === 1 ? '1 persona' : `${p.persone} persone`} · buona giornata alle terme.</p>
+        <p class="mini">Cuffia obbligatoria in piscina: in vendita alla reception.</p></div>`;
+      if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+    } catch (e) {
+      durata = 10000;
+      $('app').innerHTML = `<div class="riquadro totemRiposo no">
+        <div class="totemTitolo">✗ Non riesco a leggere questo biglietto</div>
+        <p class="totemTesto">${esc(e.message)}</p>
+        <p class="mini">Si rivolga alla reception, qui accanto.</p></div>`;
+    }
+    setTimeout(riposo, durata);
+  };
+  (async () => { try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch (e) { /* niente */ } })();
+  riposo();
 }
 
 /* ---------- lo sportello ---------- */
@@ -286,6 +348,10 @@ function sportello() {
 $('esci').onclick = () => esci(true);
 
 (async () => {
+  if (TOTEM) {
+    totem();
+    return;
+  }
   try { SB = createClient(SUPABASE_URL, SUPABASE_ANON); }
   catch (e) { $('app').innerHTML = '<div class="riquadro">Non riesco a caricare il sistema di accesso. Ricarichi la pagina.</div>'; return; }
   const { data } = await SB.auth.getSession();
