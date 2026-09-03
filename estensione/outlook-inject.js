@@ -508,6 +508,63 @@ function parseCentralino(testo) {
         }
       }
     }
+
+    /* v2.25 — ARRIVO PIU' DURATA. «7 Nächte ab 20.09.», «eine Woche ab dem
+       20. September», «3 notti dal 3 ottobre», «5 nights from 12 October».
+       Chi scrive cosi' la partenza non la scrive: si calcola. Con «Tage»,
+       «giorni», «days», «jours» le notti sono una DEDUZIONE — dieci giorni
+       possono essere nove notti — e l'anteprima lo dichiara. */
+    if (!r.arrivo) {
+      const NUMERI = { una:1, uno:1, un:1, une:1, eine:1, einer:1, one:1, a:1, due:2, zwei:2, two:2, deux:2,
+                       tre:3, drei:3, three:3, trois:3, quattro:4, vier:4, four:4, quatre:4 };
+      const numero = (s) => /^\d+$/.test(s) ? +s : (NUMERI[s.toLowerCase()] || 0);
+      const durata = t.match(/(\d{1,2}|una|uno|un|une|eine|einer|one|a|due|zwei|two|deux|tre|drei|three|trois|quattro|vier|four|quatre)\s*(N[äa]e?chte?|notti|notte|nights?|nuits?|Wochen?|settiman[ae]|weeks?|semaines?|Tage|giorni|days|jours)\b/i);
+      if (durata) {
+        const n0 = numero(durata[1]);
+        const unita = durata[2].toLowerCase();
+        const settimane = /^(woche|settiman|week|semaine)/.test(unita);
+        const giorni = /^(tage|giorni|days|jours)/.test(unita);
+        const notti = settimane ? n0 * 7 : n0;
+        const TUTTI_I_MESI = Object.assign({}, MESI_IT,
+          { januar:1, februar:2, 'märz':3, april:4, mai:5, juni:6, juli:7, august:8, september:9, oktober:10, november:11, dezember:12,
+            january:1, february:2, march:3, may:5, june:6, july:7, october:10, december:12,
+            janvier:1, 'février':2, fevrier:2, mars:3, avril:4, juin:6, juillet:7, 'août':8, aout:8, septembre:9, octobre:10, novembre:11, 'décembre':12, decembre:12 });
+        const INIZIO = String.raw`(?:ab\s+dem\s+|ab\s+|dal\s+|a\s+partire\s+dal\s+|from\s+|à\s+partir\s+du\s+|du\s+|anreise\s*:?\s*|arrivo\s*:?\s*|arrival\s*:?\s*|arriv[ée]e\s*:?\s*)`;
+        let arrivo = null;
+        const num = t.match(new RegExp(INIZIO + String.raw`(?:` + GIORNI + String.raw`\s*,?\s*)?(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?`, 'i'));
+        if (num) {
+          const me = +num[2], gg = +num[1];
+          if (gg >= 1 && gg <= 31 && me >= 1 && me <= 12) {
+            const a = num[3] ? (+num[3] < 100 ? 2000 + +num[3] : +num[3]) : annoDedotto(me, gg);
+            arrivo = { g: gg, m: me, a };
+          }
+        }
+        if (!arrivo) {
+          const par = t.match(new RegExp(INIZIO + String.raw`(?:` + GIORNI + String.raw`\s*,?\s*)?(\d{1,2})\.?\s+([a-zà-ùäöü]+)(?:\s+(\d{4}))?`, 'i'));
+          const me = par && TUTTI_I_MESI[par[2].toLowerCase()];
+          if (par && me) arrivo = { g: +par[1], m: me, a: par[3] ? +par[3] : annoDedotto(me, +par[1]) };
+        }
+        if (!arrivo) {
+          /* il giorno senza mese: «arrivo domenica 15» con «a novembre» piu'
+             in la'. Solo se nel testo c'e' UN mese: con due non si indovina */
+          const solo = t.match(new RegExp(INIZIO + String.raw`(?:` + GIORNI + String.raw`\s*,?\s*)?(\d{1,2})\b(?![./\d])`, 'i'));
+          const mesi = [...new Set([...t.matchAll(/[a-zà-ùäöü]{3,}/gi)].map(x => x[0].toLowerCase()).filter(w => TUTTI_I_MESI[w]))];
+          if (solo && mesi.length === 1) {
+            const me = TUTTI_I_MESI[mesi[0]];
+            const annoScritto = (t.match(/\b(20\d\d)\b/) || [])[1];
+            arrivo = { g: +solo[1], m: me, a: annoScritto ? +annoScritto : annoDedotto(me, +solo[1]) };
+          }
+        }
+        if (arrivo && notti > 0 && notti < 60) {
+          const d1 = new Date(arrivo.a, arrivo.m - 1, arrivo.g, 12);
+          const d2 = new Date(d1.getTime() + notti * 86400000);
+          r.arrivo = arrivo;
+          r.partenza = { g: d2.getDate(), m: d2.getMonth() + 1, a: d2.getFullYear() };
+          r.notti = notti;
+          if (giorni) r.nottiDedotte = true;
+        }
+      }
+    }
     return r.arrivo ? r : null;
   }
 

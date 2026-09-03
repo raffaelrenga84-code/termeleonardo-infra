@@ -287,3 +287,38 @@ Deno.test('5b — le forme compatte tedesche e l apostrofo italiano', () => {
     assertEquals(g(d!.partenza), p, `partenza sbagliata in «${testo}»`);
   }
 });
+
+Deno.test('5c — arrivo piu durata: Nächte/notti/nights/nuits, settimane, e i giorni come deduzione', () => {
+  const l = lettori();
+  const CASI = [
+    ['Bitte Angebot für 7 Nächte ab 20.09.2026, Doppelzimmer', '2026-09-20', '2026-09-27', 7, false],
+    ['Wir möchten für eine Woche ab dem 20. September 2026 kommen', '2026-09-20', '2026-09-27', 7, false],
+    ['zwei Wochen ab 20.09.2026', '2026-09-20', '2026-10-04', 14, false],
+    ['Disponibilità per 3 notti dal 3 ottobre 2026, doppia uso singola', '2026-10-03', '2026-10-06', 3, false],
+    ['una settimana a partire dal 20 settembre 2026, 2 adulti', '2026-09-20', '2026-09-27', 7, false],
+    ['5 nights from 12 October 2026, 2 adults', '2026-10-12', '2026-10-17', 5, false],
+    ['une semaine à partir du 20 septembre 2026', '2026-09-20', '2026-09-27', 7, false],
+    ['Ich möchte für 10 Tage kommen, Anreise 12.10.2026', '2026-10-12', '2026-10-22', 10, true],
+  ] as const;
+  for (const [testo, a, p, n, dedotte] of CASI) {
+    const d = l.leggiDate(testo) as Letta | null;
+    assert(d, `leggiDate non riconosce «${testo}»`);
+    assertEquals(g(d!.arrivo), a, `arrivo sbagliato in «${testo}»`);
+    assertEquals(g(d!.partenza), p, `partenza sbagliata in «${testo}»`);
+    assertEquals(d!.notti, n, `notti sbagliate in «${testo}»`);
+    assertEquals(!!d!.nottiDedotte, dedotte, `«${testo}»: le notti da «Tage/giorni» sono una deduzione, da «Nächte/notti» no`);
+  }
+});
+
+Deno.test('5d — il giorno senza mese prende il mese scritto altrove, solo se e uno solo', () => {
+  const l = lettori();
+  const d = l.leggiDate('4 notti a novembre 2026, arrivo domenica 15, in due, camera superior') as Letta | null;
+  assert(d, 'non letta');
+  assertEquals(g(d!.arrivo), '2026-11-15');
+  assertEquals(g(d!.partenza), '2026-11-19');
+  const de = l.leggiDate('Anreise Sonntag 15.11., 5 Nächte, 2 Erwachsene') as Letta | null;
+  assert(de, 'non letta la tedesca');
+  assertEquals(de!.arrivo.g, 15); assertEquals(de!.arrivo.m, 11); assertEquals(de!.notti, 5);
+  /* con due mesi nel testo non si indovina niente */
+  assertEquals(l.leggiDate('4 notti fra ottobre e novembre, arrivo domenica 15'), null);
+});
