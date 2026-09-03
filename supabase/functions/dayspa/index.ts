@@ -343,8 +343,17 @@ Deno.serve(async (req) => {
      persone e presenti. Chi non e' il totem passa dal cancello come sempre. */
   if (azione === 'presenti') {
     if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    /* e' il totem chi lo DICE (porta l'intestazione) e lo prova: con la
+       chiave (TOTEM_KEY), oppure arrivando dall'IP fisso dell'hotel
+       (TOTEM_IP: la pagina /ingresso-totem che Vercel serve solo a quell'IP).
+       Senza intestazione non e' mai il totem: lo sportello della reception,
+       sulla stessa rete, resta sportello. */
     const chiaveTotem = Deno.env.get('TOTEM_KEY');
-    const totem = !!chiaveTotem && req.headers.get('x-totem-key') === chiaveTotem;
+    const ipTotem = Deno.env.get('TOTEM_IP');
+    const siDiceTotem = req.headers.get('x-totem-key') !== null;
+    const totem = siDiceTotem && (
+      (!!chiaveTotem && req.headers.get('x-totem-key') === chiaveTotem) ||
+      (!!ipTotem && indirizzo(req) === ipTotem));
     if (!totem) {
       const acc = await autorizzato(req);
       if (!acc.ok) return risposta({ errore: 'non autorizzato' }, 401);

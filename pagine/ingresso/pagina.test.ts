@@ -70,3 +70,26 @@ Deno.test('niente da toccare per sbaglio: nessuna barra di schede, nessun link f
   assert(!/<a href="http/.test(P), 'niente link verso fuori');
   assert(/confirm\(/.test(modulo()), 'uscire chiede conferma');
 });
+
+Deno.test('al totem anche i buoni regalo: letto il QR del buono risponde se vale, senza riscuoterlo', () => {
+  /* «aggiungi buoni regalo al totem» (la proprieta', 3 settembre 2026, sera).
+     Il totem riconosce il codice dal formato (lettura.js), chiede alla
+     funzione dei buoni la verifica pubblica e dice «vale / non vale, per
+     usarlo alla reception». Riscuotere resta della reception: qui non c'e'. */
+  const m = modulo();
+  assert(m.includes("from '/ingresso/lettura.js'"), 'il riconoscimento del codice sta in un modulo puro, provato a parte');
+  const t = m.slice(m.indexOf('function totem('), m.indexOf('function sportello('));
+  assert(t.includes('tipoCodice(') && t.includes('a=verifica') && t.includes('messaggioBuono('),
+    'il totem distingue Day Spa e buono e chiede la verifica pubblica del buono');
+  assert(!m.includes('a=riscuoti'), 'il totem non riscuote mai un buono');
+  const s = m.slice(m.indexOf('function sportello('));
+  assert(!s.includes('a=verifica'), 'lo sportello resta quello del Day Spa: i buoni li riscuote il back office');
+});
+
+Deno.test('all indirizzo /ingresso-totem la pagina e il totem senza chiave: ci pensa l IP dell hotel', () => {
+  const m = modulo();
+  assert(m.includes('ingresso-totem'), 'la modalita totem si accende anche dal percorso /ingresso-totem');
+  /* servita da un altro percorso, la pagina deve caricare i suoi moduli con
+     un indirizzo assoluto: ./lettura.js cadrebbe fuori dalla riscrittura */
+  assert(m.includes("from '/ingresso/lettura.js'"), 'lettura.js va importato con il percorso assoluto');
+});

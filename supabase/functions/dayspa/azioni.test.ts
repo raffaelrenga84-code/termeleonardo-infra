@@ -97,3 +97,17 @@ Deno.test('in modalita di prova ogni prenotazione porta il segno', () => {
   assert(/const PROVA = Deno\.env\.get\('DAYSPA_PROVA'\) === '1'/.test(S));
   assert(/prova: PROVA/.test(S));
 });
+
+Deno.test('il totem si riconosce anche dall IP fisso dell hotel, ma solo se la pagina dice di essere il totem', () => {
+  /* «/ingresso-totem visibile solo dall IP 46.234.202.29, cosi non serve
+     login» (la proprieta', 3 settembre 2026, notte). La chiave resta
+     valida; in piu' una richiesta che PORTA l intestazione del totem e
+     arriva dall IP in TOTEM_IP e' il totem. Senza intestazione no: lo
+     sportello della reception, sulla stessa rete, deve restare sportello
+     (numero digitato, presenti a mano, risposta intera). */
+  const s = S.slice(S.indexOf("azione === 'presenti'"), S.indexOf("azione === 'elenco'"));
+  assert(s.includes("Deno.env.get('TOTEM_IP')"), 'manca TOTEM_IP');
+  assert(s.includes('indirizzo(req)'), 'l IP e quello della richiesta, letto dallo stesso helper dei freni');
+  assert(s.includes("req.headers.get('x-totem-key') !== null") || s.includes("req.headers.has('x-totem-key')"),
+    'per IP conta solo chi porta l intestazione del totem');
+});
