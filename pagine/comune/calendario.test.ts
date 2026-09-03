@@ -94,3 +94,46 @@ Deno.test('le notti e il riassunto nelle quattro lingue', () => {
     assert(TESTI[l].campo && TESTI[l].conferma && TESTI[l].cancella && TESTI[l].chiusi, l);
   }
 });
+
+/* ---------- un giorno solo, e la nota della chiusura ---------- */
+/* Gli altri moduli — trattamenti, transfer, green fee, maestro — chiedono UN
+   giorno, non un intervallo; e alcuni arrivano precompilati dai link delle
+   offerte. Stesso calendario, un tocco solo; e una riga che dice quando siamo
+   chiusi, perche' un giorno grigio senza spiegazione e' un giorno che
+   l'ospite prova a toccare tre volte. */
+const extra = cal as unknown as Record<string, unknown>;
+const toccaGiorno = extra.toccaGiorno as (iso: string, o: Opz) => string;
+const notaChiusura = extra.notaChiusura as (c: unknown, l: string) => string;
+const dataBreve = extra.dataBreve as (iso: string, l: string) => string;
+
+Deno.test('un giorno solo: il tocco e la data, passato e chiuso non si toccano', () => {
+  assertEquals(toccaGiorno('2026-10-10', C), '2026-10-10');
+  assertEquals(toccaGiorno('2026-09-01', C), '', 'passato');
+  assertEquals(toccaGiorno('2026-12-15', C), '', 'chiuso');
+  assertEquals(toccaGiorno('2027-02-13', C), '2027-02-13', 'il giorno di riapertura si puo scegliere');
+});
+
+Deno.test('la nota della chiusura, con le date, nelle quattro lingue', () => {
+  assertEquals(dataBreve('2026-11-29', 'it'), '29 nov 2026');
+  assertEquals(dataBreve('2026-11-29', 'de'), '29. Nov 2026');
+  assertEquals(notaChiusura(CHIUSURE, 'it'), 'Chiusi dal 29 nov 2026 al 12 feb 2027');
+  assertEquals(notaChiusura(CHIUSURE, 'de'), 'Geschlossen vom 29. Nov 2026 bis 12. Feb 2027');
+  assertEquals(notaChiusura(CHIUSURE, 'en'), 'Closed from 29 Nov 2026 to 12 Feb 2027');
+  assertEquals(notaChiusura(CHIUSURE, 'fr'), 'Fermé du 29 nov 2026 au 12 févr 2027');
+  assertEquals(notaChiusura([], 'it'), '');
+});
+
+/* ---------- il disegno, letto dal sorgente: il DOM in Deno non c'e' ---------- */
+const MODULO = Deno.readTextFileSync(new URL('calendario.js', import.meta.url));
+
+Deno.test('il disegno: giorni come pulsanti con lo stato, conferma solo con le date, foglio a tutto schermo sul telefono', () => {
+  assert(/export function apriCalendario\(/.test(MODULO));
+  assert(/data-iso="\$\{d\.iso\}"/.test(MODULO), 'i giorni non portano la data');
+  assert(/class="g \$\{stato\}/.test(MODULO), 'i giorni non portano lo stato');
+  assert(/\.disabled = !pronta\(\)/.test(MODULO), 'Conferma non e legato alla scelta completa');
+  assert(/@media \(max-width:640px\)[\s\S]*position:fixed/.test(MODULO), 'sul telefono non e a tutto schermo');
+  assert(/key === 'Escape'/.test(MODULO), 'Esc non chiude');
+  assert(/t\.chiusi/.test(MODULO), 'il primo giorno chiuso non dice «chiusi»');
+  assert(/notaChiusura\(/.test(MODULO), 'la testa non dice quando siamo chiusi');
+  assert(/modo === 'giorno'/.test(MODULO), 'manca il modo a un giorno solo per gli altri moduli');
+});

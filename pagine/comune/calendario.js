@@ -143,3 +143,140 @@ export function suggerimento(scelta, lingua) {
   if (!scelta.partenza) return t.scegliPartenza;
   return '';
 }
+
+/* ---------- un giorno solo, e la nota della chiusura ---------- */
+
+/** Un tocco solo, per i moduli che chiedono un giorno (trattamenti, transfer,
+ *  green fee, maestro): la data, oppure '' se passata o chiusa. */
+export function toccaGiorno(iso, { oggi, chiusure }) {
+  if (iso < oggi || chiuso(iso, chiusure)) return '';
+  return iso;
+}
+
+/** «29 nov 2026», «29. Nov 2026»: la data breve con l'anno. */
+export function dataBreve(iso, lingua) {
+  const d = data(iso);
+  if (!d) return '';
+  const t = testi(lingua), l = TESTI[lingua] ? lingua : 'it';
+  return `${d.getUTCDate()}${l === 'de' ? '.' : ''} ${t.mesiBrevi[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+const NOTA_CHIUSURA = {
+  it: (a, b) => `Chiusi dal ${a} al ${b}`,
+  de: (a, b) => `Geschlossen vom ${a} bis ${b}`,
+  en: (a, b) => `Closed from ${a} to ${b}`,
+  fr: (a, b) => `Fermé du ${a} au ${b}`,
+};
+
+/** «Chiusi dal 29 nov 2026 al 12 feb 2027»: un giorno grigio senza
+ *  spiegazione e' un giorno che l'ospite prova a toccare tre volte. */
+export function notaChiusura(chiusure, lingua) {
+  const c = (chiusure || [])[0];
+  if (!c || !c.chiusura || !c.riapertura) return '';
+  const l = TESTI[lingua] ? lingua : 'it';
+  const ultimo = data(c.riapertura);
+  if (!ultimo) return '';
+  ultimo.setUTCDate(ultimo.getUTCDate() - 1);
+  return NOTA_CHIUSURA[l](dataBreve(c.chiusura, l), dataBreve(isoDi(ultimo), l));
+}
+
+/* ---------- il disegno ---------- */
+
+const STILE = `
+.calFoglio{background:#fff;border:1px solid #E5E0D8;border-radius:14px;box-shadow:0 12px 40px rgba(26,54,38,.18);font-family:inherit;color:#2A2E2B;z-index:50;}
+.calTesta{position:sticky;top:0;background:#fff;border-bottom:1px solid #EFEAE0;padding:12px 16px;display:flex;align-items:center;gap:10px;z-index:1;}
+.calTesta strong{flex:1;font-weight:500;font-size:15px;}
+.calTesta small{display:block;color:#6B7A72;font-size:12.5px;font-weight:400;}
+.calNota{color:#8C7A45;font-size:12.5px;padding:8px 16px 0;}
+.calX{border:0;background:none;font-size:24px;line-height:1;cursor:pointer;color:#6B7A72;padding:4px 8px;}
+.calMesi{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:12px 16px 90px;}
+.calMese h3{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:20px;margin:6px 0 8px;color:#1A3626;}
+.calSett,.calGiorni{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.calSett span{font-size:11px;color:#8C8578;text-align:center;padding:2px 0;}
+.g{border:0;background:none;padding:0;height:42px;border-radius:9px;font:15px inherit;color:#2A2E2B;cursor:pointer;position:relative;}
+.g.passato{color:#C9C3B8;cursor:default;}
+.g.chiuso{color:#B8B2A6;background:#F1EEE8;cursor:default;}
+.g.chiuso small{position:absolute;left:0;right:0;bottom:2px;font-size:9px;line-height:1;color:#9A948A;}
+.g.dentro{background:#E6F0EC;border-radius:0;}
+.g.arrivo,.g.partenza{background:#1A3626;color:#fff;font-weight:600;}
+.g.arrivo{border-radius:9px 0 0 9px;}
+.g.partenza{border-radius:0 9px 9px 0;}
+.g.arrivo.solo{border-radius:9px;}
+.calBarra{position:sticky;bottom:0;background:#fff;border-top:1px solid #EFEAE0;padding:12px 16px;display:flex;gap:10px;justify-content:flex-end;}
+.calBarra button{padding:12px 18px;border-radius:9px;font:600 15px inherit;cursor:pointer;}
+.calCancella{background:#fff;border:1px solid #DCD6CB;color:#1A3626;}
+.calConferma{background:#1A3626;border:0;color:#fff;}
+.calConferma:disabled{opacity:.45;cursor:default;}
+@media (max-width:640px){
+  .calFoglio{position:fixed;inset:0;border-radius:0;overflow:auto;-webkit-overflow-scrolling:touch;}
+  .calMesi{grid-template-columns:1fr;}
+}
+@media (min-width:641px){
+  .calFoglio{position:absolute;left:0;right:0;margin-top:8px;max-height:560px;overflow:auto;}
+}`;
+
+function stileUnaVolta() {
+  if (document.getElementById('leoCalendarioStile')) return;
+  const s = document.createElement('style');
+  s.id = 'leoCalendarioStile';
+  s.textContent = STILE;
+  document.head.appendChild(s);
+}
+
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/** Disegna il calendario dentro `radice` e resta in ascolto. `modo`:
+ *  'intervallo' (arrivo e partenza, il default) o 'giorno' (una data sola).
+ *  Alla conferma chiama onConferma({ arrivo, partenza }) — in modo 'giorno'
+ *  la data sta in `arrivo` — e si chiude; Esc e la X chiamano onChiudi. */
+export function apriCalendario({ radice, lingua, oggi, chiusure, arrivo, partenza, modo, onConferma, onChiudi }) {
+  stileUnaVolta();
+  const t = testi(lingua);
+  const unGiorno = modo === 'giorno';
+  let scelta = { arrivo: arrivo || '', partenza: unGiorno ? '' : (partenza || '') };
+  const ctx = { oggi, chiusure: chiusure || [] };
+  const primiChiusi = new Set((chiusure || []).map((c) => c.chiusura));
+  const pronta = () => unGiorno ? !!scelta.arrivo : !!(scelta.arrivo && scelta.partenza);
+  const testa = () => {
+    if (unGiorno) return { forte: scelta.arrivo ? giornoBreve(scelta.arrivo, lingua) : t.scegli, sotto: scelta.arrivo ? '' : t.scegliArrivo };
+    return { forte: riassunto(scelta, lingua) || t.scegli, sotto: suggerimento(scelta, lingua) };
+  };
+  const suTasto = (e) => { if (e.key === 'Escape') { chiudi(); if (onChiudi) onChiudi(); } };
+  const chiudi = () => { radice.innerHTML = ''; document.removeEventListener('keydown', suTasto); };
+  const disegna = () => {
+    const mesi = griglia(oggi).map((m) => `<div class="calMese"><h3>${esc(t.mesiLunghi[m.mese - 1])} ${m.anno}</h3>
+      <div class="calSett">${t.giorni.map((g) => `<span>${esc(g)}</span>`).join('')}</div>
+      <div class="calGiorni">${m.giorni.map((d, i) => {
+        const stato = statoGiorno(d.iso, { ...ctx, ...scelta });
+        const vuoti = i === 0 && d.colonna ? `<span style="grid-column:span ${d.colonna}"></span>` : '';
+        const solo = stato === 'arrivo' && !scelta.partenza ? ' solo' : '';
+        const spento = stato === 'passato' || stato === 'chiuso';
+        return `${vuoti}<button type="button" data-iso="${d.iso}" class="g ${stato}${solo}"${spento ? ' tabindex="-1" aria-disabled="true"' : ''}>${d.giorno}${
+          stato === 'chiuso' && primiChiusi.has(d.iso) ? `<small>${esc(t.chiusi)}</small>` : ''}</button>`;
+      }).join('')}</div></div>`).join('');
+    const nota = notaChiusura(ctx.chiusure, lingua);
+    const h = testa();
+    radice.innerHTML = `<div class="calFoglio" role="dialog" aria-label="${esc(t.campo)}">
+      <div class="calTesta"><strong>${esc(h.forte)}<small>${esc(h.sotto)}</small></strong>
+        <button type="button" class="calX" aria-label="${esc(t.chiudi)}">&times;</button></div>
+      ${nota ? `<div class="calNota">${esc(nota)}</div>` : ''}
+      <div class="calMesi">${mesi}</div>
+      <div class="calBarra"><button type="button" class="calCancella">${esc(t.cancella)}</button>
+        <button type="button" class="calConferma">${esc(t.conferma)}</button></div></div>`;
+    radice.querySelector('.calConferma').disabled = !pronta();
+    radice.querySelectorAll('.g').forEach((b) => b.addEventListener('click', () => {
+      const dopo = unGiorno
+        ? { arrivo: toccaGiorno(b.dataset.iso, ctx) || scelta.arrivo, partenza: '' }
+        : tocca(scelta, b.dataset.iso, ctx);
+      if (dopo.arrivo === scelta.arrivo && dopo.partenza === scelta.partenza) return;
+      scelta = dopo;
+      disegna();
+    }));
+    radice.querySelector('.calCancella').onclick = () => { scelta = { arrivo: '', partenza: '' }; disegna(); };
+    radice.querySelector('.calConferma').onclick = () => { if (!pronta()) return; chiudi(); if (onConferma) onConferma({ ...scelta }); };
+    radice.querySelector('.calX').onclick = () => { chiudi(); if (onChiudi) onChiudi(); };
+  };
+  document.addEventListener('keydown', suTasto);
+  disegna();
+  return { chiudi };
+}
