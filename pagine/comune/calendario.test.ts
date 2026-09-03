@@ -158,6 +158,46 @@ Deno.test('l innesto su un campo esistente: nascosto, stesso id, pulsante, riall
   assert(/modo: 'giorno'/.test(f), 'non e il calendario a un giorno solo');
 });
 
+/* ---------- gli stati in piu' per il Day Spa (3 settembre 2026) ----------
+   Un giorno puo' essere esaurito o non ancora in vendita: lo dice chi apre
+   il calendario, con `statoExtra(iso)`, perche' lo sa il server. Il
+   calendario li disegna grigi con una legenda e non li fa toccare;
+   «ultimi» resta toccabile, con un segno. */
+const statoExtra = (iso: string) =>
+  iso === '2026-09-12' ? 'esaurito' : iso === '2026-09-20' ? 'non-in-vendita' : iso === '2026-09-13' ? 'ultimi' : null;
+
+Deno.test('statoGiorno chiede a statoExtra prima di dire libero; passato, chiuso e il giorno scelto vincono', () => {
+  const o = { ...C, statoExtra };
+  assertEquals(statoGiorno('2026-09-12', o), 'esaurito');
+  assertEquals(statoGiorno('2026-09-20', o), 'non-in-vendita');
+  assertEquals(statoGiorno('2026-09-13', o), 'ultimi');
+  assertEquals(statoGiorno('2026-09-11', o), 'libero');
+  assertEquals(statoGiorno('2026-09-01', o), 'passato');
+  assertEquals(statoGiorno('2026-12-25', { ...o, statoExtra: () => 'esaurito' }), 'chiuso');
+  assertEquals(statoGiorno('2026-09-12', { ...o, arrivo: '2026-09-12' }), 'arrivo', 'un giorno precompilato resta il giorno scelto');
+  assertEquals(statoGiorno('2026-09-12', C), 'libero', 'senza statoExtra niente cambia per Prenota e gli altri moduli');
+});
+
+Deno.test('un giorno esaurito o non in vendita non si tocca; ultimi si', () => {
+  const o = { ...C, statoExtra };
+  assertEquals(toccaGiorno('2026-09-12', o), '');
+  assertEquals(toccaGiorno('2026-09-20', o), '');
+  assertEquals(toccaGiorno('2026-09-13', o), '2026-09-13');
+  assertEquals(tocca({}, '2026-09-12', o), { arrivo: '', partenza: '' });
+  assertEquals(tocca({}, '2026-09-13', o), { arrivo: '2026-09-13', partenza: '' });
+});
+
+Deno.test('la legenda dei nuovi stati esiste nelle quattro lingue, lo stile li disegna, e la legenda compare solo con statoExtra', () => {
+  for (const l of ['it', 'de', 'en', 'fr']) {
+    const t = TESTI[l] as unknown as Record<string, string>;
+    assert(t.esaurito && t.nonInVendita && t.ultimi, `mancano i testi in ${l}`);
+  }
+  assert(/\.g\.esaurito/.test(MODULO) && /\.g\.non-in-vendita/.test(MODULO) && /\.g\.ultimi/.test(MODULO), 'mancano gli stili dei nuovi stati');
+  assert(/ctx\.statoExtra \? `<div class="calLegenda">/.test(MODULO), 'la legenda si disegna solo quando statoExtra c e');
+  assert(/stato === 'esaurito' \|\| stato === 'non-in-vendita'/.test(MODULO), 'i due stati devono essere spenti come i giorni chiusi');
+  assert(/innestaGiorno\(\{ campo, lingua, chiusure, testoVuoto, statoExtra \}\)/.test(MODULO), 'l innesto deve accettare statoExtra e passarlo');
+});
+
 Deno.test('le chiusure dal server: la stagione, o niente', () => {
   const m = MODULO.match(/export async function leggiChiusure\([\s\S]*?\n\}/);
   assert(m, 'leggiChiusure non si trova per intero');

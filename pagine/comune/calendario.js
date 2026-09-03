@@ -26,6 +26,7 @@ export const TESTI = {
     scegliArrivo: 'Scelga il giorno di arrivo', scegliPartenza: 'Ora il giorno di partenza',
     notti: (n) => n === 1 ? '1 notte' : `${n} notti`,
     conferma: 'Conferma', cancella: 'Cancella', chiusi: 'chiusi', chiudi: 'Chiudi',
+    esaurito: 'esaurito', nonInVendita: 'non ancora in vendita', ultimi: 'ultimi posti',
     giorni: ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'],
     mesiBrevi: ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'],
     mesiLunghi: ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'],
@@ -35,6 +36,7 @@ export const TESTI = {
     scegliArrivo: 'Wählen Sie den Anreisetag', scegliPartenza: 'Jetzt den Abreisetag',
     notti: (n) => n === 1 ? '1 Nacht' : `${n} Nächte`,
     conferma: 'Bestätigen', cancella: 'Löschen', chiusi: 'geschlossen', chiudi: 'Schließen',
+    esaurito: 'ausverkauft', nonInVendita: 'noch nicht im Verkauf', ultimi: 'letzte Plätze',
     giorni: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
     mesiBrevi: ['Jan', 'Feb', 'März', 'Apr', 'Mai', 'Juni', 'Juli', 'Aug', 'Sept', 'Okt', 'Nov', 'Dez'],
     mesiLunghi: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
@@ -44,6 +46,7 @@ export const TESTI = {
     scegliArrivo: 'Choose your arrival day', scegliPartenza: 'Now the departure day',
     notti: (n) => n === 1 ? '1 night' : `${n} nights`,
     conferma: 'Confirm', cancella: 'Clear', chiusi: 'closed', chiudi: 'Close',
+    esaurito: 'sold out', nonInVendita: 'not yet on sale', ultimi: 'last places',
     giorni: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     mesiBrevi: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
     mesiLunghi: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
@@ -53,6 +56,7 @@ export const TESTI = {
     scegliArrivo: 'Choisissez le jour d’arrivée', scegliPartenza: 'Puis le jour de départ',
     notti: (n) => n === 1 ? '1 nuit' : `${n} nuits`,
     conferma: 'Confirmer', cancella: 'Effacer', chiusi: 'fermé', chiudi: 'Fermer',
+    esaurito: 'complet', nonInVendita: 'pas encore en vente', ultimi: 'dernières places',
     giorni: ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'],
     mesiBrevi: ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'],
     mesiLunghi: ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'],
@@ -98,22 +102,34 @@ const attraversa = (arrivo, partenza, chiusure) =>
 
 /** Lo stato di un giorno: passato, oltre (dopo il limite del soggiorno),
  *  chiuso, arrivo, partenza, dentro, libero. */
-export function statoGiorno(iso, { oggi, arrivo = '', partenza = '', chiusure = [], fine = '' }) {
+export function statoGiorno(iso, { oggi, arrivo = '', partenza = '', chiusure = [], fine = '', statoExtra = null }) {
   if (iso < oggi) return 'passato';
   if (fine && iso > fine) return 'oltre';
   if (chiuso(iso, chiusure)) return 'chiuso';
   if (arrivo && iso === arrivo) return 'arrivo';
   if (partenza && iso === partenza) return 'partenza';
   if (arrivo && partenza && iso > arrivo && iso < partenza) return 'dentro';
+  /* gli stati che sa solo il server (Day Spa, 3 settembre 2026): esaurito e
+     non ancora in vendita si disegnano grigi e non si toccano; «ultimi» e'
+     un giorno libero con un segno. Chi non passa statoExtra non vede
+     niente di diverso. */
+  const extra = statoExtra ? statoExtra(iso) : null;
+  if (extra === 'esaurito' || extra === 'non-in-vendita' || extra === 'ultimi') return extra;
   return 'libero';
 }
+
+/* vero se statoExtra dice che il giorno non si puo' scegliere */
+const bloccatoDaExtra = (iso, statoExtra) => {
+  const e = statoExtra ? statoExtra(iso) : null;
+  return e === 'esaurito' || e === 'non-in-vendita';
+};
 
 /** La macchina dei due tocchi. Un giorno passato o chiuso non si tocca; un
  *  tocco prima dell'arrivo, o con tutte e due le date gia' scelte, ricomincia;
  *  un intervallo che passa sopra una chiusura non si accetta. */
-export function tocca(scelta, iso, { oggi, chiusure, fine = '' }) {
+export function tocca(scelta, iso, { oggi, chiusure, fine = '', statoExtra = null }) {
   const s = { arrivo: (scelta && scelta.arrivo) || '', partenza: (scelta && scelta.partenza) || '' };
-  if (iso < oggi || (fine && iso > fine) || chiuso(iso, chiusure)) return s;
+  if (iso < oggi || (fine && iso > fine) || chiuso(iso, chiusure) || bloccatoDaExtra(iso, statoExtra)) return s;
   if (!s.arrivo || s.partenza) return { arrivo: iso, partenza: '' };
   if (iso <= s.arrivo) return { arrivo: iso, partenza: '' };
   if (attraversa(s.arrivo, iso, chiusure)) return { arrivo: iso, partenza: '' };
@@ -150,8 +166,8 @@ export function suggerimento(scelta, lingua) {
 
 /** Un tocco solo, per i moduli che chiedono un giorno (trattamenti, transfer,
  *  green fee, maestro): la data, oppure '' se passata o chiusa. */
-export function toccaGiorno(iso, { oggi, chiusure, fine = '' }) {
-  if (iso < oggi || (fine && iso > fine) || chiuso(iso, chiusure)) return '';
+export function toccaGiorno(iso, { oggi, chiusure, fine = '', statoExtra = null }) {
+  if (iso < oggi || (fine && iso > fine) || chiuso(iso, chiusure) || bloccatoDaExtra(iso, statoExtra)) return '';
   return iso;
 }
 
@@ -204,6 +220,13 @@ const STILE = `
 .calBox{position:relative;}
 .g.chiuso{color:#B8B2A6;background:#F1EEE8;cursor:default;}
 .g.chiuso small{position:absolute;left:0;right:0;bottom:2px;font-size:9px;line-height:1;color:#9A948A;}
+.g.esaurito{color:#B8B2A6;text-decoration:line-through;cursor:default;}
+.g.non-in-vendita{color:#C9C3B8;cursor:default;}
+.g.ultimi::after{content:"";position:absolute;left:50%;bottom:5px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:#C9A961;}
+.calLegenda{display:flex;flex-wrap:wrap;gap:6px 14px;padding:8px 16px 0;font-size:12px;color:#6B7A72;}
+.calLegenda .lg::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:#F1EEE8;border:1px solid #DCD6CB;}
+.calLegenda .lg.esaurito::before{background:#B8B2A6;border-color:#B8B2A6;}
+.calLegenda .lg.ultimi::before{background:#C9A961;border-color:#C9A961;border-radius:50%;}
 .g.dentro{background:#E6F0EC;border-radius:0;}
 .g.arrivo,.g.partenza{background:#1A3626;color:#fff;font-weight:600;}
 .g.arrivo{border-radius:9px 0 0 9px;}
@@ -236,12 +259,12 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
  *  'intervallo' (arrivo e partenza, il default) o 'giorno' (una data sola).
  *  Alla conferma chiama onConferma({ arrivo, partenza }) — in modo 'giorno'
  *  la data sta in `arrivo` — e si chiude; Esc e la X chiamano onChiudi. */
-export function apriCalendario({ radice, lingua, oggi, chiusure, arrivo, partenza, modo, fine, onConferma, onChiudi }) {
+export function apriCalendario({ radice, lingua, oggi, chiusure, arrivo, partenza, modo, fine, statoExtra, onConferma, onChiudi }) {
   stileUnaVolta();
   const t = testi(lingua);
   const unGiorno = modo === 'giorno';
   let scelta = { arrivo: arrivo || '', partenza: unGiorno ? '' : (partenza || '') };
-  const ctx = { oggi, chiusure: chiusure || [], fine: fine || '' };
+  const ctx = { oggi, chiusure: chiusure || [], fine: fine || '', statoExtra: typeof statoExtra === 'function' ? statoExtra : null };
   const primiChiusi = new Set((chiusure || []).map((c) => c.chiusura));
   const pronta = () => unGiorno ? !!scelta.arrivo : !!(scelta.arrivo && scelta.partenza);
   const testa = () => {
@@ -257,7 +280,7 @@ export function apriCalendario({ radice, lingua, oggi, chiusure, arrivo, partenz
         const stato = statoGiorno(d.iso, { ...ctx, ...scelta });
         const vuoti = i === 0 && d.colonna ? `<span style="grid-column:span ${d.colonna}"></span>` : '';
         const solo = stato === 'arrivo' && !scelta.partenza ? ' solo' : '';
-        const spento = stato === 'passato' || stato === 'oltre' || stato === 'chiuso';
+        const spento = stato === 'passato' || stato === 'oltre' || stato === 'chiuso' || stato === 'esaurito' || stato === 'non-in-vendita';
         return `${vuoti}<button type="button" data-iso="${d.iso}" class="g ${stato}${solo}"${spento ? ' tabindex="-1" aria-disabled="true"' : ''}>${d.giorno}${
           stato === 'chiuso' && primiChiusi.has(d.iso) ? `<small>${esc(t.chiusi)}</small>` : ''}</button>`;
       }).join('')}</div></div>`).join('');
@@ -267,6 +290,7 @@ export function apriCalendario({ radice, lingua, oggi, chiusure, arrivo, partenz
       <div class="calTesta"><strong>${esc(h.forte)}<small>${esc(h.sotto)}</small></strong>
         <button type="button" class="calX" aria-label="${esc(t.chiudi)}">&times;</button></div>
       ${nota ? `<div class="calNota">${esc(nota)}</div>` : ''}
+      ${ctx.statoExtra ? `<div class="calLegenda"><span class="lg esaurito">${esc(t.esaurito)}</span><span class="lg nonInVendita">${esc(t.nonInVendita)}</span><span class="lg ultimi">${esc(t.ultimi)}</span></div>` : ''}
       <div class="calMesi">${mesi}</div>
       <div class="calBarra"><button type="button" class="calCancella">${esc(t.cancella)}</button>
         <button type="button" class="calConferma">${esc(t.conferma)}</button></div></div>`;
@@ -319,7 +343,7 @@ export async function leggiChiusure(funzione) {
  *  cambio di verso del transfer) si vede comunque: il pulsante si riallinea
  *  a intervalli. `chiusure` e' un elenco o una funzione che lo restituisce,
  *  perche' dal server arriva dopo. */
-export function innestaGiorno({ campo, lingua, chiusure, testoVuoto }) {
+export function innestaGiorno({ campo, lingua, chiusure, testoVuoto, statoExtra }) {
   if (!campo || campo.dataset.calendarioInnestato) return null;
   campo.dataset.calendarioInnestato = '1';
   stileUnaVolta();
@@ -349,6 +373,7 @@ export function innestaGiorno({ campo, lingua, chiusure, testoVuoto }) {
     apriCalendario({
       radice: box, lingua, oggi: inizio, fine: campo.max || '',
       chiusure: typeof chiusure === 'function' ? chiusure() : chiusure,
+      statoExtra,
       arrivo: campo.value, modo: 'giorno',
       onConferma: ({ arrivo }) => {
         campo.value = arrivo;
