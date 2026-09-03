@@ -322,3 +322,51 @@ Deno.test('5d — il giorno senza mese prende il mese scritto altrove, solo se e
   /* con due mesi nel testo non si indovina niente */
   assertEquals(l.leggiDate('4 notti fra ottobre e novembre, arrivo domenica 15'), null);
 });
+
+Deno.test('6a — «2 Personen und 1 Kind» fa 2 adulti e 1 bambino; «davon» e la parentesi sottraggono', () => {
+  const l = lettori();
+  const CASI = [
+    ['vom 3.10. bis 10.10.2026, für 2 Personen und 1 Kind (8 Jahre)', 2, 1],
+    ['dal 3 al 10 ottobre 2026, 2 persone + 2 bambini (6 e 9 anni)', 2, 2],
+    ['vom 3.10. bis 10.10.2026, 3 Personen, davon 1 Kind', 2, 1],
+    ['from 3 to 10 October 2026, 3 guests (1 child)', 2, 1],
+    ['dal 3 al 10 ottobre 2026, 3 persone di cui 1 bambino', 2, 1],
+  ] as const;
+  for (const [testo, a, b] of CASI) {
+    const r = l.parseLibera(testo, null);
+    assert(r, `non letta: «${testo}»`);
+    assertEquals(r!.adulti, a, `adulti sbagliati in «${testo}»`);
+    assertEquals(r!.bambini, b, `bambini sbagliati in «${testo}»`);
+  }
+});
+
+Deno.test('6b — «Erw.», «Pers.», «siamo in 2», «N coppie», «due camere matrimoniali»', () => {
+  const l = lettori();
+  const CASI = [
+    ['vom 3.10. bis 10.10.2026, 2 Erw., Halbpension', 2, undefined],
+    ['Angebot für 7 Nächte ab 20.09.2026, Doppelzimmer HP, 2 Pers.', 2, undefined],
+    ['weekend del 10-12 ottobre 2026? siamo in 2', 2, undefined],
+    ["dal 6 all'8 dicembre 2026 per due coppie, due camere matrimoniali", 4, 2],
+    ['dal 3 al 10 ottobre 2026, 2 persone, per 2 notti', 2, undefined],
+  ] as const;
+  for (const [testo, a, nCamere] of CASI) {
+    const r = l.parseLibera(testo, null);
+    assert(r, `non letta: «${testo}»`);
+    assertEquals(r!.adulti, a, `adulti sbagliati in «${testo}»`);
+    assertEquals(r!.nCamere, nCamere, `camere sbagliate in «${testo}»`);
+  }
+});
+
+Deno.test('6c — le eta si leggono tutte: «6 und 9 Jahre», «6 e 9 anni», «(6, 9)»', () => {
+  const l = lettori();
+  const CASI = [
+    ['vom 3.10. bis 10.10.2026, 2 Erwachsene und 2 Kinder (6 und 9 Jahre)', '6 9'],
+    ['dal 3 al 10 ottobre 2026, 2 adulti e 2 bambini di 6 e 9 anni', '6 9'],
+    ['from 3 to 10 October 2026, 2 adults, 2 children (6, 9 years old)', '6 9'],
+    ['dal 3 al 10 ottobre 2026, 2 adulti e 1 bambino di 8 anni', '8'],
+  ] as const;
+  for (const [testo, eta] of CASI) {
+    const r = l.parseLibera(testo, null);
+    assertEquals(String(r!.etaBambini ?? ''), eta, `eta sbagliate in «${testo}»`);
+  }
+});

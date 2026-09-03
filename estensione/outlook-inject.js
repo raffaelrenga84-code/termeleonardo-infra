@@ -595,14 +595,26 @@ function parseCentralino(testo) {
        numero che moltiplica il prezzo. Ora si cerca prima la parola che
        parla solo di adulti; il totale vale come ripiego, e se i bambini si
        sono letti si sottraggono da quel totale. */
-    let a = t.match(/(\d+)\s*(?:adult[oi]|adults?|adultes?|Erwachsene[rn]?)\b/i);
+    /* v2.25: «2 Erw.» e «2 Pers.» valgono come Erwachsene e Personen */
+    let a = t.match(/(\d+)\s*(?:adult[oi]|adults?|adultes?|Erwachsene[rn]?|Erw)\b\.?/i);
     let daTotale = false;
     if (!a) {
-      a = t.match(/(\d+)\s*(?:person[ae]|personnes?|Person(?:en)?|guests?|people|pax|H[oö]st)\b/i);
+      a = t.match(/(\d+)\s*(?:person[ae]|personnes?|Person(?:en)?|guests?|people|pax|H[oö]st|Pers)\b\.?/i);
       daTotale = !!a;
     }
     if (a) { r.adulti = +a[1]; r.adultiDaTotale = daTotale; }
-    else if (/\bin due\b|\bper due\b|zu zweit/i.test(t)) r.adulti = 2;
+    else if ((() => {
+      /* v2.25: «per due coppie» sono quattro persone: le coppie vincono su «per due» */
+      const cop = t.match(/(\d+|due|tre|quattro|zwei|drei|vier|two|three|four|deux|trois|quatre)\s*(?:coppie|coppia|Paare?|couples?)\b/i);
+      if (!cop) return false;
+      const NUM = { due:2, tre:3, quattro:4, zwei:2, drei:3, vier:4, two:2, three:3, four:4, deux:2, trois:3, quatre:4 };
+      const n = /^\d+$/.test(cop[1]) ? +cop[1] : (NUM[cop[1].toLowerCase()] || 1);
+      r.adulti = 2 * n; r.adultiDedotti = true; r.tipoCameraLetto = cop[0];
+      return true;
+    })()) { /* letto dalle coppie */ }
+    /* «in due», «siamo in 2», «zu zweit», «for two» — ma non «per 2 notti» ne'
+       «for 2 rooms»: quello che segue il numero decide */
+    else if (/\bin due\b|\bper due\b|zu zweit|\b(?:siamo\s+in|in|per|für|for|pour)\s+(?:2|due|zwei|two|deux)\b(?!\s*(?:nott|night|n[äa]cht|nuit|camer|room|zimmer|chambre|giorn|day|tag|jour|settim|week|woch|semain|person|pers\b|erw|adult))/i.test(t)) r.adulti = 2;
     else {
       /* v2.7.1: chi scrive «una camera matrimoniale» quasi mai aggiunge «per
          due persone»: lo da' per scontato. Il tipo di camera lo dice, e senza
@@ -653,19 +665,42 @@ function parseCentralino(testo) {
     const b = t.match(/(\d+)\s*(?:bambin[oi]|ragazz[oai]|Kind(?:er)?|child(?:ren)?|kids?|enfants?|girls?|boys?)\b/i);
     if (b) r.bambini = +b[1];
 
-    /* il numero letto era un totale di persone e i bambini sono dentro:
-       si tolgono, altrimenti si contano due volte */
-    if (r.adultiDaTotale && r.bambini > 0 && r.adulti > r.bambini) {
-      r.adulti -= r.bambini;
-      r.adultiDedotti = true;
+    /* v2.25 — il totale si riduce dei bambini SOLO se il testo lo dice:
+       «3 Personen, davon 1 Kind», «3 guests (1 child)», «3 persone di cui 1
+       bambino». Con «und», «+», «e», «and» si somma: «2 Personen und 1
+       Kind» sono tre persone, e prima usciva un adulto solo. */
+    if (r.adultiDaTotale && r.bambini > 0 && a && b && b.index > a.index) {
+      const fra = t.slice(a.index + a[0].length, b.index);
+      if (/davon|inkl|incl|including|di\s+cui|dont|\(/i.test(fra) && r.adulti > r.bambini) {
+        r.adulti -= r.bambini;
+        r.adultiDedotti = true;
+      }
+    }
+
+    /* «due camere matrimoniali» dette dopo un numero generico: due camere e,
+       se gli adulti non sono scritti per esteso, quattro persone */
+    const mcam = t.match(/(\d+|due|tre|quattro|zwei|drei|vier|two|three|four|deux|trois|quatre)\s*(?:camere|Zimmer|rooms|chambres)\s+(?:matrimonial\w*|doppi\w*|Doppel\w*|double\w*|twin)/i);
+    if (mcam) {
+      const NUM = { due:2, tre:3, quattro:4, zwei:2, drei:3, vier:4, two:2, three:3, four:4, deux:2, trois:3, quatre:4 };
+      const n = /^\d+$/.test(mcam[1]) ? +mcam[1] : (NUM[mcam[1].toLowerCase()] || 1);
+      if (n > 1 && n <= 12) {
+        r.nCamere = n;
+        const espliciti = /(\d+)\s*(?:adult[oi]|adults?|adultes?|Erwachsene[rn]?|Erw)\b/i.test(t);
+        if (!espliciti && (r.adulti || 0) < 2 * n) { r.adulti = 2 * n; r.adultiDedotti = true; r.tipoCameraLetto = mcam[0]; }
+      }
     }
 
     /* v2.9.3 \u2014 l'eta' scritta a parole: \u00ab15 year old\u00bb, \u00abdi 8 anni\u00bb,
        \u00ab17 Jahre\u00bb, \u00ab5 ans\u00bb. Serve al prezzo quanto il numero: un bambino di
        due anni e uno di sedici non costano uguale. Si accettano solo le
        eta' da bambino, cosi' \u00ab7 nights\u00bb o un anno non finiscono qui. */
-    const eta = [...t.matchAll(/(\d{1,2})\s*(?:anni|anno|Jahre|Jahr|ans|years?\s*old)\b/gi)]
-      .map(x => +x[1]).filter(n => n >= 0 && n <= 17);
+    /* v2.25 — le eta' in lista: «6 und 9 Jahre», «6 e 9 anni», «(6, 9 years
+       old)». Prima si prendeva solo il numero attaccato a «Jahre», e il
+       primo bambino spariva. */
+    const listaEta = t.match(/((?:\d{1,2}\s*(?:,|e|und|and|et|\/|-)\s*)*\d{1,2})\s*(?:anni|anno|Jahren?|Jahr|ans|years?\s*old)\b/i);
+    const eta = listaEta
+      ? listaEta[1].split(/\s*(?:,|e|und|and|et|\/|-)\s*/).map(Number).filter(n => n >= 0 && n <= 17)
+      : [];
     if (eta.length && (r.bambini || 0) > 0) r.etaBambini = eta.slice(0, r.bambini).join(' ');
 
     /* v2.9.3 \u2014 chi scrive \u00abdinner on the 29th and breakfast on the 30th\u00bb
