@@ -49,15 +49,19 @@ function fonteDi(nome: string): string {
   throw new Error(`function ${nome}() non si chiude: sorgente troncato?`);
 }
 
-/* La funzione da sola non basta: legge SCHEDA_PER_RUOLO, che e una
-   costante e non una funzione. Senza, qui dentro verrebbe
-   «SCHEDA_PER_RUOLO is not defined»: la prova fallirebbe per una
-   dipendenza mancante invece che per un difetto. Stesso inciampo gia
-   pagato con DESIDERIO_IN_PAGINA in chiusura-arrivo.test.ts. */
+/* La funzione da sola non basta: legge ORDINE_SCHEDE, che e una costante
+   e non una funzione. Senza, qui dentro verrebbe «ORDINE_SCHEDE is not
+   defined»: la prova fallirebbe per una dipendenza mancante invece che
+   per un difetto. Stesso inciampo gia pagato con DESIDERIO_IN_PAGINA in
+   chiusura-arrivo.test.ts.
+
+   Dal 3 settembre 2026 l'ordine delle schede e la scheda d'apertura sono
+   una tabella sola (ORDINE_SCHEDE): si entra sulla prima. Prima erano due
+   — l'ordine fisso e SCHEDA_PER_RUOLO — che dovevano restare d'accordo. */
 /* fino a `]);` e non al primo `]`: quello chiude la prima coppia, non
    la Map, e il ritaglio si fermava li lasciando fuori tutto il resto */
-const TABELLA = SORGENTE.match(/const SCHEDA_PER_RUOLO = new Map\(\[[\s\S]*?\]\);/);
-assert(TABELLA, 'SCHEDA_PER_RUOLO non si trova: la pagina e cambiata');
+const TABELLA = SORGENTE.match(/const ORDINE_SCHEDE = new Map\(\[[\s\S]*?\]\);/);
+assert(TABELLA, 'ORDINE_SCHEDE non si trova: la pagina e cambiata');
 
 /* l'elenco delle schede e quello di chi non le vede: due costanti, non
    funzioni, e senza di loro le funzioni ritagliate non girerebbero */
@@ -68,7 +72,7 @@ assert(NASCOSTE, 'SCHEDE_NASCOSTE non si trova: la pagina e cambiata');
 
 const contesto = [
   TABELLA![0], ELENCO![0], NASCOSTE![0],
-  fonteDi('schedaIniziale'), fonteDi('schedeNascoste'), fonteDi('schedeDi'),
+  fonteDi('schedaIniziale'), fonteDi('schedeNascoste'), fonteDi('schedeDi'), fonteDi('ordineDi'),
 ].join('\n');
 
 const schedaIniziale = new Function(
@@ -92,8 +96,56 @@ Deno.test('la spa si apre sulle richieste, non sui buoni che non puo emettere', 
 });
 
 Deno.test('la reception e l amministrazione si aprono dove lavorano', () => {
-  assertEquals(schedaIniziale('reception@termeleonardo.com'), 'emetti');
+  /* «Per la reception: le richieste dal sito come prima cosa» (3 settembre
+     2026). L'amministrazione lavora sui buoni e resta dov'era. */
+  assertEquals(schedaIniziale('reception@termeleonardo.com'), 'richieste');
   assertEquals(schedaIniziale('amministrazione@termeleonardo.com'), 'emetti');
+});
+
+/* ---------- l'ordine delle schede, per chi entra ---------- */
+
+Deno.test('la reception vede prima le richieste, poi gli arrivi, poi i buoni', () => {
+  assertEquals(
+    schedeDi('reception@termeleonardo.com').map(([v]) => v),
+    ['richieste', 'arrivi', 'emetti', 'elenco', 'verifica'],
+  );
+});
+
+Deno.test('l amministrazione tiene l ordine di sempre, con i buoni davanti', () => {
+  assertEquals(
+    schedeDi('amministrazione@termeleonardo.com').map(([v]) => v),
+    schedeDellaPagina(),
+  );
+  assertEquals(schedeDi('sconosciuto@termeleonardo.com').map(([v]) => v), schedeDellaPagina());
+});
+
+Deno.test('la spa vede prima le richieste e gli arrivi, senza la scheda che il server le rifiuta', () => {
+  assertEquals(
+    schedeDi('spa@termeleonardo.com').map(([v]) => v),
+    ['richieste', 'arrivi', 'elenco', 'verifica'],
+  );
+});
+
+Deno.test('riordinare non perde e non raddoppia nessuna scheda', () => {
+  /* «senza fare danni»: cambiare l'ordine non puo' far sparire una scheda
+     ne' disegnarla due volte, per nessuno */
+  for (const email of [
+    'reception@termeleonardo.com', 'spa@termeleonardo.com',
+    'amministrazione@termeleonardo.com', 'sconosciuto@termeleonardo.com', '',
+  ]) {
+    const viste = schedeDi(email).map(([v]) => v);
+    const attese = schedeDellaPagina().filter((v) => !(email === 'spa@termeleonardo.com' && v === 'emetti'));
+    assertEquals([...viste].sort(), [...attese].sort(), `${email || '(vuoto)'}: le schede non sono le stesse`);
+    assertEquals(new Set(viste).size, viste.length, `${email || '(vuoto)'}: una scheda compare due volte`);
+  }
+});
+
+Deno.test('si entra sempre sulla prima scheda che si vede', () => {
+  /* una tabella sola: se un domani l'ordine cambiasse, la scheda
+     d'apertura lo seguirebbe da sola */
+  for (const email of ['reception@termeleonardo.com', 'spa@termeleonardo.com', 'amministrazione@termeleonardo.com', '']) {
+    assertEquals(schedaIniziale(email), schedeDi(email)[0][0], email || '(vuoto)');
+  }
 });
 
 Deno.test('maiuscole e spazi non cambiano la scheda', () => {

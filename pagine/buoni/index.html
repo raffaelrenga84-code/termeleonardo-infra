@@ -33,6 +33,10 @@ padding:14px;overflow:auto;}
 .schede button{background:none;border:0;border-bottom:3px solid transparent;
 padding:10px 14px;font:600 14px Arial;color:var(--grigio);cursor:pointer;}
 .schede button.attiva{color:var(--acqua-scura);border-bottom-color:var(--acqua);}
+/* il numero delle richieste da guardare, sul pulsante della scheda */
+.schede button .conta{display:inline-block;min-width:18px;padding:0 6px;margin-left:4px;
+  border-radius:9px;background:#C97B2C;color:#fff;font-size:11px;font-weight:700;
+  line-height:18px;text-align:center;vertical-align:1px;}
 .riquadro{background:#fff;border:1px solid var(--pietra);border-radius:8px;padding:18px;margin-bottom:16px;}
 h2{font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:var(--acqua);margin-bottom:12px;}
 label{display:block;font-size:12px;color:var(--grigio);margin:10px 0 4px;}
@@ -133,7 +137,7 @@ border-radius:0 8px 8px 0;padding:14px 16px;margin-top:14px;}
 <body>
 <div class="fascia"></div>
 <header>
-<div class="marchio"><img src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" /><span>buoni regalo</span></div>
+<div class="marchio"><img src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" /><span>back office</span></div>
 <div class="chi"><span id="chiSono"></span> <a href="#" id="esci" style="color:var(--acqua);">esci</a></div>
 </header>
 <main id="app"></main>
@@ -242,8 +246,10 @@ let VISTA = '';      // la scheda d'apertura: la decide schedaIniziale()
 
 /* SU QUALE SCHEDA SI APRE IL BACK OFFICE.
 
-   Si apriva sempre su «Emetti un buono». Per la reception va bene; per
-   la spa no, e non per gusto: `puoScrivereBuoni()` in supabase/functions/
+   Si apriva sempre su «Emetti un buono». Per la reception sembrava
+   andare bene — dal 3 settembre 2026 no: si apre sulle richieste dal sito,
+   vedi ORDINE_SCHEDE piu' sotto. Per la spa non andava bene da prima, e
+   non per gusto: `puoScrivereBuoni()` in supabase/functions/
    buoni/ruoli.ts dice che la spa NON emette buoni — deciso dalla
    proprieta' il 18 agosto 2026, perche' emettere un buono e' un gesto sul
    denaro incassato. La spa apriva quindi un modulo che il server le
@@ -287,23 +293,47 @@ function schedeNascoste(email) {
   return SCHEDE_NASCOSTE.get(e) || [];
 }
 
-/** Le schede che questo indirizzo vede, nell'ordine della pagina. */
-function schedeDi(email) {
-  const fuori = schedeNascoste(email);
-  return SCHEDE.filter(([v]) => !fuori.includes(v));
-}
+/* L'ORDINE DELLE SCHEDE, PER CHI ENTRA. «Per la reception cambia ordine:
+   le richieste dal sito come prima cosa, poi arrivi del giorno e poi i
+   buoni regalo» (la proprieta', 3 settembre 2026). La reception vive di
+   richieste e arrivi; il buono e' il gesto piu' raro della giornata.
+   L'amministrazione invece lavora sui buoni e tiene l'ordine di sempre.
+   La spa ha davanti le due schede che le servono davvero.
 
-const SCHEDA_PER_RUOLO = new Map([
-  ['spa@termeleonardo.com', 'richieste'],
+   L'ORDINE E' ANCHE LA SCHEDA D'APERTURA: si entra sulla prima. Prima erano
+   due tabelle — l'ordine fisso e una SCHEDA_PER_RUOLO — che dovevano
+   restare d'accordo a mano; adesso e' una sola e non puo' contraddirsi.
+
+   Una Map e non un oggetto: una chiave come `toString` esiste su
+   Object.prototype e una lookup diretta restituirebbe la funzione
+   ereditata. Gli indirizzi sono quelli di ruoli.ts (il server): la copia
+   e' inevitabile, che divergano no — scheda-iniziale.test.ts. */
+const ORDINE_SCHEDE = new Map([
+  ['reception@termeleonardo.com', ['richieste', 'arrivi', 'emetti', 'elenco', 'verifica']],
+  ['spa@termeleonardo.com', ['richieste', 'arrivi', 'elenco', 'verifica']],
 ]);
 
-/** La scheda su cui aprire il back office per questo indirizzo.
- *  Una Map e non un oggetto: una chiave come `toString` esiste su
- *  Object.prototype e una lookup diretta restituirebbe la funzione
- *  ereditata, aprendo la pagina su una scheda che non esiste. */
-function schedaIniziale(email) {
+/** L'ordine delle schede per questo indirizzo; chi non e' in tabella tiene
+ *  quello della pagina. Una scheda che manca dall'elenco va in coda, non
+ *  sparisce: nascondere e' un'altra tabella (SCHEDE_NASCOSTE). */
+function ordineDi(email) {
   const e = String(email ?? '').trim().toLowerCase();
-  return SCHEDA_PER_RUOLO.get(e) || 'emetti';
+  return ORDINE_SCHEDE.get(e) || SCHEDE.map(([v]) => v);
+}
+
+/** Le schede che questo indirizzo vede, nel suo ordine. */
+function schedeDi(email) {
+  const fuori = schedeNascoste(email);
+  const ordine = ordineDi(email);
+  const posto = (v) => { const i = ordine.indexOf(v); return i < 0 ? ordine.length : i; };
+  return SCHEDE.filter(([v]) => !fuori.includes(v))
+    .slice().sort((a, b) => posto(a[0]) - posto(b[0]));
+}
+
+/** La scheda su cui aprire il back office: la prima che si vede. */
+function schedaIniziale(email) {
+  const viste = schedeDi(email);
+  return viste.length ? viste[0][0] : 'emetti';
 }
 
 async function chiama(qs, opz = {}, base = FUNZIONE) {
@@ -379,6 +409,26 @@ function disegna() {
     b.onclick = () => { VISTA = b.dataset.scheda; disegna(); });
   ({ emetti: vistaEmetti, elenco: vistaElenco, verifica: vistaVerifica,
      richieste: vistaRichieste, arrivi: vistaArrivi })[VISTA]();
+  aggiornaContatore();
+}
+
+/* IL NUMERO DELLE RICHIESTE DA GUARDARE, SUL PULSANTE. Chi entra legge
+   «Richieste dal sito 3» prima ancora di cliccare: una richiesta nuova non
+   resta ferma in una scheda che nessuno apre, che e' il modo in cui una
+   risposta arriva il giorno dopo. Si aggiorna a ogni cambio di scheda e a
+   ogni ricarica dell'elenco, cosi' scende appena una richiesta e' segnata
+   vista. Il numero e' un aiuto, non un dato: se la chiamata fallisce il
+   pulsante resta com'e', senza errori a video. */
+async function aggiornaContatore() {
+  const b = document.querySelector('.schede button[data-scheda="richieste"]');
+  if (!b) return;
+  try {
+    const j = await chiama('?a=elenco&stato=nuova&cerca=', {}, FUNZIONE_RICHIESTE);
+    const n = (j.richieste || []).length;
+    const vecchio = b.querySelector('.conta');
+    if (vecchio) vecchio.remove();
+    if (n > 0) b.insertAdjacentHTML('beforeend', ` <span class="conta">${n}</span>`);
+  } catch (e) { /* senza numero la scheda resta com'e' */ }
 }
 
 /* ---------- 1. emissione ---------- */
@@ -1748,6 +1798,9 @@ async function vistaRichieste() {
       CARICATE = j.richieste || [];
       $('rEsito').textContent = CARICATE.length
         ? `${CARICATE.length} richieste` : 'Nessuna richiesta.';
+      /* il numero sul pulsante segue l'elenco: dopo «Segna vista» o
+         «Chiudi» scende subito, senza cambiare scheda */
+      aggiornaContatore();
       $('rTab').innerHTML = CARICATE.length ? `<table>
         <tr><th>Numero</th><th>Arrivata</th><th>Ospite</th><th>Richiesta</th><th>Stato</th></tr>` +
         CARICATE.map(r => `<tr class="apribile" data-numero="${esc(r.numero)}">

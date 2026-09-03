@@ -100,3 +100,35 @@ Deno.test('il copione della pagina si legge senza errori di sintassi', () => {
   assert(corpo.length > 10000, `corpo di sole ${corpo.length} lettere: la prova gira a vuoto`);
   new Function(corpo);
 });
+
+/* ============================================================
+   IL NUMERO DELLE RICHIESTE DA GUARDARE, SUL PULSANTE DELLA SCHEDA.
+
+   «Rendilo un back office piu' intuitivo per comunicare con gli ospiti e
+   velocizzare la comunicazione» (3 settembre 2026). La cosa che piu'
+   rallenta una risposta e' non sapere che c'e' una richiesta: chi entra
+   deve leggere «Richieste dal sito 3» prima ancora di cliccare. Il numero
+   e' un aiuto, non un dato: se la chiamata fallisce il pulsante resta
+   com'e', senza errori a video.
+   ============================================================ */
+Deno.test('il pulsante delle richieste porta il numero di quelle da guardare', () => {
+  const m = SORGENTE.match(/async function aggiornaContatore\(\) \{([\s\S]*?)\n\}/);
+  assert(m, 'aggiornaContatore() non si trova per intero');
+  assert(/stato=nuova/.test(m[1]), 'non conta le richieste nuove: conterebbe anche quelle gia gestite');
+  assert(/data-scheda="richieste"/.test(m[1]), 'non scrive sul pulsante delle richieste');
+  assert(/catch \(e\)/.test(m[1]), 'un errore di rete finirebbe a video invece di lasciare il pulsante com e');
+  assert(/class="conta"/.test(m[1]), 'il numero non ha la sua classe: non si vedrebbe come un contatore');
+  assert(/\.schede button \.conta\{/.test(SORGENTE), 'manca lo stile del contatore');
+});
+
+Deno.test('il numero si aggiorna a ogni cambio di scheda e a ogni ricarica dell elenco', () => {
+  const disegna = SORGENTE.match(/function disegna\(\) \{([\s\S]*?)\n\}/);
+  assert(disegna && /aggiornaContatore\(\);/.test(disegna[1]), 'disegna() non aggiorna il numero');
+  const carica = SORGENTE.match(/const carica = async \(\) => \{[\s\S]*?CARICATE = j\.richieste \|\| \[\];[\s\S]{0,400}?aggiornaContatore\(\);/);
+  assert(carica, 'dopo la ricarica dell elenco il numero resta vecchio: dopo «Segna vista» non scenderebbe');
+});
+
+/* ---------- l'intestazione dice cos'e' la pagina ---------- */
+Deno.test('l intestazione dice back office, non piu solo buoni regalo', () => {
+  assert(/<span>back office<\/span>/.test(SORGENTE), 'l intestazione dice ancora «buoni regalo»: per chi entra a rispondere alle richieste e fuorviante');
+});
