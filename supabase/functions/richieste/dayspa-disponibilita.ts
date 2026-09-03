@@ -45,3 +45,15 @@ export function distanzaGiorni(giorno: string, oggi: Date): number {
     (new Date(giorno + 'T12:00:00Z').getTime() - oggi.getTime()) / 86400000,
   );
 }
+
+/* LA STAGIONE CHE UN SOGGIORNO TOCCA: almeno una notte dentro, cioe'
+   `check_in < riapertura && check_out > chiusura`. Il giorno di riapertura e'
+   un arrivo buono; il giorno di chiusura e' una partenza buona (ultima notte
+   la sera prima). Null se nessuna, o se le date non sono date. La usa
+   l'azione a=disponibilita per dire «siamo chiusi» invece di «nessuna
+   camera» (3 settembre 2026). */
+export function chiusuraCheCopre(check_in: string, check_out: string, stagioni: Stagione[]): Stagione | null {
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  if (!iso.test(check_in) || !iso.test(check_out)) return null;
+  return stagioni.find((s) => check_in < s.riapertura && check_out > s.chiusura) ?? null;
+}

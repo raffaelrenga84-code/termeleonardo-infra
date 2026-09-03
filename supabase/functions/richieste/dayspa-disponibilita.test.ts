@@ -99,3 +99,25 @@ Deno.test('distanzaGiorni: il settimo giorno vale sette', () => {
 Deno.test('distanzaGiorni: l ottavo giorno vale otto', () => {
   assertEquals(distanzaGiorni('2026-08-25', OGGI), 8);
 });
+
+/* ============================================================
+   IL SOGGIORNO CHE TOCCA UNA CHIUSURA (3 settembre 2026).
+   La pagina Prenota deve dire «siamo chiusi» invece di «nessuna camera»:
+   la regola e' qui, pura, e la usa l'azione a=disponibilita.
+   ============================================================ */
+import { chiusuraCheCopre } from './dayspa-disponibilita.ts';
+
+const INVERNO = [{ chiusura: '2026-11-29', riapertura: '2027-02-13' }];
+
+Deno.test('un soggiorno tocca la chiusura se ha almeno una notte dentro', () => {
+  assertEquals(chiusuraCheCopre('2026-12-14', '2026-12-18', INVERNO), INVERNO[0], 'tutto dentro');
+  assertEquals(chiusuraCheCopre('2026-11-25', '2026-12-02', INVERNO), INVERNO[0], 'a cavallo dell inizio');
+  assertEquals(chiusuraCheCopre('2027-02-10', '2027-02-15', INVERNO), INVERNO[0], 'a cavallo della fine');
+});
+
+Deno.test('fuori dalla chiusura non tocca niente, e i bordi contano come si dorme', () => {
+  assertEquals(chiusuraCheCopre('2026-11-20', '2026-11-29', INVERNO), null, 'parte il giorno di chiusura: ultima notte il 28');
+  assertEquals(chiusuraCheCopre('2027-02-13', '2027-02-20', INVERNO), null, 'arriva il giorno di riapertura');
+  assertEquals(chiusuraCheCopre('2026-10-01', '2026-10-05', []), null, 'senza stagioni');
+  assertEquals(chiusuraCheCopre('x', '2026-12-18', INVERNO), null, 'una data rotta non tocca niente');
+});
