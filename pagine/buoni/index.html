@@ -336,6 +336,14 @@ function schedeDi(email) {
     .slice().sort((a, b) => posto(a[0]) - posto(b[0]));
 }
 
+/** La scheda chiesta nell'indirizzo (?scheda=dayspaOggi): il tablet allo
+ *  sportello si apre direttamente li'. Solo una scheda che esiste; il
+ *  server resta il cancello, come per tutto il resto. */
+function schedaDaUrl() {
+  const s = new URLSearchParams(location.search).get('scheda');
+  return SCHEDE.some(([v]) => v === s) ? s : '';
+}
+
 /** La scheda su cui aprire il back office: la prima che si vede. */
 function schedaIniziale(email) {
   const viste = schedeDi(email);
@@ -2186,6 +2194,8 @@ function vistaDayspaOggi() {
       <div><label>Codice dal lettore, o numero della prenotazione</label>
         <input id="dOggiCod" placeholder="QR o DS-2026-0001" style="font-family:monospace;text-transform:uppercase;" /></div>
     </div>
+    <button class="azione sec" id="dOggiCam" style="margin-top:8px;">Scansiona con la fotocamera</button>
+    <video id="dOggiVideo" hidden playsinline muted style="display:block;width:100%;max-width:420px;border-radius:10px;margin-top:8px;background:#000;"></video>
     <div class="esito" id="dOggiScan"></div>
     <div class="esito" id="dOggiRicevute"></div>
     <div class="esito" id="dOggiEsito">Carico\u2026</div>
@@ -2256,6 +2266,85 @@ function vistaDayspaOggi() {
     $('dOggiCod').value = '';
     segna(/^DS-\d{4}-\d+$/.test(v) ? { numero: v } : { codice: v });
   };
+  /* LA FOTOCAMERA. «Che hardware per obliterare gli ingressi, senza un PC
+     sempre aperto sulla schermata?» (la proprieta', 3 settembre 2026): un
+     tablet o un telefono, con questa stessa pagina. La fotocamera
+     posteriore inquadra il QR sul telefono dell'ospite; dove il browser
+     ha BarcodeDetector (Chrome, Android) si usa quello, altrove (Safari su
+     iPhone e iPad) si carica jsQR dalla copia locale. Lo schermo resta
+     acceso finche' la fotocamera e' aperta. Lo stesso codice letto due
+     volte di seguito si segna una volta sola. */
+  let flusso = null, blocco = null, fermo = true;
+  const chiudiCam = async () => {
+    fermo = true;
+    if (flusso) { flusso.getTracks().forEach((t) => t.stop()); flusso = null; }
+    if (blocco) { try { await blocco.release(); } catch (e) { /* gia' rilasciato */ } blocco = null; }
+    const v = $('dOggiVideo');
+    if (v) { v.hidden = true; v.srcObject = null; }
+    const b = $('dOggiCam');
+    if (b) b.textContent = 'Scansiona con la fotocamera';
+  };
+  const apriCam = async () => {
+    if (!fermo) { chiudiCam(); return; }
+    const video = $('dOggiVideo');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      $('dOggiScan').innerHTML = '<span class="errore">Questo browser non da accesso alla fotocamera.</span>';
+      return;
+    }
+    try {
+      flusso = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    } catch (e) {
+      $('dOggiScan').innerHTML = `<span class="errore">Fotocamera non disponibile: ${esc(e.message)}</span>`;
+      return;
+    }
+    video.srcObject = flusso;
+    video.hidden = false;
+    await video.play();
+    fermo = false;
+    $('dOggiCam').textContent = 'Ferma la fotocamera';
+    try { if (navigator.wakeLock) blocco = await navigator.wakeLock.request('screen'); } catch (e) { /* senza, lo schermo si spegne come sempre */ }
+    let leggi;
+    if ('BarcodeDetector' in window) {
+      const rilevatore = new window.BarcodeDetector({ formats: ['qr_code'] });
+      leggi = async () => { const r = await rilevatore.detect(video); return r.length ? String(r[0].rawValue || '') : ''; };
+    } else {
+      if (!window.jsQR) {
+        await new Promise((ok, ko) => {
+          const sc = document.createElement('script');
+          sc.src = '/comune/jsqr.js'; sc.onload = ok; sc.onerror = ko;
+          document.head.appendChild(sc);
+        });
+      }
+      const tela = document.createElement('canvas');
+      const ctx = tela.getContext('2d', { willReadFrequently: true });
+      leggi = async () => {
+        if (!video.videoWidth) return '';
+        tela.width = video.videoWidth; tela.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        const img = ctx.getImageData(0, 0, tela.width, tela.height);
+        const r = window.jsQR(img.data, img.width, img.height);
+        return r ? String(r.data || '') : '';
+      };
+    }
+    let ultimo = '', ultimoQuando = 0;
+    const giro = async () => {
+      if (fermo) return;
+      try {
+        const testo = (await leggi()).trim().toUpperCase();
+        if (testo && (testo !== ultimo || Date.now() - ultimoQuando > 4000)) {
+          ultimo = testo; ultimoQuando = Date.now();
+          if (navigator.vibrate) navigator.vibrate(80);
+          segna(/^DS-\d{4}-\d+$/.test(testo) ? { numero: testo } : { codice: testo });
+        }
+      } catch (e) { /* un fotogramma perso non e' un errore */ }
+      setTimeout(giro, 250);
+    };
+    giro();
+  };
+  $('dOggiCam').onclick = apriCam;
+  /* cambiando scheda la fotocamera si spegne: il pulsante sparisce con la vista */
+  const osserva = new MutationObserver(() => { if (!document.body.contains($('dOggiCam'))) { chiudiCam(); osserva.disconnect(); } });
+  osserva.observe($('vista'), { childList: true });
   $('dOggiGiorno').onchange = carica;
   carica();
   /* il fuoco al campo appena si apre la scheda: chi scansiona non deve
@@ -2426,7 +2515,7 @@ function vistaDayspaPrenotazioni() {
        sessione gia' aperta — cioe' per la reception, sempre. Visto in
        reception il 3 settembre 2026: intestazione nuova, ordine vecchio. */
     EMAIL = data.session.user.email || '';
-    VISTA = schedaIniziale(EMAIL);
+    VISTA = schedaDaUrl() || schedaIniziale(EMAIL);
     try { await chiama('?a=elenco'); disegna(); return; }
     catch (e) { await esci(); chiediAccesso(e.message); return; }
   }

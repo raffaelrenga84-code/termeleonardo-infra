@@ -306,8 +306,10 @@ Deno.test('la sessione gia aperta imposta indirizzo e scheda come l accesso', ()
   assert(ripristino, 'il ripristino della sessione non si trova');
   assert(/EMAIL = data\.session\.user\.email/.test(ripristino![1]),
     'con la sessione gia aperta EMAIL resta vuoto: ordine e scheda d apertura tornano ai default');
-  assert(/VISTA = schedaIniziale\(EMAIL\)/.test(ripristino![1]),
+  /* dal 3 settembre 2026 la scheda chiesta nell'indirizzo (?scheda=, il
+     tablet allo sportello) vince su quella iniziale: schedaDaUrl() prima */
+  assert(/VISTA = schedaDaUrl\(\) \|\| schedaIniziale\(EMAIL\)/.test(ripristino![1]),
     'con la sessione gia aperta la scheda d apertura non si decide dall indirizzo');
-  assert(ripristino![1].indexOf('VISTA = schedaIniziale(EMAIL)') < ripristino![1].indexOf('disegna()'),
+  assert(ripristino![1].search(/VISTA = schedaDaUrl\(\) \|\| schedaIniziale\(EMAIL\)/) < ripristino![1].indexOf('disegna()'),
     'la scheda si decide dopo aver gia disegnato');
 });

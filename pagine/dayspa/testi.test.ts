@@ -19,6 +19,18 @@ Deno.test('la riga dei sette giorni dice il perche, in ogni lingua, con il numer
   }
 });
 
+Deno.test('nei messaggi di errore non si invita a telefonare: le prenotazioni sono solo online', () => {
+  /* «togli “o chiami la reception”: le prenotazioni sono solo online»
+     (la proprieta', 3 settembre 2026). Il numero resta solo nel pie' di
+     pagina, come indirizzo. */
+  for (const l of ['it', 'de', 'en', 'fr']) {
+    for (const k of ['erroreServer', 'grazieProblema']) {
+      assert(!/9939200|\bchiam|\bruf|\bcall\b|appel/i.test(String(TT[l][k])), `${l}.${k} invita ancora a telefonare`);
+    }
+    assert(/info@termeleonardo\.com/.test(String(TT[l].grazieProblema)), `${l}: se il pagamento non risulta, si scrive per email`);
+  }
+});
+
 Deno.test('il serale ha una riga che lo vende, con l orario, e un segno corto per il giorno', () => {
   for (const l of ['it', 'de', 'en', 'fr']) {
     /* 22:30, 22.30 o, alla francese, 22h30 */

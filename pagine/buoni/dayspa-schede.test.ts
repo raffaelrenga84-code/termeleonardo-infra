@@ -66,6 +66,26 @@ Deno.test('«Day Spa oggi»: il campo dello scanner ha il fuoco e Invio, i prese
   assert(/da_battere/.test(f), 'le ricevute in attesa devono vedersi');
 });
 
+Deno.test('«Day Spa oggi» legge il QR anche con la fotocamera: un tablet basta, senza PC', () => {
+  /* «che hardware possiamo prevedere per obliterare gli ingressi, per non
+     occupare un PC costantemente aperto?» (la proprieta', 3 settembre
+     2026): la fotocamera del tablet o del telefono, dalla stessa pagina */
+  const f = fonteDi('vistaDayspaOggi');
+  assert(/id="dOggiCam"/.test(f), 'manca il pulsante della fotocamera');
+  assert(/getUserMedia\(/.test(f), 'la fotocamera si apre con getUserMedia');
+  assert(/BarcodeDetector/.test(f), 'dove c e, si usa il lettore del browser');
+  assert(/\/comune\/jsqr\.js/.test(f), 'dove non c e (iPhone), si carica jsQR');
+  assert(/wakeLock/.test(f), 'lo schermo del tablet non deve spegnersi mentre si scansiona');
+  assert(/facingMode/.test(f), 'la fotocamera posteriore, non quella per i selfie');
+  let esiste = false;
+  try { esiste = Deno.statSync(new URL('../comune/jsqr.js', import.meta.url)).isFile; } catch { /* manca */ }
+  assert(esiste, 'manca pagine/comune/jsqr.js: la copia locale della libreria, senza dipendere da un CDN');
+  /* il tablet allo sportello apre direttamente la scheda giusta: ?scheda=dayspaOggi */
+  const url = fonteDi('schedaDaUrl');
+  assert(/\.get\('scheda'\)/.test(url) && /SCHEDE\.some\(/.test(url), 'schedaDaUrl deve accettare solo una scheda che esiste');
+  assert((SORGENTE.match(/schedaDaUrl\(\) \|\| schedaIniziale\(EMAIL\)/g) ?? []).length >= 1, 'all apertura la scheda dall indirizzo vince su quella iniziale');
+});
+
 Deno.test('«Disponibilità»: quattordici giorni, tipo e prezzo proposti dalla regola, salvataggio in un colpo', () => {
   const f = fonteDi('vistaDayspaDisponibilita');
   assert(/a=disponibilita/.test(f));
