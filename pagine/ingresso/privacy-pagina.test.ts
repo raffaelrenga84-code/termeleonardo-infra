@@ -103,3 +103,9 @@ Deno.test('la testa del modulo: norma sotto il titolo, e il pulsante che manda i
   assert(mo.indexOf('id="pvConferma"') < mo.indexOf('class="pvCorpo"'), 'il pulsante sta in cima, non in fondo');
   assert(/\.pvFirmaScritta::before\{content/.test(P), 'la riga su cui firmare');
 });
+
+Deno.test('quante domande fa il modulo lo dice il server, non la pagina', () => {
+  assert(m.includes('let SCELTE_PRIVACY'), 'non e una costante inchiodata');
+  assert(p.includes('if (Array.isArray(j.scelte) && j.scelte.length) SCELTE_PRIVACY = j.scelte;'), 'arrivano con i testi');
+  assert(!m.includes("'messaggi'"), 'la domanda sulle telefonate non c e piu: non arrivava al centralino');
+});
