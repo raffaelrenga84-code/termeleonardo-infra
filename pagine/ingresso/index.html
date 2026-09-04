@@ -126,13 +126,18 @@ body.totem main{max-width:820px;padding-top:40px;}
    stanno a sinistra e la firma a destra. Se proprio non entra, a scorrere
    e' solo la colonna delle frasi, mai la pagina. */
 .totemRiposo.privacy{text-align:left;gap:clamp(6px,1.2vh,14px);padding:clamp(10px,2vh,22px);
-  height:calc(100dvh - 108px);overflow:hidden;justify-content:flex-start;}
+  min-height:0;overflow:hidden;justify-content:flex-start;}
 .totemRiposo.privacy .totemTitolo{text-align:center;font-size:clamp(20px,3.4vh,32px);}
 .totemRiposo.privacy .totemTesto{font-size:clamp(15px,2.3vh,21px);text-align:center;}
-.pvCorpo{flex:1;min-height:0;display:grid;gap:clamp(8px,1.4vh,14px);grid-template-columns:1fr;}
+/* la pagina intera e' alta quanto lo schermo e non scorre: la firma deve
+   restare sotto gli occhi anche su un iPad in verticale */
+body.privacyAperta{overflow:hidden;}
+body.privacyAperta main{max-width:none;padding:0;height:calc(100dvh - 52px);}
+body.privacyAperta .riquadro{margin:0;border:0;border-radius:0;height:100%;}
+.pvCorpo{flex:1;min-height:0;display:grid;gap:clamp(8px,1.4vh,14px);grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;}
 .pvFrasi{display:flex;flex-direction:column;gap:clamp(6px,1.1vh,12px);min-height:0;overflow:auto;}
 .pvLato{display:flex;flex-direction:column;gap:clamp(4px,0.8vh,10px);min-height:0;}
-@media (min-width:800px){.pvCorpo{grid-template-columns:1.15fr 1fr;}}
+@media (min-width:800px){.pvCorpo{grid-template-columns:1.15fr 1fr;grid-template-rows:minmax(0,1fr);}}
 .privacy .mini{font-size:clamp(11px,1.55vh,13px);line-height:1.35;}
 .privacy .totemLingue{font-size:clamp(13px,1.9vh,17px);}
 .totemRiposo.privacy.chiusa{text-align:center;min-height:52vh;justify-content:center;gap:20px;}
@@ -154,6 +159,7 @@ body.totem main{max-width:820px;padding-top:40px;}
 .pvScelta button.no{background:#8C2F28;border-color:#8C2F28;color:#fff;font-weight:600;}
 .pvSintesi{font-size:14px;line-height:1.5;color:#4B5350;background:#fff;border:1px solid var(--pietra);border-radius:12px;padding:12px;}
 .pvFirma{position:relative;flex:1;min-height:0;display:flex;}
+.pvFirmaScritta{position:absolute;left:14px;top:10px;font-size:clamp(12px,1.7vh,15px);color:var(--grigio);pointer-events:none;}
 .pvFirma canvas{display:block;width:100%;height:100%;min-height:clamp(90px,16vh,220px);background:#fff;border:2px dashed var(--verde);border-radius:12px;touch-action:none;}
 .pvFirma .contoChiudi{position:absolute;right:10px;top:10px;}
 .pvElenco{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;}
@@ -321,6 +327,7 @@ function totem() {
     clearTimeout(timerRiposo); clearInterval(orologioConto);
     /* sugli iPad (?privacy=1) il riposo e' l'elenco dei consensi in attesa */
     if (SOLO_PRIVACY) { document.onclick = null; privacy(true); return; }
+    document.body.classList.remove('privacyAperta');
     $('app').innerHTML = `<div class="riquadro totemRiposo">
       <div class="totemTitolo">Benvenuto</div>
       <div class="totemLingue">Welcome · Willkommen · Bienvenue</div>
@@ -505,6 +512,7 @@ function totem() {
      dalla funzione (?a=testi) con la versione, che si firma insieme. */
   const privacy = (daElenco = false) => {
     document.onclick = null;
+    document.body.classList.add('privacyAperta');
     const st = { id: null, camera: null, cognome: '', nome: '', lingua: 'it', scelte: {}, versione: null };
     let T = null;
     const CAMERA = { it: 'camera', en: 'room', de: 'Zimmer', fr: 'chambre' };
@@ -526,11 +534,14 @@ function totem() {
     const chiusa = (quanti = 0) => {
       clearTimeout(timerRiposo); clearTimeout(rinfresco);
       $('app').onclick = null;
+      /* la clientela e' italiana, tedesca, inglese e francese: la
+         schermata d'attesa parla tutte e quattro le lingue insieme, perche'
+         qui non si sa ancora chi arrivera' (la proprieta', 4 settembre 2026) */
       $('app').innerHTML = `<div class="riquadro totemRiposo privacy chiusa">
         <div class="totemTitolo">Privacy</div>
-        <p class="totemLingue">Consenso al trattamento dei dati · Datenschutz · Consent · Confidentialité</p>
+        <p class="totemLingue">Consenso al trattamento dei dati personali<br>Einwilligung zur Verarbeitung Ihrer Daten<br>Consent to the processing of your data<br>Consentement au traitement de vos données</p>
         ${quanti ? `<p class="pvAspetta"><span class="pvPallino"></span>${quanti === 1 ? 'Un consenso aspetta' : quanti + ' consensi aspettano'}</p>` : '<p class="mini">Nessuno in attesa. La reception preme «Privacy all’iPad» sulla prenotazione in Fidra.</p>'}
-        <button type="button" class="contoChiudi grande" id="pvComincia">Cominci qui</button></div>`;
+        <button type="button" class="contoChiudi grande" id="pvComincia">Cominci qui · Bitte hier beginnen · Start here · Commencez ici</button></div>`;
       $('pvComincia').onclick = elenco;
       rinfresco = setTimeout(async () => {
         try { const j = await chiamaPrivacy('?a=quante'); chiusa(Number(j.attese) || 0); }
@@ -549,6 +560,7 @@ function totem() {
     const tessera = async () => {
       if (!T) await testi('it');
       vetro(`<div class="totemTitolo">Privacy</div>
+        <p class="totemTesto">Consenso al trattamento dei dati · Datenschutz · Consent · Confidentialité</p>
         <p class="totemTesto">${escT(T.passiTessera)}</p>
         <p class="totemLingue">Hold your room key card up to the reader · Halten Sie Ihre Zimmerkarte vor den Leser · Présentez votre carte de chambre au lecteur</p>
         ${FIGURA_QR}
@@ -597,6 +609,7 @@ function totem() {
     const elenco = async () => {
       if (!T) await testi('it');
       vetro(`<div class="totemTitolo">Privacy</div><p class="totemTesto">Consensi in attesa: tocchi l’ospite.</p>
+        <p class="totemLingue">Tap the guest · Tippen Sie auf den Gast · Touchez le client</p>
         <div class="pvElenco" id="pvElenco"><p class="mini">…</p></div>
         <div class="opBarra"><span></span><span class="opBarraDx"><button type="button" class="contoChiudi" id="pvManuale">Senza check‑in: scrivi il nome</button><button type="button" class="contoChiudi" id="pvAggiorna">↻</button></span></div>`);
       try {
@@ -627,11 +640,11 @@ function totem() {
         ${SCELTE_PRIVACY.map((k, i) => `<div class="pvFrase ${st.scelte[k] === true ? 'sceltaSi' : st.scelte[k] === false ? 'sceltaNo' : ''}" data-frase="${k}"><p><span class="pvNum">${i + 1}</span>${escT(T.scelte[k])}</p>
           <div class="pvScelta" data-k="${k}"><button type="button" data-si="1" class="${st.scelte[k] === true ? 'si' : ''}"><span class="pvSegno">✓</span>${escT(T.autorizzo)}</button><button type="button" data-si="0" class="${st.scelte[k] === false ? 'no' : ''}"><span class="pvSegno">✕</span>${escT(T.nonAutorizzo)}</button></div></div>`).join('')}
         </div><div class="pvLato">
-        <p class="mini">${escT(T.informativa)} <button type="button" class="contoChiudi" id="pvLeggi">${escT(T.leggi)}</button></p>
+        <p class="mini">${escT(T.informativa)} <button type="button" class="contoChiudi" id="pvLeggi">${escT(T.leggi)}</button> · ${escT(T.revoca)}</p>
         <div id="pvSintesi" hidden class="pvSintesi">${escT(T.sintesi)}</div>
-        <p class="mini">${escT(T.revoca)}</p>
-        <p class="totemLingue">${escT(T.firmaQui)}</p>
-        <div class="pvFirma"><canvas id="pvCanvas" width="700" height="220"></canvas><button type="button" class="contoChiudi" id="pvCancella">${escT(T.cancella)}</button></div>
+        <div class="pvFirma"><canvas id="pvCanvas" width="700" height="220"></canvas>
+          <span class="pvFirmaScritta">${escT(T.firmaQui)}</span>
+          <button type="button" class="contoChiudi" id="pvCancella">${escT(T.cancella)}</button></div>
         <div class="esito errore" id="pvEsito"></div>
         </div></div>
         <div class="opBarra"><button type="button" class="contoChiudi" id="pvIndietro">‹</button><span class="opBarraDx"><button type="button" class="contoChiudi grande" id="pvConferma">${escT(T.conferma)}</button></span></div>`);

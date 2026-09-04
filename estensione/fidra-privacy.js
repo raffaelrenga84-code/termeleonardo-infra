@@ -61,13 +61,15 @@
     return hotelKey;
   }
 
-  async function manda(esito, destinazione, annulla) {
+  async function manda(esito, destinazione, annulla, campoLingua) {
     const dillo = (m) => { esito.textContent = m; };
     const hotelKey = await chiave(dillo);
     if (!hotelKey) return;
     const d = estrai();
     if (!d || !d.ok) { dillo('Non riesco a leggere la prenotazione.'); return; }
-    const lista = attese(d);
+    /* la lingua indovinata si puo' correggere prima di mandare: Fidra non
+       la dice, e il paese non basta (un tedesco di Bolzano) */
+    const lista = attese(d).map((a) => ({ ...a, lingua: campoLingua.value || a.lingua }));
     if (!lista.length) { dillo('Nessuna camera assegnata: assegni la camera, poi prema di nuovo.'); return; }
     dillo('Mando...');
     const fatte = [];
@@ -99,6 +101,8 @@
     dillo('Tolto: non compare piu\' ne\' sull\'iPad ne\' col passaggio della tessera.');
   }
 
+  const NOMI_LINGUA = { it: 'Italiano', en: 'English', de: 'Deutsch', fr: 'Français' };
+
   function metti() {
     if (document.getElementById(ID)) return;
     if (typeof estrai !== 'function') return;
@@ -116,16 +120,27 @@
     annulla.onclick = () => { annulla.disabled = true; togli(esito, annulla).catch((e) => { esito.textContent = 'Errore: ' + e.message; }).finally(() => { annulla.disabled = false; }); };
     /* due strade per lo stesso consenso: l'iPad che la reception porge, o
        il totem in hall dove l'ospite passa la tessera da solo */
+    const lingua = document.createElement('select');
+    lingua.id = 'leoPrivacyLingua';
+    lingua.title = 'La lingua del modulo. La indovino dal paese e dal telefono: se sbaglio, la corregga qui prima di mandare.';
+    lingua.style.cssText = 'font:inherit;padding:5px 8px;border-radius:6px;border:0;';
+    let indovinata = 'it';
+    try { const d = estrai(); if (d && d.ok) indovinata = linguaDi(d); } catch (e) { /* la barra si mette lo stesso */ }
+    for (const [k, n] of Object.entries(NOMI_LINGUA)) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = n; o.selected = k === indovinata;
+      lingua.appendChild(o);
+    }
     const pulsante = (testo, destinazione, titolo) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.textContent = testo;
       b.title = titolo;
       b.style.cssText = 'font:inherit;padding:6px 10px;border-radius:6px;border:0;background:#C9A961;color:#1A3626;cursor:pointer;white-space:nowrap;';
-      b.onclick = () => { b.disabled = true; manda(esito, destinazione, annulla).catch((e) => { esito.textContent = 'Errore: ' + e.message; }).finally(() => { b.disabled = false; }); };
+      b.onclick = () => { b.disabled = true; manda(esito, destinazione, annulla, lingua).catch((e) => { esito.textContent = 'Errore: ' + e.message; }).finally(() => { b.disabled = false; }); };
       return b;
     };
-    barra.append(
+    barra.append(lingua,
       pulsante('Privacy all’iPad', 'ipad', 'Mette l’ospite nell’elenco dell’iPad della reception, per tre minuti. Non scrive niente in Fidra.'),
       pulsante('Privacy al totem', 'totem', 'L’ospite passa la tessera al totem in hall e trova il modulo compilato. Non scrive niente in Fidra.'),
       annulla, esito);

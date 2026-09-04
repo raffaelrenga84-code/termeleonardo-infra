@@ -65,7 +65,8 @@ Deno.test('i quattro nomi delle lingue, non due lettere', () => {
 Deno.test('il modulo sta in una schermata sola: niente scorrimento per l ospite', () => {
   /* «non riusciamo a farci stare tutto senza che il cliente debba
      scrollare» (la proprieta', 4 settembre 2026) */
-  assert(/\.totemRiposo\.privacy\{[^}]*height:calc\(100dvh/.test(P), 'l altezza e quella dello schermo');
+  /* l altezza la da il contenitore bloccato, non il riquadro */
+  assert(/body\.privacyAperta main\{[^}]*height:calc\(100dvh/.test(P), 'l altezza e quella dello schermo');
   assert(/\.totemRiposo\.privacy\{[^}]*overflow:hidden/.test(P), 'la pagina non scorre');
   assert(/@media \(min-width:800px\)\{\.pvCorpo\{grid-template-columns/.test(P), 'su iPad orizzontale due colonne');
   assert(/\.pvFrasi\{[^}]*overflow:auto/.test(P), 'se proprio non entra, scorre solo la colonna delle frasi');
@@ -78,4 +79,20 @@ Deno.test('l iPad chiuso dice quanti aspettano, non chi: nessun nome finche non 
   assert(c.includes("chiamaPrivacy('?a=quante')"), 'chiede solo il numero');
   assert(!c.includes('cognome') && !c.includes('.camera'), 'nessun nome, nessuna camera');
   assert(c.includes('pvPallino') && c.includes('15000'), 'un pallino, ogni quindici secondi');
+});
+
+Deno.test('la firma resta sotto gli occhi: la pagina e alta quanto lo schermo e non scorre', () => {
+  assert(p.includes("document.body.classList.add('privacyAperta')"), 'la pagina si blocca quando il modulo si apre');
+  assert(t.includes("classList.remove('privacyAperta')"), 'e si sblocca tornando al riposo');
+  assert(/body\.privacyAperta\{overflow:hidden/.test(P) && /body\.privacyAperta main\{[^}]*height:calc\(100dvh/.test(P));
+  assert(/\.pvCorpo\{[^}]*grid-template-rows:minmax\(0,1fr\) auto/.test(P), 'in verticale a stringersi sono le frasi, non la firma');
+  assert(p.includes('pvFirmaScritta'), 'la scritta «firmi qui» sta dentro il riquadro, non sopra');
+});
+
+Deno.test('le schermate d attesa parlano quattro lingue: li non si sa ancora chi arrivera', () => {
+  const c = p.slice(p.indexOf('const chiusa = '), p.indexOf('const tessera = '));
+  for (const s of ['Einwilligung', 'Consent to the processing', 'Consentement']) assert(c.includes(s), s);
+  assert(c.includes('Start here') && c.includes('Bitte hier beginnen') && c.includes('Commencez ici'), 'anche il pulsante');
+  const el = p.slice(p.indexOf('const elenco = '), p.indexOf('const modulo = '));
+  assert(el.includes('Tippen Sie auf den Gast'), 'e l elenco della reception');
 });

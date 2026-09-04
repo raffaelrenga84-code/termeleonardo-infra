@@ -35,6 +35,12 @@ Deno.test('due strade, e un modo per tornare indietro: iPad, totem, Annulla', ()
   assert(S.includes('tre minuti'), 'si dice quanto resta in vista');
 });
 
+Deno.test('la lingua si sceglie prima di mandare: quella indovinata e solo il punto di partenza', () => {
+  assert(S.includes('leoPrivacyLingua') && S.includes('createElement(\'select\')'), 'un menu nella barra');
+  assert(S.includes('NOMI_LINGUA') && S.includes("de: 'Deutsch'"), 'le quattro lingue per nome');
+  assert(S.includes('campoLingua.value || a.lingua'), 'quello che sceglie la reception vince');
+});
+
 Deno.test('manda camera, cognome, nome, email, lingua e prenotazione; la lingua si deduce dal paese', () => {
   for (const k of ['camera', 'cognome', 'nome', 'email', 'lingua', 'fidra_prenotazione']) assert(S.includes(k), k);
   assert(S.includes('paese') && S.includes('LINGUA_DEL_PREFISSO'), 'la lingua parte dal paese e, se non basta, dal prefisso del telefono');
