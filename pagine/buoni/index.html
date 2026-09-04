@@ -196,6 +196,8 @@ const FUNZIONE_RICHIESTE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v
 const FUNZIONE_DAYSPA = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/dayspa';
 /* il POS di Bistrot e ristorante (4 settembre 2026): menu', tavoli, personale */
 const FUNZIONE_POS = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos';
+/* i consensi privacy firmati al totem e sugli iPad (4 settembre 2026) */
+const FUNZIONE_PRIVACY = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/privacy';
 
 /* ---------- catalogo: dal listino spa del sito ---------- */
 /* il Day Spa sta in cima perché è quello che chiedono di più */
@@ -297,6 +299,8 @@ const SCHEDE = [
   ['posMenu', 'POS · Menù'],
   ['posTavoli', 'POS · Tavoli'],
   ['posPersonale', 'POS · Personale'],
+  /* i consensi privacy firmati al totem e sugli iPad (4 settembre 2026) */
+  ['privacy', 'Privacy'],
 ];
 
 /* CHI NON VEDE COSA. Alla spa «Emetti un buono» non serve e non
@@ -459,7 +463,7 @@ function disegna() {
   ({ emetti: vistaEmetti, elenco: vistaElenco, verifica: vistaVerifica,
      richieste: vistaRichieste, arrivi: vistaArrivi, dayspaOggi: vistaDayspaOggi,
      dayspaDisponibilita: vistaDayspaDisponibilita, dayspaPrenotazioni: vistaDayspaPrenotazioni,
-     posMenu: vistaPosMenu, posTavoli: vistaPosTavoli, posPersonale: vistaPosPersonale })[VISTA]();
+     posMenu: vistaPosMenu, posTavoli: vistaPosTavoli, posPersonale: vistaPosPersonale, privacy: vistaPrivacy })[VISTA]();
   aggiornaContatore();
 }
 
@@ -2221,6 +2225,66 @@ const giornoIT = (iso) => new Date(iso + 'T12:00:00Z').toLocaleDateString('it-IT
 function puoRimborsareDayspa(email) {
   const e = String(email ?? '').trim().toLowerCase();
   return e === 'reception@termeleonardo.com' || e === 'amministrazione@termeleonardo.com';
+}
+
+/* ==================== la privacy: i consensi firmati ====================
+   Firmati al totem o sugli iPad, restano da noi (Fidra non li riceve).
+   Elenco con ricerca, stampa con la firma, attese da annullare. */
+function vistaPrivacy() {
+  $('vista').innerHTML = `<div class="riquadro">
+    <div class="due"><div><label>Cerca (cognome o camera)</label><input id="pvCerca" placeholder="Rossi, oppure 320" /></div>
+      <div><label>Firmati dal giorno</label><input id="pvDa" type="date" /></div></div>
+    <div class="mini">I consensi firmati al totem e sugli iPad. Restano qui: Fidra non li riceve, la spunta in Fidra resta a mano. «In attesa» sono quelli messi al check‑in con «Privacy al totem» e non ancora firmati.</div>
+    <div class="esito" id="pvEsito">Carico…</div><div id="pvAttese"></div><div id="pvTab"></div></div>`;
+  const quando = (iso) => iso ? new Date(iso).toLocaleString('it-IT', { timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  const segno = (v) => v === true ? '✓' : v === false ? '✗' : '—';
+  const carica = async () => {
+    $('pvEsito').textContent = 'Carico…';
+    try {
+      const qs = `?a=elenco&cerca=${encodeURIComponent($('pvCerca').value.trim())}&da=${encodeURIComponent($('pvDa').value)}`;
+      const j = await chiama(qs, {}, FUNZIONE_PRIVACY);
+      const attese = j.consensi.filter((c) => c.stato === 'in_attesa'), firmati = j.consensi.filter((c) => c.stato === 'firmato');
+      $('pvAttese').innerHTML = attese.length ? `<div class="fasciaTit">In attesa di firma (${attese.length})</div>
+        <table><tr><th>Camera</th><th>Ospite</th><th>Da</th><th></th></tr>${attese.map((c) => `<tr><td>${esc(c.camera)}</td><td>${esc(c.cognome)} ${esc(c.nome || '')}</td><td class="mini">${esc(quando(c.creato_il))}</td>
+          <td><button type="button" class="azione sec mini" data-annulla="${esc(c.id)}" style="width:auto;">Annulla</button></td></tr>`).join('')}</table>` : '';
+      $('pvEsito').textContent = firmati.length ? '' : 'Nessun consenso firmato.';
+      $('pvTab').innerHTML = firmati.length ? `<div class="fasciaTit">Firmati (${firmati.length})</div>
+        <table><tr><th>Firmato</th><th>Camera</th><th>Ospite</th><th>Conserv.</th><th>Messaggi</th><th>Offerte</th><th>Dove</th><th></th></tr>${firmati.map((c) => `<tr>
+          <td class="mini">${esc(quando(c.firmato_il))}</td><td>${esc(c.camera)}</td>
+          <td>${esc(c.cognome)} ${esc(c.nome || '')}<div class="mini">${esc(c.email || '')}${c.email_inviata ? '' : ' · email non inviata'}</div></td>
+          <td>${segno(c.conservazione)}</td><td>${segno(c.messaggi)}</td><td>${segno(c.marketing)}</td><td class="mini">${esc(c.fonte || '')}</td>
+          <td><button type="button" class="azione sec mini" data-stampa="${esc(c.id)}" style="width:auto;">Stampa</button></td></tr>`).join('')}</table>` : '';
+      document.querySelectorAll('[data-annulla]').forEach((b) => b.onclick = async () => {
+        if (!confirm('Annullare questo consenso in attesa?')) return;
+        try { await chiama('?a=annulla', { method: 'POST', body: JSON.stringify({ id: b.dataset.annulla }) }, FUNZIONE_PRIVACY); carica(); }
+        catch (e) { alert(e.message); }
+      });
+      document.querySelectorAll('[data-stampa]').forEach((b) => b.onclick = () => stampaConsenso(b.dataset.stampa));
+    } catch (e) { $('pvEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  };
+  /* la stampa: una pagina a parte con le frasi nella versione firmata e la firma */
+  const stampaConsenso = async (id) => {
+    try {
+      const j = await chiama(`?a=uno&id=${encodeURIComponent(id)}`, {}, FUNZIONE_PRIVACY);
+      const c = j.consenso, t = j.testi;
+      const w = window.open('', '_blank');
+      if (!w) { alert('Il browser ha bloccato la finestra di stampa.'); return; }
+      w.document.write(`<!doctype html><html lang="${esc(c.lingua)}"><head><meta charset="utf-8"><title>Privacy ${esc(c.cognome)} ${esc(c.camera)}</title>
+        <style>body{font:15px/1.5 Georgia,serif;max-width:720px;margin:30px auto;color:#222;padding:0 16px}h1{font-size:22px}p.f{margin:14px 0;font-size:16px}img{max-width:420px;display:block;border-bottom:1px solid #999;margin-top:6px}.m{color:#666;font-size:13px}</style></head><body>
+        <h1>${esc(t.titolo)}</h1>
+        <p><b>${esc(c.cognome)} ${esc(c.nome || '')}</b> · ${esc(c.camera)} · ${esc(quando(c.firmato_il))} · ${esc(c.fonte || '')}${c.email ? ' · ' + esc(c.email) : ''}</p>
+        ${['conservazione', 'messaggi', 'marketing'].map((k) => `<p class="f">${c[k] ? '☑' : '☐'} ${esc(t.scelte[k])}</p>`).join('')}
+        <p class="m">${esc(t.informativa)}</p><p class="m">${esc(t.sintesi)}</p><p class="m">${esc(t.revoca)}</p>
+        <p>${esc(t.firmaQui)}:</p>${c.firma ? `<img src="${c.firma}" alt="firma">` : '<p class="m">(nessuna firma)</p>'}
+        <p class="m">Testi versione ${esc(c.testi_versione || '')} · registrato da ${esc(c.ip || '')} · Hotel Terme Leonardo</p>
+        <script>window.onload = function () { window.print(); };<\/script></body></html>`);
+      w.document.close();
+    } catch (e) { alert(e.message); }
+  };
+  let attesaRicerca = null;
+  $('pvCerca').oninput = () => { clearTimeout(attesaRicerca); attesaRicerca = setTimeout(carica, 300); };
+  $('pvDa').onchange = carica;
+  carica();
 }
 
 /* ==================== il POS: menu', tavoli, personale ====================
