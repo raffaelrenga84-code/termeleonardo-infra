@@ -123,3 +123,8 @@ pagina.
 Scheda «Opinioni» nel back office (per ora arrivano per email), il QR in
 camera e sulla pagina Wi‑Fi (la stessa azione con `fonte = 'qr'` e un limite
 per IP), la risposta all'ospite dal back office, il pre‑checkout via email.
+
+## Stato (4 settembre 2026, sera)
+
+In linea: tabella `opinione` sul progetto; funzione `dayspa` con `?a=opinione` (solo totem, una al minuto) e `?a=qr-google`; pagina del totem con il pulsante «La sua opinione» e il percorso in quattro lingue (parole in `pagine/ingresso/opinione.js`, non in lettura.js come diceva la spec: modulo a parte, piu' pulito). Prova dal vivo dall'IP dell'hotel: 200 con email alla direzione, 401 senza intestazione, 429 al secondo invio nel minuto.
+Da fare: `GOOGLE_RECENSIONE_URL` quando la proprieta' manda il link (finche' manca, niente QR); il cartello sul totem; il collaudo con la tessera 1466 dal totem vero.
