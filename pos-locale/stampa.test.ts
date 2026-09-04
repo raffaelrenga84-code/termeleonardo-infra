@@ -8,7 +8,7 @@
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { apri, creaSchema } from './db.ts';
-import { giroStampe, stampa } from './stampa.ts';
+import { giroStampe, stampa, stampantiDi } from './stampa.ts';
 
 Deno.test('stampa: apre la connessione, scrive tutti i byte, chiude', async () => {
   const scritto: number[] = []; let chiuso = false, dove = '';
@@ -36,6 +36,15 @@ Deno.test('giroStampe: ogni da_stampare va alla sua stampante e resta da allinea
   const righe = db.prepare('select id, stato, stampata_da, allineato, errore from pos_stampa order by id').all() as Record<string, unknown>[];
   assertEquals(righe[0].stato, 'errore'); assert(String(righe[0].errore).includes('rifiutata'));
   assertEquals(righe[1], { id: 'P2', stato: 'stampata', stampata_da: 'locale', allineato: 0, errore: null });
+});
+
+Deno.test('gli indirizzi delle stampanti li comanda il back office; il config.json e solo il ripiego', () => {
+  const db = apri(':memory:'); creaSchema(db);
+  db.exec(`insert into pos_locale (id, nome, stampante_cucina, aggiornato_il) values ('L1', 'Bistrot', '192.168.0.192:9100', '2026-09-04T10:00:00Z')`);
+  /* quello che il back office ha scritto vince; quello che manca lo mette il file */
+  assertEquals(stampantiDi(db, 'L1', { cucina: '10.0.0.1:9100', bar: '10.0.0.2:9100' }),
+    { cucina: '192.168.0.192:9100', bar: '10.0.0.2:9100' });
+  assertEquals(stampantiDi(db, 'ignoto', { bar: '10.0.0.2:9100' }), { cucina: undefined, bar: '10.0.0.2:9100' });
 });
 
 Deno.test('senza indirizzo per quella stampante il biglietto resta in coda, non sparisce', async () => {

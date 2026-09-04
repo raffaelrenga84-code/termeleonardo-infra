@@ -26,6 +26,19 @@ export async function stampa(dest: Destinazione, byte: Uint8Array, connetti: Con
   } finally { c.close(); }
 }
 
+/** Gli indirizzi delle due stampanti di un locale: prima quelli scritti
+    nel back office (scendono col menu' e i tavoli), poi quelli del
+    config.json come ripiego. Cosi' cambiare stampante non vuol dire
+    andare al PC del Bistrot con la tastiera. */
+export function stampantiDi(db: Db, locale: string, dalFile: Stampanti = {}): Stampanti {
+  const r = db.prepare('select stampante_cucina, stampante_bar from pos_locale where id = ?').get(locale) as Riga | undefined;
+  const dal = (v: unknown) => { const s = String(v ?? '').trim(); return s || undefined; };
+  return {
+    cucina: dal(r?.stampante_cucina) ?? dalFile.cucina,
+    bar: dal(r?.stampante_bar) ?? dalFile.bar,
+  };
+}
+
 /** «host:porta» dalla configurazione; senza porta, 9100. */
 export function destinazione(s: string | undefined): Destinazione | null {
   if (!s) return null;
