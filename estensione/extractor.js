@@ -132,16 +132,29 @@ function estraiSoggiorno() {
        come tripwire (il "Totale p.p." della pagina non vale per tutti) e
        come fonte dei periodi per ospite se l'API non li espone. */
     const ospitiDettaglio = [];
+    /* v2.35: in una doppia gli ospiti sono DUE, e la finestra di sedici
+       righe si chiudeva sul primo: fra un nome e l'altro Fidra infila la
+       tessera, il check-out e «Modifica». Per i nomi si guarda quindi fino
+       all'inizio della camera dopo (o ottanta righe), cosi' il consenso
+       privacy arriva a tutti e due (la proprieta', 4 settembre 2026). Il
+       resto della camera — totale ed extra — si legge come prima. */
+    let fine = Math.min(L.length, i + 80);
+    for (let j = i + 1; j < fine; j++) {
+      const l3 = L[j].replace(/\s*[^\w\s]*\s*fix\s*$/i, '').trim();
+      if (!/^(.+?)\s+n\.\s*(\d*)\s*$/.test(l3)) continue;
+      if (/Adulti\s*\d+\s*Bambini\s*\d+/.test(L.slice(j, j + 16).join(' | '))) { fine = j; break; }
+    }
+    const bloccoOspiti = L.slice(i, fine);
     const RE_DATA_OSPITE = /^(Arrivo|Partenza|Arrival|Departure|Anreise|Abreise)?\s*:?\s*(\d{1,2})[-\s]([A-Za-z]{3})$/;
-    blocco.forEach((x, j) => {
+    bloccoOspiti.forEach((x, j) => {
       if (x !== 'vai al Soggiorno') return;
-      let nome = blocco[j - 1], arrivoProprio = null, partenzaPropria = null;
+      let nome = bloccoOspiti[j - 1], arrivoProprio = null, partenzaPropria = null;
       const md = (nome || '').match(RE_DATA_OSPITE);
       if (md && MESI[md[3]]) {   // la riga prima del link è una data: il nome sta una più su
         const data = { g: +md[2], mese: md[3] };
         if (/Partenza|Departure|Abreise/i.test(md[1] || '')) partenzaPropria = data;
         else arrivoProprio = data;
-        nome = blocco[j - 2];
+        nome = bloccoOspiti[j - 2];
       }
       if (nome) ospiti.push(nome);
       ospitiDettaglio.push({ nome: nome || null, arrivoProprio, partenzaPropria });
