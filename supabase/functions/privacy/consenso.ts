@@ -20,7 +20,7 @@ const FIRMA_MAX = 200 * 1024;
 const TITOLARE = 'Stabilimento Termale Hotel Terme Leonardo Tria srl, Via Monteortone, 46 - 35037 Teolo (PD), tel. 049 9939200, info@termeleonardo.com';
 
 export type Testi = {
-  titolo: string; saluto: string; autorizzo: string; nonAutorizzo: string;
+  titolo: string; norma: string; saluto: string; autorizzo: string; nonAutorizzo: string;
   scelte: Record<Scelta, string>; informativa: string; sintesi: string; leggi: string; revoca: string;
   firmaQui: string; cancella: string; conferma: string; grazie: string; grazieTesto: string;
   chiediNome: string; cognome: string; nome: string; avanti: string; passiTessera: string; tesseraIgnota: string;
@@ -30,6 +30,7 @@ export type Testi = {
 export const TESTI_CONSENSO: Record<Lingua, Testi> = {
   it: {
     titolo: 'Consenso al trattamento dei dati personali',
+    norma: "ai sensi del Regolamento UE 2016/679",
     saluto: 'Buongiorno',
     autorizzo: 'Autorizzo', nonAutorizzo: 'Non autorizzo',
     scelte: {
@@ -52,6 +53,7 @@ export const TESTI_CONSENSO: Record<Lingua, Testi> = {
   },
   en: {
     titolo: 'Consent to the processing of personal data',
+    norma: "under EU Regulation 2016/679",
     saluto: 'Welcome',
     autorizzo: 'I agree', nonAutorizzo: 'I do not agree',
     scelte: {
@@ -74,6 +76,7 @@ export const TESTI_CONSENSO: Record<Lingua, Testi> = {
   },
   de: {
     titolo: 'Einwilligung in die Verarbeitung personenbezogener Daten',
+    norma: "gemäß EU-Verordnung 2016/679",
     saluto: 'Guten Tag',
     autorizzo: 'Ich stimme zu', nonAutorizzo: 'Ich stimme nicht zu',
     scelte: {
@@ -96,6 +99,7 @@ export const TESTI_CONSENSO: Record<Lingua, Testi> = {
   },
   fr: {
     titolo: 'Consentement au traitement des données personnelles',
+    norma: "conformément au Règlement UE 2016/679",
     saluto: 'Bonjour',
     autorizzo: 'J’autorise', nonAutorizzo: 'Je n’autorise pas',
     scelte: {

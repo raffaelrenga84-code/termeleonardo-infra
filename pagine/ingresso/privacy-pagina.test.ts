@@ -96,3 +96,10 @@ Deno.test('le schermate d attesa parlano quattro lingue: li non si sa ancora chi
   const el = p.slice(p.indexOf('const elenco = '), p.indexOf('const modulo = '));
   assert(el.includes('Tippen Sie auf den Gast'), 'e l elenco della reception');
 });
+
+Deno.test('la testa del modulo: norma sotto il titolo, e il pulsante che manda in alto a destra', () => {
+  const mo = p.slice(p.indexOf('const modulo = '));
+  assert(mo.includes('class="pvTesta"') && mo.includes('T.norma'), 'titolo e norma');
+  assert(mo.indexOf('id="pvConferma"') < mo.indexOf('class="pvCorpo"'), 'il pulsante sta in cima, non in fondo');
+  assert(/\.pvFirmaScritta::before\{content/.test(P), 'la riga su cui firmare');
+});

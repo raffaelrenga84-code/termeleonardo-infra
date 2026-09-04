@@ -12,7 +12,7 @@ Deno.test('le tre scelte, nell ordine del modulo; i testi hanno una versione e l
   assertEquals(SCELTE, ['conservazione', 'messaggi', 'marketing']);
   assert(/^\d{4}-\d{2}-\d{2}$/.test(VERSIONE_TESTI));
   const it = testiConsenso('it');
-  for (const k of ['titolo', 'saluto', 'autorizzo', 'nonAutorizzo', 'informativa', 'leggi', 'revoca', 'firmaQui', 'cancella', 'conferma', 'grazie', 'grazieTesto', 'chiediNome', 'cognome', 'nome', 'avanti', 'passiTessera', 'tesseraIgnota', 'mancaFirma', 'mancaScelte', 'errore']) assert(typeof campo(it, k) === 'string' && (campo(it, k) as string).length > 0, `it.${k}`);
+  for (const k of ['titolo', 'norma', 'saluto', 'autorizzo', 'nonAutorizzo', 'informativa', 'leggi', 'revoca', 'firmaQui', 'cancella', 'conferma', 'grazie', 'grazieTesto', 'chiediNome', 'cognome', 'nome', 'avanti', 'passiTessera', 'tesseraIgnota', 'mancaFirma', 'mancaScelte', 'errore']) assert(typeof campo(it, k) === 'string' && (campo(it, k) as string).length > 0, `it.${k}`);
   for (const s of SCELTE) assert(it.scelte[s].length > 20, `it.scelte.${s}`);
   for (const l of ['en', 'de', 'fr']) {
     const t = testiConsenso(l);
