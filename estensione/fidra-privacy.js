@@ -55,8 +55,17 @@
      sbagliati; dopo tre minuti sparirebbero da soli dall'elenco */
   let ultimi = [];
 
+  /* Quando l'estensione si aggiorna, le pagine gia' aperte restano con la
+     vecchia in pancia e chrome.storage smette di rispondere: «Extension
+     context invalidated». Non e' un guasto, ma va detto in italiano, con
+     il rimedio (4 settembre 2026). */
+  const vecchia = (e) => /Extension context invalidated|context invalidated/i.test(String(e && e.message || e));
+  const AVVISO_VECCHIA = 'L’estensione è stata aggiornata: ricarichi questa pagina di Fidra (F5) e riprovi.';
+
   async function chiave(dillo) {
-    const { hotelKey } = await chrome.storage.local.get(['hotelKey']);
+    let hotelKey;
+    try { ({ hotelKey } = await chrome.storage.local.get(['hotelKey'])); }
+    catch (e) { dillo(vecchia(e) ? AVVISO_VECCHIA : 'Errore: ' + e.message); return null; }
     if (!hotelKey) { dillo('Serve la chiave hotel: la si imposta nel pannello dell\'estensione (Chiave hotel...).'); return null; }
     return hotelKey;
   }
@@ -117,7 +126,7 @@
     annulla.hidden = true;
     annulla.title = 'Toglie subito il consenso in attesa appena mandato.';
     annulla.style.cssText = 'font:inherit;padding:6px 10px;border-radius:6px;border:1px solid #fff;background:transparent;color:#fff;cursor:pointer;white-space:nowrap;';
-    annulla.onclick = () => { annulla.disabled = true; togli(esito, annulla).catch((e) => { esito.textContent = 'Errore: ' + e.message; }).finally(() => { annulla.disabled = false; }); };
+    annulla.onclick = () => { annulla.disabled = true; togli(esito, annulla).catch((e) => { esito.textContent = vecchia(e) ? AVVISO_VECCHIA : 'Errore: ' + e.message; }).finally(() => { annulla.disabled = false; }); };
     /* due strade per lo stesso consenso: l'iPad che la reception porge, o
        il totem in hall dove l'ospite passa la tessera da solo */
     const lingua = document.createElement('select');
@@ -137,7 +146,7 @@
       b.textContent = testo;
       b.title = titolo;
       b.style.cssText = 'font:inherit;padding:6px 10px;border-radius:6px;border:0;background:#C9A961;color:#1A3626;cursor:pointer;white-space:nowrap;';
-      b.onclick = () => { b.disabled = true; manda(esito, destinazione, annulla, lingua).catch((e) => { esito.textContent = 'Errore: ' + e.message; }).finally(() => { b.disabled = false; }); };
+      b.onclick = () => { b.disabled = true; manda(esito, destinazione, annulla, lingua).catch((e) => { esito.textContent = vecchia(e) ? AVVISO_VECCHIA : 'Errore: ' + e.message; }).finally(() => { b.disabled = false; }); };
       return b;
     };
     barra.append(lingua,
