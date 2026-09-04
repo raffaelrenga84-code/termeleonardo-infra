@@ -200,3 +200,19 @@ Deno.test('la tessera la legge il cloud: qui si scrive la camera', async () => {
   const r = await esegui(db, 'tessera', req('GET', null, { codice: '12345' }), cfg);
   assertEquals(r.stato, 503);
 });
+
+Deno.test('senza motivo il server locale non storna e non cambia prezzo', async () => {
+  const db = base();
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 1 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  /* il cameriere di prova puo stornare (storni = 1 nel base()? no: ruolo cameriere) */
+  db.exec("update pos_cameriere set storni = 1 where id = 'K1'");
+  await esegui(db, 'righe', req('POST', { conto, righe: [{ id: 'r1', articolo: 'A2', quantita: 1, portata: 'bevande' }] }), cfg);
+  await esegui(db, 'invia', req('POST', { conto }), cfg);
+  const senza = await esegui(db, 'storna', req('POST', { riga: 'r1' }), cfg);
+  assertEquals(senza.stato, 400);
+  assertEquals((db.prepare("select stato from pos_riga where id = 'r1'").get() as { stato: string }).stato, 'partita');
+  const con = await esegui(db, 'storna', req('POST', { riga: 'r1', motivo: 'piatto rifatto' }), cfg);
+  assertEquals(con.stato, 200);
+  assertEquals((db.prepare("select motivo_storno as m from pos_riga where id = 'r1'").get() as { m: string }).m, 'piatto rifatto');
+});

@@ -148,3 +148,15 @@ Deno.test('l ospite firma l addebito sul palmare, nella sua lingua', () => {
   const f = m.slice(m.indexOf('const firmaOspite ='), m.indexOf('/* La chiusura:'));
   assert(f.includes('conto.camera') && f.includes('euro(totale)'), 'l ospite vede camera e importo prima di firmare');
 });
+
+Deno.test('senza motivo non si cambia un prezzo e non si storna', () => {
+  /* «se uno applica una variazione di prezzo deve scrivere la motivazione
+     altrimenti non deve permettere la modifica; la stessa cosa anche in
+     caso di storno» (la proprieta', 4 settembre 2026) */
+  assert(m.includes('id="pMotivoPrezzo"'), 'il campo sulla riga');
+  assert(m.includes('const cambiaPrezzo = !a.prezzo_libero && campi.prezzo_manuale_cent != null && campi.prezzo_manuale_cent !== listino;'), 'solo se il prezzo cambia davvero');
+  assert(m.includes('if (cambiaPrezzo && campi.motivo_prezzo.length < 3)'), 'e allora il motivo e obbligatorio');
+  assert(m.includes('motivo_prezzo: r.motivo_prezzo'), 'e viaggia col la riga fino al server');
+  assert(m.includes("if (motivo.length < 3)") && m.includes('Scriva il motivo dello storno'), 'lo storno lo pretende');
+  assert(m.includes('id="paMotivo"') && m.includes('Scriva perché cambia il prezzo'), 'e anche il prezzo di listino');
+});

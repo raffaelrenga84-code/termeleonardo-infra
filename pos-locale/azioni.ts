@@ -13,6 +13,7 @@ import { dividi, PORTATE, prossima, type Portata } from '../supabase/functions/p
 import { prezzoRiga, totaleCent } from '../supabase/functions/pos/conto.ts';
 import { testoBiglietto, type Biglietto } from '../supabase/functions/pos/comanda.ts';
 import { puo, type Ruolo } from '../supabase/functions/pos/permessi.ts';
+import { motivoPulito, prezzoCambiato } from '../supabase/functions/pos/motivi.ts';
 
 export type Richiesta = { metodo: string; query: Record<string, string>; corpo: unknown; intestazioni: Record<string, string> };
 export type Risposta = { stato: number; corpo: unknown };
@@ -311,8 +312,11 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     if (!puo(cameriere!, 'storno')) return errore('storno non permesso', 403);
     const r = db.prepare('select * from pos_riga where id = ?').get(String(b.riga ?? '')) as Riga | undefined;
     if (!r || r.stato === 'stornata') return errore('riga non trovata o gia stornata', 404);
+    /* senza motivo non si storna: e' merce che esce e non si paga */
+    const motivo = motivoPulito(b.motivo);
+    if (!motivo) return errore('scriva il motivo dello storno', 400);
     const ora = adesso();
-    aggiornaRighe(db, [String(r.id)], { stato: 'stornata', stornata_da: cameriere!.id, stornata_il: ora, motivo_storno: String(b.motivo ?? '').slice(0, 200) || null, aggiornato_il: ora });
+    aggiornaRighe(db, [String(r.id)], { stato: 'stornata', stornata_da: cameriere!.id, stornata_il: ora, motivo_storno: motivo, aggiornato_il: ora });
     if (r.stato === 'partita') {
       const c = contoDi(db, String(r.conto));
       const questa = righeDelConto(db, String(r.conto)).filter((x) => x.id === r.id);

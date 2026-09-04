@@ -39,6 +39,8 @@ import { dividi, PORTATE, prossima, type Portata } from './portate.ts';
 import { prezzoRiga, totaleCent } from './conto.ts';
 import { escpos, testoBiglietto, type Biglietto } from './comanda.ts';
 import { importa } from './menu.ts';
+import { leggiInCasa } from './in-casa.ts';
+import { motivoPulito, prezzoCambiato } from './motivi.ts';
 import { chiaveNome, leggiSala } from './sala.ts';
 import { puo, type Ruolo as RuoloPos } from './permessi.ts';
 import { ruoloDi } from './ruoli.ts';
@@ -308,6 +310,22 @@ Deno.serve(async (req) => {
     return risposta({ conto: data });
   }
 
+  /* Chi e' in casa oggi, per il palmare: i nomi di una camera, con il
+     trattamento e la nota della prenotazione. Cosi' aprendo un conto in
+     camera si sceglie l'ospite invece di scriverlo, e in cucina la nota
+     arriva insieme alla comanda. */
+  if (azione === 'in-casa' && req.method === 'GET') {
+    /* la legge il palmare: e' l'elenco degli ospiti, non esce di casa */
+    if (!cameriere) return risposta({ errore: 'sessione non valida' }, 401);
+    const camera = (url.searchParams.get('camera') || '').trim();
+    const oggi = new Date().toISOString().slice(0, 10);
+    let q = db.from('pos_in_casa').select('*').eq('giorno', oggi).order('camera');
+    if (camera) q = q.eq('camera', camera);
+    const { data, error } = await q;
+    if (error) return risposta({ errore: error.message }, 500);
+    return risposta({ giorno: oggi, ospiti: data ?? [] });
+  }
+
   /* La tessera passata sul palmare: torna solo la camera, mai il conto
      dell'ospite. Al cameriere serve quella. */
   if (azione === 'tessera') {
@@ -361,10 +379,17 @@ Deno.serve(async (req) => {
     const { data: a } = await db.from('pos_articolo').select('*').eq('id', String(b.articolo ?? '')).maybeSingle();
     if (!a) return risposta({ errore: 'articolo non trovato' }, 404);
     const agg: Riga = { aggiornato_il: adesso() };
+    let cambio: { da: number; a: number; motivo: string } | null = null;
     if (b.prezzo_cent !== undefined) {
       if (!puo(cameriere!, 'menu')) return risposta({ errore: 'il prezzo lo cambia l\'amministrazione' }, 403);
       const p = Math.round(Number(b.prezzo_cent));
       if (!Number.isFinite(p) || p < 0 || p > 100000) return risposta({ errore: 'prezzo non valido' }, 400);
+      /* cambiare il listino lascia traccia: prima, dopo, chi e perche' */
+      if (p !== Number(a.prezzo_cent)) {
+        const motivo = motivoPulito(b.motivo);
+        if (!motivo) return risposta({ errore: 'scriva il motivo della variazione di prezzo' }, 400);
+        cambio = { da: Number(a.prezzo_cent), a: p, motivo };
+      }
       agg.prezzo_cent = p;
     }
     if (b.esaurito !== undefined) {
@@ -373,6 +398,12 @@ Deno.serve(async (req) => {
     }
     const { data, error } = await db.from('pos_articolo').update(agg).eq('id', a.id).select('*').single();
     if (error) return risposta({ errore: error.message }, 500);
+    if (cambio) {
+      await db.from('pos_prezzo_cambiato').insert({
+        id: crypto.randomUUID(), articolo: a.id, da_cent: cambio.da, a_cent: cambio.a,
+        motivo: cambio.motivo, cameriere: cameriere!.id, quando: adesso(),
+      });
+    }
     return risposta({ articolo: data });
   }
 
@@ -404,6 +435,15 @@ Deno.serve(async (req) => {
           prezzo_manuale_cent: r.prezzo_manuale_cent === undefined || r.prezzo_manuale_cent === null ? null : Number(r.prezzo_manuale_cent),
         }, puoPrezzo);
       } catch (e) { return risposta({ errore: (e as Error).message }, 403); }
+      /* un prezzo battuto a mano diverso dal listino vuole il perche':
+         senza, la riga non entra (la proprieta', 4 settembre 2026) */
+      const cambiato = prezzoCambiato({
+        prezzoListinoCent: Number(a.prezzo_cent), supplementoCent: v ? Number(v.supplemento_cent) : 0,
+        prezzoManualeCent: r.prezzo_manuale_cent === undefined || r.prezzo_manuale_cent === null ? null : Number(r.prezzo_manuale_cent),
+        prezzoLibero: !!a.prezzo_libero,
+      });
+      const motivoPrezzo = motivoPulito(r.motivo_prezzo);
+      if (cambiato && !motivoPrezzo) return risposta({ errore: `${a.nome}: scriva il motivo della variazione di prezzo` }, 400);
       const cat = a.cat as unknown as { portata: Portata } | null;
       const portata = ePortata(r.portata) ? r.portata : (ePortata(a.portata) ? a.portata : (cat?.portata ?? 'secondi'));
       righe.push({
@@ -412,6 +452,7 @@ Deno.serve(async (req) => {
         prezzo_listino_cent: Number(a.prezzo_cent), prezzo_cent: prezzo,
         variante: v ? v.nome : (r.variante ? String(r.variante) : null),
         nota: r.nota ? String(r.nota).slice(0, 200) : null,
+        motivo_prezzo: cambiato ? motivoPrezzo : null,
         portata, stato: 'da_inviare', creata_da: cameriere!.id, aggiornato_il: adesso(),
       });
     }
@@ -462,9 +503,12 @@ Deno.serve(async (req) => {
     const b = await corpo();
     const { data: r } = await db.from('pos_riga').select('*').eq('id', String(b.riga ?? '')).maybeSingle();
     if (!r || r.stato === 'stornata') return risposta({ errore: 'riga non trovata o gia stornata' }, 404);
+    /* senza motivo non si storna: e' merce che esce e non si paga */
+    const motivo = motivoPulito(b.motivo);
+    if (!motivo) return risposta({ errore: 'scriva il motivo dello storno' }, 400);
     const ora = adesso();
     const { data: agg } = await db.from('pos_riga')
-      .update({ stato: 'stornata', stornata_da: cameriere!.id, stornata_il: ora, motivo_storno: String(b.motivo ?? '').slice(0, 200) || null, aggiornato_il: ora })
+      .update({ stato: 'stornata', stornata_da: cameriere!.id, stornata_il: ora, motivo_storno: motivo, aggiornato_il: ora })
       .eq('id', r.id).select('*').single();
     if (r.stato === 'partita') {
       const { data: c } = await db.from('pos_conto').select('*').eq('id', r.conto).single();
@@ -640,6 +684,24 @@ Deno.serve(async (req) => {
     if (locale) q = q.eq('locale', locale);
     fuori.stampe = (await q).data ?? [];
     return risposta(fuori);
+  }
+
+  /* Chi e' in casa, mandato dall'estensione dalla pagina «In Casa» di
+     Fidra. E' la fotografia di un giorno: si riscrive tutta, cosi' una
+     camera liberata sparisce invece di restare li'. */
+  if (azione === 'in-casa') {
+    if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const b = await corpo();
+    const giorno = /^\d{4}-\d{2}-\d{2}$/.test(String(b.giorno)) ? String(b.giorno) : new Date().toISOString().slice(0, 10);
+    const righe = leggiInCasa(b.ospiti).map((r, i) => ({ ...r, id: `${giorno}-${r.camera}-${i}`, giorno, aggiornato_il: adesso() }));
+    const { error: e1 } = await db.from('pos_in_casa').delete().eq('giorno', giorno);
+    if (e1) return risposta({ errore: e1.message }, 500);
+    if (righe.length) {
+      const { error } = await db.from('pos_in_casa').insert(righe);
+      if (error) return risposta({ errore: error.message }, 500);
+    }
+    return risposta({ esito: 'ok', giorno, ospiti: righe.length, camere: new Set(righe.map((r) => r.camera)).size });
   }
 
   if (azione === 'importa-menu') {

@@ -73,7 +73,7 @@ create table if not exists pos_conto (
 create table if not exists pos_riga (
   id text primary key, conto text not null, articolo text, nome text not null,
   quantita integer not null default 1, prezzo_listino_cent integer not null, prezzo_cent integer not null,
-  variante text, nota text, portata text not null, stato text not null, creata_da text,
+  variante text, nota text, motivo_prezzo text, portata text not null, stato text not null, creata_da text,
   creata_il text not null default ${ORA}, partita_il text, stornata_da text, stornata_il text,
   motivo_storno text, aggiornato_il text not null default ${ORA}, allineato integer not null default 0);
 create table if not exists pos_comanda (

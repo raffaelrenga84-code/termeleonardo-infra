@@ -115,3 +115,14 @@ Deno.test('la firma dell ospite sull addebito: un PNG, piccolo, e facoltativa', 
   assert(!c.includes('if (!firma) return risposta'), 'senza firma il conto si chiude lo stesso: l ospite puo essersi alzato');
   assert(S.includes("lingua: ['it', 'en', 'de', 'fr'].includes(String(b.lingua))"), 'la lingua dell ospite sta sul conto');
 });
+
+Deno.test('il motivo lo pretende il server, non solo la pagina', () => {
+  /* se stesse solo nella pagina basterebbe un palmare vecchio per saltarlo */
+  const s = S.slice(S.indexOf("azione === 'storna'"), S.indexOf("azione === 'sposta'"));
+  assert(s.includes('const motivo = motivoPulito(b.motivo)') && s.includes('scriva il motivo dello storno'), 'storno');
+  const r = S.slice(S.indexOf("azione === 'righe'"), S.indexOf("azione === 'invia'"));
+  assert(r.includes('prezzoCambiato({') && r.includes('scriva il motivo della variazione di prezzo'), 'prezzo di riga');
+  assert(r.includes('motivo_prezzo: cambiato ? motivoPrezzo : null'), 'e resta scritto sulla riga');
+  const a = S.slice(S.indexOf("azione === 'articolo-cambia'"));
+  assert(a.includes("from('pos_prezzo_cambiato').insert(") && a.includes('da_cent: cambio.da'), 'il listino lascia traccia: prima, dopo, chi e perche');
+});

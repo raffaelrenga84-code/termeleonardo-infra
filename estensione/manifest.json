@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Offerta Leonardo",
-  "version": "2.35.0",
+  "version": "2.36.0",
   "description": "Legge l'offerta aperta in Fidra e inserisce l'email impaginata direttamente in Outlook Web.",
   "permissions": [
     "activeTab",
@@ -134,6 +134,17 @@
       ],
       "js": [
         "atam-booking.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://leonardo.fidra.cloud/pos",
+        "https://leonardo.fidra.cloud/pos/*",
+        "https://leonardo.fidra.cloud/pos?*"
+      ],
+      "js": [
+        "fidra-pos-menu.js"
       ],
       "run_at": "document_idle"
     }

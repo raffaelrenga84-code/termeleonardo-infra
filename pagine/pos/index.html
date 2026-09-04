@@ -650,7 +650,8 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     velo.innerHTML = `<div class="pannello">
       <h3>${esc(a.nome)}</h3>
       <p class="mini">${esc((categoriaDi(a.categoria) || {}).nome || '')}${a.prezzo_libero ? ' · prezzo libero' : ` · a listino ${euro(a.prezzo_cent)}`}</p>
-      ${puoListino && !a.prezzo_libero ? `<label>Prezzo di listino (euro)</label><input id="paPrezzo" inputmode="decimal" value="${(Number(a.prezzo_cent) / 100).toFixed(2).replace('.', ',')}" />`
+      ${puoListino && !a.prezzo_libero ? `<label>Prezzo di listino (euro)</label><input id="paPrezzo" inputmode="decimal" value="${(Number(a.prezzo_cent) / 100).toFixed(2).replace('.', ',')}" />
+        <label>Perché cambia il prezzo</label><input id="paMotivo" maxlength="200" placeholder="es. aumento fornitore, prezzo sbagliato" />`
         : '<p class="mini">Il prezzo di listino lo cambia l’amministrazione, da qui o dal back office.</p>'}
       <label>In questo momento</label>
       <div class="chips"><button data-esa="0" class="${a.esaurito ? '' : 'attiva'}">C’è</button><button data-esa="1" class="${a.esaurito ? 'attiva' : ''}">Esaurito</button></div>
@@ -671,6 +672,13 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
         const n = Number(String(campo.value).replace(',', '.'));
         if (!isFinite(n) || n < 0) return alert('Prezzo non valido.');
         corpo.prezzo_cent = Math.round(n * 100);
+        /* cambiare il listino lascia traccia: senza il perché non parte */
+        corpo.motivo = velo.querySelector('#paMotivo').value.trim();
+        if (corpo.prezzo_cent !== Number(a.prezzo_cent) && corpo.motivo.length < 3) {
+          const c = velo.querySelector('#paMotivo');
+          c.style.borderColor = 'var(--allarme)'; c.placeholder = 'Scriva perché cambia il prezzo'; c.focus();
+          return;
+        }
       }
       try {
         const j = await chiama('articolo-cambia', { method: 'POST', body: JSON.stringify(corpo), cloud: true });
@@ -716,7 +724,8 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       <div class="chips">${(cat.note_rapide || ['Senza glutine', 'No lattosio', 'Allergia', 'Caldo', 'Freddo', 'Con ghiaccio', 'Senza ghiaccio']).map((n) => `<button data-nota="${esc(n)}">${esc(n)}</button>`).join('')}</div>
       ${varianti.length ? `<label>Variante</label><div class="chips">${varianti.map((v) => `<button data-v="${esc(v.id)}" class="${r.variante_id === v.id ? 'attiva' : ''}">${esc(v.nome)}${v.supplemento_cent ? ` +${euro(v.supplemento_cent)}` : ''}</button>`).join('')}</div>` : ''}
       <label>Portata</label><div class="chips">${PORTATE.map((p) => `<button data-p="${p}" class="${r.portata === p ? 'attiva' : ''}">${NOMI_PORTATE[p]}</button>`).join('')}</div>
-      ${puoPrezzo ? `<label>Prezzo a mano (euro, vuoto = listino)</label><input id="pPrezzo" inputmode="decimal" value="${r.prezzo_manuale_cent != null ? (r.prezzo_manuale_cent / 100).toFixed(2).replace('.', ',') : ''}" />` : ''}
+      ${puoPrezzo ? `<label>Prezzo a mano (euro, vuoto = listino)</label><input id="pPrezzo" inputmode="decimal" value="${r.prezzo_manuale_cent != null ? (r.prezzo_manuale_cent / 100).toFixed(2).replace('.', ',') : ''}" />
+      <label>Perché cambia il prezzo</label><input id="pMotivoPrezzo" maxlength="200" placeholder="es. omaggio direzione, piatto rifatto" value="${esc(r.motivo_prezzo || '')}" />` : ''}
       <div class="due"><button class="bottone sec" id="pTogli">Togli</button><button class="bottone" id="pOk">Fatto</button></div>`
       : `<p class="mini">Riga già inviata${r.stato === 'partita' ? ' e partita' : ', in attesa'}.</p>
       ${r.stato !== 'stornata' ? `<label>Sposta su un altro conto di questo tavolo</label>
@@ -742,6 +751,18 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
         const pz = puoPrezzo ? velo.querySelector('#pPrezzo').value.trim() : '';
         campi.prezzo_manuale_cent = pz ? Math.round(Number(pz.replace(',', '.')) * 100) : (a.prezzo_libero ? r.prezzo_manuale_cent : null);
         campi.prezzo_cent = campi.prezzo_manuale_cent != null ? campi.prezzo_manuale_cent : (a.prezzo_cent || 0) + (v ? v.supplemento_cent : 0);
+        /* prezzo diverso dal listino: senza il perché non si va avanti
+           (la proprietà, 4 settembre 2026). Lo ricontrolla anche il
+           server: la regola sta lì, questa è solo la porta. */
+        const listino = (a.prezzo_cent || 0) + (v ? v.supplemento_cent : 0);
+        const cambiaPrezzo = !a.prezzo_libero && campi.prezzo_manuale_cent != null && campi.prezzo_manuale_cent !== listino;
+        campi.motivo_prezzo = puoPrezzo ? velo.querySelector('#pMotivoPrezzo').value.trim() : '';
+        if (cambiaPrezzo && campi.motivo_prezzo.length < 3) {
+          const c = velo.querySelector('#pMotivoPrezzo');
+          c.style.borderColor = 'var(--allarme)'; c.focus();
+          c.insertAdjacentHTML('afterend', '<p class="mini" style="color:var(--allarme);margin:4px 0 0;">Scriva perché cambia il prezzo.</p>');
+          return;
+        }
         ordine = cambia(ordine, id, campi); chiudiPannello(); disegna();
       };
     } else {
@@ -753,8 +774,16 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       const pc = velo.querySelector('#pChiudi'); if (pc) pc.onclick = chiudiPannello;
       const ps = velo.querySelector('#pStorna');
       if (ps) ps.onclick = async () => {
+        /* senza motivo non si storna: è merce che esce e non si paga */
+        const motivo = velo.querySelector('#pMotivo').value.trim();
+        if (motivo.length < 3) {
+          const c = velo.querySelector('#pMotivo');
+          c.style.borderColor = 'var(--allarme)'; c.focus();
+          c.placeholder = 'Scriva il motivo dello storno';
+          return;
+        }
         try {
-          const j = await scrivi('storna', { riga: id, motivo: velo.querySelector('#pMotivo').value.trim() });
+          const j = await scrivi('storna', { riga: id, motivo });
           if (!j.offline) dalServer = dalServer.map((x) => x.id === id ? j.riga : x);
           chiudiPannello(); disegna();
         } catch (e) { alert(e.message); }
@@ -768,7 +797,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     if (!nuove.length) return;
     $('invia').disabled = true;
     try {
-      const corpo = nuove.map((r) => ({ id: r.id, articolo: r.articolo, quantita: r.quantita, variante_id: r.variante_id, variante: r.variante, nota: r.nota, portata: r.portata, prezzo_manuale_cent: r.prezzo_manuale_cent }));
+      const corpo = nuove.map((r) => ({ id: r.id, articolo: r.articolo, quantita: r.quantita, variante_id: r.variante_id, variante: r.variante, nota: r.nota, portata: r.portata, prezzo_manuale_cent: r.prezzo_manuale_cent, motivo_prezzo: r.motivo_prezzo }));
       const j = await scrivi('righe', { conto: conto.id, righe: corpo });
       if (j.offline) { coda.metti({ azione: 'invia', corpo: { conto: conto.id } }); dalServer = [...dalServer, ...nuove.map((r) => ({ ...r, stato: 'inviata' }))]; ordine = creaOrdine(); disegna(); return; }
       const inv = await scrivi('invia', { conto: conto.id });
