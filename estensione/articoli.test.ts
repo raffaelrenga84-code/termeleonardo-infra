@@ -2,7 +2,7 @@
    articoli.test.ts — gli articoli di Fidra al POS (v2.27.0).
 
    Il modulo gira SOLO sulla pagina degli articoli di Fidra
-   (admin/resources/items), legge la tabella pagina per pagina e la manda
+   (admin/resources/item-variations, il listino coi prezzi), la legge pagina
    alla funzione pos, che decide stampante e portata. Su Fidra non scrive
    niente: l'unico clic e' «Prossimo».
    ============================================================ */
@@ -16,7 +16,7 @@ const M = JSON.parse(Deno.readTextFileSync(new URL('./manifest.json', import.met
 Deno.test('gira solo sugli articoli di Fidra e manda a pos?a=importa-menu con la chiave hotel', () => {
   const cs = M.content_scripts.find((c) => c.js.includes('fidra-articoli.js'));
   assert(cs, 'il manifest carica fidra-articoli.js');
-  assert(cs.matches.every((m) => m.startsWith('https://leonardo.fidra.cloud/admin/resources/items')), cs.matches.join());
+  assert(cs.matches.every((m) => m.startsWith('https://leonardo.fidra.cloud/admin/resources/item')), cs.matches.join());
   assert(S.includes('functions/v1/pos?a=importa-menu') && S.includes("'x-hotel-key'"));
   assert(S.includes('intestazioni') && S.includes('righe'), 'manda intestazioni e righe, come le vuole la funzione');
 });
@@ -43,4 +43,12 @@ Deno.test('il manifest e almeno alla 2.27.0, quella che ha portato gli articoli'
   const n = (v: string) => v.split('.').map(Number);
   const [a, b, c] = n(M.version);
   assert(a > 2 || (a === 2 && (b > 27 || (b === 27 && c >= 0))), M.version);
+});
+
+Deno.test('il listino con i prezzi, non il magazzino dei fornitori', () => {
+  /* «items» sono i prodotti dei fornitori e NON hanno prezzo: il listino
+     vero e «item-variations», 592 righe (la proprieta', 4 settembre 2026) */
+  assert(S.includes("const RISORSA = 'item-variations'"), 'la risorsa giusta');
+  assert(S.includes('${base}/${RISORSA}?perPage=100'), 'e la si chiede a Nova cento per volta');
+  assert(!S.includes('/items?perPage'), 'il magazzino non si chiede piu');
 });

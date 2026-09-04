@@ -1,14 +1,14 @@
 /* ============================================================
-   Offerta Leonardo — Articoli al POS (v2.33.0)
+   Offerta Leonardo — Articoli al POS (v2.37.0)
    ------------------------------------------------------------
-   Gira su leonardo.fidra.cloud/admin/resources/items. Un pulsante,
+   Gira su leonardo.fidra.cloud/admin/resources/item-variations (e su items). Un pulsante,
    «Manda gli articoli al POS»: prende l'elenco completo e lo manda alla
    nostra funzione pos, che riconosce le colonne dal nome e decide da sola
    stampante e portata per ogni categoria (menu.ts).
 
    COME LO PRENDE. Fidra e' fatto con Laravel Nova: la tabella che si vede
    non sta nella pagina, la disegna il browser dopo aver chiesto i dati a
-   `/nova-api/items`. Leggere la tabella dallo schermo funzionava male e
+   `/nova-api/item-variations`. Leggere la tabella dallo schermo funzionava male e
    costringeva a sfogliare le pagine una a una; adesso si chiede l'elenco
    allo stesso indirizzo che usa Fidra, cento righe per volta, con la
    sessione gia' aperta della reception. Se quell'indirizzo non
@@ -25,6 +25,13 @@
   /* Nova mette le sue interfacce sotto /nova-api; in qualche installazione
      stanno sotto il percorso del pannello. Si provano tutte e due. */
   const BASI = ['/nova-api', '/admin/nova-api'];
+  /* IL LISTINO, NON IL MAGAZZINO. `items` sono i prodotti dei fornitori,
+     con le confezioni e i colli, e NON hanno prezzo; quello che si vende
+     sta in `item-variations`, 592 righe con nome e prezzo in centesimi —
+     i vini del ristorante compresi (la proprieta', 4 settembre 2026).
+     Fidra non dice la categoria: quella la decide il server dal nome, e
+     cio' che non riconosce lo mette da parte spento. */
+  const RISORSA = 'item-variations';
 
   const testo = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim();
 
@@ -36,7 +43,7 @@
   };
 
   async function pagina(base, numero) {
-    const r = await fetch(`${base}/items?perPage=100&page=${numero}&orderBy=id&orderByDirection=asc`, {
+    const r = await fetch(`${base}/${RISORSA}?perPage=100&page=${numero}&orderBy=id&orderByDirection=asc`, {
       credentials: 'same-origin',
       headers: { accept: 'application/json', 'x-requested-with': 'XMLHttpRequest' },
     });
@@ -115,7 +122,7 @@
     const j = await r.json().catch(() => ({}));
     if (r.status === 401) { stato('Chiave hotel sbagliata: la si reimposta nel pannello dell\'estensione.'); return; }
     stato(r.ok
-      ? 'Fatto: ' + j.articoli + ' articoli in ' + j.categorie + ' categorie, ' + j.nuovi + ' nuovi' + (j.scartate ? ', ' + j.scartate + ' righe senza nome scartate' : '') + '.'
+      ? 'Fatto: ' + j.nuovi + ' nuovi, ' + j.saltati + ' c’erano già' + (j.da_sistemare ? ', ' + j.da_sistemare + ' messi in «Da sistemare» (spenti: li guardi in back office)' : '') + '.'
       : 'Errore: ' + (j.errore || r.status));
   }
 

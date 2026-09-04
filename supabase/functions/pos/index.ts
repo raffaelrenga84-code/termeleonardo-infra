@@ -42,6 +42,7 @@ import { importa } from './menu.ts';
 import { leggiInCasa } from './in-casa.ts';
 import { motivoPulito, prezzoCambiato } from './motivi.ts';
 import { localeChePrepara, portareA, siStampa } from './dove.ts';
+import { categoriaVino } from './vini.ts';
 import { chiaveNome, leggiSala } from './sala.ts';
 import { puo, type Ruolo as RuoloPos } from './permessi.ts';
 import { ruoloDi } from './ruoli.ts';
@@ -754,9 +755,21 @@ Deno.serve(async (req) => {
       if (error) return risposta({ errore: error.message }, 500);
       idCat.set(c.nome.toLowerCase(), id);
     }
-    const { data: artEsistenti } = await db.from('pos_articolo').select('id, fidra_id');
+    const { data: artEsistenti } = await db.from('pos_articolo').select('id, nome, fidra_id');
     const idArt = new Map((artEsistenti ?? []).filter((a) => a.fidra_id).map((a) => [String(a.fidra_id), a.id as string]));
-    let nuovi = 0, aggiornati = 0;
+    /* Un articolo che c'e' gia' col suo nome NON si tocca: il menu' e'
+       stato messo a posto categoria per categoria sulle fotografie del POS
+       di Fidra, e quelle sono la verita' (la proprieta', 4 settembre
+       2026). Questa importazione serve ad aggiungere cio' che manca — i
+       vini del ristorante — non a rifare quello che gia' va bene. */
+    const uguale = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    const giaCiSono = new Set((artEsistenti ?? []).map((a) => uguale(String(a.nome))));
+    /* Quello che non si riconosce finisce in una categoria a parte e
+       SPENTO: si vede nel back office e non compare sul palmare finche'
+       non lo si sistema. Meglio da parte che nella categoria sbagliata. */
+    const DA_SISTEMARE = 'Da sistemare';
+    let daSistemare = idCat.get(DA_SISTEMARE.toLowerCase()) as string | undefined;
+    let nuovi = 0, aggiornati = 0, saltati = 0, messiDaParte = 0;
     for (const a of letto.articoli) {
       const esistente = idArt.get(a.fidra_id);
       if (esistente) {
@@ -764,16 +777,38 @@ Deno.serve(async (req) => {
            stampante e portata possono essere stati curati nel back office */
         await db.from('pos_articolo').update({ nome: a.nome, aggiornato_il: ora }).eq('id', esistente);
         aggiornati++;
-      } else {
-        const { error } = await db.from('pos_articolo').insert({
-          id: crypto.randomUUID(), categoria: idCat.get(a.categoria.toLowerCase()), nome: a.nome,
-          prezzo_cent: a.prezzo_cent, iva: a.iva, fidra_id: a.fidra_id, aggiornato_il: ora,
-        });
-        if (error) return risposta({ errore: error.message }, 500);
-        nuovi++;
+        continue;
       }
+      if (giaCiSono.has(uguale(a.nome))) { saltati++; continue; }
+      let cat = idCat.get(a.categoria.toLowerCase());
+      let attivo = true;
+      /* senza categoria dichiarata si prova col nome del vino */
+      if (!cat || a.categoria.toLowerCase() === 'varie') {
+        const vino = categoriaVino(a.nome);
+        cat = vino ? idCat.get(vino.toLowerCase()) : undefined;
+        if (!cat) {
+          if (!daSistemare) {
+            const id = crypto.randomUUID();
+            const { error } = await db.from('pos_categoria')
+              .insert({ id, nome: DA_SISTEMARE, posizione: 9000, stampante: 'bar', portata: 'bevande', attiva: false, aggiornato_il: ora });
+            if (error) return risposta({ errore: error.message }, 500);
+            daSistemare = id;
+            idCat.set(DA_SISTEMARE.toLowerCase(), id);
+          }
+          cat = daSistemare;
+          attivo = false;
+          messiDaParte++;
+        }
+      }
+      const { error } = await db.from('pos_articolo').insert({
+        id: crypto.randomUUID(), categoria: cat, nome: a.nome,
+        prezzo_cent: a.prezzo_cent, iva: a.iva, fidra_id: a.fidra_id, attivo, aggiornato_il: ora,
+      });
+      if (error) return risposta({ errore: error.message }, 500);
+      giaCiSono.add(uguale(a.nome));
+      nuovi++;
     }
-    return risposta({ esito: 'ok', articoli: letto.articoli.length, categorie: letto.categorie.length, nuovi, aggiornati, scartate: letto.scartate });
+    return risposta({ esito: 'ok', articoli: letto.articoli.length, categorie: letto.categorie.length, nuovi, aggiornati, saltati, da_sistemare: messiDaParte, scartate: letto.scartate });
   }
 
   /* la sala come sta in Fidra: una zona per volta, con i tavoli al loro

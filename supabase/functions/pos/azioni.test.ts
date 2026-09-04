@@ -146,3 +146,14 @@ Deno.test('dove non c e stampante non nasce nessun biglietto', () => {
   assert(c.includes("select('id, nome, stampante_cucina, stampante_bar')"), 'le stampanti dei locali arrivano da li');
   assert(c.includes("from('pos_comanda').insert("), 'la comanda resta scritta lo stesso: cosa e stato mandato si sa');
 });
+
+Deno.test('importare gli articoli non rifa il menu gia messo a posto', () => {
+  /* il menu e stato sistemato categoria per categoria sulle fotografie del
+     POS di Fidra: quelle sono la verita (la proprieta, 4 settembre 2026) */
+  const i = S.slice(S.indexOf("azione === 'importa-menu'"), S.indexOf("azione === 'importa-sala'"));
+  assert(i.includes('const giaCiSono = new Set(') && i.includes('if (giaCiSono.has(uguale(a.nome))) { saltati++; continue; }'), 'quello che c e gia col suo nome non si tocca');
+  assert(i.includes('categoriaVino(a.nome)'), 'i vini vanno nella loro categoria dal nome');
+  assert(i.includes("const DA_SISTEMARE = 'Da sistemare'") && i.includes('attivo = false'), 'quello che non si riconosce va da parte, e spento');
+  assert(i.includes('attiva: false'), 'e la categoria stessa non compare sul palmare');
+  assert(!i.includes('prezzo_cent: a.prezzo_cent, iva: a.iva, fidra_id: a.fidra_id, aggiornato_il'), 'ogni riga nuova porta anche attivo');
+});
