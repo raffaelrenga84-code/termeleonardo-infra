@@ -4,6 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 <meta name="theme-color" content="#1A3626" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="apple-touch-icon" href="/ingresso/icona-192.png" />
 <meta name="robots" content="noindex, nofollow" />
 <title>Ingresso Day Spa — Hotel Terme Leonardo</title>
 <!-- si installa sul tablet dello sportello come un'app a tutto schermo -->
@@ -15,7 +18,7 @@
   (function () {
     var l = document.createElement('link');
     l.rel = 'manifest';
-    l.href = location.pathname.indexOf('ingresso-totem') >= 0 ? '/ingresso/totem.webmanifest' : '/ingresso/manifest.webmanifest';
+    l.href = location.search.indexOf('privacy=1') >= 0 ? '/ingresso/privacy.webmanifest' : location.pathname.indexOf('ingresso-totem') >= 0 ? '/ingresso/totem.webmanifest' : '/ingresso/manifest.webmanifest';
     document.head.appendChild(l);
   })();
 </script>
@@ -108,6 +111,25 @@ body.totem main{max-width:820px;padding-top:40px;}
 .opBarra{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;}
 .opBarraDx{display:flex;gap:10px;}
 .opQr{width:min(50vw,260px);height:auto;margin:6px auto;display:block;border:1px solid var(--pietra);border-radius:12px;padding:8px;background:#fff;}
+/* il consenso privacy */
+.totemRiposo.privacy{text-align:left;gap:12px;}
+.totemRiposo.privacy .totemTitolo{text-align:center;}
+.opLingueBarra{display:flex;justify-content:flex-end;gap:6px;}
+.opLingueBarra button{font:inherit;font-size:14px;padding:6px 12px;border-radius:999px;border:1px solid var(--pietra);background:#fff;color:var(--verde);cursor:pointer;}
+.opLingueBarra button.attiva{background:var(--verde);color:#fff;border-color:var(--verde);}
+.pvFrase{border:1px solid var(--pietra);border-radius:12px;padding:12px 14px;background:#FCFBF8;}
+.pvFrase p{margin:0 0 10px;font-size:17px;line-height:1.4;}
+.pvScelta{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.pvScelta button{font:inherit;font-size:18px;padding:14px;border-radius:12px;border:2px solid var(--pietra);background:#fff;color:#2A2E2B;cursor:pointer;}
+.pvScelta button.si{background:#E6F0EC;border-color:var(--verde);color:var(--verde);font-weight:600;}
+.pvScelta button.no{background:#FBE9E7;border-color:#8C2F28;color:#8C2F28;font-weight:600;}
+.pvSintesi{font-size:14px;line-height:1.5;color:#4B5350;background:#fff;border:1px solid var(--pietra);border-radius:12px;padding:12px;}
+.pvFirma{position:relative;}
+.pvFirma canvas{display:block;width:100%;height:auto;background:#fff;border:2px dashed var(--verde);border-radius:12px;touch-action:none;}
+.pvFirma .contoChiudi{position:absolute;right:10px;top:10px;}
+.pvElenco{display:flex;flex-direction:column;gap:8px;}
+.pvVoce{font:inherit;font-size:20px;text-align:left;padding:16px;border-radius:12px;border:1px solid var(--pietra);background:#fff;cursor:pointer;}
+.pvVoce b{color:var(--verde);}
 @keyframes lampeggia{to{opacity:.25;}}
 @media (prefers-reduced-motion: reduce){.contoSecondi.ultimi{animation:none;}}
 </style>
@@ -133,6 +155,17 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/dayspa';
 /* la verifica pubblica dei buoni regalo, per il totem */
 const FUNZIONE_BUONI = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
+/* il consenso privacy (4 settembre 2026): al totem con la tessera, sugli
+   iPad con ?privacy=1 (elenco delle attese, niente lettore) */
+const FUNZIONE_PRIVACY = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/privacy';
+const SOLO_PRIVACY = new URLSearchParams(location.search).get('privacy') === '1';
+const SCELTE_PRIVACY = ['conservazione', 'messaggi', 'marketing'];
+async function chiamaPrivacy(qs, opz = {}) {
+  const r = await fetch(FUNZIONE_PRIVACY + qs, { ...opz, headers: { 'content-type': 'application/json', 'x-totem-key': TOTEM || '', ...(opz.headers || {}) } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.errore || ('errore ' + r.status));
+  return j;
+}
 const FASCE = { giornaliero: 'Giornaliero 9:00–18:30', serale: 'Serale 18:00–22:30' };
 const OGNI_QUANTO = 20000; // l'elenco si rilegge da solo: due tablet vedono la stessa cosa
 
@@ -253,6 +286,8 @@ function totem() {
   let timerRiposo = null, orologioConto = null;
   const riposo = () => {
     clearTimeout(timerRiposo); clearInterval(orologioConto);
+    /* sugli iPad (?privacy=1) il riposo e' l'elenco dei consensi in attesa */
+    if (SOLO_PRIVACY) { document.onclick = null; privacy(true); return; }
     $('app').innerHTML = `<div class="riquadro totemRiposo">
       <div class="totemTitolo">Benvenuto</div>
       <div class="totemLingue">Welcome · Willkommen · Bienvenue</div>
@@ -263,6 +298,7 @@ function totem() {
         Présentez au lecteur le QR code de votre billet ou bon cadeau, ou votre carte de chambre pour voir votre note.</p>
       <p class="mini">Per ogni altra cosa c'è la reception, qui accanto. · For anything else, the reception desk is right here.</p>
       <button type="button" id="opinioneApri" class="contoChiudi grande opinioneApri">La sua opinione · Your feedback · Ihre Meinung · Votre avis</button>
+      <button type="button" id="privacyApri" class="contoChiudi opinioneApri">Privacy · Datenschutz · Confidentialité</button>
       <input id="codiceTotem" type="search" autocomplete="off" autocapitalize="none" spellcheck="false" inputmode="none" data-lpignore="true" data-1p-ignore data-bwignore aria-label="codice" class="totemCampo" /></div>`;
     const campo = $('codiceTotem');
     campo.onkeydown = (ev) => {
@@ -275,6 +311,7 @@ function totem() {
     /* «La sua opinione»: il tocco sul pulsante non deve arrivare al
        «tocco ovunque» qui sotto, che chiuderebbe subito il percorso */
     $('opinioneApri').onclick = (ev) => { ev.stopPropagation(); opinione(); };
+    $('privacyApri').onclick = (ev) => { ev.stopPropagation(); privacy(false); };
     /* qualunque tocco sullo schermo riporta il fuoco al campo: il lettore
        scrive li' e da nessun'altra parte */
     document.onclick = () => {
@@ -414,6 +451,147 @@ function totem() {
       }
     };
     lingua();
+  };
+
+  /* ---------- il consenso privacy (4 settembre 2026) ----------
+     Al totem: tessera → camera e consenso in attesa (messo dalla reception
+     al check-in con l'estensione) → modulo compilato → tre scelte → firma
+     col dito → conferma. Senza attesa si scrivono cognome e nome. Sugli
+     iPad (?privacy=1) si parte dall'elenco delle attese. Le parole arrivano
+     dalla funzione (?a=testi) con la versione, che si firma insieme. */
+  const privacy = (daElenco = false) => {
+    document.onclick = null;
+    const st = { id: null, camera: null, cognome: '', nome: '', lingua: 'it', scelte: {}, versione: null };
+    let T = null;
+    const CAMERA = { it: 'camera', en: 'room', de: 'Zimmer', fr: 'chambre' };
+    /* firmare vuole tempo: due minuti senza tocchi, poi il riposo */
+    const tocco = () => { clearTimeout(timerRiposo); timerRiposo = setTimeout(riposo, OPINIONE_RIPOSO_MS * 2); };
+    const vetro = (dentro, classe = '') => {
+      $('app').onclick = null;
+      $('app').innerHTML = `<div class="riquadro totemRiposo opinione privacy ${classe}">${dentro}</div>`;
+      tocco();
+    };
+    const testi = async (lingua) => { const j = await chiamaPrivacy(`?a=testi&lingua=${encodeURIComponent(lingua)}`); st.lingua = j.testi && lingua ? lingua : 'it'; st.versione = j.versione; T = j.testi; return T; };
+    const lingue = () => `<div class="opLingueBarra">${[['it', 'IT'], ['en', 'EN'], ['de', 'DE'], ['fr', 'FR']].map(([l, n]) => `<button type="button" data-pl="${l}" class="${l === st.lingua ? 'attiva' : ''}">${n}</button>`).join('')}</div>`;
+    const legaLingue = (poi) => document.querySelectorAll('[data-pl]').forEach((b) => b.onclick = async () => { await testi(b.dataset.pl); poi(); });
+    const indietro = () => daElenco ? elenco() : tessera();
+
+    /* al totem: la tessera, o il nome scritto a mano */
+    const tessera = async () => {
+      if (!T) await testi('it');
+      vetro(`<div class="totemTitolo">Privacy</div>
+        <p class="totemTesto">${escT(T.passiTessera)}</p>
+        <p class="totemLingue">Hold your room key card up to the reader · Halten Sie Ihre Zimmerkarte vor den Leser · Présentez votre carte de chambre au lecteur</p>
+        ${FIGURA_QR}
+        <button type="button" class="contoChiudi" id="pvNome">${escT(T.chiediNome)} · What is your name? · Wie heißen Sie?</button>
+        <input id="pvTessera" type="search" autocomplete="off" autocapitalize="none" spellcheck="false" inputmode="none" data-lpignore="true" data-1p-ignore data-bwignore aria-label="tessera" class="totemCampo" />
+        <div class="opBarra"><button type="button" class="contoChiudi" id="pvIndietro">‹</button><span></span></div>`);
+      const campo = $('pvTessera');
+      campo.onkeydown = async (ev) => {
+        if (ev.key !== 'Enter') return;
+        const letto = codiceLetto(campo.value);
+        campo.value = '';
+        if (tipoCodice(letto) !== 'tessera') { tocco(); return; }
+        vetro(`<div class="totemTitolo">…</div>`);
+        try {
+          const j = await chiamaPrivacy(`?a=tessera&codice=${encodeURIComponent(letto)}`);
+          st.camera = j.camera; st.scelte = {};
+          if (j.attesa) { st.id = j.attesa.id; st.cognome = j.attesa.cognome; st.nome = j.attesa.nome || ''; await testi(j.attesa.lingua || 'it'); modulo(); }
+          else chiediNome();
+        } catch (e) { chiediNome(T.tesseraIgnota); }
+      };
+      campo.focus();
+      $('app').onclick = (ev) => { if (!ev.target.closest('button')) campo.focus(); };
+      $('pvNome').onclick = () => { st.scelte = {}; chiediNome(); };
+      $('pvIndietro').onclick = riposo;
+    };
+    const chiediNome = (avviso = '') => {
+      vetro(`${lingue()}<div class="totemTitolo">${escT(T.chiediNome)}</div>${avviso ? `<p class="totemTesto">${escT(avviso)}</p>` : ''}
+        <input id="pvCognome" class="opCampo" placeholder="${escT(T.cognome)}" autocomplete="off" autocapitalize="words" value="${escT(st.cognome)}" />
+        <input id="pvNomeCampo" class="opCampo" placeholder="${escT(T.nome)}" autocomplete="off" autocapitalize="words" value="${escT(st.nome)}" />
+        ${st.camera ? '' : `<input id="pvCamera" class="opCampo" placeholder="${escT(CAMERA[st.lingua] || 'camera')}" inputmode="numeric" autocomplete="off" />`}
+        <div class="opBarra"><button type="button" class="contoChiudi" id="pvIndietro">‹</button><span class="opBarraDx"><button type="button" class="contoChiudi grande" id="pvAvanti">${escT(T.avanti)} ›</button></span></div>`);
+      legaLingue(() => chiediNome(avviso));
+      ['pvCognome', 'pvNomeCampo', 'pvCamera'].forEach((id) => { const el = $(id); if (el) el.oninput = tocco; });
+      $('pvCognome').focus();
+      $('pvAvanti').onclick = () => {
+        st.cognome = $('pvCognome').value.trim(); st.nome = $('pvNomeCampo').value.trim();
+        if ($('pvCamera')) st.camera = $('pvCamera').value.trim() || null;
+        if (!st.cognome) { $('pvCognome').focus(); return; }
+        if (!st.camera) { $('pvCamera').focus(); return; }
+        st.id = null; modulo();
+      };
+      $('pvIndietro').onclick = indietro;
+    };
+
+    /* sugli iPad: l'elenco delle attese, che si rinfresca da solo */
+    const elenco = async () => {
+      if (!T) await testi('it');
+      vetro(`<div class="totemTitolo">Privacy</div><p class="totemTesto">Consensi in attesa: tocchi l’ospite.</p>
+        <div class="pvElenco" id="pvElenco"><p class="mini">…</p></div>
+        <div class="opBarra"><span></span><span class="opBarraDx"><button type="button" class="contoChiudi" id="pvManuale">Senza check‑in: scrivi il nome</button><button type="button" class="contoChiudi" id="pvAggiorna">↻</button></span></div>`);
+      try {
+        const j = await chiamaPrivacy('?a=attese');
+        $('pvElenco').innerHTML = j.attese.length
+          ? j.attese.map((a) => `<button type="button" class="pvVoce" data-id="${escT(a.id)}"><b>${escT(CAMERA.it)} ${escT(a.camera)}</b> · ${escT(a.cognome)} ${escT(a.nome || '')} <span class="mini">${escT(String(a.lingua || 'it').toUpperCase())}</span></button>`).join('')
+          : '<p class="mini">Nessun consenso in attesa. Al check‑in la reception preme «Privacy al totem» sulla prenotazione in Fidra.</p>';
+        document.querySelectorAll('.pvVoce').forEach((b) => b.onclick = async () => {
+          const a = j.attese.find((x) => x.id === b.dataset.id);
+          st.id = a.id; st.camera = a.camera; st.cognome = a.cognome; st.nome = a.nome || ''; st.scelte = {};
+          await testi(a.lingua || 'it'); modulo();
+        });
+      } catch (e) { $('pvElenco').innerHTML = `<p class="mini errore">${escT(e.message)}</p>`; }
+      $('pvManuale').onclick = () => { st.camera = null; st.cognome = ''; st.nome = ''; st.scelte = {}; chiediNome(); };
+      $('pvAggiorna').onclick = elenco;
+      clearTimeout(timerRiposo); timerRiposo = setTimeout(elenco, 30000);
+    };
+
+    /* il modulo: tre frasi, due pulsanti ciascuna, niente preimpostato; la firma col dito */
+    const modulo = () => {
+      vetro(`${lingue()}<div class="totemTitolo">${escT(T.titolo)}</div>
+        <p class="totemTesto">${escT(T.saluto)}, <b>${escT((st.cognome + ' ' + st.nome).trim())}</b>${st.camera ? ` · ${escT(CAMERA[st.lingua] || 'camera')} ${escT(st.camera)}` : ''}</p>
+        ${SCELTE_PRIVACY.map((k) => `<div class="pvFrase"><p>${escT(T.scelte[k])}</p>
+          <div class="pvScelta" data-k="${k}"><button type="button" data-si="1" class="${st.scelte[k] === true ? 'si' : ''}">${escT(T.autorizzo)}</button><button type="button" data-si="0" class="${st.scelte[k] === false ? 'no' : ''}">${escT(T.nonAutorizzo)}</button></div></div>`).join('')}
+        <p class="mini">${escT(T.informativa)} <button type="button" class="contoChiudi" id="pvLeggi">${escT(T.leggi)}</button></p>
+        <div id="pvSintesi" hidden class="pvSintesi">${escT(T.sintesi)}</div>
+        <p class="mini">${escT(T.revoca)}</p>
+        <p class="totemLingue">${escT(T.firmaQui)}</p>
+        <div class="pvFirma"><canvas id="pvCanvas" width="700" height="220"></canvas><button type="button" class="contoChiudi" id="pvCancella">${escT(T.cancella)}</button></div>
+        <div class="esito errore" id="pvEsito"></div>
+        <div class="opBarra"><button type="button" class="contoChiudi" id="pvIndietro">‹</button><span class="opBarraDx"><button type="button" class="contoChiudi grande" id="pvConferma">${escT(T.conferma)}</button></span></div>`);
+      legaLingue(modulo);
+      document.querySelectorAll('.pvScelta').forEach((s) => s.querySelectorAll('button').forEach((b) => b.onclick = () => {
+        st.scelte[s.dataset.k] = b.dataset.si === '1';
+        s.querySelectorAll('button').forEach((x) => { x.classList.toggle('si', x.dataset.si === '1' && st.scelte[s.dataset.k] === true); x.classList.toggle('no', x.dataset.si === '0' && st.scelte[s.dataset.k] === false); });
+        $('pvEsito').textContent = ''; tocco();
+      }));
+      $('pvLeggi').onclick = () => { $('pvSintesi').hidden = !$('pvSintesi').hidden; tocco(); };
+      const cv = $('pvCanvas'), ctx = cv.getContext('2d');
+      ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1A3626';
+      let giu = false, tratti = 0;
+      const punto = (ev) => { const r = cv.getBoundingClientRect(); return [(ev.clientX - r.left) * cv.width / r.width, (ev.clientY - r.top) * cv.height / r.height]; };
+      cv.addEventListener('pointerdown', (ev) => { giu = true; const [x, y] = punto(ev); ctx.beginPath(); ctx.moveTo(x, y); cv.setPointerCapture(ev.pointerId); tocco(); });
+      cv.addEventListener('pointermove', (ev) => { if (!giu) return; const [x, y] = punto(ev); ctx.lineTo(x, y); ctx.stroke(); tratti++; });
+      const su = () => { giu = false; };
+      cv.addEventListener('pointerup', su); cv.addEventListener('pointercancel', su);
+      $('pvCancella').onclick = () => { ctx.clearRect(0, 0, cv.width, cv.height); tratti = 0; tocco(); };
+      $('pvIndietro').onclick = indietro;
+      $('pvConferma').onclick = async () => {
+        if (SCELTE_PRIVACY.some((k) => typeof st.scelte[k] !== 'boolean')) { $('pvEsito').textContent = T.mancaScelte; return; }
+        if (tratti < 5) { $('pvEsito').textContent = T.mancaFirma; return; }
+        $('pvConferma').disabled = true;
+        try {
+          await chiamaPrivacy('?a=firma', { method: 'POST', body: JSON.stringify({
+            id: st.id, camera: st.camera, cognome: st.cognome, nome: st.nome, lingua: st.lingua,
+            scelte: st.scelte, firma: cv.toDataURL('image/png'), versione: st.versione, fonte: SOLO_PRIVACY ? 'ipad' : 'totem',
+          }) });
+          vetro(`<div class="totemTitolo">✓ ${escT(T.grazie)}</div><p class="totemTesto">${escT(T.grazieTesto)}</p>`, 'ok');
+          if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+          clearTimeout(timerRiposo); timerRiposo = setTimeout(riposo, 6000);
+        } catch (e) { $('pvEsito').textContent = `${T.errore} (${e.message})`; $('pvConferma').disabled = false; }
+      };
+    };
+    if (daElenco) elenco(); else tessera();
   };
 
   const ALLA_RECEPTION = 'Please ask at the reception desk, right here.<br>Bitte wenden Sie sich an die Rezeption, gleich nebenan.<br>Veuillez vous adresser à la réception, juste à côté.';
