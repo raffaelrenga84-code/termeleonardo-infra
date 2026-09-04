@@ -43,6 +43,14 @@ Deno.test('i PIN non si salvano in chiaro; il back office salva menu, tavoli e p
   assert(bo.includes('await autorizzato(req)') && bo.includes("'amministrazione'"), 'menu-salva e le altre passano da autorizzato');
 });
 
+Deno.test('la sala si importa dalla piantina di Fidra: una zona per volta, senza sdoppiare ne cancellare tavoli', () => {
+  const b = S.slice(S.indexOf("azione === 'importa-sala'"), S.indexOf('================= dal back office'));
+  assert(b.includes('chiaveHotel(req)') && b.includes('leggiSala('), 'chiave hotel e modulo puro');
+  assert(b.includes('chiaveNome(t.nome)') && b.includes("from('pos_tavolo').update("), 'un tavolo gia nostro si sposta, non si sdoppia');
+  assert(!/delete\(\)/.test(b), 'non si cancella niente: i tavoli in piu si dicono e basta');
+  assert(b.includes('in_piu'), 'e si dicono');
+});
+
 Deno.test('l invio crea le stampe per stampante e segna le portate partite', () => {
   const invia = S.slice(S.indexOf("azione === 'invia'"), S.indexOf("azione === 'vai'"));
   assert(invia.includes('dividi(') && invia.includes("'partita'") && invia.includes("'inviata'") && invia.includes('creaStampe('));

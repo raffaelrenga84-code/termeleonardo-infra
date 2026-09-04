@@ -32,6 +32,7 @@ Deno.test('manda camera, cognome, nome, email, lingua e prenotazione; la lingua 
   assert(S.includes('paese'), 'la lingua parte dal paese della prenotazione');
 });
 
-Deno.test('il manifest e alla 2.28.0', () => {
-  assert(M.version === '2.28.0', M.version);
+Deno.test('il manifest e almeno alla 2.28.0, quella che ha portato la privacy', () => {
+  const [a, b] = M.version.split('.').map(Number);
+  assert(a > 2 || (a === 2 && b >= 28), M.version);
 });

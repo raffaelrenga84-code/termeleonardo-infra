@@ -24,6 +24,7 @@
      GET  ?a=allinea-giu&da=   → menu', tavoli, personale, dispositivi dal cloud
    Dall'estensione (x-hotel-key):
      POST ?a=importa-menu      → gli articoli letti dalla pagina di Fidra
+     POST ?a=importa-sala      → zone e tavoli letti dalla piantina di Fidra
    Dal back office (accesso dell'hotel, ruolo amministrazione):
      POST ?a=menu-salva, ?a=tavoli-salva, ?a=personale-salva
    Dal cron (x-cron-key):
@@ -38,6 +39,7 @@ import { dividi, PORTATE, prossima, type Portata } from './portate.ts';
 import { prezzoRiga, totaleCent } from './conto.ts';
 import { escpos, testoBiglietto, type Biglietto } from './comanda.ts';
 import { importa } from './menu.ts';
+import { chiaveNome, leggiSala } from './sala.ts';
 import { puo, type Ruolo as RuoloPos } from './permessi.ts';
 import { ruoloDi } from './ruoli.ts';
 
@@ -496,6 +498,51 @@ Deno.serve(async (req) => {
       }
     }
     return risposta({ esito: 'ok', articoli: letto.articoli.length, categorie: letto.categorie.length, nuovi, aggiornati, scartate: letto.scartate });
+  }
+
+  /* la sala come sta in Fidra: una zona per volta, con i tavoli al loro
+     posto sulla pianta. Un tavolo che c'e' gia' (stesso nome nella stessa
+     zona) si sposta e basta: non si sdoppia, e non si cancella niente. */
+  if (azione === 'importa-sala') {
+    if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);
+    const letta = leggiSala(await corpo());
+    if (!letta.ok) return risposta({ errore: letta.errore }, 400);
+    const s = letta.valore;
+    const ora = adesso();
+    const { data: loc } = await db.from('pos_locale').select('id').eq('id', s.locale).maybeSingle();
+    if (!loc) return risposta({ errore: `locale sconosciuto: ${s.locale}` }, 404);
+    const slug = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const { data: zone } = await db.from('pos_zona').select('id, nome, posizione').eq('locale', s.locale);
+    const pari = (a: unknown, b: unknown) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+    let zona = (zone ?? []).find((z) => pari(z.nome, s.zona));
+    if (!zona) {
+      const id = `${s.locale}-${slug(s.zona)}`;
+      const { data, error } = await db.from('pos_zona')
+        .insert({ id, locale: s.locale, nome: s.zona, posizione: (zone ?? []).length, aggiornato_il: ora }).select('id, nome, posizione').single();
+      if (error || !data) return risposta({ errore: error?.message ?? 'zona non creata' }, 500);
+      zona = data;
+    }
+    const idZona = zona.id as string;
+    const { data: esistenti } = await db.from('pos_tavolo').select('id, nome').eq('zona', idZona);
+    const perNome = new Map((esistenti ?? []).map((t) => [chiaveNome(t.nome), t.id as string]));
+    let nuovi = 0, spostati = 0;
+    for (const t of s.tavoli) {
+      const id = perNome.get(chiaveNome(t.nome));
+      if (id) {
+        const { error } = await db.from('pos_tavolo').update({ nome: t.nome, posti: t.posti, x: t.x, y: t.y, attivo: true, aggiornato_il: ora }).eq('id', id);
+        if (error) return risposta({ errore: error.message }, 500);
+        spostati++;
+      } else {
+        const { error } = await db.from('pos_tavolo')
+          .insert({ id: `${idZona}-${slug(t.nome)}`, zona: idZona, nome: t.nome, posti: t.posti, x: t.x, y: t.y, attivo: true, aggiornato_il: ora });
+        if (error) return risposta({ errore: error.message }, 500);
+        nuovi++;
+      }
+    }
+    /* quelli che noi abbiamo e Fidra no: si dicono, non si toccano */
+    const arrivati = new Set(s.tavoli.map((t) => chiaveNome(t.nome)));
+    const inPiu = (esistenti ?? []).filter((t) => !arrivati.has(chiaveNome(t.nome))).map((t) => t.nome as string);
+    return risposta({ esito: 'ok', zona: zona.nome, zona_id: idZona, tavoli: s.tavoli.length, nuovi, spostati, in_piu: inPiu });
   }
 
   /* ================= dal back office (accesso dell'hotel, amministrazione) ================= */
