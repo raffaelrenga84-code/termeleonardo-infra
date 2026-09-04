@@ -59,6 +59,8 @@ const chiaveHotel = (req: Request) => { const k = Deno.env.get('HOTEL_KEY'); ret
 const chiaveCron = (req: Request) => { const k = Deno.env.get('CRON_KEY'); return !!k && req.headers.get('x-cron-key') === k; };
 const oraRoma = () => new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
 const ePortata = (p: unknown): p is Portata => typeof p === 'string' && (PORTATE as readonly string[]).includes(p);
+/* una firma col dito sta in pochi kilobyte: oltre, qualcosa non torna */
+const FIRMA_MAX = 300_000;
 
 /* La tessera della camera. La stessa porta che usa il totem in hall
    (privacy, conto Day Spa): a Fidra si chiede /api/bill-scanner/<codice> e
@@ -298,6 +300,7 @@ Deno.serve(async (req) => {
       ospite: tipo === 'camera' ? String(b.ospite ?? '') || null : null,
       tessera: tipo === 'camera' ? String(b.tessera ?? '') || null : null,
       nome: String(b.nome ?? '').trim().slice(0, 40) || null,
+      lingua: ['it', 'en', 'de', 'fr'].includes(String(b.lingua)) ? String(b.lingua) : null,
       coperti: Math.max(1, Number(b.coperti ?? 1) || 1), stato: 'aperto', aperto_da: cameriere!.id,
     };
     const { data, error } = await db.from('pos_conto').insert(conto).select('*').single();
@@ -520,7 +523,16 @@ Deno.serve(async (req) => {
     if (modo === 'camera') {
       const { data: t } = await db.from('pos_tavolo').select('z:pos_zona(locale)').eq('id', c.tavolo as string).maybeSingle();
       const locale = (t?.z as unknown as { locale: string } | null)?.locale ?? null;
+      /* La firma dell'ospite sul palmare, se l'ha data: e' la prova
+         dell'ordine, quella che al check-out chiude la discussione. Non e'
+         obbligatoria — capita che l'ospite si alzi prima — e chi guarda la
+         coda vede subito quali addebiti non ce l'hanno. */
+      const firma = typeof b.firma === 'string' ? b.firma : '';
+      if (firma && (!firma.startsWith('data:image/png;base64,') || firma.length > FIRMA_MAX)) {
+        return risposta({ errore: 'la firma deve essere un PNG, e piccolo' }, 400);
+      }
       const { error } = await db.from('pos_addebito').insert({
+        firma: firma || null, firmato_il: firma ? ora : null,
         id: crypto.randomUUID(), conto: c.id, locale, camera: String(c.camera).trim(),
         tessera: c.tessera ?? null, ospite: c.ospite ?? null, totale_cent: totale,
         righe: righe.filter((r) => r.stato !== 'stornata').map((r) => ({

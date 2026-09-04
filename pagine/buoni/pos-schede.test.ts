@@ -34,3 +34,8 @@ Deno.test('la scheda degli addebiti in camera: la coda che la reception riporta 
   assert(P.includes('data-segna="riportato"') && P.includes('data-segna="annullato"') && P.includes('data-segna="da_riportare"'), 'riportato, annullato, rimetti in coda');
   assert(P.includes('tessera letta') && P.includes('camera scritta a mano'), 'si vede se la camera l ha detta la tessera o una persona');
 });
+
+Deno.test('nella coda si vede la firma dell ospite, o che manca', () => {
+  assert(P.includes('firmato dall’ospite') && P.includes('Senza firma: l’ospite non era al tavolo'), 'lo dice in cima');
+  assert(P.includes('alt="firma dell’ospite"'), 'e la firma si guarda: al check-out chiude la discussione');
+});

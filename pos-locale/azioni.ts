@@ -27,6 +27,8 @@ const oraRoma = () => new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome'
 const ePortata = (p: unknown): p is Portata => typeof p === 'string' && (PORTATE as readonly string[]).includes(p);
 const testa = (req: Richiesta, nome: string) => String(req.intestazioni[nome] ?? req.intestazioni[nome.toLowerCase()] ?? '');
 const segnaposto = (n: number) => Array.from({ length: n }, () => '?').join(', ');
+/* una firma col dito sta in pochi kilobyte: oltre, qualcosa non torna */
+const FIRMA_MAX = 300_000;
 
 async function hashPin(codice: string, pin: string): Promise<string> {
   const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${codice}:${pin}`));
@@ -180,6 +182,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
       ospite: tipo === 'camera' ? String(b.ospite ?? '') || null : null,
       tessera: tipo === 'camera' ? String(b.tessera ?? '') || null : null,
       nome: String(b.nome ?? '').trim().slice(0, 40) || null,
+      lingua: ['it', 'en', 'de', 'fr'].includes(String(b.lingua)) ? String(b.lingua) : null,
       coperti: Math.max(1, Number(b.coperti ?? 1) || 1), stato: 'aperto', chiuso_come: null,
       aperto_da: cameriere!.id, aperto_il: ora, chiuso_da: null, chiuso_il: null, aggiornato_il: ora, allineato: 0,
     });
@@ -361,7 +364,13 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
        altri e da li' lo vede il back office. */
     if (modo === 'camera') {
       const t = db.prepare('select z.locale as locale from pos_tavolo t join pos_zona z on z.id = t.zona where t.id = ?').get(String(c.tavolo)) as Riga | undefined;
+      /* la firma dell'ospite sul palmare, se l'ha data: prova dell'ordine */
+      const firma = typeof b.firma === 'string' ? b.firma : '';
+      if (firma && (!firma.startsWith('data:image/png;base64,') || firma.length > FIRMA_MAX)) {
+        return errore('la firma deve essere un PNG, e piccolo', 400);
+      }
       salva(db, 'pos_addebito', {
+        firma: firma || null, firmato_il: firma ? ora : null,
         id: crypto.randomUUID(), conto: c.id, locale: t?.locale ?? null, camera: String(c.camera).trim(),
         tessera: c.tessera ?? null, ospite: c.ospite ?? null, totale_cent: totale,
         righe: righe.filter((r) => r.stato !== 'stornata').map((r) => ({

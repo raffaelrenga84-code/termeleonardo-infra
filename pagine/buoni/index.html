@@ -2424,10 +2424,14 @@ function vistaPosAddebiti() {
       <div class="esito" id="paEsito"></div></div>
       ${righe.length ? righe.map((r) => `<div class="riquadro">
         <div class="due"><div><b>Camera ${esc(r.camera)}</b>${r.ospite ? ` · ${esc(r.ospite)}` : ''}
-          <div class="mini">${esc(new Date(r.chiuso_il).toLocaleString('it-IT'))}${r.tessera ? ' · tessera letta' : ' · camera scritta a mano'}</div></div>
+          <div class="mini">${esc(new Date(r.chiuso_il).toLocaleString('it-IT'))}${r.tessera ? ' · tessera letta' : ' · camera scritta a mano'}${r.firma ? ' · firmato dall’ospite' : ' · senza firma'}</div></div>
           <div style="text-align:right;"><b style="font-size:20px;">${euroPos(r.totale_cent)} €</b></div></div>
         <table><tr><th>Q.tà</th><th>Articolo</th><th style="text-align:right;">Totale</th></tr>
           ${(Array.isArray(r.righe) ? r.righe : []).map((x) => `<tr><td>${Number(x.quantita)}</td><td>${esc(x.nome)}</td><td style="text-align:right;">${euroPos(x.totale_cent)} €</td></tr>`).join('')}</table>
+        ${r.firma
+          ? `<div class="mini">Firmato dall’ospite sul palmare${r.firmato_il ? ` il ${esc(new Date(r.firmato_il).toLocaleString('it-IT'))}` : ''}</div>
+             <img src="${esc(r.firma)}" alt="firma dell’ospite" style="max-width:320px;width:100%;border:1px solid var(--pietra);border-radius:8px;background:#fff;" />`
+          : '<div class="mini">Senza firma: l’ospite non era al tavolo alla chiusura.</div>'}
         ${r.nota ? `<div class="mini">Nota: ${esc(r.nota)}</div>` : ''}
         <div class="due" style="margin-top:8px;">
           ${r.stato === 'da_riportare'

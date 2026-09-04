@@ -107,3 +107,11 @@ Deno.test('la coda degli addebiti la legge e la segna il back office, non il pal
   assert(l.includes('riportato_da'), 'si segna chi l ha riportato');
   assert(S.includes("azione === 'addebiti' && req.method === 'GET'"), 'la lista si legge in GET');
 });
+
+Deno.test('la firma dell ospite sull addebito: un PNG, piccolo, e facoltativa', () => {
+  const c = S.slice(S.indexOf("azione === 'chiudi'"), S.indexOf('/* ================= dal server locale'));
+  assert(c.includes("firma.startsWith('data:image/png;base64,')") && c.includes('FIRMA_MAX'), 'un PNG e piccolo');
+  assert(c.includes('firma: firma || null, firmato_il: firma ? ora : null'), 'si segna quando e stata data');
+  assert(!c.includes('if (!firma) return risposta'), 'senza firma il conto si chiude lo stesso: l ospite puo essersi alzato');
+  assert(S.includes("lingua: ['it', 'en', 'de', 'fr'].includes(String(b.lingua))"), 'la lingua dell ospite sta sul conto');
+});

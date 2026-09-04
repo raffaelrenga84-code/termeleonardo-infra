@@ -98,6 +98,18 @@ button{font:inherit;cursor:pointer;}
 .catVoce.vuota{opacity:.45;}
 .contoRiga .apri{flex:1;text-align:left;background:none;border:0;padding:0;font:inherit;color:inherit;display:flex;justify-content:space-between;align-items:center;gap:12px;}
 .contoRiga .altro{background:none;border:1px solid var(--pietra);border-radius:8px;padding:4px 11px;font-size:18px;color:var(--verde-medio);line-height:1.2;margin-left:10px;}
+/* la schermata che si passa all'ospite perche firmi l'addebito in camera */
+.pannello.firma{max-width:620px;margin:0 auto;border-radius:18px;}
+.fmTesta{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.fmTesta h3{margin:0;}
+.fmRighe{max-height:26vh;overflow:auto;margin:10px 0 0;border-top:1px solid var(--pietra);}
+.fmRiga{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #F3EEE4;font-size:15px;}
+.fmTotale{display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;font-size:16px;color:var(--verde-medio);}
+.fmTotale b{font-size:26px;color:var(--verde);}
+.fmFirma{position:relative;}
+.fmFirma canvas{display:block;width:100%;height:180px;background:#fff;border:2px dashed var(--verde);border-radius:12px;touch-action:none;}
+.fmQui{position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:13px;color:var(--grigio);pointer-events:none;}
+.fmQui::before{content:"";display:block;width:62%;margin:0 auto 6px;border-bottom:1px solid #C9C2B5;}
 .comanda{background:#fff;border-top:2px solid var(--verde);max-height:38vh;overflow:auto;padding:6px 10px;}
 .comanda .portataTit{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--bronzo);margin:6px 0 2px;display:flex;justify-content:space-between;}
 .riga{display:grid;grid-template-columns:34px 1fr auto;gap:8px;align-items:start;padding:7px 0;border-top:1px solid #F3EEE4;font-size:15px;}
@@ -472,7 +484,7 @@ function schermataTavolo(t) {
      scrive la camera a mano: capita che l'ospite l'abbia lasciata su. */
   const pannelloCamera = () => {
     const velo = document.createElement('div'); velo.className = 'velo';
-    let cop = coperti, tessera = '', camera = '';
+    let cop = coperti, tessera = '', camera = '', lingua = null;
     const via = () => velo.remove();
     velo.innerHTML = `<div class="pannello">
       <h3>Conto in camera</h3>
@@ -501,6 +513,9 @@ function schermataTavolo(t) {
       try {
         const j = await chiama('tessera', { qs: `&codice=${encodeURIComponent(codice)}`, cloud: true });
         tessera = codice; camera = String(j.camera || '');
+        /* la lingua dell'ospite la sa Fidra: serve alla schermata della
+           firma, che il palmare gli mette in mano */
+        lingua = ['it', 'en', 'de', 'fr'].includes(j.lingua) ? j.lingua : null;
         velo.querySelector('#pkCamera').value = camera;
         esito.textContent = `Camera ${camera}.`;
       } catch (e) { esito.textContent = e instanceof TypeError ? 'Serve la linea per leggere la tessera: scriva la camera.' : e.message; }
@@ -517,6 +532,7 @@ function schermataTavolo(t) {
         const j = await scrivi('conto', {
           tavolo: t.id, tipo: 'camera', camera: scritta,
           tessera: scritta === camera ? tessera : null,
+          lingua: scritta === camera ? lingua : null,
           ospite: velo.querySelector('#pkOspite').value.trim() || null, coperti: cop,
         });
         if (j.offline) return alert('Nessun server risponde: riprovi tra un momento.');
@@ -768,6 +784,68 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     try { const j = await scrivi('vai', { conto: conto.id, portata: p }); if (!j.offline) await ricarica(); else disegna(); }
     catch (e) { alert(e.message); await ricarica(); }
   };
+  /* LA FIRMA DELL'OSPITE SULL'ADDEBITO IN CAMERA.
+     Si passa il palmare all'ospite: legge cosa ha preso, l'importo e la
+     camera, e firma col dito, nella sua lingua (la dice Fidra quando si
+     passa la tessera). Al check-out, davanti a chi dice «questo non l'ho
+     preso», la reception apre l'addebito e mostra la firma.
+     Non e' obbligatoria: se l'ospite si e' gia' alzato, «Senza firma»
+     chiude lo stesso e nella coda si vede che manca. */
+  const FIRMA_TESTI = {
+    it: { titolo: 'Conto in camera', autorizza: 'Firmando autorizza l’addebito sul conto della camera', totale: 'Totale', qui: 'Firmi qui con il dito', cancella: 'Cancella', conferma: 'Confermo', manca: 'Manca la firma' },
+    en: { titolo: 'Room charge', autorizza: 'By signing you authorise this charge to room', totale: 'Total', qui: 'Sign here with your finger', cancella: 'Clear', conferma: 'Confirm', manca: 'Signature missing' },
+    de: { titolo: 'Zimmerrechnung', autorizza: 'Mit Ihrer Unterschrift genehmigen Sie die Belastung von Zimmer', totale: 'Gesamt', qui: 'Bitte hier mit dem Finger unterschreiben', cancella: 'Löschen', conferma: 'Bestätigen', manca: 'Unterschrift fehlt' },
+    fr: { titolo: 'Note de chambre', autorizza: 'En signant, vous autorisez l’imputation sur la chambre', totale: 'Total', qui: 'Signez ici avec le doigt', cancella: 'Effacer', conferma: 'Confirmer', manca: 'Signature manquante' },
+  };
+  const firmaOspite = (totale) => {
+    let lingua = FIRMA_TESTI[conto.lingua] ? conto.lingua : 'it';
+    const velo = document.createElement('div'); velo.className = 'velo';
+    const via = () => velo.remove();
+    const chiudiCon = async (firma) => {
+      try {
+        const j = await scrivi('chiudi', { conto: conto.id, modo: 'camera', firma });
+        if (j.offline) alert('Nessun server risponde: il conto si chiude appena torna la linea.');
+        via(); schermataSala();
+      } catch (e) { alert(e.message); }
+    };
+    const disegna = () => {
+      const T = FIRMA_TESTI[lingua];
+      const righe = [...dalServer.filter((r) => r.stato !== 'stornata'), ...ordine.righe];
+      velo.innerHTML = `<div class="pannello firma">
+        <div class="fmTesta"><div><h3>${esc(T.titolo)}</h3>
+          <p class="mini">${esc(T.autorizza)} <b>${esc(String(conto.camera))}</b>.</p></div>
+          <div class="chips">${Object.keys(FIRMA_TESTI).map((l) => `<button data-l="${l}" class="${l === lingua ? 'attiva' : ''}">${l.toUpperCase()}</button>`).join('')}</div></div>
+        <div class="fmRighe">${righe.map((r) => `<div class="fmRiga"><span>${r.quantita}× ${esc(r.nome)}</span><span>${euro(r.quantita * r.prezzo_cent)}</span></div>`).join('')}</div>
+        <div class="fmTotale"><span>${esc(T.totale)}</span><b>${euro(totale)}</b></div>
+        <div class="fmFirma"><canvas id="fmTela" width="700" height="200"></canvas><span class="fmQui">${esc(T.qui)}</span></div>
+        <p class="mini" id="fmEsito"></p>
+        <div class="azioni" style="padding:0;background:none;">
+          <button class="bottone sec" id="fmVia">Annulla</button>
+          <button class="bottone sec" id="fmCancella">${esc(T.cancella)}</button>
+          <button class="bottone" id="fmOk">${esc(T.conferma)}</button></div>
+        <button class="bottone sec" id="fmSenza" style="margin-top:8px;">Senza firma (l’ospite non c’è)</button></div>`;
+      const cv = velo.querySelector('#fmTela'), ctx = cv.getContext('2d');
+      ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1A3626';
+      let giu = false, tratti = 0;
+      const punto = (ev) => { const r = cv.getBoundingClientRect(); return [(ev.clientX - r.left) * cv.width / r.width, (ev.clientY - r.top) * cv.height / r.height]; };
+      cv.addEventListener('pointerdown', (ev) => { giu = true; const [x, y] = punto(ev); ctx.beginPath(); ctx.moveTo(x, y); cv.setPointerCapture(ev.pointerId); });
+      cv.addEventListener('pointermove', (ev) => { if (!giu) return; const [x, y] = punto(ev); ctx.lineTo(x, y); ctx.stroke(); tratti++; });
+      ['pointerup', 'pointercancel'].forEach((n) => cv.addEventListener(n, () => { giu = false; }));
+      velo.querySelectorAll('[data-l]').forEach((b) => b.onclick = () => { lingua = b.dataset.l; disegna(); });
+      velo.querySelector('#fmCancella').onclick = () => { ctx.clearRect(0, 0, cv.width, cv.height); tratti = 0; };
+      velo.querySelector('#fmVia').onclick = via;
+      velo.querySelector('#fmOk').onclick = () => {
+        if (tratti < 5) { velo.querySelector('#fmEsito').textContent = T.manca; return; }
+        chiudiCon(cv.toDataURL('image/png'));
+      };
+      velo.querySelector('#fmSenza').onclick = () => {
+        if (confirm(`Chiudo ${euro(totale)} sulla camera ${conto.camera} senza firma?`)) chiudiCon(null);
+      };
+    };
+    document.body.appendChild(velo);
+    disegna();
+  };
+
   /* La chiusura: contanti, carta, o in camera se il conto e' di una
      camera. «In camera» non e' un incasso — l'importo entra in una coda
      che la reception riporta nel conto camera di Fidra. */
@@ -791,7 +869,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     velo.querySelector('#pzChiudi').onclick = via;
     velo.querySelectorAll('[data-modo]').forEach((b) => b.onclick = async () => {
       const modo = b.dataset.modo;
-      if (modo === 'camera' && !confirm(`Addebito ${euro(totale)} sulla camera ${conto.camera}?`)) return;
+      if (modo === 'camera') { via(); return firmaOspite(totale); }
       velo.querySelectorAll('[data-modo]').forEach((x) => x.disabled = true);
       try {
         const j = await scrivi('chiudi', { conto: conto.id, modo });

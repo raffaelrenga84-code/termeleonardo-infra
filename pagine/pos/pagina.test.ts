@@ -133,5 +133,18 @@ Deno.test('la chiusura non e piu una finestrella di sistema, e in camera avvisa'
   assert(m.includes('data-modo="contanti"') && m.includes('data-modo="carta"'), 'contanti e carta');
   assert(m.includes("const inCamera = conto.tipo === 'camera' && String(conto.camera || '').trim();"), 'in camera solo se il conto e di una camera');
   assert(m.includes('data-modo="camera"') && m.includes('la reception lo riporta sul conto camera in Fidra'), 'e si dice cosa succede');
-  assert(m.includes('Addebito ${euro(totale)} sulla camera ${conto.camera}?'), 'si conferma con l importo davanti');
+  assert(m.includes('Chiudo ${euro(totale)} sulla camera ${conto.camera} senza firma?'), 'chiudere senza firma si conferma con l importo davanti');
+});
+
+Deno.test('l ospite firma l addebito sul palmare, nella sua lingua', () => {
+  assert(m.includes('const firmaOspite = (totale) =>'), 'la schermata della firma');
+  assert(m.includes('const FIRMA_TESTI = {') && ['it:', 'en:', 'de:', 'fr:'].every((l) => m.includes(l)), 'quattro lingue');
+  assert(m.includes("lingua: scritta === camera ? lingua : null"), 'la lingua la dice Fidra con la tessera');
+  assert(m.includes("if (modo === 'camera') { via(); return firmaOspite(totale); }"), 'in camera si passa dalla firma');
+  assert(m.includes("toDataURL('image/png')") && m.includes('pointerdown') && m.includes('pointermove'), 'si firma col dito');
+  assert(m.includes('if (tratti < 5)'), 'un tocco solo non e una firma');
+  assert(m.includes('id="fmSenza"'), 'e se l ospite se n e andato si chiude senza');
+  assert(m.includes('firma: null') || m.includes('chiudiCon(null)'), 'senza firma il conto si chiude lo stesso');
+  const f = m.slice(m.indexOf('const firmaOspite ='), m.indexOf('/* La chiusura:'));
+  assert(f.includes('conto.camera') && f.includes('euro(totale)'), 'l ospite vede camera e importo prima di firmare');
 });
