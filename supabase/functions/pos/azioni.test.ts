@@ -126,3 +126,13 @@ Deno.test('il motivo lo pretende il server, non solo la pagina', () => {
   const a = S.slice(S.indexOf("azione === 'articolo-cambia'"));
   assert(a.includes("from('pos_prezzo_cambiato').insert(") && a.includes('da_cent: cambio.da'), 'il listino lascia traccia: prima, dopo, chi e perche');
 });
+
+Deno.test('un biglietto per ogni coppia locale-stampante, e il cloud stampa dove va stampato', () => {
+  const c = S.slice(S.indexOf('async function creaStampe'), S.indexOf('/* ---------- allineamento'));
+  assert(c.includes('localeChePrepara({') && c.includes('portareA({'), 'la regola sta nel modulo puro');
+  assert(c.includes('const chiave = `${dove}|${r.stampante}`'), 'si raggruppa per locale e stampante');
+  assert(c.includes('locale: dove'), 'e il biglietto va in coda al locale che prepara');
+  const p = S.slice(S.indexOf("azione === 'stampa-cloud'"), S.indexOf("azione === 'allinea-su'"));
+  assert(p.includes("from('pos_locale').select('stampante_cucina, stampante_bar')"), 'la stampante e quella del locale del biglietto');
+  assert(p.includes("Deno.env.get(s.stampante === 'bar' ? 'POS_STAMPANTE_BAR'"), 'le variabili restano per il collaudo a un locale solo');
+});

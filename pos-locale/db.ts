@@ -39,13 +39,13 @@ create table if not exists pos_tavolo (
 create table if not exists pos_categoria (
   id text primary key, nome text not null, posizione integer not null default 0, colore text,
   stampante text not null, portata text not null default 'secondi', sotto text,
-  note_rapide text not null default '[]', fidra_id text, attiva integer not null default 1,
+  note_rapide text not null default '[]', fidra_id text, locale_stampa text, attiva integer not null default 1,
   aggiornato_il text not null default ${ORA});
 create table if not exists pos_articolo (
   id text primary key, categoria text not null, nome text not null, prezzo_cent integer not null default 0,
   iva integer not null default 10, portata text, stampante text, prezzo_libero integer not null default 0,
   incluso_trattamento integer not null default 0, conto_ricavo text, esaurito integer not null default 0,
-  posizione integer not null default 0, fidra_id text, attivo integer not null default 1,
+  posizione integer not null default 0, fidra_id text, locale_stampa text, attivo integer not null default 1,
   aggiornato_il text not null default ${ORA});
 create table if not exists pos_variante (
   id text primary key, articolo text, categoria text, nome text not null,
@@ -73,7 +73,7 @@ create table if not exists pos_conto (
 create table if not exists pos_riga (
   id text primary key, conto text not null, articolo text, nome text not null,
   quantita integer not null default 1, prezzo_listino_cent integer not null, prezzo_cent integer not null,
-  variante text, nota text, motivo_prezzo text, portata text not null, stato text not null, creata_da text,
+  variante text, nota text, motivo_prezzo text, locale_stampa text, portata text not null, stato text not null, creata_da text,
   creata_il text not null default ${ORA}, partita_il text, stornata_da text, stornata_il text,
   motivo_storno text, aggiornato_il text not null default ${ORA}, allineato integer not null default 0);
 create table if not exists pos_comanda (

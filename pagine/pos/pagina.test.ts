@@ -160,3 +160,14 @@ Deno.test('senza motivo non si cambia un prezzo e non si storna', () => {
   assert(m.includes("if (motivo.length < 3)") && m.includes('Scriva il motivo dello storno'), 'lo storno lo pretende');
   assert(m.includes('id="paMotivo"') && m.includes('Scriva perché cambia il prezzo'), 'e anche il prezzo di listino');
 });
+
+Deno.test('il ristorante puo far preparare al Bistrot, e si sceglie sulla riga', () => {
+  /* «deve poter stampare direttamente al bistro, cosi' gli portano le
+     bevande dal bistro al ristorante senza dover chiamare
+     telefonicamente» (la proprieta', 4 settembre 2026) */
+  assert(m.includes('Dove si prepara'), 'la scelta nel pannello della riga');
+  assert(m.includes('(MENU.locali || []).length > 1'), 'compare solo se i locali sono piu d uno');
+  assert(m.includes("{ id: '', nome: 'Qui' }"), 'e il solito e «qui»');
+  assert(m.includes('locale_stampa: dove || null'), 'la scelta resta sulla riga');
+  assert(m.includes('locale_stampa: r.locale_stampa }));'), 'e arriva al server con la riga');
+});

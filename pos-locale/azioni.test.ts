@@ -216,3 +216,39 @@ Deno.test('senza motivo il server locale non storna e non cambia prezzo', async 
   assertEquals(con.stato, 200);
   assertEquals((db.prepare("select motivo_storno as m from pos_riga where id = 'r1'").get() as { m: string }).m, 'piatto rifatto');
 });
+
+Deno.test('il ristorante ordina le bevande al Bistrot: il biglietto esce li, con scritto dove portarlo', async () => {
+  /* «cosi' gli portano le bevande dal bistro al ristorante senza dover
+     chiamare telefonicamente» (la proprieta', 4 settembre 2026) */
+  const db = base();
+  db.exec(`insert into pos_locale (id, nome, aggiornato_il) values ('rist', 'Ristorante', '2026-09-04T10:00:00Z');
+    insert into pos_zona (id, locale, nome, aggiornato_il) values ('ZR', 'rist', 'Sala', '2026-09-04T10:00:00Z');
+    insert into pos_tavolo (id, zona, nome, aggiornato_il) values ('T5', 'ZR', 'Tavolo 5', '2026-09-04T10:00:00Z');
+    update pos_categoria set locale_stampa = 'L1' where id = 'C2';`);
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T5', tipo: 'esterno', coperti: 2 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  await esegui(db, 'righe', req('POST', { conto, righe: [
+    { id: 'r1', articolo: 'A1', quantita: 1, portata: 'primi' },
+    { id: 'r2', articolo: 'A2', quantita: 2, portata: 'bevande' },
+  ] }), cfg);
+  await esegui(db, 'invia', req('POST', { conto }), cfg);
+  const stampe = db.prepare('select locale, stampante, testo from pos_stampa order by locale').all() as { locale: string; stampante: string; testo: string }[];
+  const alBistrot = stampe.find((s) => s.locale === 'L1');
+  const alRistorante = stampe.find((s) => s.locale === 'rist');
+  assertEquals(alBistrot?.stampante, 'bar', 'le bevande escono al bar del Bistrot');
+  assert(alBistrot!.testo.includes('>>> PORTARE AL RISTORANTE'), 'con scritto dove portarle');
+  assert(alBistrot!.testo.includes('2 x Birra'));
+  assert(!alRistorante || !alRistorante.testo.includes('Birra'), 'e non escono anche a casa');
+});
+
+Deno.test('la riga puo dire da sola dove si prepara, e batte la categoria', async () => {
+  const db = base();
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 1 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  db.exec("insert into pos_locale (id, nome, aggiornato_il) values ('rist', 'Ristorante', '2026-09-04T10:00:00Z');");
+  await esegui(db, 'righe', req('POST', { conto, righe: [{ id: 'r1', articolo: 'A2', quantita: 1, portata: 'bevande', locale_stampa: 'rist' }] }), cfg);
+  await esegui(db, 'invia', req('POST', { conto }), cfg);
+  const s = db.prepare("select locale, testo from pos_stampa").get() as { locale: string; testo: string };
+  assertEquals(s.locale, 'rist');
+  assert(s.testo.includes('>>> PORTARE AL BISTROT'), 'il tavolo e al Bistrot: la roba torna li');
+});

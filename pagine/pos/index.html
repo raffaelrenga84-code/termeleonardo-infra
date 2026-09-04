@@ -724,6 +724,9 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       <div class="chips">${(cat.note_rapide || ['Senza glutine', 'No lattosio', 'Allergia', 'Caldo', 'Freddo', 'Con ghiaccio', 'Senza ghiaccio']).map((n) => `<button data-nota="${esc(n)}">${esc(n)}</button>`).join('')}</div>
       ${varianti.length ? `<label>Variante</label><div class="chips">${varianti.map((v) => `<button data-v="${esc(v.id)}" class="${r.variante_id === v.id ? 'attiva' : ''}">${esc(v.nome)}${v.supplemento_cent ? ` +${euro(v.supplemento_cent)}` : ''}</button>`).join('')}</div>` : ''}
       <label>Portata</label><div class="chips">${PORTATE.map((p) => `<button data-p="${p}" class="${r.portata === p ? 'attiva' : ''}">${NOMI_PORTATE[p]}</button>`).join('')}</div>
+      ${nuova && (MENU.locali || []).length > 1 ? `<label>Dove si prepara</label>
+      <div class="chips">${[{ id: '', nome: 'Qui' }, ...MENU.locali].map((l) => `<button data-dove="${esc(l.id)}" class="${(r.locale_stampa || '') === l.id ? 'attiva' : ''}">${esc(l.nome)}</button>`).join('')}</div>
+      <p class="mini">Scegliendo un altro locale il biglietto esce là, e ci scrive dove portarlo.</p>` : ''}
       ${puoPrezzo ? `<label>Prezzo a mano (euro, vuoto = listino)</label><input id="pPrezzo" inputmode="decimal" value="${r.prezzo_manuale_cent != null ? (r.prezzo_manuale_cent / 100).toFixed(2).replace('.', ',') : ''}" />
       <label>Perché cambia il prezzo</label><input id="pMotivoPrezzo" maxlength="200" placeholder="es. omaggio direzione, piatto rifatto" value="${esc(r.motivo_prezzo || '')}" />` : ''}
       <div class="due"><button class="bottone sec" id="pTogli">Togli</button><button class="bottone" id="pOk">Fatto</button></div>`
@@ -738,7 +741,11 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     const chiudiPannello = () => velo.remove();
     velo.onclick = (ev) => { if (ev.target === velo) chiudiPannello(); };
     if (nuova) {
-      let q = r.quantita, varianteId = r.variante_id, portata = r.portata;
+      let q = r.quantita, varianteId = r.variante_id, portata = r.portata, dove = r.locale_stampa || '';
+      velo.querySelectorAll('[data-dove]').forEach((b) => b.onclick = () => {
+        dove = b.dataset.dove;
+        velo.querySelectorAll('[data-dove]').forEach((x) => x.classList.toggle('attiva', x.dataset.dove === dove));
+      });
       velo.querySelector('#pMeno').onclick = () => { q = Math.max(1, q - 1); velo.querySelector('#pQ').textContent = q; };
       velo.querySelector('#pPiu').onclick = () => { q += 1; velo.querySelector('#pQ').textContent = q; };
       velo.querySelectorAll('[data-nota]').forEach((b) => b.onclick = () => { const t = velo.querySelector('#pNota'); t.value = (t.value ? t.value + ', ' : '') + b.dataset.nota; });
@@ -747,7 +754,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       velo.querySelector('#pTogli').onclick = () => { ordine = togli(ordine, id); chiudiPannello(); disegna(); };
       velo.querySelector('#pOk').onclick = () => {
         const v = varianti.find((x) => x.id === varianteId);
-        const campi = { quantita: q, nota: velo.querySelector('#pNota').value.trim() || null, variante_id: varianteId, variante: v ? v.nome : null, portata };
+        const campi = { quantita: q, nota: velo.querySelector('#pNota').value.trim() || null, variante_id: varianteId, variante: v ? v.nome : null, portata, locale_stampa: dove || null };
         const pz = puoPrezzo ? velo.querySelector('#pPrezzo').value.trim() : '';
         campi.prezzo_manuale_cent = pz ? Math.round(Number(pz.replace(',', '.')) * 100) : (a.prezzo_libero ? r.prezzo_manuale_cent : null);
         campi.prezzo_cent = campi.prezzo_manuale_cent != null ? campi.prezzo_manuale_cent : (a.prezzo_cent || 0) + (v ? v.supplemento_cent : 0);
@@ -797,7 +804,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     if (!nuove.length) return;
     $('invia').disabled = true;
     try {
-      const corpo = nuove.map((r) => ({ id: r.id, articolo: r.articolo, quantita: r.quantita, variante_id: r.variante_id, variante: r.variante, nota: r.nota, portata: r.portata, prezzo_manuale_cent: r.prezzo_manuale_cent, motivo_prezzo: r.motivo_prezzo }));
+      const corpo = nuove.map((r) => ({ id: r.id, articolo: r.articolo, quantita: r.quantita, variante_id: r.variante_id, variante: r.variante, nota: r.nota, portata: r.portata, prezzo_manuale_cent: r.prezzo_manuale_cent, motivo_prezzo: r.motivo_prezzo, locale_stampa: r.locale_stampa }));
       const j = await scrivi('righe', { conto: conto.id, righe: corpo });
       if (j.offline) { coda.metti({ azione: 'invia', corpo: { conto: conto.id } }); dalServer = [...dalServer, ...nuove.map((r) => ({ ...r, stato: 'inviata' }))]; ordine = creaOrdine(); disegna(); return; }
       const inv = await scrivi('invia', { conto: conto.id });

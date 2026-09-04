@@ -41,6 +41,7 @@ import { escpos, testoBiglietto, type Biglietto } from './comanda.ts';
 import { importa } from './menu.ts';
 import { leggiInCasa } from './in-casa.ts';
 import { motivoPulito, prezzoCambiato } from './motivi.ts';
+import { localeChePrepara, portareA } from './dove.ts';
 import { chiaveNome, leggiSala } from './sala.ts';
 import { puo, type Ruolo as RuoloPos } from './permessi.ts';
 import { ruoloDi } from './ruoli.ts';
@@ -153,16 +154,22 @@ async function cameriereDi(req: Request): Promise<Cameriere | null> {
 }
 
 /* ---------- le righe di un conto, con la stampante gia' decisa ---------- */
-type RigaStampabile = Riga & { stampante: 'cucina' | 'bar'; portata: Portata; stato: string };
+type RigaStampabile = Riga & { stampante: 'cucina' | 'bar'; locale_stampa: string | null; portata: Portata; stato: string };
 async function righeDelConto(conto: string): Promise<RigaStampabile[]> {
   const { data } = await db.from('pos_riga')
-    .select('*, art:pos_articolo(stampante, cat:pos_categoria(stampante))')
+    .select('*, art:pos_articolo(stampante, locale_stampa, cat:pos_categoria(stampante, locale_stampa))')
     .eq('conto', conto).order('creata_il');
   return (data ?? []).map((r) => {
-    const art = r.art as unknown as { stampante: string | null; cat: { stampante: string } | null } | null;
+    const art = r.art as unknown as
+      { stampante: string | null; locale_stampa: string | null; cat: { stampante: string; locale_stampa: string | null } | null } | null;
     const stampante = (art?.stampante ?? art?.cat?.stampante ?? 'cucina') as 'cucina' | 'bar';
+    /* dove si prepara: la riga se lo dice, se no l'articolo, se no la
+       categoria; il locale del tavolo lo mette creaStampe */
+    const locale_stampa = localeChePrepara({
+      riga: r.locale_stampa as string | null, articolo: art?.locale_stampa ?? null, categoria: art?.cat?.locale_stampa ?? null, tavolo: '',
+    }) || null;
     const { art: _a, ...resto } = r as Riga & { art: unknown };
-    return { ...resto, stampante } as RigaStampabile;
+    return { ...resto, stampante, locale_stampa } as RigaStampabile;
   });
 }
 
@@ -171,17 +178,28 @@ async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata
   const { data: tavolo } = await db.from('pos_tavolo').select('nome, z:pos_zona(l:pos_locale(id, nome))').eq('id', conto.tavolo as string).single();
   const locale = (tavolo?.z as unknown as { l: { id: string; nome: string } } | null)?.l;
   if (!locale) return;
-  const perStampante = new Map<'cucina' | 'bar', RigaStampabile[]>();
-  for (const r of righe) perStampante.set(r.stampante, [...(perStampante.get(r.stampante) ?? []), r]);
-  const stampe = [...perStampante].map(([stampante, rr]) => {
+  /* Un biglietto per ogni coppia (locale che prepara, stampante): di
+     regola si prepara dove si mangia, ma il ristorante puo' mandare le
+     bevande al Bistrot e allora il biglietto esce di la'. */
+  const { data: locali } = await db.from('pos_locale').select('id, nome');
+  const nomeDelLocale = (id: string) => (locali ?? []).find((l) => l.id === id)?.nome as string ?? null;
+  const gruppi = new Map<string, RigaStampabile[]>();
+  for (const r of righe) {
+    const dove = localeChePrepara({ riga: r.locale_stampa as string | null, tavolo: locale.id });
+    const chiave = `${dove}|${r.stampante}`;
+    gruppi.set(chiave, [...(gruppi.get(chiave) ?? []), r]);
+  }
+  const stampe = [...gruppi].map(([chiave, rr]) => {
+    const [dove, stampante] = chiave.split('|');
     const b: Biglietto = {
       tipo: tipo.toUpperCase() as Biglietto['tipo'], locale: locale.nome, tavolo: String(tavolo!.nome),
       conto: conto.tipo === 'camera' ? `Camera ${conto.camera ?? ''}`.trim() : 'Esterno',
       coperti: Number(conto.coperti ?? 1), portata, ora: oraRoma(), cameriere,
       righe: rr.map((r) => ({ quantita: Number(r.quantita), nome: String(r.nome), variante: (r.variante as string | null) ?? null, nota: (r.nota as string | null) ?? null })),
       noteVitto: null,
+      portareA: portareA({ preparaIn: dove, tavoloIn: locale.id, nomeDelLocale }),
     };
-    return { id: crypto.randomUUID(), locale: locale.id, stampante, testo: testoBiglietto(b) };
+    return { id: crypto.randomUUID(), locale: dove, stampante, testo: testoBiglietto(b) };
   });
   if (stampe.length) await db.from('pos_stampa').insert(stampe);
   await db.from('pos_comanda').insert({ id: crypto.randomUUID(), conto: conto.id, portata, tipo, righe: righe.map((r) => r.id) });
@@ -248,7 +266,10 @@ Deno.serve(async (req) => {
       db.from('pos_preferito').select('*').order('posizione'),
     ]);
     const tutte = [...(cat.data ?? []), ...(art.data ?? []), ...(vari.data ?? []), ...(pref.data ?? [])].map((r) => String(r.aggiornato_il));
-    return risposta({ categorie: cat.data ?? [], articoli: art.data ?? [], varianti: vari.data ?? [], preferiti: pref.data ?? [], aggiornato_il: tutte.sort().pop() ?? null });
+    /* i locali servono al palmare per «dove si prepara»: il ristorante
+       che manda le bevande al Bistrot deve poterlo scegliere */
+    const { data: locali } = await db.from('pos_locale').select('id, nome').order('nome');
+    return risposta({ categorie: cat.data ?? [], articoli: art.data ?? [], varianti: vari.data ?? [], preferiti: pref.data ?? [], locali: locali ?? [], aggiornato_il: tutte.sort().pop() ?? null });
   }
 
   if (azione === 'sala') {
@@ -453,6 +474,9 @@ Deno.serve(async (req) => {
         variante: v ? v.nome : (r.variante ? String(r.variante) : null),
         nota: r.nota ? String(r.nota).slice(0, 200) : null,
         motivo_prezzo: cambiato ? motivoPrezzo : null,
+        /* «questa stasera la prepara il Bistrot»: la scelta del cameriere
+           batte quella dell'articolo e della categoria */
+        locale_stampa: r.locale_stampa ? String(r.locale_stampa) : null,
         portata, stato: 'da_inviare', creata_da: cameriere!.id, aggiornato_il: adesso(),
       });
     }
@@ -628,7 +652,12 @@ Deno.serve(async (req) => {
     let fatte = 0, saltate = 0;
     for (const s of stampe ?? []) {
       if (vivi.has(s.locale as string)) { saltate++; continue; }
-      const dest = Deno.env.get(s.stampante === 'bar' ? 'POS_STAMPANTE_BAR' : 'POS_STAMPANTE_CUCINA');
+      /* la stampante del locale del biglietto: il ristorante che ordina al
+         Bistrot deve stampare al Bistrot, non dove capita. Le due
+         variabili d'ambiente restano per il collaudo a un locale solo. */
+      const { data: suo } = await db.from('pos_locale').select('stampante_cucina, stampante_bar').eq('id', s.locale as string).maybeSingle();
+      const dest = (s.stampante === 'bar' ? suo?.stampante_bar : suo?.stampante_cucina) as string | null
+        || Deno.env.get(s.stampante === 'bar' ? 'POS_STAMPANTE_BAR' : 'POS_STAMPANTE_CUCINA');
       if (!dest) { saltate++; continue; }
       const [hostname, porta] = dest.split(':');
       const ora = adesso();

@@ -47,3 +47,27 @@ Deno.test('escpos: inizializza, titolo doppio, taglia; gli accenti passano in CP
   assert(!byte.includes(0xc3), 'niente UTF-8 a due byte sulla stampante');
   assert([...byte].join(',').includes('27,33,48'), 'ESC ! 0x30 sul titolo');
 });
+
+Deno.test('il biglietto che esce in un altro locale dice dove portarlo', () => {
+  /* «il ristorante ordina al bistro, cosi' gli portano le bevande senza
+     dover chiamare telefonicamente» (la proprieta', 4 settembre 2026) */
+  const t = testoBiglietto({
+    tipo: 'COMANDA', locale: 'Ristorante', tavolo: 'Tavolo 5', conto: 'Camera 229', coperti: 2,
+    portata: 'bevande', ora: '19:42', cameriere: 'Anna',
+    righe: [{ quantita: 2, nome: 'Gin Tonic - Bombay' }],
+    portareA: 'Ristorante',
+  });
+  const righe = t.split('\n');
+  assertEquals(righe[0], 'COMANDA  BEVANDE');
+  assertEquals(righe[1], '>>> PORTARE AL RISTORANTE');
+  assert(righe[2].startsWith('Tavolo 5'), 'e subito sotto il tavolo');
+  assert(t.includes('2 x Gin Tonic - Bombay'));
+});
+
+Deno.test('il biglietto di casa non dice niente di strano', () => {
+  const t = testoBiglietto({
+    tipo: 'COMANDA', locale: 'Bistrot', tavolo: 'Tavolo 7', conto: 'Esterno', coperti: 2,
+    portata: 'bevande', ora: '19:42', cameriere: 'Anna', righe: [{ quantita: 1, nome: 'Birra' }],
+  });
+  assert(!t.includes('PORTARE'), 'si serve dove si e ordinato');
+});

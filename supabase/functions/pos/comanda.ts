@@ -13,6 +13,12 @@ export type Biglietto = {
   portata: string; ora: string; cameriere: string;
   righe: { quantita: number; nome: string; variante?: string | null; nota?: string | null }[];
   noteVitto?: string | null;
+  /* Dove va portato, quando il biglietto esce in un locale diverso da
+     quello del tavolo: il ristorante ordina le bevande al Bistrot, e chi
+     le prepara deve sapere dove si mangia — se no tocca telefonare, che
+     e' proprio quello che si vuole togliere (la proprieta', 4 settembre
+     2026). Vuoto: si serve dove si e' ordinato. */
+  portareA?: string | null;
 };
 
 const L = 32;
@@ -34,6 +40,9 @@ const aCapo = (s: string, rientro = 4): string[] => {
 export function testoBiglietto(b: Biglietto): string {
   const righe: string[] = [];
   righe.push(taglia(`${b.tipo}  ${b.portata.toUpperCase()}`));
+  /* subito sotto il titolo, prima ancora del tavolo: chi legge il
+     biglietto deve capire in un colpo che questa roba se ne va altrove */
+  if (b.portareA) righe.push(taglia(`>>> PORTARE AL ${b.portareA.toUpperCase()}`));
   righe.push(taglia(`${b.tavolo}  (${b.coperti} cop.)  ${b.conto}`));
   righe.push(taglia(`${b.ora}  ${b.cameriere}  ${b.locale}`));
   if (b.noteVitto) righe.push(taglia(`!!! ${b.noteVitto} !!!`));

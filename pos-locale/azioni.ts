@@ -14,12 +14,13 @@ import { prezzoRiga, totaleCent } from '../supabase/functions/pos/conto.ts';
 import { testoBiglietto, type Biglietto } from '../supabase/functions/pos/comanda.ts';
 import { puo, type Ruolo } from '../supabase/functions/pos/permessi.ts';
 import { motivoPulito, prezzoCambiato } from '../supabase/functions/pos/motivi.ts';
+import { localeChePrepara, portareA } from '../supabase/functions/pos/dove.ts';
 
 export type Richiesta = { metodo: string; query: Record<string, string>; corpo: unknown; intestazioni: Record<string, string> };
 export type Risposta = { stato: number; corpo: unknown };
 export type Config = { locale: string };
 type Cameriere = { id: string; nome: string; ruolo: Ruolo; storni: boolean; bloccato: boolean };
-type RigaStampabile = Riga & { id: string; stampante: 'cucina' | 'bar'; portata: Portata; stato: string };
+type RigaStampabile = Riga & { id: string; stampante: 'cucina' | 'bar'; locale_stampa: string | null; portata: Portata; stato: string };
 
 const ok = (corpo: unknown, stato = 200): Risposta => ({ stato, corpo });
 const errore = (msg: string, stato: number): Risposta => ({ stato, corpo: { errore: msg } });
@@ -49,7 +50,8 @@ function cameriereDi(db: Db, req: Richiesta): Cameriere | null {
 
 /* ---------- le righe di un conto, con la stampante gia' decisa ---------- */
 const righeDelConto = (db: Db, conto: string): RigaStampabile[] =>
-  db.prepare(`select r.*, coalesce(a.stampante, c.stampante, 'cucina') as stampante
+  db.prepare(`select r.*, coalesce(a.stampante, c.stampante, 'cucina') as stampante,
+      coalesce(r.locale_stampa, a.locale_stampa, c.locale_stampa) as locale_stampa
     from pos_riga r left join pos_articolo a on a.id = r.articolo left join pos_categoria c on c.id = a.categoria
     where r.conto = ? order by r.creata_il, r.rowid`).all(conto) as unknown as RigaStampabile[];
 
@@ -71,17 +73,28 @@ function creaStampe(db: Db, conto: Riga, righe: RigaStampabile[], portata: Porta
     from pos_tavolo t join pos_zona z on z.id = t.zona join pos_locale l on l.id = z.locale where t.id = ?`).get(String(conto.tavolo)) as Riga | undefined;
   if (!t) return;
   const ora = adesso();
-  const perStampante = new Map<'cucina' | 'bar', RigaStampabile[]>();
-  for (const r of righe) perStampante.set(r.stampante, [...(perStampante.get(r.stampante) ?? []), r]);
-  for (const [stampante, rr] of perStampante) {
+  /* Un biglietto per ogni coppia (locale che prepara, stampante): di
+     regola si prepara dove si mangia, ma il ristorante puo' mandare le
+     bevande al Bistrot e allora il biglietto esce di la'. */
+  const nomi = db.prepare('select id, nome from pos_locale').all() as Riga[];
+  const nomeDelLocale = (id: string) => (nomi.find((l) => l.id === id)?.nome as string) ?? null;
+  const gruppi = new Map<string, RigaStampabile[]>();
+  for (const r of righe) {
+    const dove = localeChePrepara({ riga: r.locale_stampa, tavolo: String(t.locale_id) });
+    const chiave = `${dove}|${r.stampante}`;
+    gruppi.set(chiave, [...(gruppi.get(chiave) ?? []), r]);
+  }
+  for (const [chiave, rr] of gruppi) {
+    const [dove, stampante] = chiave.split('|');
     const b: Biglietto = {
       tipo: tipo.toUpperCase() as Biglietto['tipo'], locale: String(t.locale_nome), tavolo: String(t.tavolo),
       conto: conto.tipo === 'camera' ? `Camera ${conto.camera ?? ''}`.trim() : 'Esterno',
       coperti: Number(conto.coperti ?? 1), portata, ora: oraRoma(), cameriere,
       righe: rr.map((r) => ({ quantita: Number(r.quantita), nome: String(r.nome), variante: (r.variante as string | null) ?? null, nota: (r.nota as string | null) ?? null })),
       noteVitto: null,
+      portareA: portareA({ preparaIn: dove, tavoloIn: String(t.locale_id), nomeDelLocale }),
     };
-    salva(db, 'pos_stampa', { id: crypto.randomUUID(), locale: t.locale_id, stampante, testo: testoBiglietto(b), stato: 'da_stampare', creato_il: ora, stampata_il: null, stampata_da: null, errore: null, aggiornato_il: ora, allineato: 0 });
+    salva(db, 'pos_stampa', { id: crypto.randomUUID(), locale: dove, stampante, testo: testoBiglietto(b), stato: 'da_stampare', creato_il: ora, stampata_il: null, stampata_da: null, errore: null, aggiornato_il: ora, allineato: 0 });
   }
   salva(db, 'pos_comanda', { id: crypto.randomUUID(), conto: conto.id, portata, tipo, righe: righe.map((r) => r.id), aggiornato_il: ora, allineato: 0 });
 }
@@ -257,6 +270,14 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
           prezzo_manuale_cent: r.prezzo_manuale_cent === undefined || r.prezzo_manuale_cent === null ? null : Number(r.prezzo_manuale_cent),
         }, puoPrezzo);
       } catch (e) { return errore((e as Error).message, 403); }
+      /* un prezzo diverso dal listino vuole il perche' */
+      const cambiato = prezzoCambiato({
+        prezzoListinoCent: Number(a.prezzo_cent), supplementoCent: v ? Number(v.supplemento_cent) : 0,
+        prezzoManualeCent: r.prezzo_manuale_cent === undefined || r.prezzo_manuale_cent === null ? null : Number(r.prezzo_manuale_cent),
+        prezzoLibero: !!Number(a.prezzo_libero),
+      });
+      const motivoPrezzo = motivoPulito(r.motivo_prezzo);
+      if (cambiato && !motivoPrezzo) return errore(`${a.nome}: scriva il motivo della variazione di prezzo`, 400);
       const portata = ePortata(r.portata) ? r.portata : (ePortata(a.portata) ? a.portata : (ePortata(a.cat_portata) ? a.cat_portata : 'secondi'));
       nuove.push({
         id: String(r.id ?? crypto.randomUUID()), conto, articolo: a.id, nome: a.nome,
@@ -264,6 +285,10 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
         prezzo_listino_cent: Number(a.prezzo_cent), prezzo_cent: prezzo,
         variante: v ? v.nome : (r.variante ? String(r.variante) : null),
         nota: r.nota ? String(r.nota).slice(0, 200) : null,
+        motivo_prezzo: cambiato ? motivoPrezzo : null,
+        /* «questa stasera la prepara il Bistrot»: la scelta del cameriere
+           batte quella dell'articolo e della categoria */
+        locale_stampa: r.locale_stampa ? String(r.locale_stampa) : null,
         portata, stato: 'da_inviare', creata_da: cameriere!.id, creata_il: ora,
         partita_il: null, stornata_da: null, stornata_il: null, motivo_storno: null, aggiornato_il: ora, allineato: 0,
       });

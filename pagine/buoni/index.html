@@ -2319,13 +2319,13 @@ function vistaPosMenu() {
       const c = cat(b.dataset.cat); if (!c) return;
       b.querySelectorAll('[data-c]').forEach((el) => {
         const k = el.dataset.c, v = valoreCampo(el);
-        c[k] = k === 'note_rapide' ? String(v).split(',').map((s) => s.trim()).filter(Boolean) : k === 'sotto' ? (v || null) : v;
+        c[k] = k === 'note_rapide' ? String(v).split(',').map((s) => s.trim()).filter(Boolean) : (k === 'sotto' || k === 'locale_stampa') ? (v || null) : v;
       });
       b.querySelectorAll('[data-art]').forEach((r) => {
         const a = D.articoli.find((x) => x.id === r.dataset.art); if (!a) return;
         r.querySelectorAll('[data-a]').forEach((el) => {
           const k = el.dataset.a, v = valoreCampo(el);
-          a[k] = k === 'prezzo_cent' ? centPos(v) : (k === 'stampante' || k === 'portata') ? (v || null) : v;
+          a[k] = k === 'prezzo_cent' ? centPos(v) : (k === 'stampante' || k === 'portata' || k === 'locale_stampa') ? (v || null) : v;
         });
       });
     });
@@ -2348,6 +2348,8 @@ function vistaPosMenu() {
     const f = filtro.toLowerCase();
     const catOpz = (esclusa) => [['', '— nessuna —'], ...D.categorie.filter((c) => c.id !== esclusa).map((c) => [c.id, c.nome])];
     const portOpz = Object.entries(PORTATE_POS);
+    /* dove si prepara: vuoto = dove si mangia (il locale del tavolo) */
+    const localeOpz = [['', 'dove si mangia'], ...D.locali.map((l) => [l.id, l.nome])];
     const artOpz = [['', '—']].concat(D.categorie.flatMap((c) => D.articoli.filter((a) => a.categoria === c.id).map((a) => [a.id, `${c.nome} › ${a.nome}`])));
     const blocco = (c) => {
       const arts = D.articoli.filter((a) => a.categoria === c.id && (!f || String(a.nome).toLowerCase().includes(f)));
@@ -2357,15 +2359,18 @@ function vistaPosMenu() {
           <div><label>Stampante</label><select data-c="stampante">${opzPos([['cucina', 'Cucina'], ['bar', 'Bar']], c.stampante)}</select></div></div>
         <div class="due"><div><label>Portata</label><select data-c="portata">${opzPos(portOpz, c.portata)}</select></div>
           <div><label>Sotto la categoria</label><select data-c="sotto">${opzPos(catOpz(c.id), c.sotto || '')}</select></div></div>
+        <div class="due"><div><label>Si prepara a</label><select data-c="locale_stampa">${opzPos(localeOpz, c.locale_stampa || '')}</select>
+          <div class="mini">«Dove si mangia» è il solito. Scegliendo un locale, il biglietto esce sempre là: il ristorante ordina le bevande e il Bistrot le prepara, con scritto dove portarle.</div></div><div></div></div>
         <div class="due"><div><label>Note rapide per la cucina (separate da virgola)</label><input data-c="note_rapide" value="${esc((c.note_rapide || []).join(', '))}" /></div>
           <div><label>Posizione</label><input data-c="posizione" type="number" value="${Number(c.posizione || 0)}" style="width:80px;" />
             <label style="display:inline;margin-left:12px;"><input type="checkbox" data-c="attiva" ${c.attiva !== false ? 'checked' : ''}/> attiva</label></div></div>
-        ${arts.length ? `<table><tr><th>Articolo</th><th>Prezzo €</th><th>IVA</th><th>Stampante</th><th>Portata</th><th>Libero</th><th>Esaurito</th><th>Attivo</th></tr>
+        ${arts.length ? `<table><tr><th>Articolo</th><th>Prezzo €</th><th>IVA</th><th>Stampante</th><th>Portata</th><th>Si prepara a</th><th>Libero</th><th>Esaurito</th><th>Attivo</th></tr>
         ${arts.map((a) => `<tr data-art="${esc(a.id)}"><td><input data-a="nome" value="${esc(a.nome)}" /></td>
           <td><input data-a="prezzo_cent" value="${euroPos(a.prezzo_cent)}" style="width:72px;" /></td>
           <td><input data-a="iva" type="number" value="${Number(a.iva ?? 10)}" style="width:52px;" /></td>
           <td><select data-a="stampante">${opzPos([['', 'della categoria'], ['cucina', 'Cucina'], ['bar', 'Bar']], a.stampante || '')}</select></td>
           <td><select data-a="portata">${opzPos([['', 'della categoria'], ...portOpz], a.portata || '')}</select></td>
+          <td><select data-a="locale_stampa">${opzPos(localeOpz, a.locale_stampa || '')}</select></td>
           <td><input type="checkbox" data-a="prezzo_libero" ${a.prezzo_libero ? 'checked' : ''}/></td>
           <td><input type="checkbox" data-a="esaurito" ${a.esaurito ? 'checked' : ''}/></td>
           <td><input type="checkbox" data-a="attivo" ${a.attivo !== false ? 'checked' : ''}/></td></tr>`).join('')}</table>` : '<div class="mini">Nessun articolo.</div>'}
@@ -2390,9 +2395,9 @@ function vistaPosMenu() {
       <div class="mini">${D.articoli.length} articoli in ${D.categorie.length} categorie. Le bevande escono al bar, il cibo in cucina: la stampante la decide la categoria, l'articolo può fare eccezione. Il menù arriva da Fidra con l'estensione (pagina Articoli, «Manda gli articoli al POS»).</div>
       <div class="esito" id="pmEsito"></div></div>` + D.categorie.map(blocco).join('') + varianti + preferiti;
     $('pmFiltro').oninput = () => { raccogli(); filtro = $('pmFiltro').value; disegna(); const n = $('pmFiltro'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
-    $('pmNuovaCat').onclick = () => { raccogli(); D.categorie.push({ id: crypto.randomUUID(), nome: 'Nuova categoria', posizione: D.categorie.length, colore: null, stampante: 'cucina', portata: 'secondi', sotto: null, note_rapide: [], fidra_id: null, attiva: true }); filtro = ''; disegna(); };
+    $('pmNuovaCat').onclick = () => { raccogli(); D.categorie.push({ id: crypto.randomUUID(), nome: 'Nuova categoria', posizione: D.categorie.length, colore: null, stampante: 'cucina', portata: 'secondi', sotto: null, note_rapide: [], fidra_id: null, locale_stampa: null, attiva: true }); filtro = ''; disegna(); };
     $('pmNuovaVar').onclick = () => { raccogli(); D.varianti.push({ id: crypto.randomUUID(), articolo: null, categoria: null, nome: '', supplemento_cent: 0, posizione: D.varianti.length }); disegna(); };
-    document.querySelectorAll('[data-nuovo-art]').forEach((b) => b.onclick = () => { raccogli(); D.articoli.push({ id: crypto.randomUUID(), categoria: b.dataset.nuovoArt, nome: '', prezzo_cent: 0, iva: 10, portata: null, stampante: null, prezzo_libero: false, incluso_trattamento: false, conto_ricavo: null, esaurito: false, posizione: D.articoli.length, fidra_id: null, attivo: true }); disegna(); });
+    document.querySelectorAll('[data-nuovo-art]').forEach((b) => b.onclick = () => { raccogli(); D.articoli.push({ id: crypto.randomUUID(), categoria: b.dataset.nuovoArt, nome: '', prezzo_cent: 0, iva: 10, portata: null, stampante: null, prezzo_libero: false, incluso_trattamento: false, conto_ricavo: null, esaurito: false, posizione: D.articoli.length, fidra_id: null, locale_stampa: null, attivo: true }); disegna(); });
     $('pmSalva').onclick = async () => {
       raccogli();
       $('pmEsito').textContent = 'Salvo…';
