@@ -18,15 +18,19 @@ Deno.test('gira solo sugli articoli di Fidra e manda a pos?a=importa-menu con la
   assert(cs, 'il manifest carica fidra-articoli.js');
   assert(cs.matches.every((m) => m.startsWith('https://leonardo.fidra.cloud/admin/resources/items')), cs.matches.join());
   assert(S.includes('functions/v1/pos?a=importa-menu') && S.includes("'x-hotel-key'"));
-  assert(S.includes('thead') && S.includes('Prossimo'), 'legge le intestazioni e scorre le pagine');
+  assert(S.includes('intestazioni') && S.includes('righe'), 'manda intestazioni e righe, come le vuole la funzione');
 });
 
-Deno.test('su Fidra e sola lettura: l unico clic e su Prossimo, nessun submit, nessun fetch verso Fidra', () => {
+Deno.test('su Fidra si chiede e basta: nessuna scrittura, l unico clic resta Prossimo', () => {
   const clic = S.match(/\.click\(\)/g) ?? [];
   assert(clic.length === 1, `un solo .click(): ${clic.length}`);
-  assert(!/\.submit\(\)|fidra\.cloud\/api|method:\s*'(PUT|DELETE|PATCH)'/.test(S));
-  const post = S.match(/fetch\(([^,]+),/g) ?? [];
-  assert(post.every((p) => p.includes('FUNZIONE')), 'l unica fetch e verso la funzione pos');
+  assert(!/\.submit\(\)|method:\s*'(PUT|DELETE|PATCH)'/.test(S), 'niente scritture');
+  /* la tabella di Fidra la disegna il browser: l elenco si chiede allo
+     stesso indirizzo che usa Fidra (Laravel Nova), con la sessione della
+     reception; se non risponde, si torna a leggere lo schermo */
+  assert(S.includes('/nova-api') && S.includes("credentials: 'same-origin'"), 'l elenco si chiede a Nova');
+  assert(S.includes('daSchermo'), 'e il ripiego resta');
+  assert(S.includes('perPage=100'), 'cento per volta, non una pagina alla volta a mano');
 });
 
 Deno.test('la chiave hotel e quella gia salvata dal popup (hotelKey), e con 401 la si richiede', () => {
