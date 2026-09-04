@@ -5,7 +5,7 @@
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { TEMI_OPINIONE, testiOpinione } from './opinione.js';
 
-const CHIAVI = ['scegliLingua', 'stelleTitolo', 'stelleSotto', 'temiBene', 'temiMale', 'commentoTitolo', 'commentoSotto', 'salta', 'avanti', 'indietro',
+const CHIAVI = ['scegliLingua', 'stelleTitolo', 'stelleSotto', 'repartiTitolo', 'repartiSotto', 'temiBene', 'temiMale', 'commentoTitolo', 'commentoSotto', 'salta', 'avanti', 'indietro',
   'chiTitolo', 'chiTessera', 'chiAnonimo', 'invio', 'grazie', 'grazieTesto', 'google', 'errore', 'privacy'];
 
 Deno.test('le quattro lingue hanno le stesse chiavi, tutte piene', () => {

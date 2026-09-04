@@ -19,7 +19,8 @@ export const TEMI = [
   { chiave: 'prezzo', it: 'Prezzo' },
 ] as const;
 
-export type Opinione = { lingua: Lingua; stelle: number; temi: string[]; commento: string | null; tessera: string | null };
+export type Voti = Record<string, number>;
+export type Opinione = { lingua: Lingua; stelle: number; temi: string[]; voti: Voti; commento: string | null; tessera: string | null };
 
 /** Il corpo mandato dal totem, ripulito. Le stelle sono l'unica cosa
     obbligatoria: senza, non c'e' opinione. */
@@ -32,7 +33,14 @@ export function leggiOpinione(corpo: unknown): { ok: true; valore: Opinione } | 
   const temi = Array.isArray(c.temi) ? [...new Set(c.temi.map(String).filter((t) => noti.has(t)))] : [];
   const commento = typeof c.commento === 'string' && c.commento.trim() ? c.commento.trim().slice(0, 500) : null;
   const tessera = typeof c.tessera === 'string' && /^[0-9]{4,20}$/.test(c.tessera.trim()) ? c.tessera.trim() : null;
-  return { ok: true, valore: { lingua, stelle, temi, commento, tessera } };
+  /* un voto per reparto, tutti facoltativi: si tiene solo cio' che ha senso */
+  const voti: Voti = {};
+  const dati = (c.voti && typeof c.voti === 'object' ? c.voti : {}) as Record<string, unknown>;
+  for (const t of TEMI) {
+    const v = Number(dati[t.chiave]);
+    if (Number.isInteger(v) && v >= 1 && v <= 5) voti[t.chiave] = v;
+  }
+  return { ok: true, valore: { lingua, stelle, temi, voti, commento, tessera } };
 }
 
 export const stelleTesto = (n: number): string => '★'.repeat(n) + '☆'.repeat(5 - n);
@@ -41,7 +49,7 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const oraRoma = (iso: string) => new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso)).replace(',', '');
 
 export type PerEmail = {
-  lingua: Lingua; stelle: number; temi: string[]; commento: string | null;
+  lingua: Lingua; stelle: number; temi: string[]; voti?: Voti; commento: string | null;
   camera: string | null; tesseraFallita: boolean; creatoIl: string; fonte: string; prova: boolean;
 };
 
@@ -50,12 +58,15 @@ export function emailOpinione(o: PerEmail): { oggetto: string; html: string; tes
   const chi = o.camera ? `camera ${o.camera}` : 'anonima';
   const oggetto = `Opinione dal ${o.fonte}: ${stelleTesto(o.stelle)} ${o.stelle}/5 · ${chi}`;
   const temi = o.temi.map((k) => (TEMI.find((t) => t.chiave === k) || { it: k }).it);
+  /* i reparti dal voto piu' basso: la prima riga e' quella da guardare */
+  const voti = Object.entries(o.voti ?? {}).sort((a, b) => a[1] - b[1]);
   const righe: [string, string][] = [
     ['Quando', oraRoma(o.creatoIl)],
     ['Stelle', `${stelleTesto(o.stelle)} (${o.stelle}/5)`],
     ['Ospite', o.camera ? `camera ${o.camera}` : (o.tesseraFallita ? 'anonima (tessera non riconosciuta)' : 'anonima')],
     ['Lingua', NOME_LINGUA[o.lingua]],
-    ['Temi', temi.length ? temi.join(', ') : 'nessun tema'],
+    ...voti.map(([k, v]): [string, string] => [(TEMI.find((t) => t.chiave === k) || { it: k }).it, `${stelleTesto(v)} (${v}/5)`]),
+    ...(temi.length ? [['Temi', temi.join(', ')] as [string, string]] : []),
     ['Commento', o.commento || 'nessun commento'],
   ];
   if (o.prova) righe.push(['Nota', 'opinione di prova (DAYSPA_PROVA)']);

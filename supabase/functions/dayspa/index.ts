@@ -464,10 +464,10 @@ Deno.serve(async (req) => {
     }
     const creatoIl = new Date().toISOString();
     const { data: salvata, error } = await db.from('opinione')
-      .insert({ fonte: 'totem', lingua: o.lingua, stelle: o.stelle, temi: o.temi, commento: o.commento, camera, prova: PROVA, creato_il: creatoIl })
+      .insert({ fonte: 'totem', lingua: o.lingua, stelle: o.stelle, temi: o.temi, voti: o.voti, commento: o.commento, camera, prova: PROVA, creato_il: creatoIl })
       .select('id').single();
     if (error || !salvata) { console.error('opinione non salvata', error); return risposta({ errore: 'non riesco a salvare l opinione' }, 500); }
-    const e = emailOpinione({ lingua: o.lingua, stelle: o.stelle, temi: o.temi, commento: o.commento, camera, tesseraFallita, creatoIl, fonte: 'totem', prova: PROVA });
+    const e = emailOpinione({ lingua: o.lingua, stelle: o.stelle, temi: o.temi, voti: o.voti, commento: o.commento, camera, tesseraFallita, creatoIl, fonte: 'totem', prova: PROVA });
     let inviate = 0;
     for (const a of destinatariOpinione({ stelle: o.stelle, camera }, EMAIL_DIREZIONE, EMAIL_HOTEL)) {
       if (await inviaEmail(a, e.oggetto, e.html, e.testo)) inviate++;

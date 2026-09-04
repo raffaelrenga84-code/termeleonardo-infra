@@ -27,3 +27,11 @@ Deno.test('la pagina manda solo cifre della tessera e non parla con Fidra', () =
   assert(!t.includes('bill-scanner') && !t.includes('fidra.cloud'));
   assert(t.includes("=== 'tessera'"), 'la tessera si riconosce dal tipo del codice letto');
 });
+
+Deno.test('un voto per reparto, come sul foglio cartaceo: sette righe di stelle, tutte facoltative', () => {
+  const o = t.slice(t.indexOf('const opinione = '));
+  assert(o.includes('const reparti = ') && o.includes('opRepStelle'), 'la schermata dei reparti');
+  assert(o.includes('t.repartiTitolo') && o.includes('TEMI_OPINIONE.map'), 'un reparto per riga, nella lingua scelta');
+  assert(o.includes('voti: st.voti'), 'i voti partono con l opinione');
+  assert(o.includes("st.voti[k] === v ? 0 : v"), 'ritoccando la stessa stella il voto si toglie');
+});
