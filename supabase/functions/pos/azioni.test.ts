@@ -166,3 +166,11 @@ Deno.test('la cassa di fine giornata si legge dal back office, e i numeri li fa 
   assert(S.includes("import { riepilogo } from './giornata.ts';") && S.includes('giornata: riepilogo({'), 'i numeri li fa il modulo puro');
   assert(S.includes(".eq('stato', 'chiuso').gte('chiuso_il', da).lt('chiuso_il', a)"), 'solo i conti chiusi nella finestra chiesta');
 });
+
+Deno.test('tutto il tavolo su un altro: i conti aperti insieme, nello stesso locale', () => {
+  assert(S.includes("'tessera', 'tavolo-sposta']"), 'e un gesto del cameriere');
+  const t = S.slice(S.indexOf("azione === 'tavolo-sposta'"), S.indexOf("azione === 'chiudi'"));
+  assert(t.includes(".eq('tavolo', daId).neq('stato', 'chiuso')"), 'solo i conti aperti, tutti');
+  assert(t.includes('localeDi(da) !== localeDi(a)'), 'mai in un altro locale: le stampanti sono altre');
+  assert(t.includes("'questo tavolo non ha conti aperti'"), 'un tavolo vuoto non ha niente da spostare');
+});

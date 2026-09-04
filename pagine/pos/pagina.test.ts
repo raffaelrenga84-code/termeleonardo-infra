@@ -200,3 +200,11 @@ Deno.test('scorrendo in giu fra gli articoli, portata e ricerca si nascondono; l
   assert(m.includes('const scorso = g0 ? g0.scrollTop : 0;') && m.includes('g.scrollTop = scorso;'), 'a ogni tocco la griglia non torna in cima');
   assert(m.includes('<span class="eti">Portata</span>'), 'la riga in cima dice cosa e: la portata, non un filtro');
 });
+
+Deno.test('tutto il tavolo si sposta su un altro, dalla schermata del tavolo', () => {
+  /* «spostare un tavolo intero su un altro» (la proprieta', 4 settembre 2026) */
+  assert(m.includes('const pannelloSpostaTavolo = async () =>'), 'il pannello');
+  assert(m.includes('id="spostaTavolo"') && m.includes("scrivi('tavolo-sposta', { da: t.id, a: verso.id })"), 'il bottone e l azione');
+  assert(m.includes("' · occupato'") && m.includes('unisco i conti lì?'), 'un tavolo occupato si sceglie, ma lo chiede');
+  assert(m.includes('x.id !== t.id'), 'non si propone il tavolo stesso');
+});

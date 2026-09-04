@@ -281,3 +281,31 @@ Deno.test('il ristorante non ha stampanti: il cibo non fa biglietti, le bibite e
   /* e la comanda resta scritta lo stesso: cosa e stato mandato si sa */
   assertEquals((db.prepare('select count(*) as n from pos_comanda').get() as { n: number }).n, 2);
 });
+
+Deno.test('tutto il tavolo su un altro: i conti aperti cambiano tavolo insieme, nello stesso locale', async () => {
+  /* «spostare un tavolo intero su un altro» (la proprieta', 4 settembre
+     2026): piove sulla terrazza, o il tavolo era stato battuto sbagliato */
+  const db = base();
+  db.exec(`insert into pos_tavolo (id, zona, nome, aggiornato_il) values ('T8', 'Z1', 'Tavolo 8', '2026-09-04T10:00:00Z');
+    insert into pos_locale (id, nome, stampante_cucina, stampante_bar, aggiornato_il) values ('L2', 'Ristorante', null, null, '2026-09-04T10:00:00Z');
+    insert into pos_zona (id, locale, nome, aggiornato_il) values ('Z2', 'L2', 'Sala', '2026-09-04T10:00:00Z');
+    insert into pos_tavolo (id, zona, nome, aggiornato_il) values ('T9', 'Z2', 'Tavolo 9', '2026-09-04T10:00:00Z');`);
+  const vuoto = await esegui(db, 'tavolo-sposta', req('POST', { da: 'T7', a: 'T8' }), cfg);
+  assertEquals(vuoto.stato, 409, 'un tavolo senza conti non ha niente da spostare');
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 2 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  await esegui(db, 'righe', req('POST', { conto, righe: [{ id: 'r1', articolo: 'A2', quantita: 2, portata: 'bevande' }] }), cfg);
+  await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 1 }), cfg);
+  assertEquals((await esegui(db, 'tavolo-sposta', req('POST', { da: 'T7', a: 'T7' }), cfg)).stato, 400, 'lo stesso tavolo no');
+  assertEquals((await esegui(db, 'tavolo-sposta', req('POST', { da: 'T7', a: 'T99' }), cfg)).stato, 404, 'un tavolo che non c e');
+  assertEquals((await esegui(db, 'tavolo-sposta', req('POST', { da: 'T7', a: 'T9' }), cfg)).stato, 409, 'un altro locale ha altre stampanti: no');
+  const s = await esegui(db, 'tavolo-sposta', req('POST', { da: 'T7', a: 'T8' }), cfg);
+  assertEquals(s.stato, 200);
+  assertEquals((s.corpo as { conti: number }).conti, 2, 'tutti e due i conti');
+  const sala = await esegui(db, 'sala', req('GET', null, { locale: 'L1' }), cfg);
+  const tavoli = (sala.corpo as { tavoli: { id: string; conti: unknown[] }[] }).tavoli;
+  assertEquals(tavoli.find((t) => t.id === 'T7')!.conti.length, 0);
+  assertEquals(tavoli.find((t) => t.id === 'T8')!.conti.length, 2);
+  /* e i conti hanno l'aggiornamento segnato, cosi' salgono al cloud */
+  assertEquals((db.prepare("select count(*) as n from pos_conto where tavolo = 'T8' and allineato = 0").get() as { n: number }).n, 2);
+});

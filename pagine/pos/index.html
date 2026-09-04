@@ -484,8 +484,37 @@ function schermataTavolo(t) {
       } catch (e) { alert(e.message); }
     };
   };
+  /* Tutto il tavolo su un altro: piove sulla terrazza, o era stato
+     battuto sbagliato (la proprieta', 4 settembre 2026). I tavoli sono
+     quelli del locale, zona per zona; uno occupato si puo' scegliere lo
+     stesso — e' unire due tavoli — ma lo chiede prima. */
+  const pannelloSpostaTavolo = async () => {
+    let s;
+    try { s = await chiama('sala', { qs: `&locale=${encodeURIComponent(LOCALE_ID)}` }); } catch (e) { return alert(e.message); }
+    const velo = document.createElement('div'); velo.className = 'velo';
+    const via = () => velo.remove();
+    const nomeT = (x) => String(x.nome).replace(/^Tavolo\s*/i, 'T');
+    const inOrdine = (zona) => s.tavoli.filter((x) => x.zona === zona && x.id !== t.id).sort((a, b) => numeroTavolo(a.nome) - numeroTavolo(b.nome) || String(a.nome).localeCompare(b.nome));
+    velo.innerHTML = `<div class="pannello"><h3>Sposta ${esc(t.nome)} su…</h3>
+      <p class="mini">Tutti i conti aperti passano al tavolo scelto. Un tavolo occupato si può scegliere: i conti si sommano lì.</p>
+      ${s.zone.map((z) => `<label>${esc(z.nome)}</label><div class="chips">${inOrdine(z.id).map((x) => `<button data-verso="${esc(x.id)}">${esc(nomeT(x))}${x.conti.length ? ' · occupato' : ''}</button>`).join('') || '<span class="mini">nessun tavolo</span>'}</div>`).join('')}
+      <div class="due"><button class="bottone sec" id="stAnnulla">Annulla</button><span></span></div></div>`;
+    document.body.appendChild(velo);
+    velo.onclick = (ev) => { if (ev.target === velo) via(); };
+    velo.querySelector('#stAnnulla').onclick = via;
+    velo.querySelectorAll('[data-verso]').forEach((b) => b.onclick = async () => {
+      const verso = s.tavoli.find((x) => x.id === b.dataset.verso);
+      if (verso.conti.length && !confirm(`${nomeT(verso)} è occupato: unisco i conti lì?`)) return;
+      try {
+        const j = await scrivi('tavolo-sposta', { da: t.id, a: verso.id });
+        if (j.offline) return alert('Nessun server risponde: riprovi tra un momento.');
+        via(); schermataSala();
+      } catch (e) { alert(e.message); }
+    });
+  };
   const disegna = () => {
     $('app').innerHTML = `<div class="riquadro">${aperti.length ? aperti.map((c) => `<div class="contoRiga"><button type="button" class="apri" data-c="${esc(c.id)}"><span><b>${esc(c.titolo || titoloConto(c))}</b><br><span class="mini">${c.coperti} coperti${c.attesa ? ' · portata in attesa' : ''}</span></span><b>${euro(c.totale_cent)}</b></button><button type="button" class="altro" data-altro="${esc(c.id)}" title="Nome, coperti, elimina">⋯</button></div>`).join('') : '<p class="mini">Tavolo libero.</p>'}</div>
+      ${aperti.length ? '<div class="riquadro"><button type="button" class="bottone sec" id="spostaTavolo">Sposta tutto il tavolo…</button></div>' : ''}
       <div class="riquadro"><b>Nuovo conto</b><p class="mini">Quanti coperti?</p>
         <div class="coperti">${[1,2,3,4,5,6,7,8,9,10,11,12].map((n) => `<button data-n="${n}" class="${n === coperti ? 'attivo' : ''}">${n}</button>`).join('')}</div>
         <div class="due"><button class="bottone" id="nuovoEsterno">Apri conto</button>
@@ -502,6 +531,8 @@ function schermataTavolo(t) {
       } catch (e) { alert(e.message); }
     };
     $('nuovoCamera').onclick = () => pannelloCamera();
+    const st = $('spostaTavolo');
+    if (st) st.onclick = pannelloSpostaTavolo;
   };
   /* Il conto in camera. La tessera si passa sul lettore del palmare — che
      la scrive come farebbe un dito, e poi manda invio — oppure si batte il

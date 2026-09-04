@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
   }
 
   const cameriere = await cameriereDi(req);
-  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'tessera'];
+  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'tessera', 'tavolo-sposta'];
   if (azioniPalmare.includes(azione) && !cameriere) return risposta({ errore: 'sessione non valida' }, 401);
 
   if (azione === 'menu') {
@@ -575,6 +575,29 @@ Deno.serve(async (req) => {
     const ora = adesso();
     await db.from('pos_riga').update({ conto: versoId, aggiornato_il: ora }).eq('id', r.id as string);
     return risposta({ esito: 'ok', riga: r.id, conto: versoId });
+  }
+
+  /* Tutto il tavolo su un altro: piove sulla terrazza, o il tavolo era
+     stato battuto sbagliato (la proprieta', 4 settembre 2026). I conti
+     aperti cambiano tavolo tutti insieme, e restano nello stesso locale:
+     le stampanti sono quelle, e la cucina non deve cercare il piatto in
+     un'altra sala. */
+  if (azione === 'tavolo-sposta') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const b = await corpo();
+    const daId = String(b.da ?? ''), aId = String(b.a ?? '');
+    if (!daId || !aId) return risposta({ errore: 'servono il tavolo di partenza e quello di arrivo' }, 400);
+    if (daId === aId) return risposta({ errore: 'e lo stesso tavolo' }, 400);
+    const { data: tt } = await db.from('pos_tavolo').select('id, nome, z:pos_zona(locale)').in('id', [daId, aId]);
+    const da = (tt ?? []).find((t) => t.id === daId), a = (tt ?? []).find((t) => t.id === aId);
+    if (!da || !a) return risposta({ errore: 'tavolo non trovato' }, 404);
+    const localeDi = (t: { z: unknown }) => (t.z as { locale: string } | null)?.locale ?? null;
+    if (localeDi(da) !== localeDi(a)) return risposta({ errore: 'l altro tavolo e di un altro locale: le stampanti non sono le stesse' }, 409);
+    const ora = adesso();
+    const { data: mossi, error } = await db.from('pos_conto').update({ tavolo: aId, aggiornato_il: ora }).eq('tavolo', daId).neq('stato', 'chiuso').select('id');
+    if (error) return risposta({ errore: error.message }, 500);
+    if (!mossi?.length) return risposta({ errore: 'questo tavolo non ha conti aperti' }, 409);
+    return risposta({ esito: 'ok', conti: mossi.length, tavolo: aId });
   }
 
   if (azione === 'chiudi') {

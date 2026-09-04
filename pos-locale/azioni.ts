@@ -142,7 +142,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
   }
 
   const cameriere = cameriereDi(db, req);
-  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'tessera'];
+  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'tessera', 'tavolo-sposta'];
   if (azioniPalmare.includes(azione) && !cameriere) return errore('sessione non valida', 401);
 
   if (azione === 'menu') {
@@ -377,6 +377,24 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     if (verso.tavolo !== da.tavolo) return errore('i due conti non sono dello stesso tavolo', 409);
     db.prepare('update pos_riga set conto = ?, aggiornato_il = ?, allineato = 0 where id = ?').run(versoId, ora, String(r.id));
     return ok({ esito: 'ok', riga: r.id, conto: versoId });
+  }
+
+  /* tutto il tavolo su un altro, nello stesso locale: i conti aperti
+     cambiano tavolo insieme (vedi il cloud) */
+  if (azione === 'tavolo-sposta') {
+    const no = soloPost(); if (no) return no;
+    const daId = String(b.da ?? ''), aId = String(b.a ?? '');
+    if (!daId || !aId) return errore('servono il tavolo di partenza e quello di arrivo', 400);
+    if (daId === aId) return errore('e lo stesso tavolo', 400);
+    const localeDi = (id: string) => (db.prepare('select z.locale as locale from pos_tavolo t join pos_zona z on z.id = t.zona where t.id = ?').get(id) as Riga | undefined)?.locale ?? null;
+    const lDa = localeDi(daId), lA = localeDi(aId);
+    if (!lDa || !lA) return errore('tavolo non trovato', 404);
+    if (lDa !== lA) return errore('l altro tavolo e di un altro locale: le stampanti non sono le stesse', 409);
+    const n = Number((db.prepare("select count(*) as n from pos_conto where tavolo = ? and stato <> 'chiuso'").get(daId) as { n: number }).n);
+    if (!n) return errore('questo tavolo non ha conti aperti', 409);
+    const ora = adesso();
+    db.prepare("update pos_conto set tavolo = ?, aggiornato_il = ?, allineato = 0 where tavolo = ? and stato <> 'chiuso'").run(aId, ora, daId);
+    return ok({ esito: 'ok', conti: n, tavolo: aId });
   }
 
   if (azione === 'chiudi') {
