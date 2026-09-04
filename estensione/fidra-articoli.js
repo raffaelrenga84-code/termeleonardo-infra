@@ -72,7 +72,7 @@
       const per = new Map((x.fields || []).map((f) => [String(f.attribute || f.name || ''), semplice(f.value)]));
       return intestazioni.map((k) => per.get(k) ?? '');
     });
-    return { intestazioni, righe };
+    return { intestazioni, righe, unita: 'centesimi' }; /* item-variations: interi in centesimi */
   }
 
   /* ---------- il ripiego: la tabella come si vede ---------- */
@@ -105,7 +105,7 @@
       righe = righe.concat(pag.righe);
       stato('Leggo… ' + righe.length + ' righe (pagina ' + (i + 2) + ')');
     }
-    return { intestazioni, righe };
+    return { intestazioni, righe, unita: 'euro' }; /* la tabella a schermo: «6,00» */
   }
 
   async function manda(esito) {

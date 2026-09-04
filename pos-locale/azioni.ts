@@ -13,7 +13,7 @@ import { dividi, PORTATE, prossima, type Portata } from '../supabase/functions/p
 import { prezzoRiga, totaleCent } from '../supabase/functions/pos/conto.ts';
 import { testoBiglietto, type Biglietto } from '../supabase/functions/pos/comanda.ts';
 import { puo, type Ruolo } from '../supabase/functions/pos/permessi.ts';
-import { motivoPulito, prezzoCambiato } from '../supabase/functions/pos/motivi.ts';
+import { motivoDelPrezzo, motivoPulito, prezzoCambiato } from '../supabase/functions/pos/motivi.ts';
 import { localeChePrepara, portareA, siStampa } from '../supabase/functions/pos/dove.ts';
 
 export type Richiesta = { metodo: string; query: Record<string, string>; corpo: unknown; intestazioni: Record<string, string> };
@@ -280,7 +280,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
         prezzoManualeCent: r.prezzo_manuale_cent === undefined || r.prezzo_manuale_cent === null ? null : Number(r.prezzo_manuale_cent),
         prezzoLibero: !!Number(a.prezzo_libero),
       });
-      const motivoPrezzo = motivoPulito(r.motivo_prezzo);
+      const motivoPrezzo = motivoDelPrezzo({ motivo: r.motivo_prezzo, nota: r.nota });
       if (cambiato && !motivoPrezzo) return errore(`${a.nome}: scriva il motivo della variazione di prezzo`, 400);
       const portata = ePortata(r.portata) ? r.portata : (ePortata(a.portata) ? a.portata : (ePortata(a.cat_portata) ? a.cat_portata : 'secondi'));
       nuove.push({

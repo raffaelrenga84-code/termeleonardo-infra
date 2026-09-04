@@ -36,3 +36,15 @@ export function prezzoCambiato(
   if (prezzoManualeCent === null || prezzoManualeCent === undefined) return false;
   return Math.round(prezzoManualeCent) !== Math.round(prezzoListinoCent + supplementoCent);
 }
+
+/** Il motivo da scrivere sulla riga quando il prezzo cambia.
+
+    «se c'e' una nota gia' non serve che il cameriere deve aggiungere la
+    spiegazione» (la proprieta', 4 settembre 2026): la pasta senza glutine
+    o il latte di soia costano di piu', e la nota lo dice gia'. Vale
+    comunque quello scritto apposta, se c'e'. */
+export function motivoDelPrezzo({ motivo, nota }: { motivo?: unknown; nota?: unknown }): string | null {
+  const scritto = motivoPulito(motivo);
+  if (scritto) return scritto;
+  return motivoPulito(nota);
+}

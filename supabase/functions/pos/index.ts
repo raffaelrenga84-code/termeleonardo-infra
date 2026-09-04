@@ -38,9 +38,9 @@ import { createClient } from 'supabase';
 import { dividi, PORTATE, prossima, type Portata } from './portate.ts';
 import { prezzoRiga, totaleCent } from './conto.ts';
 import { escpos, testoBiglietto, type Biglietto } from './comanda.ts';
-import { importa } from './menu.ts';
+import { importa, prezziSensati } from './menu.ts';
 import { leggiInCasa } from './in-casa.ts';
-import { motivoPulito, prezzoCambiato } from './motivi.ts';
+import { motivoDelPrezzo, motivoPulito, prezzoCambiato } from './motivi.ts';
 import { localeChePrepara, portareA, siStampa } from './dove.ts';
 import { categoriaVino } from './vini.ts';
 import { chiaveNome, leggiSala } from './sala.ts';
@@ -468,7 +468,7 @@ Deno.serve(async (req) => {
         prezzoManualeCent: r.prezzo_manuale_cent === undefined || r.prezzo_manuale_cent === null ? null : Number(r.prezzo_manuale_cent),
         prezzoLibero: !!a.prezzo_libero,
       });
-      const motivoPrezzo = motivoPulito(r.motivo_prezzo);
+      const motivoPrezzo = motivoDelPrezzo({ motivo: r.motivo_prezzo, nota: r.nota });
       if (cambiato && !motivoPrezzo) return risposta({ errore: `${a.nome}: scriva il motivo della variazione di prezzo` }, 400);
       const cat = a.cat as unknown as { portata: Portata } | null;
       const portata = ePortata(r.portata) ? r.portata : (ePortata(a.portata) ? a.portata : (cat?.portata ?? 'secondi'));
@@ -743,7 +743,14 @@ Deno.serve(async (req) => {
     const b = await corpo();
     const intestazioni = Array.isArray(b.intestazioni) ? b.intestazioni.map(String) : [];
     const righe = Array.isArray(b.righe) ? (b.righe as unknown[]).map((r) => Array.isArray(r) ? r.map(String) : []) : [];
-    const letto = importa(intestazioni, righe);
+    /* l'unita' del prezzo la dichiara chi legge: `item-variations` lo da'
+       in centesimi interi, la tabella a schermo in euro */
+    const letto = importa(intestazioni, righe, b.unita === 'centesimi' ? 'centesimi' : 'euro');
+    /* e comunque un listino assurdo non entra in banca dati: meglio
+       un'importazione rifiutata che i prezzi per cento sul palmare */
+    if (!prezziSensati(letto.articoli)) {
+      return risposta({ errore: 'i prezzi letti sembrano moltiplicati per cento: non ho scritto niente' }, 400);
+    }
     const ora = adesso();
     const { data: catEsistenti } = await db.from('pos_categoria').select('id, nome');
     const idCat = new Map((catEsistenti ?? []).map((c) => [String(c.nome).toLowerCase(), c.id as string]));

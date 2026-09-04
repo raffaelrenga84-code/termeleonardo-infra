@@ -155,7 +155,10 @@ Deno.test('senza motivo non si cambia un prezzo e non si storna', () => {
      caso di storno» (la proprieta', 4 settembre 2026) */
   assert(m.includes('id="pMotivoPrezzo"'), 'il campo sulla riga');
   assert(m.includes('const cambiaPrezzo = !a.prezzo_libero && campi.prezzo_manuale_cent != null && campi.prezzo_manuale_cent !== listino;'), 'solo se il prezzo cambia davvero');
-  assert(m.includes('if (cambiaPrezzo && campi.motivo_prezzo.length < 3)'), 'e allora il motivo e obbligatorio');
+  /* «se c'e' una nota gia' non serve che il cameriere deve aggiungere la
+     spiegazione» (la proprieta', 4 settembre 2026) */
+  assert(m.includes("const spiegato = campi.motivo_prezzo.length >= 3 || (campi.nota || '').trim().length >= 3;"), 'la nota gia scritta vale come motivo');
+  assert(m.includes('if (cambiaPrezzo && !spiegato)'), 'e allora il motivo e obbligatorio');
   assert(m.includes('motivo_prezzo: r.motivo_prezzo'), 'e viaggia col la riga fino al server');
   assert(m.includes("if (motivo.length < 3)") && m.includes('Scriva il motivo dello storno'), 'lo storno lo pretende');
   assert(m.includes('id="paMotivo"') && m.includes('Scriva perché cambia il prezzo'), 'e anche il prezzo di listino');

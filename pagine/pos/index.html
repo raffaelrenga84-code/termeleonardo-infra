@@ -728,7 +728,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       <div class="chips">${[{ id: '', nome: 'Qui' }, ...MENU.locali].map((l) => `<button data-dove="${esc(l.id)}" class="${(r.locale_stampa || '') === l.id ? 'attiva' : ''}">${esc(l.nome)}</button>`).join('')}</div>
       <p class="mini">Scegliendo un altro locale il biglietto esce là, e ci scrive dove portarlo.</p>` : ''}
       ${puoPrezzo ? `<label>Prezzo a mano (euro, vuoto = listino)</label><input id="pPrezzo" inputmode="decimal" value="${r.prezzo_manuale_cent != null ? (r.prezzo_manuale_cent / 100).toFixed(2).replace('.', ',') : ''}" />
-      <label>Perché cambia il prezzo</label><input id="pMotivoPrezzo" maxlength="200" placeholder="es. omaggio direzione, piatto rifatto" value="${esc(r.motivo_prezzo || '')}" />` : ''}
+      <label>Perché cambia il prezzo (se non lo dice già la nota)</label><input id="pMotivoPrezzo" maxlength="200" placeholder="es. omaggio direzione, piatto rifatto" value="${esc(r.motivo_prezzo || '')}" />` : ''}
       <div class="due"><button class="bottone sec" id="pTogli">Togli</button><button class="bottone" id="pOk">Fatto</button></div>`
       : `<p class="mini">Riga già inviata${r.stato === 'partita' ? ' e partita' : ', in attesa'}.</p>
       ${r.stato !== 'stornata' ? `<label>Sposta su un altro conto di questo tavolo</label>
@@ -764,10 +764,14 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
         const listino = (a.prezzo_cent || 0) + (v ? v.supplemento_cent : 0);
         const cambiaPrezzo = !a.prezzo_libero && campi.prezzo_manuale_cent != null && campi.prezzo_manuale_cent !== listino;
         campi.motivo_prezzo = puoPrezzo ? velo.querySelector('#pMotivoPrezzo').value.trim() : '';
-        if (cambiaPrezzo && campi.motivo_prezzo.length < 3) {
+        /* «se c'è una nota già non serve che il cameriere deve aggiungere
+           la spiegazione» (la proprietà, 4 settembre 2026): la pasta senza
+           glutine dice già da sé perché costa diverso. */
+        const spiegato = campi.motivo_prezzo.length >= 3 || (campi.nota || '').trim().length >= 3;
+        if (cambiaPrezzo && !spiegato) {
           const c = velo.querySelector('#pMotivoPrezzo');
           c.style.borderColor = 'var(--allarme)'; c.focus();
-          c.insertAdjacentHTML('afterend', '<p class="mini" style="color:var(--allarme);margin:4px 0 0;">Scriva perché cambia il prezzo.</p>');
+          c.insertAdjacentHTML('afterend', '<p class="mini" style="color:var(--allarme);margin:4px 0 0;">Scriva perché cambia il prezzo, o metta la nota.</p>');
           return;
         }
         ordine = cambia(ordine, id, campi); chiudiPannello(); disegna();
