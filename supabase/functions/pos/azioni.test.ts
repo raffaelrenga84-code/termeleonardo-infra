@@ -51,6 +51,16 @@ Deno.test('la sala si importa dalla piantina di Fidra: una zona per volta, senza
   assert(b.includes('in_piu'), 'e si dicono');
 });
 
+Deno.test('una riga passa a un altro conto dello stesso tavolo: chi paga cambia, la cucina no', () => {
+  const b = S.slice(S.indexOf("azione === 'sposta'"), S.indexOf("azione === 'chiudi'"));
+  assert(S.includes("'storna', 'sposta', 'chiudi'"), 'lo spostamento e un gesto del cameriere');
+  assert(b.includes("verso.tavolo !== da.tavolo"), 'solo fra conti dello stesso tavolo');
+  assert(b.includes('b.nuovo') && b.includes("from('pos_conto').insert("), 'e si puo aprire li per li un conto nuovo');
+  assert(!b.includes('creaStampe('), 'non si stampa niente: non e un ordine nuovo');
+  const conto = S.slice(S.indexOf("azione === 'conto'"), S.indexOf("azione === 'righe'"));
+  assert(conto.includes('fratelli'), 'il conto porta con se gli altri conti aperti del tavolo');
+});
+
 Deno.test('l invio crea le stampe per stampante e segna le portate partite', () => {
   const invia = S.slice(S.indexOf("azione === 'invia'"), S.indexOf("azione === 'vai'"));
   assert(invia.includes('dividi(') && invia.includes("'partita'") && invia.includes("'inviata'") && invia.includes('creaStampe('));

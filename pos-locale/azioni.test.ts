@@ -63,6 +63,29 @@ Deno.test('la sala mostra il conto aperto col totale; chiudi lo toglie', async (
   assertEquals((dopo.corpo as { tavoli: { id: string; conti: unknown[] }[] }).tavoli.find((t) => t.id === 'T7')!.conti.length, 0);
 });
 
+Deno.test('due conti sullo stesso tavolo: una riga si sposta da uno all altro, e se ne puo aprire uno li per li', async () => {
+  const db = base();
+  const primo = (await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 2 }), cfg).then((r) => r.corpo)) as { conto: { id: string } };
+  const conto = primo.conto.id;
+  await esegui(db, 'righe', req('POST', { conto, righe: [
+    { id: 'r1', articolo: 'A1', quantita: 1, portata: 'primi' },
+    { id: 'r2', articolo: 'A2', quantita: 1, portata: 'bevande' }] }), cfg);
+  /* l amico paga la sua birra: si apre il suo conto spostandoci la riga */
+  const s = await esegui(db, 'sposta', req('POST', { riga: 'r2', nuovo: true, coperti: 1 }), cfg);
+  assertEquals(s.stato, 200);
+  const altro = (s.corpo as { conto: string }).conto;
+  assert(altro && altro !== conto);
+  const letto = await esegui(db, 'conto', req('GET', null, { id: conto }), cfg);
+  assertEquals((letto.corpo as { righe: { id: string }[] }).righe.map((r) => r.id), ['r1']);
+  assertEquals((letto.corpo as { fratelli: unknown[] }).fratelli.length, 1, 'il conto conosce gli altri del tavolo');
+  const suo = await esegui(db, 'conto', req('GET', null, { id: altro }), cfg);
+  assertEquals((suo.corpo as { righe: { id: string }[] }).righe.map((r) => r.id), ['r2']);
+  /* e si torna indietro spostandola sul primo */
+  await esegui(db, 'sposta', req('POST', { riga: 'r2', conto }), cfg);
+  const dopo = await esegui(db, 'conto', req('GET', null, { id: conto }), cfg);
+  assertEquals((dopo.corpo as { righe: unknown[] }).righe.length, 2);
+});
+
 Deno.test('storna una riga partita: STORNO in coda di stampa; il cameriere senza permesso no', async () => {
   const db = base();
   const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 1 }), cfg);

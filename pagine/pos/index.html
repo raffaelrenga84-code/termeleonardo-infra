@@ -391,12 +391,12 @@ function schermataTavolo(t) {
 async function apriConto(id) {
   try {
     const j = await chiama('conto', { qs: `&id=${encodeURIComponent(id)}` });
-    schermataOrdine(j.conto, j.righe);
+    schermataOrdine(j.conto, j.righe, j.fratelli || []);
   } catch (e) { alert(e.message); }
 }
 
 /* ---------- l'ordine: dove si vive ---------- */
-function schermataOrdine(conto, righeServer) {
+function schermataOrdine(conto, righeServer, fratelli = []) {
   const nomeConto = conto.tipo === 'camera' ? `Camera ${conto.camera}` : 'Esterno';
   testa(`${nomeConto} · ${conto.coperti} cop.`, schermataSala);
   let ordine = creaOrdine();
@@ -495,6 +495,8 @@ function schermataOrdine(conto, righeServer) {
       ${puoPrezzo ? `<label>Prezzo a mano (euro, vuoto = listino)</label><input id="pPrezzo" inputmode="decimal" value="${r.prezzo_manuale_cent != null ? (r.prezzo_manuale_cent / 100).toFixed(2).replace('.', ',') : ''}" />` : ''}
       <div class="due"><button class="bottone sec" id="pTogli">Togli</button><button class="bottone" id="pOk">Fatto</button></div>`
       : `<p class="mini">Riga già inviata${r.stato === 'partita' ? ' e partita' : ', in attesa'}.</p>
+      ${r.stato !== 'stornata' ? `<label>Sposta su un altro conto di questo tavolo</label>
+      <div class="chips">${fratelli.map((f) => `<button data-sposta="${esc(f.id)}">${esc(nomeConto2(f))}</button>`).join('')}<button data-sposta="nuovo">+ Conto nuovo</button></div>` : ''}
       ${puoStorno && r.stato !== 'stornata' ? `<label>Motivo dello storno</label><input id="pMotivo" placeholder="es. cambiato idea, errore" />
       <div class="due"><button class="bottone sec" id="pChiudi">Annulla</button><button class="bottone" id="pStorna" style="background:var(--allarme)">Storna</button></div>`
       : `<div class="due"><button class="bottone sec" id="pChiudi">Chiudi</button></div>`}`}
@@ -519,6 +521,11 @@ function schermataOrdine(conto, righeServer) {
         ordine = cambia(ordine, id, campi); chiudiPannello(); disegna();
       };
     } else {
+      velo.querySelectorAll('[data-sposta]').forEach((b) => b.onclick = () => {
+        const dove = b.dataset.sposta;
+        chiudiPannello();
+        sposta(id, dove === 'nuovo' ? { nuovo: true, coperti: 1 } : { conto: dove });
+      });
       const pc = velo.querySelector('#pChiudi'); if (pc) pc.onclick = chiudiPannello;
       const ps = velo.querySelector('#pStorna');
       if (ps) ps.onclick = async () => {
@@ -563,9 +570,20 @@ function schermataOrdine(conto, righeServer) {
     } catch (e) { alert(e.message); }
   };
   const ricarica = async () => {
-    try { const j = await chiama('conto', { qs: `&id=${encodeURIComponent(conto.id)}` }); dalServer = j.righe; conto = j.conto; }
+    try { const j = await chiama('conto', { qs: `&id=${encodeURIComponent(conto.id)}` }); dalServer = j.righe; conto = j.conto; fratelli = j.fratelli || []; }
     catch { /* si resta con quello che si ha */ }
     disegna();
+  };
+  /* Al tavolo si paga separatamente: la riga passa a un altro conto dello
+     stesso tavolo, o a uno nuovo aperto li' per li'. Non e' uno storno:
+     in cucina non cambia niente, cambia solo chi paga. */
+  const nomeConto2 = (c) => c.tipo === 'camera' ? `Camera ${c.camera ?? ''}`.trim() : `Esterno · ${c.coperti} cop.`;
+  const sposta = async (id, corpo) => {
+    try {
+      const j = await scrivi('sposta', { riga: id, ...corpo });
+      if (j.offline) { alert('Nessun server risponde: riprovi tra un momento.'); return; }
+      await ricarica();
+    } catch (e) { alert(e.message); }
   };
   disegna();
 }

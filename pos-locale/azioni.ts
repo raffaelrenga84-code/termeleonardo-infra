@@ -112,7 +112,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
   }
 
   const cameriere = cameriereDi(db, req);
-  const azioniPalmare = ['menu', 'sala', 'conto', 'righe', 'invia', 'vai', 'storna', 'chiudi'];
+  const azioniPalmare = ['menu', 'sala', 'conto', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi'];
   if (azioniPalmare.includes(azione) && !cameriere) return errore('sessione non valida', 401);
 
   if (azione === 'menu') {
@@ -153,7 +153,10 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     if (req.metodo === 'GET') {
       const c = contoDi(db, req.query.id || '');
       if (!c) return errore('conto non trovato', 404);
-      return ok({ conto: c, righe: righeDelConto(db, String(c.id)) });
+      /* gli altri conti aperti dello stesso tavolo: per spostarci una riga */
+      const fratelli = db.prepare("select id, tipo, camera, ospite, coperti from pos_conto where tavolo = ? and stato != 'chiuso' and id != ?")
+        .all(String(c.tavolo), String(c.id));
+      return ok({ conto: c, righe: righeDelConto(db, String(c.id)), fratelli });
     }
     const no = soloPost(); if (no) return no;
     const tavolo = String(b.tavolo ?? '');
@@ -264,6 +267,31 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
       if (c && questa.length) creaStampe(db, c, questa, r.portata as Portata, 'storno', cameriere!.nome);
     }
     return ok({ riga: db.prepare('select * from pos_riga where id = ?').get(String(r.id)) });
+  }
+
+  /* una riga passa a un altro conto dello stesso tavolo: cambia chi paga,
+     non cambia niente in cucina */
+  if (azione === 'sposta') {
+    const no = soloPost(); if (no) return no;
+    const r = db.prepare('select * from pos_riga where id = ?').get(String(b.riga ?? '')) as Riga | undefined;
+    if (!r || r.stato === 'stornata') return errore('riga non trovata o stornata', 404);
+    const da = contoDi(db, String(r.conto));
+    if (!da || da.stato === 'chiuso') return errore('conto non aperto', 409);
+    let versoId = String(b.conto ?? '');
+    const ora = adesso();
+    if (b.nuovo) {
+      versoId = crypto.randomUUID();
+      salva(db, 'pos_conto', {
+        id: versoId, tavolo: da.tavolo, tipo: 'esterno', camera: null, ospite: null, tessera: null,
+        coperti: Math.max(1, Number(b.coperti ?? 1) || 1), stato: 'aperto', chiuso_come: null,
+        aperto_da: cameriere!.id, aperto_il: ora, chiuso_da: null, chiuso_il: null, aggiornato_il: ora, allineato: 0,
+      });
+    }
+    const verso = contoDi(db, versoId);
+    if (!verso || verso.stato === 'chiuso') return errore('l altro conto non e aperto', 409);
+    if (verso.tavolo !== da.tavolo) return errore('i due conti non sono dello stesso tavolo', 409);
+    db.prepare('update pos_riga set conto = ?, aggiornato_il = ?, allineato = 0 where id = ?').run(versoId, ora, String(r.id));
+    return ok({ esito: 'ok', riga: r.id, conto: versoId });
   }
 
   if (azione === 'chiudi') {

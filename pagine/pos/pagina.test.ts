@@ -65,3 +65,11 @@ Deno.test('il palmare non decide prezzi: manda articolo, quantita, variante, not
 Deno.test('niente stampanti fiscali, niente chiave hotel nella pagina', () => {
   assert(!/8989|8990|x-hotel-key|HOTEL_KEY|192\.168\.0\.5[12]/.test(P));
 });
+
+Deno.test('al tavolo si paga separatamente: una riga passa a un altro conto, o a uno nuovo aperto li per li', () => {
+  assert(m.includes("a=sposta") || m.includes("scrivi('sposta'"), 'l azione');
+  assert(m.includes('data-sposta') && m.includes('+ Conto nuovo'), 'i conti del tavolo e quello nuovo');
+  assert(m.includes('fratelli'), 'gli altri conti arrivano col conto');
+  const pan = m.slice(m.indexOf('const pannelloRiga ='), m.indexOf('const invia ='));
+  assert(pan.includes('data-sposta'), 'si sposta dal pannello della riga');
+});

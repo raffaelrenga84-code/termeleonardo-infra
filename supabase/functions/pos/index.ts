@@ -197,7 +197,7 @@ Deno.serve(async (req) => {
   }
 
   const cameriere = await cameriereDi(req);
-  const azioniPalmare = ['menu', 'sala', 'conto', 'righe', 'invia', 'vai', 'storna', 'chiudi'];
+  const azioniPalmare = ['menu', 'sala', 'conto', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi'];
   if (azioniPalmare.includes(azione) && !cameriere) return risposta({ errore: 'sessione non valida' }, 401);
 
   if (azione === 'menu') {
@@ -245,7 +245,11 @@ Deno.serve(async (req) => {
       const id = url.searchParams.get('id') || '';
       const { data: c } = await db.from('pos_conto').select('*').eq('id', id).maybeSingle();
       if (!c) return risposta({ errore: 'conto non trovato' }, 404);
-      return risposta({ conto: c, righe: await righeDelConto(c.id as string) });
+      /* gli altri conti aperti sullo stesso tavolo: servono al cameriere
+         per spostarci una riga quando al tavolo si paga separatamente */
+      const { data: fratelli } = await db.from('pos_conto').select('id, tipo, camera, ospite, coperti')
+        .eq('tavolo', c.tavolo as string).neq('stato', 'chiuso').neq('id', c.id as string);
+      return risposta({ conto: c, righe: await righeDelConto(c.id as string), fratelli: fratelli ?? [] });
     }
     if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
     const b = await corpo();
@@ -361,6 +365,34 @@ Deno.serve(async (req) => {
       if (c && questa.length) await creaStampe(c, questa, r.portata as Portata, 'storno', cameriere!.nome);
     }
     return risposta({ riga: agg });
+  }
+
+  /* Una riga passa a un altro conto DELLO STESSO TAVOLO: gli amici che
+     pagano separatamente, o l'ospite che si accorge a meta' cena. Non e'
+     uno storno e non tocca la cucina: cambia solo chi paga. */
+  if (azione === 'sposta') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const b = await corpo();
+    const { data: r } = await db.from('pos_riga').select('*').eq('id', String(b.riga ?? '')).maybeSingle();
+    if (!r || r.stato === 'stornata') return risposta({ errore: 'riga non trovata o stornata' }, 404);
+    const { data: da } = await db.from('pos_conto').select('*').eq('id', r.conto as string).maybeSingle();
+    if (!da || da.stato === 'chiuso') return risposta({ errore: 'conto non aperto' }, 409);
+    let versoId = String(b.conto ?? '');
+    if (b.nuovo) {
+      const nuovo = {
+        id: crypto.randomUUID(), tavolo: da.tavolo, tipo: 'esterno', coperti: Math.max(1, Number(b.coperti ?? 1) || 1),
+        stato: 'aperto', aperto_da: cameriere!.id, aggiornato_il: adesso(),
+      };
+      const { data, error } = await db.from('pos_conto').insert(nuovo).select('id').single();
+      if (error || !data) return risposta({ errore: error?.message ?? 'conto non creato' }, 500);
+      versoId = data.id as string;
+    }
+    const { data: verso } = await db.from('pos_conto').select('*').eq('id', versoId).maybeSingle();
+    if (!verso || verso.stato === 'chiuso') return risposta({ errore: 'l altro conto non e aperto' }, 409);
+    if (verso.tavolo !== da.tavolo) return risposta({ errore: 'i due conti non sono dello stesso tavolo' }, 409);
+    const ora = adesso();
+    await db.from('pos_riga').update({ conto: versoId, aggiornato_il: ora }).eq('id', r.id as string);
+    return risposta({ esito: 'ok', riga: r.id, conto: versoId });
   }
 
   if (azione === 'chiudi') {
