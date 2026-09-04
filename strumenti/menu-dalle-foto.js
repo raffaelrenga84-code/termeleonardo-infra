@@ -182,9 +182,9 @@ const MENU = {
   'Whiskey': [
     ['WHISKY 12 ANNI', 800], ['WHISKY 14 ANNI', 1200], ['WHISKY 16 ANNI', 1400],
     ['Whisky - OBAN', 1200],
-    /* «WHISKY - SCOTCH, BOURBON, CANAD, IRISH»: il prezzo era coperto e
-       non ce l'avevamo da nessuna parte. A prezzo libero finche' non si sa. */
-    ['WHISKY - SCOTCH, BOURBON, CANAD, IRISH', 0, true],
+    /* «WHISKY - SCOTCH, BOURBON, CANAD, IRISH»: il prezzo era coperto nella
+       fotografia — sei euro, detto dalla proprieta' il 4 settembre 2026 */
+    ['WHISKY - SCOTCH, BOURBON, CANAD, IRISH', 600],
   ],
   'Da Condividere': [
     ['BRUSCHETTA ALL’ITALIANA', 850], ['GUACAMOLE TOAST', 1300], ['La Pinsa Margherita', 900],
