@@ -41,7 +41,10 @@ const DESSERT = /passito|vin santo|vinsanto|sauternes|recioto|torcolato|malvasia
 const ROSATO = /\brosè|\brosé|\brose\b|rosat|chiaretto|petalo di rosa/i;
 const ROSSO = /\brosso|cabernet|merlot|bardolino|carmen[eè]re|refosco|raboso|amarone|valpolicella|nero d.avola|sangiovese|barbera|nebbiolo|barolo|barbaresco|primitivo|aglianico|montepulciano|chianti|corvina|pinot nero|shiraz|syrah/i;
 const BIANCO = /\bbianco|chardonnay|sauvignon|pinot grigio|pinot bianco|soave|custoza|kerner|serprino|garganega|riesling|verduzzo|manzoni|traminer|m[uü]ller|gew[uü]rz|vermentino|falanghina|greco|fiano|lugana|friulano|tocai|prosecco tranquillo/i;
-const COLLI = /colli euganei|\bcolli\b|euganei/i;
+/* SOLO i Colli Euganei. «Colli Berici», «Colli Senesi», «Collio» sono
+   altri posti: un Cabernet dei Colli Berici e' un rosso, non un rosso dei
+   Colli (le schermate del POS ristorante, 4 settembre 2026). */
+const COLLI = /colli euganei|\beuganei\b/i;
 /* «vino» da solo non basta: «Vino Del Giorno» non e' una bottiglia di
    listino, e nemmeno «VARIE BEVANDE» */
 const VINO_GENERICO = /\bvino\b|\bvini\b|\bdoc\b|\bdocg\b|\bigt\b|\bcalice\b|bottiglia|0,75|0,375/i;
@@ -62,10 +65,19 @@ export function categoriaVino(nome: string): CategoriaVino | null {
   const n = String(nome ?? '');
   if (!eVino(n)) return null;
   if (/^\s*(calice|bicch)/i.test(n)) return 'Vini al calice';
+  /* IL PREFISSO DI FIDRA VINCE SU TUTTO. I vini del ristorante si chiamano
+     «Vino Rosso Barolo…», «Vino Dessert Franciacorta Brut…»: la categoria
+     e' scritta nel nome, e non c'e' niente da dedurre. Senza questa regola
+     il Franciacorta finirebbe fra le bollicine invece che fra i dessert,
+     dove Fidra lo tiene (le schermate del POS ristorante, 4 set 2026). */
+  const colli = COLLI.test(n);
+  if (/^\s*vino\s+dessert/i.test(n)) return 'Vini Dessert';
+  if (/^\s*vino\s+ros[eèé]|^\s*vino\s+rosat/i.test(n)) return 'Rose';
+  if (/^\s*vino\s+rosso/i.test(n)) return colli ? 'Vino Rosso Colli' : 'Vino Rosso';
+  if (/^\s*vino\s+bianco/i.test(n)) return colli ? 'Vino Bianco Colli' : 'Vino Bianco';
   if (BOLLICINE.test(n)) return 'Bollicine - champagnes';
   if (DESSERT.test(n)) return 'Vini Dessert';
   if (ROSATO.test(n)) return 'Rose';
-  const colli = COLLI.test(n);
   if (ROSSO.test(n)) return colli ? 'Vino Rosso Colli' : 'Vino Rosso';
   if (BIANCO.test(n)) return colli ? 'Vino Bianco Colli' : 'Vino Bianco';
   return null;

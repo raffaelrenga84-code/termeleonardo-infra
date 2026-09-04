@@ -52,3 +52,35 @@ Deno.test('un vino che non si capisce non si inventa: torna null', () => {
   assertEquals(categoriaVino('ETE’L 2019'), null);
   assertEquals(categoriaVino(''), null);
 });
+
+Deno.test('i vini del ristorante hanno la categoria nel nome: quella vince su tutto', () => {
+  /* le schermate del POS ristorante (la proprieta', 4 settembre 2026):
+     «Vino Rosso Barolo…», «Vino Dessert Franciacorta…». Fidra la scrive,
+     non c e niente da dedurre. */
+  assertEquals(categoriaVino('Vino Rosso Barolo Docg Az. Marchesi'), 'Vino Rosso');
+  assertEquals(categoriaVino('Vino Bianco Pinot Grigio Le Monde'), 'Vino Bianco');
+  assertEquals(categoriaVino('Vino Rosato Ca’ Dei Frati'), 'Rose');
+  assertEquals(categoriaVino('Vino Rosato Levius Rosé Martin & Son'), 'Rose');
+  /* IL CASO CHE MI AVREBBE FREGATO: un Franciacorta brut e' una bollicina
+     dappertutto, ma Fidra lo tiene fra i dessert e comanda lui */
+  assertEquals(categoriaVino('Vino Dessert Franciacorta Brut D.o.c.g.'), 'Vini Dessert');
+  assertEquals(categoriaVino('Vino Dessert Prosecco Miol'), 'Vini Dessert');
+  assertEquals(categoriaVino('Vino Dessert Prosecco "D’O" Rosè brut DOC'), 'Vini Dessert');
+});
+
+Deno.test('Colli Euganei si, Colli Berici e Collio no', () => {
+  /* «Colli Berici», «Colli Senesi», «Collio» sono altri posti: un
+     Cabernet dei Colli Berici e un rosso, non un rosso dei Colli */
+  assertEquals(categoriaVino('Vino Rosso Merlot Colli Euganei Sengiari'), 'Vino Rosso Colli');
+  assertEquals(categoriaVino('Vino Rosso "Triangolo" Colli Euganei riserva Terre Gaie'), 'Vino Rosso Colli');
+  assertEquals(categoriaVino('Vino Bianco Bianco Colli Euganei Sengiari'), 'Vino Bianco Colli');
+  assertEquals(categoriaVino('Vino Rosso Merlot Colli Berici Igt Riserva'), 'Vino Rosso');
+  assertEquals(categoriaVino('Vino Rosso Chianti Colli Senesi Farnetella'), 'Vino Rosso');
+  assertEquals(categoriaVino('Vino Bianco Pinot Grigio Collio - Schiopetto'), 'Vino Bianco');
+  assertEquals(categoriaVino('Vino Rosso Merlot Collio Superiore Az. Russiz'), 'Vino Rosso');
+});
+
+Deno.test('i calici del ristorante restano calici', () => {
+  assertEquals(categoriaVino('Calice di Vino Dei Colli'), 'Vini al calice');
+  assertEquals(categoriaVino('Calice di vino dei Colli'), 'Vini al calice');
+});
