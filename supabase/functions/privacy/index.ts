@@ -104,7 +104,9 @@ async function contoFidra(codice: string): Promise<{ stato: number; camera: stri
   }
 }
 
-const COLONNE_ELENCO = 'id, creato_il, firmato_il, stato, camera, cognome, nome, email, lingua, arrivo, partenza, conservazione, messaggi, marketing, testi_versione, fonte, email_inviata';
+const COLONNE_ELENCO = 'id, creato_il, firmato_il, stato, camera, cognome, nome, email, lingua, arrivo, partenza, conservazione, messaggi, marketing, testi_versione, fonte, email_inviata, destinazione';
+/* quanto resta in vista, nell'elenco dell'iPad, un consenso non firmato */
+const MINUTI_ATTESA = 3;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
@@ -133,11 +135,29 @@ Deno.serve(async (req) => {
   }
 
   /* ---------- dal totem e dall'iPad ---------- */
+  /* Un consenso in attesa vive TRE MINUTI nell'elenco dell'iPad: dopo,
+     nome e camera non si vedono piu' («togli in automatico dopo 3
+     minuti», la proprieta', 4 settembre 2026). Non si cancella niente: se
+     l'ospite arriva dopo, la reception ripreme il pulsante, oppure lui
+     passa la tessera al totem, che non ha scadenza perche' li' e' lui a
+     presentarsi con la sua carta. */
+  const daQuando = () => new Date(Date.now() - MINUTI_ATTESA * 60 * 1000).toISOString();
+
   if (azione === 'attese') {
     if (!eTotem(req)) return risposta({ errore: 'non autorizzato' }, 401);
     const { data } = await db.from('consenso').select('id, camera, cognome, nome, lingua, creato_il')
-      .eq('stato', 'in_attesa').order('creato_il', { ascending: false }).limit(100);
-    return risposta({ attese: data ?? [] });
+      .eq('stato', 'in_attesa').eq('destinazione', 'ipad').gte('creato_il', daQuando())
+      .order('creato_il', { ascending: false }).limit(100);
+    return risposta({ attese: data ?? [], minuti: MINUTI_ATTESA });
+  }
+
+  /* solo QUANTI sono, senza nomi ne' camere: lo chiede l'iPad quando e'
+     chiuso, per accendere un pallino senza mostrare niente a nessuno */
+  if (azione === 'quante') {
+    if (!eTotem(req)) return risposta({ errore: 'non autorizzato' }, 401);
+    const { count } = await db.from('consenso').select('id', { count: 'exact', head: true })
+      .eq('stato', 'in_attesa').eq('destinazione', 'ipad').gte('creato_il', daQuando());
+    return risposta({ attese: count ?? 0 });
   }
 
   if (azione === 'tessera') {

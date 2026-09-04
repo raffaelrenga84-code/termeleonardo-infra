@@ -71,7 +71,7 @@
 
   const barra = document.createElement('div');
   barra.id = 'leoArticoliBarra';
-  barra.style.cssText = 'position:fixed;top:8px;right:16px;z-index:99999;background:#1A3626;color:#fff;padding:8px 12px;border-radius:8px;font:14px system-ui,sans-serif;display:flex;gap:10px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.25);max-width:520px;';
+  barra.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99999;background:#1A3626;color:#fff;padding:8px 12px;border-radius:8px;font:14px system-ui,sans-serif;display:flex;gap:10px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.25);max-width:520px;';
   const b = document.createElement('button');
   b.type = 'button';
   b.textContent = 'Manda gli articoli al POS';

@@ -72,3 +72,10 @@ Deno.test('il modulo sta in una schermata sola: niente scorrimento per l ospite'
   assert(p.includes('class="pvCorpo"') && p.includes('class="pvFrasi"') && p.includes('class="pvLato"'), 'le due colonne nel markup');
   assert(/clamp\(/.test(P), 'le misure crescono e calano con lo schermo');
 });
+
+Deno.test('l iPad chiuso dice quanti aspettano, non chi: nessun nome finche non si tocca', () => {
+  const c = p.slice(p.indexOf('const chiusa = '), p.indexOf('const tessera = '));
+  assert(c.includes("chiamaPrivacy('?a=quante')"), 'chiede solo il numero');
+  assert(!c.includes('cognome') && !c.includes('.camera'), 'nessun nome, nessuna camera');
+  assert(c.includes('pvPallino') && c.includes('15000'), 'un pallino, ogni quindici secondi');
+});

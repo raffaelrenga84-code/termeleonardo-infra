@@ -17,14 +17,22 @@ Deno.test('gira sulla prenotazione di Fidra, dopo l estrattore, e manda a privac
   assert(cs, 'il manifest carica fidra-privacy.js');
   assert(cs.matches.every((m) => m.includes('/reservations/')), cs.matches.join());
   assert(cs.js.indexOf('extractor.js') >= 0 && cs.js.indexOf('extractor.js') < cs.js.indexOf('fidra-privacy.js'), 'extractor.js prima: estrai() deve esistere');
-  assert(S.includes('functions/v1/privacy?a=attesa') && S.includes("'x-hotel-key'") && S.includes("'hotelKey'"));
+  assert(S.includes('functions/v1/privacy') && S.includes("a=attesa") && S.includes("'x-hotel-key'") && S.includes("'hotelKey'"));
   assert(S.includes('estrai()'), 'i dati vengono dall estrattore');
 });
 
-Deno.test('sola lettura su Fidra: nessun clic, nessun submit, una sola fetch verso la nostra funzione', () => {
+Deno.test('sola lettura su Fidra: nessun clic, nessun submit, e si parla solo con la nostra funzione', () => {
   assert(!/\.click\(\)|\.submit\(\)|fidra\.cloud\/api/.test(S));
-  const post = S.match(/fetch\(([^,]+),/g) ?? [];
-  assert(post.length === 1 && post[0].includes('FUNZIONE'), 'una fetch, verso FUNZIONE');
+  const post = S.match(/fetch\((\w+),/g) ?? [];
+  assert(post.length >= 1 && post.every((p) => /fetch\((MANDA|ANNULLA),/.test(p)), post.join(' '));
+  assert(S.includes('const FUNZIONE = \'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/privacy\''));
+});
+
+Deno.test('due strade, e un modo per tornare indietro: iPad, totem, Annulla', () => {
+  assert(S.includes("'ipad'") && S.includes("'totem'"), 'le due destinazioni');
+  assert(S.includes('destinazione') && S.includes('a=annulla'), 'la destinazione parte col consenso, e si puo togliere');
+  assert(S.includes('annulla.hidden = false'), 'Annulla compare dopo aver mandato');
+  assert(S.includes('tre minuti'), 'si dice quanto resta in vista');
 });
 
 Deno.test('manda camera, cognome, nome, email, lingua e prenotazione; la lingua si deduce dal paese', () => {

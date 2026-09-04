@@ -159,6 +159,9 @@ body.totem main{max-width:820px;padding-top:40px;}
 .pvElenco{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;}
 .pvVoce{font:inherit;font-size:20px;text-align:left;padding:16px;border-radius:12px;border:2px solid var(--acqua);background:var(--acqua-chiara);cursor:pointer;}
 .pvVoce b{color:var(--verde);}
+.pvAspetta{display:flex;align-items:center;justify-content:center;gap:10px;font-size:20px;color:var(--verde);margin:0;}
+.pvPallino{width:14px;height:14px;border-radius:50%;background:var(--oro);animation:lampeggia 1.4s steps(2,start) infinite;}
+@media (prefers-reduced-motion: reduce){.pvPallino{animation:none;}}
 body.totem main{max-width:900px;}
 @keyframes lampeggia{to{opacity:.25;}}
 @media (prefers-reduced-motion: reduce){.contoSecondi.ultimi{animation:none;}}
@@ -516,15 +519,23 @@ function totem() {
       $('app').innerHTML = `<div class="riquadro totemRiposo opinione privacy ${classe}">${dentro}</div>`;
       tocco();
     };
-    /* la schermata chiusa dell'iPad: niente nomi, niente camere */
-    const chiusa = () => {
+    /* La schermata chiusa dell'iPad: niente nomi, niente camere. Chiede
+       ogni quindici secondi SOLO QUANTI consensi aspettano, e accende un
+       pallino: la reception vede che ne e' arrivato uno senza che il nome
+       compaia sullo schermo davanti a tutti. */
+    const chiusa = (quanti = 0) => {
       clearTimeout(timerRiposo); clearTimeout(rinfresco);
       $('app').onclick = null;
       $('app').innerHTML = `<div class="riquadro totemRiposo privacy chiusa">
         <div class="totemTitolo">Privacy</div>
         <p class="totemLingue">Consenso al trattamento dei dati · Datenschutz · Consent · Confidentialité</p>
+        ${quanti ? `<p class="pvAspetta"><span class="pvPallino"></span>${quanti === 1 ? 'Un consenso aspetta' : quanti + ' consensi aspettano'}</p>` : '<p class="mini">Nessuno in attesa. La reception preme «Privacy all’iPad» sulla prenotazione in Fidra.</p>'}
         <button type="button" class="contoChiudi grande" id="pvComincia">Cominci qui</button></div>`;
       $('pvComincia').onclick = elenco;
+      rinfresco = setTimeout(async () => {
+        try { const j = await chiamaPrivacy('?a=quante'); chiusa(Number(j.attese) || 0); }
+        catch (e) { chiusa(quanti); }
+      }, 15000);
     };
     const testi = async (lingua) => { const j = await chiamaPrivacy(`?a=testi&lingua=${encodeURIComponent(lingua)}`); st.lingua = j.testi && lingua ? lingua : 'it'; st.versione = j.versione; T = j.testi; return T; };
     /* la lingua indovinata puo' sbagliare: i quattro nomi stanno in alto,

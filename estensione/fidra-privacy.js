@@ -15,7 +15,9 @@
 (() => {
   'use strict';
   const ID = 'leoPrivacyBarra';
-  const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/privacy?a=attesa';
+  const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/privacy';
+  const MANDA = FUNZIONE + '?a=attesa';
+  const ANNULLA = FUNZIONE + '?a=annulla';
   const MESI = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
   const LINGUA_DEL_PAESE = { IT: 'it', SM: 'it', VA: 'it', DE: 'de', AT: 'de', CH: 'de', LI: 'de', FR: 'fr', BE: 'fr', LU: 'fr', MC: 'fr' };
   /* il prefisso del telefono quando il paese manca o non dice niente:
@@ -49,25 +51,52 @@
     });
   }
 
-  async function manda(esito, b) {
-    const dillo = (m) => { esito.textContent = m; };
+  /* gli ultimi consensi mandati, per poterli togliere subito se ci si e'
+     sbagliati; dopo tre minuti sparirebbero da soli dall'elenco */
+  let ultimi = [];
+
+  async function chiave(dillo) {
     const { hotelKey } = await chrome.storage.local.get(['hotelKey']);
-    if (!hotelKey) { dillo('Serve la chiave hotel: la si imposta nel pannello dell\'estensione (Chiave hotel...).'); return; }
+    if (!hotelKey) { dillo('Serve la chiave hotel: la si imposta nel pannello dell\'estensione (Chiave hotel...).'); return null; }
+    return hotelKey;
+  }
+
+  async function manda(esito, destinazione, annulla) {
+    const dillo = (m) => { esito.textContent = m; };
+    const hotelKey = await chiave(dillo);
+    if (!hotelKey) return;
     const d = estrai();
     if (!d || !d.ok) { dillo('Non riesco a leggere la prenotazione.'); return; }
     const lista = attese(d);
     if (!lista.length) { dillo('Nessuna camera assegnata: assegni la camera, poi prema di nuovo.'); return; }
     dillo('Mando...');
     const fatte = [];
+    ultimi = [];
     for (const a of lista) {
-      const r = await fetch(FUNZIONE, { method: 'POST', headers: { 'content-type': 'application/json', 'x-hotel-key': hotelKey }, body: JSON.stringify(a) });
+      const r = await fetch(MANDA, { method: 'POST', headers: { 'content-type': 'application/json', 'x-hotel-key': hotelKey }, body: JSON.stringify({ ...a, destinazione }) });
       const j = await r.json().catch(() => ({}));
       if (r.status === 401) { dillo('Chiave hotel sbagliata: la si reimposta nel pannello dell\'estensione.'); return; }
       if (!r.ok) { dillo('Errore: ' + (j.errore || r.status)); return; }
+      if (j.id) ultimi.push(j.id);
       fatte.push(`camera ${a.camera} · ${a.cognome} ${a.nome}`.trim());
     }
-    dillo('In attesa al totem: ' + fatte.join('; ') + '. L\'ospite passa la tessera al totem, o la reception lo sceglie sull\'iPad.');
-    b.textContent = 'Privacy al totem ✓';
+    dillo(fatte.join('; ') + (destinazione === 'totem'
+      ? '. Ora l\'ospite passa la tessera della camera al totem in hall.'
+      : '. Compare sull\'iPad per tre minuti: la reception lo tocca e passa il tablet all\'ospite.'));
+    annulla.hidden = false;
+  }
+
+  async function togli(esito, annulla) {
+    const dillo = (m) => { esito.textContent = m; };
+    if (!ultimi.length) { dillo('Niente da togliere.'); return; }
+    const hotelKey = await chiave(dillo);
+    if (!hotelKey) return;
+    for (const id of ultimi) {
+      await fetch(ANNULLA, { method: 'POST', headers: { 'content-type': 'application/json', 'x-hotel-key': hotelKey }, body: JSON.stringify({ id }) });
+    }
+    ultimi = [];
+    annulla.hidden = true;
+    dillo('Tolto: non compare piu\' ne\' sull\'iPad ne\' col passaggio della tessera.');
   }
 
   function metti() {
@@ -75,15 +104,31 @@
     if (typeof estrai !== 'function') return;
     const barra = document.createElement('div');
     barra.id = ID;
-    barra.style.cssText = 'position:fixed;top:8px;right:16px;z-index:99999;background:#1A3626;color:#fff;padding:8px 12px;border-radius:8px;font:14px system-ui,sans-serif;display:flex;gap:10px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.25);max-width:560px;';
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = 'Privacy al totem';
-    b.title = 'Manda i dati della prenotazione al totem e agli iPad per il consenso privacy. Non scrive niente in Fidra.';
-    b.style.cssText = 'font:inherit;padding:6px 10px;border-radius:6px;border:0;background:#C9A961;color:#1A3626;cursor:pointer;white-space:nowrap;';
+    barra.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99999;background:#1A3626;color:#fff;padding:8px 12px;border-radius:8px;font:14px system-ui,sans-serif;display:flex;gap:10px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.25);max-width:560px;';
     const esito = document.createElement('span');
-    b.onclick = () => { b.disabled = true; manda(esito, b).catch((e) => { esito.textContent = 'Errore: ' + e.message; }).finally(() => { b.disabled = false; }); };
-    barra.append(b, esito);
+    esito.style.cssText = 'flex-basis:100%;';
+    const annulla = document.createElement('button');
+    annulla.type = 'button';
+    annulla.textContent = 'Annulla';
+    annulla.hidden = true;
+    annulla.title = 'Toglie subito il consenso in attesa appena mandato.';
+    annulla.style.cssText = 'font:inherit;padding:6px 10px;border-radius:6px;border:1px solid #fff;background:transparent;color:#fff;cursor:pointer;white-space:nowrap;';
+    annulla.onclick = () => { annulla.disabled = true; togli(esito, annulla).catch((e) => { esito.textContent = 'Errore: ' + e.message; }).finally(() => { annulla.disabled = false; }); };
+    /* due strade per lo stesso consenso: l'iPad che la reception porge, o
+       il totem in hall dove l'ospite passa la tessera da solo */
+    const pulsante = (testo, destinazione, titolo) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = testo;
+      b.title = titolo;
+      b.style.cssText = 'font:inherit;padding:6px 10px;border-radius:6px;border:0;background:#C9A961;color:#1A3626;cursor:pointer;white-space:nowrap;';
+      b.onclick = () => { b.disabled = true; manda(esito, destinazione, annulla).catch((e) => { esito.textContent = 'Errore: ' + e.message; }).finally(() => { b.disabled = false; }); };
+      return b;
+    };
+    barra.append(
+      pulsante('Privacy all’iPad', 'ipad', 'Mette l’ospite nell’elenco dell’iPad della reception, per tre minuti. Non scrive niente in Fidra.'),
+      pulsante('Privacy al totem', 'totem', 'L’ospite passa la tessera al totem in hall e trova il modulo compilato. Non scrive niente in Fidra.'),
+      annulla, esito);
     document.body.appendChild(barra);
     const stile = document.createElement('style');
     stile.textContent = '@media print{#' + ID + '{display:none !important;}}';

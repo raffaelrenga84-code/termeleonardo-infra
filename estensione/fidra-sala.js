@@ -122,7 +122,7 @@
     const { posLocaleImport } = await chrome.storage.local.get(['posLocaleImport']);
     const barra = document.createElement('div');
     barra.id = ID;
-    barra.style.cssText = 'position:fixed;top:8px;right:16px;z-index:99999;background:#1A3626;color:#fff;padding:8px 12px;border-radius:8px;font:14px system-ui,sans-serif;display:flex;gap:8px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.25);max-width:640px;flex-wrap:wrap;';
+    barra.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99999;background:#1A3626;color:#fff;padding:8px 12px;border-radius:8px;font:14px system-ui,sans-serif;display:flex;gap:8px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.25);max-width:640px;flex-wrap:wrap;';
     const stileCampo = 'font:inherit;padding:5px 8px;border-radius:6px;border:0;width:110px;';
     const locale = document.createElement('input');
     locale.id = 'leoSalaLocale';

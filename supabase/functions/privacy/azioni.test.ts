@@ -26,6 +26,11 @@ Deno.test('l estensione mette in attesa con la chiave hotel; il totem legge le a
   const a = blocco('attesa');
   assert(a.includes('chiaveHotel(req)') && a.includes('leggiAttesa(') && a.includes("'in_attesa'"));
   assert(blocco('attese').includes('if (!eTotem(req))'));
+  /* nome e camera restano in vista tre minuti, poi l elenco li lascia andare */
+  assert(S.includes('const MINUTI_ATTESA = 3') && blocco('attese').includes('daQuando()'), 'l attesa scade');
+  assert(blocco('attese').includes("eq('destinazione', 'ipad')"), 'nell elenco solo quelli mandati all iPad');
+  const q = blocco('quante');
+  assert(q.includes('if (!eTotem(req))') && q.includes('head: true') && !q.includes('cognome'), 'il conteggio non porta nomi');
   const t = blocco('tessera');
   assert(t.includes('if (!eTotem(req))') && t.includes('[0-9]{4,20}') && t.includes('contoFidra('));
   assert(S.includes("Deno.env.get('FIDRA_TOTEM_KEY')") && S.includes('/api/bill-scanner/'));

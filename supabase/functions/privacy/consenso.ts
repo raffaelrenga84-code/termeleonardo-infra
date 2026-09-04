@@ -128,7 +128,7 @@ const email = (v: unknown): string | null => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e) ? e : null;
 };
 
-export type Attesa = { camera: string; cognome: string; nome: string; email: string | null; lingua: Lingua; fidra_prenotazione: string | null; arrivo: string | null; partenza: string | null };
+export type Attesa = { camera: string; cognome: string; nome: string; email: string | null; lingua: Lingua; fidra_prenotazione: string | null; arrivo: string | null; partenza: string | null; destinazione: 'ipad' | 'totem' };
 export type Esito<T> = { ok: true; valore: T } | { ok: false; errore: string };
 
 /** Quello che manda l'estensione al check-in. */
@@ -140,6 +140,8 @@ export function leggiAttesa(corpo: unknown): Esito<Attesa> {
   return { ok: true, valore: {
     camera, cognome, nome: pulito(c.nome, 80), email: email(c.email), lingua: laLingua(c.lingua),
     fidra_prenotazione: pulito(c.fidra_prenotazione, 40) || null, arrivo: dataIso(c.arrivo), partenza: dataIso(c.partenza),
+    /* all'iPad se non si dice altro: e' il modo che la reception usa di piu' */
+    destinazione: c.destinazione === 'totem' ? 'totem' : 'ipad',
   } };
 }
 

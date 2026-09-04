@@ -24,14 +24,14 @@ Deno.test('le tre scelte, nell ordine del modulo; i testi hanno una versione e l
 });
 
 Deno.test('leggiAttesa: camera e cognome obbligatori, email pulita, lingua nota, date ISO o null', () => {
-  const r = leggiAttesa({ camera: ' 320 ', cognome: ' Rossi ', nome: 'Mario', email: ' MARIO@EXAMPLE.COM ', lingua: 'de', fidra_prenotazione: '12345', arrivo: '2026-09-04', partenza: '2026-09-11' });
+  const r = leggiAttesa({ camera: ' 320 ', cognome: ' Rossi ', nome: 'Mario', email: ' MARIO@EXAMPLE.COM ', lingua: 'de', fidra_prenotazione: '12345', arrivo: '2026-09-04', partenza: '2026-09-11', destinazione: 'totem' });
   assert(r.ok);
-  assertEquals(r.valore, { camera: '320', cognome: 'Rossi', nome: 'Mario', email: 'mario@example.com', lingua: 'de', fidra_prenotazione: '12345', arrivo: '2026-09-04', partenza: '2026-09-11' });
+  assertEquals(r.valore, { camera: '320', cognome: 'Rossi', nome: 'Mario', email: 'mario@example.com', lingua: 'de', fidra_prenotazione: '12345', arrivo: '2026-09-04', partenza: '2026-09-11', destinazione: 'totem' });
   assertEquals(leggiAttesa({ cognome: 'Rossi' }).ok, false);
   assertEquals(leggiAttesa({ camera: '320' }).ok, false);
-  const s = leggiAttesa({ camera: '320', cognome: 'Rossi', email: 'non-email', lingua: 'xx', arrivo: '4/9/2026' });
+  const s = leggiAttesa({ camera: '320', cognome: 'Rossi', email: 'non-email', lingua: 'xx', arrivo: '4/9/2026', destinazione: 'boh' });
   assert(s.ok);
-  assertEquals([s.valore.email, s.valore.lingua, s.valore.arrivo, s.valore.nome], [null, 'it', null, '']);
+  assertEquals([s.valore.email, s.valore.lingua, s.valore.arrivo, s.valore.nome, s.valore.destinazione], [null, 'it', null, '', 'ipad']);
 });
 
 Deno.test('leggiFirma: tre risposte booleane tutte presenti, firma PNG piccola, versione, fonte; altrimenti errore', () => {
