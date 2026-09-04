@@ -224,6 +224,13 @@ Deno.serve(async (req) => {
   }
 
   if (azione === 'conto') {
+    if (req.method === 'GET') {
+      /* un conto con le sue righe: il palmare lo riapre da qui */
+      const id = url.searchParams.get('id') || '';
+      const { data: c } = await db.from('pos_conto').select('*').eq('id', id).maybeSingle();
+      if (!c) return risposta({ errore: 'conto non trovato' }, 404);
+      return risposta({ conto: c, righe: await righeDelConto(c.id as string) });
+    }
     if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
     const b = await corpo();
     const tavolo = String(b.tavolo ?? '');

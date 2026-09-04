@@ -51,11 +51,13 @@ const NASCOSTE = [
   'dayspa/index.html',
   /* lo sportello del Day Spa: pagina del tablet della reception */
   'ingresso/index.html',
+  /* il POS di Bistrot e ristorante: pagina dei palmari, servita solo dall IP dell hotel */
+  'pos/index.html',
 ];
 
 Deno.test('gli elenchi non sono vuoti, altrimenti i cicli girano a vuoto', () => {
   assertEquals(VISIBILI.length, 3);
-  assertEquals(NASCOSTE.length, 8);
+  assertEquals(NASCOSTE.length, 9);
 });
 
 Deno.test('ogni pagina riservata dichiara noindex', () => {

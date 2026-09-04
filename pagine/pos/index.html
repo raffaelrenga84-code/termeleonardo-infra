@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#1A3626" />
+<meta name="robots" content="noindex, nofollow" />
+<title>POS — Hotel Terme Leonardo</title>
+<link rel="manifest" href="/pos/manifest.webmanifest" />
+<link rel="icon" href="/ingresso/icona-192.png" type="image/png" />
+<style>
+/* IL POS DEL CAMERIERE. Tre schermate: sala, tavolo, ordine. Pensato per
+   un Sunmi tenuto in una mano; sul PC del Bistrot si dispone a due
+   colonne. Le regole (prezzi, portate) stanno nel server; qui si tocca. */
+:root{--verde:#1A3626;--verde-medio:#3C5346;--acqua:#8FC4BC;--acqua-chiara:#E4F0EA;--oro:#C9A961;--bronzo:#8A6A38;
+  --crema:#F9F6F0;--grigio:#7B756A;--allarme:#C0392B;--pietra:#EDE7DC;--bianco:#fff;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{margin:0;background:var(--crema);color:#2A2E2B;font:16px/1.4 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow:hidden;user-select:none;}
+header{background:var(--verde);color:#fff;padding:8px 12px;display:flex;align-items:center;gap:10px;height:52px;}
+header .indietro{background:none;border:0;color:#fff;font-size:26px;padding:0 6px;cursor:pointer;}
+header .titolo{flex:1;font-weight:600;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+header .pallino{width:12px;height:12px;border-radius:50%;background:#999;}
+header .pallino.locale{background:#4CAF50;}
+header .pallino.cloud{background:var(--oro);}
+header .pallino.solo{background:var(--allarme);}
+header .chi{font-size:13px;opacity:.85;}
+main{height:calc(100% - 52px);overflow:auto;-webkit-overflow-scrolling:touch;}
+button{font:inherit;cursor:pointer;}
+.bottone{width:100%;padding:16px;border:0;border-radius:12px;background:var(--verde);color:#fff;font:600 18px inherit;}
+.bottone.sec{background:#fff;color:var(--verde);border:2px solid var(--verde);}
+.bottone.oro{background:var(--oro);color:var(--verde);}
+.bottone:disabled{opacity:.4;}
+.errore{color:var(--allarme);padding:10px 14px;font-size:14px;}
+.mini{font-size:13px;color:var(--grigio);}
+/* accesso col PIN */
+.accesso{max-width:360px;margin:30px auto;padding:0 16px;text-align:center;}
+.accesso h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:30px;color:var(--verde);margin:0 0 6px;}
+.accesso .campo{font:600 28px ui-monospace,Menlo,monospace;letter-spacing:6px;min-height:46px;color:var(--verde);}
+.tastierino{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0;}
+.tastierino button{padding:18px 0;font-size:24px;border:1px solid var(--pietra);border-radius:12px;background:#fff;color:var(--verde);}
+/* sala */
+.zone{display:flex;gap:6px;padding:10px 12px 0;overflow-x:auto;}
+.zone button{padding:8px 14px;border-radius:999px;border:1px solid var(--verde);background:#fff;color:var(--verde);white-space:nowrap;}
+.zone button.attiva{background:var(--verde);color:#fff;}
+.piantina{position:relative;margin:12px;height:calc(100vh - 140px);min-height:420px;background:#fff;border:1px solid var(--pietra);border-radius:14px;}
+.tavolo{position:absolute;transform:translate(-50%,-50%);width:74px;height:74px;border-radius:50%;border:2px solid var(--verde);background:#fff;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;line-height:1.15;color:var(--verde);padding:0;}
+.tavolo b{font-size:14px;}
+.tavolo.aperto{background:var(--acqua-chiara);}
+.tavolo.attesa{background:#FFF3D6;border-color:var(--oro);}
+.tavolo.da_inviare{border-style:dashed;}
+.tavolo.conto_chiesto{background:#FBE9E7;border-color:var(--allarme);}
+/* tavolo: i conti */
+.riquadro{background:#fff;border:1px solid var(--pietra);border-radius:14px;padding:14px;margin:12px;}
+.contoRiga{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-top:1px solid #F0EBE1;font-size:17px;}
+.contoRiga:first-child{border-top:0;}
+.contoRiga b{color:var(--verde);}
+.coperti{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:10px 0;}
+.coperti button{padding:12px 0;border:1px solid var(--pietra);border-radius:10px;background:#fff;font-size:18px;}
+.coperti button.attivo{background:var(--verde);color:#fff;border-color:var(--verde);}
+/* ordine */
+.ordine{display:flex;flex-direction:column;height:100%;}
+.portate{display:flex;gap:6px;padding:8px 10px;overflow-x:auto;background:#fff;border-bottom:1px solid var(--pietra);}
+.portate button{padding:7px 12px;border-radius:999px;border:1px solid var(--verde-medio);background:#fff;color:var(--verde-medio);white-space:nowrap;font-size:14px;}
+.portate button.attiva{background:var(--verde);color:#fff;border-color:var(--verde);}
+.cercaRiga{display:flex;gap:8px;padding:8px 10px;background:#fff;align-items:center;}
+.cercaRiga input{flex:1;padding:12px;font:inherit;border:1px solid #DCD6CB;border-radius:10px;background:#FCFBF8;}
+.quantita{display:flex;gap:4px;}
+.quantita button{width:38px;height:44px;border-radius:8px;border:1px solid var(--pietra);background:#fff;font-size:17px;}
+.quantita button.attivo{background:var(--oro);border-color:var(--oro);color:var(--verde);}
+.griglia{flex:1;overflow:auto;padding:8px 10px;}
+.sezione{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--bronzo);margin:8px 2px 4px;}
+.articoli{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;}
+.articolo{min-height:66px;padding:8px;border-radius:10px;border:1px solid var(--pietra);background:#fff;text-align:left;display:flex;flex-direction:column;justify-content:space-between;font-size:14px;line-height:1.2;}
+.articolo .prezzo{font-size:12px;color:var(--grigio);}
+.articolo.esaurito{opacity:.35;text-decoration:line-through;}
+.categorie{display:flex;gap:6px;overflow-x:auto;padding:6px 0;}
+.categorie button{padding:8px 12px;border-radius:8px;border:1px solid var(--pietra);background:#fff;white-space:nowrap;font-size:14px;}
+.categorie button.attiva{background:var(--verde-medio);color:#fff;border-color:var(--verde-medio);}
+.comanda{background:#fff;border-top:2px solid var(--verde);max-height:38vh;overflow:auto;padding:6px 10px;}
+.comanda .portataTit{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--bronzo);margin:6px 0 2px;display:flex;justify-content:space-between;}
+.riga{display:grid;grid-template-columns:34px 1fr auto;gap:8px;align-items:start;padding:7px 0;border-top:1px solid #F3EEE4;font-size:15px;}
+.riga .q{font-weight:700;color:var(--verde);}
+.riga .dett{font-size:12px;color:var(--grigio);}
+.riga.inviata .q::after{content:" ⏱";font-size:11px;}
+.riga.partita .q::after{content:" ✓";font-size:11px;}
+.riga.stornata{opacity:.45;text-decoration:line-through;}
+.azioni{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:8px 10px 10px;background:#fff;}
+.azioni .bottone{padding:14px 6px;font-size:16px;}
+.totale{display:flex;justify-content:space-between;padding:6px 10px 0;background:#fff;font-size:15px;color:var(--verde-medio);}
+.totale b{font-size:20px;color:var(--verde);}
+/* pannello della riga (tocco lungo) */
+.velo{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;z-index:20;}
+.pannello{background:#fff;width:100%;max-height:88vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px;}
+.pannello h3{margin:0 0 8px;color:var(--verde);}
+.pannello label{display:block;font-size:13px;color:var(--verde-medio);font-weight:600;margin-top:12px;}
+.pannello input,.pannello textarea{width:100%;padding:12px;font:inherit;border:1px solid #DCD6CB;border-radius:10px;background:#FCFBF8;margin-top:4px;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.chips button{padding:7px 11px;border-radius:999px;border:1px solid var(--pietra);background:#fff;font-size:14px;}
+.chips button.attiva{background:var(--acqua-chiara);border-color:var(--acqua);}
+.piumeno{display:flex;align-items:center;gap:14px;margin-top:4px;}
+.piumeno button{width:52px;height:52px;border-radius:50%;border:1px solid var(--verde);background:#fff;font-size:26px;color:var(--verde);}
+.piumeno output{font-size:24px;min-width:40px;text-align:center;}
+.pannello .due{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;}
+@media (min-width: 900px){
+  .ordine{display:grid;grid-template-columns:1fr 420px;grid-template-rows:auto auto 1fr;height:100%;}
+  .portate,.cercaRiga{grid-column:1;}
+  .griglia{grid-column:1;grid-row:3;}
+  .comanda{grid-column:2;grid-row:1/3;max-height:none;border-top:0;border-left:2px solid var(--verde);}
+  .totale,.azioni{grid-column:2;}
+  .piantina{height:calc(100vh - 140px);}
+}
+</style>
+</head>
+<body>
+<header>
+  <button class="indietro" id="indietro" hidden aria-label="indietro">‹</button>
+  <span class="titolo" id="titolo">POS</span>
+  <span class="chi" id="chi"></span>
+  <span class="pallino" id="pallino" title="server"></span>
+</header>
+<main id="app"></main>
+
+<script type="module">
+'use strict';
+import { aggiungi, cambia, creaOrdine, daInviare, euro, perPortata, PORTATE, togli, totaleCent } from '/pos/stato.js';
+import { creaCoda, creaServer } from '/pos/server.js';
+
+const CLOUD = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos';
+const USCITA_DOPO_MS = 5 * 60 * 1000;   // senza tocchi per cinque minuti si torna al PIN
+const Q = new URLSearchParams(location.search);
+/* il token del palmare: una volta dall'indirizzo (?d=…), poi resta sul dispositivo */
+if (Q.get('d')) { localStorage.setItem('posDispositivo', Q.get('d')); history.replaceState(null, '', location.pathname); }
+const DISPOSITIVO = localStorage.getItem('posDispositivo') || '';
+const LOCALE_ID = localStorage.getItem('posLocaleId') || 'bistrot';
+const SERVER_LOCALE = localStorage.getItem('posServerLocale') || '';
+const NOMI_PORTATE = { bevande: 'Bevande', antipasti: 'Antipasti', primi: 'Primi', secondi: 'Secondi', dolci: 'Dolci' };
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const minuti = (iso) => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+
+/* ---------- il server: prima il PC del Bistrot, poi il cloud; la coda se nessuno risponde ---------- */
+const server = creaServer({
+  locale: SERVER_LOCALE, cloud: CLOUD,
+  ping: (u) => fetch(u + '?a=stato-locale', { signal: AbortSignal.timeout(900) }).then((r) => r.ok),
+});
+const coda = creaCoda({
+  salva: (r) => localStorage.setItem('posCoda', JSON.stringify(r)),
+  leggi: () => { try { return JSON.parse(localStorage.getItem('posCoda') || '[]'); } catch { return []; } },
+});
+let SESSIONE = sessionStorage.getItem('posSessione') || '';
+let CAMERIERE = JSON.parse(sessionStorage.getItem('posCameriere') || 'null');
+let MENU = JSON.parse(localStorage.getItem('posMenu') || 'null');
+
+function pallino() {
+  const p = $('pallino');
+  p.className = 'pallino ' + (coda.quante() ? 'solo' : server.stato());
+  p.title = coda.quante() ? `${coda.quante()} da mandare` : server.stato();
+}
+
+async function chiama(azione, opz = {}) {
+  const base = await server.base();
+  const testa = { 'content-type': 'application/json', 'x-pos-dispositivo': DISPOSITIVO, 'x-pos-sessione': SESSIONE, ...(opz.headers || {}) };
+  let r;
+  try {
+    r = await fetch(`${base}?a=${azione}${opz.qs || ''}`, { method: opz.method || 'GET', headers: testa, body: opz.body, signal: AbortSignal.timeout(8000) });
+  } catch (e) {
+    if (server.stato() === 'locale') { server.localeCaduto(); return chiama(azione, opz); }
+    throw new TypeError('rete: ' + e.message);
+  } finally { pallino(); }
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401 && azione !== 'accesso') { esci(); throw new Error(j.errore || 'sessione scaduta'); }
+  if (!r.ok) throw new Error(j.errore || `errore ${r.status}`);
+  return j;
+}
+/* una scrittura che nessun server riceve va in coda e si rimanda dopo */
+async function scrivi(azione, corpo) {
+  try { return await chiama(azione, { method: 'POST', body: JSON.stringify(corpo) }); }
+  catch (e) {
+    if (e instanceof TypeError) { coda.metti({ azione, corpo }); pallino(); return { offline: true }; }
+    throw e;
+  }
+}
+async function svuotaCoda() {
+  if (!coda.quante()) return;
+  await coda.svuota((r) => chiama(r.azione, { method: 'POST', body: JSON.stringify(r.corpo) }));
+  pallino();
+}
+setInterval(() => { svuotaCoda().catch(() => {}); }, 15000);
+
+/* ---------- uscita automatica ---------- */
+let timerUscita = null;
+function tocco() {
+  clearTimeout(timerUscita);
+  if (SESSIONE) timerUscita = setTimeout(() => esci(), USCITA_DOPO_MS);
+}
+document.addEventListener('pointerdown', tocco, { passive: true });
+function esci() {
+  SESSIONE = ''; CAMERIERE = null;
+  sessionStorage.removeItem('posSessione'); sessionStorage.removeItem('posCameriere');
+  accesso();
+}
+
+/* ---------- testa ---------- */
+function testa(titolo, indietro) {
+  $('titolo').textContent = titolo;
+  $('chi').textContent = CAMERIERE ? CAMERIERE.nome : '';
+  $('indietro').hidden = !indietro;
+  $('indietro').onclick = indietro || null;
+  pallino();
+}
+
+/* ---------- accesso col PIN ---------- */
+function accesso() {
+  testa('POS', null);
+  if (!DISPOSITIVO) {
+    $('app').innerHTML = `<div class="accesso"><h1>Palmare non registrato</h1>
+      <p class="mini">Questo dispositivo non ha il suo codice. Lo si registra dal back office e si apre la pagina una volta con <b>?d=CODICE</b>.</p></div>`;
+    return;
+  }
+  let codice = '', pin = '', campo = 'codice';
+  const disegna = () => {
+    $('app').innerHTML = `<div class="accesso">
+      <h1>Buon servizio</h1>
+      <p class="mini">Codice cameriere, poi PIN</p>
+      <label class="mini">Codice</label><div class="campo" id="vCodice">${esc(codice) || '·'}</div>
+      <label class="mini">PIN</label><div class="campo" id="vPin">${'•'.repeat(pin.length) || '·'}</div>
+      <div class="tastierino">${[1,2,3,4,5,6,7,8,9].map((n) => `<button data-n="${n}">${n}</button>`).join('')}
+        <button data-n="c">C</button><button data-n="0">0</button><button data-n="ok">↵</button></div>
+      <div class="errore" id="accErrore"></div>
+      <p class="mini" id="impostazioni">Server locale: ${SERVER_LOCALE ? esc(SERVER_LOCALE) : 'nessuno, si usa il cloud'}</p></div>`;
+    $('app').querySelectorAll('.tastierino button').forEach((b) => b.onclick = () => tasto(b.dataset.n));
+    /* le impostazioni del palmare: tocco lungo sulla riga del server */
+    toccoLungo($('impostazioni'), impostazioni);
+  };
+  const tasto = async (n) => {
+    if (n === 'c') { if (campo === 'pin' && !pin) campo = 'codice'; if (campo === 'codice') codice = codice.slice(0, -1); else pin = pin.slice(0, -1); return disegna(); }
+    if (n === 'ok') {
+      if (campo === 'codice') { if (codice) campo = 'pin'; return disegna(); }
+      try {
+        const j = await chiama('accesso', { method: 'POST', body: JSON.stringify({ codice, pin }) });
+        SESSIONE = j.sessione; CAMERIERE = j.cameriere;
+        sessionStorage.setItem('posSessione', SESSIONE); sessionStorage.setItem('posCameriere', JSON.stringify(CAMERIERE));
+        tocco();
+        await caricaMenu();
+        schermataSala();
+      } catch (e) { pin = ''; disegna(); $('accErrore').textContent = e.message; }
+      return;
+    }
+    if (campo === 'codice') codice += n; else pin += n;
+    disegna();
+  };
+  disegna();
+}
+
+function impostazioni() {
+  const s = prompt('Indirizzo del server locale (PC del Bistrot), vuoto per usare solo il cloud:', SERVER_LOCALE);
+  if (s === null) return;
+  localStorage.setItem('posServerLocale', s.trim());
+  const l = prompt('Locale di questo palmare (bistrot o ristorante):', LOCALE_ID);
+  if (l) localStorage.setItem('posLocaleId', l.trim());
+  location.reload();
+}
+
+/* ---------- il menu': dal server, con la copia sul palmare ---------- */
+async function caricaMenu() {
+  try {
+    MENU = await chiama('menu');
+    localStorage.setItem('posMenu', JSON.stringify(MENU));
+  } catch (e) { if (!MENU) throw e; }
+}
+const articoliDi = (categoria) => MENU.articoli.filter((a) => a.categoria === categoria);
+const sottoDi = (categoria) => MENU.categorie.filter((c) => c.sotto === categoria);
+const categoriaDi = (id) => MENU.categorie.find((c) => c.id === id);
+const portataArticolo = (a) => a.portata || (categoriaDi(a.categoria) || {}).portata || 'secondi';
+
+/* ---------- la sala ---------- */
+let ZONA = localStorage.getItem('posZona') || '';
+let timerSala = null;
+async function schermataSala() {
+  clearInterval(timerSala);
+  testa(LOCALE_ID === 'ristorante' ? 'Ristorante' : 'Bistrot', null);
+  const disegna = async () => {
+    let s;
+    try { s = await chiama('sala', { qs: `&locale=${encodeURIComponent(LOCALE_ID)}` }); }
+    catch (e) { $('app').innerHTML = `<div class="errore">${esc(e.message)}</div>`; return; }
+    if (!s.zone.some((z) => z.id === ZONA)) ZONA = (s.zone[0] || {}).id || '';
+    const tavoli = s.tavoli.filter((t) => t.zona === ZONA);
+    $('app').innerHTML = `<div class="zone">${s.zone.map((z) => `<button data-z="${esc(z.id)}" class="${z.id === ZONA ? 'attiva' : ''}">${esc(z.nome)}</button>`).join('')}</div>
+      <div class="piantina" id="piantina">${tavoli.map((t) => {
+        const aperti = t.conti.filter((c) => c.stato !== 'chiuso');
+        const stato = !aperti.length ? 'libero' : aperti.some((c) => c.stato === 'conto_chiesto') ? 'conto_chiesto' : aperti.some((c) => c.attesa) ? 'attesa' : aperti.some((c) => c.da_inviare) ? 'da_inviare' : 'aperto';
+        const tot = aperti.reduce((x, c) => x + c.totale_cent, 0);
+        const ultima = aperti.map((c) => c.ultima).sort().pop();
+        return `<button class="tavolo ${stato}" data-t="${esc(t.id)}" style="left:${t.x}%;top:${t.y}%;">
+          <b>${esc(t.nome.replace('Tavolo ', 'T'))}</b>${aperti.length ? `<span>${euro(tot)}</span><span class="mini">${minuti(ultima)}'</span>` : `<span class="mini">${t.posti} posti</span>`}</button>`;
+      }).join('')}</div>`;
+    $('app').querySelectorAll('.zone button').forEach((b) => b.onclick = () => { ZONA = b.dataset.z; localStorage.setItem('posZona', ZONA); disegna(); });
+    $('app').querySelectorAll('.tavolo').forEach((b) => b.onclick = () => { clearInterval(timerSala); schermataTavolo(s.tavoli.find((t) => t.id === b.dataset.t)); });
+  };
+  await disegna();
+  timerSala = setInterval(disegna, 10000);
+}
+
+/* ---------- il tavolo: i suoi conti ---------- */
+function schermataTavolo(t) {
+  testa(t.nome, schermataSala);
+  const aperti = t.conti.filter((c) => c.stato !== 'chiuso');
+  let coperti = 2;
+  const disegna = () => {
+    $('app').innerHTML = `<div class="riquadro">${aperti.length ? aperti.map((c) => `<div class="contoRiga" data-c="${esc(c.id)}"><span><b>${esc(c.nome)}</b><br><span class="mini">${c.coperti} coperti${c.attesa ? ' · portata in attesa' : ''}</span></span><b>${euro(c.totale_cent)}</b></div>`).join('') : '<p class="mini">Tavolo libero.</p>'}</div>
+      <div class="riquadro"><b>Nuovo conto</b><p class="mini">Quanti coperti?</p>
+        <div class="coperti">${[1,2,3,4,5,6,7,8,9,10,11,12].map((n) => `<button data-n="${n}" class="${n === coperti ? 'attivo' : ''}">${n}</button>`).join('')}</div>
+        <button class="bottone" id="nuovoEsterno">Apri conto</button>
+        <p class="mini" style="margin-top:8px;">Il conto in camera con la tessera arriva nella fase 2.</p></div>`;
+    $('app').querySelectorAll('.coperti button').forEach((b) => b.onclick = () => { coperti = Number(b.dataset.n); disegna(); });
+    $('app').querySelectorAll('.contoRiga').forEach((r) => r.onclick = () => apriConto(r.dataset.c));
+    $('nuovoEsterno').onclick = async () => {
+      try {
+        const j = await scrivi('conto', { tavolo: t.id, tipo: 'esterno', coperti });
+        if (j.offline) return alert('Nessun server risponde: riprovi tra un momento.');
+        schermataOrdine(j.conto, []);
+      } catch (e) { alert(e.message); }
+    };
+  };
+  disegna();
+}
+async function apriConto(id) {
+  try {
+    const j = await chiama('conto', { qs: `&id=${encodeURIComponent(id)}` });
+    schermataOrdine(j.conto, j.righe);
+  } catch (e) { alert(e.message); }
+}
+
+/* ---------- l'ordine: dove si vive ---------- */
+function schermataOrdine(conto, righeServer) {
+  const nomeConto = conto.tipo === 'camera' ? `Camera ${conto.camera}` : 'Esterno';
+  testa(`${nomeConto} · ${conto.coperti} cop.`, schermataSala);
+  let ordine = creaOrdine();
+  let portataForzata = '';         // '' = quella dell'articolo
+  let quantitaPronta = 1;
+  let categoria = '';              // '' = preferiti e ultimi
+  let cerca = '';
+  let dalServer = righeServer || [];
+
+  const ultimi = () => {
+    const visti = new Set(); const out = [];
+    for (const r of [...dalServer].reverse()) { if (r.articolo && !visti.has(r.articolo)) { visti.add(r.articolo); const a = MENU.articoli.find((x) => x.id === r.articolo); if (a) out.push(a); } }
+    return out.slice(0, 8);
+  };
+  const preferiti = () => MENU.preferiti.filter((p) => p.locale === LOCALE_ID).map((p) => MENU.articoli.find((a) => a.id === p.articolo)).filter(Boolean);
+  const prossimaInAttesa = () => {
+    const inAttesa = dalServer.filter((r) => r.stato === 'inviata').map((r) => r.portata).sort((a, b) => PORTATE.indexOf(a) - PORTATE.indexOf(b));
+    return inAttesa[0] || null;
+  };
+
+  const disegna = () => {
+    const nuove = daInviare(ordine).length;
+    const prossima = prossimaInAttesa();
+    let lista;
+    if (cerca.length >= 3) lista = [['Trovati', MENU.articoli.filter((a) => a.nome.toLowerCase().includes(cerca.toLowerCase())).slice(0, 40)]];
+    else if (categoria) lista = [[categoriaDi(categoria).nome, articoliDi(categoria)]];
+    else lista = [['Preferiti', preferiti()], ['Ultimi di questo tavolo', ultimi()]].filter(([, a]) => a.length);
+    const tutte = [...dalServer.filter((r) => r.stato !== 'stornata'), ...ordine.righe];
+    const totale = tutte.reduce((t, r) => t + r.quantita * r.prezzo_cent, 0);
+    const gruppi = new Map();
+    for (const p of PORTATE) { const rr = tutte.filter((r) => r.portata === p); if (rr.length) gruppi.set(p, rr); }
+    $('app').innerHTML = `<div class="ordine">
+      <div class="portate"><button data-p="" class="${portataForzata ? '' : 'attiva'}">Auto</button>${PORTATE.map((p) => `<button data-p="${p}" class="${portataForzata === p ? 'attiva' : ''}">${NOMI_PORTATE[p]}</button>`).join('')}</div>
+      <div class="cercaRiga"><input id="cerca" placeholder="cerca (3 lettere)" value="${esc(cerca)}" autocomplete="off" />
+        <div class="quantita">${[1,2,3,4].map((n) => `<button data-q="${n}" class="${n === quantitaPronta ? 'attivo' : ''}">${n}</button>`).join('')}</div></div>
+      <div class="griglia">
+        ${cerca.length >= 3 ? '' : `<div class="categorie"><button data-cat="" class="${categoria ? '' : 'attiva'}">★</button>${MENU.categorie.filter((c) => !c.sotto && c.attiva !== false).map((c) => `<button data-cat="${esc(c.id)}" class="${c.id === categoria ? 'attiva' : ''}" style="${c.colore ? `border-left:6px solid ${esc(c.colore)}` : ''}">${esc(c.nome)}</button>`).join('')}</div>`}
+        ${categoria && sottoDi(categoria).length ? `<div class="categorie">${sottoDi(categoria).map((c) => `<button data-cat="${esc(c.id)}">${esc(c.nome)}</button>`).join('')}</div>` : ''}
+        ${lista.map(([tit, arts]) => `<div class="sezione">${esc(tit)}</div><div class="articoli">${arts.map((a) => `<button class="articolo ${a.esaurito ? 'esaurito' : ''}" data-a="${esc(a.id)}" ${a.esaurito ? 'disabled' : ''}><span>${esc(a.nome)}</span><span class="prezzo">${a.prezzo_libero ? 'prezzo libero' : euro(a.prezzo_cent)}</span></button>`).join('')}</div>`).join('') || '<p class="mini">Nessun articolo: scelga una categoria o cerchi.</p>'}
+      </div>
+      <div class="comanda" id="comanda">${[...gruppi].map(([p, rr]) => `<div class="portataTit"><span>${NOMI_PORTATE[p]}</span>${prossima === p ? '<span>in attesa</span>' : ''}</div>${rr.map((r) => `<div class="riga ${r.stato}" data-r="${esc(r.id)}"><span class="q">${r.quantita}×</span><span>${esc(r.nome)}${r.variante ? `<div class="dett">+ ${esc(r.variante)}</div>` : ''}${r.nota ? `<div class="dett">› ${esc(r.nota)}</div>` : ''}</span><span>${euro(r.quantita * r.prezzo_cent)}</span></div>`).join('')}`).join('') || '<p class="mini">Tocchi un articolo per aggiungerlo. Tocco lungo su una riga per nota, variante, quantità.</p>'}</div>
+      <div class="totale"><span>Totale</span><b>${euro(totale)}</b></div>
+      <div class="azioni">
+        <button class="bottone" id="invia" ${nuove ? '' : 'disabled'}>Invia${nuove ? ` (${nuove})` : ''}</button>
+        <button class="bottone oro" id="vai" ${prossima ? '' : 'disabled'}>${prossima ? `Vai coi ${NOMI_PORTATE[prossima].toLowerCase()}` : 'Vai'}</button>
+        <button class="bottone sec" id="chiudi" ${tutte.length && !nuove ? '' : 'disabled'}>Conto</button>
+      </div></div>`;
+    const app = $('app');
+    app.querySelectorAll('.portate button').forEach((b) => b.onclick = () => { portataForzata = b.dataset.p; disegna(); });
+    app.querySelectorAll('.quantita button').forEach((b) => b.onclick = () => { quantitaPronta = Number(b.dataset.q); disegna(); });
+    app.querySelectorAll('.categorie button').forEach((b) => b.onclick = () => { categoria = b.dataset.cat; cerca = ''; disegna(); });
+    const c = $('cerca');
+    c.oninput = () => { cerca = c.value; const pos = c.selectionStart; disegna(); const n = $('cerca'); n.focus(); n.setSelectionRange(pos, pos); };
+    app.querySelectorAll('.articolo').forEach((b) => b.onclick = () => aggiungiArticolo(MENU.articoli.find((a) => a.id === b.dataset.a)));
+    app.querySelectorAll('.riga').forEach((r) => toccoLungo(r, () => pannelloRiga(r.dataset.r)));
+    $('invia').onclick = invia;
+    $('vai').onclick = vai;
+    $('chiudi').onclick = chiudi;
+    $('comanda').scrollTop = $('comanda').scrollHeight;
+  };
+
+  const aggiungiArticolo = (a) => {
+    if (!a) return;
+    const opz = { quantita: quantitaPronta, portata: portataForzata || portataArticolo(a) };
+    if (a.prezzo_libero) {
+      const p = prompt(`${a.nome}: importo in euro`);
+      if (p === null) return;
+      opz.prezzoManualeCent = Math.round(Number(String(p).replace(',', '.')) * 100);
+      if (!Number.isFinite(opz.prezzoManualeCent)) return;
+    }
+    ordine = aggiungi(ordine, { ...a, portata: portataArticolo(a) }, opz);
+    quantitaPronta = 1;
+    if (navigator.vibrate) navigator.vibrate(15);
+    disegna();
+  };
+
+  /* il pannello di una riga: quantita', nota, variante, prezzo a mano, togli o storna */
+  const pannelloRiga = (id) => {
+    const nuova = ordine.righe.find((r) => r.id === id);
+    const vecchia = dalServer.find((r) => r.id === id);
+    const r = nuova || vecchia;
+    if (!r) return;
+    const a = MENU.articoli.find((x) => x.id === r.articolo) || {};
+    const cat = categoriaDi(a.categoria) || {};
+    const varianti = MENU.varianti.filter((v) => v.articolo === a.id || (v.categoria && v.categoria === a.categoria));
+    const puoPrezzo = CAMERIERE && CAMERIERE.ruolo !== 'cameriere';
+    const puoStorno = CAMERIERE && (CAMERIERE.ruolo !== 'cameriere' || CAMERIERE.storni);
+    const velo = document.createElement('div'); velo.className = 'velo';
+    velo.innerHTML = `<div class="pannello">
+      <h3>${esc(r.nome)}</h3>
+      ${nuova ? `<label>Quantità</label><div class="piumeno"><button id="pMeno">−</button><output id="pQ">${r.quantita}</output><button id="pPiu">+</button></div>
+      <label>Nota per la cucina</label><textarea id="pNota" rows="2">${esc(r.nota || '')}</textarea>
+      <div class="chips">${(cat.note_rapide || ['Senza glutine', 'No lattosio', 'Allergia', 'Caldo', 'Freddo', 'Con ghiaccio', 'Senza ghiaccio']).map((n) => `<button data-nota="${esc(n)}">${esc(n)}</button>`).join('')}</div>
+      ${varianti.length ? `<label>Variante</label><div class="chips">${varianti.map((v) => `<button data-v="${esc(v.id)}" class="${r.variante_id === v.id ? 'attiva' : ''}">${esc(v.nome)}${v.supplemento_cent ? ` +${euro(v.supplemento_cent)}` : ''}</button>`).join('')}</div>` : ''}
+      <label>Portata</label><div class="chips">${PORTATE.map((p) => `<button data-p="${p}" class="${r.portata === p ? 'attiva' : ''}">${NOMI_PORTATE[p]}</button>`).join('')}</div>
+      ${puoPrezzo ? `<label>Prezzo a mano (euro, vuoto = listino)</label><input id="pPrezzo" inputmode="decimal" value="${r.prezzo_manuale_cent != null ? (r.prezzo_manuale_cent / 100).toFixed(2).replace('.', ',') : ''}" />` : ''}
+      <div class="due"><button class="bottone sec" id="pTogli">Togli</button><button class="bottone" id="pOk">Fatto</button></div>`
+      : `<p class="mini">Riga già inviata${r.stato === 'partita' ? ' e partita' : ', in attesa'}.</p>
+      ${puoStorno && r.stato !== 'stornata' ? `<label>Motivo dello storno</label><input id="pMotivo" placeholder="es. cambiato idea, errore" />
+      <div class="due"><button class="bottone sec" id="pChiudi">Annulla</button><button class="bottone" id="pStorna" style="background:var(--allarme)">Storna</button></div>`
+      : `<div class="due"><button class="bottone sec" id="pChiudi">Chiudi</button></div>`}`}
+    </div>`;
+    document.body.appendChild(velo);
+    const chiudiPannello = () => velo.remove();
+    velo.onclick = (ev) => { if (ev.target === velo) chiudiPannello(); };
+    if (nuova) {
+      let q = r.quantita, varianteId = r.variante_id, portata = r.portata;
+      velo.querySelector('#pMeno').onclick = () => { q = Math.max(1, q - 1); velo.querySelector('#pQ').textContent = q; };
+      velo.querySelector('#pPiu').onclick = () => { q += 1; velo.querySelector('#pQ').textContent = q; };
+      velo.querySelectorAll('[data-nota]').forEach((b) => b.onclick = () => { const t = velo.querySelector('#pNota'); t.value = (t.value ? t.value + ', ' : '') + b.dataset.nota; });
+      velo.querySelectorAll('[data-v]').forEach((b) => b.onclick = () => { varianteId = varianteId === b.dataset.v ? null : b.dataset.v; velo.querySelectorAll('[data-v]').forEach((x) => x.classList.toggle('attiva', x.dataset.v === varianteId)); });
+      velo.querySelectorAll('[data-p]').forEach((b) => b.onclick = () => { portata = b.dataset.p; velo.querySelectorAll('[data-p]').forEach((x) => x.classList.toggle('attiva', x.dataset.p === portata)); });
+      velo.querySelector('#pTogli').onclick = () => { ordine = togli(ordine, id); chiudiPannello(); disegna(); };
+      velo.querySelector('#pOk').onclick = () => {
+        const v = varianti.find((x) => x.id === varianteId);
+        const campi = { quantita: q, nota: velo.querySelector('#pNota').value.trim() || null, variante_id: varianteId, variante: v ? v.nome : null, portata };
+        const pz = puoPrezzo ? velo.querySelector('#pPrezzo').value.trim() : '';
+        campi.prezzo_manuale_cent = pz ? Math.round(Number(pz.replace(',', '.')) * 100) : (a.prezzo_libero ? r.prezzo_manuale_cent : null);
+        campi.prezzo_cent = campi.prezzo_manuale_cent != null ? campi.prezzo_manuale_cent : (a.prezzo_cent || 0) + (v ? v.supplemento_cent : 0);
+        ordine = cambia(ordine, id, campi); chiudiPannello(); disegna();
+      };
+    } else {
+      const pc = velo.querySelector('#pChiudi'); if (pc) pc.onclick = chiudiPannello;
+      const ps = velo.querySelector('#pStorna');
+      if (ps) ps.onclick = async () => {
+        try {
+          const j = await scrivi('storna', { riga: id, motivo: velo.querySelector('#pMotivo').value.trim() });
+          if (!j.offline) dalServer = dalServer.map((x) => x.id === id ? j.riga : x);
+          chiudiPannello(); disegna();
+        } catch (e) { alert(e.message); }
+      };
+    }
+  };
+
+  /* Invia: le righe nuove al server, poi l'invio (prima portata e bevande subito, il resto in attesa) */
+  const invia = async () => {
+    const nuove = daInviare(ordine);
+    if (!nuove.length) return;
+    $('invia').disabled = true;
+    try {
+      const corpo = nuove.map((r) => ({ id: r.id, articolo: r.articolo, quantita: r.quantita, variante_id: r.variante_id, variante: r.variante, nota: r.nota, portata: r.portata, prezzo_manuale_cent: r.prezzo_manuale_cent }));
+      const j = await scrivi('righe', { conto: conto.id, righe: corpo });
+      if (j.offline) { coda.metti({ azione: 'invia', corpo: { conto: conto.id } }); dalServer = [...dalServer, ...nuove.map((r) => ({ ...r, stato: 'inviata' }))]; ordine = creaOrdine(); disegna(); return; }
+      const inv = await scrivi('invia', { conto: conto.id });
+      ordine = creaOrdine();
+      if (!inv.offline) await ricarica();
+      else disegna();
+    } catch (e) { alert(e.message); disegna(); }
+  };
+  const vai = async () => {
+    const p = prossimaInAttesa();
+    if (!p) return;
+    $('vai').disabled = true;
+    try { const j = await scrivi('vai', { conto: conto.id, portata: p }); if (!j.offline) await ricarica(); else disegna(); }
+    catch (e) { alert(e.message); await ricarica(); }
+  };
+  const chiudi = async () => {
+    const modo = prompt('Come paga? 1 contanti, 2 carta', '1');
+    if (modo === null) return;
+    try {
+      const j = await scrivi('chiudi', { conto: conto.id, modo: modo.trim() === '2' ? 'carta' : 'contanti' });
+      if (j.offline) alert('Nessun server risponde: il conto si chiude appena torna la linea.');
+      schermataSala();
+    } catch (e) { alert(e.message); }
+  };
+  const ricarica = async () => {
+    try { const j = await chiama('conto', { qs: `&id=${encodeURIComponent(conto.id)}` }); dalServer = j.righe; conto = j.conto; }
+    catch { /* si resta con quello che si ha */ }
+    disegna();
+  };
+  disegna();
+}
+
+/* ---------- il tocco lungo (450 ms) su un elemento ---------- */
+function toccoLungo(el, fn) {
+  if (!el) return;
+  let t = null;
+  const via = () => { clearTimeout(t); t = null; };
+  el.addEventListener('pointerdown', (ev) => { via(); t = setTimeout(() => { t = null; if (navigator.vibrate) navigator.vibrate(30); fn(ev); }, 450); }, { passive: true });
+  ['pointerup', 'pointercancel', 'pointerleave', 'pointermove'].forEach((n) => el.addEventListener(n, (ev) => { if (n === 'pointermove' && t && Math.hypot(ev.movementX, ev.movementY) < 4) return; via(); }, { passive: true }));
+  el.addEventListener('contextmenu', (ev) => ev.preventDefault());
+}
+
+/* ---------- avvio ---------- */
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/pos/sw.js', { scope: '/pos' }).catch(() => {});
+(async () => {
+  try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch (e) { /* niente */ }
+  if (SESSIONE && CAMERIERE) {
+    try { await caricaMenu(); tocco(); schermataSala(); return; } catch { /* sessione scaduta: giu' */ }
+  }
+  accesso();
+})();
+</script>
+</body>
+</html>
