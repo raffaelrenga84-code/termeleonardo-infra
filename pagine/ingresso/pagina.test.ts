@@ -102,3 +102,16 @@ Deno.test('al totem anche la tessera della camera: il conto per 60 secondi, poi 
   assert(t.includes('60'), 'il conto resta 60 secondi, come sul totem di hldv');
   assert(!t.includes('bill-scanner') && !t.includes('fidra.cloud'), 'la pagina non parla con Fidra: parla con la nostra funzione');
 });
+
+Deno.test('la schermata di riposo dice anche della tessera della camera, e il campo del lettore non attira i gestori di password', () => {
+  /* «fai capire che possono passare anche la tessera camera per vedere il
+     conto» (la proprieta', 3 settembre 2026, notte). E sul PC della
+     reception il campo nascosto faceva comparire «Password di iCloud». */
+  const m = modulo();
+  const t = m.slice(m.indexOf('function totem('), m.indexOf('function sportello('));
+  assert(t.includes('tessera della camera') && t.includes('room key card') && t.includes('Zimmerkarte') && t.includes('carte de chambre'),
+    'la tessera della camera e detta in quattro lingue');
+  assert(m.includes('class="carta"'), 'nel disegno c e anche la tessera con il codice a barre');
+  assert(t.includes('data-lpignore="true"') && t.includes('data-1p-ignore') && t.includes('type="search"'),
+    'il campo del lettore dice ai gestori di password di lasciarlo stare');
+});
