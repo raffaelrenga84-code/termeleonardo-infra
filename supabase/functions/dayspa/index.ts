@@ -31,6 +31,7 @@ import { chiaveStripe, dividi, firmaValida, parametriLink, segretoWebhook, STRIP
 import { dataEstesa, emailConferma, TESTI_EMAIL } from './email-dayspa.ts';
 import { creaFrenoIp } from './limite-ip.ts';
 import { generaPngQR } from './qr.js';
+import { destinatariOpinione, emailOpinione, leggiOpinione } from './opinione.ts';
 import { riassuntoConto } from './conto.ts';
 import { puoRimborsare, ruoloDi, vedeDayspa, type Ruolo } from './ruoli.ts';
 import { righeDaFidra, URL_FIDRA } from './fidra.ts';
@@ -40,6 +41,8 @@ import { righeDaFidra, URL_FIDRA } from './fidra.ts';
 const PROVA = Deno.env.get('DAYSPA_PROVA') === '1';
 const PAGINA = Deno.env.get('PAGINA_DAYSPA') || 'https://www.hoteltermeleonardo.com/dayspa/';
 const EMAIL_HOTEL = Deno.env.get('EMAIL_HOTEL') || 'info@termeleonardo.com';
+/* le opinioni degli ospiti dal totem vanno alla direzione (4 settembre 2026) */
+const EMAIL_DIREZIONE = Deno.env.get('EMAIL_DIREZIONE') || 'direzione@termeleonardo.com';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -299,6 +302,18 @@ Deno.serve(async (req) => {
     return risposta({ esito: 'ok', numero: p.numero });
   }
 
+  /* ---------- pubblico: il QR del link Google per le recensioni ----------
+     Lo mostra il totem nel «grazie» a chi ha dato 4 o 5 stelle. Senza il
+     secret non c'e' QR, e la pagina non lo mostra. */
+  if (azione === 'qr-google') {
+    const link = Deno.env.get('GOOGLE_RECENSIONE_URL');
+    if (!link) return risposta({ errore: 'link non configurato' }, 404);
+    const png = generaPngQR(link, {}) as Uint8Array;
+    const buf = new ArrayBuffer(png.byteLength);
+    new Uint8Array(buf).set(png);
+    return new Response(buf, { headers: { ...CORS, 'content-type': 'image/png', 'cache-control': 'public, max-age=86400' } });
+  }
+
   /* ---------- pubblico: il QR ---------- */
   if (azione === 'qr') {
     const testo = url.searchParams.get('codice') || '';
@@ -394,27 +409,71 @@ Deno.serve(async (req) => {
      FIDRA_TOTEM_URL): la pagina non li vede mai, riceve solo il riassunto
      di conto.ts, e solo se e' il totem. Il codice della tessera sono le
      cifre del codice a barre, come le manda il totem di hldv. */
+  /* il conto di una tessera, chiesto a Fidra in sola lettura (consenso di
+     hldv, 4 settembre 2026): lo usano il conto camera e l'opinione con la
+     tessera. 503 senza configurazione, 404 tessera ignota, 502 Fidra muta. */
+  const contoFidra = async (codice: string): Promise<{ stato: number; dati: Parameters<typeof riassuntoConto>[0] | null }> => {
+    const chiave = Deno.env.get('FIDRA_TOTEM_KEY');
+    const base = Deno.env.get('FIDRA_TOTEM_URL');
+    if (!chiave || !base) return { stato: 503, dati: null };
+    const radice = base.endsWith('/') ? base.slice(0, -1) : base;
+    try {
+      const r = await fetch(radice + '/api/bill-scanner/' + encodeURIComponent(codice), {
+        headers: { authorization: 'Bearer ' + chiave, accept: 'application/json' },
+      });
+      if (!r.ok) return { stato: r.status, dati: null };
+      return { stato: 200, dati: await r.json().catch(() => null) };
+    } catch (e) {
+      console.error('conto: Fidra non risponde', e);
+      return { stato: 502, dati: null };
+    }
+  };
+
   if (azione === 'conto') {
     if (!eTotem(req)) return risposta({ errore: 'non autorizzato' }, 401);
     const codice = (url.searchParams.get('codice') || '').trim();
     if (!/^[0-9]{4,20}$/.test(codice)) return risposta({ errore: 'codice della tessera non valido' }, 400);
-    const chiave = Deno.env.get('FIDRA_TOTEM_KEY');
-    const base = Deno.env.get('FIDRA_TOTEM_URL');
-    if (!chiave || !base) return risposta({ errore: 'conto camera non configurato' }, 503);
-    const radice = base.endsWith('/') ? base.slice(0, -1) : base;
-    let r: Response;
-    try {
-      r = await fetch(radice + '/api/bill-scanner/' + encodeURIComponent(codice), {
-        headers: { authorization: 'Bearer ' + chiave, accept: 'application/json' },
-      });
-    } catch (e) {
-      console.error('conto: Fidra non risponde', e);
-      return risposta({ errore: 'Fidra non risponde' }, 502);
+    const f = await contoFidra(codice);
+    if (f.stato === 503) return risposta({ errore: 'conto camera non configurato' }, 503);
+    if (f.stato === 404) return risposta({ errore: 'tessera non trovata' }, 404);
+    if (f.stato !== 200) return risposta({ errore: f.stato === 502 ? 'Fidra non risponde' : 'Fidra risponde ' + f.stato }, 502);
+    return risposta({ esito: 'ok', conto: riassuntoConto(f.dati) });
+  }
+
+  /* ---------- l'opinione dell'ospite, dal totem (4 settembre 2026) ----------
+     Stelle, temi, commento; anonima, o con la camera se l'ospite passa la
+     tessera. Si salva e parte subito per email alla direzione; con 3 stelle
+     o meno e la camera nota anche alla reception, che puo' ancora rimediare. */
+  if (azione === 'opinione') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    if (!eTotem(req)) return risposta({ errore: 'non autorizzato' }, 401);
+    const letta = leggiOpinione(await req.json().catch(() => ({})));
+    if (!letta.ok) return risposta({ errore: letta.errore }, 400);
+    const o = letta.valore;
+    /* al massimo una al minuto per totem: un dito che insiste non riempie
+       la casella della direzione */
+    const { count } = await db.from('opinione').select('id', { count: 'exact', head: true })
+      .eq('fonte', 'totem').gte('creato_il', new Date(Date.now() - 60 * 1000).toISOString());
+    if ((count ?? 0) >= 1) return risposta({ errore: 'troppe opinioni in un minuto: riprovi tra poco' }, 429);
+    let camera: string | null = null, tesseraFallita = false;
+    if (o.tessera) {
+      const f = await contoFidra(o.tessera);
+      const c = f.stato === 200 && f.dati ? riassuntoConto(f.dati) : null;
+      camera = c && c.camera ? String(c.camera) : null;
+      tesseraFallita = !camera;
     }
-    if (r.status === 404) return risposta({ errore: 'tessera non trovata' }, 404);
-    if (!r.ok) return risposta({ errore: 'Fidra risponde ' + r.status }, 502);
-    const dati = await r.json().catch(() => null);
-    return risposta({ esito: 'ok', conto: riassuntoConto(dati) });
+    const creatoIl = new Date().toISOString();
+    const { data: salvata, error } = await db.from('opinione')
+      .insert({ fonte: 'totem', lingua: o.lingua, stelle: o.stelle, temi: o.temi, commento: o.commento, camera, prova: PROVA, creato_il: creatoIl })
+      .select('id').single();
+    if (error || !salvata) { console.error('opinione non salvata', error); return risposta({ errore: 'non riesco a salvare l opinione' }, 500); }
+    const e = emailOpinione({ lingua: o.lingua, stelle: o.stelle, temi: o.temi, commento: o.commento, camera, tesseraFallita, creatoIl, fonte: 'totem', prova: PROVA });
+    let inviate = 0;
+    for (const a of destinatariOpinione({ stelle: o.stelle, camera }, EMAIL_DIREZIONE, EMAIL_HOTEL)) {
+      if (await inviaEmail(a, e.oggetto, e.html, e.testo)) inviate++;
+    }
+    if (inviate) await db.from('opinione').update({ email_inviata: true }).eq('id', salvata.id);
+    return risposta({ esito: 'ok', google: !!Deno.env.get('GOOGLE_RECENSIONE_URL') && o.stelle >= 4 });
   }
 
   /* ---------- riservati al back office ---------- */

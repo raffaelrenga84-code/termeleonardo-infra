@@ -119,7 +119,9 @@ Deno.test('il conto camera al totem: solo per il totem, chiave di Fidra nei secr
      Fidra, la stessa del totem di hldv, con la chiave fra i secret
      (FIDRA_TOTEM_KEY). La pagina non vede la chiave, e la risposta esce
      solo a chi e' il totem. */
-  const c = S.slice(S.indexOf("azione === 'conto'"), S.indexOf('/* ---------- riservati'));
+  /* dal 4 settembre 2026 la chiamata a Fidra sta in contoFidra, subito
+     sopra il conto, perche' la usa anche l'opinione con la tessera */
+  const c = S.slice(S.indexOf('const contoFidra'), S.indexOf('/* ---------- riservati'));
   assert(c.length > 200, '?a=conto deve stare fra le azioni del totem, prima del cancello generale');
   assert(c.includes("Deno.env.get('FIDRA_TOTEM_KEY')") && c.includes("Deno.env.get('FIDRA_TOTEM_URL')"), 'chiave e indirizzo di Fidra dai secret');
   assert(c.includes('/api/bill-scanner/'), 'la stessa interfaccia del totem di hldv');
