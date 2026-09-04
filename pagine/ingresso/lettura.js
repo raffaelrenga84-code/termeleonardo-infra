@@ -9,12 +9,16 @@
    - Day Spa: 10 caratteri dell'alfabeto ABCDEFGHJKLMNPQRSTUVWXYZ23456789
      (posti.ts, codicePrenotazione): niente 0/O/1/I;
    - buono regalo: LEO-XXXX-XXXX con ACDEFGHJKMNPQRTUVWXY2346789
-     (buoni/index.ts, nuovoCodice).
+     (buoni/index.ts, nuovoCodice);
+   - tessera della camera: solo cifre, da 4 a 20 (il codice a barre della
+     tessera 1796 e' 000000017960), lette dopo le altre due: dieci cifre
+     dell'alfabeto Day Spa restano Day Spa.
    I due formati non si confondono: il buono ha i trattini e il prefisso.
    ============================================================ */
 
 const DAYSPA = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{10}$/;
 const BUONO = /^LEO-[ACDEFGHJKMNPQRTUVWXY2346789]{4}-[ACDEFGHJKMNPQRTUVWXY2346789]{4}$/;
+const TESSERA = /^[0-9]{4,20}$/;
 
 /** Il codice pulito da cio' che il lettore (o una mano) ha scritto:
     maiuscole, spazi ai lati via, spazi interni come trattini; da un
@@ -31,12 +35,25 @@ export function codiceLetto(testo) {
   return s.trim().toUpperCase().replace(/ +/g, '-');
 }
 
-/** 'dayspa' | 'buono' | 'ignoto', dal solo formato. */
+/** 'dayspa' | 'buono' | 'tessera' | 'ignoto', dal solo formato. */
 export function tipoCodice(codice) {
   const c = String(codice ?? '');
   if (DAYSPA.test(c)) return 'dayspa';
   if (BUONO.test(c)) return 'buono';
+  if (TESSERA.test(c)) return 'tessera';
   return 'ignoto';
+}
+
+/* Le parole del conto camera nella lingua dell'ospite (Fidra la manda con
+   il conto): le stesse del totem di hldv, piu' quelle nostre. */
+const ETICHETTE_CONTO = {
+  it: { camera: 'Camera', descrizione: 'Descrizione', totale: 'Totale', lordo: 'Lordo', acconto: 'Acconto', daPagare: 'Da pagare', appuntamenti: 'Appuntamenti', chiude: 'Si chiude tra', chiudi: 'Chiudi' },
+  en: { camera: 'Room', descrizione: 'Description', totale: 'Total', lordo: 'Gross', acconto: 'Deposit', daPagare: 'Balance due', appuntamenti: 'Appointments', chiude: 'Closes in', chiudi: 'Close' },
+  de: { camera: 'Zimmer', descrizione: 'Beschreibung', totale: 'Summe', lordo: 'Brutto', acconto: 'Anzahlung', daPagare: 'Offener Betrag', appuntamenti: 'Termine', chiude: 'Schließt in', chiudi: 'Schließen' },
+  fr: { camera: 'Chambre', descrizione: 'Description', totale: 'Total', lordo: 'Brut', acconto: 'Acompte', daPagare: 'Reste à payer', appuntamenti: 'Rendez-vous', chiude: 'Se ferme dans', chiudi: 'Fermer' },
+};
+export function etichetteConto(lingua) {
+  return ETICHETTE_CONTO[lingua] || ETICHETTE_CONTO.it;
 }
 
 const dataEstesa = (iso) => {

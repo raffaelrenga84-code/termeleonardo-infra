@@ -64,6 +64,18 @@ body.totem main{max-width:820px;padding-top:40px;}
 .totemFig .tel{animation:avvicina 2.6s ease-in-out infinite;transform-box:fill-box;transform-origin:center;}
 @keyframes avvicina{0%,100%{transform:translateX(0)}50%{transform:translateX(18px)}}
 @media (prefers-reduced-motion: reduce){.totemFig .tel{animation:none;}}
+/* il conto camera al totem */
+.totemRiposo.conto{text-align:left;min-height:0;gap:14px;}
+.conto .totemTitolo{text-align:center;}
+.contoRighe{max-height:46vh;overflow:auto;border:1px solid #E3DED4;border-radius:8px;background:#fff;}
+.contoTab{width:100%;border-collapse:collapse;font-size:17px;}
+.contoTab th,.contoTab td{padding:8px 10px;border-bottom:1px solid #EEE9DF;text-align:left;vertical-align:top;}
+.contoTab th{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--verde-medio);position:sticky;top:0;background:#fff;}
+.contoTab .imp{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.contoTotali{display:flex;gap:18px;justify-content:flex-end;flex-wrap:wrap;font-size:18px;color:var(--verde-medio);}
+.contoTotali .grande{font-size:24px;color:var(--verde);}
+.contoApp ul{margin:4px 0 0;padding-left:18px;font-size:16px;}
+.contoChiudi{font:inherit;padding:6px 14px;border-radius:999px;border:1px solid var(--verde);background:#fff;color:var(--verde);cursor:pointer;}
 </style>
 </head>
 <body>
@@ -77,7 +89,7 @@ body.totem main{max-width:820px;padding-top:40px;}
 <script type="module">
 'use strict';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { codiceLetto, messaggioBuono, tipoCodice } from '/ingresso/lettura.js';
+import { codiceLetto, etichetteConto, messaggioBuono, tipoCodice } from '/ingresso/lettura.js';
 
 const SUPABASE_URL = 'https://mvuiuwakuseockotlcnp.supabase.co';
 /* chiave pubblica ("anon"): serve solo per l'accesso e non da' accesso ai
@@ -222,6 +234,29 @@ function totem() {
       ${lingue ? `<p class="totemLingue">${lingue}</p>` : ''}
       ${sotto ? `<p class="mini">${sotto}</p>` : ''}</div>`;
   };
+  /* il conto camera: lo chiede la nostra funzione a Fidra e qui arriva il
+     riassunto; resta 60 secondi come sul totem di hldv, o finche' si tocca
+     «Chiudi». Le parole sono nella lingua che Fidra conosce dell'ospite. */
+  const mostraConto = (c) => {
+    const e = etichetteConto(c.lingua);
+    const righe = c.righe.map((r) => `<tr><td>${escT(r.quantita)}</td><td>${escT(r.descrizione)}</td><td class="imp">€ ${escT(r.totale)}</td></tr>`).join('');
+    const app = c.appuntamenti.map((a) => `<li>${escT(a.quando)} · ${escT(a.tipo)}${a.operatore ? ' · ' + escT(a.operatore) : ''}${a.fatto ? ' ✓' : ''}</li>`).join('');
+    $('app').innerHTML = `<div class="riquadro totemRiposo conto">
+      <div class="totemTitolo">${escT(e.camera)} ${escT(c.camera)}</div>
+      <div class="contoRighe"><table class="contoTab"><thead><tr><th>N.</th><th>${escT(e.descrizione)}</th><th class="imp">${escT(e.totale)}</th></tr></thead><tbody>${righe}</tbody></table></div>
+      <div class="contoTotali"><span>${escT(e.lordo)} <b>€ ${escT(c.lordo)}</b></span><span>${escT(e.acconto)} <b>€ ${escT(c.acconto)}</b></span><span class="grande">${escT(e.daPagare)} <b>€ ${escT(c.daPagare)}</b></span></div>
+      ${app ? `<div class="contoApp"><b>${escT(e.appuntamenti)}</b><ul>${app}</ul></div>` : ''}
+      <p class="mini">${escT(e.chiude)} <span id="contoSecondi">60</span> s · <button type="button" id="contoChiudi" class="contoChiudi">${escT(e.chiudi)}</button></p></div>`;
+    let secondi = 60;
+    const orologio = setInterval(() => {
+      secondi -= 1;
+      const s = $('contoSecondi');
+      if (!s) { clearInterval(orologio); return; }
+      s.textContent = String(secondi);
+      if (secondi <= 0) { clearInterval(orologio); riposo(); }
+    }, 1000);
+    $('contoChiudi').onclick = (ev) => { ev.stopPropagation(); clearInterval(orologio); riposo(); };
+  };
   const ALLA_RECEPTION = 'Please ask at the reception desk, right here.<br>Bitte wenden Sie sich an die Rezeption, gleich nebenan.<br>Veuillez vous adresser à la réception, juste à côté.';
   const convalida = async (letto) => {
     const codice = codiceLetto(letto);
@@ -244,6 +279,10 @@ function totem() {
         const m = messaggioBuono(await r.json());
         schermo(m.classe, `${m.classe === 'ok' ? '✓' : '✗'} ${escT(m.titolo)}`, escT(m.testo), m.tradotto.map(escT).join('<br>'), escT(m.sotto));
         if (m.classe !== 'ok') durata = 10000;
+      } else if (tipo === 'tessera') {
+        const j = await chiama(`?a=conto&codice=${encodeURIComponent(codice)}`);
+        mostraConto(j.conto);
+        return;
       } else {
         durata = 10000;
         schermo('no', '✗ Codice non riconosciuto', 'Non è un biglietto Day Spa né un buono regalo.',
@@ -252,7 +291,7 @@ function totem() {
       }
     } catch (e) {
       durata = 10000;
-      schermo('no', '✗ Non riesco a leggere questo biglietto', escT(e.message), ALLA_RECEPTION, 'Si rivolga alla reception, qui accanto.');
+      schermo('no', '✗ Non riesco a leggere questo codice', escT(e.message), ALLA_RECEPTION, 'Si rivolga alla reception, qui accanto.');
     }
     setTimeout(riposo, durata);
   };

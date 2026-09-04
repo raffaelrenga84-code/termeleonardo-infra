@@ -9,7 +9,7 @@
    - buono regalo: LEO-XXXX-XXXX (nuovoCodice in buoni/index.ts).
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { codiceLetto, messaggioBuono, tipoCodice } from './lettura.js';
+import { codiceLetto, etichetteConto, messaggioBuono, tipoCodice } from './lettura.js';
 
 Deno.test('codiceLetto: pulisce quello che scrive il lettore', () => {
   assertEquals(codiceLetto('  abcdefghjk '), 'ABCDEFGHJK');
@@ -50,4 +50,24 @@ Deno.test('messaggioBuono: vale, gia usato, scaduto, non valido — e sempre «a
   const altro = messaggioBuono({ valido: false, stato: 'annullato', descrizione: 'Cena', valore: 60, scade_il: '2027-08-12' });
   assertEquals(altro.classe, 'no');
   assert(altro.titolo.includes('non') && altro.sotto.includes('reception'));
+});
+
+Deno.test('tipoCodice: la tessera della camera sono solo cifre, come nel codice a barre', () => {
+  /* la tessera 1796 porta il codice a barre 000000017960: il lettore
+     scrive le cifre, e quelle vanno a Fidra come le manda il totem di hldv */
+  assertEquals(tipoCodice('000000017960'), 'tessera');
+  assertEquals(tipoCodice('1796'), 'tessera');
+  assertEquals(tipoCodice('123'), 'ignoto', 'tre cifre sono troppo poche');
+  assertEquals(tipoCodice('2345678923'), 'dayspa', 'dieci caratteri dell alfabeto Day Spa restano Day Spa anche se sono cifre');
+});
+
+Deno.test('etichetteConto: le parole del conto nella lingua dell ospite, italiano se manca', () => {
+  assertEquals(etichetteConto('de').camera, 'Zimmer');
+  assertEquals(etichetteConto('en').acconto, 'Deposit');
+  assertEquals(etichetteConto('fr').appuntamenti, 'Rendez-vous');
+  assertEquals(etichetteConto('xx').camera, 'Camera');
+  for (const l of ['it', 'en', 'de', 'fr']) {
+    const e = etichetteConto(l);
+    for (const k of ['camera', 'descrizione', 'totale', 'lordo', 'acconto', 'daPagare', 'appuntamenti', 'chiude', 'chiudi']) assert(e[k], l + ' senza ' + k);
+  }
 });

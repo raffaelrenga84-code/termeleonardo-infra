@@ -93,3 +93,12 @@ Deno.test('all indirizzo /ingresso-totem la pagina e il totem senza chiave: ci p
      un indirizzo assoluto: ./lettura.js cadrebbe fuori dalla riscrittura */
   assert(m.includes("from '/ingresso/lettura.js'"), 'lettura.js va importato con il percorso assoluto');
 });
+
+Deno.test('al totem anche la tessera della camera: il conto per 60 secondi, poi il riposo', () => {
+  const m = modulo();
+  const t = m.slice(m.indexOf('function totem('), m.indexOf('function sportello('));
+  assert(t.includes("tipo === 'tessera'") && t.includes('a=conto'), 'la tessera chiede il conto alla nostra funzione');
+  assert(t.includes('etichetteConto('), 'le parole del conto nella lingua dell ospite');
+  assert(t.includes('60'), 'il conto resta 60 secondi, come sul totem di hldv');
+  assert(!t.includes('bill-scanner') && !t.includes('fidra.cloud'), 'la pagina non parla con Fidra: parla con la nostra funzione');
+});

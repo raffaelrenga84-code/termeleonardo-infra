@@ -16,8 +16,8 @@ const pubblica = () => senzaCommenti(S.slice(0, S.indexOf(CONFINE)));
 const riservata = () => senzaCommenti(S.slice(S.indexOf(CONFINE)));
 
 Deno.test('le azioni pubbliche e riservate esistono', () => {
-  const azioni = ['listino', 'giorni', 'prenota', 'webhook', 'qr', 'stato', 'scadute', 'oggi', 'presenti', 'elenco', 'disponibilita', 'rimborsa'];
-  assert(azioni.length === 12);
+  const azioni = ['listino', 'giorni', 'prenota', 'webhook', 'qr', 'stato', 'scadute', 'oggi', 'presenti', 'conto', 'elenco', 'disponibilita', 'rimborsa'];
+  assert(azioni.length === 13);
   for (const a of azioni) assert(new RegExp(`azione === '${a}'`).test(S), `manca ?a=${a}`);
   assert(S.indexOf(CONFINE) > 1000, 'il confine fra pubblico e riservato deve esistere');
 });
@@ -82,7 +82,7 @@ Deno.test('il totem in hall segna i presenti con la sua chiave, solo col QR, sol
      presenti della prenotazione di cui ha letto il QR, e solo se e' per
      oggi. Niente numero digitato, niente elenco, niente email o telefono
      nella risposta. */
-  const s = S.slice(S.indexOf("azione === 'presenti'"), S.indexOf("azione === 'elenco'"));
+  const s = S.slice(S.indexOf('/* ---------- i presenti'), S.indexOf("azione === 'elenco'"));
   assert(/Deno\.env\.get\('TOTEM_KEY'\)/.test(s) && /x-totem-key/.test(s), 'manca la chiave del totem');
   assert(/totem && !codice/.test(s) || /totem && numero/.test(s), 'col totem vale solo il codice del QR');
   assert(/totem && p\.giorno !== oggiRoma\(\)/.test(s), 'col totem vale solo oggi');
@@ -105,9 +105,27 @@ Deno.test('il totem si riconosce anche dall IP fisso dell hotel, ma solo se la p
      arriva dall IP in TOTEM_IP e' il totem. Senza intestazione no: lo
      sportello della reception, sulla stessa rete, deve restare sportello
      (numero digitato, presenti a mano, risposta intera). */
-  const s = S.slice(S.indexOf("azione === 'presenti'"), S.indexOf("azione === 'elenco'"));
+  const s = S.slice(S.indexOf('/* ---------- i presenti'), S.indexOf("azione === 'elenco'"));
   assert(s.includes("Deno.env.get('TOTEM_IP')"), 'manca TOTEM_IP');
-  assert(s.includes('indirizzo(req)'), 'l IP e quello della richiesta, letto dallo stesso helper dei freni');
-  assert(s.includes("req.headers.get('x-totem-key') !== null") || s.includes("req.headers.has('x-totem-key')"),
+  assert(s.includes('indirizzo('), 'l IP e quello della richiesta, letto dallo stesso helper dei freni');
+  assert(s.includes("headers.get('x-totem-key')") && s.includes('=== null) return false'),
     'per IP conta solo chi porta l intestazione del totem');
+});
+
+Deno.test('il conto camera al totem: solo per il totem, chiave di Fidra nei secret del server, mai nella pagina', () => {
+  /* «Procedi con la seconda strada» (la proprieta', 3 settembre 2026,
+     notte; hldv ha dato il consenso, sola lettura). La pagina chiede il
+     conto alla nostra funzione; la funzione lo chiede all'interfaccia di
+     Fidra, la stessa del totem di hldv, con la chiave fra i secret
+     (FIDRA_TOTEM_KEY). La pagina non vede la chiave, e la risposta esce
+     solo a chi e' il totem. */
+  const c = S.slice(S.indexOf("azione === 'conto'"), S.indexOf('/* ---------- riservati'));
+  assert(c.length > 200, '?a=conto deve stare fra le azioni del totem, prima del cancello generale');
+  assert(c.includes("Deno.env.get('FIDRA_TOTEM_KEY')") && c.includes("Deno.env.get('FIDRA_TOTEM_URL')"), 'chiave e indirizzo di Fidra dai secret');
+  assert(c.includes('/api/bill-scanner/'), 'la stessa interfaccia del totem di hldv');
+  assert(c.includes('if (!eTotem(req))'), 'il conto esce solo al totem');
+  assert(c.includes('[0-9]{4,20}'), 'il codice della tessera sono solo cifre');
+  assert(c.includes('riassuntoConto('), 'esce il riassunto, non la risposta grezza');
+  const pagina = Deno.readTextFileSync(new URL('../../../pagine/ingresso/index.html', import.meta.url));
+  assert(!pagina.includes('FIDRA_TOTEM_KEY') && !pagina.includes('bill-scanner'), 'la pagina non conosce ne la chiave ne l indirizzo di Fidra');
 });

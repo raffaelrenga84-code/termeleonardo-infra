@@ -31,6 +31,7 @@ import { chiaveStripe, dividi, firmaValida, parametriLink, segretoWebhook, STRIP
 import { dataEstesa, emailConferma, TESTI_EMAIL } from './email-dayspa.ts';
 import { creaFrenoIp } from './limite-ip.ts';
 import { generaPngQR } from './qr.js';
+import { riassuntoConto } from './conto.ts';
 import { puoRimborsare, ruoloDi, vedeDayspa, type Ruolo } from './ruoli.ts';
 import { righeDaFidra, URL_FIDRA } from './fidra.ts';
 
@@ -340,20 +341,24 @@ Deno.serve(async (req) => {
      una chiave sua (TOTEM_KEY) che apre una cosa sola, segnare i presenti
      della prenotazione di cui ha letto il QR, e solo se e' per oggi.
      Niente numero digitato, niente elenco, e nella risposta solo nome,
-     persone e presenti. Chi non e' il totem passa dal cancello come sempre. */
-  if (azione === 'presenti') {
-    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
-    /* e' il totem chi lo DICE (porta l'intestazione) e lo prova: con la
-       chiave (TOTEM_KEY), oppure arrivando dall'IP fisso dell'hotel
-       (TOTEM_IP: la pagina /ingresso-totem che Vercel serve solo a quell'IP).
-       Senza intestazione non e' mai il totem: lo sportello della reception,
-       sulla stessa rete, resta sportello. */
+     persone e presenti. Chi non e' il totem passa dal cancello come sempre.
+
+     E' il totem chi lo DICE (porta l'intestazione x-totem-key) e lo prova:
+     con la chiave (TOTEM_KEY), oppure arrivando dall'IP fisso dell'hotel
+     (TOTEM_IP: la pagina /ingresso-totem che Vercel serve solo a quell'IP).
+     Senza intestazione non e' mai il totem: lo sportello della reception,
+     sulla stessa rete, resta sportello. */
+  const eTotem = (r: Request): boolean => {
     const chiaveTotem = Deno.env.get('TOTEM_KEY');
     const ipTotem = Deno.env.get('TOTEM_IP');
-    const siDiceTotem = req.headers.get('x-totem-key') !== null;
-    const totem = siDiceTotem && (
-      (!!chiaveTotem && req.headers.get('x-totem-key') === chiaveTotem) ||
-      (!!ipTotem && indirizzo(req) === ipTotem));
+    const portata = r.headers.get('x-totem-key');
+    if (portata === null) return false;
+    return (!!chiaveTotem && portata === chiaveTotem) || (!!ipTotem && indirizzo(r) === ipTotem);
+  };
+
+  if (azione === 'presenti') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const totem = eTotem(req);
     if (!totem) {
       const acc = await autorizzato(req);
       if (!acc.ok) return risposta({ errore: 'non autorizzato' }, 401);
@@ -381,6 +386,35 @@ Deno.serve(async (req) => {
       prenotazione: totem ? { nome: agg.nome, persone: agg.persone, presenti: agg.presenti } : agg,
       oggi: agg.giorno === oggiRoma(),
     });
+  }
+
+  /* ---------- il conto camera, per il totem ----------
+     Consenso di hldv (3 settembre 2026, sola lettura). La chiave e
+     l'indirizzo di Fidra stanno nei secret (FIDRA_TOTEM_KEY,
+     FIDRA_TOTEM_URL): la pagina non li vede mai, riceve solo il riassunto
+     di conto.ts, e solo se e' il totem. Il codice della tessera sono le
+     cifre del codice a barre, come le manda il totem di hldv. */
+  if (azione === 'conto') {
+    if (!eTotem(req)) return risposta({ errore: 'non autorizzato' }, 401);
+    const codice = (url.searchParams.get('codice') || '').trim();
+    if (!/^[0-9]{4,20}$/.test(codice)) return risposta({ errore: 'codice della tessera non valido' }, 400);
+    const chiave = Deno.env.get('FIDRA_TOTEM_KEY');
+    const base = Deno.env.get('FIDRA_TOTEM_URL');
+    if (!chiave || !base) return risposta({ errore: 'conto camera non configurato' }, 503);
+    const radice = base.endsWith('/') ? base.slice(0, -1) : base;
+    let r: Response;
+    try {
+      r = await fetch(radice + '/api/bill-scanner/' + encodeURIComponent(codice), {
+        headers: { authorization: 'Bearer ' + chiave, accept: 'application/json' },
+      });
+    } catch (e) {
+      console.error('conto: Fidra non risponde', e);
+      return risposta({ errore: 'Fidra non risponde' }, 502);
+    }
+    if (r.status === 404) return risposta({ errore: 'tessera non trovata' }, 404);
+    if (!r.ok) return risposta({ errore: 'Fidra risponde ' + r.status }, 502);
+    const dati = await r.json().catch(() => null);
+    return risposta({ esito: 'ok', conto: riassuntoConto(dati) });
   }
 
   /* ---------- riservati al back office ---------- */
