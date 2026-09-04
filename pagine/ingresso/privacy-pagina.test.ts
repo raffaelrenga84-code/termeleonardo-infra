@@ -48,7 +48,50 @@ Deno.test('nome e camera non restano sullo schermo: un minuto senza tocchi e si 
 });
 
 Deno.test('l elenco dell iPad si rinfresca da solo, senza premere aggiorna', () => {
-  assert(p.includes('rinfresco = setTimeout(elenco, 10000)'), 'ogni dieci secondi');
+  assert(p.includes('rinfresco = setTimeout(() => elenco(true), 10000)'), 'ogni dieci secondi');
+});
+
+Deno.test('il rinfresco da solo non e un tocco: dopo un minuto l iPad torna alla schermata chiusa', () => {
+  /* «poi resta con questa aperta» (la proprieta', 4 settembre 2026): il
+     rinfresco ogni dieci secondi rimetteva il minuto e i nomi restavano li' */
+  assert(p.includes("const vetro = (dentro, classe = '', conta = true)"), 'disegnare puo non contare come tocco');
+  assert(p.includes('if (conta) tocco();'), 'il minuto riparte solo se conta');
+  assert(p.includes("`, '', !daSolo);"), 'l elenco rinfrescato da solo non conta');
+  assert(p.includes('$(\'pvAggiorna\').onclick = () => elenco();') && p.includes('$(\'pvComincia\').onclick = () => elenco();'), 'il dito invece conta');
+});
+
+Deno.test('l iPad della privacy non si chiama Day Spa', () => {
+  assert(m.includes("SOLO_PRIVACY ? 'Privacy' : 'Day Spa'"), 'la scritta in alto');
+  assert(m.includes("document.title = 'Privacy — Hotel Terme Leonardo'"), 'e il nome della scheda');
+});
+
+Deno.test('niente ?? e niente ?. : l iPad Air della reception ha iOS 12', () => {
+  /* Safari 12 non li sa leggere e si ferma sulla prima riga che li porta:
+     schermo bianco, senza dire niente (4 settembre 2026) */
+  const senzaCommenti = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  for (const [dove, testo] of [['la pagina', m], ['lettura.js', Deno.readTextFileSync(new URL('./lettura.js', import.meta.url))]] as const) {
+    const pulito = senzaCommenti(testo);
+    assert(!pulito.includes('??'), `${dove}: c e un ??`);
+    assert(!/\?\.[A-Za-z_(\[]/.test(pulito), `${dove}: c e un ?.`);
+  }
+  assert(P.includes('@supports not (width: clamp(1px, 1vw, 2px))'), 'le misure in fisso per chi non conosce clamp');
+  assert(P.includes('height:calc(100vh - 52px)'), 'e l altezza senza dvh');
+});
+
+Deno.test('la libreria dell accesso si carica solo allo sportello, non sul totem', () => {
+  /* era un import in cima: se il CDN non rispondeva non partiva niente e
+     lo schermo restava bianco («il secondo iPad mi da schermata bianca») */
+  assert(!m.includes("import { createClient } from 'https://esm.sh"), 'non piu in cima');
+  assert(m.includes('const lib = await import(LIBRERIA_ACCESSO);'), 'si carica quando serve');
+  assert(m.indexOf('if (TOTEM) {') < m.indexOf('await import(LIBRERIA_ACCESSO)'), 'il totem non ci passa nemmeno');
+});
+
+Deno.test('se il modulo non parte, al posto del bianco c e scritto perche', () => {
+  const rete = P.slice(P.indexOf('<main id="app">'), P.indexOf('<script type="module">'));
+  assert(rete.includes("window.addEventListener('error'"), 'raccoglie l errore');
+  assert(rete.includes('Questo schermo non riesce ad aprire la pagina'), 'e lo scrive in italiano');
+  assert(rete.includes('location.reload()'), 'con un pulsante per riprovare');
+  assert(!rete.includes('=>') && !rete.includes('const ') && !rete.includes('`'), 'in JavaScript vecchio: deve partire anche su un iPad del 2013');
 });
 
 Deno.test('le scelte si vedono a colori, come nei moduli che gli ospiti conoscono', () => {

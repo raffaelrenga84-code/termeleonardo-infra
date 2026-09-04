@@ -24,7 +24,7 @@ const TESSERA = /^[0-9]{4,20}$/;
     maiuscole, spazi ai lati via, spazi interni come trattini; da un
     indirizzo prende il parametro `codice` o l'ultimo pezzo del percorso. */
 export function codiceLetto(testo) {
-  let s = String(testo ?? '').trim();
+  let s = String(testo == null ? '' : testo).trim();
   if (/^https?:/i.test(s)) {
     try {
       const u = new URL(s);
@@ -37,7 +37,7 @@ export function codiceLetto(testo) {
 
 /** 'dayspa' | 'buono' | 'tessera' | 'ignoto', dal solo formato. */
 export function tipoCodice(codice) {
-  const c = String(codice ?? '');
+  const c = String(codice == null ? '' : codice);
   if (DAYSPA.test(c)) return 'dayspa';
   if (BUONO.test(c)) return 'buono';
   if (TESSERA.test(c)) return 'tessera';

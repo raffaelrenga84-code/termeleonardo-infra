@@ -170,6 +170,29 @@ body.privacyAperta .riquadro{margin:0;border:0;border-radius:0;height:100%;}
 .pvElenco{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;}
 .pvVoce{font:inherit;font-size:20px;text-align:left;padding:16px;border-radius:12px;border:2px solid var(--acqua);background:var(--acqua-chiara);cursor:pointer;}
 .pvVoce b{color:var(--verde);}
+/* L'iPad Air della reception ha iOS 12: Safari 12 non conosce clamp(), ne'
+   dvh, ne' lo spazio «gap» fra elementi in fila, e butta via quelle righe.
+   Qui le stesse misure in fisso, cosi' il modulo si vede lo stesso; chi sa
+   leggere clamp salta tutto il blocco (4 settembre 2026). */
+@supports not (width: clamp(1px, 1vw, 2px)) {
+  body.privacyAperta main{height:calc(100vh - 52px);}
+  .totemRiposo.privacy{padding:16px;}
+  .totemRiposo.privacy > * + *{margin-top:10px;}
+  .totemRiposo.privacy .totemTitolo{font-size:26px;}
+  .totemRiposo.privacy .totemTesto{font-size:18px;}
+  .privacy .mini{font-size:12px;}
+  .privacy .totemLingue{font-size:15px;}
+  .opLingueBarra button{font-size:15px;padding:9px 6px;}
+  .pvFrasi > * + *,.pvLato > * + *{margin-top:8px;}
+  .pvFrase{padding:11px 13px;}
+  .pvFrase p{margin:0 0 9px;font-size:16px;}
+  .pvScelta button{font-size:17px;padding:12px 8px;}
+  .pvSegno{font-size:19px;}
+  .pvEmail{font-size:16px;padding:10px;}
+  .pvFirmaScritta{font-size:13px;}
+  .pvNorma{font-size:12px;}
+  .pvFirma canvas{min-height:150px;}
+}
 .pvAspetta{display:flex;align-items:center;justify-content:center;gap:10px;font-size:20px;color:var(--verde);margin:0;}
 .pvPallino{width:14px;height:14px;border-radius:50%;background:var(--oro);animation:lampeggia 1.4s steps(2,start) infinite;}
 @media (prefers-reduced-motion: reduce){.pvPallino{animation:none;}}
@@ -186,9 +209,45 @@ body.totem main{max-width:900px;}
 </header>
 <main id="app"></main>
 
+<script>
+/* RETE DI SICUREZZA. Scritta apposta in JavaScript vecchio, senza niente
+   che un iPad del 2013 non capisca: parte sempre, anche quando il modulo
+   qui sotto non parte. Se lo schermo resta bianco — un browser troppo
+   vecchio per una parola nuova, un file che non arriva — al posto del
+   bianco compare il motivo, e la reception puo' dirlo a chi segue il
+   sistema invece di guardare una pagina muta (4 settembre 2026). */
+(function () {
+  var detto = false;
+  function dillo(motivo) {
+    if (detto) return;
+    detto = true;
+    var a = document.getElementById('app');
+    if (!a) return;
+    a.innerHTML = '<div class="riquadro"><h2 style="margin-top:0;">Questo schermo non riesce ad aprire la pagina</h2>'
+      + '<p>' + String(motivo || 'motivo sconosciuto').replace(/[<>&]/g, ' ') + '</p>'
+      + '<p style="font-size:14px;color:#7B756A;">Provi a ricaricare. Se resta cosi’, questo tablet e’ troppo vecchio per la pagina: ne usi un altro e lo dica a chi segue il sistema.</p>'
+      + '<button type="button" style="font:inherit;padding:12px 18px;border-radius:10px;border:0;background:#1A3626;color:#fff;" onclick="location.reload()">Ricarica</button></div>';
+  }
+  window.addEventListener('error', function (e) {
+    if (e && e.target && e.target !== window) return;   /* un'immagine che manca non e' questo */
+    dillo(e && e.message ? e.message : 'errore nella pagina');
+  }, true);
+  setTimeout(function () {
+    var a = document.getElementById('app');
+    if (a && !a.innerHTML.replace(/\s/g, '')) dillo('la pagina non si e’ avviata');
+  }, 8000);
+})();
+</script>
+
 <script type="module">
 'use strict';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+/* La libreria dell'accesso si carica SOLO quando serve, cioe' allo
+   sportello. Era un import in cima a tutto: se quella richiesta al CDN non
+   arrivava — rete lenta, iPad piu' vecchio, un filtro di rete — il modulo
+   non partiva e lo schermo restava bianco («il secondo iPad mi da
+   schermata bianca», la proprieta', 4 settembre 2026). Totem, iPad della
+   privacy e lettore della tessera adesso non dipendono da nessun CDN. */
+const LIBRERIA_ACCESSO = 'https://esm.sh/@supabase/supabase-js@2';
 import { codiceLetto, etichetteConto, messaggioBuono, tipoCodice } from '/ingresso/lettura.js';
 import { TEMI_OPINIONE, testiOpinione } from '/ingresso/opinione.js';
 
@@ -216,7 +275,10 @@ const FASCE = { giornaliero: 'Giornaliero 9:00–18:30', serale: 'Serale 18:00�
 const OGNI_QUANTO = 20000; // l'elenco si rilegge da solo: due tablet vedono la stessa cosa
 
 const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+/* «s == null ? '' : s» e non «s ?? ''»: l'iPad Air della reception ha iOS
+   12 e Safari 12 non conosce ?? ne' ?. — un solo simbolo di quelli e non
+   legge piu' niente, schermo bianco (4 settembre 2026). */
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const oggiISO = () => {
   const d = new Date(); const due = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${due(d.getMonth() + 1)}-${due(d.getDate())}`;
@@ -268,7 +330,7 @@ function chiediAccesso(messaggio) {
       const { data, error } = await SB.auth.signInWithPassword({ email, password: pwd });
       if (error) throw new Error('Email o password non validi.');
       TOKEN = data.session.access_token;
-      OPERATORE = data.user.user_metadata?.nome || email.split('@')[0];
+      OPERATORE = (data.user.user_metadata || {}).nome || email.split('@')[0];
       sportello();
     } catch (e) {
       $('kEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
@@ -321,10 +383,14 @@ const FIGURA_QR = `<svg class="totemFig" viewBox="0 0 330 230" aria-hidden="true
   <rect x="256" y="96" width="48" height="42" rx="6" fill="#0E1F17"/>
   <circle cx="280" cy="117" r="11" fill="#C9A961"/><circle cx="280" cy="117" r="5" fill="#0E1F17"/>
 </svg>`;
-const escT = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const escT = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function totem() {
-  $('chiSono').textContent = 'Day Spa';
+  /* l'iPad dedicato alla privacy non si chiama Day Spa: chi lo prende in
+     mano deve leggere cosa fa questo schermo (la proprieta', 4 settembre
+     2026) */
+  $('chiSono').textContent = SOLO_PRIVACY ? 'Privacy' : 'Day Spa';
+  if (SOLO_PRIVACY) document.title = 'Privacy — Hotel Terme Leonardo';
   $('esci').hidden = true;
   document.body.classList.add('totem');
   /* i tempi di chiusura: un tocco ovunque sullo schermo di esito o sul
@@ -536,11 +602,16 @@ const AGGIORNA_DOPO_MS = 30 * 60 * 1000;
        sull'iPad la schermata chiusa, dove non c'e' scritto nessun nome */
     const scaduta = () => { clearTimeout(rinfresco); if (SOLO_PRIVACY) chiusa(); else riposo(); };
     const tocco = () => { clearTimeout(timerRiposo); timerRiposo = setTimeout(scaduta, PRIVACY_RIPOSO_MS); };
-    const vetro = (dentro, classe = '') => {
+    /* «conta» dice se disegnare vale come un tocco. Il rinfresco
+       automatico dell'elenco NON vale: rimettendo il minuto ogni dieci
+       secondi l'iPad non tornava mai alla schermata chiusa e restava li'
+       coi nomi in vista («poi resta con questa aperta», la proprieta',
+       4 settembre 2026). */
+    const vetro = (dentro, classe = '', conta = true) => {
       clearTimeout(rinfresco);
       $('app').onclick = null;
       $('app').innerHTML = `<div class="riquadro totemRiposo opinione privacy ${classe}">${dentro}</div>`;
-      tocco();
+      if (conta) tocco();
     };
     /* La schermata chiusa dell'iPad: niente nomi, niente camere. Chiede
        ogni quindici secondi SOLO QUANTI consensi aspettano, e accende un
@@ -557,7 +628,7 @@ const AGGIORNA_DOPO_MS = 30 * 60 * 1000;
         <p class="totemLingue">Consenso al trattamento dei dati personali<br>Einwilligung zur Verarbeitung Ihrer Daten<br>Consent to the processing of your data<br>Consentement au traitement de vos données</p>
         ${quanti ? `<p class="pvAspetta"><span class="pvPallino"></span>${quanti === 1 ? 'Un consenso aspetta' : quanti + ' consensi aspettano'}</p>` : '<p class="mini">Nessuno in attesa. La reception preme «Privacy all’iPad» sulla prenotazione in Fidra.</p>'}
         <button type="button" class="contoChiudi grande" id="pvComincia">Cominci qui · Bitte hier beginnen · Start here · Commencez ici</button></div>`;
-      $('pvComincia').onclick = elenco;
+      $('pvComincia').onclick = () => elenco();
       rinfresco = setTimeout(async () => {
         try { const j = await chiamaPrivacy('?a=quante'); chiusa(Number(j.attese) || 0); }
         catch (e) { chiusa(quanti); }
@@ -650,12 +721,12 @@ const AGGIORNA_DOPO_MS = 30 * 60 * 1000;
     };
 
     /* sugli iPad: l'elenco delle attese, che si rinfresca da solo */
-    const elenco = async () => {
+    const elenco = async (daSolo = false) => {
       if (!T) await testi('it');
       vetro(`<div class="totemTitolo">Privacy</div><p class="totemTesto">Consensi in attesa: tocchi l’ospite.</p>
         <p class="totemLingue">Tap the guest · Tippen Sie auf den Gast · Touchez le client</p>
         <div class="pvElenco" id="pvElenco"><p class="mini">…</p></div>
-        <div class="opBarra"><span></span><span class="opBarraDx"><button type="button" class="contoChiudi" id="pvManuale">Senza check‑in: scrivi il nome</button><button type="button" class="contoChiudi" id="pvAggiorna">↻</button></span></div>`);
+        <div class="opBarra"><span></span><span class="opBarraDx"><button type="button" class="contoChiudi" id="pvManuale">Senza check‑in: scrivi il nome</button><button type="button" class="contoChiudi" id="pvAggiorna">↻</button></span></div>`, '', !daSolo);
       try {
         const j = await chiamaPrivacy('?a=attese');
         $('pvElenco').innerHTML = j.attese.length
@@ -668,12 +739,12 @@ const AGGIORNA_DOPO_MS = 30 * 60 * 1000;
         });
       } catch (e) { $('pvElenco').innerHTML = `<p class="mini errore">${escT(e.message)}</p>`; }
       $('pvManuale').onclick = () => { st.camera = null; st.cognome = ''; st.nome = ''; st.scelte = {}; chiediNome(); };
-      $('pvAggiorna').onclick = elenco;
+      $('pvAggiorna').onclick = () => elenco();
       /* l'elenco si rinfresca da solo ogni dieci secondi: la reception
          preme «Privacy al totem» in Fidra e l'ospite compare qui senza
          che nessuno debba toccare niente */
       clearTimeout(rinfresco);
-      rinfresco = setTimeout(elenco, 10000);
+      rinfresco = setTimeout(() => elenco(true), 10000);
     };
 
     /* il modulo: tre frasi, due pulsanti ciascuna, niente preimpostato; la firma col dito */
@@ -944,12 +1015,14 @@ $('esci').onclick = () => esci(true);
     totem();
     return;
   }
-  try { SB = createClient(SUPABASE_URL, SUPABASE_ANON); }
-  catch (e) { $('app').innerHTML = '<div class="riquadro">Non riesco a caricare il sistema di accesso. Ricarichi la pagina.</div>'; return; }
+  try {
+    const lib = await import(LIBRERIA_ACCESSO);
+    SB = lib.createClient(SUPABASE_URL, SUPABASE_ANON);
+  } catch (e) { $('app').innerHTML = '<div class="riquadro">Non riesco a caricare il sistema di accesso. Ricarichi la pagina.</div>'; return; }
   const { data } = await SB.auth.getSession();
-  if (data?.session) {
+  if (data && data.session) {
     TOKEN = data.session.access_token;
-    OPERATORE = data.session.user.user_metadata?.nome || data.session.user.email.split('@')[0];
+    OPERATORE = (data.session.user.user_metadata || {}).nome || data.session.user.email.split('@')[0];
     sportello();
     return;
   }
