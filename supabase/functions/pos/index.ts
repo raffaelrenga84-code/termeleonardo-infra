@@ -179,12 +179,16 @@ Deno.serve(async (req) => {
     const codice = String(b.codice ?? '').trim(), pin = String(b.pin ?? '').trim();
     if (!codice) return risposta({ errore: 'serve il codice' }, 400);
     const { data: c } = await db.from('pos_cameriere').select('*').eq('codice', codice).eq('bloccato', false).maybeSingle();
+    /* un codice che non esiste lo si dice subito: chiedere un PIN per un
+       cameriere che non c'e' fa perdere tempo e non protegge niente (chi
+       ha il palmare e' gia' dentro l'hotel) */
+    if (!c) return risposta({ errore: 'codice non riconosciuto' }, 401);
     /* «basta il codice» per chi e' segnato senza PIN: la pagina risponde
        solo dall'IP dell'hotel e il palmare ha gia' il suo codice. Agli
        altri il PIN si chiede, e la pagina lo capisce da questa risposta. */
-    const senzaPin = !!c && !!c.senza_pin;
+    const senzaPin = !!c.senza_pin;
     if (!pin && !senzaPin) return risposta({ errore: 'serve il PIN' }, 400);
-    if (!c || (!senzaPin && c.pin_hash !== await hashPin(codice, pin))) return risposta({ errore: 'codice o PIN sbagliati' }, 401);
+    if (!senzaPin && c.pin_hash !== await hashPin(codice, pin)) return risposta({ errore: 'PIN sbagliato' }, 401);
     const sessione = crypto.randomUUID();
     const scade = new Date(Date.now() + 14 * 60 * 60 * 1000).toISOString();
     await db.from('pos_sessione').insert({ id: sessione, cameriere: c.id, dispositivo: disp.id, scade_il: scade });

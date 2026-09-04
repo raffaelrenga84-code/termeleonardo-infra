@@ -100,6 +100,9 @@ Deno.test('accesso col PIN: hash SHA-256 di codice:pin, sessione nuova; sbagliat
   assert(typeof (ok.corpo as { sessione: string }).sessione === 'string');
   const no = await esegui(db, 'accesso', { ...senza, corpo: { codice: '11', pin: '0000' } }, cfg);
   assertEquals(no.stato, 401);
+  /* un codice che non esiste si dice subito, senza far scrivere un PIN a vuoto */
+  const ignoto = await esegui(db, 'accesso', { ...senza, corpo: { codice: '77' } }, cfg);
+  assertEquals([ignoto.stato, (ignoto.corpo as { errore: string }).errore], [401, 'codice non riconosciuto']);
   const r = await esegui(db, 'conto', { metodo: 'POST', query: {}, corpo: {}, intestazioni: {} }, cfg);
   assertEquals(r.stato, 401);
   const vivo = await esegui(db, 'stato-locale', { metodo: 'GET', query: {}, corpo: null, intestazioni: {} }, cfg);
