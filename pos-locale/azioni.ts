@@ -14,6 +14,7 @@ import { prezzoRiga, totaleCent } from '../supabase/functions/pos/conto.ts';
 import { testoBiglietto, type Biglietto } from '../supabase/functions/pos/comanda.ts';
 import { puo, type Ruolo } from '../supabase/functions/pos/permessi.ts';
 import { motivoDelPrezzo, motivoPulito, prezzoCambiato } from '../supabase/functions/pos/motivi.ts';
+import { chiusoCome, importoValido, residuo, resto } from '../supabase/functions/pos/pagamenti.ts';
 import { localeChePrepara, portareA, siStampa } from '../supabase/functions/pos/dove.ts';
 
 export type Richiesta = { metodo: string; query: Record<string, string>; corpo: unknown; intestazioni: Record<string, string> };
@@ -142,7 +143,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
   }
 
   const cameriere = cameriereDi(db, req);
-  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'tessera', 'tavolo-sposta'];
+  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'tessera', 'tavolo-sposta', 'paga'];
   if (azioniPalmare.includes(azione) && !cameriere) return errore('sessione non valida', 401);
 
   if (azione === 'menu') {
@@ -186,7 +187,8 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
       /* gli altri conti aperti dello stesso tavolo: per spostarci una riga */
       const fratelli = db.prepare("select id, tipo, camera, ospite, coperti, nome from pos_conto where tavolo = ? and stato != 'chiuso' and id != ?")
         .all(String(c.tavolo), String(c.id));
-      return ok({ conto: c, righe: righeDelConto(db, String(c.id)), fratelli });
+      const pagamenti = db.prepare('select id, conto, modo, importo_cent, ricevuto_cent, cameriere, il, aggiornato_il from pos_pagamento where conto = ? order by il').all(String(c.id));
+      return ok({ conto: c, righe: righeDelConto(db, String(c.id)), fratelli, pagamenti });
     }
     const no = soloPost(); if (no) return no;
     const tavolo = String(b.tavolo ?? '');
@@ -397,6 +399,34 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     return ok({ esito: 'ok', conti: n, tavolo: aId });
   }
 
+  /* un pagamento, anche parziale: il conto si chiude da solo quando i
+     pagamenti coprono il totale (vedi il cloud e pagamenti.ts) */
+  if (azione === 'paga') {
+    const no = soloPost(); if (no) return no;
+    const modo = ['contanti', 'carta'].includes(String(b.modo)) ? String(b.modo) : null;
+    if (!modo) return errore('modo: contanti o carta', 400);
+    const c = contoDi(db, String(b.conto ?? ''));
+    if (!c || c.stato === 'chiuso') return errore('conto non aperto', 409);
+    const righe = righeDelConto(db, String(c.id));
+    if (righe.some((r) => r.stato === 'da_inviare')) return errore('ci sono righe non inviate', 409);
+    const totale = totaleCent(righe.map((r) => ({ quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent), stato: r.stato })));
+    const prima = db.prepare('select modo, importo_cent from pos_pagamento where conto = ? order by il').all(String(c.id)) as { modo: string; importo_cent: number }[];
+    const daPagare = residuo(totale, prima);
+    if (!daPagare) return errore('il conto e gia pagato', 409);
+    const importo = b.importo_cent === undefined || b.importo_cent === null ? daPagare : Math.round(Number(b.importo_cent));
+    if (!importoValido(importo, daPagare)) return errore(`l importo deve essere fra 1 centesimo e ${daPagare} centesimi`, 409);
+    const ricevuto = modo === 'contanti' && b.ricevuto_cent !== undefined && b.ricevuto_cent !== null ? Math.round(Number(b.ricevuto_cent)) : null;
+    const ora = adesso();
+    const pagamento = { id: crypto.randomUUID(), conto: String(c.id), modo, importo_cent: importo, ricevuto_cent: Number.isFinite(ricevuto as number) ? ricevuto : null, cameriere: cameriere!.id, il: ora, aggiornato_il: ora };
+    salva(db, 'pos_pagamento', { ...pagamento, allineato: 0 });
+    const dopo = daPagare - importo;
+    if (!dopo) {
+      db.prepare("update pos_conto set stato = 'chiuso', chiuso_come = ?, chiuso_da = ?, chiuso_il = ?, aggiornato_il = ?, allineato = 0 where id = ?")
+        .run(chiusoCome([...prima, pagamento]), cameriere!.id, ora, ora, String(c.id));
+    }
+    return ok({ pagamento, residuo_cent: dopo, chiuso: !dopo, resto_cent: resto(ricevuto, importo), conto: contoDi(db, String(c.id)) });
+  }
+
   if (azione === 'chiudi') {
     const no = soloPost(); if (no) return no;
     const modo = ['contanti', 'carta', 'camera'].includes(String(b.modo)) ? String(b.modo) : null;
@@ -408,8 +438,16 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     if (modo === 'camera' && !String(c.camera ?? '').trim()) return errore('per addebitare serve la camera: apra un conto in camera', 409);
     const ora = adesso();
     const totale = totaleCent(righe.map((r) => ({ quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent), stato: r.stato })));
+    /* con pagamenti parziali gia' registrati (paga) il modo e' misto; e
+       contanti o carta lasciano comunque un pagamento, per la giornata */
+    const prima = db.prepare('select modo, importo_cent from pos_pagamento where conto = ? order by il').all(String(c.id)) as { modo: string; importo_cent: number }[];
+    const come = modo === 'camera' ? 'camera' : chiusoCome([...prima, { modo }]);
     db.prepare("update pos_conto set stato = 'chiuso', chiuso_come = ?, chiuso_da = ?, chiuso_il = ?, aggiornato_il = ?, allineato = 0 where id = ?")
-      .run(modo, cameriere!.id, ora, ora, String(c.id));
+      .run(come, cameriere!.id, ora, ora, String(c.id));
+    if (modo !== 'camera') {
+      const manca = residuo(totale, prima);
+      if (manca > 0) salva(db, 'pos_pagamento', { id: crypto.randomUUID(), conto: String(c.id), modo, importo_cent: manca, ricevuto_cent: null, cameriere: cameriere!.id, il: ora, aggiornato_il: ora, allineato: 0 });
+    }
     /* «In camera» non e' un incasso: e' un addebito che la reception deve
        ancora riportare nel conto camera di Fidra. Sale al cloud con gli
        altri e da li' lo vede il back office. */

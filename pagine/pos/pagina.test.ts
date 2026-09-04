@@ -208,3 +208,14 @@ Deno.test('tutto il tavolo si sposta su un altro, dalla schermata del tavolo', (
   assert(m.includes("' · occupato'") && m.includes('unisco i conti lì?'), 'un tavolo occupato si sceglie, ma lo chiede');
   assert(m.includes('x.id !== t.id'), 'non si propone il tavolo stesso');
 });
+
+Deno.test('il conto si paga a pezzi: in parti uguali, un importo a scelta, e i contanti dicono il resto', () => {
+  /* «dividere il conto fra persone al tavolo», «dare resto» (4-5 settembre 2026) */
+  assert(m.includes("scrivi('paga', { conto: conto.id, modo, importo_cent: cifra, ricevuto_cent: ricevuto })"), 'ogni pezzo e un pagamento');
+  assert(m.includes('data-parti=') && m.includes("`in ${n}`"), 'in parti uguali');
+  assert(m.includes('id="pzAltro"') && m.includes("chiediNumero('Importo da pagare adesso (euro)'"), 'o un importo a scelta');
+  assert(m.includes('Contanti ricevuti (dovuti') && m.includes('Resto da dare:'), 'i contanti: quanto ha dato, e il resto');
+  assert(m.includes('if (j.chiuso) { via(); return schermataSala(); }'), 'quando i pezzi coprono il totale il conto e chiuso e si torna in sala');
+  assert(m.includes("j.pagamenti || []"), 'quanto e gia pagato lo dice il server');
+  assert(m.includes('inCamera && !pagato()'), 'in camera va tutto il conto, non un pezzo');
+});

@@ -11,10 +11,16 @@
    arrivano al check-out, non stasera. Per cameriere si conta chi ha
    CHIUSO il conto, cioe' chi ha in mano i soldi. Gli storni si vedono a
    parte col motivo e chi li ha fatti: e' li' che si guarda quando
-   qualcosa non torna. Lo prova giornata.test.ts.
+   qualcosa non torna.
+
+   Dal 5 settembre 2026 ogni incasso e' una riga di pos_pagamento: un
+   conto pagato meta' in contanti e meta' con la carta si divide fra i
+   due. I conti di prima, senza pagamenti registrati, valgono per il
+   modo con cui sono stati chiusi. Lo prova giornata.test.ts.
    ============================================================ */
 export type ContoChiuso = { id: string; chiuso_come: string | null; chiuso_da: string | null; coperti?: number | null; camera?: string | null };
 export type RigaGiornata = { conto: string; nome: string; quantita: number; prezzo_cent: number; stato: string; motivo_storno?: string | null; stornata_da?: string | null };
+export type PagamentoGiornata = { conto: string; modo?: string | null; importo_cent: number };
 export type Riepilogo = {
   conti: number; coperti: number;
   per_modo: { contanti: number; carta: number; camera: number };
@@ -25,8 +31,11 @@ export type Riepilogo = {
   storni_cent: number;
 };
 
-export function riepilogo({ conti, righe, nomi, quantiArticoli = 15 }: {
-  conti: ContoChiuso[]; righe: RigaGiornata[]; nomi: Record<string, string>; quantiArticoli?: number;
+type Modo = 'contanti' | 'carta' | 'camera';
+const modoDi = (x: string | null | undefined): Modo => x === 'carta' ? 'carta' : x === 'camera' ? 'camera' : 'contanti';
+
+export function riepilogo({ conti, righe, pagamenti = [], nomi, quantiArticoli = 15 }: {
+  conti: ContoChiuso[]; righe: RigaGiornata[]; pagamenti?: PagamentoGiornata[]; nomi: Record<string, string>; quantiArticoli?: number;
 }): Riepilogo {
   const nome = (id: string | null | undefined) => (id ? (nomi[id] ?? id) : '—');
   const totaleDi = new Map<string, number>();
@@ -43,13 +52,22 @@ export function riepilogo({ conti, righe, nomi, quantiArticoli = 15 }: {
     a.quantita += q; a.totale_cent += q * p;
     articoli.set(r.nome, a);
   }
+  const pagatiDi = new Map<string, PagamentoGiornata[]>();
+  for (const p of pagamenti) pagatiDi.set(p.conto, [...(pagatiDi.get(p.conto) ?? []), p]);
   const per_modo = { contanti: 0, carta: 0, camera: 0 };
   const perCameriere = new Map<string, { id: string; nome: string; conti: number; totale_cent: number }>();
   let coperti = 0;
   for (const c of conti) {
     const tot = totaleDi.get(c.id) ?? 0;
-    const modo = c.chiuso_come === 'carta' ? 'carta' : c.chiuso_come === 'camera' ? 'camera' : 'contanti';
-    per_modo[modo] += tot;
+    /* coi pagamenti registrati il modo lo dicono loro; quel che avanza
+       (o tutto, per i conti di prima) va nel modo di chiusura */
+    let coperto = 0;
+    for (const p of pagatiDi.get(c.id) ?? []) {
+      const i = Math.max(0, Math.round(Number(p.importo_cent) || 0));
+      per_modo[modoDi(p.modo)] += i;
+      coperto += i;
+    }
+    if (tot > coperto) per_modo[modoDi(c.chiuso_come)] += tot - coperto;
     coperti += Number(c.coperti) || 0;
     const id = c.chiuso_da ?? '—';
     const chi = perCameriere.get(id) ?? { id, nome: nome(c.chiuso_da), conti: 0, totale_cent: 0 };

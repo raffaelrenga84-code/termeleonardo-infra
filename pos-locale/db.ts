@@ -88,6 +88,10 @@ create table if not exists pos_addebito (
   chiuso_da text, chiuso_il text not null default ${ORA},
   stato text not null default 'da_riportare', riportato_il text, riportato_da text, nota text,
   aggiornato_il text not null default ${ORA}, allineato integer not null default 0);
+create table if not exists pos_pagamento (
+  id text primary key, conto text not null, modo text not null, importo_cent integer not null,
+  ricevuto_cent integer, cameriere text, il text not null default ${ORA},
+  aggiornato_il text not null default ${ORA}, allineato integer not null default 0);
 create table if not exists pos_stampa (
   id text primary key, locale text not null, stampante text not null, testo text not null,
   stato text not null default 'da_stampare', creato_il text not null default ${ORA},

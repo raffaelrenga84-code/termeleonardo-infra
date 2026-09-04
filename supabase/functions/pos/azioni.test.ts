@@ -168,9 +168,22 @@ Deno.test('la cassa di fine giornata si legge dal back office, e i numeri li fa 
 });
 
 Deno.test('tutto il tavolo su un altro: i conti aperti insieme, nello stesso locale', () => {
-  assert(S.includes("'tessera', 'tavolo-sposta']"), 'e un gesto del cameriere');
+  assert(S.includes("'tessera', 'tavolo-sposta'"), 'e un gesto del cameriere');
   const t = S.slice(S.indexOf("azione === 'tavolo-sposta'"), S.indexOf("azione === 'chiudi'"));
   assert(t.includes(".eq('tavolo', daId).neq('stato', 'chiuso')"), 'solo i conti aperti, tutti');
   assert(t.includes('localeDi(da) !== localeDi(a)'), 'mai in un altro locale: le stampanti sono altre');
   assert(t.includes("'questo tavolo non ha conti aperti'"), 'un tavolo vuoto non ha niente da spostare');
+});
+
+Deno.test('paga: un pezzo per volta, e il conto si chiude da solo quando i pezzi coprono il totale', () => {
+  assert(S.includes("'tavolo-sposta', 'paga']"), 'e un gesto del cameriere');
+  const p = S.slice(S.indexOf("azione === 'paga'"), S.indexOf("azione === 'chiudi'"));
+  assert(p.includes("['contanti', 'carta'].includes(String(b.modo))"), 'contanti o carta: la camera non e un pagamento');
+  assert(p.includes("r.stato === 'da_inviare'"), 'con righe da inviare non si incassa');
+  assert(p.includes('importoValido(importo, daPagare)'), 'mai piu del dovuto');
+  assert(p.includes('chiusoCome([...(prima ?? []), pagamento])'), 'misto se contanti e carta');
+  assert(p.includes('resto_cent: resto(ricevuto, importo)'), 'il resto dei contanti');
+  const c = S.slice(S.indexOf("azione === 'chiudi'"), S.indexOf('/* ================= dal server locale'));
+  assert(c.includes("if (manca > 0) await db.from('pos_pagamento').insert("), 'anche chiudi lascia un pagamento');
+  assert(S.includes("pagamenti: await upsertSeNuovi('pos_pagamento'"), 'e dal PC del Bistrot salgono con gli altri');
 });

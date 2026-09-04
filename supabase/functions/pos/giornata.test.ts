@@ -64,3 +64,16 @@ Deno.test('un cameriere di cui non si sa il nome resta col suo codice', () => {
   const g = riepilogo({ conti: [{ id: 'c9', chiuso_come: 'contanti', chiuso_da: 'x9', coperti: 1 }], righe: [{ conto: 'c9', nome: 'Acqua', quantita: 1, prezzo_cent: 200, stato: 'partita' }], nomi: {} });
   assertEquals(g.per_cameriere[0].nome, 'x9');
 });
+
+Deno.test('coi pagamenti registrati, il modo lo dicono loro: un conto meta contanti e meta carta si divide', () => {
+  /* dal 5 settembre 2026 ogni incasso e' una riga di pos_pagamento */
+  const g = riepilogo({
+    conti: [{ id: 'c1', chiuso_come: 'misto', chiuso_da: 'anna', coperti: 2 }, { id: 'c2', chiuso_come: 'carta', chiuso_da: 'anna', coperti: 1 }],
+    righe: [{ conto: 'c1', nome: 'Spritz', quantita: 2, prezzo_cent: 600, stato: 'partita' }, { conto: 'c2', nome: 'Birra', quantita: 1, prezzo_cent: 500, stato: 'partita' }],
+    pagamenti: [{ conto: 'c1', modo: 'contanti', importo_cent: 700 }, { conto: 'c1', modo: 'carta', importo_cent: 500 }],
+    nomi,
+  });
+  /* c2 non ha pagamenti registrati (conto di prima): vale chiuso_come */
+  assertEquals(g.per_modo, { contanti: 700, carta: 1000, camera: 0 });
+  assertEquals(g.incasso_cent, 1700);
+});

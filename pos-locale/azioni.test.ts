@@ -309,3 +309,44 @@ Deno.test('tutto il tavolo su un altro: i conti aperti cambiano tavolo insieme, 
   /* e i conti hanno l'aggiornamento segnato, cosi' salgono al cloud */
   assertEquals((db.prepare("select count(*) as n from pos_conto where tavolo = 'T8' and allineato = 0").get() as { n: number }).n, 2);
 });
+
+Deno.test('un conto si paga in parti: ogni pagamento e una riga, e all ultimo il conto si chiude da solo', async () => {
+  /* «dividere il conto fra persone al tavolo», «dare resto» (4-5 settembre 2026) */
+  const db = base();
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 3 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  await esegui(db, 'righe', req('POST', { conto, righe: [{ id: 'r1', articolo: 'A1', quantita: 3, portata: 'primi' }] }), cfg);
+  assertEquals((await esegui(db, 'paga', req('POST', { conto, modo: 'carta', importo_cent: 1400 }), cfg)).stato, 409, 'con righe da inviare non si incassa');
+  await esegui(db, 'invia', req('POST', { conto }), cfg);
+  assertEquals((await esegui(db, 'paga', req('POST', { conto, modo: 'carta', importo_cent: 5000 }), cfg)).stato, 409, 'piu del dovuto no');
+  const p1 = await esegui(db, 'paga', req('POST', { conto, modo: 'carta', importo_cent: 1400 }), cfg);
+  assertEquals(p1.stato, 200);
+  assertEquals((p1.corpo as { residuo_cent: number }).residuo_cent, 2800);
+  assertEquals((p1.corpo as { chiuso: boolean }).chiuso, false);
+  const letto = await esegui(db, 'conto', req('GET', null, { id: conto }), cfg);
+  assertEquals((letto.corpo as { pagamenti: { importo_cent: number }[] }).pagamenti.map((p) => p.importo_cent), [1400]);
+  assertEquals((letto.corpo as { conto: { stato: string } }).conto.stato, 'aperto');
+  /* i contanti col resto: senza importo si paga tutto quello che resta */
+  const p2 = await esegui(db, 'paga', req('POST', { conto, modo: 'contanti', ricevuto_cent: 5000 }), cfg);
+  assertEquals(p2.stato, 200);
+  assertEquals((p2.corpo as { chiuso: boolean }).chiuso, true);
+  assertEquals((p2.corpo as { resto_cent: number }).resto_cent, 2200);
+  assertEquals((p2.corpo as { residuo_cent: number }).residuo_cent, 0);
+  const dopo = await esegui(db, 'conto', req('GET', null, { id: conto }), cfg);
+  assertEquals((dopo.corpo as { conto: { chiuso_come: string } }).conto.chiuso_come, 'misto');
+  assertEquals((dopo.corpo as { conto: { stato: string } }).conto.stato, 'chiuso');
+  assertEquals((await esegui(db, 'paga', req('POST', { conto, modo: 'carta', importo_cent: 100 }), cfg)).stato, 409, 'un conto chiuso non si paga piu');
+  /* e i pagamenti salgono al cloud */
+  assertEquals((db.prepare('select count(*) as n from pos_pagamento where allineato = 0').get() as { n: number }).n, 2);
+});
+
+Deno.test('chiudi in contanti o carta lascia un pagamento: la giornata li somma da li', async () => {
+  const db = base();
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 1 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  await esegui(db, 'righe', req('POST', { conto, righe: [{ id: 'r1', articolo: 'A2', quantita: 1, portata: 'bevande' }] }), cfg);
+  await esegui(db, 'invia', req('POST', { conto }), cfg);
+  await esegui(db, 'chiudi', req('POST', { conto, modo: 'carta' }), cfg);
+  const p = db.prepare('select modo, importo_cent from pos_pagamento where conto = ?').all(conto) as { modo: string; importo_cent: number }[];
+  assertEquals(p, [{ modo: 'carta', importo_cent: 500 }]);
+});

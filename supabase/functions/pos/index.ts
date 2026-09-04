@@ -41,6 +41,7 @@ import { escpos, testoBiglietto, type Biglietto } from './comanda.ts';
 import { importa, prezziSensati } from './menu.ts';
 import { leggiInCasa } from './in-casa.ts';
 import { riepilogo } from './giornata.ts';
+import { chiusoCome, importoValido, residuo, resto } from './pagamenti.ts';
 import { motivoDelPrezzo, motivoPulito, prezzoCambiato } from './motivi.ts';
 import { localeChePrepara, portareA, siStampa } from './dove.ts';
 import { categoriaVino } from './vini.ts';
@@ -261,7 +262,7 @@ Deno.serve(async (req) => {
   }
 
   const cameriere = await cameriereDi(req);
-  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'tessera', 'tavolo-sposta'];
+  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'tessera', 'tavolo-sposta', 'paga'];
   if (azioniPalmare.includes(azione) && !cameriere) return risposta({ errore: 'sessione non valida' }, 401);
 
   if (azione === 'menu') {
@@ -316,7 +317,8 @@ Deno.serve(async (req) => {
          per spostarci una riga quando al tavolo si paga separatamente */
       const { data: fratelli } = await db.from('pos_conto').select('id, tipo, camera, ospite, coperti, nome')
         .eq('tavolo', c.tavolo as string).neq('stato', 'chiuso').neq('id', c.id as string);
-      return risposta({ conto: c, righe: await righeDelConto(c.id as string), fratelli: fratelli ?? [] });
+      const { data: pagamenti } = await db.from('pos_pagamento').select('*').eq('conto', c.id as string).order('il');
+      return risposta({ conto: c, righe: await righeDelConto(c.id as string), fratelli: fratelli ?? [], pagamenti: pagamenti ?? [] });
     }
     if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
     const b = await corpo();
@@ -600,6 +602,40 @@ Deno.serve(async (req) => {
     return risposta({ esito: 'ok', conti: mossi.length, tavolo: aId });
   }
 
+  /* Un pagamento: in una volta, in parti uguali o un pezzo per volta
+     (pagamenti.ts). Ogni incasso e' una riga di pos_pagamento; quando i
+     pagamenti coprono il totale il conto si chiude da solo. «In camera»
+     non passa di qui: e' un addebito, e resta in «chiudi». */
+  if (azione === 'paga') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const b = await corpo();
+    const modo = ['contanti', 'carta'].includes(String(b.modo)) ? String(b.modo) : null;
+    if (!modo) return risposta({ errore: 'modo: contanti o carta' }, 400);
+    const { data: c } = await db.from('pos_conto').select('*').eq('id', String(b.conto ?? '')).maybeSingle();
+    if (!c || c.stato === 'chiuso') return risposta({ errore: 'conto non aperto' }, 409);
+    const righe = await righeDelConto(c.id as string);
+    if (righe.some((r) => r.stato === 'da_inviare')) return risposta({ errore: 'ci sono righe non inviate' }, 409);
+    const totale = totaleCent(righe.map((r) => ({ quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent), stato: r.stato })));
+    const { data: prima } = await db.from('pos_pagamento').select('modo, importo_cent').eq('conto', c.id as string);
+    const daPagare = residuo(totale, (prima ?? []).map((p) => ({ importo_cent: Number(p.importo_cent) })));
+    if (!daPagare) return risposta({ errore: 'il conto e gia pagato' }, 409);
+    const importo = b.importo_cent === undefined || b.importo_cent === null ? daPagare : Math.round(Number(b.importo_cent));
+    if (!importoValido(importo, daPagare)) return risposta({ errore: `l importo deve essere fra 1 centesimo e ${daPagare} centesimi` }, 409);
+    const ricevuto = modo === 'contanti' && b.ricevuto_cent !== undefined && b.ricevuto_cent !== null ? Math.round(Number(b.ricevuto_cent)) : null;
+    const ora = adesso();
+    const pagamento = { id: crypto.randomUUID(), conto: c.id as string, modo, importo_cent: importo, ricevuto_cent: Number.isFinite(ricevuto as number) ? ricevuto : null, cameriere: cameriere!.id, il: ora, aggiornato_il: ora };
+    const { error } = await db.from('pos_pagamento').insert(pagamento);
+    if (error) return risposta({ errore: error.message }, 500);
+    const dopo = daPagare - importo;
+    let agg = c;
+    if (!dopo) {
+      const come = chiusoCome([...(prima ?? []), pagamento]);
+      const { data } = await db.from('pos_conto').update({ stato: 'chiuso', chiuso_come: come, chiuso_da: cameriere!.id, chiuso_il: ora, aggiornato_il: ora }).eq('id', c.id).select('*').single();
+      if (data) agg = data;
+    }
+    return risposta({ pagamento, residuo_cent: dopo, chiuso: !dopo, resto_cent: resto(ricevuto, importo), conto: agg });
+  }
+
   if (azione === 'chiudi') {
     if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
     const b = await corpo();
@@ -612,8 +648,16 @@ Deno.serve(async (req) => {
     if (modo === 'camera' && !String(c.camera ?? '').trim()) return risposta({ errore: 'per addebitare serve la camera: apra un conto in camera' }, 409);
     const ora = adesso();
     const totale = totaleCent(righe.map((r) => ({ quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent), stato: r.stato })));
+    /* con pagamenti parziali gia' registrati (paga) il modo e' misto; e
+       contanti o carta lasciano comunque un pagamento, per la giornata */
+    const { data: prima } = await db.from('pos_pagamento').select('modo, importo_cent').eq('conto', c.id as string);
+    const come = modo === 'camera' ? 'camera' : chiusoCome([...(prima ?? []), { modo }]);
     const { data: agg } = await db.from('pos_conto')
-      .update({ stato: 'chiuso', chiuso_come: modo, chiuso_da: cameriere!.id, chiuso_il: ora, aggiornato_il: ora }).eq('id', c.id).select('*').single();
+      .update({ stato: 'chiuso', chiuso_come: come, chiuso_da: cameriere!.id, chiuso_il: ora, aggiornato_il: ora }).eq('id', c.id).select('*').single();
+    if (modo !== 'camera') {
+      const manca = residuo(totale, (prima ?? []).map((p) => ({ importo_cent: Number(p.importo_cent) })));
+      if (manca > 0) await db.from('pos_pagamento').insert({ id: crypto.randomUUID(), conto: c.id, modo, importo_cent: manca, ricevuto_cent: null, cameriere: cameriere!.id, il: ora, aggiornato_il: ora });
+    }
     /* «In camera» non e' un incasso: e' un addebito che qualcuno deve
        ancora riportare nel conto camera di Fidra. Finche' e' in questa
        coda, la giornata non e' chiusa. */
@@ -713,6 +757,7 @@ Deno.serve(async (req) => {
         comande: await upsertSeNuovi('pos_comanda', Array.isArray(b.comande) ? b.comande as Riga[] : []),
         addebiti: await upsertSeNuovi('pos_addebito', Array.isArray(b.addebiti) ? b.addebiti as Riga[] : []),
         stampe: await upsertSeNuovi('pos_stampa', Array.isArray(b.stampe) ? b.stampe as Riga[] : []),
+        pagamenti: await upsertSeNuovi('pos_pagamento', Array.isArray(b.pagamenti) ? b.pagamenti as Riga[] : []),
       };
       /* i conti che il PC del Bistrot ha tolto perche' vuoti: la
          cancellazione non viaggia con le scritture, arriva a parte */
@@ -925,12 +970,19 @@ Deno.serve(async (req) => {
       if (error) return risposta({ errore: error.message }, 500);
       righe.push(...(data ?? []));
     }
+    /* i pagamenti dei conti: da qui la divisione contanti/carta di un conto misto */
+    const pagamenti: Riga[] = [];
+    for (let i = 0; i < ids.length; i += 100) {
+      const { data } = await db.from('pos_pagamento').select('conto, modo, importo_cent').in('conto', ids.slice(i, i + 100));
+      pagamenti.push(...(data ?? []));
+    }
     const nomi = Object.fromEntries((camerieri ?? []).map((c) => [c.id as string, String(c.nome)]));
     return risposta({
       da, a, locale: locale || null,
       giornata: riepilogo({
         conti: conti.map((c) => ({ id: c.id as string, chiuso_come: c.chiuso_come as string | null, chiuso_da: c.chiuso_da as string | null, coperti: Number(c.coperti) || 0, camera: c.camera as string | null })),
         righe: righe.map((r) => ({ conto: String(r.conto), nome: String(r.nome), quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent), stato: String(r.stato), motivo_storno: r.motivo_storno as string | null, stornata_da: r.stornata_da as string | null })),
+        pagamenti: pagamenti.map((p) => ({ conto: String(p.conto), modo: p.modo as string | null, importo_cent: Number(p.importo_cent) })),
         nomi,
       }),
     });

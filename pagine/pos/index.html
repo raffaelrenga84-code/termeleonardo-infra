@@ -966,34 +966,71 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
   /* La chiusura: contanti, carta, o in camera se il conto e' di una
      camera. «In camera» non e' un incasso — l'importo entra in una coda
      che la reception riporta nel conto camera di Fidra. */
-  const chiudi = () => {
+  /* Dal 5 settembre 2026 si paga anche a pezzi: in parti uguali («dividere
+     il conto fra persone al tavolo») o un importo a scelta; i contanti
+     dicono il resto. Ogni pezzo e' un pagamento (azione «paga»), e il
+     conto si chiude da solo quando i pezzi coprono il totale. */
+  const chiudi = async () => {
     const tutte = [...dalServer.filter((r) => r.stato !== 'stornata'), ...ordine.righe];
     const totale = tutte.reduce((t, r) => t + r.quantita * r.prezzo_cent, 0);
     const inCamera = conto.tipo === 'camera' && String(conto.camera || '').trim();
+    /* quanto e' gia' stato pagato lo sa il server */
+    let pagamenti = [];
+    try { const j = await chiama('conto', { qs: `&id=${encodeURIComponent(conto.id)}` }); pagamenti = j.pagamenti || []; } catch (e) { /* senza rete: si parte da zero */ }
+    const pagato = () => pagamenti.reduce((t, p) => t + Number(p.importo_cent || 0), 0);
+    const residuo = () => Math.max(0, totale - pagato());
+    let parti = 1;           // in quante parti uguali si divide quel che resta
+    let importo = null;      // oppure un importo scelto a mano, in centesimi
+    const quote = (tot, n) => { const base = Math.floor(tot / n), avanzo = tot - base * n; return Array.from({ length: n }, (_, i) => base + (i < avanzo ? 1 : 0)); };
+    const daPagareOra = () => importo != null ? Math.min(importo, residuo()) : quote(residuo(), parti)[0];
     const velo = document.createElement('div'); velo.className = 'velo';
-    velo.innerHTML = `<div class="pannello">
-      <h3>Conto · ${euro(totale)}</h3>
-      <p class="mini">${esc(titoloConto(conto))} · ${conto.coperti} coperti</p>
-      <label>Come paga</label>
-      <div class="due"><button class="bottone" data-modo="contanti">Contanti</button><button class="bottone" data-modo="carta">Carta</button></div>
-      ${inCamera ? `<button class="bottone oro" data-modo="camera" style="margin-top:8px;">In camera ${esc(String(conto.camera))}</button>
-        <p class="mini">Va in coda: la reception lo riporta sul conto camera in Fidra.</p>`
-        : '<p class="mini" style="margin-top:10px;">Per addebitare in camera il conto va aperto con «In camera» dal tavolo.</p>'}
-      <div class="due"><button class="bottone sec" id="pzChiudi">Annulla</button><span></span></div></div>`;
-    document.body.appendChild(velo);
     const via = () => velo.remove();
+    const disegna = () => {
+      velo.innerHTML = `<div class="pannello">
+        <h3>Conto · ${euro(totale)}</h3>
+        <p class="mini">${esc(titoloConto(conto))} · ${conto.coperti} coperti${pagato() ? ` · pagati ${euro(pagato())}, restano <b>${euro(residuo())}</b>` : ''}</p>
+        <label>Quanto</label>
+        <div class="chips">${[1, 2, 3, 4, 5, 6, 8].map((n) => `<button data-parti="${n}" class="${importo == null && parti === n ? 'attiva' : ''}">${n === 1 ? 'Tutto' : `in ${n}`}</button>`).join('')}<button id="pzAltro" class="${importo != null ? 'attiva' : ''}">Altro importo…</button></div>
+        <div class="totale" style="margin:8px 0;"><span>Da pagare adesso${importo == null && parti > 1 ? ` (1 di ${parti})` : ''}</span><b>${euro(daPagareOra())}</b></div>
+        <label>Come paga</label>
+        <div class="due"><button class="bottone" data-modo="contanti">Contanti</button><button class="bottone" data-modo="carta">Carta</button></div>
+        ${inCamera && !pagato() ? `<button class="bottone oro" data-modo="camera" style="margin-top:8px;">Tutto in camera ${esc(String(conto.camera))}</button>
+          <p class="mini">Va in coda: la reception lo riporta sul conto camera in Fidra.</p>`
+          : inCamera ? '' : '<p class="mini" style="margin-top:10px;">Per addebitare in camera il conto va aperto con «In camera» dal tavolo.</p>'}
+        <div class="due"><button class="bottone sec" id="pzChiudi">Annulla</button><span></span></div></div>`;
+      velo.querySelector('#pzChiudi').onclick = via;
+      velo.querySelectorAll('[data-parti]').forEach((b) => b.onclick = () => { parti = Number(b.dataset.parti); importo = null; disegna(); });
+      velo.querySelector('#pzAltro').onclick = async () => {
+        const n = await chiediNumero('Importo da pagare adesso (euro)', { decimale: true });
+        if (n) { importo = Math.min(Math.round(n * 100), residuo()); disegna(); }
+      };
+      velo.querySelectorAll('[data-modo]').forEach((b) => b.onclick = async () => {
+        const modo = b.dataset.modo;
+        if (modo === 'camera') { via(); return firmaOspite(totale); }
+        const cifra = daPagareOra();
+        if (!cifra) return;
+        let ricevuto = null;
+        if (modo === 'contanti') {
+          /* «dare resto»: quanto ha dato l'ospite; vuoto = la cifra giusta */
+          const r = await chiediNumero(`Contanti ricevuti (dovuti ${euro(cifra)}; vuoto = giusti)`, { decimale: true });
+          if (r) ricevuto = Math.round(r * 100);
+          if (ricevuto != null && ricevuto < cifra) return alert(`Ne ha dati ${euro(ricevuto)}: mancano ${euro(cifra - ricevuto)}. Se paga solo una parte, usi «Altro importo…».`);
+        }
+        velo.querySelectorAll('[data-modo]').forEach((x) => x.disabled = true);
+        try {
+          const j = await scrivi('paga', { conto: conto.id, modo, importo_cent: cifra, ricevuto_cent: ricevuto });
+          if (j.offline) { alert('Nessun server risponde: il pagamento si registra appena torna la linea.'); via(); return schermataSala(); }
+          if (j.resto_cent) alert(`Resto da dare: ${euro(j.resto_cent)}`);
+          if (j.chiuso) { via(); return schermataSala(); }
+          pagamenti = [...pagamenti, j.pagamento];
+          if (importo != null) importo = null; else if (parti > 1) parti -= 1;
+          disegna();
+        } catch (e) { alert(e.message); disegna(); }
+      });
+    };
+    document.body.appendChild(velo);
     velo.onclick = (ev) => { if (ev.target === velo) via(); };
-    velo.querySelector('#pzChiudi').onclick = via;
-    velo.querySelectorAll('[data-modo]').forEach((b) => b.onclick = async () => {
-      const modo = b.dataset.modo;
-      if (modo === 'camera') { via(); return firmaOspite(totale); }
-      velo.querySelectorAll('[data-modo]').forEach((x) => x.disabled = true);
-      try {
-        const j = await scrivi('chiudi', { conto: conto.id, modo });
-        if (j.offline) alert('Nessun server risponde: il conto si chiude appena torna la linea.');
-        via(); schermataSala();
-      } catch (e) { alert(e.message); velo.querySelectorAll('[data-modo]').forEach((x) => x.disabled = false); }
-    });
+    disegna();
   };
   const ricarica = async () => {
     try { const j = await chiama('conto', { qs: `&id=${encodeURIComponent(conto.id)}` }); dalServer = j.righe; conto = j.conto; fratelli = j.fratelli || []; }
