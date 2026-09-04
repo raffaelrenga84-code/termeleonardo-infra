@@ -38,6 +38,7 @@ Deno.test('locale e zona si vedono e si possono correggere prima di mandare', ()
   assert(S.includes('chrome.storage.local.set'), 'il locale scelto si ricorda');
 });
 
-Deno.test('il manifest e alla 2.29.0', () => {
-  assert(M.version === '2.29.0', M.version);
+Deno.test('il manifest e almeno alla 2.29.0, quella che ha portato la sala', () => {
+  const [x, y] = M.version.split('.').map(Number);
+  assert(x > 2 || (x === 2 && y >= 29), M.version);
 });

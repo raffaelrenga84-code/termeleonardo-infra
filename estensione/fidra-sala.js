@@ -22,25 +22,42 @@
   const numero = (s) => { const m = String(s).match(/\((\d+)\s*\/\s*(\d+)\)/); return m ? Number(m[2]) : 0; };
 
   /** I cerchi dei tavoli: si parte dai nodi che dicono «Tavolo 9», si
-      tiene il piu' interno, e da li' si sale al riquadro posizionato. */
+      tiene il piu' interno, e da li' si sale al riquadro che lo disegna —
+      quello posizionato, o quello largo quanto alto, cioe' il cerchio. */
+  const tondo = (el) => {
+    const r = el.getBoundingClientRect();
+    return r.width > 28 && r.width < 220 && r.height > 28 && Math.abs(r.width - r.height) < r.width * 0.35;
+  };
   function cerchi() {
-    const nodi = [...document.querySelectorAll('div, span, p, a, button')].filter((el) => RE_TAVOLO.test(testo(el)));
+    const nodi = [...document.querySelectorAll('div, span, p, a, button, li')].filter((el) => RE_TAVOLO.test(testo(el)));
     const foglie = nodi.filter((el) => !nodi.some((x) => x !== el && el.contains(x)));
     const trovati = new Map();
     for (const f of foglie) {
-      let el = f;
-      while (el && el !== document.body && getComputedStyle(el).position !== 'absolute') el = el.parentElement;
-      const cerchio = (el && el !== document.body) ? el : f;
+      let el = f, scelto = null;
+      for (let i = 0; i < 6 && el && el !== document.body; i++) {
+        const p = getComputedStyle(el).position;
+        if (p === 'absolute' || p === 'fixed' || tondo(el)) { scelto = el; break; }
+        el = el.parentElement;
+      }
+      const cerchio = scelto || f;
       if (!trovati.has(cerchio)) trovati.set(cerchio, f);
     }
     return [...trovati.entries()];
   }
 
+  /** Il riquadro della pianta: l'antenato che contiene tutti i tavoli.
+      Vale con qualunque impaginazione, anche senza posizioni assolute. */
+  function quadroDi(elementi) {
+    let q = elementi[0];
+    while (q && q !== document.body && !elementi.every((e) => q.contains(e))) q = q.parentElement;
+    if (!q || q === document.body) q = elementi[0].offsetParent || elementi[0].parentElement;
+    return q;
+  }
+
   function tavoli() {
     const trovati = cerchi();
     if (!trovati.length) return { tavoli: [], quadro: null };
-    /* la pianta e' il riquadro dentro cui i cerchi sono posizionati */
-    const quadro = trovati[0][0].offsetParent || trovati[0][0].parentElement;
+    const quadro = quadroDi(trovati.map(([c]) => c));
     if (!quadro) return { tavoli: [], quadro: null };
     const q = quadro.getBoundingClientRect();
     if (!q.width || !q.height) return { tavoli: [], quadro: null };
@@ -84,7 +101,7 @@
     const zona = campoZona.value.trim();
     if (!locale || !zona) { dillo('Servono il locale e il nome della zona.'); return; }
     const letti = tavoli();
-    if (!letti.tavoli.length) { dillo('Non trovo tavoli in questa pagina: apra la piantina di una zona.'); return; }
+    if (!letti.tavoli.length) { dillo('Non trovo tavoli in questa pagina: apra la piantina di una zona e aspetti che si disegni, poi riprovi.'); return; }
     await chrome.storage.local.set({ posLocaleImport: locale });
     dillo('Mando ' + letti.tavoli.length + ' tavoli...');
     const r = await fetch(FUNZIONE, {
@@ -132,11 +149,14 @@
     document.head.appendChild(stile);
   }
 
-  /* la piantina arriva dopo il resto: si aspetta di vedere i tavoli */
+  /* La barra si mette comunque, anche se i tavoli non si vedono: un
+     pulsante che non compare non si puo' nemmeno segnalare. Si aspetta
+     qualche secondo che la piantina finisca di disegnarsi, poi si mette
+     lo stesso e sara' il pulsante a dire cosa trova. */
   let tentativi = 0;
   const attesa = setInterval(() => {
     tentativi += 1;
-    if (document.getElementById(ID) || tentativi > 40) { clearInterval(attesa); return; }
-    if (cerchi().length) { clearInterval(attesa); metti(); }
+    if (document.getElementById(ID)) { clearInterval(attesa); return; }
+    if (cerchi().length || tentativi > 12) { clearInterval(attesa); metti(); }
   }, 500);
 })();
