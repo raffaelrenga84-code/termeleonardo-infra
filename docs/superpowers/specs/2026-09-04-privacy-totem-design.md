@@ -91,3 +91,14 @@ Puro: `consenso.test.ts` (lettura dei corpi, quattro lingue con le stesse chiavi
 ## Fuori da questa fase
 
 Scrivere in automatico una nota sulla prenotazione Fidra; l'archiviazione dei PDF su storage (oggi la stampa nasce dal back office); la revoca dal back office con email all'ospite.
+
+## Stato (4 settembre 2026, sera)
+
+In linea, tutto tranne il collaudo sul posto:
+
+- tabella `consenso` sul progetto; funzione `privacy` (testi, attesa, attese, tessera, firma, elenco, uno, annulla) provata dal vivo dall'IP dell'hotel: testi 200, attese 401 senza intestazione e 200 con, tessera 1466 → camera 320, elenco 401 senza accesso; una firma di prova ha prodotto l'email alla reception con `firma.png` in allegato ed e' stata poi cancellata;
+- pagina del totem: pulsante «Privacy · Datenschutz · Confidentialité» nel riposo, percorso tessera → modulo → firma; modo iPad `?privacy=1` con l'elenco delle attese e il suo manifest (`privacy.webmanifest`, a schermo intero, anche per iOS con i meta `apple-mobile-web-app-*`);
+- estensione 2.28.0: «Privacy al totem» sulla prenotazione, una attesa per ogni camera assegnata, lingua dedotta dal paese;
+- back office: scheda «Privacy» con attese da annullare, elenco dei firmati, ricerca per cognome o camera, stampa con la firma e i testi nella versione firmata.
+
+Da fare: installare la pagina sui due iPad (`hoteltermeleonardo.com/ingresso-totem?privacy=1`, «Aggiungi a schermata Home»); collaudo con una prenotazione vera e la tessera; decidere se tenere tre frasi o due (oggi tre: conservazione, messaggi, offerte).
