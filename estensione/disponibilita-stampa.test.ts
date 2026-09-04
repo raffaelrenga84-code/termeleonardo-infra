@@ -8,4 +8,7 @@ Deno.test('in stampa il pulsante e la finestra della disponibilita spariscono', 
   const stampa = S.slice(S.indexOf('@media print'));
   assert(S.includes('@media print'), 'manca la regola di stampa');
   assert(stampa.includes('#leoDispBtn') && stampa.includes('#leoDispWrap') && stampa.includes('display:none'), 'nasconde pulsante e finestra');
+  /* e la regola deve esistere gia' quando c'e' solo il pulsante, non solo dopo aver aperto il pannello */
+  const nascita = S.slice(S.indexOf("b.id = 'leoDispBtn'") - 700, S.indexOf("b.id = 'leoDispBtn'"));
+  assert(nascita.includes('leoDispStampa') && nascita.includes('@media print'), 'la regola di stampa nasce col pulsante');
 });

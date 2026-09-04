@@ -1997,6 +1997,16 @@
   function pulsante() {
     if (document.getElementById('leoDispBtn')) return;
     const b = document.createElement('button');
+    /* la regola di stampa nasce COL PULSANTE, non col pannello: il foglio
+       CSS completo (stile()) arriva solo quando si apre la finestra, e su
+       una pagina stampata senza averla mai aperta il pulsante usciva lo
+       stesso (il conto cure, 4 settembre 2026) */
+    if (!document.getElementById('leoDispStampa')) {
+      const st = document.createElement('style');
+      st.id = 'leoDispStampa';
+      st.textContent = '@media print{#leoDispBtn,#leoDispWrap{display:none !important;}}';
+      document.head.appendChild(st);
+    }
     b.id = 'leoDispBtn';
     /* stile addosso al pulsante: cosi' si vede anche prima che il foglio
        CSS del pannello venga iniettato (bug della prima 1.3.0) */
