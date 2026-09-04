@@ -141,8 +141,8 @@ const MENU = {
     ['ZUPPA DI CEREALI', 800],
   ],
   'Piatti Freddi': [
-    /* il prezzo era coperto dal riquadro sotto: entra a prezzo libero, lo
-       si batte al momento finche' la proprieta' non lo dice */
+    /* il prezzo era coperto dal riquadro sotto nella fotografia: dodici
+       euro, detto dalla proprieta' il 4 settembre 2026 */
     ['Mozzarella di Bufala & Pomodoro Rosso Origano e Basilico', 1200],
     ['Prosciutto Crudo Burrata e Valeriana', 1300], ['RISO VENERE', 1100],
   ],
