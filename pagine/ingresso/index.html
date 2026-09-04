@@ -119,29 +119,42 @@ body.totem main{max-width:820px;padding-top:40px;}
 .opBarra{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;}
 .opBarraDx{display:flex;gap:10px;}
 .opQr{width:min(50vw,260px);height:auto;margin:6px auto;display:block;border:1px solid var(--pietra);border-radius:12px;padding:8px;background:#fff;}
-/* il consenso privacy */
-.totemRiposo.privacy{text-align:left;gap:14px;padding:24px;}
-.totemRiposo.privacy .totemTitolo{text-align:center;font-size:34px;}
+/* IL CONSENSO PRIVACY, IN UNA SCHERMATA SOLA. «Non riusciamo a farci
+   stare tutto senza che il cliente debba scrollare» (la proprieta', 4
+   settembre 2026): l'altezza e' quella dello schermo, le misure crescono e
+   calano con lui (clamp su vh), e su un iPad orizzontale le tre frasi
+   stanno a sinistra e la firma a destra. Se proprio non entra, a scorrere
+   e' solo la colonna delle frasi, mai la pagina. */
+.totemRiposo.privacy{text-align:left;gap:clamp(6px,1.2vh,14px);padding:clamp(10px,2vh,22px);
+  height:calc(100dvh - 108px);overflow:hidden;justify-content:flex-start;}
+.totemRiposo.privacy .totemTitolo{text-align:center;font-size:clamp(20px,3.4vh,32px);}
+.totemRiposo.privacy .totemTesto{font-size:clamp(15px,2.3vh,21px);text-align:center;}
+.pvCorpo{flex:1;min-height:0;display:grid;gap:clamp(8px,1.4vh,14px);grid-template-columns:1fr;}
+.pvFrasi{display:flex;flex-direction:column;gap:clamp(6px,1.1vh,12px);min-height:0;overflow:auto;}
+.pvLato{display:flex;flex-direction:column;gap:clamp(4px,0.8vh,10px);min-height:0;}
+@media (min-width:800px){.pvCorpo{grid-template-columns:1.15fr 1fr;}}
+.privacy .mini{font-size:clamp(11px,1.55vh,13px);line-height:1.35;}
+.privacy .totemLingue{font-size:clamp(13px,1.9vh,17px);}
 .totemRiposo.privacy.chiusa{text-align:center;min-height:52vh;justify-content:center;gap:20px;}
 .totemRiposo.privacy.chiusa .contoChiudi{margin:0 auto;}
 .opLingueBarra{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
-.opLingueBarra button{font:inherit;font-size:17px;padding:12px 6px;border-radius:12px;border:2px solid var(--pietra);background:#fff;color:var(--verde-medio);cursor:pointer;}
+.opLingueBarra button{font:inherit;font-size:clamp(13px,1.9vh,17px);padding:clamp(6px,1.2vh,12px) 6px;border-radius:12px;border:2px solid var(--pietra);background:#fff;color:var(--verde-medio);cursor:pointer;}
 .opLingueBarra button.attiva{background:var(--verde);color:#fff;border-color:var(--verde);font-weight:600;}
-.pvFrase{border:2px solid var(--pietra);border-radius:14px;padding:14px 16px;background:#fff;transition:background .15s,border-color .15s;}
+.pvFrase{border:2px solid var(--pietra);border-radius:14px;padding:clamp(8px,1.5vh,14px) clamp(10px,1.6vh,16px);background:#fff;transition:background .15s,border-color .15s;}
 .pvFrase.sceltaSi{background:#EDF6F1;border-color:#2E7D5B;}
 .pvFrase.sceltaNo{background:#FCEFED;border-color:#8C2F28;}
-.pvFrase p{margin:0 0 12px;font-size:18px;line-height:1.45;}
+.pvFrase p{margin:0 0 clamp(6px,1.1vh,12px);font-size:clamp(13px,2vh,18px);line-height:1.35;}
 .pvNum{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--verde);color:#fff;font:600 15px system-ui,sans-serif;margin-right:10px;vertical-align:1px;}
 .pvScelta{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.pvScelta button{font:inherit;font-size:19px;padding:16px 10px;border-radius:12px;border:2px solid var(--pietra);background:#fff;color:#4B5350;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;}
-.pvSegno{font-size:22px;line-height:1;}
+.pvScelta button{font:inherit;font-size:clamp(14px,2.1vh,19px);padding:clamp(9px,1.7vh,16px) 8px;border-radius:12px;border:2px solid var(--pietra);background:#fff;color:#4B5350;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;}
+.pvSegno{font-size:clamp(16px,2.4vh,22px);line-height:1;}
 .pvScelta button[data-si="1"]{border-color:#9FCBB5;color:#2E7D5B;}
 .pvScelta button[data-si="0"]{border-color:#E3B4AE;color:#8C2F28;}
 .pvScelta button.si{background:#2E7D5B;border-color:#2E7D5B;color:#fff;font-weight:600;}
 .pvScelta button.no{background:#8C2F28;border-color:#8C2F28;color:#fff;font-weight:600;}
 .pvSintesi{font-size:14px;line-height:1.5;color:#4B5350;background:#fff;border:1px solid var(--pietra);border-radius:12px;padding:12px;}
-.pvFirma{position:relative;}
-.pvFirma canvas{display:block;width:100%;height:auto;background:#fff;border:2px dashed var(--verde);border-radius:12px;touch-action:none;}
+.pvFirma{position:relative;flex:1;min-height:0;display:flex;}
+.pvFirma canvas{display:block;width:100%;height:100%;min-height:clamp(90px,16vh,220px);background:#fff;border:2px dashed var(--verde);border-radius:12px;touch-action:none;}
 .pvFirma .contoChiudi{position:absolute;right:10px;top:10px;}
 .pvElenco{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;}
 .pvVoce{font:inherit;font-size:20px;text-align:left;padding:16px;border-radius:12px;border:2px solid var(--acqua);background:var(--acqua-chiara);cursor:pointer;}
@@ -599,14 +612,17 @@ function totem() {
     const modulo = () => {
       vetro(`${lingue()}<div class="totemTitolo">${escT(T.titolo)}</div>
         <p class="totemTesto">${escT(T.saluto)}, <b>${escT((st.cognome + ' ' + st.nome).trim())}</b>${st.camera ? ` · ${escT(CAMERA[st.lingua] || 'camera')} ${escT(st.camera)}` : ''}</p>
+        <div class="pvCorpo"><div class="pvFrasi">
         ${SCELTE_PRIVACY.map((k, i) => `<div class="pvFrase ${st.scelte[k] === true ? 'sceltaSi' : st.scelte[k] === false ? 'sceltaNo' : ''}" data-frase="${k}"><p><span class="pvNum">${i + 1}</span>${escT(T.scelte[k])}</p>
           <div class="pvScelta" data-k="${k}"><button type="button" data-si="1" class="${st.scelte[k] === true ? 'si' : ''}"><span class="pvSegno">✓</span>${escT(T.autorizzo)}</button><button type="button" data-si="0" class="${st.scelte[k] === false ? 'no' : ''}"><span class="pvSegno">✕</span>${escT(T.nonAutorizzo)}</button></div></div>`).join('')}
+        </div><div class="pvLato">
         <p class="mini">${escT(T.informativa)} <button type="button" class="contoChiudi" id="pvLeggi">${escT(T.leggi)}</button></p>
         <div id="pvSintesi" hidden class="pvSintesi">${escT(T.sintesi)}</div>
         <p class="mini">${escT(T.revoca)}</p>
         <p class="totemLingue">${escT(T.firmaQui)}</p>
         <div class="pvFirma"><canvas id="pvCanvas" width="700" height="220"></canvas><button type="button" class="contoChiudi" id="pvCancella">${escT(T.cancella)}</button></div>
         <div class="esito errore" id="pvEsito"></div>
+        </div></div>
         <div class="opBarra"><button type="button" class="contoChiudi" id="pvIndietro">‹</button><span class="opBarraDx"><button type="button" class="contoChiudi grande" id="pvConferma">${escT(T.conferma)}</button></span></div>`);
       legaLingue(modulo);
       document.querySelectorAll('.pvScelta').forEach((s) => s.querySelectorAll('button').forEach((b) => b.onclick = () => {

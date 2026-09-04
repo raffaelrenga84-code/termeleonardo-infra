@@ -61,3 +61,14 @@ Deno.test('le scelte si vedono a colori, come nei moduli che gli ospiti conoscon
 Deno.test('i quattro nomi delle lingue, non due lettere', () => {
   assert(p.includes("'Italiano'") && p.includes("'Deutsch'") && p.includes("'English'") && p.includes("'Français'"));
 });
+
+Deno.test('il modulo sta in una schermata sola: niente scorrimento per l ospite', () => {
+  /* «non riusciamo a farci stare tutto senza che il cliente debba
+     scrollare» (la proprieta', 4 settembre 2026) */
+  assert(/\.totemRiposo\.privacy\{[^}]*height:calc\(100dvh/.test(P), 'l altezza e quella dello schermo');
+  assert(/\.totemRiposo\.privacy\{[^}]*overflow:hidden/.test(P), 'la pagina non scorre');
+  assert(/@media \(min-width:800px\)\{\.pvCorpo\{grid-template-columns/.test(P), 'su iPad orizzontale due colonne');
+  assert(/\.pvFrasi\{[^}]*overflow:auto/.test(P), 'se proprio non entra, scorre solo la colonna delle frasi');
+  assert(p.includes('class="pvCorpo"') && p.includes('class="pvFrasi"') && p.includes('class="pvLato"'), 'le due colonne nel markup');
+  assert(/clamp\(/.test(P), 'le misure crescono e calano con lo schermo');
+});
