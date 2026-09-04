@@ -159,6 +159,7 @@ body.privacyAperta .riquadro{margin:0;border:0;border-radius:0;height:100%;}
 .pvScelta button.no{background:#8C2F28;border-color:#8C2F28;color:#fff;font-weight:600;}
 .pvSintesi{font-size:14px;line-height:1.5;color:#4B5350;background:#fff;border:1px solid var(--pietra);border-radius:12px;padding:12px;}
 .pvFirma{position:relative;flex:1;min-height:0;display:flex;}
+.pvEmail{width:100%;font-size:clamp(14px,2vh,17px);padding:clamp(8px,1.4vh,12px);margin:0;}
 .pvFirmaScritta{position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:clamp(12px,1.7vh,15px);color:var(--grigio);pointer-events:none;}
 .pvFirmaScritta::before{content:"";display:block;width:62%;margin:0 auto 6px;border-bottom:1px solid #C9C2B5;}
 .pvTesta{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
@@ -330,6 +331,11 @@ function totem() {
      conto li azzera e torna al riposo, cosi' nessuno cerca la X */
   let timerRiposo = null, orologioConto = null;
   const riposo = () => {
+    /* Totem e iPad restano accesi per giorni con la stessa pagina in
+       pancia. Se e' vecchia di mezz'ora si ricarica QUI, tornando al
+       riposo: mai davanti a un ospite, e le modifiche arrivano da sole
+       senza andare a toccare i dispositivi (4 settembre 2026). */
+    if (Date.now() - CARICATA_IL > AGGIORNA_DOPO_MS) { location.reload(); return; }
     clearTimeout(timerRiposo); clearInterval(orologioConto);
     /* sugli iPad (?privacy=1) il riposo e' l'elenco dei consensi in attesa */
     if (SOLO_PRIVACY) { document.onclick = null; privacy(true); return; }
@@ -414,6 +420,9 @@ function totem() {
      non compila dovrebbe scomparire dopo 60 secondi, altrimenti qualcuno
      legge nome e numero di camera», la proprieta', 4 settembre 2026). */
   const PRIVACY_RIPOSO_MS = 60 * 1000;
+/* da quanto e' aperta questa pagina, e ogni quanto vale la pena rileggerla */
+const CARICATA_IL = Date.now();
+const AGGIORNA_DOPO_MS = 30 * 60 * 1000;
   const opinione = () => {
     document.onclick = null;
     const st = { lingua: 'it', stelle: 0, temi: new Set(), voti: {}, commento: '', tessera: null };
@@ -570,6 +579,26 @@ function totem() {
     const indietro = () => daElenco ? elenco() : tessera();
 
     /* al totem: la tessera, o il nome scritto a mano */
+    /* In una camera possono esserci due persone, e ognuna firma il suo
+       consenso: passata la tessera, se ce n'e' piu' d'una in attesa si
+       chiede all'ospite quale e' lui (la proprieta', 4 settembre 2026). */
+    const apriPer = async (a) => {
+      st.id = a.id; st.cognome = a.cognome; st.nome = a.nome || ''; st.haEmail = !!a.ha_email;
+      await testi(a.lingua || 'it');
+      modulo();
+    };
+    const chiSei = (lista) => {
+      vetro(`<div class="totemTitolo">Privacy</div>
+        <p class="totemTesto">Chi è lei? · Who are you? · Wer sind Sie? · Qui êtes-vous ?</p>
+        <div class="pvElenco">${lista.map((a) => `<button type="button" class="pvVoce" data-id="${escT(a.id)}"><b>${escT(a.cognome)} ${escT(a.nome || '')}</b></button>`).join('')}</div>
+        <div class="opBarra"><button type="button" class="contoChiudi" id="pvIndietro">‹</button><span></span></div>`);
+      document.querySelectorAll('.pvVoce').forEach((b) => b.onclick = () => {
+        const a = lista.find((x) => String(x.id) === b.dataset.id);
+        if (a) apriPer(a);
+      });
+      $('pvIndietro').onclick = riposo;
+    };
+
     const tessera = async () => {
       if (!T) await testi('it');
       vetro(`<div class="totemTitolo">Privacy</div>
@@ -590,7 +619,9 @@ function totem() {
         try {
           const j = await chiamaPrivacy(`?a=tessera&codice=${encodeURIComponent(letto)}`);
           st.camera = j.camera; st.scelte = {};
-          if (j.attesa) { st.id = j.attesa.id; st.cognome = j.attesa.cognome; st.nome = j.attesa.nome || ''; await testi(j.attesa.lingua || 'it'); modulo(); }
+          const lista = j.attese || (j.attesa ? [j.attesa] : []);
+          if (lista.length > 1) chiSei(lista);
+          else if (lista.length === 1) await apriPer(lista[0]);
           else chiediNome();
         } catch (e) { chiediNome(T.tesseraIgnota); }
       };
@@ -632,7 +663,7 @@ function totem() {
           : '<p class="mini">Nessun consenso in attesa. Al check‑in la reception preme «Privacy al totem» sulla prenotazione in Fidra.</p>';
         document.querySelectorAll('.pvVoce').forEach((b) => b.onclick = async () => {
           const a = j.attese.find((x) => x.id === b.dataset.id);
-          st.id = a.id; st.camera = a.camera; st.cognome = a.cognome; st.nome = a.nome || ''; st.scelte = {};
+          st.id = a.id; st.camera = a.camera; st.cognome = a.cognome; st.nome = a.nome || ''; st.scelte = {}; st.haEmail = !!a.ha_email;
           await testi(a.lingua || 'it'); modulo();
         });
       } catch (e) { $('pvElenco').innerHTML = `<p class="mini errore">${escT(e.message)}</p>`; }
@@ -662,6 +693,7 @@ function totem() {
         </div><div class="pvLato">
         <p class="mini">${escT(T.informativa)} <button type="button" class="contoChiudi" id="pvLeggi">${escT(T.leggi)}</button> · ${escT(T.revoca)}</p>
         <div id="pvSintesi" hidden class="pvSintesi">${escT(T.sintesi)}</div>
+        ${st.haEmail ? '' : `<input id="pvEmail" type="email" class="totemCampo pvEmail" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="${escT(T.emailEtichetta)}" aria-label="${escT(T.emailEtichetta)}" />`}
         <div class="pvFirma"><canvas id="pvCanvas" width="700" height="220"></canvas>
           <span class="pvFirmaScritta">${escT(T.firmaQui)}</span>
           <button type="button" class="contoChiudi" id="pvCancella">${escT(T.cancella)}</button></div>
@@ -696,6 +728,7 @@ function totem() {
           await chiamaPrivacy('?a=firma', { method: 'POST', body: JSON.stringify({
             id: st.id, camera: st.camera, cognome: st.cognome, nome: st.nome, lingua: st.lingua,
             scelte: st.scelte, firma: cv.toDataURL('image/png'), versione: st.versione, fonte: SOLO_PRIVACY ? 'ipad' : 'totem',
+            email: ($('pvEmail') || {}).value || null,
           }) });
           vetro(`<div class="totemTitolo">✓ ${escT(T.grazie)}</div><p class="totemTesto">${escT(T.grazieTesto)}</p>`, 'ok');
           if (navigator.vibrate) navigator.vibrate([60, 40, 60]);

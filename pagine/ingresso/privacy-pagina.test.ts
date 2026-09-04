@@ -75,7 +75,8 @@ Deno.test('il modulo sta in una schermata sola: niente scorrimento per l ospite'
 });
 
 Deno.test('l iPad chiuso dice quanti aspettano, non chi: nessun nome finche non si tocca', () => {
-  const c = p.slice(p.indexOf('const chiusa = '), p.indexOf('const tessera = '));
+  const i = p.indexOf('const chiusa = ');
+  const c = p.slice(i, p.indexOf('const apriPer = '));
   assert(c.includes("chiamaPrivacy('?a=quante')"), 'chiede solo il numero');
   assert(!c.includes('cognome') && !c.includes('.camera'), 'nessun nome, nessuna camera');
   assert(c.includes('pvPallino') && c.includes('15000'), 'un pallino, ogni quindici secondi');
@@ -90,7 +91,8 @@ Deno.test('la firma resta sotto gli occhi: la pagina e alta quanto lo schermo e 
 });
 
 Deno.test('le schermate d attesa parlano quattro lingue: li non si sa ancora chi arrivera', () => {
-  const c = p.slice(p.indexOf('const chiusa = '), p.indexOf('const tessera = '));
+  const i = p.indexOf('const chiusa = ');
+  const c = p.slice(i, p.indexOf('const apriPer = '));
   for (const s of ['Einwilligung', 'Consent to the processing', 'Consentement']) assert(c.includes(s), s);
   assert(c.includes('Start here') && c.includes('Bitte hier beginnen') && c.includes('Commencez ici'), 'anche il pulsante');
   const el = p.slice(p.indexOf('const elenco = '), p.indexOf('const modulo = '));
@@ -108,4 +110,24 @@ Deno.test('quante domande fa il modulo lo dice il server, non la pagina', () => 
   assert(m.includes('let SCELTE_PRIVACY'), 'non e una costante inchiodata');
   assert(p.includes('if (Array.isArray(j.scelte) && j.scelte.length) SCELTE_PRIVACY = j.scelte;'), 'arrivano con i testi');
   assert(!m.includes("'messaggi'"), 'la domanda sulle telefonate non c e piu: non arrivava al centralino');
+});
+
+Deno.test('in camera dormono in due: la tessera puo trovare piu persone e si sceglie chi firma', () => {
+  assert(p.includes('const chiSei = ') && p.includes('const apriPer = '), 'la schermata «Chi è lei?»');
+  assert(p.includes('j.attese || (j.attesa ? [j.attesa] : [])'), 'la tessera porta tutte le attese della camera');
+  assert(p.includes('lista.length > 1) chiSei(lista)'), 'con due o piu si chiede');
+  assert(p.includes('Chi è lei? · Who are you?'), 'nelle quattro lingue: qui non si sa ancora chi e');
+});
+
+Deno.test('totem e iPad si rinfrescano da soli, ma solo tornando a riposo', () => {
+  assert(m.includes('const CARICATA_IL') && m.includes('AGGIORNA_DOPO_MS = 30 * 60 * 1000'), 'mezz ora');
+  const r = m.slice(m.indexOf('const riposo = () => {'), m.indexOf('const riposo = () => {') + 600);
+  assert(r.includes('location.reload()'), 'si ricarica al riposo, mai davanti a un ospite');
+});
+
+Deno.test('a chi non ha lasciato l email la si chiede sul modulo, senza obbligare', () => {
+  assert(p.includes('st.haEmail = !!a.ha_email'), 'il server dice se ce l abbiamo gia, non qual e');
+  assert(p.includes('st.haEmail ? \'\' :') && p.includes('id="pvEmail"'), 'il campo compare solo se manca');
+  assert(p.includes("email: ($('pvEmail') || {}).value || null"), 'e parte con la firma');
+  assert(p.includes('T.emailEtichetta'), 'nella lingua dell ospite');
 });

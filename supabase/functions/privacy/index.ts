@@ -127,8 +127,12 @@ Deno.serve(async (req) => {
     const letta = leggiAttesa(await corpo());
     if (!letta.ok) return risposta({ errore: letta.errore }, 400);
     const a = letta.valore;
-    /* una camera, un'attesa: quella vecchia si annulla */
-    await db.from('consenso').update({ stato: 'annullato' }).eq('camera', a.camera).eq('stato', 'in_attesa');
+    /* In una camera dormono spesso piu' persone, e ognuna firma il suo
+       consenso: si annulla solo l'attesa della STESSA persona, cosi'
+       ripremere il pulsante non sdoppia, ma il compagno di camera resta
+       (la proprieta', 4 settembre 2026). */
+    await db.from('consenso').update({ stato: 'annullato' })
+      .eq('camera', a.camera).eq('cognome', a.cognome).eq('nome', a.nome).eq('stato', 'in_attesa');
     const { data, error } = await db.from('consenso').insert({ ...a, stato: 'in_attesa' }).select('id').single();
     if (error || !data) { console.error('attesa non salvata', error); return risposta({ errore: 'non riesco a salvare' }, 500); }
     return risposta({ esito: 'ok', id: data.id });
@@ -145,10 +149,11 @@ Deno.serve(async (req) => {
 
   if (azione === 'attese') {
     if (!eTotem(req)) return risposta({ errore: 'non autorizzato' }, 401);
-    const { data } = await db.from('consenso').select('id, camera, cognome, nome, lingua, creato_il')
+    const { data } = await db.from('consenso').select('id, camera, cognome, nome, lingua, creato_il, email')
       .eq('stato', 'in_attesa').eq('destinazione', 'ipad').gte('creato_il', daQuando())
       .order('creato_il', { ascending: false }).limit(100);
-    return risposta({ attese: data ?? [], minuti: MINUTI_ATTESA });
+    const attese = (data ?? []).map(({ email, ...a }) => ({ ...a, ha_email: !!email }));
+    return risposta({ attese, minuti: MINUTI_ATTESA });
   }
 
   /* solo QUANTI sono, senza nomi ne' camere: lo chiede l'iPad quando e'
@@ -168,9 +173,13 @@ Deno.serve(async (req) => {
     if (f.stato === 503) return risposta({ errore: 'lettura della tessera non configurata' }, 503);
     if (f.stato === 404) return risposta({ errore: 'tessera non trovata' }, 404);
     if (f.stato !== 200 || !f.camera) return risposta({ errore: 'Fidra non risponde' }, 502);
-    const { data } = await db.from('consenso').select('id, camera, cognome, nome, lingua')
-      .eq('stato', 'in_attesa').eq('camera', f.camera).order('creato_il', { ascending: false }).limit(1).maybeSingle();
-    return risposta({ camera: f.camera, attesa: data ?? null });
+    /* tutte le persone in attesa di quella camera: al totem sara' l'ospite
+       a dire quale delle due e' lui */
+    const { data } = await db.from('consenso').select('id, camera, cognome, nome, lingua, email')
+      .eq('stato', 'in_attesa').eq('camera', f.camera).order('creato_il', { ascending: true }).limit(8);
+    /* l'indirizzo non torna al totem: torna solo se ce l'abbiamo */
+    const attese = (data ?? []).map(({ email, ...a }) => ({ ...a, ha_email: !!email }));
+    return risposta({ camera: f.camera, attese, attesa: attese[0] ?? null });
   }
 
   if (azione === 'firma') {
@@ -197,11 +206,16 @@ Deno.serve(async (req) => {
       stato: 'firmato', firmato_il: ora, lingua: f.lingua,
       conservazione: f.scelte.conservazione, messaggi: null, marketing: f.scelte.marketing,
       firma: f.firma, testi_versione: f.versione, fonte: f.fonte, ip: indirizzo(req),
-    };
+    } as Riga;
+    /* Gli ospiti che arrivano dai portali spesso non ci lasciano l'email:
+       se la scrivono sul modulo la teniamo, altrimenti il consenso alle
+       offerte non servirebbe a niente. Quella che ci ha gia' dato la
+       reception non si tocca. */
+    if (f.email && !riga.email) agg.email = f.email;
     const { error } = await db.from('consenso').update(agg).eq('id', riga.id as string);
     if (error) { console.error('firma non salvata', error); return risposta({ errore: 'non riesco a salvare' }, 500); }
     const perEmail = {
-      camera: String(riga.camera), cognome: String(riga.cognome), nome: String(riga.nome ?? ''), email: (riga.email as string | null) ?? null,
+      camera: String(riga.camera), cognome: String(riga.cognome), nome: String(riga.nome ?? ''), email: ((riga.email as string | null) ?? null) || f.email,
       lingua: f.lingua as Lingua, scelte: f.scelte, firmatoIl: ora, fonte: f.fonte, versione: f.versione,
     };
     const r = emailConsensoReception(perEmail);

@@ -28,7 +28,7 @@ const TITOLARE = 'Stabilimento Termale Hotel Terme Leonardo Tria srl, Via Monteo
 export type Testi = {
   titolo: string; norma: string; saluto: string; autorizzo: string; nonAutorizzo: string;
   scelte: Record<Scelta, string>; informativa: string; sintesi: string; leggi: string; revoca: string;
-  firmaQui: string; cancella: string; conferma: string; grazie: string; grazieTesto: string;
+  firmaQui: string; cancella: string; conferma: string; emailEtichetta: string; grazie: string; grazieTesto: string;
   chiediNome: string; cognome: string; nome: string; avanti: string; passiTessera: string; tesseraIgnota: string;
   mancaFirma: string; mancaScelte: string; errore: string; emailOggetto: string; emailIntro: string;
 };
@@ -48,6 +48,7 @@ export const TESTI_CONSENSO: Record<Lingua, Testi> = {
     leggi: 'Leggi l’informativa',
     revoca: 'Può revocare questi consensi in ogni momento, senza dare una motivazione, scrivendo a info@termeleonardo.com.',
     firmaQui: 'Firmi qui con il dito', cancella: 'Cancella', conferma: 'Conferma',
+    emailEtichetta: "Email (facoltativa), per ricevere una copia",
     grazie: 'Grazie', grazieTesto: 'Il consenso è registrato. Buon soggiorno.',
     chiediNome: 'Come si chiama?', cognome: 'Cognome', nome: 'Nome', avanti: 'Avanti',
     passiTessera: 'Passi la tessera della camera al lettore', tesseraIgnota: 'Non riconosco questa tessera: scriva il suo nome.',
@@ -70,6 +71,7 @@ export const TESTI_CONSENSO: Record<Lingua, Testi> = {
     leggi: 'Read the notice',
     revoca: 'You can withdraw these consents at any time, without giving a reason, by writing to info@termeleonardo.com.',
     firmaQui: 'Sign here with your finger', cancella: 'Clear', conferma: 'Confirm',
+    emailEtichetta: "Email (optional), to receive a copy",
     grazie: 'Thank you', grazieTesto: 'Your consent is recorded. Enjoy your stay.',
     chiediNome: 'What is your name?', cognome: 'Surname', nome: 'First name', avanti: 'Next',
     passiTessera: 'Hold your room key card up to the reader', tesseraIgnota: 'I do not recognise this card: please type your name.',
@@ -92,6 +94,7 @@ export const TESTI_CONSENSO: Record<Lingua, Testi> = {
     leggi: 'Erklärung lesen',
     revoca: 'Sie können diese Einwilligungen jederzeit ohne Angabe von Gründen widerrufen, per E-Mail an info@termeleonardo.com.',
     firmaQui: 'Bitte hier mit dem Finger unterschreiben', cancella: 'Löschen', conferma: 'Bestätigen',
+    emailEtichetta: "E-Mail (freiwillig), um eine Kopie zu erhalten",
     grazie: 'Danke', grazieTesto: 'Ihre Einwilligung ist gespeichert. Schönen Aufenthalt.',
     chiediNome: 'Wie heißen Sie?', cognome: 'Nachname', nome: 'Vorname', avanti: 'Weiter',
     passiTessera: 'Halten Sie Ihre Zimmerkarte vor den Leser', tesseraIgnota: 'Diese Karte erkenne ich nicht: bitte geben Sie Ihren Namen ein.',
@@ -114,6 +117,7 @@ export const TESTI_CONSENSO: Record<Lingua, Testi> = {
     leggi: 'Lire la notice',
     revoca: 'Vous pouvez retirer ces consentements à tout moment, sans motif, en écrivant à info@termeleonardo.com.',
     firmaQui: 'Signez ici avec le doigt', cancella: 'Effacer', conferma: 'Confirmer',
+    emailEtichetta: "E-mail (facultatif), pour en recevoir une copie",
     grazie: 'Merci', grazieTesto: 'Votre consentement est enregistré. Bon séjour.',
     chiediNome: 'Comment vous appelez-vous ?', cognome: 'Nom', nome: 'Prénom', avanti: 'Suivant',
     passiTessera: 'Présentez votre carte de chambre au lecteur', tesseraIgnota: 'Je ne reconnais pas cette carte : écrivez votre nom.',
@@ -151,7 +155,7 @@ export function leggiAttesa(corpo: unknown): Esito<Attesa> {
   } };
 }
 
-export type Firma = { id: string | null; camera: string | null; cognome: string | null; nome: string; lingua: Lingua; scelte: Record<Scelta, boolean>; firma: string; versione: string; fonte: 'totem' | 'ipad' };
+export type Firma = { id: string | null; camera: string | null; cognome: string | null; nome: string; lingua: Lingua; scelte: Record<Scelta, boolean>; firma: string; versione: string; fonte: 'totem' | 'ipad'; email: string | null };
 
 /** Quello che manda il totem o l'iPad alla conferma. Le tre risposte devono
     esserci tutte e tre, vere o false: una mancante non e' un «no». */
@@ -172,7 +176,7 @@ export function leggiFirma(corpo: unknown): Esito<Firma> {
   const id = pulito(c.id, 60) || null;
   const camera = pulito(c.camera, 20) || null, cognome = pulito(c.cognome, 80) || null;
   if (!id && (!camera || !cognome)) return { ok: false, errore: 'senza consenso in attesa servono camera e cognome' };
-  return { ok: true, valore: { id, camera, cognome, nome: pulito(c.nome, 80), lingua: laLingua(c.lingua), scelte, firma, versione: pulito(c.versione, 20) || VERSIONE_TESTI, fonte } };
+  return { ok: true, valore: { id, camera, cognome, nome: pulito(c.nome, 80), lingua: laLingua(c.lingua), scelte, firma, versione: pulito(c.versione, 20) || VERSIONE_TESTI, fonte, email: email(c.email) } };
 }
 
 export const firmaBase64 = (dataUrl: string): string => dataUrl.slice(dataUrl.indexOf(',') + 1);

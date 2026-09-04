@@ -60,3 +60,10 @@ Deno.test('CORS con le intestazioni del totem e della chiave hotel; niente stamp
   assert(/x-totem-key/.test(S) && /x-hotel-key/.test(S));
   assert(!/8989|8990|192\.168\.0\.5[12]/.test(S));
 });
+
+Deno.test('una firma per persona, non per camera: il compagno di stanza resta in attesa', () => {
+  const a = S.slice(S.indexOf("azione === 'attesa'"), S.indexOf("azione === 'attese'"));
+  assert(a.includes(".eq('camera', a.camera).eq('cognome', a.cognome).eq('nome', a.nome)"), 'si annulla solo la stessa persona');
+  const t = S.slice(S.indexOf("azione === 'tessera'"), S.indexOf("azione === 'firma'"));
+  assert(t.includes('attese') && t.includes('limit(8)'), 'la tessera porta tutte le persone in attesa della camera');
+});

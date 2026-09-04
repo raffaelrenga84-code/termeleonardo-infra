@@ -45,10 +45,23 @@
     const lingua = linguaDi(d);
     const arrivo = iso(d.anno, d.mese, d.giornoArrivo);
     const partenza = iso(d.annoPartenza || d.anno, d.mesePartenza || d.mese, d.giornoPartenza);
-    return (d.camere || []).filter((c) => c.numero).map((c, i) => {
-      const chi = spezza((c.ospiti && c.ospiti[0]) || d.intestatario);
-      return { camera: String(c.numero), cognome: chi.cognome, nome: chi.nome, email: i === 0 ? (d.email || null) : null, lingua, fidra_prenotazione: d.id ? String(d.id) : null, arrivo, partenza };
-    });
+    /* UNA FIRMA PER PERSONA, non per camera: in doppia dormono in due e
+       il consenso di uno non vale per l'altro (la proprieta', 4 settembre
+       2026). L'email va solo al primo, che e' l'intestatario. */
+    const fuori = [];
+    for (const c of (d.camere || []).filter((x) => x.numero)) {
+      const gente = (c.ospiti || []).filter((n) => String(n || '').trim());
+      for (const nome of (gente.length ? gente : [d.intestatario])) {
+        const chi = spezza(nome);
+        if (!chi.cognome) continue;
+        fuori.push({
+          camera: String(c.numero), cognome: chi.cognome, nome: chi.nome,
+          email: fuori.length === 0 ? (d.email || null) : null,
+          lingua, fidra_prenotazione: d.id ? String(d.id) : null, arrivo, partenza,
+        });
+      }
+    }
+    return fuori;
   }
 
   /* gli ultimi consensi mandati, per poterli togliere subito se ci si e'
