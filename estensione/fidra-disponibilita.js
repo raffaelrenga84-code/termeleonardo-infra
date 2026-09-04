@@ -188,7 +188,10 @@
   #leoDisp .prevVai:disabled{background:#CFCABF;cursor:default;}
   #leoDispBtn{position:fixed;bottom:76px;right:24px;z-index:2147483645;padding:12px 20px;
     border:0;border-radius:8px;cursor:pointer;font:600 14px Arial;color:#fff;background:#1E7F88;
-    box-shadow:0 3px 12px rgba(0,0,0,.3);}`;
+    box-shadow:0 3px 12px rgba(0,0,0,.3);}
+  /* in stampa (il conto cure, 4 settembre 2026) il pulsante usciva come un
+     riquadro vuoto in fondo al foglio: sulla carta non esiste */
+  @media print{#leoDispBtn,#leoDispWrap{display:none !important;}}`;
 
   function stile() {
     if (document.getElementById('leoDispCss')) return;
