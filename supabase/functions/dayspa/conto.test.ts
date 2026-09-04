@@ -38,7 +38,7 @@ Deno.test('riassuntoConto: camera, lingua, righe appiattite, totali e appuntamen
   assertEquals(c.lordo, '285,00');
   assertEquals(c.acconto, '100,00');
   assertEquals(c.daPagare, '185,00');
-  assertEquals(c.appuntamenti, [{ quando: '2026-09-04 09:30:00', tipo: 'Visita medica  Iniziale', operatore: 'Dott. Rossi', fatto: false }]);
+  assertEquals(c.appuntamenti, [{ quando: '04/09 09:30', tipo: 'Visita medica  Iniziale', operatore: 'Dott. Rossi', fatto: false }]);
 });
 
 Deno.test('riassuntoConto: con campi mancanti resta un conto vuoto, non un errore', () => {
@@ -63,4 +63,18 @@ Deno.test('importo: numero o testo, con punto o virgola, sempre due decimali con
   assertEquals(importo('1.234,50'), '1.234,50', 'un testo gia formattato che non e un numero resta com e');
   assertEquals(importo(''), '');
   assertEquals(importo(undefined), '');
+});
+
+Deno.test('importo: i totali di Fidra arrivano come «2,393.50» all inglese, e devono uscire «2.393,50»', () => {
+  /* visto dal vivo il 4 settembre 2026 con la tessera 1466: lordo «2,393.50» */
+  assertEquals(importo('2,393.50'), '2.393,50');
+  assertEquals(importo('2.393,50'), '2.393,50', 'anche scritto all italiana');
+  assertEquals(importo(2393.5), '2.393,50', 'numero: migliaia col punto');
+  assertEquals(importo('915,00'), '915,00');
+  assertEquals(importo('1,250'), '1.250,00', 'virgola e tre cifre: sono migliaia');
+});
+
+Deno.test('appuntamenti: la data esce leggibile, ora di Roma', () => {
+  const c = riassuntoConto({ appointments: [{ scheduled_at: '2026-09-03T11:30:00.000000Z', type: 'Visita', operator_name: 'Dr. X', completed: true }] });
+  assertEquals(c.appuntamenti[0].quando, '03/09 13:30');
 });
