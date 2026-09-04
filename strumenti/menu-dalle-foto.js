@@ -143,7 +143,7 @@ const MENU = {
   'Piatti Freddi': [
     /* il prezzo era coperto dal riquadro sotto: entra a prezzo libero, lo
        si batte al momento finche' la proprieta' non lo dice */
-    ['Mozzarella di Bufala & Pomodoro Rosso Origano e Basilico', 0, true],
+    ['Mozzarella di Bufala & Pomodoro Rosso Origano e Basilico', 1200],
     ['Prosciutto Crudo Burrata e Valeriana', 1300], ['RISO VENERE', 1100],
   ],
   'Rose': [
