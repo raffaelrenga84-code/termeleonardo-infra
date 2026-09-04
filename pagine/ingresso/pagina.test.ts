@@ -133,3 +133,19 @@ Deno.test('totem come app a tutto schermo, e un tocco ovunque chiude esito e con
   assert(t.includes('clearTimeout(timerRiposo)') && t.includes('clearInterval(orologioConto)'), 'riposo azzera i tempi');
   assert(t.includes('class="contoChiudi grande"') && t.includes('e.tocca'), 'pulsante grande e «tocchi lo schermo per chiudere»');
 });
+
+Deno.test('le icone dei manifest sono PNG veri, 192 e 512: Android non disegna un SVG come icona', () => {
+  /* «la app si vede anche poco» (la proprieta', 5 settembre 2026): l icona
+     era il logo in SVG e Android mostrava un quadrato vuoto */
+  for (const nome of ['manifest.webmanifest', 'totem.webmanifest']) {
+    const m = JSON.parse(Deno.readTextFileSync(new URL('./' + nome, import.meta.url))) as { icons: { src: string; sizes: string; type: string; purpose?: string }[] };
+    const png = m.icons.filter((i) => i.type === 'image/png');
+    assert(png.some((i) => i.sizes === '192x192') && png.some((i) => i.sizes === '512x512'), nome + ': mancano 192 e 512');
+    assert(png.some((i) => (i.purpose || '').includes('maskable')), nome + ': una maskable per i telefoni che ritagliano');
+    for (const i of png) {
+      const f = new URL('.' + i.src.replace('/ingresso', ''), import.meta.url);
+      const byte = Deno.readFileSync(f);
+      assertEquals([...byte.slice(1, 4)].map((b) => String.fromCharCode(b)).join(''), 'PNG', i.src + ' non e un PNG');
+    }
+  }
+});
