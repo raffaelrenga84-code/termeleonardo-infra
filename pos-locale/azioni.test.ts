@@ -131,3 +131,44 @@ Deno.test('accesso col PIN: hash SHA-256 di codice:pin, sessione nuova; sbagliat
   const vivo = await esegui(db, 'stato-locale', { metodo: 'GET', query: {}, corpo: null, intestazioni: {} }, cfg);
   assertEquals(vivo.stato, 200);
 });
+
+Deno.test('al tavolo i conti si chiamano col nome di chi paga, e quello vuoto si toglie', async () => {
+  const db = base();
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 2 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+
+  /* prima e «Esterno» come tutti, poi porta il nome di chi paga */
+  const s1 = await esegui(db, 'sala', req('GET', null, { locale: 'L1' }), cfg);
+  const primo = (s1.corpo as { tavoli: { conti: { titolo: string }[] }[] }).tavoli[0].conti[0];
+  assertEquals(primo.titolo, 'Esterno');
+  const n = await esegui(db, 'conto-cambia', req('POST', { conto, nome: 'Rossi', coperti: 4 }), cfg);
+  assertEquals(n.stato, 200);
+  const s2 = await esegui(db, 'sala', req('GET', null, { locale: 'L1' }), cfg);
+  const dopo = (s2.corpo as { tavoli: { conti: { titolo: string; nome: string; coperti: number }[] }[] }).tavoli[0].conti[0];
+  assertEquals(dopo.titolo, 'Rossi');
+  assertEquals(dopo.nome, 'Rossi');
+  assertEquals(Number(dopo.coperti), 4);
+
+  /* vuoto se ne va, e l id resta da dire al cloud */
+  const via = await esegui(db, 'conto-elimina', req('POST', { conto }), cfg);
+  assertEquals(via.stato, 200);
+  assertEquals(db.prepare('select count(*) as n from pos_conto').get(), { n: 0 });
+  assertEquals(db.prepare("select id from pos_eliminato where tabella = 'pos_conto'").get(), { id: conto });
+});
+
+Deno.test('un conto con delle righe non si cancella: si storna o si chiude', async () => {
+  const db = base();
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 1 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  await esegui(db, 'righe', req('POST', { conto, righe: [{ id: 'r1', articolo: 'A2', quantita: 1, portata: 'bevande' }] }), cfg);
+  const via = await esegui(db, 'conto-elimina', req('POST', { conto }), cfg);
+  assertEquals(via.stato, 409);
+  assertEquals(db.prepare('select count(*) as n from pos_conto').get(), { n: 1 });
+});
+
+Deno.test('prezzi e disponibilita non si cambiano sul PC: il menu scende dal cloud e li cancellerebbe', async () => {
+  const db = base();
+  const r = await esegui(db, 'articolo-cambia', req('POST', { articolo: 'A1', prezzo_cent: 1500 }), cfg);
+  assertEquals(r.stato, 503);
+  assertEquals(db.prepare("select prezzo_cent as p from pos_articolo where id = 'A1'").get(), { p: 1400 });
+});

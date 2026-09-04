@@ -60,6 +60,17 @@ const chiaveCron = (req: Request) => { const k = Deno.env.get('CRON_KEY'); retur
 const oraRoma = () => new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
 const ePortata = (p: unknown): p is Portata => typeof p === 'string' && (PORTATE as readonly string[]).includes(p);
 
+/* Come si chiama un conto in sala. Il cameriere puo' scriverci sopra il
+   nome di chi paga: al tavolo cinque conti tutti «Esterno» non si
+   distinguono («non posso eliminare gli esterni o scrivere nome», la
+   proprieta', 4 settembre 2026). */
+function titoloConto(c: Riga): string {
+  const suo = String(c.nome ?? '').trim();
+  if (suo) return suo;
+  if (c.tipo === 'camera') return `Camera ${c.camera ?? ''}`.trim() + (c.ospite ? ` · ${c.ospite}` : '');
+  return 'Esterno';
+}
+
 async function hashPin(codice: string, pin: string): Promise<string> {
   const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${codice}:${pin}`));
   return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
@@ -226,7 +237,7 @@ Deno.serve(async (req) => {
       const rr = perConto(c.id as string);
       return {
         id: c.id, tavolo: c.tavolo, tipo: c.tipo, camera: c.camera, ospite: c.ospite, coperti: c.coperti, stato: c.stato,
-        nome: c.tipo === 'camera' ? `Camera ${c.camera ?? ''}`.trim() + (c.ospite ? ` · ${c.ospite}` : '') : 'Esterno',
+        nome: c.nome ?? null, titolo: titoloConto(c),
         totale_cent: totaleCent(rr.map((r) => ({ quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent), stato: String(r.stato) }))),
         attesa: rr.some((r) => r.stato === 'inviata'),
         da_inviare: rr.some((r) => r.stato === 'da_inviare'),
@@ -247,7 +258,7 @@ Deno.serve(async (req) => {
       if (!c) return risposta({ errore: 'conto non trovato' }, 404);
       /* gli altri conti aperti sullo stesso tavolo: servono al cameriere
          per spostarci una riga quando al tavolo si paga separatamente */
-      const { data: fratelli } = await db.from('pos_conto').select('id, tipo, camera, ospite, coperti')
+      const { data: fratelli } = await db.from('pos_conto').select('id, tipo, camera, ospite, coperti, nome')
         .eq('tavolo', c.tavolo as string).neq('stato', 'chiuso').neq('id', c.id as string);
       return risposta({ conto: c, righe: await righeDelConto(c.id as string), fratelli: fratelli ?? [] });
     }
@@ -261,11 +272,68 @@ Deno.serve(async (req) => {
       camera: tipo === 'camera' ? String(b.camera ?? '') || null : null,
       ospite: tipo === 'camera' ? String(b.ospite ?? '') || null : null,
       tessera: tipo === 'camera' ? String(b.tessera ?? '') || null : null,
+      nome: String(b.nome ?? '').trim().slice(0, 40) || null,
       coperti: Math.max(1, Number(b.coperti ?? 1) || 1), stato: 'aperto', aperto_da: cameriere!.id,
     };
     const { data, error } = await db.from('pos_conto').insert(conto).select('*').single();
     if (error) return risposta({ errore: error.message }, 500);
     return risposta({ conto: data });
+  }
+
+  /* Il nome di chi paga e i coperti, cambiati a conto aperto. */
+  if (azione === 'conto-cambia') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const b = await corpo();
+    const { data: c } = await db.from('pos_conto').select('*').eq('id', String(b.conto ?? '')).maybeSingle();
+    if (!c || c.stato === 'chiuso') return risposta({ errore: 'conto non aperto' }, 409);
+    const agg: Riga = { aggiornato_il: adesso() };
+    if (b.nome !== undefined) agg.nome = String(b.nome ?? '').trim().slice(0, 40) || null;
+    if (b.coperti !== undefined) agg.coperti = Math.max(1, Number(b.coperti) || 1);
+    const { data, error } = await db.from('pos_conto').update(agg).eq('id', c.id).select('*').single();
+    if (error) return risposta({ errore: error.message }, 500);
+    return risposta({ conto: data });
+  }
+
+  /* Un conto aperto per sbaglio si toglie di mezzo, ma solo finche' e'
+     vuoto: con delle righe dentro si storna o si chiude, cosi' niente
+     sparisce senza lasciare traccia. */
+  if (azione === 'conto-elimina') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const b = await corpo();
+    const id = String(b.conto ?? '');
+    const { data: c } = await db.from('pos_conto').select('*').eq('id', id).maybeSingle();
+    if (!c) return risposta({ errore: 'conto non trovato' }, 404);
+    if (c.stato === 'chiuso') return risposta({ errore: 'conto gia chiuso' }, 409);
+    const righe = await righeDelConto(id);
+    if (righe.length) return risposta({ errore: 'il conto ha delle righe: le storni prima, oppure lo chiuda' }, 409);
+    const { error } = await db.from('pos_conto').delete().eq('id', id);
+    if (error) return risposta({ errore: error.message }, 500);
+    return risposta({ esito: 'ok' });
+  }
+
+  /* Prezzo e disponibilita' da dentro il POS, senza andare in back office:
+     e' il gesto che si fa in sala quando un piatto finisce o il prezzo del
+     giorno cambia. Il prezzo lo tocca solo l'amministrazione; «esaurito»
+     anche il capo sala, che e' chi se ne accorge per primo. */
+  if (azione === 'articolo-cambia') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const b = await corpo();
+    const { data: a } = await db.from('pos_articolo').select('*').eq('id', String(b.articolo ?? '')).maybeSingle();
+    if (!a) return risposta({ errore: 'articolo non trovato' }, 404);
+    const agg: Riga = { aggiornato_il: adesso() };
+    if (b.prezzo_cent !== undefined) {
+      if (!puo(cameriere!, 'menu')) return risposta({ errore: 'il prezzo lo cambia l\'amministrazione' }, 403);
+      const p = Math.round(Number(b.prezzo_cent));
+      if (!Number.isFinite(p) || p < 0 || p > 100000) return risposta({ errore: 'prezzo non valido' }, 400);
+      agg.prezzo_cent = p;
+    }
+    if (b.esaurito !== undefined) {
+      if (!puo(cameriere!, 'prezzo')) return risposta({ errore: 'lo segna il capo sala' }, 403);
+      agg.esaurito = !!b.esaurito;
+    }
+    const { data, error } = await db.from('pos_articolo').update(agg).eq('id', a.id).select('*').single();
+    if (error) return risposta({ errore: error.message }, 500);
+    return risposta({ articolo: data });
   }
 
   if (azione === 'righe') {
@@ -476,6 +544,10 @@ Deno.serve(async (req) => {
         comande: await upsertSeNuovi('pos_comanda', Array.isArray(b.comande) ? b.comande as Riga[] : []),
         stampe: await upsertSeNuovi('pos_stampa', Array.isArray(b.stampe) ? b.stampe as Riga[] : []),
       };
+      /* i conti che il PC del Bistrot ha tolto perche' vuoti: la
+         cancellazione non viaggia con le scritture, arriva a parte */
+      const tolti = (Array.isArray(b.conti_eliminati) ? b.conti_eliminati : []).map(String);
+      if (tolti.length) await db.from('pos_conto').delete().in('id', tolti).eq('stato', 'aperto');
       return risposta({ esito: 'ok', ...esito });
     } catch (e) { return risposta({ errore: (e as Error).message }, 500); }
   }

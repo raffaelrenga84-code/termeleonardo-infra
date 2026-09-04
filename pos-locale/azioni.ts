@@ -52,6 +52,16 @@ const righeDelConto = (db: Db, conto: string): RigaStampabile[] =>
 
 const contoDi = (db: Db, id: string): Riga | undefined => db.prepare('select * from pos_conto where id = ?').get(id) as Riga | undefined;
 
+/* Come si chiama un conto in sala: il nome che il cameriere gli ha
+   scritto sopra, se no la camera, se no «Esterno». Stessa regola del
+   cloud (supabase/functions/pos/index.ts). */
+function titoloConto(c: Riga): string {
+  const suo = String(c.nome ?? '').trim();
+  if (suo) return suo;
+  if (c.tipo === 'camera') return `Camera ${c.camera ?? ''}`.trim() + (c.ospite ? ` · ${c.ospite}` : '');
+  return 'Esterno';
+}
+
 /* ---------- le stampe di una portata: un biglietto per stampante ---------- */
 function creaStampe(db: Db, conto: Riga, righe: RigaStampabile[], portata: Portata, tipo: 'comanda' | 'vai' | 'storno' | 'modifica', cameriere: string): void {
   const t = db.prepare(`select t.nome as tavolo, l.id as locale_id, l.nome as locale_nome
@@ -112,7 +122,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
   }
 
   const cameriere = cameriereDi(db, req);
-  const azioniPalmare = ['menu', 'sala', 'conto', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi'];
+  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia'];
   if (azioniPalmare.includes(azione) && !cameriere) return errore('sessione non valida', 401);
 
   if (azione === 'menu') {
@@ -139,7 +149,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
       const rr = righe.filter((r) => r.conto === c.id);
       return {
         id: c.id, tavolo: c.tavolo, tipo: c.tipo, camera: c.camera, ospite: c.ospite, coperti: c.coperti, stato: c.stato,
-        nome: c.tipo === 'camera' ? `Camera ${c.camera ?? ''}`.trim() + (c.ospite ? ` · ${c.ospite}` : '') : 'Esterno',
+        nome: c.nome ?? null, titolo: titoloConto(c),
         totale_cent: totaleCent(rr.map((r) => ({ quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent), stato: String(r.stato) }))),
         attesa: rr.some((r) => r.stato === 'inviata'),
         da_inviare: rr.some((r) => r.stato === 'da_inviare'),
@@ -154,7 +164,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
       const c = contoDi(db, req.query.id || '');
       if (!c) return errore('conto non trovato', 404);
       /* gli altri conti aperti dello stesso tavolo: per spostarci una riga */
-      const fratelli = db.prepare("select id, tipo, camera, ospite, coperti from pos_conto where tavolo = ? and stato != 'chiuso' and id != ?")
+      const fratelli = db.prepare("select id, tipo, camera, ospite, coperti, nome from pos_conto where tavolo = ? and stato != 'chiuso' and id != ?")
         .all(String(c.tavolo), String(c.id));
       return ok({ conto: c, righe: righeDelConto(db, String(c.id)), fratelli });
     }
@@ -169,11 +179,46 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
       camera: tipo === 'camera' ? String(b.camera ?? '') || null : null,
       ospite: tipo === 'camera' ? String(b.ospite ?? '') || null : null,
       tessera: tipo === 'camera' ? String(b.tessera ?? '') || null : null,
+      nome: String(b.nome ?? '').trim().slice(0, 40) || null,
       coperti: Math.max(1, Number(b.coperti ?? 1) || 1), stato: 'aperto', chiuso_come: null,
       aperto_da: cameriere!.id, aperto_il: ora, chiuso_da: null, chiuso_il: null, aggiornato_il: ora, allineato: 0,
     });
     return ok({ conto: contoDi(db, id) });
   }
+
+  /* Il nome di chi paga e i coperti, cambiati a conto aperto. */
+  if (azione === 'conto-cambia') {
+    const no = soloPost(); if (no) return no;
+    const c = contoDi(db, String(b.conto ?? ''));
+    if (!c || c.stato === 'chiuso') return errore('conto non aperto', 409);
+    const ora = adesso();
+    const nome = b.nome === undefined ? c.nome : (String(b.nome ?? '').trim().slice(0, 40) || null);
+    const coperti = b.coperti === undefined ? c.coperti : Math.max(1, Number(b.coperti) || 1);
+    db.prepare('update pos_conto set nome = ?, coperti = ?, aggiornato_il = ?, allineato = 0 where id = ?')
+      .run(nome === null ? null : String(nome), Number(coperti), ora, String(c.id));
+    return ok({ conto: contoDi(db, String(c.id)) });
+  }
+
+  /* Un conto aperto per sbaglio si toglie, ma solo finche' e' vuoto. La
+     riga sparisce da qui e l'id resta in pos_eliminato finche' il cloud
+     non l'ha tolto anche lui: cancellare non sale con le scritture. */
+  if (azione === 'conto-elimina') {
+    const no = soloPost(); if (no) return no;
+    const id = String(b.conto ?? '');
+    const c = contoDi(db, id);
+    if (!c) return errore('conto non trovato', 404);
+    if (c.stato === 'chiuso') return errore('conto gia chiuso', 409);
+    if (righeDelConto(db, id).length) return errore('il conto ha delle righe: le storni prima, oppure lo chiuda', 409);
+    db.prepare('delete from pos_conto where id = ?').run(id);
+    db.prepare("insert or replace into pos_eliminato (id, tabella, quando) values (?, 'pos_conto', ?)").run(id, adesso());
+    return ok({ esito: 'ok' });
+  }
+
+  /* Prezzo e disponibilita' si cambiano nel cloud, non qui: il menu' da
+     noi scende e basta (allinea.ts), e una modifica scritta qui sarebbe
+     cancellata al primo allineamento. Il palmare lo sa e li manda al
+     cloud; se non c'e' linea, aspetta. */
+  if (azione === 'articolo-cambia') return errore('prezzi e disponibilita si cambiano col cloud: serve la linea', 503);
 
   if (azione === 'righe') {
     const no = soloPost(); if (no) return no;

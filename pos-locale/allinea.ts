@@ -40,8 +40,13 @@ export async function su(db: Db, cloud: Cloud): Promise<number> {
     });
     for (const r of righe) mandate.push({ tabella, id: String(r.id), aggiornato_il: String(r.aggiornato_il) });
   }
-  if (!mandate.length) return 0;
-  try { await chiama(cloud, '?a=allinea-su', { method: 'POST', body: JSON.stringify(pacchetto) }); } catch { return 0; }
+  /* i conti tolti qui: cancellare non e' scrivere, e una riga sparita non
+     sale con le altre. Gli id restano in pos_eliminato finche' il cloud
+     non li ha tolti anche lui. */
+  const eliminati = (db.prepare("select id from pos_eliminato where tabella = 'pos_conto' order by quando limit 200").all() as Riga[]).map((r) => String(r.id));
+  if (!mandate.length && !eliminati.length) return 0;
+  try { await chiama(cloud, '?a=allinea-su', { method: 'POST', body: JSON.stringify({ ...pacchetto, conti_eliminati: eliminati }) }); } catch { return 0; }
+  for (const id of eliminati) db.prepare('delete from pos_eliminato where id = ?').run(id);
   const segna = new Map<string, ReturnType<Db['prepare']>>();
   for (const m of mandate) {
     if (!segna.has(m.tabella)) segna.set(m.tabella, db.prepare(`update ${m.tabella} set allineato = 1 where id = ? and aggiornato_il = ?`));

@@ -66,7 +66,7 @@ create table if not exists pos_sessione (
   id text primary key, cameriere text not null, dispositivo text not null, scade_il text not null,
   aggiornato_il text not null default ${ORA});
 create table if not exists pos_conto (
-  id text primary key, tavolo text not null, tipo text not null, camera text, ospite text, tessera text,
+  id text primary key, tavolo text not null, tipo text not null, camera text, ospite text, tessera text, nome text,
   coperti integer not null default 1, stato text not null default 'aperto', chiuso_come text,
   aperto_da text, aperto_il text not null default ${ORA}, chiuso_da text, chiuso_il text,
   aggiornato_il text not null default ${ORA}, allineato integer not null default 0);
@@ -86,6 +86,10 @@ create table if not exists pos_stampa (
   stampata_il text, stampata_da text, errore text, aggiornato_il text not null default ${ORA},
   allineato integer not null default 0);
 create table if not exists pos_meta (chiave text primary key, valore text);
+/* Cancellare non e' scrivere: una riga tolta qui non sale con le altre.
+   Qui restano gli id tolti finche' il cloud non li ha tolti anche lui. */
+create table if not exists pos_eliminato (
+  id text primary key, tabella text not null, quando text not null default ${ORA});
 create index if not exists pos_riga_conto on pos_riga(conto);
 create index if not exists pos_stampa_stato on pos_stampa(stato);
 `);

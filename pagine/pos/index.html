@@ -87,6 +87,17 @@ button{font:inherit;cursor:pointer;}
 .categorie{display:flex;gap:6px;overflow-x:auto;padding:6px 0;}
 .categorie button{padding:8px 12px;border-radius:8px;border:1px solid var(--pietra);background:#fff;white-space:nowrap;font-size:14px;}
 .categorie button.attiva{background:var(--verde-medio);color:#fff;border-color:var(--verde-medio);}
+/* Le categorie come sul POS di prima: tutte insieme in un riquadro per
+   una, in ordine alfabetico. In fila una accanto all'altra erano
+   «quel casino» (la proprieta', 4 settembre 2026): per trovarne una si
+   scorreva di lato al buio. */
+.categorieGriglia{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;padding-bottom:10px;}
+.catVoce{min-height:62px;padding:10px 12px;border-radius:10px;border:1px solid var(--pietra);background:#fff;text-align:left;
+  display:flex;flex-direction:column;justify-content:center;gap:3px;font-size:15px;line-height:1.2;color:var(--verde);}
+.catVoce .mini{font-size:11px;}
+.catVoce.vuota{opacity:.45;}
+.contoRiga .apri{flex:1;text-align:left;background:none;border:0;padding:0;font:inherit;color:inherit;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+.contoRiga .altro{background:none;border:1px solid var(--pietra);border-radius:8px;padding:4px 11px;font-size:18px;color:var(--verde-medio);line-height:1.2;margin-left:10px;}
 .comanda{background:#fff;border-top:2px solid var(--verde);max-height:38vh;overflow:auto;padding:6px 10px;}
 .comanda .portataTit{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--bronzo);margin:6px 0 2px;display:flex;justify-content:space-between;}
 .riga{display:grid;grid-template-columns:34px 1fr auto;gap:8px;align-items:start;padding:7px 0;border-top:1px solid #F3EEE4;font-size:15px;}
@@ -170,7 +181,10 @@ function pallino() {
 }
 
 async function chiama(azione, opz = {}) {
-  const base = await server.base();
+  /* «cloud: true» per le cose che vivono solo nel cloud, come il menu':
+     scritte sul PC del Bistrot sarebbero cancellate al primo
+     allineamento, che il menu' lo fa scendere e basta */
+  const base = opz.cloud ? CLOUD : await server.base();
   const testa = { 'content-type': 'application/json', 'x-pos-dispositivo': DISPOSITIVO, 'x-pos-sessione': SESSIONE, ...(opz.headers || {}) };
   let r;
   try {
@@ -314,6 +328,16 @@ async function caricaMenu() {
 const articoliDi = (categoria) => MENU.articoli.filter((a) => a.categoria === categoria);
 const sottoDi = (categoria) => MENU.categorie.filter((c) => c.sotto === categoria);
 const categoriaDi = (id) => MENU.categorie.find((c) => c.id === id);
+/* le categorie di primo livello, in ordine: quello che dice il back
+   office, e a parita' l'alfabeto */
+const categorieRadice = () => MENU.categorie.filter((c) => !c.sotto && c.attiva !== false)
+  .sort((a, b) => (Number(a.posizione) || 0) - (Number(b.posizione) || 0) || String(a.nome).localeCompare(String(b.nome), 'it'));
+const quantiIn = (c) => articoliDi(c.id).length + sottoDi(c.id).reduce((t, s) => t + articoliDi(s.id).length, 0);
+/* come si chiama un conto: il nome scritto dal cameriere, se no la
+   camera, se no «Esterno». Lo dice anche il server (titolo), ma qui serve
+   anche sui conti appena aperti. */
+const titoloConto = (c) => String((c || {}).nome || '').trim()
+  || (c && c.tipo === 'camera' ? `Camera ${c.camera || ''}`.trim() + (c.ospite ? ` · ${c.ospite}` : '') : 'Esterno');
 const portataArticolo = (a) => a.portata || (categoriaDi(a.categoria) || {}).portata || 'secondi';
 
 /* ---------- la sala ----------
@@ -370,16 +394,67 @@ async function schermataSala() {
 /* ---------- il tavolo: i suoi conti ---------- */
 function schermataTavolo(t) {
   testa(t.nome, schermataSala);
-  const aperti = t.conti.filter((c) => c.stato !== 'chiuso');
+  let aperti = t.conti.filter((c) => c.stato !== 'chiuso');
   let coperti = 2;
+  const rileggi = async () => {
+    /* dopo aver cambiato un nome o tolto un conto si rilegge il tavolo:
+       cosi' l'elenco dice la verita' senza tornare in sala */
+    try {
+      const s = await chiama('sala', { qs: `&locale=${encodeURIComponent(LOCALE_ID)}` });
+      const suo = s.tavoli.find((x) => x.id === t.id);
+      if (suo) { t = suo; aperti = suo.conti.filter((c) => c.stato !== 'chiuso'); }
+    } catch (e) { /* si resta con quello che si ha */ }
+    disegna();
+  };
+  /* Il pannello di un conto: come si chiama, quante persone, e via se e'
+     stato aperto per sbaglio. Cinque righe tutte «Esterno» non si
+     distinguevano (la proprieta', 4 settembre 2026). */
+  const pannelloConto = (c) => {
+    const velo = document.createElement('div'); velo.className = 'velo';
+    velo.innerHTML = `<div class="pannello">
+      <h3>${esc(c.titolo || titoloConto(c))}</h3>
+      <label>Nome di chi paga (facoltativo)</label>
+      <input id="pcNome" maxlength="40" placeholder="es. Rossi, amici della 229" value="${esc(c.nome || '')}" />
+      <label>Coperti</label>
+      <div class="coperti">${[1,2,3,4,5,6,7,8,9,10,11,12].map((n) => `<button data-cop="${n}" class="${n === Number(c.coperti) ? 'attivo' : ''}">${n}</button>`).join('')}</div>
+      ${c.totale_cent ? '<p class="mini">Il conto ha delle righe: per toglierlo si stornano prima, oppure si chiude.</p>'
+        : '<button class="bottone sec" id="pcVia" style="border-color:var(--allarme);color:var(--allarme);">Elimina questo conto</button>'}
+      <div class="due"><button class="bottone sec" id="pcChiudi">Annulla</button><button class="bottone" id="pcOk">Salva</button></div></div>`;
+    document.body.appendChild(velo);
+    let cop = Number(c.coperti) || 1;
+    const via = () => velo.remove();
+    velo.onclick = (ev) => { if (ev.target === velo) via(); };
+    velo.querySelectorAll('[data-cop]').forEach((b) => b.onclick = () => {
+      cop = Number(b.dataset.cop);
+      velo.querySelectorAll('[data-cop]').forEach((x) => x.classList.toggle('attivo', Number(x.dataset.cop) === cop));
+    });
+    velo.querySelector('#pcChiudi').onclick = via;
+    velo.querySelector('#pcOk').onclick = async () => {
+      try {
+        const j = await scrivi('conto-cambia', { conto: c.id, nome: velo.querySelector('#pcNome').value.trim(), coperti: cop });
+        if (j.offline) alert('Nessun server risponde: il nome si salva appena torna la linea.');
+        via(); await rileggi();
+      } catch (e) { alert(e.message); }
+    };
+    const v = velo.querySelector('#pcVia');
+    if (v) v.onclick = async () => {
+      if (!confirm('Tolgo questo conto? È vuoto.')) return;
+      try {
+        const j = await scrivi('conto-elimina', { conto: c.id });
+        if (j.offline) return alert('Nessun server risponde: riprovi tra un momento.');
+        via(); await rileggi();
+      } catch (e) { alert(e.message); }
+    };
+  };
   const disegna = () => {
-    $('app').innerHTML = `<div class="riquadro">${aperti.length ? aperti.map((c) => `<div class="contoRiga" data-c="${esc(c.id)}"><span><b>${esc(c.nome)}</b><br><span class="mini">${c.coperti} coperti${c.attesa ? ' · portata in attesa' : ''}</span></span><b>${euro(c.totale_cent)}</b></div>`).join('') : '<p class="mini">Tavolo libero.</p>'}</div>
+    $('app').innerHTML = `<div class="riquadro">${aperti.length ? aperti.map((c) => `<div class="contoRiga"><button type="button" class="apri" data-c="${esc(c.id)}"><span><b>${esc(c.titolo || titoloConto(c))}</b><br><span class="mini">${c.coperti} coperti${c.attesa ? ' · portata in attesa' : ''}</span></span><b>${euro(c.totale_cent)}</b></button><button type="button" class="altro" data-altro="${esc(c.id)}" title="Nome, coperti, elimina">⋯</button></div>`).join('') : '<p class="mini">Tavolo libero.</p>'}</div>
       <div class="riquadro"><b>Nuovo conto</b><p class="mini">Quanti coperti?</p>
         <div class="coperti">${[1,2,3,4,5,6,7,8,9,10,11,12].map((n) => `<button data-n="${n}" class="${n === coperti ? 'attivo' : ''}">${n}</button>`).join('')}</div>
         <button class="bottone" id="nuovoEsterno">Apri conto</button>
         <p class="mini" style="margin-top:8px;">Il conto in camera con la tessera arriva nella fase 2.</p></div>`;
-    $('app').querySelectorAll('.coperti button').forEach((b) => b.onclick = () => { coperti = Number(b.dataset.n); disegna(); });
-    $('app').querySelectorAll('.contoRiga').forEach((r) => r.onclick = () => apriConto(r.dataset.c));
+    $('app').querySelectorAll('.coperti button[data-n]').forEach((b) => b.onclick = () => { coperti = Number(b.dataset.n); disegna(); });
+    $('app').querySelectorAll('[data-c]').forEach((r) => r.onclick = () => apriConto(r.dataset.c));
+    $('app').querySelectorAll('[data-altro]').forEach((b) => b.onclick = () => pannelloConto(aperti.find((c) => c.id === b.dataset.altro)));
     $('nuovoEsterno').onclick = async () => {
       try {
         const j = await scrivi('conto', { tavolo: t.id, tipo: 'esterno', coperti });
@@ -399,8 +474,7 @@ async function apriConto(id) {
 
 /* ---------- l'ordine: dove si vive ---------- */
 function schermataOrdine(conto, righeServer, fratelli = []) {
-  const nomeConto = conto.tipo === 'camera' ? `Camera ${conto.camera}` : 'Esterno';
-  testa(`${nomeConto} · ${conto.coperti} cop.`, schermataSala);
+  testa(`${titoloConto(conto)} · ${conto.coperti} cop.`, schermataSala);
   let ordine = creaOrdine();
   let portataForzata = '';         // '' = quella dell'articolo
   let quantitaPronta = 1;
@@ -423,8 +497,11 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     const nuove = daInviare(ordine).length;
     const prossima = prossimaInAttesa();
     let lista;
+    /* «dentro una» = si sta guardando una categoria o una ricerca; se no
+       si sta al primo piano: preferiti, ultimi e tutte le categorie */
+    const dentroUna = !!categoria || cerca.length >= 3;
     if (cerca.length >= 3) lista = [['Trovati', MENU.articoli.filter((a) => a.nome.toLowerCase().includes(cerca.toLowerCase())).slice(0, 40)]];
-    else if (categoria) lista = [[categoriaDi(categoria).nome, articoliDi(categoria)]];
+    else if (categoria) lista = [[(categoriaDi(categoria) || {}).nome || '', articoliDi(categoria)]];
     else lista = [['Preferiti', preferiti()], ['Ultimi di questo tavolo', ultimi()]].filter(([, a]) => a.length);
     const tutte = [...dalServer.filter((r) => r.stato !== 'stornata'), ...ordine.righe];
     const totale = tutte.reduce((t, r) => t + r.quantita * r.prezzo_cent, 0);
@@ -435,14 +512,18 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       <div class="cercaRiga"><input id="cerca" placeholder="cerca (3 lettere)" value="${esc(cerca)}" autocomplete="off" />
         <div class="quantita">${[1,2,3,4].map((n) => `<button data-q="${n}" class="${n === quantitaPronta ? 'attivo' : ''}">${n}</button>`).join('')}<button id="quantitaAltra" class="${quantitaPronta > 4 ? 'attivo' : ''}">${quantitaPronta > 4 ? quantitaPronta : '…'}</button></div></div>
       <div class="griglia">
-        ${cerca.length >= 3 ? '' : `<div class="categorie"><button data-cat="" class="${categoria ? '' : 'attiva'}">★</button>${MENU.categorie.filter((c) => !c.sotto && c.attiva !== false).map((c) => `<button data-cat="${esc(c.id)}" class="${c.id === categoria ? 'attiva' : ''}" style="${c.colore ? `border-left:6px solid ${esc(c.colore)}` : ''}">${esc(c.nome)}</button>`).join('')}</div>`}
-        ${categoria && sottoDi(categoria).length ? `<div class="categorie">${sottoDi(categoria).map((c) => `<button data-cat="${esc(c.id)}">${esc(c.nome)}</button>`).join('')}</div>` : ''}
+        ${dentroUna ? `<div class="categorie"><button data-cat="">‹ Categorie</button>${categoria ? sottoDi(categoria).map((c) => `<button data-cat="${esc(c.id)}">${esc(c.nome)}</button>`).join('') : ''}</div>` : ''}
         ${lista.map(([tit, arts]) => `<div class="sezione">${esc(tit)}</div><div class="articoli">${arts.map((a) => {
           const col = (categoriaDi(a.categoria) || {}).colore;
-          return `<button class="articolo ${a.esaurito ? 'esaurito' : ''}" data-a="${esc(a.id)}" ${a.esaurito ? 'disabled' : ''} ${col ? `style="border-left:7px solid ${esc(col)}"` : ''}><span>${esc(a.nome)}</span><span class="prezzo">${a.prezzo_libero ? '# prezzo libero' : euro(a.prezzo_cent)}</span></button>`;
-        }).join('')}</div>`).join('') || '<p class="mini">Nessun articolo: scelga una categoria o cerchi.</p>'}
+          return `<button class="articolo ${a.esaurito ? 'esaurito' : ''}" data-a="${esc(a.id)}" ${col ? `style="border-left:7px solid ${esc(col)}"` : ''}><span>${esc(a.nome)}</span><span class="prezzo">${a.esaurito ? 'esaurito' : a.prezzo_libero ? '# prezzo libero' : euro(a.prezzo_cent)}</span></button>`;
+        }).join('')}</div>`).join('')}
+        ${dentroUna ? (lista.some(([, a]) => a.length) ? '' : '<p class="mini">Nessun articolo qui.</p>')
+          : `<div class="sezione">Categorie</div><div class="categorieGriglia">${categorieRadice().map((c) => {
+            const n = quantiIn(c);
+            return `<button class="catVoce ${n ? '' : 'vuota'}" data-cat="${esc(c.id)}" ${c.colore ? `style="border-left:7px solid ${esc(c.colore)}"` : ''}><span>${esc(c.nome)}</span><span class="mini">${n ? `${n} articol${n === 1 ? 'o' : 'i'}` : 'ancora vuota'}</span></button>`;
+          }).join('')}</div>`}
       </div>
-      <div class="comanda" id="comanda">${[...gruppi].map(([p, rr]) => `<div class="portataTit"><span>${NOMI_PORTATE[p]}</span>${prossima === p ? '<span>in attesa</span>' : ''}</div>${rr.map((r) => `<div class="riga ${r.stato}" data-r="${esc(r.id)}"><span class="q">${r.quantita}×</span><span>${esc(r.nome)}${r.variante ? `<div class="dett">+ ${esc(r.variante)}</div>` : ''}${r.nota ? `<div class="dett">› ${esc(r.nota)}</div>` : ''}</span><span>${euro(r.quantita * r.prezzo_cent)}</span></div>`).join('')}`).join('') || '<p class="mini">Tocchi un articolo per aggiungerlo. Tocco lungo su una riga per nota, variante, quantità.</p>'}</div>
+      <div class="comanda" id="comanda">${[...gruppi].map(([p, rr]) => `<div class="portataTit"><span>${NOMI_PORTATE[p]}</span>${prossima === p ? '<span>in attesa</span>' : ''}</div>${rr.map((r) => `<div class="riga ${r.stato}" data-r="${esc(r.id)}"><span class="q">${r.quantita}×</span><span>${esc(r.nome)}${r.variante ? `<div class="dett">+ ${esc(r.variante)}</div>` : ''}${r.nota ? `<div class="dett">› ${esc(r.nota)}</div>` : ''}</span><span>${euro(r.quantita * r.prezzo_cent)}</span></div>`).join('')}`).join('') || `<p class="mini">Tocchi un articolo per aggiungerlo. Tocco lungo su una riga per nota, variante, quantità${puoDisponibilita ? '; tocco lungo su un articolo per prezzo e disponibilità' : ''}.</p>`}</div>
       <div class="totale"><span>Totale</span><b>${euro(totale)}</b></div>
       <div class="azioni">
         <button class="bottone" id="invia" ${nuove ? '' : 'disabled'}>Invia${nuove ? ` (${nuove})` : ''}</button>
@@ -456,15 +537,72 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       const n = await chiediNumero('Quante?', { valore: quantitaPronta > 4 ? String(quantitaPronta) : '' });
       if (n) { quantitaPronta = Math.min(99, Math.round(n)); disegna(); }
     };
-    app.querySelectorAll('.categorie button').forEach((b) => b.onclick = () => { categoria = b.dataset.cat; cerca = ''; disegna(); });
+    app.querySelectorAll('[data-cat]').forEach((b) => b.onclick = () => { categoria = b.dataset.cat; cerca = ''; disegna(); });
     const c = $('cerca');
     c.oninput = () => { cerca = c.value; const pos = c.selectionStart; disegna(); const n = $('cerca'); n.focus(); n.setSelectionRange(pos, pos); };
-    app.querySelectorAll('.articolo').forEach((b) => b.onclick = () => aggiungiArticolo(MENU.articoli.find((a) => a.id === b.dataset.a)));
+    /* tocco: l'articolo va sulla comanda. Tocco lungo: prezzo e
+       disponibilita', per chi puo' (capo sala e amministrazione). Dopo un
+       tocco lungo il dito che si alza non deve anche ordinare. */
+    app.querySelectorAll('.articolo').forEach((b) => {
+      const a = MENU.articoli.find((x) => x.id === b.dataset.a);
+      b.onclick = () => {
+        if (b.dataset.lungo) { b.removeAttribute('data-lungo'); return; }
+        if (a && a.esaurito) return puoDisponibilita ? pannelloArticolo(a) : alert(`${a.nome}: esaurito.`);
+        aggiungiArticolo(a);
+      };
+      if (puoDisponibilita) toccoLungo(b, () => { b.dataset.lungo = '1'; pannelloArticolo(a); });
+    });
     app.querySelectorAll('.riga').forEach((r) => toccoLungo(r, () => pannelloRiga(r.dataset.r)));
     $('invia').onclick = invia;
     $('vai').onclick = vai;
     $('chiudi').onclick = chiudi;
     $('comanda').scrollTop = $('comanda').scrollHeight;
+  };
+
+  /* Prezzo e disponibilita' da qui, col tocco lungo su un articolo: e' il
+     gesto della sala, quando un piatto finisce o il prezzo del giorno
+     cambia, e non si va in back office col vassoio in mano («non posso
+     modificare i prezzi», la proprieta', 4 settembre 2026).
+     «Esaurito» lo segna il capo sala; il prezzo di listino solo
+     l'amministrazione. Il menu' vive nel cloud: serve la linea. */
+  const puoDisponibilita = !!CAMERIERE && CAMERIERE.ruolo !== 'cameriere';
+  const puoListino = !!CAMERIERE && CAMERIERE.ruolo === 'amministrazione';
+  const pannelloArticolo = (a) => {
+    if (!a) return;
+    const velo = document.createElement('div'); velo.className = 'velo';
+    velo.innerHTML = `<div class="pannello">
+      <h3>${esc(a.nome)}</h3>
+      <p class="mini">${esc((categoriaDi(a.categoria) || {}).nome || '')}${a.prezzo_libero ? ' · prezzo libero' : ` · a listino ${euro(a.prezzo_cent)}`}</p>
+      ${puoListino && !a.prezzo_libero ? `<label>Prezzo di listino (euro)</label><input id="paPrezzo" inputmode="decimal" value="${(Number(a.prezzo_cent) / 100).toFixed(2).replace('.', ',')}" />`
+        : '<p class="mini">Il prezzo di listino lo cambia l’amministrazione, da qui o dal back office.</p>'}
+      <label>In questo momento</label>
+      <div class="chips"><button data-esa="0" class="${a.esaurito ? '' : 'attiva'}">C’è</button><button data-esa="1" class="${a.esaurito ? 'attiva' : ''}">Esaurito</button></div>
+      <div class="due"><button class="bottone sec" id="paChiudi">Annulla</button><button class="bottone" id="paOk">Salva</button></div></div>`;
+    document.body.appendChild(velo);
+    let esaurito = !!a.esaurito;
+    const via = () => velo.remove();
+    velo.onclick = (ev) => { if (ev.target === velo) via(); };
+    velo.querySelectorAll('[data-esa]').forEach((b) => b.onclick = () => {
+      esaurito = b.dataset.esa === '1';
+      velo.querySelectorAll('[data-esa]').forEach((x) => x.classList.toggle('attiva', (x.dataset.esa === '1') === esaurito));
+    });
+    velo.querySelector('#paChiudi').onclick = via;
+    velo.querySelector('#paOk').onclick = async () => {
+      const corpo = { articolo: a.id, esaurito };
+      const campo = velo.querySelector('#paPrezzo');
+      if (campo) {
+        const n = Number(String(campo.value).replace(',', '.'));
+        if (!isFinite(n) || n < 0) return alert('Prezzo non valido.');
+        corpo.prezzo_cent = Math.round(n * 100);
+      }
+      try {
+        const j = await chiama('articolo-cambia', { method: 'POST', body: JSON.stringify(corpo), cloud: true });
+        Object.assign(a, j.articolo);
+        MENU.articoli = MENU.articoli.map((x) => x.id === a.id ? { ...x, ...j.articolo } : x);
+        localStorage.setItem('posMenu', JSON.stringify(MENU));
+        via(); disegna();
+      } catch (e) { alert(e instanceof TypeError ? 'Serve la linea: prezzi e disponibilità si cambiano sul server dell’hotel.' : e.message); }
+    };
   };
 
   const aggiungiArticolo = async (a) => {
@@ -586,7 +724,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
   /* Al tavolo si paga separatamente: la riga passa a un altro conto dello
      stesso tavolo, o a uno nuovo aperto li' per li'. Non e' uno storno:
      in cucina non cambia niente, cambia solo chi paga. */
-  const nomeConto2 = (c) => c.tipo === 'camera' ? `Camera ${c.camera ?? ''}`.trim() : `Esterno · ${c.coperti} cop.`;
+  const nomeConto2 = (c) => c.nome ? String(c.nome) : (c.tipo === 'camera' ? `Camera ${c.camera ?? ''}`.trim() : `Esterno · ${c.coperti} cop.`);
   const sposta = async (id, corpo) => {
     try {
       const j = await scrivi('sposta', { riga: id, ...corpo });

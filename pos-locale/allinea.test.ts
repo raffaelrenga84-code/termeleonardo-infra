@@ -86,3 +86,23 @@ Deno.test('giu: una stampa nata nel cloud entra in coda locale gia allineata (no
   const b = chiamate.find((c) => c.url.includes('locale-vivo'))!;
   assertEquals(b.corpo, { locale: 'L1' });
 });
+
+Deno.test('su: anche i conti tolti qui salgono, e restano in lista finche il cloud non li ha tolti', async () => {
+  /* cancellare non e' scrivere: una riga sparita non sale con le altre */
+  const db = base();
+  db.exec("delete from pos_conto where id = 'C1'; delete from pos_riga; delete from pos_comanda;");
+  db.exec("insert into pos_eliminato (id, tabella, quando) values ('C1', 'pos_conto', '2026-09-04T11:00:00Z');");
+  const { chiamate, cloud } = cloudFinto(() => ({ esito: 'ok' }));
+  assertEquals(await su(db, cloud), 0, 'niente da scrivere, ma la cancellazione parte lo stesso');
+  assertEquals((chiamate[0].corpo as { conti_eliminati: string[] }).conti_eliminati, ['C1']);
+  assertEquals(db.prepare('select count(*) as n from pos_eliminato').get(), { n: 0 }, 'detto al cloud, si dimentica');
+});
+
+Deno.test('su: se il cloud non risponde, i conti tolti restano da dire', async () => {
+  const db = base();
+  db.exec("delete from pos_conto where id = 'C1'; delete from pos_riga; delete from pos_comanda;");
+  db.exec("insert into pos_eliminato (id, tabella, quando) values ('C1', 'pos_conto', '2026-09-04T11:00:00Z');");
+  const cloud = { base: 'https://cloud/pos', hotelKey: 'k', locale: 'L1', fetch: (() => Promise.reject(new Error('giu'))) as unknown as typeof globalThis.fetch };
+  assertEquals(await su(db, cloud), 0);
+  assertEquals(db.prepare('select count(*) as n from pos_eliminato').get(), { n: 1 });
+});

@@ -65,3 +65,17 @@ Deno.test('l invio crea le stampe per stampante e segna le portate partite', () 
   const invia = S.slice(S.indexOf("azione === 'invia'"), S.indexOf("azione === 'vai'"));
   assert(invia.includes('dividi(') && invia.includes("'partita'") && invia.includes("'inviata'") && invia.includes('creaStampe('));
 });
+
+Deno.test('nome del conto, conto vuoto tolto, prezzo e disponibilita: le nuove azioni del palmare', () => {
+  assert(S.includes("'conto-cambia', 'conto-elimina'") && S.includes("'articolo-cambia'"), 'sono gesti del cameriere, non del back office');
+  assert(S.includes('function titoloConto('), 'come si chiama un conto lo dice una funzione sola');
+  assert(S.includes('nome: c.nome ?? null, titolo: titoloConto(c),'), 'la sala manda il nome scritto e come si legge');
+  const el = S.slice(S.indexOf("azione === 'conto-elimina'"), S.indexOf("azione === 'articolo-cambia'"));
+  assert(el.includes('if (righe.length) return risposta') && el.includes('409'), 'con delle righe dentro non si cancella');
+  assert(el.includes("from('pos_conto').delete()"), 'vuoto invece se ne va');
+  const ar = S.slice(S.indexOf("azione === 'articolo-cambia'"));
+  assert(ar.includes("puo(cameriere!, 'menu')"), 'il prezzo lo cambia l amministrazione');
+  assert(ar.includes("puo(cameriere!, 'prezzo')"), 'esaurito anche il capo sala');
+  assert(ar.includes('p > 100000'), 'un prezzo assurdo non entra');
+  assert(S.includes('conti_eliminati'), 'e il PC del Bistrot puo dire quali conti ha tolto');
+});

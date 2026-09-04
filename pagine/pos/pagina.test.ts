@@ -82,3 +82,39 @@ Deno.test('quantita e prezzi si battono sul tastierino, non in una finestrella d
   assert(m.includes("'# prezzo libero'") || m.includes('# prezzo libero'), 'il cancelletto segna gli articoli a prezzo libero');
   assert(m.includes('border-left:7px solid'), 'il colore della categoria si vede sull articolo');
 });
+
+Deno.test('le categorie tutte insieme in un riquadro per una, in ordine, non in fila di lato', () => {
+  /* «sul pos le categorie sono queste non quel casino che hai messo tu»
+     (la proprieta', 4 settembre 2026): sul POS di prima stanno in una
+     griglia alfabetica, tutte in vista */
+  assert(m.includes('const categorieRadice = ()'), 'l ordine lo decide una funzione sola');
+  assert(m.includes("String(a.nome).localeCompare(String(b.nome), 'it')"), 'a parita di posizione, l alfabeto');
+  assert(m.includes('class="categorieGriglia"') && m.includes('class="catVoce '), 'la griglia');
+  assert(/\.categorieGriglia\{display:grid/.test(P), 'e in CSS e una griglia, non una fila che scorre');
+  assert(m.includes('const dentroUna = !!categoria || cerca.length >= 3;'), 'la griglia si vede al primo piano');
+  assert(m.includes("<button data-cat=\"\">‹ Categorie</button>"), 'e da dentro si torna indietro');
+  assert(m.includes('quantiIn(c)') && m.includes('ancora vuota'), 'una categoria senza articoli lo dice');
+});
+
+Deno.test('un conto si chiama col nome di chi paga, e se e vuoto si toglie', () => {
+  /* «non posso eliminare gli esterni o scrivere nome» (4 settembre 2026) */
+  assert(m.includes('const pannelloConto = (c) =>'), 'il pannello del conto');
+  assert(m.includes('id="pcNome"') && m.includes('maxlength="40"'), 'il nome si scrive');
+  assert(m.includes("scrivi('conto-cambia', { conto: c.id, nome:"), 'e si salva');
+  assert(m.includes("scrivi('conto-elimina', { conto: c.id })"), 'e il conto vuoto si elimina');
+  assert(m.includes("c.totale_cent ? '<p class=\"mini\">Il conto ha delle righe"), 'con delle righe dentro non si elimina: si storna o si chiude');
+  assert(m.includes('const titoloConto = (c) =>'), 'come si chiama un conto lo dice una funzione sola');
+  assert(m.includes('esc(c.titolo || titoloConto(c))'), 'e in elenco si legge quello');
+});
+
+Deno.test('prezzo e disponibilita dal POS, col tocco lungo su un articolo', () => {
+  /* «non posso modificare i prezzi» (4 settembre 2026): in sala non si va
+     in back office col vassoio in mano */
+  assert(m.includes('const pannelloArticolo = (a) =>'), 'il pannello dell articolo');
+  assert(m.includes("const puoDisponibilita = !!CAMERIERE && CAMERIERE.ruolo !== 'cameriere'"), 'lo segna il capo sala');
+  assert(m.includes("const puoListino = !!CAMERIERE && CAMERIERE.ruolo === 'amministrazione'"), 'il prezzo solo l amministrazione');
+  assert(m.includes("chiama('articolo-cambia', { method: 'POST', body: JSON.stringify(corpo), cloud: true })"), 'e va al cloud, dove vive il menu');
+  assert(m.includes('const base = opz.cloud ? CLOUD : await server.base();'), 'il cloud si puo chiedere apposta');
+  assert(m.includes("if (b.dataset.lungo) { b.removeAttribute('data-lungo'); return; }"), 'dopo il tocco lungo il dito che si alza non ordina');
+  assert(!m.includes("${a.esaurito ? 'disabled' : ''}"), 'un articolo esaurito si tocca lo stesso: e da li che si rimette');
+});
