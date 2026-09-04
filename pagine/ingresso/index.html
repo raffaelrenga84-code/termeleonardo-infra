@@ -7,7 +7,18 @@
 <meta name="robots" content="noindex, nofollow" />
 <title>Ingresso Day Spa — Hotel Terme Leonardo</title>
 <!-- si installa sul tablet dello sportello come un'app a tutto schermo -->
-<link rel="manifest" href="/ingresso/manifest.webmanifest" />
+<!-- il manifest dipende da chi apre la pagina: lo sportello (/ingresso/)
+     o il totem (/ingresso-totem), che deve reinstallarsi a tutto schermo sul
+     suo indirizzo. Chrome legge il collegamento appena la pagina si apre:
+     cambiarlo dopo, dal modulo, non serviva (5 settembre 2026). -->
+<script>
+  (function () {
+    var l = document.createElement('link');
+    l.rel = 'manifest';
+    l.href = location.pathname.indexOf('ingresso-totem') >= 0 ? '/ingresso/totem.webmanifest' : '/ingresso/manifest.webmanifest';
+    document.head.appendChild(l);
+  })();
+</script>
 <link rel="icon" href="/buoni/img/logo-quadrato.svg" type="image/svg+xml" />
 <style>
 /* LO SPORTELLO DEL DAY SPA. Una pagina per il tablet della reception, con
@@ -479,11 +490,6 @@ $('esci').onclick = () => esci(true);
 
 (async () => {
   if (TOTEM) {
-    /* installata come app dal totem, la pagina deve riaprirsi sul totem e a
-       tutto schermo: manifest suo, senza barra di Chrome ne' X della scheda
-       (gli ospiti la premevano per chiudere il conto, 4 settembre 2026) */
-    const m = document.querySelector('link[rel="manifest"]');
-    if (m) m.href = '/ingresso/totem.webmanifest';
     totem();
     return;
   }

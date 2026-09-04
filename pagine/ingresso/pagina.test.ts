@@ -17,7 +17,10 @@ Deno.test('e riservata: noindex, accesso con l utente dell hotel, manifest per i
   assert(/<meta name="robots" content="noindex, nofollow"/.test(P));
   assert(/createClient\(/.test(modulo()) && /signInWithPassword\(/.test(modulo()) && /getSession\(/.test(modulo()),
     'l accesso e quello del back office: utente e password dell hotel, sessione che resta');
-  assert(/<link rel="manifest" href="\/ingresso\/manifest\.webmanifest"/.test(P));
+  /* il manifest lo sceglie uno script nell'intestazione: sportello o totem */
+  const testa = P.slice(0, P.indexOf('</head>'));
+  assert(testa.includes("'/ingresso/manifest.webmanifest'") && testa.includes("'/ingresso/totem.webmanifest'") && testa.includes('ingresso-totem'),
+    'il manifest si sceglie nell intestazione, prima che Chrome lo legga');
   const m = JSON.parse(Deno.readTextFileSync(new URL('./manifest.webmanifest', import.meta.url))) as Record<string, unknown>;
   assertEquals(m.display, 'standalone');
   assertEquals(m.start_url, '/ingresso/');
@@ -124,7 +127,7 @@ Deno.test('totem come app a tutto schermo, e un tocco ovunque chiude esito e con
   assertEquals(tm.start_url, '/ingresso-totem');
   assertEquals(tm.display, 'fullscreen');
   const m = modulo();
-  assert(m.includes("'/ingresso/totem.webmanifest'"), 'in modalita totem la pagina aggancia il manifest del totem');
+  assert(!m.includes("'/ingresso/totem.webmanifest'"), 'il manifest non si cambia dal modulo: Chrome lo ha gia letto');
   const t = m.slice(m.indexOf('function totem('), m.indexOf('function sportello('));
   assert(t.includes('timerRiposo = setTimeout(riposo'), 'il tempo di chiusura si puo azzerare');
   assert(t.includes('clearTimeout(timerRiposo)') && t.includes('clearInterval(orologioConto)'), 'riposo azzera i tempi');
