@@ -1,0 +1,79 @@
+/* ============================================================
+   main.ts - il server del POS sul PC del Bistrot.
+
+   Avvio:  deno run --allow-net --allow-read --allow-write --allow-env main.ts [config.json]
+   (o l'eseguibile fatto da installa.cmd, come attivita' pianificata).
+
+   Serve ai palmari lo stesso contratto del cloud (azioni.ts), sulla LAN,
+   in HTTPS con il certificato della nostra CA (certificati.md). Ogni 2 s
+   stampa cio' che aspetta, ogni 5 s manda al cloud cio' che e' nato qui e
+   dice «sono vivo», ogni 60 s prende dal cloud menu', tavoli e personale.
+   Se internet manca, il servizio in sala continua uguale: il cloud si
+   aggiorna quando torna la linea.
+   ============================================================ */
+import { apri, creaSchema } from './db.ts';
+import { esegui } from './azioni.ts';
+import { giroStampe, type Stampanti } from './stampa.ts';
+import { battito, giu, su } from './allinea.ts';
+
+type Config = {
+  locale: string; porta?: number; cert?: string; chiave?: string; db?: string;
+  cloud: string; hotelKey: string; stampanti: Stampanti;
+};
+
+const percorsoCfg = Deno.args[0] || 'config.json';
+const cfg = JSON.parse(await Deno.readTextFile(percorsoCfg)) as Config;
+if (!cfg.locale || !cfg.cloud || !cfg.hotelKey) throw new Error('config.json: servono locale, cloud e hotelKey');
+
+const db = apri(cfg.db || 'pos.sqlite');
+creaSchema(db);
+const cloud = { base: cfg.cloud, hotelKey: cfg.hotelKey, locale: cfg.locale };
+const log = (m: string) => console.log(new Date().toISOString().slice(11, 19), m);
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'content-type, x-pos-dispositivo, x-pos-sessione',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+};
+
+async function gestisci(req: Request): Promise<Response> {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  const url = new URL(req.url);
+  const query: Record<string, string> = {};
+  url.searchParams.forEach((v, k) => { query[k] = v; });
+  const intestazioni: Record<string, string> = {};
+  req.headers.forEach((v, k) => { intestazioni[k.toLowerCase()] = v; });
+  const corpo = req.method === 'POST' ? await req.json().catch(() => ({})) : null;
+  try {
+    const r = await esegui(db, query.a || '', { metodo: req.method, query, corpo, intestazioni }, { locale: cfg.locale });
+    return new Response(JSON.stringify(r.corpo), { status: r.stato, headers: { ...CORS, 'content-type': 'application/json' } });
+  } catch (e) {
+    log(`errore in ${query.a}: ${(e as Error).message}`);
+    return new Response(JSON.stringify({ errore: 'errore del server locale' }), { status: 500, headers: { ...CORS, 'content-type': 'application/json' } });
+  }
+}
+
+/* un giro alla volta: se il precedente e' ancora in corso, si salta */
+function ogni(ms: number, nome: string, fn: () => Promise<unknown>) {
+  let inCorso = false;
+  const giro = async () => {
+    if (inCorso) return;
+    inCorso = true;
+    try { await fn(); } catch (e) { log(`${nome}: ${(e as Error).message}`); } finally { inCorso = false; }
+  };
+  setInterval(giro, ms);
+  return giro;
+}
+
+const porta = cfg.porta || 8443;
+const opzioni = { port: porta, hostname: '0.0.0.0', onListen: () => log(`POS locale «${cfg.locale}» in ascolto sulla porta ${porta}${cfg.cert ? ' (https)' : ' (http, senza certificato)'}`) };
+if (cfg.cert && cfg.chiave) {
+  Deno.serve({ ...opzioni, cert: await Deno.readTextFile(cfg.cert), key: await Deno.readTextFile(cfg.chiave) }, gestisci);
+} else {
+  Deno.serve(opzioni, gestisci);
+}
+
+ogni(2000, 'stampe', () => giroStampe(db, cfg.stampanti));
+ogni(5000, 'su', async () => { const n = await su(db, cloud); if (n) log(`salite ${n} righe`); await battito(cloud); });
+const scendi = ogni(60000, 'giu', () => giu(db, cloud));
+await scendi();

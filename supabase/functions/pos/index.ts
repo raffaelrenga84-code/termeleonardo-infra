@@ -433,7 +433,12 @@ Deno.serve(async (req) => {
   }
 
   if (azione === 'allinea-giu') {
-    if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);
+    /* lo legge il server locale (chiave hotel) e il back office (amministrazione) */
+    if (!chiaveHotel(req)) {
+      const acc = await autorizzato(req);
+      if (!acc.ok) return risposta({ errore: 'non autorizzato' }, 401);
+      if (acc.ruolo !== 'amministrazione') return risposta({ errore: 'solo l amministrazione' }, 403);
+    }
     const da = url.searchParams.get('da') || '1970-01-01T00:00:00Z';
     const locale = url.searchParams.get('locale') || '';
     const tabelle = ['pos_locale', 'pos_zona', 'pos_tavolo', 'pos_categoria', 'pos_articolo', 'pos_variante', 'pos_preferito', 'pos_cameriere', 'pos_dispositivo'];

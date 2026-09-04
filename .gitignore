@@ -1,3 +1,12 @@
 # stato locale di graphify: e' della macchina, non del progetto
 .graphify/
 .superpowers/
+
+# il server locale del POS: chiavi, certificati, database e configurazione restano sul PC del Bistrot
+pos-locale/*.key
+pos-locale/*.crt
+pos-locale/*.csr
+pos-locale/*.srl
+pos-locale/*.sqlite*
+pos-locale/config.json
+pos-locale/node_modules/

@@ -1,0 +1,13 @@
+{
+  "locale": "bistrot",
+  "porta": 8443,
+  "cert": "C:\\pos\\server.crt",
+  "chiave": "C:\\pos\\server.key",
+  "db": "C:\\pos\\pos.sqlite",
+  "cloud": "https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos",
+  "hotelKey": "LA-CHIAVE-HOTEL-x-hotel-key",
+  "stampanti": {
+    "cucina": "IP-LAN-STAMPANTE-CUCINA:9100",
+    "bar": "IP-LAN-STAMPANTE-BAR:9100"
+  }
+}
