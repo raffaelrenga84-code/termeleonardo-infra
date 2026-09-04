@@ -1,8 +1,8 @@
 /* sw.js — la pagina del POS resta apribile anche senza rete: i suoi file
    stanno in cache; le chiamate al server passano dirette (sono su un altro
    dominio) e, se falliscono, ci pensa la coda della pagina. */
-const CACHE = 'pos-v1';
-const FILE = ['/pos', '/pos/stato.js', '/pos/server.js', '/pos/manifest.webmanifest', '/ingresso/icona-192.png', '/ingresso/icona-512.png'];
+const CACHE = 'pos-v2';
+const FILE = ['/pos', '/pos/stato.js', '/pos/server.js', '/pos/pianta.js', '/pos/manifest.webmanifest', '/ingresso/icona-192.png', '/ingresso/icona-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILE)).then(() => self.skipWaiting()));

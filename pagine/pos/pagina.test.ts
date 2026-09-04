@@ -174,3 +174,19 @@ Deno.test('il ristorante puo far preparare al Bistrot, e si sceglie sulla riga',
   assert(m.includes('locale_stampa: dove || null'), 'la scelta resta sulla riga');
   assert(m.includes('locale_stampa: r.locale_stampa }));'), 'e arriva al server con la riga');
 });
+
+Deno.test('sul palmare niente si schiaccia e la tastiera non copre il campo', () => {
+  /* le tre foto del Sunmi (la proprieta', 4 settembre 2026): la pianta
+     coi tavoli accavallati, la pagina scorsa di lato, il motivo dello
+     storno scritto alla cieca sotto la tastiera */
+  assert(P.includes('interactive-widget=resizes-content'), 'la tastiera restringe la pagina invece di coprirla');
+  assert(P.includes('overflow:auto;overflow-x:hidden;'), 'la pagina non scorre mai di lato');
+  assert(P.includes('.cercaRiga input{flex:1;min-width:0;'), 'la casella di ricerca si stringe: era lei a sbordare');
+  assert(m.includes("from '/pos/pianta.js'") && m.includes('misuraPianta({ tavoli, larghezza: app.clientWidth - 20'), 'la pianta si misura dai tavoli');
+  assert(P.includes('.piantaScorri{overflow:auto;') && m.includes('<div class="piantaScorri"><div class="piantina"'), 'e se sborda scorre dentro di se');
+  assert(P.includes('.piantina .campo{position:absolute;inset:34px;}') && m.includes('<div class="campo">'), 'mezzo cerchio di margine: il tavolo al 100% si vede intero');
+  assert(P.includes('position:sticky;bottom:0;background:#fff;'), 'i bottoni del pannello restano in vista');
+  assert(m.includes("document.addEventListener('focusin'") && m.includes("scrollIntoView({ block: 'center'"), 'il campo che si scrive si porta in vista');
+  const sw = Deno.readTextFileSync(new URL('./sw.js', import.meta.url));
+  assert(sw.includes("'/pos/pianta.js'") && sw.includes("'pos-v2'"), 'il modulo nuovo sta in cache, e la cache cambia nome');
+});

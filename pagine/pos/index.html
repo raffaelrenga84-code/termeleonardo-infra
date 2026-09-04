@@ -2,7 +2,10 @@
 <html lang="it">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<!-- interactive-widget: su Android la tastiera deve RESTRINGERE la pagina,
+     non coprirla — cosi' i pannelli in fondo allo schermo salgono sopra
+     la tastiera e lo storno non si scrive alla cieca (4 settembre 2026) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, interactive-widget=resizes-content" />
 <meta name="theme-color" content="#1A3626" />
 <meta name="robots" content="noindex, nofollow" />
 <title>POS — Hotel Terme Leonardo</title>
@@ -25,7 +28,9 @@ header .pallino.locale{background:#4CAF50;}
 header .pallino.cloud{background:var(--oro);}
 header .pallino.solo{background:var(--allarme);}
 header .chi{font-size:13px;opacity:.85;}
-main{height:calc(100% - 52px);overflow:auto;-webkit-overflow-scrolling:touch;}
+/* di lato non si scorre mai: se qualcosa e' piu' largo dello schermo,
+   e' lui che deve scorrere dentro di se' (la pianta), non la pagina */
+main{height:calc(100% - 52px);overflow:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
 button{font:inherit;cursor:pointer;}
 .bottone{width:100%;padding:16px;border:0;border-radius:12px;background:var(--verde);color:#fff;font:600 18px inherit;}
 .bottone.sec{background:#fff;color:var(--verde);border:2px solid var(--verde);}
@@ -49,7 +54,13 @@ button{font:inherit;cursor:pointer;}
 .tavoloVoce{min-height:78px;border-radius:14px;border:2px solid var(--verde);background:#fff;color:var(--verde);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:13px;line-height:1.2;}
 .tavoloVoce b{font-size:20px;}
-.piantina{position:relative;margin:10px;height:calc(100vh - 150px);min-height:360px;background:#fff;border:1px solid var(--pietra);border-radius:14px;overflow:hidden;}
+/* la pianta: larga quanto serve perche' i tavoli non si accavallino
+   (misuraPianta), e se sborda dallo schermo si scorre col dito dentro
+   .piantaScorri. Il campo interno lascia mezzo cerchio di margine, cosi'
+   un tavolo allo 0% o al 100% si vede intero. */
+.piantaScorri{overflow:auto;margin:10px;-webkit-overflow-scrolling:touch;}
+.piantina{position:relative;min-height:360px;box-sizing:border-box;background:#fff;border:1px solid var(--pietra);border-radius:14px;overflow:hidden;}
+.piantina .campo{position:absolute;inset:34px;}
 .tavolo{position:absolute;transform:translate(-50%,-50%);width:62px;height:62px;border-radius:50%;border:2px solid var(--verde);background:#fff;
   display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;line-height:1.1;color:var(--verde);padding:0;}
 .tavolo b{font-size:14px;}
@@ -72,7 +83,9 @@ button{font:inherit;cursor:pointer;}
 .portate button{padding:7px 12px;border-radius:999px;border:1px solid var(--verde-medio);background:#fff;color:var(--verde-medio);white-space:nowrap;font-size:14px;}
 .portate button.attiva{background:var(--verde);color:#fff;border-color:var(--verde);}
 .cercaRiga{display:flex;gap:8px;padding:8px 10px;background:#fff;align-items:center;}
-.cercaRiga input{flex:1;padding:12px;font:inherit;border:1px solid #DCD6CB;border-radius:10px;background:#FCFBF8;}
+/* min-width:0 — senza, la casella non si stringe sotto la sua larghezza
+   naturale e sul palmare la riga sborda: la pagina scorreva di lato */
+.cercaRiga input{flex:1;min-width:0;padding:12px;font:inherit;border:1px solid #DCD6CB;border-radius:10px;background:#FCFBF8;}
 .quantita{display:flex;gap:4px;}
 .quantita button{width:38px;height:44px;border-radius:8px;border:1px solid var(--pietra);background:#fff;font-size:17px;}
 .pannello.tastiera{max-width:420px;margin:0 auto;border-radius:18px;}
@@ -124,7 +137,7 @@ button{font:inherit;cursor:pointer;}
 .totale b{font-size:20px;color:var(--verde);}
 /* pannello della riga (tocco lungo) */
 .velo{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;z-index:20;}
-.pannello{background:#fff;width:100%;max-height:88vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px;}
+.pannello{background:#fff;width:100%;max-height:88%;overflow:auto;border-radius:18px 18px 0 0;padding:16px;}
 .pannello h3{margin:0 0 8px;color:var(--verde);}
 .pannello label{display:block;font-size:13px;color:var(--verde-medio);font-weight:600;margin-top:12px;}
 .pannello input,.pannello textarea{width:100%;padding:12px;font:inherit;border:1px solid #DCD6CB;border-radius:10px;background:#FCFBF8;margin-top:4px;}
@@ -134,14 +147,15 @@ button{font:inherit;cursor:pointer;}
 .piumeno{display:flex;align-items:center;gap:14px;margin-top:4px;}
 .piumeno button{width:52px;height:52px;border-radius:50%;border:1px solid var(--verde);background:#fff;font-size:26px;color:var(--verde);}
 .piumeno output{font-size:24px;min-width:40px;text-align:center;}
-.pannello .due{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;}
+/* i bottoni restano in fondo, in vista, mentre il resto scorre: «Fatto»
+   non deve obbligare a scorrere tutto il pannello (4 settembre 2026) */
+.pannello .due{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;position:sticky;bottom:0;background:#fff;padding:10px 0 16px;margin-bottom:-16px;}
 @media (min-width: 900px){
   .ordine{display:grid;grid-template-columns:1fr 420px;grid-template-rows:auto auto 1fr;height:100%;}
   .portate,.cercaRiga{grid-column:1;}
   .griglia{grid-column:1;grid-row:3;}
   .comanda{grid-column:2;grid-row:1/3;max-height:none;border-top:0;border-left:2px solid var(--verde);}
   .totale,.azioni{grid-column:2;}
-  .piantina{height:calc(100vh - 140px);}
 }
 </style>
 </head>
@@ -158,6 +172,7 @@ button{font:inherit;cursor:pointer;}
 'use strict';
 import { aggiungi, cambia, creaOrdine, daInviare, euro, perPortata, PORTATE, togli, totaleCent } from '/pos/stato.js';
 import { creaCoda, creaServer } from '/pos/server.js';
+import { misuraPianta } from '/pos/pianta.js';
 
 const CLOUD = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos';
 const USCITA_DOPO_MS = 5 * 60 * 1000;   // senza tocchi per cinque minuti si torna al PIN
@@ -393,7 +408,14 @@ async function schermataSala() {
       <button id="cambiaVista" class="vista">${VISTA_SALA === 'elenco' ? 'Piantina' : 'Elenco'}</button></div>`;
     const corpo = VISTA_SALA === 'elenco'
       ? `<div class="elencoTavoli">${tavoli.map((t) => { const c = conStato(t); return `<button class="tavoloVoce ${c.stato}" data-t="${esc(t.id)}">${c.dentro}</button>`; }).join('') || '<p class="mini" style="padding:16px;">Questa zona non ha tavoli. Si importano da Fidra con l’estensione, o si aggiungono dal back office.</p>'}</div>`
-      : `<div class="piantina" id="piantina">${tavoli.map((t) => { const c = conStato(t); return `<button class="tavolo ${c.stato}" data-t="${esc(t.id)}" style="left:${t.x}%;top:${t.y}%;">${c.dentro}</button>`; }).join('')}</div>`;
+      : (() => {
+        /* le posizioni sono percentuali della pianta di Fidra, che e'
+           larga: sul palmare la pianta si allarga finche' i tavoli non si
+           accavallano piu', e si scorre col dito (pianta.js) */
+        const app = $('app');
+        const m = misuraPianta({ tavoli, larghezza: app.clientWidth - 20, altezzaDisponibile: app.clientHeight - 74 });
+        return `<div class="piantaScorri"><div class="piantina" id="piantina" style="width:${m.larghezza}px;height:${m.altezza}px;"><div class="campo">${tavoli.map((t) => { const c = conStato(t); return `<button class="tavolo ${c.stato}" data-t="${esc(t.id)}" style="left:${t.x}%;top:${t.y}%;">${c.dentro}</button>`; }).join('')}</div></div></div>`;
+      })();
     $('app').innerHTML = barra + corpo;
     $('app').querySelectorAll('.zone button[data-z]').forEach((b) => b.onclick = () => { ZONA = b.dataset.z; localStorage.setItem('posZona', ZONA); disegna(); });
     $('cambiaVista').onclick = () => { VISTA_SALA = VISTA_SALA === 'elenco' ? 'piantina' : 'elenco'; localStorage.setItem('posVistaSala', VISTA_SALA); disegna(); };
@@ -982,6 +1004,17 @@ function toccoLungo(el, fn) {
 
 /* ---------- avvio ---------- */
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/pos/sw.js', { scope: '/pos' }).catch(() => {});
+
+/* Sul palmare la tastiera copre meta' schermo, e coi pannelli in fondo
+   il motivo dello storno si scriveva alla cieca (la proprieta', 4
+   settembre 2026). Si aspetta che la tastiera sia salita, poi si porta
+   il campo al centro di quel che resta. Vale per ogni campo di ogni
+   pannello: un ascoltatore solo, qui. */
+document.addEventListener('focusin', (ev) => {
+  const campo = ev.target;
+  if (!campo || !campo.closest || !campo.closest('.pannello')) return;
+  setTimeout(() => campo.scrollIntoView({ block: 'center', behavior: 'smooth' }), 350);
+});
 (async () => {
   try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch (e) { /* niente */ }
   if (SESSIONE && CAMERIERE) {
