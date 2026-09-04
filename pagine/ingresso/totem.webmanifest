@@ -1,0 +1,20 @@
+{
+  "name": "Day Spa Leonardo",
+  "short_name": "Day Spa",
+  "description": "Il totem in hall: biglietto Day Spa, buono regalo, conto camera.",
+  "start_url": "/ingresso-totem",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#F9F6F0",
+  "theme_color": "#1A3626",
+  "lang": "it",
+  "icons": [
+    {
+      "src": "/buoni/img/logo-quadrato.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

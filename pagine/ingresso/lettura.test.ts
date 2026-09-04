@@ -71,3 +71,8 @@ Deno.test('etichetteConto: le parole del conto nella lingua dell ospite, italian
     for (const k of ['camera', 'descrizione', 'totale', 'lordo', 'acconto', 'daPagare', 'appuntamenti', 'chiude', 'chiudi']) assert(e[k], l + ' senza ' + k);
   }
 });
+
+Deno.test('etichetteConto: «tocchi lo schermo per chiudere» in quattro lingue', () => {
+  for (const l of ['it', 'en', 'de', 'fr']) assert(etichetteConto(l).tocca, l);
+  assertEquals(etichetteConto('de').tocca, 'Zum Schließen den Bildschirm berühren');
+});

@@ -47,10 +47,10 @@ export function tipoCodice(codice) {
 /* Le parole del conto camera nella lingua dell'ospite (Fidra la manda con
    il conto): le stesse del totem di hldv, piu' quelle nostre. */
 const ETICHETTE_CONTO = {
-  it: { camera: 'Camera', descrizione: 'Descrizione', totale: 'Totale', lordo: 'Lordo', acconto: 'Acconto', daPagare: 'Da pagare', appuntamenti: 'Appuntamenti', chiude: 'Si chiude tra', chiudi: 'Chiudi' },
-  en: { camera: 'Room', descrizione: 'Description', totale: 'Total', lordo: 'Gross', acconto: 'Deposit', daPagare: 'Balance due', appuntamenti: 'Appointments', chiude: 'Closes in', chiudi: 'Close' },
-  de: { camera: 'Zimmer', descrizione: 'Beschreibung', totale: 'Summe', lordo: 'Brutto', acconto: 'Anzahlung', daPagare: 'Offener Betrag', appuntamenti: 'Termine', chiude: 'Schließt in', chiudi: 'Schließen' },
-  fr: { camera: 'Chambre', descrizione: 'Description', totale: 'Total', lordo: 'Brut', acconto: 'Acompte', daPagare: 'Reste à payer', appuntamenti: 'Rendez-vous', chiude: 'Se ferme dans', chiudi: 'Fermer' },
+  it: { camera: 'Camera', descrizione: 'Descrizione', totale: 'Totale', lordo: 'Lordo', acconto: 'Acconto', daPagare: 'Da pagare', appuntamenti: 'Appuntamenti', chiude: 'Si chiude tra', chiudi: 'Chiudi', tocca: 'Tocchi lo schermo per chiudere' },
+  en: { camera: 'Room', descrizione: 'Description', totale: 'Total', lordo: 'Gross', acconto: 'Deposit', daPagare: 'Balance due', appuntamenti: 'Appointments', chiude: 'Closes in', chiudi: 'Close', tocca: 'Tap the screen to close' },
+  de: { camera: 'Zimmer', descrizione: 'Beschreibung', totale: 'Summe', lordo: 'Brutto', acconto: 'Anzahlung', daPagare: 'Offener Betrag', appuntamenti: 'Termine', chiude: 'Schließt in', chiudi: 'Schließen', tocca: 'Zum Schließen den Bildschirm berühren' },
+  fr: { camera: 'Chambre', descrizione: 'Description', totale: 'Total', lordo: 'Brut', acconto: 'Acompte', daPagare: 'Reste à payer', appuntamenti: 'Rendez-vous', chiude: 'Se ferme dans', chiudi: 'Fermer', tocca: 'Touchez l’écran pour fermer' },
 };
 export function etichetteConto(lingua) {
   return ETICHETTE_CONTO[lingua] || ETICHETTE_CONTO.it;

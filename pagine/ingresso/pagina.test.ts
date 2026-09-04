@@ -115,3 +115,18 @@ Deno.test('la schermata di riposo dice anche della tessera della camera, e il ca
   assert(t.includes('data-lpignore="true"') && t.includes('data-1p-ignore') && t.includes('type="search"'),
     'il campo del lettore dice ai gestori di password di lasciarlo stare');
 });
+
+Deno.test('totem come app a tutto schermo, e un tocco ovunque chiude esito e conto', () => {
+  /* «tanti premono la X della scheda di Chrome per chiudere» (la proprieta',
+     5 settembre 2026): installata come app col suo manifest non c e piu
+     nessuna X; e sul conto e sugli esiti basta toccare lo schermo. */
+  const tm = JSON.parse(Deno.readTextFileSync(new URL('./totem.webmanifest', import.meta.url))) as Record<string, unknown>;
+  assertEquals(tm.start_url, '/ingresso-totem');
+  assertEquals(tm.display, 'fullscreen');
+  const m = modulo();
+  assert(m.includes("'/ingresso/totem.webmanifest'"), 'in modalita totem la pagina aggancia il manifest del totem');
+  const t = m.slice(m.indexOf('function totem('), m.indexOf('function sportello('));
+  assert(t.includes('timerRiposo = setTimeout(riposo'), 'il tempo di chiusura si puo azzerare');
+  assert(t.includes('clearTimeout(timerRiposo)') && t.includes('clearInterval(orologioConto)'), 'riposo azzera i tempi');
+  assert(t.includes('class="contoChiudi grande"') && t.includes('e.tocca'), 'pulsante grande e «tocchi lo schermo per chiudere»');
+});
