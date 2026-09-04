@@ -17,7 +17,11 @@
   const ID = 'leoPrivacyBarra';
   const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/privacy?a=attesa';
   const MESI = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
-  const LINGUA_DEL_PAESE = { IT: 'it', SM: 'it', DE: 'de', AT: 'de', CH: 'de', LI: 'de', FR: 'fr', BE: 'fr', LU: 'fr', MC: 'fr' };
+  const LINGUA_DEL_PAESE = { IT: 'it', SM: 'it', VA: 'it', DE: 'de', AT: 'de', CH: 'de', LI: 'de', FR: 'fr', BE: 'fr', LU: 'fr', MC: 'fr' };
+  /* il prefisso del telefono quando il paese manca o non dice niente:
+     un ospite di lingua tedesca con residenza italiana (Alto Adige) e'
+     normale qui, e finiva in inglese (4 settembre 2026) */
+  const LINGUA_DEL_PREFISSO = [[/^\+?(49|43|41|423)/, 'de'], [/^\+?(33|32|352|377)/, 'fr'], [/^\+?39/, 'it']];
 
   const iso = (anno, mese, giorno) => (anno && MESI[mese] && giorno) ? `${anno}-${String(MESI[mese]).padStart(2, '0')}-${String(giorno).padStart(2, '0')}` : null;
   /* Fidra scrive «Cognome Nome»: la prima parola e' il cognome */
@@ -25,8 +29,18 @@
 
   /** Un'attesa per ogni camera assegnata: l'ospite della camera, se Fidra lo
       dice, altrimenti l'intestatario; l'email solo sulla prima. */
+  function linguaDi(d) {
+    const dalPaese = LINGUA_DEL_PAESE[String(d.paese || '').toUpperCase()];
+    const tel = String(d.telefono || '').replace(/[^\d+]/g, '');
+    const dalTelefono = (LINGUA_DEL_PREFISSO.find(([re]) => re.test(tel)) || [])[1];
+    /* il telefono batte il paese quando dicono cose diverse: chi chiama da
+       un numero tedesco parla tedesco anche se abita a Bolzano */
+    if (dalTelefono && dalTelefono !== 'it') return dalTelefono;
+    return dalPaese || dalTelefono || 'it';
+  }
+
   function attese(d) {
-    const lingua = LINGUA_DEL_PAESE[String(d.paese || '').toUpperCase()] || 'en';
+    const lingua = linguaDi(d);
     const arrivo = iso(d.anno, d.mese, d.giornoArrivo);
     const partenza = iso(d.annoPartenza || d.anno, d.mesePartenza || d.mese, d.giornoPartenza);
     return (d.camere || []).filter((c) => c.numero).map((c, i) => {

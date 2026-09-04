@@ -112,24 +112,33 @@ body.totem main{max-width:820px;padding-top:40px;}
 .opBarraDx{display:flex;gap:10px;}
 .opQr{width:min(50vw,260px);height:auto;margin:6px auto;display:block;border:1px solid var(--pietra);border-radius:12px;padding:8px;background:#fff;}
 /* il consenso privacy */
-.totemRiposo.privacy{text-align:left;gap:12px;}
-.totemRiposo.privacy .totemTitolo{text-align:center;}
-.opLingueBarra{display:flex;justify-content:flex-end;gap:6px;}
-.opLingueBarra button{font:inherit;font-size:14px;padding:6px 12px;border-radius:999px;border:1px solid var(--pietra);background:#fff;color:var(--verde);cursor:pointer;}
-.opLingueBarra button.attiva{background:var(--verde);color:#fff;border-color:var(--verde);}
-.pvFrase{border:1px solid var(--pietra);border-radius:12px;padding:12px 14px;background:#FCFBF8;}
-.pvFrase p{margin:0 0 10px;font-size:17px;line-height:1.4;}
-.pvScelta{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.pvScelta button{font:inherit;font-size:18px;padding:14px;border-radius:12px;border:2px solid var(--pietra);background:#fff;color:#2A2E2B;cursor:pointer;}
-.pvScelta button.si{background:#E6F0EC;border-color:var(--verde);color:var(--verde);font-weight:600;}
-.pvScelta button.no{background:#FBE9E7;border-color:#8C2F28;color:#8C2F28;font-weight:600;}
+.totemRiposo.privacy{text-align:left;gap:14px;padding:24px;}
+.totemRiposo.privacy .totemTitolo{text-align:center;font-size:34px;}
+.totemRiposo.privacy.chiusa{text-align:center;min-height:52vh;justify-content:center;gap:20px;}
+.totemRiposo.privacy.chiusa .contoChiudi{margin:0 auto;}
+.opLingueBarra{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.opLingueBarra button{font:inherit;font-size:17px;padding:12px 6px;border-radius:12px;border:2px solid var(--pietra);background:#fff;color:var(--verde-medio);cursor:pointer;}
+.opLingueBarra button.attiva{background:var(--verde);color:#fff;border-color:var(--verde);font-weight:600;}
+.pvFrase{border:2px solid var(--pietra);border-radius:14px;padding:14px 16px;background:#fff;transition:background .15s,border-color .15s;}
+.pvFrase.sceltaSi{background:#EDF6F1;border-color:#2E7D5B;}
+.pvFrase.sceltaNo{background:#FCEFED;border-color:#8C2F28;}
+.pvFrase p{margin:0 0 12px;font-size:18px;line-height:1.45;}
+.pvNum{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--verde);color:#fff;font:600 15px system-ui,sans-serif;margin-right:10px;vertical-align:1px;}
+.pvScelta{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.pvScelta button{font:inherit;font-size:19px;padding:16px 10px;border-radius:12px;border:2px solid var(--pietra);background:#fff;color:#4B5350;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;}
+.pvSegno{font-size:22px;line-height:1;}
+.pvScelta button[data-si="1"]{border-color:#9FCBB5;color:#2E7D5B;}
+.pvScelta button[data-si="0"]{border-color:#E3B4AE;color:#8C2F28;}
+.pvScelta button.si{background:#2E7D5B;border-color:#2E7D5B;color:#fff;font-weight:600;}
+.pvScelta button.no{background:#8C2F28;border-color:#8C2F28;color:#fff;font-weight:600;}
 .pvSintesi{font-size:14px;line-height:1.5;color:#4B5350;background:#fff;border:1px solid var(--pietra);border-radius:12px;padding:12px;}
 .pvFirma{position:relative;}
 .pvFirma canvas{display:block;width:100%;height:auto;background:#fff;border:2px dashed var(--verde);border-radius:12px;touch-action:none;}
 .pvFirma .contoChiudi{position:absolute;right:10px;top:10px;}
-.pvElenco{display:flex;flex-direction:column;gap:8px;}
-.pvVoce{font:inherit;font-size:20px;text-align:left;padding:16px;border-radius:12px;border:1px solid var(--pietra);background:#fff;cursor:pointer;}
+.pvElenco{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;}
+.pvVoce{font:inherit;font-size:20px;text-align:left;padding:16px;border-radius:12px;border:2px solid var(--acqua);background:var(--acqua-chiara);cursor:pointer;}
 .pvVoce b{color:var(--verde);}
+body.totem main{max-width:900px;}
 @keyframes lampeggia{to{opacity:.25;}}
 @media (prefers-reduced-motion: reduce){.contoSecondi.ultimi{animation:none;}}
 </style>
@@ -363,6 +372,11 @@ function totem() {
      «tocco ovunque» del riposo qui e' spento e si riaccende al riposo;
      sessanta secondi senza tocchi e si torna al riposo da soli. */
   const OPINIONE_RIPOSO_MS = 60 * 1000;
+  /* Nome e numero di camera non restano sullo schermo: un minuto senza
+     tocchi e la pagina torna al riposo, sul totem come sull'iPad («se uno
+     non compila dovrebbe scomparire dopo 60 secondi, altrimenti qualcuno
+     legge nome e numero di camera», la proprieta', 4 settembre 2026). */
+  const PRIVACY_RIPOSO_MS = 60 * 1000;
   const opinione = () => {
     document.onclick = null;
     const st = { lingua: 'it', stelle: 0, temi: new Set(), commento: '', tessera: null };
@@ -464,15 +478,32 @@ function totem() {
     const st = { id: null, camera: null, cognome: '', nome: '', lingua: 'it', scelte: {}, versione: null };
     let T = null;
     const CAMERA = { it: 'camera', en: 'room', de: 'Zimmer', fr: 'chambre' };
-    /* firmare vuole tempo: due minuti senza tocchi, poi il riposo */
-    const tocco = () => { clearTimeout(timerRiposo); timerRiposo = setTimeout(riposo, OPINIONE_RIPOSO_MS * 2); };
+    let rinfresco = null;
+    /* un minuto senza tocchi e si chiude: sul totem torna il benvenuto,
+       sull'iPad la schermata chiusa, dove non c'e' scritto nessun nome */
+    const scaduta = () => { clearTimeout(rinfresco); if (SOLO_PRIVACY) chiusa(); else riposo(); };
+    const tocco = () => { clearTimeout(timerRiposo); timerRiposo = setTimeout(scaduta, PRIVACY_RIPOSO_MS); };
     const vetro = (dentro, classe = '') => {
+      clearTimeout(rinfresco);
       $('app').onclick = null;
       $('app').innerHTML = `<div class="riquadro totemRiposo opinione privacy ${classe}">${dentro}</div>`;
       tocco();
     };
+    /* la schermata chiusa dell'iPad: niente nomi, niente camere */
+    const chiusa = () => {
+      clearTimeout(timerRiposo); clearTimeout(rinfresco);
+      $('app').onclick = null;
+      $('app').innerHTML = `<div class="riquadro totemRiposo privacy chiusa">
+        <div class="totemTitolo">Privacy</div>
+        <p class="totemLingue">Consenso al trattamento dei dati · Datenschutz · Consent · Confidentialité</p>
+        <button type="button" class="contoChiudi grande" id="pvComincia">Cominci qui</button></div>`;
+      $('pvComincia').onclick = elenco;
+    };
     const testi = async (lingua) => { const j = await chiamaPrivacy(`?a=testi&lingua=${encodeURIComponent(lingua)}`); st.lingua = j.testi && lingua ? lingua : 'it'; st.versione = j.versione; T = j.testi; return T; };
-    const lingue = () => `<div class="opLingueBarra">${[['it', 'IT'], ['en', 'EN'], ['de', 'DE'], ['fr', 'FR']].map(([l, n]) => `<button type="button" data-pl="${l}" class="${l === st.lingua ? 'attiva' : ''}">${n}</button>`).join('')}</div>`;
+    /* la lingua indovinata puo' sbagliare: i quattro nomi stanno in alto,
+       grandi, e si cambia con un tocco («la lingua non e' corretta, questo
+       e' un cliente tedesco», la proprieta', 4 settembre 2026) */
+    const lingue = () => `<div class="opLingueBarra">${[['it', 'Italiano'], ['en', 'English'], ['de', 'Deutsch'], ['fr', 'Français']].map(([l, n]) => `<button type="button" data-pl="${l}" class="${l === st.lingua ? 'attiva' : ''}">${n}</button>`).join('')}</div>`;
     const legaLingue = (poi) => document.querySelectorAll('[data-pl]').forEach((b) => b.onclick = async () => { await testi(b.dataset.pl); poi(); });
     const indietro = () => daElenco ? elenco() : tessera();
 
@@ -543,15 +574,19 @@ function totem() {
       } catch (e) { $('pvElenco').innerHTML = `<p class="mini errore">${escT(e.message)}</p>`; }
       $('pvManuale').onclick = () => { st.camera = null; st.cognome = ''; st.nome = ''; st.scelte = {}; chiediNome(); };
       $('pvAggiorna').onclick = elenco;
-      clearTimeout(timerRiposo); timerRiposo = setTimeout(elenco, 30000);
+      /* l'elenco si rinfresca da solo ogni dieci secondi: la reception
+         preme «Privacy al totem» in Fidra e l'ospite compare qui senza
+         che nessuno debba toccare niente */
+      clearTimeout(rinfresco);
+      rinfresco = setTimeout(elenco, 10000);
     };
 
     /* il modulo: tre frasi, due pulsanti ciascuna, niente preimpostato; la firma col dito */
     const modulo = () => {
       vetro(`${lingue()}<div class="totemTitolo">${escT(T.titolo)}</div>
         <p class="totemTesto">${escT(T.saluto)}, <b>${escT((st.cognome + ' ' + st.nome).trim())}</b>${st.camera ? ` · ${escT(CAMERA[st.lingua] || 'camera')} ${escT(st.camera)}` : ''}</p>
-        ${SCELTE_PRIVACY.map((k) => `<div class="pvFrase"><p>${escT(T.scelte[k])}</p>
-          <div class="pvScelta" data-k="${k}"><button type="button" data-si="1" class="${st.scelte[k] === true ? 'si' : ''}">${escT(T.autorizzo)}</button><button type="button" data-si="0" class="${st.scelte[k] === false ? 'no' : ''}">${escT(T.nonAutorizzo)}</button></div></div>`).join('')}
+        ${SCELTE_PRIVACY.map((k, i) => `<div class="pvFrase ${st.scelte[k] === true ? 'sceltaSi' : st.scelte[k] === false ? 'sceltaNo' : ''}" data-frase="${k}"><p><span class="pvNum">${i + 1}</span>${escT(T.scelte[k])}</p>
+          <div class="pvScelta" data-k="${k}"><button type="button" data-si="1" class="${st.scelte[k] === true ? 'si' : ''}"><span class="pvSegno">✓</span>${escT(T.autorizzo)}</button><button type="button" data-si="0" class="${st.scelte[k] === false ? 'no' : ''}"><span class="pvSegno">✕</span>${escT(T.nonAutorizzo)}</button></div></div>`).join('')}
         <p class="mini">${escT(T.informativa)} <button type="button" class="contoChiudi" id="pvLeggi">${escT(T.leggi)}</button></p>
         <div id="pvSintesi" hidden class="pvSintesi">${escT(T.sintesi)}</div>
         <p class="mini">${escT(T.revoca)}</p>
@@ -561,8 +596,11 @@ function totem() {
         <div class="opBarra"><button type="button" class="contoChiudi" id="pvIndietro">‹</button><span class="opBarraDx"><button type="button" class="contoChiudi grande" id="pvConferma">${escT(T.conferma)}</button></span></div>`);
       legaLingue(modulo);
       document.querySelectorAll('.pvScelta').forEach((s) => s.querySelectorAll('button').forEach((b) => b.onclick = () => {
-        st.scelte[s.dataset.k] = b.dataset.si === '1';
-        s.querySelectorAll('button').forEach((x) => { x.classList.toggle('si', x.dataset.si === '1' && st.scelte[s.dataset.k] === true); x.classList.toggle('no', x.dataset.si === '0' && st.scelte[s.dataset.k] === false); });
+        const k = s.dataset.k;
+        st.scelte[k] = b.dataset.si === '1';
+        s.querySelectorAll('button').forEach((x) => { x.classList.toggle('si', x.dataset.si === '1' && st.scelte[k] === true); x.classList.toggle('no', x.dataset.si === '0' && st.scelte[k] === false); });
+        const riquadro = document.querySelector(`[data-frase="${k}"]`);
+        if (riquadro) { riquadro.classList.toggle('sceltaSi', st.scelte[k] === true); riquadro.classList.toggle('sceltaNo', st.scelte[k] === false); }
         $('pvEsito').textContent = ''; tocco();
       }));
       $('pvLeggi').onclick = () => { $('pvSintesi').hidden = !$('pvSintesi').hidden; tocco(); };
@@ -591,7 +629,7 @@ function totem() {
         } catch (e) { $('pvEsito').textContent = `${T.errore} (${e.message})`; $('pvConferma').disabled = false; }
       };
     };
-    if (daElenco) elenco(); else tessera();
+    if (daElenco) chiusa(); else tessera();
   };
 
   const ALLA_RECEPTION = 'Please ask at the reception desk, right here.<br>Bitte wenden Sie sich an die Rezeption, gleich nebenan.<br>Veuillez vous adresser à la réception, juste à côté.';

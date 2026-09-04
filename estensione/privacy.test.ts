@@ -29,7 +29,8 @@ Deno.test('sola lettura su Fidra: nessun clic, nessun submit, una sola fetch ver
 
 Deno.test('manda camera, cognome, nome, email, lingua e prenotazione; la lingua si deduce dal paese', () => {
   for (const k of ['camera', 'cognome', 'nome', 'email', 'lingua', 'fidra_prenotazione']) assert(S.includes(k), k);
-  assert(S.includes('paese'), 'la lingua parte dal paese della prenotazione');
+  assert(S.includes('paese') && S.includes('LINGUA_DEL_PREFISSO'), 'la lingua parte dal paese e, se non basta, dal prefisso del telefono');
+  assert(!/\|\|\s*'en'/.test(S), 'chi non si capisce non e inglese per forza: si parte dall italiano e si cambia con un tocco');
 });
 
 Deno.test('il manifest e almeno alla 2.28.0, quella che ha portato la privacy', () => {

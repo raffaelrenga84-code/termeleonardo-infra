@@ -37,3 +37,27 @@ Deno.test('la pagina manda solo cifre della tessera e non parla con Fidra', () =
   assert(!t.includes('bill-scanner') && !t.includes('fidra.cloud'));
   assert(p.includes("=== 'tessera'"));
 });
+
+Deno.test('nome e camera non restano sullo schermo: un minuto senza tocchi e si chiude', () => {
+  assert(m.includes('PRIVACY_RIPOSO_MS') && m.includes('60 * 1000'), 'sessanta secondi');
+  assert(p.includes('const chiusa = ') && p.includes('SOLO_PRIVACY ? chiusa() : ') === false, 'la schermata chiusa esiste');
+  assert(p.includes('if (SOLO_PRIVACY) chiusa(); else riposo();'), 'scaduto il tempo: iPad chiuso, totem al benvenuto');
+  assert(p.includes('if (daElenco) chiusa();'), 'l iPad parte chiuso, non con l elenco dei nomi');
+  const chiusa = p.slice(p.indexOf('const chiusa = '), p.indexOf('const chiusa = ') + 900);
+  assert(!chiusa.includes('cognome') && !chiusa.includes('camera'), 'nella schermata chiusa non c e nessun nome');
+});
+
+Deno.test('l elenco dell iPad si rinfresca da solo, senza premere aggiorna', () => {
+  assert(p.includes('rinfresco = setTimeout(elenco, 10000)'), 'ogni dieci secondi');
+});
+
+Deno.test('le scelte si vedono a colori, come nei moduli che gli ospiti conoscono', () => {
+  assert(p.includes('sceltaSi') && p.includes('sceltaNo'), 'il riquadro cambia colore con la risposta');
+  assert(p.includes('pvSegno') && p.includes('✓') && p.includes('✕'), 'un segno su ogni pulsante');
+  assert(p.includes('pvNum'), 'le frasi sono numerate');
+  assert(/\.pvScelta button\.si\{background:#2E7D5B/.test(P) && /\.pvScelta button\.no\{background:#8C2F28/.test(P), 'verde e rosso');
+});
+
+Deno.test('i quattro nomi delle lingue, non due lettere', () => {
+  assert(p.includes("'Italiano'") && p.includes("'Deutsch'") && p.includes("'English'") && p.includes("'Français'"));
+});
