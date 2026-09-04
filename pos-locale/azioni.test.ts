@@ -12,7 +12,7 @@ const cfg = { locale: 'L1' };
 
 function base() {
   const db = apri(':memory:'); creaSchema(db);
-  db.exec(`insert into pos_locale (id, nome, aggiornato_il) values ('L1', 'Bistrot', '2026-09-04T10:00:00Z');
+  db.exec(`insert into pos_locale (id, nome, stampante_cucina, stampante_bar, aggiornato_il) values ('L1', 'Bistrot', '10.0.0.1:9100', '10.0.0.2:9100', '2026-09-04T10:00:00Z');
     insert into pos_zona (id, locale, nome, aggiornato_il) values ('Z1', 'L1', 'Interno', '2026-09-04T10:00:00Z');
     insert into pos_tavolo (id, zona, nome, aggiornato_il) values ('T7', 'Z1', 'Tavolo 7', '2026-09-04T10:00:00Z');
     insert into pos_categoria (id, nome, stampante, portata, aggiornato_il) values ('C1', 'Primi', 'cucina', 'primi', '2026-09-04T10:00:00Z'), ('C2', 'Birre', 'bar', 'bevande', '2026-09-04T10:00:00Z');
@@ -245,10 +245,39 @@ Deno.test('la riga puo dire da sola dove si prepara, e batte la categoria', asyn
   const db = base();
   const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 1 }), cfg);
   const conto = (c.corpo as { conto: { id: string } }).conto.id;
-  db.exec("insert into pos_locale (id, nome, aggiornato_il) values ('rist', 'Ristorante', '2026-09-04T10:00:00Z');");
+  db.exec("insert into pos_locale (id, nome, stampante_cucina, stampante_bar, aggiornato_il) values ('rist', 'Ristorante', '10.0.0.3:9100', '10.0.0.4:9100', '2026-09-04T10:00:00Z');");
   await esegui(db, 'righe', req('POST', { conto, righe: [{ id: 'r1', articolo: 'A2', quantita: 1, portata: 'bevande', locale_stampa: 'rist' }] }), cfg);
   await esegui(db, 'invia', req('POST', { conto }), cfg);
   const s = db.prepare("select locale, testo from pos_stampa").get() as { locale: string; testo: string };
   assertEquals(s.locale, 'rist');
   assert(s.testo.includes('>>> PORTARE AL BISTROT'), 'il tavolo e al Bistrot: la roba torna li');
+});
+
+Deno.test('il ristorante non ha stampanti: il cibo non fa biglietti, le bibite escono al Bistrot', async () => {
+  /* «la cucina del ristorante non ha stampante e neppure il ristorante:
+     usano il palmare solo per gli addebiti e per ordinare le bibite al
+     Bistrot» (la proprieta', 4 settembre 2026) */
+  const db = base();
+  db.exec(`insert into pos_locale (id, nome, stampante_cucina, stampante_bar, aggiornato_il)
+      values ('rist', 'Ristorante', null, null, '2026-09-04T10:00:00Z');
+    update pos_locale set stampante_cucina = '10.0.0.1:9100', stampante_bar = '10.0.0.2:9100' where id = 'L1';
+    insert into pos_zona (id, locale, nome, aggiornato_il) values ('ZR', 'rist', 'Sala', '2026-09-04T10:00:00Z');
+    insert into pos_tavolo (id, zona, nome, aggiornato_il) values ('T5', 'ZR', 'Tavolo 5', '2026-09-04T10:00:00Z');
+    update pos_categoria set locale_stampa = 'L1' where id = 'C2';`);
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T5', tipo: 'esterno', coperti: 2 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  await esegui(db, 'righe', req('POST', { conto, righe: [
+    { id: 'r1', articolo: 'A1', quantita: 1, portata: 'primi' },
+    { id: 'r2', articolo: 'A2', quantita: 2, portata: 'bevande' },
+  ] }), cfg);
+  await esegui(db, 'invia', req('POST', { conto }), cfg);
+  const stampe = db.prepare('select locale, stampante, testo from pos_stampa').all() as { locale: string; stampante: string; testo: string }[];
+  assertEquals(stampe.length, 1, 'un biglietto solo: quello del Bistrot');
+  assertEquals([stampe[0].locale, stampe[0].stampante], ['L1', 'bar']);
+  assert(stampe[0].testo.includes('>>> PORTARE AL RISTORANTE'));
+  /* le tagliatelle restano sul conto: non si stampano, ma si pagano */
+  const r = db.prepare("select stato, prezzo_cent from pos_riga where id = 'r1'").get() as { stato: string; prezzo_cent: number };
+  assertEquals([r.stato, r.prezzo_cent], ['partita', 1400]);
+  /* e la comanda resta scritta lo stesso: cosa e stato mandato si sa */
+  assertEquals((db.prepare('select count(*) as n from pos_comanda').get() as { n: number }).n, 2);
 });

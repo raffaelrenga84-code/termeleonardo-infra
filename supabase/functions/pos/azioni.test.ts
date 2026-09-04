@@ -136,3 +136,13 @@ Deno.test('un biglietto per ogni coppia locale-stampante, e il cloud stampa dove
   assert(p.includes("from('pos_locale').select('stampante_cucina, stampante_bar')"), 'la stampante e quella del locale del biglietto');
   assert(p.includes("Deno.env.get(s.stampante === 'bar' ? 'POS_STAMPANTE_BAR'"), 'le variabili restano per il collaudo a un locale solo');
 });
+
+Deno.test('dove non c e stampante non nasce nessun biglietto', () => {
+  /* la cucina del ristorante non ne ha: la riga resta sul conto, ma in
+     coda non ci va niente che nessuno stampera' mai */
+  const c = S.slice(S.indexOf('async function creaStampe'), S.indexOf('/* ---------- allineamento'));
+  assert(c.includes('siStampa({ stampante: stampante as'), 'si controlla prima di creare');
+  assert(c.includes('return [];'), 'e quel gruppo non produce biglietti');
+  assert(c.includes("select('id, nome, stampante_cucina, stampante_bar')"), 'le stampanti dei locali arrivano da li');
+  assert(c.includes("from('pos_comanda').insert("), 'la comanda resta scritta lo stesso: cosa e stato mandato si sa');
+});

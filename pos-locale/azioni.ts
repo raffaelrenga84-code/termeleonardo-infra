@@ -14,7 +14,7 @@ import { prezzoRiga, totaleCent } from '../supabase/functions/pos/conto.ts';
 import { testoBiglietto, type Biglietto } from '../supabase/functions/pos/comanda.ts';
 import { puo, type Ruolo } from '../supabase/functions/pos/permessi.ts';
 import { motivoPulito, prezzoCambiato } from '../supabase/functions/pos/motivi.ts';
-import { localeChePrepara, portareA } from '../supabase/functions/pos/dove.ts';
+import { localeChePrepara, portareA, siStampa } from '../supabase/functions/pos/dove.ts';
 
 export type Richiesta = { metodo: string; query: Record<string, string>; corpo: unknown; intestazioni: Record<string, string> };
 export type Risposta = { stato: number; corpo: unknown };
@@ -76,7 +76,7 @@ function creaStampe(db: Db, conto: Riga, righe: RigaStampabile[], portata: Porta
   /* Un biglietto per ogni coppia (locale che prepara, stampante): di
      regola si prepara dove si mangia, ma il ristorante puo' mandare le
      bevande al Bistrot e allora il biglietto esce di la'. */
-  const nomi = db.prepare('select id, nome from pos_locale').all() as Riga[];
+  const nomi = db.prepare('select id, nome, stampante_cucina, stampante_bar from pos_locale').all() as Riga[];
   const nomeDelLocale = (id: string) => (nomi.find((l) => l.id === id)?.nome as string) ?? null;
   const gruppi = new Map<string, RigaStampabile[]>();
   for (const r of righe) {
@@ -86,6 +86,10 @@ function creaStampe(db: Db, conto: Riga, righe: RigaStampabile[], portata: Porta
   }
   for (const [chiave, rr] of gruppi) {
     const [dove, stampante] = chiave.split('|');
+    /* dove non c'e' stampante non si stampa: la cucina del ristorante non
+       ne ha, e il biglietto resterebbe in coda per sempre */
+    const suo = nomi.find((l) => l.id === dove) as { stampante_cucina?: string | null; stampante_bar?: string | null } | undefined;
+    if (!siStampa({ stampante: stampante as 'cucina' | 'bar', locale: suo })) continue;
     const b: Biglietto = {
       tipo: tipo.toUpperCase() as Biglietto['tipo'], locale: String(t.locale_nome), tavolo: String(t.tavolo),
       conto: conto.tipo === 'camera' ? `Camera ${conto.camera ?? ''}`.trim() : 'Esterno',

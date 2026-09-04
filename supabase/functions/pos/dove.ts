@@ -29,6 +29,22 @@ export function localeChePrepara(
   return primo || tavolo;
 }
 
+/** C'e' una stampante per questa coppia (locale, stampante)?
+
+    La cucina del ristorante non ne ha, e il ristorante il palmare lo usa
+    solo per gli addebiti e per ordinare le bibite al Bistrot (la
+    proprieta', 4 settembre 2026): un biglietto per il ristorante non
+    uscirebbe mai e resterebbe in coda per sempre. Meglio non farlo: la
+    riga sta sul conto lo stesso, e il giorno che una stampante arriva
+    comincia a stampare da sola, senza toccare niente. */
+export function siStampa(
+  { stampante, locale }: { stampante: 'cucina' | 'bar'; locale: { stampante_cucina?: string | null; stampante_bar?: string | null } | null | undefined },
+): boolean {
+  if (!locale) return false;
+  const dove = stampante === 'bar' ? locale.stampante_bar : locale.stampante_cucina;
+  return !!String(dove ?? '').trim();
+}
+
 /** Il nome da stampare come «PORTARE AL …», o null se si serve li'. */
 export function portareA(
   { preparaIn, tavoloIn, nomeDelLocale }: { preparaIn: string; tavoloIn: string; nomeDelLocale: (id: string) => string | null },

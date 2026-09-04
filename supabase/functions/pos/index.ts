@@ -41,7 +41,7 @@ import { escpos, testoBiglietto, type Biglietto } from './comanda.ts';
 import { importa } from './menu.ts';
 import { leggiInCasa } from './in-casa.ts';
 import { motivoPulito, prezzoCambiato } from './motivi.ts';
-import { localeChePrepara, portareA } from './dove.ts';
+import { localeChePrepara, portareA, siStampa } from './dove.ts';
 import { chiaveNome, leggiSala } from './sala.ts';
 import { puo, type Ruolo as RuoloPos } from './permessi.ts';
 import { ruoloDi } from './ruoli.ts';
@@ -181,7 +181,7 @@ async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata
   /* Un biglietto per ogni coppia (locale che prepara, stampante): di
      regola si prepara dove si mangia, ma il ristorante puo' mandare le
      bevande al Bistrot e allora il biglietto esce di la'. */
-  const { data: locali } = await db.from('pos_locale').select('id, nome');
+  const { data: locali } = await db.from('pos_locale').select('id, nome, stampante_cucina, stampante_bar');
   const nomeDelLocale = (id: string) => (locali ?? []).find((l) => l.id === id)?.nome as string ?? null;
   const gruppi = new Map<string, RigaStampabile[]>();
   for (const r of righe) {
@@ -189,8 +189,12 @@ async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata
     const chiave = `${dove}|${r.stampante}`;
     gruppi.set(chiave, [...(gruppi.get(chiave) ?? []), r]);
   }
-  const stampe = [...gruppi].map(([chiave, rr]) => {
+  const stampe = [...gruppi].flatMap(([chiave, rr]) => {
     const [dove, stampante] = chiave.split('|');
+    /* dove non c'e' stampante non si stampa: il biglietto resterebbe in
+       coda per sempre. La riga resta sul conto, e il giorno che una
+       stampante arriva comincia a uscire da sola. */
+    if (!siStampa({ stampante: stampante as 'cucina' | 'bar', locale: (locali ?? []).find((l) => l.id === dove) })) return [];
     const b: Biglietto = {
       tipo: tipo.toUpperCase() as Biglietto['tipo'], locale: locale.nome, tavolo: String(tavolo!.nome),
       conto: conto.tipo === 'camera' ? `Camera ${conto.camera ?? ''}`.trim() : 'Esterno',
@@ -199,7 +203,7 @@ async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata
       noteVitto: null,
       portareA: portareA({ preparaIn: dove, tavoloIn: locale.id, nomeDelLocale }),
     };
-    return { id: crypto.randomUUID(), locale: dove, stampante, testo: testoBiglietto(b) };
+    return [{ id: crypto.randomUUID(), locale: dove, stampante, testo: testoBiglietto(b) }];
   });
   if (stampe.length) await db.from('pos_stampa').insert(stampe);
   await db.from('pos_comanda').insert({ id: crypto.randomUUID(), conto: conto.id, portata, tipo, righe: righe.map((r) => r.id) });
