@@ -73,3 +73,12 @@ Deno.test('al tavolo si paga separatamente: una riga passa a un altro conto, o a
   const pan = m.slice(m.indexOf('const pannelloRiga ='), m.indexOf('const invia ='));
   assert(pan.includes('data-sposta'), 'si sposta dal pannello della riga');
 });
+
+Deno.test('quantita e prezzi si battono sul tastierino, non in una finestrella di sistema', () => {
+  assert(m.includes('function chiediNumero('), 'il tastierino');
+  assert(m.includes("chiediNumero('Quante?'") && m.includes('id="quantitaAltra"'), 'per le quantita oltre quattro');
+  assert(m.includes("chiediNumero(`${a.nome}: prezzo in euro`, { decimale: true })"), 'e per il prezzo libero');
+  assert(!m.includes('prompt(`${a.nome}: importo in euro`)'), 'niente prompt di sistema per il prezzo');
+  assert(m.includes("'# prezzo libero'") || m.includes('# prezzo libero'), 'il cancelletto segna gli articoli a prezzo libero');
+  assert(m.includes('border-left:7px solid'), 'il colore della categoria si vede sull articolo');
+});

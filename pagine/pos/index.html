@@ -75,6 +75,8 @@ button{font:inherit;cursor:pointer;}
 .cercaRiga input{flex:1;padding:12px;font:inherit;border:1px solid #DCD6CB;border-radius:10px;background:#FCFBF8;}
 .quantita{display:flex;gap:4px;}
 .quantita button{width:38px;height:44px;border-radius:8px;border:1px solid var(--pietra);background:#fff;font-size:17px;}
+.pannello.tastiera{max-width:420px;margin:0 auto;border-radius:18px;}
+.tastieraCifre{display:block;text-align:center;font:700 34px ui-monospace,Menlo,monospace;color:var(--verde);padding:8px 0;}
 .quantita button.attivo{background:var(--oro);border-color:var(--oro);color:var(--verde);}
 .griglia{flex:1;overflow:auto;padding:8px 10px;}
 .sezione{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--bronzo);margin:8px 2px 4px;}
@@ -431,11 +433,14 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     $('app').innerHTML = `<div class="ordine">
       <div class="portate"><button data-p="" class="${portataForzata ? '' : 'attiva'}">Auto</button>${PORTATE.map((p) => `<button data-p="${p}" class="${portataForzata === p ? 'attiva' : ''}">${NOMI_PORTATE[p]}</button>`).join('')}</div>
       <div class="cercaRiga"><input id="cerca" placeholder="cerca (3 lettere)" value="${esc(cerca)}" autocomplete="off" />
-        <div class="quantita">${[1,2,3,4].map((n) => `<button data-q="${n}" class="${n === quantitaPronta ? 'attivo' : ''}">${n}</button>`).join('')}</div></div>
+        <div class="quantita">${[1,2,3,4].map((n) => `<button data-q="${n}" class="${n === quantitaPronta ? 'attivo' : ''}">${n}</button>`).join('')}<button id="quantitaAltra" class="${quantitaPronta > 4 ? 'attivo' : ''}">${quantitaPronta > 4 ? quantitaPronta : '…'}</button></div></div>
       <div class="griglia">
         ${cerca.length >= 3 ? '' : `<div class="categorie"><button data-cat="" class="${categoria ? '' : 'attiva'}">★</button>${MENU.categorie.filter((c) => !c.sotto && c.attiva !== false).map((c) => `<button data-cat="${esc(c.id)}" class="${c.id === categoria ? 'attiva' : ''}" style="${c.colore ? `border-left:6px solid ${esc(c.colore)}` : ''}">${esc(c.nome)}</button>`).join('')}</div>`}
         ${categoria && sottoDi(categoria).length ? `<div class="categorie">${sottoDi(categoria).map((c) => `<button data-cat="${esc(c.id)}">${esc(c.nome)}</button>`).join('')}</div>` : ''}
-        ${lista.map(([tit, arts]) => `<div class="sezione">${esc(tit)}</div><div class="articoli">${arts.map((a) => `<button class="articolo ${a.esaurito ? 'esaurito' : ''}" data-a="${esc(a.id)}" ${a.esaurito ? 'disabled' : ''}><span>${esc(a.nome)}</span><span class="prezzo">${a.prezzo_libero ? 'prezzo libero' : euro(a.prezzo_cent)}</span></button>`).join('')}</div>`).join('') || '<p class="mini">Nessun articolo: scelga una categoria o cerchi.</p>'}
+        ${lista.map(([tit, arts]) => `<div class="sezione">${esc(tit)}</div><div class="articoli">${arts.map((a) => {
+          const col = (categoriaDi(a.categoria) || {}).colore;
+          return `<button class="articolo ${a.esaurito ? 'esaurito' : ''}" data-a="${esc(a.id)}" ${a.esaurito ? 'disabled' : ''} ${col ? `style="border-left:7px solid ${esc(col)}"` : ''}><span>${esc(a.nome)}</span><span class="prezzo">${a.prezzo_libero ? '# prezzo libero' : euro(a.prezzo_cent)}</span></button>`;
+        }).join('')}</div>`).join('') || '<p class="mini">Nessun articolo: scelga una categoria o cerchi.</p>'}
       </div>
       <div class="comanda" id="comanda">${[...gruppi].map(([p, rr]) => `<div class="portataTit"><span>${NOMI_PORTATE[p]}</span>${prossima === p ? '<span>in attesa</span>' : ''}</div>${rr.map((r) => `<div class="riga ${r.stato}" data-r="${esc(r.id)}"><span class="q">${r.quantita}×</span><span>${esc(r.nome)}${r.variante ? `<div class="dett">+ ${esc(r.variante)}</div>` : ''}${r.nota ? `<div class="dett">› ${esc(r.nota)}</div>` : ''}</span><span>${euro(r.quantita * r.prezzo_cent)}</span></div>`).join('')}`).join('') || '<p class="mini">Tocchi un articolo per aggiungerlo. Tocco lungo su una riga per nota, variante, quantità.</p>'}</div>
       <div class="totale"><span>Totale</span><b>${euro(totale)}</b></div>
@@ -446,7 +451,11 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       </div></div>`;
     const app = $('app');
     app.querySelectorAll('.portate button').forEach((b) => b.onclick = () => { portataForzata = b.dataset.p; disegna(); });
-    app.querySelectorAll('.quantita button').forEach((b) => b.onclick = () => { quantitaPronta = Number(b.dataset.q); disegna(); });
+    app.querySelectorAll('.quantita button[data-q]').forEach((b) => b.onclick = () => { quantitaPronta = Number(b.dataset.q); disegna(); });
+    $('quantitaAltra').onclick = async () => {
+      const n = await chiediNumero('Quante?', { valore: quantitaPronta > 4 ? String(quantitaPronta) : '' });
+      if (n) { quantitaPronta = Math.min(99, Math.round(n)); disegna(); }
+    };
     app.querySelectorAll('.categorie button').forEach((b) => b.onclick = () => { categoria = b.dataset.cat; cerca = ''; disegna(); });
     const c = $('cerca');
     c.oninput = () => { cerca = c.value; const pos = c.selectionStart; disegna(); const n = $('cerca'); n.focus(); n.setSelectionRange(pos, pos); };
@@ -458,14 +467,14 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     $('comanda').scrollTop = $('comanda').scrollHeight;
   };
 
-  const aggiungiArticolo = (a) => {
+  const aggiungiArticolo = async (a) => {
     if (!a) return;
     const opz = { quantita: quantitaPronta, portata: portataForzata || portataArticolo(a) };
     if (a.prezzo_libero) {
-      const p = prompt(`${a.nome}: importo in euro`);
-      if (p === null) return;
-      opz.prezzoManualeCent = Math.round(Number(String(p).replace(',', '.')) * 100);
-      if (!Number.isFinite(opz.prezzoManualeCent)) return;
+      /* col cancelletto, come sul POS di prima: prezzo battuto sul tastierino */
+      const p = await chiediNumero(`${a.nome}: prezzo in euro`, { decimale: true });
+      if (!p) return;
+      opz.prezzoManualeCent = Math.round(p * 100);
     }
     ordine = aggiungi(ordine, { ...a, portata: portataArticolo(a) }, opz);
     quantitaPronta = 1;
@@ -586,6 +595,39 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     } catch (e) { alert(e.message); }
   };
   disegna();
+}
+
+/* ---------- il tastierino: quantita' e prezzi si battono, non si scrivono ----------
+   Come sul POS che i camerieri conoscono: si digita la cifra e si conferma.
+   Niente finestrelle di sistema, che sul palmare sono lente e coprono tutto. */
+function chiediNumero(titolo, { decimale = false, valore = '' } = {}) {
+  return new Promise((risolvi) => {
+    let v = String(valore);
+    const velo = document.createElement('div');
+    velo.className = 'velo';
+    const disegna = () => {
+      velo.innerHTML = `<div class="pannello tastiera">
+        <h3>${esc(titolo)}</h3>
+        <output class="tastieraCifre">${esc(v || '0')}</output>
+        <div class="tastierino">${[1,2,3,4,5,6,7,8,9].map((n) => `<button data-t="${n}">${n}</button>`).join('')}
+          <button data-t="${decimale ? ',' : 'c'}">${decimale ? ',' : 'C'}</button><button data-t="0">0</button><button data-t="canc">←</button></div>
+        <div class="due"><button class="bottone sec" data-t="esci">Annulla</button><button class="bottone" data-t="ok">Fatto</button></div></div>`;
+      velo.querySelectorAll('[data-t]').forEach((b) => b.onclick = (ev) => {
+        ev.stopPropagation();
+        const k = b.dataset.t;
+        if (k === 'esci') { velo.remove(); return risolvi(null); }
+        if (k === 'ok') { velo.remove(); const n = Number(String(v).replace(',', '.')); return risolvi(Number.isFinite(n) && n > 0 ? n : null); }
+        if (k === 'canc') v = v.slice(0, -1);
+        else if (k === 'c') v = '';
+        else if (k === ',') { if (!v.includes(',')) v = (v || '0') + ','; }
+        else v = (v === '0' ? '' : v) + k;
+        disegna();
+      });
+    };
+    velo.onclick = (ev) => { if (ev.target === velo) { velo.remove(); risolvi(null); } };
+    document.body.appendChild(velo);
+    disegna();
+  });
 }
 
 /* ---------- il tocco lungo (450 ms) su un elemento ---------- */
