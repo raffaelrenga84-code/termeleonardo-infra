@@ -216,8 +216,18 @@ function testa(titolo, indietro) {
 function accesso() {
   testa('POS', null);
   if (!DISPOSITIVO) {
+    /* il codice del palmare sta nel back office (POS · Personale, nel link
+       di registrazione): lo si scrive qui una volta, o si apre quel link */
     $('app').innerHTML = `<div class="accesso"><h1>Palmare non registrato</h1>
-      <p class="mini">Questo dispositivo non ha il suo codice. Lo si registra dal back office e si apre la pagina una volta con <b>?d=CODICE</b>.</p></div>`;
+      <p class="mini">Questo dispositivo non ha ancora il suo codice. Lo trova nel back office, scheda «POS · Personale», nel link di registrazione del palmare: lo scriva qui, oppure apra quel link una volta su questo dispositivo.</p>
+      <input id="dispositivoCodice" placeholder="codice del palmare" autocapitalize="characters" autocomplete="off" spellcheck="false" style="width:100%;padding:14px;font:600 20px ui-monospace,Menlo,monospace;letter-spacing:2px;text-align:center;border:1px solid #DCD6CB;border-radius:12px;margin:10px 0;" />
+      <button type="button" class="bottone" id="dispositivoRegistra">Registra questo palmare</button></div>`;
+    $('dispositivoRegistra').onclick = () => {
+      const c = $('dispositivoCodice').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (c.length < 8) { $('dispositivoCodice').focus(); return; }
+      localStorage.setItem('posDispositivo', c);
+      location.reload();
+    };
     return;
   }
   let codice = '', pin = '', campo = 'codice';

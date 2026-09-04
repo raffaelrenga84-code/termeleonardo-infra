@@ -33,6 +33,7 @@ Deno.test('le tre schermate e i gesti della spec', () => {
   assert(m.includes('toccoLungo('), 'tocco lungo sulla riga');
   assert(m.includes('USCITA_DOPO_MS'), 'uscita automatica dopo inattivita');
   assert(m.includes("get('d')"), 'il token del palmare si puo dare una volta dall indirizzo (?d=)');
+  assert(m.includes('id="dispositivoCodice"') && m.includes("localStorage.setItem('posDispositivo'"), 'o si scrive sul palmare stesso, nella schermata «non registrato»');
 });
 
 Deno.test('il palmare non decide prezzi: manda articolo, quantita, variante, nota, portata e al massimo un prezzo manuale', () => {

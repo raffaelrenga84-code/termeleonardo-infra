@@ -437,7 +437,7 @@ Deno.serve(async (req) => {
     if (!chiaveHotel(req)) {
       const acc = await autorizzato(req);
       if (!acc.ok) return risposta({ errore: 'non autorizzato' }, 401);
-      if (acc.ruolo !== 'amministrazione') return risposta({ errore: 'solo l amministrazione' }, 403);
+      if (!['reception', 'amministrazione'].includes(acc.ruolo ?? '')) return risposta({ errore: 'solo reception e amministrazione' }, 403);
     }
     const da = url.searchParams.get('da') || '1970-01-01T00:00:00Z';
     const locale = url.searchParams.get('locale') || '';
@@ -500,7 +500,9 @@ Deno.serve(async (req) => {
     if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
     const acc = await autorizzato(req);
     if (!acc.ok) return risposta({ errore: 'non autorizzato' }, 401);
-    if (!acc.chiave && acc.ruolo !== 'amministrazione') return risposta({ errore: 'solo l amministrazione' }, 403);
+    /* la proprieta' lavora con l'account della reception (visto il 4
+       settembre 2026): reception e amministrazione scrivono, la spa no */
+    if (!acc.chiave && !['reception', 'amministrazione'].includes(acc.ruolo ?? '')) return risposta({ errore: 'solo reception e amministrazione' }, 403);
   }
 
   if (azione === 'menu-salva') {
