@@ -89,6 +89,12 @@ body.totem main{max-width:820px;padding-top:40px;}
 .contoChiudi{font:inherit;padding:6px 14px;border-radius:999px;border:1px solid var(--verde);background:#fff;color:var(--verde);cursor:pointer;}
 .contoChiudi.grande{font-size:24px;font-weight:600;padding:16px 44px;background:var(--verde);color:#fff;border-color:var(--verde);}
 .contoPie{text-align:center;margin-top:6px;}
+.contoTimer{display:flex;align-items:center;gap:14px;margin-bottom:4px;}
+.contoBarra{flex:1;height:10px;border-radius:5px;background:var(--allarme);width:100%;transition:width 60s linear;}
+.contoSecondi{min-width:64px;text-align:right;font:700 28px system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--allarme);font-variant-numeric:tabular-nums;}
+.contoSecondi.ultimi{animation:lampeggia 1s steps(2,start) infinite;}
+@keyframes lampeggia{to{opacity:.25;}}
+@media (prefers-reduced-motion: reduce){.contoSecondi.ultimi{animation:none;}}
 </style>
 </head>
 <body>
@@ -272,18 +278,24 @@ function totem() {
     const righe = c.righe.map((r) => `<tr><td>${escT(r.quantita)}</td><td>${escT(r.descrizione)}</td><td class="imp">€ ${escT(r.totale)}</td></tr>`).join('');
     const app = c.appuntamenti.map((a) => `<li>${escT(a.quando)} · ${escT(a.tipo)}${a.operatore ? ' · ' + escT(a.operatore) : ''}${a.fatto ? ' ✓' : ''}</li>`).join('');
     $('app').innerHTML = `<div class="riquadro totemRiposo conto">
+      <div class="contoTimer" aria-hidden="true"><div class="contoBarra" id="contoBarra"></div><span class="contoSecondi" id="contoSecondi">60</span></div>
       <div class="totemTitolo">${escT(e.camera)} ${escT(c.camera)}</div>
       <div class="contoRighe"><table class="contoTab"><thead><tr><th>N.</th><th>${escT(e.descrizione)}</th><th class="imp">${escT(e.totale)}</th></tr></thead><tbody>${righe}</tbody></table></div>
       <div class="contoTotali"><span>${escT(e.lordo)} <b>€ ${escT(c.lordo)}</b></span><span>${escT(e.acconto)} <b>€ ${escT(c.acconto)}</b></span><span class="grande">${escT(e.daPagare)} <b>€ ${escT(c.daPagare)}</b></span></div>
       ${app ? `<div class="contoApp"><b>${escT(e.appuntamenti)}</b><ul>${app}</ul></div>` : ''}
       <div class="contoPie"><button type="button" id="contoChiudi" class="contoChiudi grande">${escT(e.chiudi)}</button>
-        <p class="totemLingue">${escT(e.tocca)} · ${escT(e.chiude)} <span id="contoSecondi">60</span> s</p></div></div>`;
+        <p class="totemLingue">${escT(e.tocca)}</p></div></div>`;
+    /* la barra parte piena e si consuma in 60 secondi: e' il tempo che si
+       vede, non un numero piccolo in fondo («timer piu' visibile, sopra, in
+       rosso», la proprieta', 5 settembre 2026) */
+    requestAnimationFrame(() => { const b = $('contoBarra'); if (b) b.style.width = '0%'; });
     let secondi = 60;
     orologioConto = setInterval(() => {
       secondi -= 1;
       const s = $('contoSecondi');
       if (!s) { clearInterval(orologioConto); return; }
       s.textContent = String(secondi);
+      if (secondi <= 10) s.classList.add('ultimi');
       if (secondi <= 0) riposo();
     }, 1000);
     $('contoChiudi').onclick = riposo;

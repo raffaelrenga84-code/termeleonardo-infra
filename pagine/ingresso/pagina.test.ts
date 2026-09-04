@@ -149,3 +149,16 @@ Deno.test('le icone dei manifest sono PNG veri, 192 e 512: Android non disegna u
     }
   }
 });
+
+Deno.test('il tempo di chiusura del conto si vede: barra rossa in cima che si consuma, secondi grandi che lampeggiano alla fine', () => {
+  /* «puoi mettere il timer piu visibile, magari sopra in rosso» (la
+     proprieta', 5 settembre 2026) */
+  const m = modulo();
+  const t = m.slice(m.indexOf('function totem('), m.indexOf('function sportello('));
+  const conto = t.slice(t.indexOf('const mostraConto'), t.indexOf('const ALLA_RECEPTION'));
+  assert(conto.indexOf('id="contoBarra"') < conto.indexOf('class="totemTitolo"'), 'la barra sta in cima, prima del titolo');
+  assert(conto.includes("b.style.width = '0%'"), 'la barra si consuma');
+  assert(conto.includes("classList.add('ultimi')"), 'gli ultimi secondi si segnalano');
+  assert(P.includes('.contoBarra{') && /\.contoBarra\{[^}]*transition:width 60s linear/.test(P), 'la barra impiega 60 secondi, quanto il conto');
+  assert(/\.contoSecondi\{[^}]*var\(--allarme\)/.test(P) && /\.contoBarra\{[^}]*var\(--allarme\)/.test(P), 'in rosso');
+});
