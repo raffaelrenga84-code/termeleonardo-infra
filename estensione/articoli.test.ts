@@ -34,6 +34,9 @@ Deno.test('la chiave hotel e quella gia salvata dal popup (hotelKey), e con 401 
   assert(S.includes('401'), 'chiave sbagliata: lo dice');
 });
 
-Deno.test('il manifest e alla 2.27.0', () => {
-  assert(M.version === '2.27.0', M.version);
+Deno.test('il manifest e almeno alla 2.27.0, quella che ha portato gli articoli', () => {
+  /* la versione sale con le altre novita: qui basta che non sia tornata indietro */
+  const n = (v: string) => v.split('.').map(Number);
+  const [a, b, c] = n(M.version);
+  assert(a > 2 || (a === 2 && (b > 27 || (b === 27 && c >= 0))), M.version);
 });
