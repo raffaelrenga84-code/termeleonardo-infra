@@ -118,3 +118,20 @@ Deno.test('prezzo e disponibilita dal POS, col tocco lungo su un articolo', () =
   assert(m.includes("if (b.dataset.lungo) { b.removeAttribute('data-lungo'); return; }"), 'dopo il tocco lungo il dito che si alza non ordina');
   assert(!m.includes("${a.esaurito ? 'disabled' : ''}"), 'un articolo esaurito si tocca lo stesso: e da li che si rimette');
 });
+
+Deno.test('conto in camera: si passa la tessera, o si scrive la camera', () => {
+  assert(m.includes('const pannelloCamera = () =>'), 'il pannello');
+  assert(m.includes('id="nuovoCamera"'), 'il pulsante al tavolo');
+  assert(m.includes("chiama('tessera', { qs: `&codice=${encodeURIComponent(codice)}`, cloud: true })"), 'la tessera la legge il cloud');
+  assert(m.includes("if (ev.key === 'Enter')"), 'il lettore del palmare scrive e manda invio');
+  assert(m.includes("tessera: scritta === camera ? tessera : null"), 'se la camera viene cambiata a mano, la tessera non la certifica piu');
+  assert(m.includes("tipo: 'camera'"), 'e il conto nasce di tipo camera');
+});
+
+Deno.test('la chiusura non e piu una finestrella di sistema, e in camera avvisa', () => {
+  assert(!m.includes("prompt('Come paga?"), 'niente prompt');
+  assert(m.includes('data-modo="contanti"') && m.includes('data-modo="carta"'), 'contanti e carta');
+  assert(m.includes("const inCamera = conto.tipo === 'camera' && String(conto.camera || '').trim();"), 'in camera solo se il conto e di una camera');
+  assert(m.includes('data-modo="camera"') && m.includes('la reception lo riporta sul conto camera in Fidra'), 'e si dice cosa succede');
+  assert(m.includes('Addebito ${euro(totale)} sulla camera ${conto.camera}?'), 'si conferma con l importo davanti');
+});

@@ -79,3 +79,31 @@ Deno.test('nome del conto, conto vuoto tolto, prezzo e disponibilita: le nuove a
   assert(ar.includes('p > 100000'), 'un prezzo assurdo non entra');
   assert(S.includes('conti_eliminati'), 'e il PC del Bistrot puo dire quali conti ha tolto');
 });
+
+Deno.test('la tessera dice solo la camera, e a Fidra non si scrive niente', () => {
+  const t = S.slice(S.indexOf('async function cameraDallaTessera'), S.indexOf('/* Come si chiama un conto'));
+  assert(t.includes("Deno.env.get('FIDRA_TOTEM_KEY')") && t.includes('/api/bill-scanner/'), 'la stessa porta del totem in hall');
+  assert(!t.includes("method: 'POST'"), 'legge e basta');
+  const a = S.slice(S.indexOf("azione === 'tessera'"), S.indexOf("azione === 'conto-cambia'"));
+  assert(a.includes('/^[0-9]{4,20}$/'), 'un codice e cifre');
+  assert(a.includes('camera: f.camera, lingua: f.lingua'), 'torna la camera, non il conto dell ospite');
+  assert(!a.includes('righe') && !a.includes('totale'), 'il conto camera dell ospite non passa dal palmare');
+});
+
+Deno.test('chiuso in camera: l addebito entra in coda, e senza camera non si chiude', () => {
+  const c = S.slice(S.indexOf("azione === 'chiudi'"), S.indexOf('/* ================= dal server locale'));
+  assert(c.includes("modo === 'camera' && !String(c.camera ?? '').trim()") && c.includes('409'), 'senza camera non si addebita');
+  assert(c.includes("from('pos_addebito').insert("), 'l addebito entra in coda');
+  assert(c.includes("stato: 'da_riportare'"), 'e nasce da riportare');
+  assert(c.includes("righe.filter((r) => r.stato !== 'stornata')"), 'le righe stornate non si addebitano');
+  assert(c.includes('l\'addebito non e\' entrato in coda') || c.includes('addebito non e'), 'se la coda non accetta, lo dice');
+});
+
+Deno.test('la coda degli addebiti la legge e la segna il back office, non il palmare', () => {
+  assert(S.includes("'addebiti', 'addebito-segna'"), 'sono azioni del back office');
+  assert(!S.includes("'addebiti', 'addebito-segna'] ;"), 'e non del palmare');
+  const l = S.slice(S.indexOf("azione === 'addebiti'"), S.indexOf("azione === 'menu-salva'"));
+  assert(l.includes("['da_riportare', 'riportato', 'annullato'].includes"), 'tre stati e basta');
+  assert(l.includes('riportato_da'), 'si segna chi l ha riportato');
+  assert(S.includes("azione === 'addebiti' && req.method === 'GET'"), 'la lista si legge in GET');
+});

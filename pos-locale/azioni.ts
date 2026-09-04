@@ -122,7 +122,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
   }
 
   const cameriere = cameriereDi(db, req);
-  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia'];
+  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'tessera'];
   if (azioniPalmare.includes(azione) && !cameriere) return errore('sessione non valida', 401);
 
   if (azione === 'menu') {
@@ -219,6 +219,10 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
      cancellata al primo allineamento. Il palmare lo sa e li manda al
      cloud; se non c'e' linea, aspetta. */
   if (azione === 'articolo-cambia') return errore('prezzi e disponibilita si cambiano col cloud: serve la linea', 503);
+
+  /* La tessera la sa leggere solo il cloud: la chiave di Fidra sta li',
+     non su questo PC. Senza linea si apre il conto scrivendo la camera. */
+  if (azione === 'tessera') return errore('per leggere la tessera serve la linea: scriva il numero della camera', 503);
 
   if (azione === 'righe') {
     const no = soloPost(); if (no) return no;
@@ -347,10 +351,27 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     if (!c || c.stato === 'chiuso') return errore('conto non aperto', 409);
     const righe = righeDelConto(db, String(c.id));
     if (righe.some((r) => r.stato === 'da_inviare')) return errore('ci sono righe non inviate', 409);
+    if (modo === 'camera' && !String(c.camera ?? '').trim()) return errore('per addebitare serve la camera: apra un conto in camera', 409);
     const ora = adesso();
+    const totale = totaleCent(righe.map((r) => ({ quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent), stato: r.stato })));
     db.prepare("update pos_conto set stato = 'chiuso', chiuso_come = ?, chiuso_da = ?, chiuso_il = ?, aggiornato_il = ?, allineato = 0 where id = ?")
       .run(modo, cameriere!.id, ora, ora, String(c.id));
-    return ok({ conto: contoDi(db, String(c.id)), totale_cent: totaleCent(righe.map((r) => ({ quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent), stato: r.stato }))) });
+    /* «In camera» non e' un incasso: e' un addebito che la reception deve
+       ancora riportare nel conto camera di Fidra. Sale al cloud con gli
+       altri e da li' lo vede il back office. */
+    if (modo === 'camera') {
+      const t = db.prepare('select z.locale as locale from pos_tavolo t join pos_zona z on z.id = t.zona where t.id = ?').get(String(c.tavolo)) as Riga | undefined;
+      salva(db, 'pos_addebito', {
+        id: crypto.randomUUID(), conto: c.id, locale: t?.locale ?? null, camera: String(c.camera).trim(),
+        tessera: c.tessera ?? null, ospite: c.ospite ?? null, totale_cent: totale,
+        righe: righe.filter((r) => r.stato !== 'stornata').map((r) => ({
+          quantita: Number(r.quantita), nome: String(r.nome), totale_cent: Number(r.quantita) * Number(r.prezzo_cent),
+        })),
+        chiuso_da: cameriere!.id, chiuso_il: ora, stato: 'da_riportare',
+        riportato_il: null, riportato_da: null, nota: null, aggiornato_il: ora, allineato: 0,
+      });
+    }
+    return ok({ conto: contoDi(db, String(c.id)), totale_cent: totale });
   }
 
   return errore('azione sconosciuta', 404);

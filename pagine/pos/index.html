@@ -450,8 +450,9 @@ function schermataTavolo(t) {
     $('app').innerHTML = `<div class="riquadro">${aperti.length ? aperti.map((c) => `<div class="contoRiga"><button type="button" class="apri" data-c="${esc(c.id)}"><span><b>${esc(c.titolo || titoloConto(c))}</b><br><span class="mini">${c.coperti} coperti${c.attesa ? ' · portata in attesa' : ''}</span></span><b>${euro(c.totale_cent)}</b></button><button type="button" class="altro" data-altro="${esc(c.id)}" title="Nome, coperti, elimina">⋯</button></div>`).join('') : '<p class="mini">Tavolo libero.</p>'}</div>
       <div class="riquadro"><b>Nuovo conto</b><p class="mini">Quanti coperti?</p>
         <div class="coperti">${[1,2,3,4,5,6,7,8,9,10,11,12].map((n) => `<button data-n="${n}" class="${n === coperti ? 'attivo' : ''}">${n}</button>`).join('')}</div>
-        <button class="bottone" id="nuovoEsterno">Apri conto</button>
-        <p class="mini" style="margin-top:8px;">Il conto in camera con la tessera arriva nella fase 2.</p></div>`;
+        <div class="due"><button class="bottone" id="nuovoEsterno">Apri conto</button>
+          <button class="bottone sec" id="nuovoCamera">In camera</button></div>
+        <p class="mini" style="margin-top:8px;">«In camera»: si passa la tessera dell’ospite e il conto va sul conto camera.</p></div>`;
     $('app').querySelectorAll('.coperti button[data-n]').forEach((b) => b.onclick = () => { coperti = Number(b.dataset.n); disegna(); });
     $('app').querySelectorAll('[data-c]').forEach((r) => r.onclick = () => apriConto(r.dataset.c));
     $('app').querySelectorAll('[data-altro]').forEach((b) => b.onclick = () => pannelloConto(aperti.find((c) => c.id === b.dataset.altro)));
@@ -461,6 +462,66 @@ function schermataTavolo(t) {
         if (j.offline) return alert('Nessun server risponde: riprovi tra un momento.');
         schermataOrdine(j.conto, []);
       } catch (e) { alert(e.message); }
+    };
+    $('nuovoCamera').onclick = () => pannelloCamera();
+  };
+  /* Il conto in camera. La tessera si passa sul lettore del palmare — che
+     la scrive come farebbe un dito, e poi manda invio — oppure si batte il
+     numero. Il server chiede a Fidra di che camera e', come fa il totem in
+     hall: legge e basta, in Fidra non scrive niente. Senza tessera si
+     scrive la camera a mano: capita che l'ospite l'abbia lasciata su. */
+  const pannelloCamera = () => {
+    const velo = document.createElement('div'); velo.className = 'velo';
+    let cop = coperti, tessera = '', camera = '';
+    const via = () => velo.remove();
+    velo.innerHTML = `<div class="pannello">
+      <h3>Conto in camera</h3>
+      <label>Passi la tessera</label>
+      <input id="pkTessera" inputmode="numeric" autocomplete="off" placeholder="numero della tessera" />
+      <p class="mini">Col lettore del palmare basta puntarla. Se la tessera non c’è, scriva la camera qui sotto.</p>
+      <label>Camera</label>
+      <input id="pkCamera" inputmode="numeric" autocomplete="off" placeholder="es. 229" />
+      <label>Nome dell’ospite (facoltativo)</label>
+      <input id="pkOspite" maxlength="40" autocomplete="off" />
+      <label>Coperti</label>
+      <div class="coperti">${[1,2,3,4,5,6,7,8,9,10,11,12].map((n) => `<button data-cop="${n}" class="${n === cop ? 'attivo' : ''}">${n}</button>`).join('')}</div>
+      <p class="mini" id="pkEsito"></p>
+      <div class="due"><button class="bottone sec" id="pkChiudi">Annulla</button><button class="bottone" id="pkOk">Apri il conto</button></div></div>`;
+    document.body.appendChild(velo);
+    velo.onclick = (ev) => { if (ev.target === velo) via(); };
+    velo.querySelectorAll('[data-cop]').forEach((b) => b.onclick = () => {
+      cop = Number(b.dataset.cop);
+      velo.querySelectorAll('[data-cop]').forEach((x) => x.classList.toggle('attivo', Number(x.dataset.cop) === cop));
+    });
+    const esito = velo.querySelector('#pkEsito');
+    const leggi = async () => {
+      const codice = velo.querySelector('#pkTessera').value.replace(/\D/g, '');
+      if (codice.length < 4) return;
+      esito.textContent = 'Leggo la tessera…';
+      try {
+        const j = await chiama('tessera', { qs: `&codice=${encodeURIComponent(codice)}`, cloud: true });
+        tessera = codice; camera = String(j.camera || '');
+        velo.querySelector('#pkCamera').value = camera;
+        esito.textContent = `Camera ${camera}.`;
+      } catch (e) { esito.textContent = e instanceof TypeError ? 'Serve la linea per leggere la tessera: scriva la camera.' : e.message; }
+    };
+    const t1 = velo.querySelector('#pkTessera');
+    t1.onkeydown = (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); leggi(); } };
+    t1.onblur = leggi;
+    setTimeout(() => t1.focus(), 50);
+    velo.querySelector('#pkChiudi').onclick = via;
+    velo.querySelector('#pkOk').onclick = async () => {
+      const scritta = velo.querySelector('#pkCamera').value.trim();
+      if (!scritta) { esito.textContent = 'Serve la camera: passi la tessera o scriva il numero.'; return; }
+      try {
+        const j = await scrivi('conto', {
+          tavolo: t.id, tipo: 'camera', camera: scritta,
+          tessera: scritta === camera ? tessera : null,
+          ospite: velo.querySelector('#pkOspite').value.trim() || null, coperti: cop,
+        });
+        if (j.offline) return alert('Nessun server risponde: riprovi tra un momento.');
+        via(); schermataOrdine(j.conto, []);
+      } catch (e) { esito.textContent = e.message; }
     };
   };
   disegna();
@@ -707,14 +768,37 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     try { const j = await scrivi('vai', { conto: conto.id, portata: p }); if (!j.offline) await ricarica(); else disegna(); }
     catch (e) { alert(e.message); await ricarica(); }
   };
-  const chiudi = async () => {
-    const modo = prompt('Come paga? 1 contanti, 2 carta', '1');
-    if (modo === null) return;
-    try {
-      const j = await scrivi('chiudi', { conto: conto.id, modo: modo.trim() === '2' ? 'carta' : 'contanti' });
-      if (j.offline) alert('Nessun server risponde: il conto si chiude appena torna la linea.');
-      schermataSala();
-    } catch (e) { alert(e.message); }
+  /* La chiusura: contanti, carta, o in camera se il conto e' di una
+     camera. «In camera» non e' un incasso — l'importo entra in una coda
+     che la reception riporta nel conto camera di Fidra. */
+  const chiudi = () => {
+    const tutte = [...dalServer.filter((r) => r.stato !== 'stornata'), ...ordine.righe];
+    const totale = tutte.reduce((t, r) => t + r.quantita * r.prezzo_cent, 0);
+    const inCamera = conto.tipo === 'camera' && String(conto.camera || '').trim();
+    const velo = document.createElement('div'); velo.className = 'velo';
+    velo.innerHTML = `<div class="pannello">
+      <h3>Conto · ${euro(totale)}</h3>
+      <p class="mini">${esc(titoloConto(conto))} · ${conto.coperti} coperti</p>
+      <label>Come paga</label>
+      <div class="due"><button class="bottone" data-modo="contanti">Contanti</button><button class="bottone" data-modo="carta">Carta</button></div>
+      ${inCamera ? `<button class="bottone oro" data-modo="camera" style="margin-top:8px;">In camera ${esc(String(conto.camera))}</button>
+        <p class="mini">Va in coda: la reception lo riporta sul conto camera in Fidra.</p>`
+        : '<p class="mini" style="margin-top:10px;">Per addebitare in camera il conto va aperto con «In camera» dal tavolo.</p>'}
+      <div class="due"><button class="bottone sec" id="pzChiudi">Annulla</button><span></span></div></div>`;
+    document.body.appendChild(velo);
+    const via = () => velo.remove();
+    velo.onclick = (ev) => { if (ev.target === velo) via(); };
+    velo.querySelector('#pzChiudi').onclick = via;
+    velo.querySelectorAll('[data-modo]').forEach((b) => b.onclick = async () => {
+      const modo = b.dataset.modo;
+      if (modo === 'camera' && !confirm(`Addebito ${euro(totale)} sulla camera ${conto.camera}?`)) return;
+      velo.querySelectorAll('[data-modo]').forEach((x) => x.disabled = true);
+      try {
+        const j = await scrivi('chiudi', { conto: conto.id, modo });
+        if (j.offline) alert('Nessun server risponde: il conto si chiude appena torna la linea.');
+        via(); schermataSala();
+      } catch (e) { alert(e.message); velo.querySelectorAll('[data-modo]').forEach((x) => x.disabled = false); }
+    });
   };
   const ricarica = async () => {
     try { const j = await chiama('conto', { qs: `&id=${encodeURIComponent(conto.id)}` }); dalServer = j.righe; conto = j.conto; fratelli = j.fratelli || []; }

@@ -60,6 +60,31 @@ const chiaveCron = (req: Request) => { const k = Deno.env.get('CRON_KEY'); retur
 const oraRoma = () => new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
 const ePortata = (p: unknown): p is Portata => typeof p === 'string' && (PORTATE as readonly string[]).includes(p);
 
+/* La tessera della camera. La stessa porta che usa il totem in hall
+   (privacy, conto Day Spa): a Fidra si chiede /api/bill-scanner/<codice> e
+   torna la camera. Qui serve al cameriere per aprire un conto in camera
+   senza chiedere il numero all'ospite, che spesso non lo sa.
+   Legge e basta: in Fidra non si scrive niente. */
+async function cameraDallaTessera(codice: string): Promise<{ stato: number; camera: string | null; lingua: string | null }> {
+  const chiave = Deno.env.get('FIDRA_TOTEM_KEY');
+  const base = Deno.env.get('FIDRA_TOTEM_URL');
+  if (!chiave || !base) return { stato: 503, camera: null, lingua: null };
+  const radice = base.endsWith('/') ? base.slice(0, -1) : base;
+  try {
+    const r = await fetch(radice + '/api/bill-scanner/' + encodeURIComponent(codice), {
+      headers: { authorization: 'Bearer ' + chiave, accept: 'application/json' },
+    });
+    if (!r.ok) return { stato: r.status, camera: null, lingua: null };
+    const dati = await r.json().catch(() => null) as Riga | null;
+    const camera = dati && dati.room !== undefined && dati.room !== null ? String(dati.room).trim() : '';
+    const lingua = dati && typeof dati.locale === 'string' ? dati.locale : null;
+    return { stato: camera ? 200 : 404, camera: camera || null, lingua };
+  } catch (e) {
+    console.error('tessera: Fidra non risponde', e);
+    return { stato: 502, camera: null, lingua: null };
+  }
+}
+
 /* Come si chiama un conto in sala. Il cameriere puo' scriverci sopra il
    nome di chi paga: al tavolo cinque conti tutti «Esterno» non si
    distinguono («non posso eliminare gli esterni o scrivere nome», la
@@ -208,7 +233,7 @@ Deno.serve(async (req) => {
   }
 
   const cameriere = await cameriereDi(req);
-  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia'];
+  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'tessera'];
   if (azioniPalmare.includes(azione) && !cameriere) return risposta({ errore: 'sessione non valida' }, 401);
 
   if (azione === 'menu') {
@@ -278,6 +303,18 @@ Deno.serve(async (req) => {
     const { data, error } = await db.from('pos_conto').insert(conto).select('*').single();
     if (error) return risposta({ errore: error.message }, 500);
     return risposta({ conto: data });
+  }
+
+  /* La tessera passata sul palmare: torna solo la camera, mai il conto
+     dell'ospite. Al cameriere serve quella. */
+  if (azione === 'tessera') {
+    const codice = (url.searchParams.get('codice') || '').trim();
+    if (!/^[0-9]{4,20}$/.test(codice)) return risposta({ errore: 'codice della tessera non valido' }, 400);
+    const f = await cameraDallaTessera(codice);
+    if (f.stato === 503) return risposta({ errore: 'lettura della tessera non configurata' }, 503);
+    if (f.stato === 404) return risposta({ errore: 'tessera non trovata' }, 404);
+    if (f.stato !== 200) return risposta({ errore: f.stato === 502 ? 'Fidra non risponde' : 'Fidra risponde ' + f.stato }, 502);
+    return risposta({ camera: f.camera, lingua: f.lingua });
   }
 
   /* Il nome di chi paga e i coperti, cambiati a conto aperto. */
@@ -472,10 +509,28 @@ Deno.serve(async (req) => {
     if (!c || c.stato === 'chiuso') return risposta({ errore: 'conto non aperto' }, 409);
     const righe = await righeDelConto(c.id as string);
     if (righe.some((r) => r.stato === 'da_inviare')) return risposta({ errore: 'ci sono righe non inviate' }, 409);
+    if (modo === 'camera' && !String(c.camera ?? '').trim()) return risposta({ errore: 'per addebitare serve la camera: apra un conto in camera' }, 409);
     const ora = adesso();
+    const totale = totaleCent(righe.map((r) => ({ quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent), stato: r.stato })));
     const { data: agg } = await db.from('pos_conto')
       .update({ stato: 'chiuso', chiuso_come: modo, chiuso_da: cameriere!.id, chiuso_il: ora, aggiornato_il: ora }).eq('id', c.id).select('*').single();
-    return risposta({ conto: agg, totale_cent: totaleCent(righe.map((r) => ({ quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent), stato: r.stato }))) });
+    /* «In camera» non e' un incasso: e' un addebito che qualcuno deve
+       ancora riportare nel conto camera di Fidra. Finche' e' in questa
+       coda, la giornata non e' chiusa. */
+    if (modo === 'camera') {
+      const { data: t } = await db.from('pos_tavolo').select('z:pos_zona(locale)').eq('id', c.tavolo as string).maybeSingle();
+      const locale = (t?.z as unknown as { locale: string } | null)?.locale ?? null;
+      const { error } = await db.from('pos_addebito').insert({
+        id: crypto.randomUUID(), conto: c.id, locale, camera: String(c.camera).trim(),
+        tessera: c.tessera ?? null, ospite: c.ospite ?? null, totale_cent: totale,
+        righe: righe.filter((r) => r.stato !== 'stornata').map((r) => ({
+          quantita: Number(r.quantita), nome: String(r.nome), totale_cent: Number(r.quantita) * Number(r.prezzo_cent),
+        })),
+        chiuso_da: cameriere!.id, chiuso_il: ora, stato: 'da_riportare', aggiornato_il: ora,
+      });
+      if (error) return risposta({ errore: 'conto chiuso, ma l\'addebito non e\' entrato in coda: ' + error.message }, 500);
+    }
+    return risposta({ conto: agg, totale_cent: totale });
   }
 
   /* ================= dal server locale e dall'estensione (chiave hotel) ================= */
@@ -542,6 +597,7 @@ Deno.serve(async (req) => {
         conti: await upsertSeNuovi('pos_conto', Array.isArray(b.conti) ? b.conti as Riga[] : []),
         righe: await upsertSeNuovi('pos_riga', Array.isArray(b.righe) ? b.righe as Riga[] : []),
         comande: await upsertSeNuovi('pos_comanda', Array.isArray(b.comande) ? b.comande as Riga[] : []),
+        addebiti: await upsertSeNuovi('pos_addebito', Array.isArray(b.addebiti) ? b.addebiti as Riga[] : []),
         stampe: await upsertSeNuovi('pos_stampa', Array.isArray(b.stampe) ? b.stampe as Riga[] : []),
       };
       /* i conti che il PC del Bistrot ha tolto perche' vuoti: la
@@ -660,14 +716,41 @@ Deno.serve(async (req) => {
 
   /* ================= dal back office (accesso dell'hotel, amministrazione) ================= */
 
-  const azioniBackOffice = ['menu-salva', 'tavoli-salva', 'personale-salva'];
+  const azioniBackOffice = ['menu-salva', 'tavoli-salva', 'personale-salva', 'addebiti', 'addebito-segna'];
   if (azioniBackOffice.includes(azione)) {
-    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    /* «addebiti» si legge, le altre si scrivono */
+    if (req.method !== 'POST' && !(azione === 'addebiti' && req.method === 'GET')) return risposta({ errore: 'metodo non ammesso' }, 405);
     const acc = await autorizzato(req);
     if (!acc.ok) return risposta({ errore: 'non autorizzato' }, 401);
     /* la proprieta' lavora con l'account della reception (visto il 4
        settembre 2026): reception e amministrazione scrivono, la spa no */
     if (!acc.chiave && !['reception', 'amministrazione'].includes(acc.ruolo ?? '')) return risposta({ errore: 'solo reception e amministrazione' }, 403);
+  }
+
+  /* La coda dei conti chiusi in camera, per la reception: li riporta nel
+     conto camera di Fidra e li segna. Finche' esiste Fidra si fa a mano
+     da li'; quando il conto camera sara' nostro, cambia solo chi svuota
+     questa coda. */
+  if (azione === 'addebiti') {
+    const stato = url.searchParams.get('stato') || 'da_riportare';
+    let q = db.from('pos_addebito').select('*').order('chiuso_il', { ascending: false }).limit(300);
+    if (stato !== 'tutti') q = q.eq('stato', stato);
+    const { data, error } = await q;
+    if (error) return risposta({ errore: error.message }, 500);
+    return risposta({ addebiti: data ?? [] });
+  }
+
+  if (azione === 'addebito-segna') {
+    const b = await corpo();
+    const stato = ['da_riportare', 'riportato', 'annullato'].includes(String(b.stato)) ? String(b.stato) : null;
+    if (!stato) return risposta({ errore: 'stato: da_riportare, riportato o annullato' }, 400);
+    const ora = adesso();
+    const agg: Riga = { stato, aggiornato_il: ora, nota: b.nota ? String(b.nota).slice(0, 200) : null };
+    agg.riportato_il = stato === 'da_riportare' ? null : ora;
+    agg.riportato_da = stato === 'da_riportare' ? null : String(b.da ?? 'reception');
+    const { data, error } = await db.from('pos_addebito').update(agg).eq('id', String(b.id ?? '')).select('*').single();
+    if (error) return risposta({ errore: error.message }, 500);
+    return risposta({ addebito: data });
   }
 
   if (azione === 'menu-salva') {

@@ -25,3 +25,12 @@ Deno.test('nel menu si cambiano stampante, portata, prezzo, esaurito, preferiti,
   assert(pers.includes('type="password"') && !pers.includes('pin_hash'));
   assert(pers.includes('token'), 'il token del dispositivo nuovo si mostra una volta');
 });
+
+Deno.test('la scheda degli addebiti in camera: la coda che la reception riporta in Fidra', () => {
+  assert(P.includes("['posAddebiti', 'POS · Addebiti in camera']"), 'la scheda c e');
+  assert(P.includes('function vistaPosAddebiti()'), 'e la disegna una funzione sua');
+  assert(P.includes("chiama(`?a=addebiti&stato=${encodeURIComponent(stato)}`"), 'legge la coda');
+  assert(P.includes("chiama('?a=addebito-segna'"), 'e la segna');
+  assert(P.includes('data-segna="riportato"') && P.includes('data-segna="annullato"') && P.includes('data-segna="da_riportare"'), 'riportato, annullato, rimetti in coda');
+  assert(P.includes('tessera letta') && P.includes('camera scritta a mano'), 'si vede se la camera l ha detta la tessera o una persona');
+});

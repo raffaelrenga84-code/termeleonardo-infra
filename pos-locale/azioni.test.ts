@@ -172,3 +172,31 @@ Deno.test('prezzi e disponibilita non si cambiano sul PC: il menu scende dal clo
   assertEquals(r.stato, 503);
   assertEquals(db.prepare("select prezzo_cent as p from pos_articolo where id = 'A1'").get(), { p: 1400 });
 });
+
+Deno.test('chiuso in camera: l addebito nasce qui e aspetta di salire al cloud', async () => {
+  const db = base();
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'camera', camera: '229', tessera: '12345', ospite: 'Rossi', coperti: 2 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  await esegui(db, 'righe', req('POST', { conto, righe: [{ id: 'r1', articolo: 'A2', quantita: 2, portata: 'bevande' }] }), cfg);
+  await esegui(db, 'invia', req('POST', { conto }), cfg);
+  const ch = await esegui(db, 'chiudi', req('POST', { conto, modo: 'camera' }), cfg);
+  assertEquals(ch.stato, 200);
+  const a = db.prepare('select * from pos_addebito').get() as Record<string, unknown>;
+  assertEquals([a.camera, a.tessera, a.ospite, a.totale_cent, a.stato, a.allineato], ['229', '12345', 'Rossi', 1000, 'da_riportare', 0]);
+  assertEquals(JSON.parse(String(a.righe)), [{ quantita: 2, nome: 'Birra', totale_cent: 1000 }]);
+});
+
+Deno.test('un conto esterno non si addebita in camera', async () => {
+  const db = base();
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 1 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  const ch = await esegui(db, 'chiudi', req('POST', { conto, modo: 'camera' }), cfg);
+  assertEquals(ch.stato, 409);
+  assertEquals(db.prepare('select count(*) as n from pos_addebito').get(), { n: 0 });
+});
+
+Deno.test('la tessera la legge il cloud: qui si scrive la camera', async () => {
+  const db = base();
+  const r = await esegui(db, 'tessera', req('GET', null, { codice: '12345' }), cfg);
+  assertEquals(r.stato, 503);
+});

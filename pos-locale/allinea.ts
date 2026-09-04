@@ -16,8 +16,8 @@ import { type Db, type Riga, salva } from './db.ts';
 
 export type Cloud = { base: string; hotelKey: string; locale: string; fetch?: typeof globalThis.fetch };
 
-const TABELLE_SU = [['pos_conto', 'conti'], ['pos_riga', 'righe'], ['pos_comanda', 'comande'], ['pos_stampa', 'stampe']] as const;
-const JSON_DI: Record<string, string[]> = { pos_comanda: ['righe'], pos_categoria: ['note_rapide'] };
+const TABELLE_SU = [['pos_conto', 'conti'], ['pos_riga', 'righe'], ['pos_comanda', 'comande'], ['pos_addebito', 'addebiti'], ['pos_stampa', 'stampe']] as const;
+const JSON_DI: Record<string, string[]> = { pos_comanda: ['righe'], pos_addebito: ['righe'], pos_categoria: ['note_rapide'] };
 const TABELLE_GIU = ['locale', 'zona', 'tavolo', 'categoria', 'articolo', 'variante', 'preferito', 'cameriere', 'dispositivo'];
 
 async function chiama(cloud: Cloud, qs: string, init: RequestInit = {}): Promise<Riga> {

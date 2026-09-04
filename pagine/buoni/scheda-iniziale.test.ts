@@ -111,7 +111,7 @@ Deno.test('la reception vede prima le richieste, poi gli arrivi, poi i buoni', (
        scheda dello sportello; posti e prenotazioni in coda, si guardano
        una volta a settimana */
     /* le schede del POS (4 settembre 2026) in coda: sono dell'amministrazione, il server rifiuta gli altri */
-    ['richieste', 'arrivi', 'dayspaOggi', 'emetti', 'elenco', 'verifica', 'dayspaDisponibilita', 'dayspaPrenotazioni', 'posMenu', 'posTavoli', 'posPersonale', 'privacy'],
+    ['richieste', 'arrivi', 'dayspaOggi', 'emetti', 'elenco', 'verifica', 'dayspaDisponibilita', 'dayspaPrenotazioni', 'posMenu', 'posTavoli', 'posPersonale', 'posAddebiti', 'privacy'],
   );
 });
 
@@ -126,7 +126,7 @@ Deno.test('l amministrazione tiene l ordine di sempre, con i buoni davanti', () 
 Deno.test('la spa vede prima le richieste e gli arrivi, senza la scheda che il server le rifiuta', () => {
   assertEquals(
     schedeDi('spa@termeleonardo.com').map(([v]) => v),
-    ['richieste', 'arrivi', 'dayspaOggi', 'elenco', 'verifica', 'dayspaDisponibilita', 'dayspaPrenotazioni', 'posMenu', 'posTavoli', 'posPersonale', 'privacy'],
+    ['richieste', 'arrivi', 'dayspaOggi', 'elenco', 'verifica', 'dayspaDisponibilita', 'dayspaPrenotazioni', 'posMenu', 'posTavoli', 'posPersonale', 'posAddebiti', 'privacy'],
   );
 });
 

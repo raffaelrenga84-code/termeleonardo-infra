@@ -80,6 +80,14 @@ create table if not exists pos_comanda (
   id text primary key, conto text not null, portata text not null, tipo text not null,
   righe text not null default '[]', aggiornato_il text not null default ${ORA},
   allineato integer not null default 0);
+/* i conti chiusi «in camera»: l'importo aspetta qui di essere riportato
+   nel conto camera di Fidra (la reception lo fa dal back office) */
+create table if not exists pos_addebito (
+  id text primary key, conto text not null, locale text, camera text not null, tessera text, ospite text,
+  totale_cent integer not null default 0, righe text not null default '[]',
+  chiuso_da text, chiuso_il text not null default ${ORA},
+  stato text not null default 'da_riportare', riportato_il text, riportato_da text, nota text,
+  aggiornato_il text not null default ${ORA}, allineato integer not null default 0);
 create table if not exists pos_stampa (
   id text primary key, locale text not null, stampante text not null, testo text not null,
   stato text not null default 'da_stampare', creato_il text not null default ${ORA},
