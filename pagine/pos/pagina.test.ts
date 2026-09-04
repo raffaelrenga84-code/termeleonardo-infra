@@ -34,6 +34,15 @@ Deno.test('le tre schermate e i gesti della spec', () => {
   assert(m.includes('USCITA_DOPO_MS'), 'uscita automatica dopo inattivita');
   assert(m.includes("get('d')"), 'il token del palmare si puo dare una volta dall indirizzo (?d=)');
   assert(m.includes('id="dispositivoCodice"') && m.includes("localStorage.setItem('posDispositivo'"), 'o si scrive sul palmare stesso, nella schermata «non registrato»');
+  /* col codice sbagliato si resterebbe chiusi fuori: dalla schermata
+     dell accesso si deve poter rimettere (4 settembre 2026) */
+  assert(m.includes("localStorage.removeItem('posDispositivo')"), 'e si puo cambiare se non va piu bene');
+});
+
+Deno.test('si entra col solo codice: il PIN lo chiede il server, e solo a chi ce l ha', () => {
+  assert(m.includes('const entra = async'), 'un solo gesto: codice e invio');
+  assert(m.includes("/serve il PIN/i.test(e.message)"), 'il PIN si chiede solo se il server lo dice');
+  assert(!m.includes("if (campo === 'codice') { if (codice) campo = 'pin'; return disegna(); }"), 'il passaggio al PIN non e piu automatico');
 });
 
 Deno.test('il palmare non decide prezzi: manda articolo, quantita, variante, nota, portata e al massimo un prezzo manuale', () => {

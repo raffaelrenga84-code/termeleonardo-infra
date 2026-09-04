@@ -43,6 +43,10 @@ Deno.test('il back office: elenco, uno, annulla dopo autorizzato, per reception 
   for (const a of ['elenco', 'uno', 'annulla']) assert(da(`azione === '${a}'`) > g, `${a} dopo il cancello`);
   const dopo = S.slice(g);
   assert(dopo.includes("'reception'") && dopo.includes("'amministrazione'"));
+  /* «a» e' il nome dell'azione: nessun filtro puo' chiamarsi cosi', o si
+     ritrova «elenco» dove aspettava una data */
+  assert(!/searchParams\.get\('a'\)(?!\s*\|\|\s*'')/.test(blocco('elenco')) || blocco('elenco').includes("get('fino')"), 'la seconda data si chiama fino');
+  assert(blocco('elenco').includes("get('fino')"), 'la seconda data si chiama fino');
   const colonne = S.slice(da('const COLONNE_ELENCO'), S.indexOf('\n', da('const COLONNE_ELENCO')));
   assert(blocco('elenco').includes('COLONNE_ELENCO') && !/\bfirma\b/.test(colonne), 'l elenco non scarica le firme (firmato_il si, firma no)');
 });

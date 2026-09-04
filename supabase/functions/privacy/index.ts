@@ -199,7 +199,10 @@ Deno.serve(async (req) => {
 
   if (azione === 'elenco') {
     const cerca = (url.searchParams.get('cerca') || '').trim();
-    const da = url.searchParams.get('da') || '', a = url.searchParams.get('a') || '';
+    /* la seconda data si chiama «fino», non «a»: «a» e' gia' il nome
+       dell'azione, e il filtro si ritrovava «elenco» come data (difetto
+       visto in reception il 4 settembre 2026) */
+    const da = url.searchParams.get('da') || '', a = url.searchParams.get('fino') || '';
     let q = db.from('consenso').select(COLONNE_ELENCO).neq('stato', 'annullato')
       .order('firmato_il', { ascending: false, nullsFirst: true }).order('creato_il', { ascending: false }).limit(300);
     if (cerca) q = /^\d+$/.test(cerca) ? q.eq('camera', cerca) : q.ilike('cognome', `%${cerca}%`);

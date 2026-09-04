@@ -234,7 +234,7 @@ function accesso() {
   const disegna = () => {
     $('app').innerHTML = `<div class="accesso">
       <h1>Buon servizio</h1>
-      <p class="mini">Codice cameriere, poi PIN</p>
+      <p class="mini">Il suo codice, poi ↵</p>
       <label class="mini">Codice</label><div class="campo" id="vCodice">${esc(codice) || '·'}</div>
       <label class="mini">PIN</label><div class="campo" id="vPin">${'•'.repeat(pin.length) || '·'}</div>
       <div class="tastierino">${[1,2,3,4,5,6,7,8,9].map((n) => `<button data-n="${n}">${n}</button>`).join('')}
@@ -245,20 +245,37 @@ function accesso() {
     /* le impostazioni del palmare: tocco lungo sulla riga del server */
     toccoLungo($('impostazioni'), impostazioni);
   };
+  /* Si prova sempre col solo codice: a chi e' segnato «senza PIN» basta
+     quello, e il server risponde «serve il PIN» solo agli altri. Cosi' il
+     cameriere fa un gesto invece di due, e nessuno deve sapere in anticipo
+     com'e' fatto il suo profilo. */
+  const entra = async () => {
+    try {
+      const j = await chiama('accesso', { method: 'POST', body: JSON.stringify({ codice, pin }) });
+      SESSIONE = j.sessione; CAMERIERE = j.cameriere;
+      sessionStorage.setItem('posSessione', SESSIONE); sessionStorage.setItem('posCameriere', JSON.stringify(CAMERIERE));
+      tocco();
+      await caricaMenu();
+      schermataSala();
+    } catch (e) {
+      if (/serve il PIN/i.test(e.message)) { campo = 'pin'; disegna(); return; }
+      pin = ''; campo = 'codice'; disegna();
+      $('accErrore').textContent = e.message;
+      /* il codice del palmare non e' piu' buono (cambiato dal back office,
+         o sbagliato quando lo si e' scritto): da qui si rimedia, se no si
+         resta chiusi fuori senza una strada */
+      if (/dispositiv/i.test(e.message)) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'bottone sec'; b.textContent = 'Cambia il codice del palmare';
+        b.style.marginTop = '10px';
+        b.onclick = () => { localStorage.removeItem('posDispositivo'); location.reload(); };
+        $('accErrore').appendChild(b);
+      }
+    }
+  };
   const tasto = async (n) => {
     if (n === 'c') { if (campo === 'pin' && !pin) campo = 'codice'; if (campo === 'codice') codice = codice.slice(0, -1); else pin = pin.slice(0, -1); return disegna(); }
-    if (n === 'ok') {
-      if (campo === 'codice') { if (codice) campo = 'pin'; return disegna(); }
-      try {
-        const j = await chiama('accesso', { method: 'POST', body: JSON.stringify({ codice, pin }) });
-        SESSIONE = j.sessione; CAMERIERE = j.cameriere;
-        sessionStorage.setItem('posSessione', SESSIONE); sessionStorage.setItem('posCameriere', JSON.stringify(CAMERIERE));
-        tocco();
-        await caricaMenu();
-        schermataSala();
-      } catch (e) { pin = ''; disegna(); $('accErrore').textContent = e.message; }
-      return;
-    }
+    if (n === 'ok') { if (!codice) return; return entra(); }
     if (campo === 'codice') codice += n; else pin += n;
     disegna();
   };
@@ -271,6 +288,10 @@ function impostazioni() {
   localStorage.setItem('posServerLocale', s.trim());
   const l = prompt('Locale di questo palmare (bistrot o ristorante):', LOCALE_ID);
   if (l) localStorage.setItem('posLocaleId', l.trim());
+  /* il codice del palmare si puo' rimettere da qui: lo si legge nel back
+     office, scheda «POS · Personale» */
+  const d = prompt('Codice di questo palmare (otto caratteri, dal back office):', DISPOSITIVO);
+  if (d !== null) localStorage.setItem('posDispositivo', d.trim().toUpperCase().replace(/[^A-Z0-9]/g, ''));
   location.reload();
 }
 

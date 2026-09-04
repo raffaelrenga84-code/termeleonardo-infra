@@ -57,6 +57,7 @@ create table if not exists pos_preferito (
 create table if not exists pos_cameriere (
   id text primary key, nome text not null, codice text not null, pin_hash text not null,
   ruolo text not null, storni integer not null default 0, bloccato integer not null default 0,
+  senza_pin integer not null default 0,
   aggiornato_il text not null default ${ORA});
 create table if not exists pos_dispositivo (
   id text primary key, nome text not null, token text not null, locale text, ultimo_accesso text,

@@ -78,6 +78,18 @@ Deno.test('storna una riga partita: STORNO in coda di stampa; il cameriere senza
   assert(testi.length === 2 && testi[1].includes('STORNO'), testi.join('|'));
 });
 
+Deno.test('un cameriere «senza PIN» entra col solo codice; agli altri il PIN si chiede ancora', async () => {
+  const db = base();
+  const senza = { metodo: 'POST', query: {}, corpo: { codice: '11' }, intestazioni: { 'x-pos-dispositivo': 'tok' } };
+  const primo = await esegui(db, 'accesso', senza, cfg);
+  assertEquals(primo.stato, 400, 'finche non e senza PIN, il codice da solo non basta');
+  assertEquals((primo.corpo as { errore: string }).errore, 'serve il PIN');
+  db.exec("update pos_cameriere set senza_pin = 1 where id = 'K1'");
+  const dopo = await esegui(db, 'accesso', senza, cfg);
+  assertEquals(dopo.stato, 200);
+  assert(typeof (dopo.corpo as { sessione: string }).sessione === 'string');
+});
+
 Deno.test('accesso col PIN: hash SHA-256 di codice:pin, sessione nuova; sbagliato 401; senza sessione 401; stato-locale risponde a tutti', async () => {
   const db = base();
   const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('11:1234'));

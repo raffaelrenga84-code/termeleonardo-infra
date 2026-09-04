@@ -95,14 +95,19 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     const disp = token ? db.prepare('select * from pos_dispositivo where token = ? and bloccato = 0').get(token) as Riga | undefined : undefined;
     if (!disp) return errore('dispositivo non registrato', 401);
     const codice = String(b.codice ?? '').trim(), pin = String(b.pin ?? '').trim();
-    if (!codice || !pin) return errore('codice e PIN', 400);
+    if (!codice) return errore('serve il codice', 400);
     const c = db.prepare('select * from pos_cameriere where codice = ? and bloccato = 0').get(codice) as Riga | undefined;
-    if (!c || c.pin_hash !== await hashPin(codice, pin)) return errore('codice o PIN sbagliati', 401);
+    /* «basta il codice» per chi e' segnato senza PIN: la pagina e' gia'
+       chiusa dall'IP dell'hotel e dal codice del palmare. Agli altri il PIN
+       si chiede, e la pagina lo capisce da questa risposta. */
+    const senzaPin = !!c && !!Number(c.senza_pin);
+    if (!pin && !senzaPin) return errore('serve il PIN', 400);
+    if (!c || (!senzaPin && c.pin_hash !== await hashPin(codice, pin))) return errore('codice o PIN sbagliati', 401);
     const sessione = crypto.randomUUID();
     const scade = new Date(Date.now() + 14 * 60 * 60 * 1000).toISOString();
     salva(db, 'pos_sessione', { id: sessione, cameriere: c.id, dispositivo: disp.id, scade_il: scade, aggiornato_il: adesso() });
     db.prepare('update pos_dispositivo set ultimo_accesso = ? where id = ?').run(adesso(), String(disp.id));
-    return ok({ sessione, scade_il: scade, cameriere: { id: c.id, nome: c.nome, ruolo: c.ruolo, storni: !!Number(c.storni) } });
+    return ok({ sessione, scade_il: scade, cameriere: { id: c.id, nome: c.nome, ruolo: c.ruolo, storni: !!Number(c.storni), senza_pin: senzaPin } });
   }
 
   const cameriere = cameriereDi(db, req);

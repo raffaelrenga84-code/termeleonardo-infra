@@ -177,14 +177,19 @@ Deno.serve(async (req) => {
     if (!disp) return risposta({ errore: 'dispositivo non registrato' }, 401);
     const b = await corpo();
     const codice = String(b.codice ?? '').trim(), pin = String(b.pin ?? '').trim();
-    if (!codice || !pin) return risposta({ errore: 'codice e PIN' }, 400);
+    if (!codice) return risposta({ errore: 'serve il codice' }, 400);
     const { data: c } = await db.from('pos_cameriere').select('*').eq('codice', codice).eq('bloccato', false).maybeSingle();
-    if (!c || c.pin_hash !== await hashPin(codice, pin)) return risposta({ errore: 'codice o PIN sbagliati' }, 401);
+    /* «basta il codice» per chi e' segnato senza PIN: la pagina risponde
+       solo dall'IP dell'hotel e il palmare ha gia' il suo codice. Agli
+       altri il PIN si chiede, e la pagina lo capisce da questa risposta. */
+    const senzaPin = !!c && !!c.senza_pin;
+    if (!pin && !senzaPin) return risposta({ errore: 'serve il PIN' }, 400);
+    if (!c || (!senzaPin && c.pin_hash !== await hashPin(codice, pin))) return risposta({ errore: 'codice o PIN sbagliati' }, 401);
     const sessione = crypto.randomUUID();
     const scade = new Date(Date.now() + 14 * 60 * 60 * 1000).toISOString();
     await db.from('pos_sessione').insert({ id: sessione, cameriere: c.id, dispositivo: disp.id, scade_il: scade });
     await db.from('pos_dispositivo').update({ ultimo_accesso: adesso() }).eq('id', disp.id);
-    return risposta({ sessione, scade_il: scade, cameriere: { id: c.id, nome: c.nome, ruolo: c.ruolo, storni: c.storni } });
+    return risposta({ sessione, scade_il: scade, cameriere: { id: c.id, nome: c.nome, ruolo: c.ruolo, storni: c.storni, senza_pin: senzaPin } });
   }
 
   const cameriere = await cameriereDi(req);
@@ -600,7 +605,7 @@ Deno.serve(async (req) => {
         const id = String(c.id ?? crypto.randomUUID());
         const codice = String(c.codice ?? '').trim();
         if (!codice || !c.nome) return risposta({ errore: 'ogni cameriere ha nome e codice' }, 400);
-        const riga: Riga = { id, nome: c.nome, codice, ruolo: c.ruolo ?? 'cameriere', storni: !!c.storni, bloccato: !!c.bloccato, aggiornato_il: ora };
+        const riga: Riga = { id, nome: c.nome, codice, ruolo: c.ruolo ?? 'cameriere', storni: !!c.storni, bloccato: !!c.bloccato, senza_pin: !!c.senza_pin, aggiornato_il: ora };
         const pin = String(c.pin ?? '').trim();
         /* PIN vuoto = lascia com'era. L'impronta vecchia va RIMESSA nella
            riga: un upsert e' un insert che poi diventa update, e Postgres
@@ -610,7 +615,11 @@ Deno.serve(async (req) => {
         const { data: e } = await db.from('pos_cameriere').select('pin_hash').eq('id', id).maybeSingle();
         if (pin) riga.pin_hash = await hashPin(codice, pin);
         else if (e) riga.pin_hash = e.pin_hash;
-        else return risposta({ errore: `${c.nome}: serve un PIN` }, 400);
+        /* un cameriere nuovo senza PIN: l'impronta resta, ma di una parola
+           che nessuno conosce, cosi' se un domani gli si toglie «senza
+           PIN» non entra piu' finche' non gliene si da' uno vero */
+        else if (c.senza_pin) riga.pin_hash = await hashPin(codice, tokenCasuale(24));
+        else return risposta({ errore: `${c.nome}: serve un PIN, oppure la spunta «senza PIN»` }, 400);
         const { error } = await db.from('pos_cameriere').upsert(riga, { onConflict: 'id' });
         if (error) throw new Error(error.message);
       }
