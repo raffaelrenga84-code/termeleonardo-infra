@@ -323,7 +323,10 @@ const portataArticolo = (a) => a.portata || (categoriaDi(a.categoria) || {}).por
    come li ha disegnati Fidra; sul PC del Bistrot e' il modo giusto.
    La scelta resta sul dispositivo; la barra delle zone non scorre via. */
 let ZONA = localStorage.getItem('posZona') || '';
-let VISTA_SALA = localStorage.getItem('posVistaSala') || (innerWidth < 700 ? 'elenco' : 'piantina');
+/* si parte sempre dall'elenco, in ordine di numero: la piantina serve
+   quando i tavoli stanno dove stanno davvero, e finche' non arriva da
+   Fidra i cerchi sembrano sparsi a caso (la proprieta', 4 settembre 2026) */
+let VISTA_SALA = localStorage.getItem('posVistaSala') || 'elenco';
 let timerSala = null;
 const numeroTavolo = (nome) => { const m = String(nome).match(/(\d+)/); return m ? Number(m[1]) : 9999; };
 

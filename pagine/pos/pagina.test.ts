@@ -27,7 +27,7 @@ Deno.test('riservata, installabile, moduli con percorso assoluto', () => {
 Deno.test('la sala: elenco in mano, piantina sul PC, e la barra delle zone non scorre via', () => {
   /* la piantina di Fidra e larga come una sala: dentro un telefono
      stretto i tavoli si sovrappongono (4 settembre 2026) */
-  assert(m.includes("VISTA_SALA") && m.includes("innerWidth < 700 ? 'elenco' : 'piantina'"), 'in mano si parte dall elenco');
+  assert(m.includes("VISTA_SALA") && m.includes("localStorage.getItem('posVistaSala') || 'elenco'"), 'si parte sempre dall elenco, ordinato');
   assert(m.includes("localStorage.setItem('posVistaSala'"), 'la scelta resta sul dispositivo');
   assert(m.includes('id="cambiaVista"') && m.includes('elencoTavoli'), 'si passa da una all altra');
   assert(P.includes('.zone{') && /\.zone\{[^}]*position:sticky/.test(P), 'le zone restano in cima');
