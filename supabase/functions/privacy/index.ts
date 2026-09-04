@@ -195,7 +195,7 @@ Deno.serve(async (req) => {
     const ora = adesso();
     const agg = {
       stato: 'firmato', firmato_il: ora, lingua: f.lingua,
-      conservazione: f.scelte.conservazione, messaggi: f.scelte.messaggi, marketing: f.scelte.marketing,
+      conservazione: f.scelte.conservazione, messaggi: null, marketing: f.scelte.marketing,
       firma: f.firma, testi_versione: f.versione, fonte: f.fonte, ip: indirizzo(req),
     };
     const { error } = await db.from('consenso').update(agg).eq('id', riga.id as string);

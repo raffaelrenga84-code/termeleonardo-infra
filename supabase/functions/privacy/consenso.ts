@@ -9,9 +9,15 @@
    (Corte di giustizia UE, Planet49, 2019).
    ============================================================ */
 export type Lingua = 'it' | 'en' | 'de' | 'fr';
-export type Scelta = 'conservazione' | 'messaggi' | 'marketing';
-export const SCELTE: readonly Scelta[] = ['conservazione', 'messaggi', 'marketing'];
-export const VERSIONE_TESTI = '2026-09-04';
+/* DUE SOLE DOMANDE, come nel modulo di ASA. La terza — «potete dire a
+   chi chiede che sono ospite e passarmi le chiamate» — e' stata tolta il 4
+   settembre 2026: il consenso non arriva al centralino, e una scelta che
+   nessuno puo' rispettare vale meno di niente. Senza quella domanda la
+   regola diventa la piu' prudente: a chi telefona non si conferma che
+   l'ospite e' in casa, a meno che sia lui a chiederlo. */
+export type Scelta = 'conservazione' | 'marketing';
+export const SCELTE: readonly Scelta[] = ['conservazione', 'marketing'];
+export const VERSIONE_TESTI = '2026-09-04.2';
 const LINGUE: readonly Lingua[] = ['it', 'en', 'de', 'fr'];
 const FIRMA_MAX = 200 * 1024;
 
@@ -35,7 +41,6 @@ export const TESTI_CONSENSO: Record<Lingua, Testi> = {
     autorizzo: 'Autorizzo', nonAutorizzo: 'Non autorizzo',
     scelte: {
       conservazione: 'Autorizzo l’hotel a conservare i miei dati per rendere più veloci le registrazioni dei miei prossimi soggiorni.',
-      messaggi: 'Autorizzo l’hotel a confermare a chi telefona o chiede di me che sono ospite, e a passarmi messaggi e chiamate.',
       marketing: 'Desidero ricevere per email offerte e novità dell’hotel.',
     },
     informativa: `L’informativa completa (Regolamento UE 2016/679) è su termeleonardo.com/it/privacy e alla reception. Titolare del trattamento: ${TITOLARE}.`,
@@ -58,7 +63,6 @@ export const TESTI_CONSENSO: Record<Lingua, Testi> = {
     autorizzo: 'I agree', nonAutorizzo: 'I do not agree',
     scelte: {
       conservazione: 'I allow the hotel to keep my details to make check-in faster on my next stays.',
-      messaggi: 'I allow the hotel to confirm to anyone calling or asking for me that I am a guest, and to pass on messages and calls.',
       marketing: 'I would like to receive the hotel’s offers and news by email.',
     },
     informativa: `The full privacy notice (EU Regulation 2016/679) is at termeleonardo.com/it/privacy and at the reception desk. Data controller: ${TITOLARE}.`,
@@ -81,7 +85,6 @@ export const TESTI_CONSENSO: Record<Lingua, Testi> = {
     autorizzo: 'Ich stimme zu', nonAutorizzo: 'Ich stimme nicht zu',
     scelte: {
       conservazione: 'Ich erlaube dem Hotel, meine Daten zu speichern, damit der Check-in bei meinen nächsten Aufenthalten schneller geht.',
-      messaggi: 'Ich erlaube dem Hotel, Anrufern oder Besuchern zu bestätigen, dass ich Gast bin, und mir Nachrichten und Anrufe weiterzugeben.',
       marketing: 'Ich möchte Angebote und Neuigkeiten des Hotels per E-Mail erhalten.',
     },
     informativa: `Die vollständige Datenschutzerklärung (EU-Verordnung 2016/679) finden Sie unter termeleonardo.com/it/privacy und an der Rezeption. Verantwortlicher: ${TITOLARE}.`,
@@ -104,7 +107,6 @@ export const TESTI_CONSENSO: Record<Lingua, Testi> = {
     autorizzo: 'J’autorise', nonAutorizzo: 'Je n’autorise pas',
     scelte: {
       conservazione: 'J’autorise l’hôtel à conserver mes données pour accélérer l’enregistrement lors de mes prochains séjours.',
-      messaggi: 'J’autorise l’hôtel à confirmer à qui appelle ou demande après moi que je suis client, et à me transmettre messages et appels.',
       marketing: 'Je souhaite recevoir par e-mail les offres et les nouveautés de l’hôtel.',
     },
     informativa: `La notice complète (Règlement UE 2016/679) est sur termeleonardo.com/it/privacy et à la réception. Responsable du traitement : ${TITOLARE}.`,
@@ -178,7 +180,7 @@ export const firmaBase64 = (dataUrl: string): string => dataUrl.slice(dataUrl.in
 /* ---------- le email ---------- */
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
 const oraRoma = (iso: string) => new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso)).replace(',', '');
-const ETICHETTE_IT: Record<Scelta, string> = { conservazione: 'Conservazione', messaggi: 'Messaggi', marketing: 'Offerte' };
+const ETICHETTE_IT: Record<Scelta, string> = { conservazione: 'Conservazione', marketing: 'Offerte' };
 
 export type PerEmail = { camera: string; cognome: string; nome: string; email: string | null; lingua: Lingua; scelte: Record<Scelta, boolean>; firmatoIl: string; fonte: string; versione: string };
 
