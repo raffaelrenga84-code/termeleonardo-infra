@@ -105,7 +105,7 @@ Deno.test('la coda degli addebiti la legge e la segna il back office, non il pal
   const l = S.slice(S.indexOf("azione === 'addebiti'"), S.indexOf("azione === 'menu-salva'"));
   assert(l.includes("['da_riportare', 'riportato', 'annullato'].includes"), 'tre stati e basta');
   assert(l.includes('riportato_da'), 'si segna chi l ha riportato');
-  assert(S.includes("azione === 'addebiti' && req.method === 'GET'"), 'la lista si legge in GET');
+  assert(S.includes("['addebiti', 'giornata'].includes(azione) && req.method === 'GET'"), 'la lista si legge in GET, come la giornata');
 });
 
 Deno.test('la firma dell ospite sull addebito: un PNG, piccolo, e facoltativa', () => {
@@ -156,4 +156,13 @@ Deno.test('importare gli articoli non rifa il menu gia messo a posto', () => {
   assert(i.includes("const DA_SISTEMARE = 'Da sistemare'") && i.includes('attivo = false'), 'quello che non si riconosce va da parte, e spento');
   assert(i.includes('attiva: false'), 'e la categoria stessa non compare sul palmare');
   assert(!i.includes('prezzo_cent: a.prezzo_cent, iva: a.iva, fidra_id: a.fidra_id, aggiornato_il'), 'ogni riga nuova porta anche attivo');
+});
+
+Deno.test('la cassa di fine giornata si legge dal back office, e i numeri li fa giornata.ts', () => {
+  /* «il riepilogo di fine giornata (incassato per cameriere, per
+     contanti/carta/camera, articoli piu venduti)» (4 settembre 2026) */
+  assert(S.includes("'addebito-segna', 'giornata'"), 'azione del back office');
+  assert(S.includes("['addebiti', 'giornata'].includes(azione) && req.method === 'GET'"), 'si legge, non si scrive');
+  assert(S.includes("import { riepilogo } from './giornata.ts';") && S.includes('giornata: riepilogo({'), 'i numeri li fa il modulo puro');
+  assert(S.includes(".eq('stato', 'chiuso').gte('chiuso_il', da).lt('chiuso_il', a)"), 'solo i conti chiusi nella finestra chiesta');
 });

@@ -79,7 +79,11 @@ button{font:inherit;cursor:pointer;}
 .coperti button.attivo{background:var(--verde);color:#fff;border-color:var(--verde);}
 /* ordine */
 .ordine{display:flex;flex-direction:column;height:100%;}
-.portate{display:flex;gap:6px;padding:8px 10px;overflow-x:auto;background:#fff;border-bottom:1px solid var(--pietra);}
+.portate{display:flex;gap:6px;padding:8px 10px;overflow-x:auto;background:#fff;border-bottom:1px solid var(--pietra);align-items:center;}
+.portate .eti{font-size:12px;color:var(--grigio);white-space:nowrap;padding-right:2px;}
+/* sul palmare, scorrendo in giu' fra gli articoli, le due righe in cima
+   spariscono per lasciare spazio; tornano scorrendo in su (4 set 2026) */
+.ordine.compatta .portate,.ordine.compatta .cercaRiga{display:none;}
 .portate button{padding:7px 12px;border-radius:999px;border:1px solid var(--verde-medio);background:#fff;color:var(--verde-medio);white-space:nowrap;font-size:14px;}
 .portate button.attiva{background:var(--verde);color:#fff;border-color:var(--verde);}
 .cercaRiga{display:flex;gap:8px;padding:8px 10px;background:#fff;align-items:center;}
@@ -576,6 +580,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
   testa(`${titoloConto(conto)} · ${conto.coperti} cop.`, schermataSala);
   let ordine = creaOrdine();
   let portataForzata = '';         // '' = quella dell'articolo
+  let compatta = false;            // le righe in cima nascoste dallo scorrimento
   let quantitaPronta = 1;
   let categoria = '';              // '' = preferiti e ultimi
   let cerca = '';
@@ -606,8 +611,11 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     const totale = tutte.reduce((t, r) => t + r.quantita * r.prezzo_cent, 0);
     const gruppi = new Map();
     for (const p of PORTATE) { const rr = tutte.filter((r) => r.portata === p); if (rr.length) gruppi.set(p, rr); }
-    $('app').innerHTML = `<div class="ordine">
-      <div class="portate"><button data-p="" class="${portataForzata ? '' : 'attiva'}">Auto</button>${PORTATE.map((p) => `<button data-p="${p}" class="${portataForzata === p ? 'attiva' : ''}">${NOMI_PORTATE[p]}</button>`).join('')}</div>
+    /* si ridisegna tutto a ogni tocco: la griglia deve restare dov'era */
+    const g0 = $('app').querySelector('.griglia');
+    const scorso = g0 ? g0.scrollTop : 0;
+    $('app').innerHTML = `<div class="ordine ${compatta ? 'compatta' : ''}">
+      <div class="portate"><span class="eti">Portata</span><button data-p="" class="${portataForzata ? '' : 'attiva'}">Auto</button>${PORTATE.map((p) => `<button data-p="${p}" class="${portataForzata === p ? 'attiva' : ''}">${NOMI_PORTATE[p]}</button>`).join('')}</div>
       <div class="cercaRiga"><input id="cerca" placeholder="cerca (3 lettere)" value="${esc(cerca)}" autocomplete="off" />
         <div class="quantita">${[1,2,3,4].map((n) => `<button data-q="${n}" class="${n === quantitaPronta ? 'attivo' : ''}">${n}</button>`).join('')}<button id="quantitaAltra" class="${quantitaPronta > 4 ? 'attivo' : ''}">${quantitaPronta > 4 ? quantitaPronta : '…'}</button></div></div>
       <div class="griglia">
@@ -656,6 +664,22 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     $('vai').onclick = vai;
     $('chiudi').onclick = chiudi;
     $('comanda').scrollTop = $('comanda').scrollHeight;
+    /* «menu sopra fallo scomparire se scrollo in giu'» (la proprieta', 4
+       settembre 2026): sul palmare, scendendo fra gli articoli, portata
+       e ricerca si nascondono; risalendo tornano. Sul PC c'e' posto. */
+    const g = app.querySelector('.griglia');
+    g.scrollTop = scorso;
+    let ultimo = g.scrollTop;
+    g.onscroll = () => {
+      const y = g.scrollTop;
+      if (window.innerWidth >= 900 || cerca) { ultimo = y; return; }
+      const nascondi = y > ultimo + 8 && y > 60;
+      const mostra = y < ultimo - 8 || y < 20;
+      ultimo = y;
+      if (nascondi === compatta || (!nascondi && !mostra)) return;
+      compatta = nascondi;
+      app.querySelector('.ordine').classList.toggle('compatta', compatta);
+    };
   };
 
   /* Prezzo e disponibilita' da qui, col tocco lungo su un articolo: e' il

@@ -40,6 +40,7 @@ import { prezzoRiga, totaleCent } from './conto.ts';
 import { escpos, testoBiglietto, type Biglietto } from './comanda.ts';
 import { importa, prezziSensati } from './menu.ts';
 import { leggiInCasa } from './in-casa.ts';
+import { riepilogo } from './giornata.ts';
 import { motivoDelPrezzo, motivoPulito, prezzoCambiato } from './motivi.ts';
 import { localeChePrepara, portareA, siStampa } from './dove.ts';
 import { categoriaVino } from './vini.ts';
@@ -865,15 +866,51 @@ Deno.serve(async (req) => {
 
   /* ================= dal back office (accesso dell'hotel, amministrazione) ================= */
 
-  const azioniBackOffice = ['menu-salva', 'tavoli-salva', 'personale-salva', 'addebiti', 'addebito-segna'];
+  const azioniBackOffice = ['menu-salva', 'tavoli-salva', 'personale-salva', 'addebiti', 'addebito-segna', 'giornata'];
   if (azioniBackOffice.includes(azione)) {
-    /* «addebiti» si legge, le altre si scrivono */
-    if (req.method !== 'POST' && !(azione === 'addebiti' && req.method === 'GET')) return risposta({ errore: 'metodo non ammesso' }, 405);
+    /* «addebiti» e «giornata» si leggono, le altre si scrivono */
+    if (req.method !== 'POST' && !(['addebiti', 'giornata'].includes(azione) && req.method === 'GET')) return risposta({ errore: 'metodo non ammesso' }, 405);
     const acc = await autorizzato(req);
     if (!acc.ok) return risposta({ errore: 'non autorizzato' }, 401);
     /* la proprieta' lavora con l'account della reception (visto il 4
        settembre 2026): reception e amministrazione scrivono, la spa no */
     if (!acc.chiave && !['reception', 'amministrazione'].includes(acc.ruolo ?? '')) return risposta({ errore: 'solo reception e amministrazione' }, 403);
+  }
+
+  /* La cassa di fine giornata: i conti chiusi fra «da» e «a» (la
+     giornata di un bar non finisce a mezzanotte: la decide chi chiede),
+     per modo, per cameriere, gli articoli piu' venduti e gli storni.
+     I numeri li fa giornata.ts; qui solo le letture. */
+  if (azione === 'giornata') {
+    const da = url.searchParams.get('da') ?? '', a = url.searchParams.get('a') ?? '';
+    if (!da || !a || Number.isNaN(Date.parse(da)) || Number.isNaN(Date.parse(a))) return risposta({ errore: 'servono «da» e «a» come date' }, 400);
+    const locale = url.searchParams.get('locale') || '';
+    const [{ data: contiTutti, error: e1 }, { data: tavoli }, { data: zone }, { data: camerieri }] = await Promise.all([
+      db.from('pos_conto').select('id, tavolo, chiuso_come, chiuso_da, chiuso_il, coperti, camera').eq('stato', 'chiuso').gte('chiuso_il', da).lt('chiuso_il', a),
+      db.from('pos_tavolo').select('id, zona'),
+      db.from('pos_zona').select('id, locale'),
+      db.from('pos_cameriere').select('id, nome'),
+    ]);
+    if (e1) return risposta({ errore: e1.message }, 500);
+    const localeDelTavolo = new Map((tavoli ?? []).map((t) => [t.id as string, (zone ?? []).find((z) => z.id === t.zona)?.locale as string | undefined]));
+    const conti = (contiTutti ?? []).filter((c) => !locale || localeDelTavolo.get(c.tavolo as string) === locale);
+    const ids = conti.map((c) => c.id as string);
+    const righe: Riga[] = [];
+    /* PostgREST vuole gli id nell'indirizzo: a blocchi, per non farlo troppo lungo */
+    for (let i = 0; i < ids.length; i += 100) {
+      const { data, error } = await db.from('pos_riga').select('conto, nome, quantita, prezzo_cent, stato, motivo_storno, stornata_da').in('conto', ids.slice(i, i + 100));
+      if (error) return risposta({ errore: error.message }, 500);
+      righe.push(...(data ?? []));
+    }
+    const nomi = Object.fromEntries((camerieri ?? []).map((c) => [c.id as string, String(c.nome)]));
+    return risposta({
+      da, a, locale: locale || null,
+      giornata: riepilogo({
+        conti: conti.map((c) => ({ id: c.id as string, chiuso_come: c.chiuso_come as string | null, chiuso_da: c.chiuso_da as string | null, coperti: Number(c.coperti) || 0, camera: c.camera as string | null })),
+        righe: righe.map((r) => ({ conto: String(r.conto), nome: String(r.nome), quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent), stato: String(r.stato), motivo_storno: r.motivo_storno as string | null, stornata_da: r.stornata_da as string | null })),
+        nomi,
+      }),
+    });
   }
 
   /* La coda dei conti chiusi in camera, per la reception: li riporta nel

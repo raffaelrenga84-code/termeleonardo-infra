@@ -190,3 +190,13 @@ Deno.test('sul palmare niente si schiaccia e la tastiera non copre il campo', ()
   const sw = Deno.readTextFileSync(new URL('./sw.js', import.meta.url));
   assert(sw.includes("'/pos/pianta.js'") && sw.includes("'pos-v2'"), 'il modulo nuovo sta in cache, e la cache cambia nome');
 });
+
+Deno.test('scorrendo in giu fra gli articoli, portata e ricerca si nascondono; la griglia resta dov era', () => {
+  /* «menu sopra fallo scomparire se scrollo in giu per lasciare piu spazio
+     per vedere le categorie» (la proprieta', 4 settembre 2026) */
+  assert(P.includes('.ordine.compatta .portate,.ordine.compatta .cercaRiga{display:none;}'), 'in CSS spariscono');
+  assert(m.includes('let compatta = false;') && m.includes('<div class="ordine ${compatta ? \'compatta\' : \'\'}">'), 'e lo stato sopravvive al ridisegno');
+  assert(m.includes('g.onscroll = () => {') && m.includes('window.innerWidth >= 900 || cerca'), 'solo sul palmare, e non mentre si cerca');
+  assert(m.includes('const scorso = g0 ? g0.scrollTop : 0;') && m.includes('g.scrollTop = scorso;'), 'a ogni tocco la griglia non torna in cima');
+  assert(m.includes('<span class="eti">Portata</span>'), 'la riga in cima dice cosa e: la portata, non un filtro');
+});

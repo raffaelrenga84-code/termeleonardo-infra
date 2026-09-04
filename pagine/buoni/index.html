@@ -300,6 +300,7 @@ const SCHEDE = [
   ['posTavoli', 'POS · Tavoli'],
   ['posPersonale', 'POS · Personale'],
   ['posAddebiti', 'POS · Addebiti in camera'],
+  ['posGiornata', 'POS · Giornata'],
   /* i consensi privacy firmati al totem e sugli iPad (4 settembre 2026) */
   ['privacy', 'Privacy'],
 ];
@@ -465,7 +466,7 @@ function disegna() {
      richieste: vistaRichieste, arrivi: vistaArrivi, dayspaOggi: vistaDayspaOggi,
      dayspaDisponibilita: vistaDayspaDisponibilita, dayspaPrenotazioni: vistaDayspaPrenotazioni,
      posMenu: vistaPosMenu, posTavoli: vistaPosTavoli, posPersonale: vistaPosPersonale,
-     posAddebiti: vistaPosAddebiti, privacy: vistaPrivacy })[VISTA]();
+     posAddebiti: vistaPosAddebiti, posGiornata: vistaPosGiornata, privacy: vistaPrivacy })[VISTA]();
   aggiornaContatore();
 }
 
@@ -2460,6 +2461,58 @@ function vistaPosAddebiti() {
     try { const j = await chiama(`?a=addebiti&stato=${encodeURIComponent(stato)}`, {}, FUNZIONE_POS); disegna(j.addebiti || []); }
     catch (e) { $('paEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
   };
+  carica();
+}
+
+/* La cassa di fine giornata (la proprieta', 4 settembre 2026): i conti
+   chiusi dalle quattro del mattino alle quattro del giorno dopo — la
+   giornata di un bar non finisce a mezzanotte. I numeri li fa il server
+   (giornata.ts); qui si scelgono giorno e locale e si guardano. */
+function vistaPosGiornata() {
+  const oggi = new Date();
+  if (oggi.getHours() < 4) oggi.setDate(oggi.getDate() - 1);
+  const aData = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  let giorno = aData(oggi), locale = '';
+  const finestra = (g) => {
+    const [y, m, d] = g.split('-').map(Number);
+    return { da: new Date(y, m - 1, d, 4, 0, 0).toISOString(), a: new Date(y, m - 1, d + 1, 4, 0, 0).toISOString() };
+  };
+  const testa = () => `<div class="riquadro"><div class="due">
+      <div><label>Giornata (dalle 4 del mattino alle 4 del giorno dopo)</label><input type="date" id="pgGiorno" value="${esc(giorno)}" /></div>
+      <div><label>Locale</label><select id="pgLocale">${opzPos([['', 'Tutti'], ['bistrot', 'Bistrot'], ['ristorante', 'Ristorante']], locale)}</select></div></div>
+      <div class="esito" id="pgEsito"></div></div>`;
+  const collega = () => {
+    $('pgGiorno').onchange = () => { giorno = $('pgGiorno').value || giorno; carica(); };
+    $('pgLocale').onchange = () => { locale = $('pgLocale').value; carica(); };
+  };
+  const disegna = (g) => {
+    const num = (n) => `${euroPos(n)} €`;
+    const cifra = (t, v) => `<div style="border:1px solid var(--pietra);border-radius:10px;padding:10px 12px;"><div class="mini">${t}</div><b style="font-size:22px;">${v}</b></div>`;
+    $('vista').innerHTML = testa() + `
+      <div class="riquadro"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;">
+        ${cifra('Incasso (contanti + carta)', num(g.incasso_cent))}${cifra('Contanti', num(g.per_modo.contanti))}${cifra('Carta', num(g.per_modo.carta))}
+        ${cifra('In camera (da riportare)', num(g.camera_cent))}${cifra('Conti chiusi', g.conti)}${cifra('Coperti', g.coperti)}
+      </div></div>
+      <div class="riquadro"><b>Per cameriere</b> <span class="mini">chi ha chiuso il conto</span>
+        <table><tr><th>Cameriere</th><th>Conti</th><th style="text-align:right;">Totale</th></tr>
+        ${g.per_cameriere.map((c) => `<tr><td>${esc(c.nome)}</td><td>${c.conti}</td><td style="text-align:right;">${num(c.totale_cent)}</td></tr>`).join('') || '<tr><td colspan="3" class="mini">Nessun conto chiuso in questa giornata.</td></tr>'}</table></div>
+      <div class="riquadro"><b>Articoli più venduti</b>
+        <table><tr><th>Q.tà</th><th>Articolo</th><th style="text-align:right;">Totale</th></tr>
+        ${g.articoli.map((a) => `<tr><td>${a.quantita}</td><td>${esc(a.nome)}</td><td style="text-align:right;">${num(a.totale_cent)}</td></tr>`).join('') || '<tr><td colspan="3" class="mini">Niente venduto.</td></tr>'}</table></div>
+      <div class="riquadro"><b>Storni</b> <span class="mini">${g.storni.length ? `${g.storni.length}, per ${num(g.storni_cent)}` : 'nessuno'}</span>
+        ${g.storni.length ? `<table><tr><th>Q.tà</th><th>Articolo</th><th>Motivo</th><th>Chi</th><th style="text-align:right;">Valore</th></tr>
+        ${g.storni.map((s) => `<tr><td>${s.quantita}</td><td>${esc(s.nome)}</td><td>${esc(s.motivo || '—')}</td><td>${esc(s.da || '—')}</td><td style="text-align:right;">${num(s.totale_cent)}</td></tr>`).join('')}</table>` : ''}</div>`;
+    collega();
+  };
+  const carica = async () => {
+    const f = finestra(giorno);
+    try {
+      const j = await chiama(`?a=giornata&da=${encodeURIComponent(f.da)}&a=${encodeURIComponent(f.a)}&locale=${encodeURIComponent(locale)}`, {}, FUNZIONE_POS);
+      disegna(j.giornata);
+    } catch (e) { $('vista').innerHTML = testa(); collega(); $('pgEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  };
+  $('vista').innerHTML = testa() + '<div class="riquadro"><div class="mini">Carico…</div></div>';
+  collega();
   carica();
 }
 
