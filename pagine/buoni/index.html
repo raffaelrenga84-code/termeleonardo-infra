@@ -194,6 +194,8 @@ const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
 const FUNZIONE_RICHIESTE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 /* il Day Spa venduto da noi (3 settembre 2026): posti, prenotazioni, arrivi */
 const FUNZIONE_DAYSPA = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/dayspa';
+/* il POS di Bistrot e ristorante (4 settembre 2026): menu', tavoli, personale */
+const FUNZIONE_POS = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos';
 
 /* ---------- catalogo: dal listino spa del sito ---------- */
 /* il Day Spa sta in cima perché è quello che chiedono di più */
@@ -291,6 +293,10 @@ const SCHEDE = [
   ['dayspaOggi', 'Day Spa oggi'],
   ['dayspaDisponibilita', 'Disponibilit\u00e0 Day Spa'],
   ['dayspaPrenotazioni', 'Prenotazioni Day Spa'],
+  /* il POS di Bistrot e ristorante, dal 4 settembre 2026: solo amministrazione */
+  ['posMenu', 'POS · Menù'],
+  ['posTavoli', 'POS · Tavoli'],
+  ['posPersonale', 'POS · Personale'],
 ];
 
 /* CHI NON VEDE COSA. Alla spa «Emetti un buono» non serve e non
@@ -452,7 +458,8 @@ function disegna() {
     b.onclick = () => { VISTA = b.dataset.scheda; disegna(); });
   ({ emetti: vistaEmetti, elenco: vistaElenco, verifica: vistaVerifica,
      richieste: vistaRichieste, arrivi: vistaArrivi, dayspaOggi: vistaDayspaOggi,
-     dayspaDisponibilita: vistaDayspaDisponibilita, dayspaPrenotazioni: vistaDayspaPrenotazioni })[VISTA]();
+     dayspaDisponibilita: vistaDayspaDisponibilita, dayspaPrenotazioni: vistaDayspaPrenotazioni,
+     posMenu: vistaPosMenu, posTavoli: vistaPosTavoli, posPersonale: vistaPosPersonale })[VISTA]();
   aggiornaContatore();
 }
 
@@ -2214,6 +2221,208 @@ const giornoIT = (iso) => new Date(iso + 'T12:00:00Z').toLocaleDateString('it-IT
 function puoRimborsareDayspa(email) {
   const e = String(email ?? '').trim().toLowerCase();
   return e === 'reception@termeleonardo.com' || e === 'amministrazione@termeleonardo.com';
+}
+
+/* ==================== il POS: menu', tavoli, personale ====================
+   Tre schede per l'amministrazione. Leggono tutto con pos?a=allinea-giu e
+   scrivono con menu-salva, tavoli-salva, personale-salva. Il PIN dei
+   camerieri si scrive e non si rilegge mai: il server ne tiene l'impronta. */
+const PORTATE_POS = { bevande: 'Bevande', antipasti: 'Antipasti', primi: 'Primi', secondi: 'Secondi', dolci: 'Dolci' };
+const euroPos = (c) => (Number(c || 0) / 100).toFixed(2).replace('.', ',');
+const centPos = (s) => Math.round(Number(String(s ?? '0').replace(',', '.')) * 100) || 0;
+const opzPos = (lista, valore) => lista.map(([v, t]) => `<option value="${esc(v)}" ${String(v) === String(valore ?? '') ? 'selected' : ''}>${esc(t)}</option>`).join('');
+async function caricaPos() {
+  const j = await chiama('?a=allinea-giu', {}, FUNZIONE_POS);
+  const ord = (a, b) => (Number(a.posizione) || 0) - (Number(b.posizione) || 0) || String(a.nome ?? '').localeCompare(String(b.nome ?? ''));
+  return {
+    locali: j.locale || [], zone: (j.zona || []).sort(ord), tavoli: (j.tavolo || []).sort(ord),
+    categorie: (j.categoria || []).sort(ord), articoli: (j.articolo || []).sort(ord),
+    varianti: (j.variante || []).sort(ord), preferiti: (j.preferito || []).sort(ord),
+    camerieri: (j.cameriere || []).sort(ord), dispositivi: (j.dispositivo || []).sort(ord),
+  };
+}
+const valoreCampo = (el) => el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
+
+function vistaPosMenu() {
+  $('vista').innerHTML = `<div class="riquadro"><div class="esito" id="pmEsito">Carico…</div></div>`;
+  let D = null, filtro = '';
+  const cat = (id) => D.categorie.find((c) => c.id === id);
+  /* dal disegno ai dati, prima di ridisegnare o salvare */
+  const raccogli = () => {
+    document.querySelectorAll('[data-cat]').forEach((b) => {
+      const c = cat(b.dataset.cat); if (!c) return;
+      b.querySelectorAll('[data-c]').forEach((el) => {
+        const k = el.dataset.c, v = valoreCampo(el);
+        c[k] = k === 'note_rapide' ? String(v).split(',').map((s) => s.trim()).filter(Boolean) : k === 'sotto' ? (v || null) : v;
+      });
+      b.querySelectorAll('[data-art]').forEach((r) => {
+        const a = D.articoli.find((x) => x.id === r.dataset.art); if (!a) return;
+        r.querySelectorAll('[data-a]').forEach((el) => {
+          const k = el.dataset.a, v = valoreCampo(el);
+          a[k] = k === 'prezzo_cent' ? centPos(v) : (k === 'stampante' || k === 'portata') ? (v || null) : v;
+        });
+      });
+    });
+    document.querySelectorAll('[data-var]').forEach((r) => {
+      const v = D.varianti.find((x) => x.id === r.dataset.var); if (!v) return;
+      r.querySelectorAll('[data-vr]').forEach((el) => {
+        const k = el.dataset.vr, val = valoreCampo(el);
+        if (k === 'supplemento_cent') v[k] = centPos(val);
+        else if (k === 'articolo_nome') { const a = D.articoli.find((x) => x.nome === val); v.articolo = a ? a.id : null; }
+        else v[k] = val || null;
+      });
+    });
+    document.querySelectorAll('[data-pref-locale]').forEach((b) => {
+      const locale = b.dataset.prefLocale;
+      D.preferiti = D.preferiti.filter((p) => p.locale !== locale);
+      b.querySelectorAll('select').forEach((s, i) => { if (s.value) D.preferiti.push({ id: `${locale}-${i}`, locale, articolo: s.value, posizione: i }); });
+    });
+  };
+  const disegna = () => {
+    const f = filtro.toLowerCase();
+    const catOpz = (esclusa) => [['', '— nessuna —'], ...D.categorie.filter((c) => c.id !== esclusa).map((c) => [c.id, c.nome])];
+    const portOpz = Object.entries(PORTATE_POS);
+    const artOpz = [['', '—']].concat(D.categorie.flatMap((c) => D.articoli.filter((a) => a.categoria === c.id).map((a) => [a.id, `${c.nome} › ${a.nome}`])));
+    const blocco = (c) => {
+      const arts = D.articoli.filter((a) => a.categoria === c.id && (!f || String(a.nome).toLowerCase().includes(f)));
+      if (f && !arts.length && !String(c.nome).toLowerCase().includes(f)) return '';
+      return `<div class="riquadro" data-cat="${esc(c.id)}">
+        <div class="due"><div><label>Categoria</label><input data-c="nome" value="${esc(c.nome)}" /></div>
+          <div><label>Stampante</label><select data-c="stampante">${opzPos([['cucina', 'Cucina'], ['bar', 'Bar']], c.stampante)}</select></div></div>
+        <div class="due"><div><label>Portata</label><select data-c="portata">${opzPos(portOpz, c.portata)}</select></div>
+          <div><label>Sotto la categoria</label><select data-c="sotto">${opzPos(catOpz(c.id), c.sotto || '')}</select></div></div>
+        <div class="due"><div><label>Note rapide per la cucina (separate da virgola)</label><input data-c="note_rapide" value="${esc((c.note_rapide || []).join(', '))}" /></div>
+          <div><label>Posizione</label><input data-c="posizione" type="number" value="${Number(c.posizione || 0)}" style="width:80px;" />
+            <label style="display:inline;margin-left:12px;"><input type="checkbox" data-c="attiva" ${c.attiva !== false ? 'checked' : ''}/> attiva</label></div></div>
+        ${arts.length ? `<table><tr><th>Articolo</th><th>Prezzo €</th><th>IVA</th><th>Stampante</th><th>Portata</th><th>Libero</th><th>Esaurito</th><th>Attivo</th></tr>
+        ${arts.map((a) => `<tr data-art="${esc(a.id)}"><td><input data-a="nome" value="${esc(a.nome)}" /></td>
+          <td><input data-a="prezzo_cent" value="${euroPos(a.prezzo_cent)}" style="width:72px;" /></td>
+          <td><input data-a="iva" type="number" value="${Number(a.iva ?? 10)}" style="width:52px;" /></td>
+          <td><select data-a="stampante">${opzPos([['', 'della categoria'], ['cucina', 'Cucina'], ['bar', 'Bar']], a.stampante || '')}</select></td>
+          <td><select data-a="portata">${opzPos([['', 'della categoria'], ...portOpz], a.portata || '')}</select></td>
+          <td><input type="checkbox" data-a="prezzo_libero" ${a.prezzo_libero ? 'checked' : ''}/></td>
+          <td><input type="checkbox" data-a="esaurito" ${a.esaurito ? 'checked' : ''}/></td>
+          <td><input type="checkbox" data-a="attivo" ${a.attivo !== false ? 'checked' : ''}/></td></tr>`).join('')}</table>` : '<div class="mini">Nessun articolo.</div>'}
+        <button type="button" class="azione sec mini" data-nuovo-art="${esc(c.id)}" style="width:auto;margin-top:6px;">+ articolo</button></div>`;
+    };
+    const varianti = `<div class="riquadro"><b>Varianti</b><div class="mini">Una variante vale per un articolo o per una categoria intera; il supplemento si somma al prezzo.</div>
+      <table><tr><th>Variante</th><th>Supplemento €</th><th>Per la categoria</th><th>oppure per l'articolo</th></tr>
+      ${D.varianti.map((v) => `<tr data-var="${esc(v.id)}"><td><input data-vr="nome" value="${esc(v.nome)}" /></td>
+        <td><input data-vr="supplemento_cent" value="${euroPos(v.supplemento_cent)}" style="width:72px;" /></td>
+        <td><select data-vr="categoria">${opzPos(catOpz(''), v.categoria || '')}</select></td>
+        <td><input data-vr="articolo_nome" list="pmArticoli" value="${esc((D.articoli.find((a) => a.id === v.articolo) || {}).nome || '')}" /></td></tr>`).join('')}</table>
+      <datalist id="pmArticoli">${D.articoli.map((a) => `<option value="${esc(a.nome)}"></option>`).join('')}</datalist>
+      <button type="button" class="azione sec mini" id="pmNuovaVar" style="width:auto;margin-top:6px;">+ variante</button></div>`;
+    const preferiti = D.locali.map((l) => { const miei = D.preferiti.filter((p) => p.locale === l.id);
+      return `<div class="riquadro" data-pref-locale="${esc(l.id)}"><b>Preferiti · ${esc(l.nome)}</b><div class="mini">I dodici articoli che il cameriere vede per primi.</div>
+        <div class="due">${Array.from({ length: 12 }, (_, i) => { const p = miei.find((x) => Number(x.posizione) === i);
+          return `<div><label>${i + 1}</label><select>${opzPos(artOpz, p ? p.articolo : '')}</select></div>`; }).join('')}</div></div>`; }).join('');
+    $('vista').innerHTML = `<div class="riquadro"><div class="due">
+        <div><label>Cerca articolo o categoria</label><input id="pmFiltro" value="${esc(filtro)}" placeholder="es. birra" /></div>
+        <div><label>&nbsp;</label><button type="button" class="azione" id="pmSalva" style="width:auto;">Salva il menù</button>
+          <button type="button" class="azione sec" id="pmNuovaCat" style="width:auto;">+ categoria</button></div></div>
+      <div class="mini">${D.articoli.length} articoli in ${D.categorie.length} categorie. Le bevande escono al bar, il cibo in cucina: la stampante la decide la categoria, l'articolo può fare eccezione. Il menù arriva da Fidra con l'estensione (pagina Articoli, «Manda gli articoli al POS»).</div>
+      <div class="esito" id="pmEsito"></div></div>` + D.categorie.map(blocco).join('') + varianti + preferiti;
+    $('pmFiltro').oninput = () => { raccogli(); filtro = $('pmFiltro').value; disegna(); const n = $('pmFiltro'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
+    $('pmNuovaCat').onclick = () => { raccogli(); D.categorie.push({ id: crypto.randomUUID(), nome: 'Nuova categoria', posizione: D.categorie.length, colore: null, stampante: 'cucina', portata: 'secondi', sotto: null, note_rapide: [], fidra_id: null, attiva: true }); filtro = ''; disegna(); };
+    $('pmNuovaVar').onclick = () => { raccogli(); D.varianti.push({ id: crypto.randomUUID(), articolo: null, categoria: null, nome: '', supplemento_cent: 0, posizione: D.varianti.length }); disegna(); };
+    document.querySelectorAll('[data-nuovo-art]').forEach((b) => b.onclick = () => { raccogli(); D.articoli.push({ id: crypto.randomUUID(), categoria: b.dataset.nuovoArt, nome: '', prezzo_cent: 0, iva: 10, portata: null, stampante: null, prezzo_libero: false, incluso_trattamento: false, conto_ricavo: null, esaurito: false, posizione: D.articoli.length, fidra_id: null, attivo: true }); disegna(); });
+    $('pmSalva').onclick = async () => {
+      raccogli();
+      $('pmEsito').textContent = 'Salvo…';
+      try {
+        const pulisci = (r) => { const { aggiornato_il, ...resto } = r; return resto; };
+        const corpo = { categorie: D.categorie.map(pulisci), articoli: D.articoli.filter((a) => String(a.nome).trim()).map(pulisci), varianti: D.varianti.filter((v) => String(v.nome).trim()).map(pulisci), preferiti: D.preferiti.map(pulisci) };
+        await chiama('?a=menu-salva', { method: 'POST', body: JSON.stringify(corpo) }, FUNZIONE_POS);
+        $('pmEsito').textContent = 'Salvato. I palmari lo vedono al prossimo accesso.';
+      } catch (e) { $('pmEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+    };
+  };
+  caricaPos().then((d) => { D = d; disegna(); }).catch((e) => { $('pmEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; });
+}
+
+function vistaPosTavoli() {
+  $('vista').innerHTML = `<div class="riquadro"><div class="esito" id="ptEsito">Carico…</div></div>`;
+  let D = null;
+  const raccogli = () => {
+    document.querySelectorAll('[data-loc]').forEach((r) => { const l = D.locali.find((x) => x.id === r.dataset.loc); if (l) r.querySelectorAll('[data-l]').forEach((el) => { l[el.dataset.l] = valoreCampo(el) || null; }); });
+    document.querySelectorAll('[data-zona]').forEach((r) => { const z = D.zone.find((x) => x.id === r.dataset.zona); if (z) r.querySelectorAll('[data-z]').forEach((el) => { z[el.dataset.z] = valoreCampo(el); }); });
+    document.querySelectorAll('[data-tav]').forEach((r) => { const t = D.tavoli.find((x) => x.id === r.dataset.tav); if (t) r.querySelectorAll('[data-t]').forEach((el) => { t[el.dataset.t] = valoreCampo(el); }); });
+  };
+  const disegna = () => {
+    const locali = `<div class="riquadro"><b>Locali</b><div class="mini">Le stampanti qui sono gli indirizzi sulla rete dell'hotel (host:porta) che usa il PC del Bistrot; il cloud ha i suoi.</div>
+      <table><tr><th>Locale</th><th>Reparto</th><th>Stampante cucina (LAN)</th><th>Stampante bar (LAN)</th></tr>
+      ${D.locali.map((l) => `<tr data-loc="${esc(l.id)}"><td><input data-l="nome" value="${esc(l.nome)}" /></td><td><input data-l="reparto" value="${esc(l.reparto || 'F&B')}" /></td>
+        <td><input data-l="stampante_cucina" value="${esc(l.stampante_cucina || '')}" placeholder="192.168.0.x:9100" /></td><td><input data-l="stampante_bar" value="${esc(l.stampante_bar || '')}" placeholder="192.168.0.x:9100" /></td></tr>`).join('')}</table></div>`;
+    const zone = D.locali.map((l) => `<div class="riquadro"><b>Zone · ${esc(l.nome)}</b>
+      ${D.zone.filter((z) => z.locale === l.id).map((z) => { const tt = D.tavoli.filter((t) => t.zona === z.id);
+        return `<div style="margin-top:10px;"><div class="due" data-zona="${esc(z.id)}"><div><label>Zona</label><input data-z="nome" value="${esc(z.nome)}" /></div><div><label>Posizione</label><input data-z="posizione" type="number" value="${Number(z.posizione || 0)}" style="width:80px;" /></div></div>
+          <table><tr><th>Tavolo</th><th>Posti</th><th>x %</th><th>y %</th><th>Attivo</th></tr>
+          ${tt.map((t) => `<tr data-tav="${esc(t.id)}"><td><input data-t="nome" value="${esc(t.nome)}" /></td><td><input data-t="posti" type="number" value="${Number(t.posti || 4)}" style="width:52px;" /></td>
+            <td><input data-t="x" type="number" value="${Number(t.x || 0)}" style="width:60px;" /></td><td><input data-t="y" type="number" value="${Number(t.y || 0)}" style="width:60px;" /></td>
+            <td><input type="checkbox" data-t="attivo" ${t.attivo !== false ? 'checked' : ''}/></td></tr>`).join('')}</table>
+          <button type="button" class="azione sec mini" data-nuovo-tav="${esc(z.id)}" style="width:auto;margin-top:6px;">+ tavolo</button></div>`; }).join('')}
+      <button type="button" class="azione sec mini" data-nuova-zona="${esc(l.id)}" style="width:auto;margin-top:10px;">+ zona</button></div>`).join('');
+    $('vista').innerHTML = `<div class="riquadro"><button type="button" class="azione" id="ptSalva" style="width:auto;">Salva locali, zone e tavoli</button>
+      <button type="button" class="azione sec" id="ptNuovoLoc" style="width:auto;">+ locale</button>
+      <div class="mini">x e y sono la posizione del tavolo sulla piantina del palmare, in percentuale da sinistra e dall'alto.</div><div class="esito" id="ptEsito"></div></div>` + locali + zone;
+    $('ptNuovoLoc').onclick = () => { raccogli(); const id = crypto.randomUUID(); D.locali.push({ id, nome: 'Nuovo locale', reparto: 'F&B', stampante_cucina: null, stampante_bar: null }); disegna(); };
+    document.querySelectorAll('[data-nuova-zona]').forEach((b) => b.onclick = () => { raccogli(); D.zone.push({ id: crypto.randomUUID(), locale: b.dataset.nuovaZona, nome: 'Nuova zona', posizione: D.zone.length }); disegna(); });
+    document.querySelectorAll('[data-nuovo-tav]').forEach((b) => b.onclick = () => { raccogli(); const n = D.tavoli.filter((t) => t.zona === b.dataset.nuovoTav).length + 1; D.tavoli.push({ id: crypto.randomUUID(), zona: b.dataset.nuovoTav, nome: `Tavolo ${n}`, posti: 4, x: 50, y: 50, attivo: true }); disegna(); });
+    $('ptSalva').onclick = async () => {
+      raccogli();
+      $('ptEsito').textContent = 'Salvo…';
+      try {
+        const pulisci = (r) => { const { aggiornato_il, ...resto } = r; return resto; };
+        await chiama('?a=tavoli-salva', { method: 'POST', body: JSON.stringify({ locali: D.locali.map(pulisci), zone: D.zone.map(pulisci), tavoli: D.tavoli.map(pulisci) }) }, FUNZIONE_POS);
+        $('ptEsito').textContent = 'Salvato.';
+      } catch (e) { $('ptEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+    };
+  };
+  caricaPos().then((d) => { D = d; disegna(); }).catch((e) => { $('ptEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; });
+}
+
+function vistaPosPersonale() {
+  $('vista').innerHTML = `<div class="riquadro"><div class="esito" id="ppEsito">Carico…</div></div>`;
+  let D = null;
+  const disegna = () => {
+    const ruoli = [['cameriere', 'Cameriere'], ['capo_sala', 'Capo sala'], ['amministrazione', 'Amministrazione']];
+    $('vista').innerHTML = `<div class="riquadro"><button type="button" class="azione" id="ppSalva" style="width:auto;">Salva personale e palmari</button><div class="esito" id="ppEsito"></div></div>
+      <div class="riquadro"><b>Camerieri</b><div class="mini">Il codice è quello che si digita sul palmare, poi il PIN. Il PIN si scrive qui e non si rilegge: lasciarlo vuoto lo lascia com'è. Storni: il cameriere può stornare da solo una riga già partita. Capo sala e amministrazione possono anche cambiare i prezzi.</div>
+        <table><tr><th>Nome</th><th>Codice</th><th>PIN</th><th>Ruolo</th><th>Storni</th><th>Bloccato</th></tr>
+        ${D.camerieri.map((c) => `<tr data-cam="${esc(c.id)}"><td><input data-k="nome" value="${esc(c.nome)}" /></td><td><input data-k="codice" value="${esc(c.codice)}" style="width:60px;" inputmode="numeric" /></td>
+          <td><input data-k="pin" type="password" placeholder="••••" style="width:80px;" inputmode="numeric" autocomplete="new-password" /></td>
+          <td><select data-k="ruolo">${opzPos(ruoli, c.ruolo)}</select></td>
+          <td><input type="checkbox" data-k="storni" ${c.storni ? 'checked' : ''}/></td><td><input type="checkbox" data-k="bloccato" ${c.bloccato ? 'checked' : ''}/></td></tr>`).join('')}</table>
+        <button type="button" class="azione sec mini" id="ppNuovoCam" style="width:auto;margin-top:6px;">+ cameriere</button></div>
+      <div class="riquadro"><b>Palmari</b><div class="mini">Ogni palmare ha il suo codice. Per registrarlo si apre una volta, sul palmare, il link qui sotto: il codice resta sul dispositivo. Un palmare bloccato non entra più, anche con il PIN giusto.</div>
+        <table><tr><th>Palmare</th><th>Locale</th><th>Bloccato</th><th>Ultimo accesso</th><th>Link di registrazione</th></tr>
+        ${D.dispositivi.map((d) => `<tr data-disp="${esc(d.id)}"><td><input data-d="nome" value="${esc(d.nome)}" /></td>
+          <td><select data-d="locale">${opzPos([['', '—'], ...D.locali.map((l) => [l.id, l.nome])], d.locale || '')}</select></td>
+          <td><input type="checkbox" data-d="bloccato" ${d.bloccato ? 'checked' : ''}/></td>
+          <td class="mini">${d.ultimo_accesso ? esc(String(d.ultimo_accesso).slice(0, 16).replace('T', ' ')) : '—'}</td>
+          <td class="cod" style="font-size:12px;">${d.token ? `https://www.hoteltermeleonardo.com/pos?d=${esc(d.token)}` : '<span class="mini">dopo il salvataggio</span>'}</td></tr>`).join('')}</table>
+        <button type="button" class="azione sec mini" id="ppNuovoDisp" style="width:auto;margin-top:6px;">+ palmare</button></div>`;
+    const raccogli = () => {
+      const camerieri = [...document.querySelectorAll('[data-cam]')].map((r) => { const c = D.camerieri.find((x) => x.id === r.dataset.cam); const out = { id: c.id }; r.querySelectorAll('[data-k]').forEach((el) => { out[el.dataset.k] = valoreCampo(el); }); if (!out.pin) delete out.pin; return out; });
+      const dispositivi = [...document.querySelectorAll('[data-disp]')].map((r) => { const out = { id: r.dataset.disp }; r.querySelectorAll('[data-d]').forEach((el) => { out[el.dataset.d] = el.dataset.d === 'locale' ? (el.value || null) : valoreCampo(el); }); return out; });
+      return { camerieri, dispositivi };
+    };
+    $('ppNuovoCam').onclick = () => { const s = raccogli(); D.camerieri = D.camerieri.map((c) => ({ ...c, ...(s.camerieri.find((x) => x.id === c.id) || {}) })); D.camerieri.push({ id: crypto.randomUUID(), nome: '', codice: '', ruolo: 'cameriere', storni: false, bloccato: false, nuovo: true }); disegna(); };
+    $('ppNuovoDisp').onclick = () => { D.dispositivi.push({ id: crypto.randomUUID(), nome: 'Palmare', locale: D.locali[0] ? D.locali[0].id : null, bloccato: false, token: null }); disegna(); };
+    $('ppSalva').onclick = async () => {
+      const s = raccogli();
+      const senzaPin = s.camerieri.filter((c) => !c.pin && (D.camerieri.find((x) => x.id === c.id) || {}).nuovo);
+      if (senzaPin.length) { $('ppEsito').innerHTML = `<span class="errore">Un cameriere nuovo ha bisogno del PIN: ${esc(senzaPin.map((c) => c.nome || c.codice || '?').join(', '))}</span>`; return; }
+      $('ppEsito').textContent = 'Salvo…';
+      try {
+        await chiama('?a=personale-salva', { method: 'POST', body: JSON.stringify(s) }, FUNZIONE_POS);
+        D = await caricaPos(); disegna();
+        $('ppEsito').textContent = 'Salvato.';
+      } catch (e) { $('ppEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+    };
+  };
+  caricaPos().then((d) => { D = d; disegna(); }).catch((e) => { $('ppEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; });
 }
 
 function vistaDayspaOggi() {

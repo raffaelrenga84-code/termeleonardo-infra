@@ -199,3 +199,16 @@ servizio alla riapertura di febbraio 2027.
 
 Prenotazione dei tavoli, magazzino e food cost, fatture (solo scontrino),
 mance, menù per il cliente al tavolo.
+
+## Stato (4 settembre 2026, sera)
+
+Costruito e in linea, fase 1:
+
+- tabelle `pos_*` sul progetto Supabase; funzione `pos` con tutte le azioni del contratto; cron `pos-stampa-cloud` ogni minuto;
+- pagina del cameriere su `https://www.hoteltermeleonardo.com/pos` (solo dall'IP dell'hotel; app a schermo intero; coda offline; server locale prima, cloud dopo);
+- estensione 2.27.0: «Manda gli articoli al POS» sulla pagina Articoli di Fidra;
+- back office: schede POS · Menu, POS · Tavoli, POS · Personale (le salva solo l'amministrazione); il back office e' passato a `/backend`, solo dall'IP dell'hotel;
+- server locale `pos-locale/` (SQLite, stampa sulla LAN, allineamento col cloud) pronto da installare sul PC del Bistrot: certificati.md, installa.cmd;
+- dati iniziali: Bistrot con Interno/Hall/Esterno/Terrazza e i 23 tavoli della piantina, tre camerieri di prova, palmare «Sunmi 1».
+
+Non ancora fatto: collaudo sui Sunmi (Task 12), installazione sul PC del Bistrot, importazione del menu' dalla reception. Le stampanti del cloud (`POS_STAMPANTE_CUCINA/BAR`) sono volutamente NON impostate finche' la proprieta' non chiede la prima stampa di prova in cucina.
