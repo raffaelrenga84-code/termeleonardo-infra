@@ -350,3 +350,23 @@ Deno.test('chiudi in contanti o carta lascia un pagamento: la giornata li somma 
   const p = db.prepare('select modo, importo_cent from pos_pagamento where conto = ?').all(conto) as { modo: string; importo_cent: number }[];
   assertEquals(p, [{ modo: 'carta', importo_cent: 500 }]);
 });
+
+Deno.test('dentro una fascia il listino e quello della fascia: nel menu e sulla riga', async () => {
+  /* «i listini a fasce (happy hour, prezzo diverso di sera)» (4 settembre 2026) */
+  const db = base();
+  db.exec(`insert into pos_fascia (id, nome, locale, dalle, alle, giorni, sconto_percento, categorie, attiva, aggiornato_il) values ('F1', 'Sempre', 'L1', '00:00', '00:00', null, 50, '["C2"]', 1, '2026-09-05T10:00:00Z');
+    insert into pos_prezzo_fascia (id, fascia, articolo, prezzo_cent, aggiornato_il) values ('P1', 'F1', 'A1', 1000, '2026-09-05T10:00:00Z');`);
+  const menu = await esegui(db, 'menu', req('GET'), cfg);
+  const corpo = menu.corpo as { articoli: { id: string; prezzo_cent: number }[]; fascia: { nome: string } | null };
+  assertEquals(corpo.articoli.find((a) => a.id === 'A1')!.prezzo_cent, 1000, 'il prezzo scritto apposta');
+  assertEquals(corpo.articoli.find((a) => a.id === 'A2')!.prezzo_cent, 250, 'la birra a meta: lo sconto della categoria');
+  assertEquals(corpo.fascia!.nome, 'Sempre');
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 1 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  const r = await esegui(db, 'righe', req('POST', { conto, righe: [{ id: 'r1', articolo: 'A1', quantita: 1, portata: 'primi' }, { id: 'r2', articolo: 'A2', quantita: 1, portata: 'bevande' }] }), cfg);
+  assertEquals(r.stato, 200);
+  const righe = (r.corpo as { righe: { id: string; prezzo_cent: number; prezzo_listino_cent: number }[] }).righe;
+  assertEquals(righe.find((x) => x.id === 'r1')!.prezzo_cent, 1000);
+  assertEquals(righe.find((x) => x.id === 'r2')!.prezzo_cent, 250);
+  assertEquals(righe.find((x) => x.id === 'r2')!.prezzo_listino_cent, 250, 'il listino in vigore e quello della fascia');
+});

@@ -219,3 +219,10 @@ Deno.test('il conto si paga a pezzi: in parti uguali, un importo a scelta, e i c
   assert(m.includes("j.pagamenti || []"), 'quanto e gia pagato lo dice il server');
   assert(m.includes('inCamera && !pagato()'), 'in camera va tutto il conto, non un pezzo');
 });
+
+Deno.test('happy hour sul palmare: il menu chiede il locale, si rinfresca, e la fascia si vede', () => {
+  assert(m.includes("MENU = await chiama('menu', { qs: `&locale=${encodeURIComponent(LOCALE_ID)}` });"), 'il menu sa di che locale e');
+  assert(m.includes('MENU_LETTO_IL = Date.now()') && m.includes('10 * 60 * 1000'), 'e si rilegge dopo dieci minuti: la fascia puo essere cambiata');
+  assert(m.includes('MENU.fascia ?') && m.includes('fino alle'), 'la fascia in corso si legge in cima');
+  assert(m.includes("a.in_fascia ? ' ★' : ''"), 'e i prezzi toccati hanno la stellina');
+});

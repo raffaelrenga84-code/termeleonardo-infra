@@ -15,6 +15,8 @@ import { testoBiglietto, type Biglietto } from '../supabase/functions/pos/comand
 import { puo, type Ruolo } from '../supabase/functions/pos/permessi.ts';
 import { motivoDelPrezzo, motivoPulito, prezzoCambiato } from '../supabase/functions/pos/motivi.ts';
 import { chiusoCome, importoValido, residuo, resto } from '../supabase/functions/pos/pagamenti.ts';
+import { applicaFascia, fasciaAttiva, oraLocale, prezzoInFascia } from '../supabase/functions/pos/fasce.ts';
+import type { Fascia, PrezzoFascia } from '../supabase/functions/pos/fasce.ts';
 import { localeChePrepara, portareA, siStampa } from '../supabase/functions/pos/dove.ts';
 
 export type Richiesta = { metodo: string; query: Record<string, string>; corpo: unknown; intestazioni: Record<string, string> };
@@ -148,11 +150,15 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
 
   if (azione === 'menu') {
     const categorie = (db.prepare('select * from pos_categoria where attiva = 1 order by posizione').all() as Riga[]).map(conJson(['note_rapide']));
-    const articoli = db.prepare('select * from pos_articolo where attivo = 1 order by posizione').all() as Riga[];
+    /* il listino in vigore adesso, per questo locale (fasce.ts) */
+    const fasce = (db.prepare('select * from pos_fascia where attiva = 1').all() as Riga[]).map(conJson(['giorni', 'categorie'])) as unknown as Fascia[];
+    const prezziFascia = db.prepare('select * from pos_prezzo_fascia').all() as unknown as PrezzoFascia[];
+    const fascia = fasciaAttiva({ fasce, adesso: oraLocale(new Date()), locale: cfg.locale });
+    const articoli = applicaFascia({ articoli: db.prepare('select * from pos_articolo where attivo = 1 order by posizione').all() as unknown as { id: string; categoria: string | null; prezzo_cent: number }[], fascia, prezzi: prezziFascia }) as unknown as Riga[];
     const varianti = db.prepare('select * from pos_variante order by posizione').all() as Riga[];
     const preferiti = db.prepare('select * from pos_preferito order by posizione').all() as Riga[];
     const tutte = [...categorie, ...articoli, ...varianti, ...preferiti].map((r) => String(r.aggiornato_il));
-    return ok({ categorie, articoli, varianti, preferiti, aggiornato_il: tutte.sort().pop() ?? null });
+    return ok({ categorie, articoli, varianti, preferiti, fascia: fascia ? { id: fascia.id, nome: fascia.nome, alle: fascia.alle } : null, aggiornato_il: tutte.sort().pop() ?? null });
   }
 
   if (azione === 'sala') {
@@ -260,6 +266,10 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
       : [];
     const idVar = [...new Set(richieste.map((r) => String(r.variante_id ?? '')).filter(Boolean))];
     const varianti = idVar.length ? db.prepare(`select * from pos_variante where id in (${segnaposto(idVar.length)})`).all(...idVar) as Riga[] : [];
+    /* il listino in vigore adesso (fasce.ts) */
+    const fasce = (db.prepare('select * from pos_fascia where attiva = 1').all() as Riga[]).map(conJson(['giorni', 'categorie'])) as unknown as Fascia[];
+    const prezziFascia = db.prepare('select * from pos_prezzo_fascia').all() as unknown as PrezzoFascia[];
+    const fascia = fasciaAttiva({ fasce, adesso: oraLocale(new Date()), locale: cfg.locale });
     const puoPrezzo = puo(cameriere!, 'prezzo');
     const ora = adesso();
     const nuove: Riga[] = [];
@@ -267,18 +277,19 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
       const a = articoli.find((x) => x.id === r.articolo);
       if (!a) return errore(`articolo sconosciuto: ${r.articolo}`, 400);
       if (Number(a.esaurito)) return errore(`${a.nome}: esaurito`, 409);
+      const listino = prezzoInFascia({ articolo: { id: String(a.id), categoria: a.categoria as string | null, prezzo_cent: Number(a.prezzo_cent) }, fascia, prezzi: prezziFascia }) ?? Number(a.prezzo_cent);
       const v = varianti.find((x) => x.id === r.variante_id) ?? null;
       let prezzo: number;
       try {
         prezzo = prezzoRiga({
-          articolo: { prezzo_cent: Number(a.prezzo_cent), prezzo_libero: !!Number(a.prezzo_libero) },
+          articolo: { prezzo_cent: listino, prezzo_libero: !!Number(a.prezzo_libero) },
           variante: v ? { supplemento_cent: Number(v.supplemento_cent) } : null,
           prezzo_manuale_cent: r.prezzo_manuale_cent === undefined || r.prezzo_manuale_cent === null ? null : Number(r.prezzo_manuale_cent),
         }, puoPrezzo);
       } catch (e) { return errore((e as Error).message, 403); }
       /* un prezzo diverso dal listino vuole il perche' */
       const cambiato = prezzoCambiato({
-        prezzoListinoCent: Number(a.prezzo_cent), supplementoCent: v ? Number(v.supplemento_cent) : 0,
+        prezzoListinoCent: listino, supplementoCent: v ? Number(v.supplemento_cent) : 0,
         prezzoManualeCent: r.prezzo_manuale_cent === undefined || r.prezzo_manuale_cent === null ? null : Number(r.prezzo_manuale_cent),
         prezzoLibero: !!Number(a.prezzo_libero),
       });
@@ -288,7 +299,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
       nuove.push({
         id: String(r.id ?? crypto.randomUUID()), conto, articolo: a.id, nome: a.nome,
         quantita: Math.max(1, Number(r.quantita ?? 1) || 1),
-        prezzo_listino_cent: Number(a.prezzo_cent), prezzo_cent: prezzo,
+        prezzo_listino_cent: listino, prezzo_cent: prezzo,
         variante: v ? v.nome : (r.variante ? String(r.variante) : null),
         nota: r.nota ? String(r.nota).slice(0, 200) : null,
         motivo_prezzo: cambiato ? motivoPrezzo : null,

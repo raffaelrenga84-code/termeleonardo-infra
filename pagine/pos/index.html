@@ -204,6 +204,7 @@ const coda = creaCoda({
 let SESSIONE = sessionStorage.getItem('posSessione') || '';
 let CAMERIERE = JSON.parse(sessionStorage.getItem('posCameriere') || 'null');
 let MENU = JSON.parse(localStorage.getItem('posMenu') || 'null');
+let MENU_LETTO_IL = 0;           // quando si e' letto dal server l'ultima volta
 
 function pallino() {
   const p = $('pallino');
@@ -352,7 +353,9 @@ function impostazioni() {
 /* ---------- il menu': dal server, con la copia sul palmare ---------- */
 async function caricaMenu() {
   try {
-    MENU = await chiama('menu');
+    /* col locale: il listino in vigore (happy hour, prezzo di sera) e' del locale */
+    MENU = await chiama('menu', { qs: `&locale=${encodeURIComponent(LOCALE_ID)}` });
+    MENU_LETTO_IL = Date.now();
     localStorage.setItem('posMenu', JSON.stringify(MENU));
   } catch (e) { if (!MENU) throw e; }
 }
@@ -650,10 +653,11 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       <div class="cercaRiga"><input id="cerca" placeholder="cerca (3 lettere)" value="${esc(cerca)}" autocomplete="off" />
         <div class="quantita">${[1,2,3,4].map((n) => `<button data-q="${n}" class="${n === quantitaPronta ? 'attivo' : ''}">${n}</button>`).join('')}<button id="quantitaAltra" class="${quantitaPronta > 4 ? 'attivo' : ''}">${quantitaPronta > 4 ? quantitaPronta : '…'}</button></div></div>
       <div class="griglia">
+        ${MENU.fascia ? `<div class="sezione" style="color:var(--oro);">${esc(MENU.fascia.nome)} · fino alle ${esc(MENU.fascia.alle)}</div>` : ''}
         ${dentroUna ? `<div class="categorie"><button data-cat="">‹ Categorie</button>${categoria ? sottoDi(categoria).map((c) => `<button data-cat="${esc(c.id)}">${esc(c.nome)}</button>`).join('') : ''}</div>` : ''}
         ${lista.map(([tit, arts]) => `<div class="sezione">${esc(tit)}</div><div class="articoli">${arts.map((a) => {
           const col = (categoriaDi(a.categoria) || {}).colore;
-          return `<button class="articolo ${a.esaurito ? 'esaurito' : ''}" data-a="${esc(a.id)}" ${col ? `style="border-left:7px solid ${esc(col)}"` : ''}><span>${esc(a.nome)}</span><span class="prezzo">${a.esaurito ? 'esaurito' : a.prezzo_libero ? '# prezzo libero' : euro(a.prezzo_cent)}</span></button>`;
+          return `<button class="articolo ${a.esaurito ? 'esaurito' : ''}" data-a="${esc(a.id)}" ${col ? `style="border-left:7px solid ${esc(col)}"` : ''}><span>${esc(a.nome)}</span><span class="prezzo">${a.esaurito ? 'esaurito' : a.prezzo_libero ? '# prezzo libero' : euro(a.prezzo_cent) + (a.in_fascia ? ' ★' : '')}</span></button>`;
         }).join('')}</div>`).join('')}
         ${dentroUna ? (lista.some(([, a]) => a.length) ? '' : '<p class="mini">Nessun articolo qui.</p>')
           : `<div class="sezione">Categorie</div><div class="categorieGriglia">${categorieRadice().map((c) => {
@@ -1049,6 +1053,10 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     } catch (e) { alert(e.message); }
   };
   disegna();
+  /* la fascia oraria puo' essere cambiata da quando si e' letto il menu':
+     dopo dieci minuti si rilegge, e i prezzi in vista tornano quelli in
+     vigore (sulla riga li applica comunque il server) */
+  if (Date.now() - MENU_LETTO_IL > 10 * 60 * 1000) caricaMenu().then(() => disegna()).catch(() => {});
 }
 
 /* ---------- il tastierino: quantita' e prezzi si battono, non si scrivono ----------

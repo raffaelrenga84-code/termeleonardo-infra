@@ -187,3 +187,13 @@ Deno.test('paga: un pezzo per volta, e il conto si chiude da solo quando i pezzi
   assert(c.includes("if (manca > 0) await db.from('pos_pagamento').insert("), 'anche chiudi lascia un pagamento');
   assert(S.includes("pagamenti: await upsertSeNuovi('pos_pagamento'"), 'e dal PC del Bistrot salgono con gli altri');
 });
+
+Deno.test('i listini a fasce: il menu e le righe usano il prezzo in vigore, il back office le salva', () => {
+  assert(S.includes("import { applicaFascia, fasciaAttiva, minutiDi, oraLocale, prezzoInFascia } from './fasce.ts';"), 'il modulo puro');
+  const menu = S.slice(S.indexOf("azione === 'menu'"), S.indexOf("azione === 'sala'"));
+  assert(menu.includes('applicaFascia({') && menu.includes('fasciaAttiva({'), 'nel menu il prezzo in vigore');
+  const righe = S.slice(S.indexOf("azione === 'righe'"), S.indexOf("azione === 'invia'"));
+  assert(righe.includes('prezzoInFascia({') && righe.includes('prezzo_listino_cent: listino'), 'sulla riga il listino e quello della fascia');
+  assert(S.includes("'giornata', 'fasce-salva'"), 'si salvano dal back office');
+  assert(S.includes("['pos_fascia', 'pos_prezzo_fascia'].includes(t)"), 'e scendono al PC del Bistrot per intero');
+});

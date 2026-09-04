@@ -301,6 +301,7 @@ const SCHEDE = [
   ['posPersonale', 'POS · Personale'],
   ['posAddebiti', 'POS · Addebiti in camera'],
   ['posGiornata', 'POS · Giornata'],
+  ['posFasce', 'POS · Fasce orarie'],
   /* i consensi privacy firmati al totem e sugli iPad (4 settembre 2026) */
   ['privacy', 'Privacy'],
 ];
@@ -466,7 +467,7 @@ function disegna() {
      richieste: vistaRichieste, arrivi: vistaArrivi, dayspaOggi: vistaDayspaOggi,
      dayspaDisponibilita: vistaDayspaDisponibilita, dayspaPrenotazioni: vistaDayspaPrenotazioni,
      posMenu: vistaPosMenu, posTavoli: vistaPosTavoli, posPersonale: vistaPosPersonale,
-     posAddebiti: vistaPosAddebiti, posGiornata: vistaPosGiornata, privacy: vistaPrivacy })[VISTA]();
+     posAddebiti: vistaPosAddebiti, posGiornata: vistaPosGiornata, posFasce: vistaPosFasce, privacy: vistaPrivacy })[VISTA]();
   aggiornaContatore();
 }
 
@@ -2514,6 +2515,86 @@ function vistaPosGiornata() {
   $('vista').innerHTML = testa() + '<div class="riquadro"><div class="mini">Carico…</div></div>';
   collega();
   carica();
+}
+
+/* I listini a fasce (la proprieta', 4 settembre 2026): happy hour, il
+   prezzo di sera. Una fascia ha ore, giorni e locale; dentro, uno sconto
+   per categoria e/o prezzi scritti apposta articolo per articolo. Le
+   regole le applica il server (fasce.ts); qui si scrivono. */
+function vistaPosFasce() {
+  $('vista').innerHTML = `<div class="riquadro"><div class="esito" id="pfEsito">Carico…</div></div>`;
+  let D = null;
+  const GIORNI = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+  const nomeArt = (id) => (D.articoli.find((a) => a.id === id) || {}).nome || '';
+  const raccogli = () => {
+    document.querySelectorAll('[data-fascia]').forEach((b) => {
+      const f = D.fasce.find((x) => x.id === b.dataset.fascia); if (!f) return;
+      b.querySelectorAll('[data-f]').forEach((el) => {
+        const k = el.dataset.f, v = valoreCampo(el);
+        if (k === 'sconto_percento') f[k] = v === '' ? null : Math.max(0, Math.min(100, Number(v) || 0));
+        else if (k === 'locale') f[k] = v || null;
+        else if (k === 'attiva') f[k] = !!v;
+        else f[k] = v;
+      });
+      const giorni = [...b.querySelectorAll('[data-giorno]')].filter((c) => c.checked).map((c) => Number(c.dataset.giorno));
+      f.giorni = giorni.length && giorni.length < 7 ? giorni : null;
+      const cats = [...b.querySelectorAll('[data-categoria]')].filter((c) => c.checked).map((c) => c.dataset.categoria);
+      f.categorie = cats.length ? cats : null;
+      b.querySelectorAll('[data-prezzo]').forEach((r) => {
+        const p = D.prezzi.find((x) => x.id === r.dataset.prezzo); if (!p) return;
+        const a = D.articoli.find((x) => x.nome === valoreCampo(r.querySelector('[data-p="articolo_nome"]')));
+        p.articolo = a ? a.id : null;
+        p.prezzo_cent = centPos(valoreCampo(r.querySelector('[data-p="prezzo_cent"]')));
+      });
+    });
+  };
+  const disegna = () => {
+    $('vista').innerHTML = `<div class="riquadro"><div class="mini">Una fascia vale dalle ore «dalle» alle ore «alle» (escluse; anche a cavallo della mezzanotte), nei giorni segnati, nel locale scelto. Dentro la fascia un articolo costa il prezzo scritto apposta qui sotto; se non c’è, il listino meno lo sconto — solo per le categorie segnate (nessuna = tutte). Il palmare la vede entro dieci minuti.</div>
+      <div class="due" style="margin-top:8px;"><button type="button" class="azione sec" id="pfNuova" style="width:auto;">+ Fascia</button><button type="button" class="azione" id="pfSalva" style="width:auto;">Salva</button></div>
+      <div class="esito" id="pfEsito"></div></div>
+      ${D.fasce.map((f) => `<div class="riquadro" data-fascia="${esc(f.id)}">
+        <div class="due"><div><label>Nome</label><input data-f="nome" value="${esc(f.nome || '')}" /></div>
+          <div><label>Locale</label><select data-f="locale">${opzPos([['', 'Tutti'], ...D.locali.map((l) => [l.id, l.nome])], f.locale || '')}</select></div></div>
+        <div class="due"><div><label>Dalle</label><input data-f="dalle" type="time" value="${esc(f.dalle || '')}" /></div><div><label>Alle</label><input data-f="alle" type="time" value="${esc(f.alle || '')}" /></div></div>
+        <label>Giorni (nessuno = tutti)</label><div>${GIORNI.map((g, i) => `<label style="display:inline-block;margin-right:10px;"><input type="checkbox" data-giorno="${i}" ${(f.giorni || []).includes(i) ? 'checked' : ''} /> ${g}</label>`).join('')}</div>
+        <div class="due"><div><label>Sconto % (vuoto = nessuno)</label><input data-f="sconto_percento" inputmode="numeric" value="${f.sconto_percento ?? ''}" /></div>
+          <div><label>Attiva</label><select data-f="attiva">${opzPos([['1', 'Sì'], ['', 'No']], f.attiva ? '1' : '')}</select></div></div>
+        <label>Categorie con lo sconto (nessuna = tutte)</label><div>${D.categorie.map((c) => `<label style="display:inline-block;margin-right:10px;"><input type="checkbox" data-categoria="${esc(c.id)}" ${(f.categorie || []).includes(c.id) ? 'checked' : ''} /> ${esc(c.nome)}</label>`).join('')}</div>
+        <label>Prezzi scritti apposta</label>
+        <table><tr><th>Articolo</th><th>Prezzo in fascia (€)</th><th></th></tr>
+        ${D.prezzi.filter((p) => p.fascia === f.id).map((p) => `<tr data-prezzo="${esc(p.id)}"><td><input data-p="articolo_nome" list="pfArticoli" value="${esc(nomeArt(p.articolo))}" style="width:100%;" /></td><td><input data-p="prezzo_cent" inputmode="decimal" value="${euroPos(p.prezzo_cent)}" /></td><td><button type="button" class="azione sec" data-togli-prezzo="${esc(p.id)}" style="width:auto;">Togli</button></td></tr>`).join('')}</table>
+        <div class="due" style="margin-top:8px;"><button type="button" class="azione sec" data-nuovo-prezzo="${esc(f.id)}" style="width:auto;">+ Prezzo</button><button type="button" class="azione sec" data-togli-fascia="${esc(f.id)}" style="width:auto;">Togli la fascia</button></div>
+      </div>`).join('') || '<div class="riquadro"><div class="mini">Nessuna fascia. «+ Fascia» per farne una.</div></div>'}
+      <datalist id="pfArticoli">${D.articoli.map((a) => `<option value="${esc(a.nome)}"></option>`).join('')}</datalist>`;
+    $('pfNuova').onclick = () => { raccogli(); D.fasce.push({ id: crypto.randomUUID(), nome: 'Nuova fascia', locale: null, dalle: '17:00', alle: '19:00', giorni: null, sconto_percento: null, categorie: null, attiva: true }); disegna(); };
+    document.querySelectorAll('[data-nuovo-prezzo]').forEach((b) => b.onclick = () => { raccogli(); D.prezzi.push({ id: crypto.randomUUID(), fascia: b.dataset.nuovoPrezzo, articolo: null, prezzo_cent: 0 }); disegna(); });
+    document.querySelectorAll('[data-togli-prezzo]').forEach((b) => b.onclick = () => { raccogli(); D.prezzi = D.prezzi.filter((p) => p.id !== b.dataset.togliPrezzo); disegna(); });
+    document.querySelectorAll('[data-togli-fascia]').forEach((b) => b.onclick = () => {
+      if (!confirm('Tolgo questa fascia?')) return;
+      raccogli(); D.tolte.push(b.dataset.togliFascia);
+      D.fasce = D.fasce.filter((f) => f.id !== b.dataset.togliFascia); D.prezzi = D.prezzi.filter((p) => p.fascia !== b.dataset.togliFascia);
+      disegna();
+    });
+    $('pfSalva').onclick = salva;
+  };
+  const salva = async () => {
+    raccogli();
+    if (D.fasce.some((f) => !f.nome || !f.dalle || !f.alle)) return $('pfEsito').innerHTML = '<span class="errore">Ogni fascia vuole nome, dalle e alle.</span>';
+    if (D.prezzi.some((p) => !p.articolo)) return $('pfEsito').innerHTML = '<span class="errore">C’è un prezzo senza articolo: scelga l’articolo dall’elenco o lo tolga.</span>';
+    $('pfEsito').textContent = 'Salvo…';
+    try {
+      await chiama('?a=fasce-salva', { method: 'POST', body: JSON.stringify({ fasce: D.fasce, prezzi: D.prezzi, tolte: D.tolte }) }, FUNZIONE_POS);
+      D.tolte = [];
+      $('pfEsito').textContent = 'Salvato.';
+    } catch (e) { $('pfEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  };
+  (async () => {
+    try {
+      const j = await chiama('?a=allinea-giu&da=1970-01-01T00:00:00Z', {}, FUNZIONE_POS);
+      D = { fasce: j.fascia || [], prezzi: j.prezzo_fascia || [], categorie: (j.categoria || []).filter((c) => c.attiva), articoli: (j.articolo || []).filter((a) => a.attivo), locali: j.locale || [], tolte: [] };
+      disegna();
+    } catch (e) { $('pfEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  })();
 }
 
 function vistaPosTavoli() {

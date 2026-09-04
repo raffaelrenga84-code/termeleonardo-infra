@@ -88,6 +88,13 @@ create table if not exists pos_addebito (
   chiuso_da text, chiuso_il text not null default ${ORA},
   stato text not null default 'da_riportare', riportato_il text, riportato_da text, nota text,
   aggiornato_il text not null default ${ORA}, allineato integer not null default 0);
+create table if not exists pos_fascia (
+  id text primary key, nome text not null, locale text, dalle text not null, alle text not null,
+  giorni text, sconto_percento integer, categorie text, attiva integer not null default 1,
+  aggiornato_il text not null default ${ORA});
+create table if not exists pos_prezzo_fascia (
+  id text primary key, fascia text not null, articolo text not null, prezzo_cent integer not null default 0,
+  aggiornato_il text not null default ${ORA});
 create table if not exists pos_pagamento (
   id text primary key, conto text not null, modo text not null, importo_cent integer not null,
   ricevuto_cent integer, cameriere text, il text not null default ${ORA},

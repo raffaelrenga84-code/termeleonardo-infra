@@ -42,6 +42,8 @@ import { importa, prezziSensati } from './menu.ts';
 import { leggiInCasa } from './in-casa.ts';
 import { riepilogo } from './giornata.ts';
 import { chiusoCome, importoValido, residuo, resto } from './pagamenti.ts';
+import { applicaFascia, fasciaAttiva, minutiDi, oraLocale, prezzoInFascia } from './fasce.ts';
+import type { Fascia, PrezzoFascia } from './fasce.ts';
 import { motivoDelPrezzo, motivoPulito, prezzoCambiato } from './motivi.ts';
 import { localeChePrepara, portareA, siStampa } from './dove.ts';
 import { categoriaVino } from './vini.ts';
@@ -266,17 +268,29 @@ Deno.serve(async (req) => {
   if (azioniPalmare.includes(azione) && !cameriere) return risposta({ errore: 'sessione non valida' }, 401);
 
   if (azione === 'menu') {
-    const [cat, art, vari, pref] = await Promise.all([
+    const [cat, art, vari, pref, fas, pf] = await Promise.all([
       db.from('pos_categoria').select('*').eq('attiva', true).order('posizione'),
       db.from('pos_articolo').select('*').eq('attivo', true).order('posizione'),
       db.from('pos_variante').select('*').order('posizione'),
       db.from('pos_preferito').select('*').order('posizione'),
+      db.from('pos_fascia').select('*').eq('attiva', true),
+      db.from('pos_prezzo_fascia').select('*'),
     ]);
+    /* il listino in vigore adesso, per il locale del palmare (fasce.ts):
+       happy hour e prezzo di sera si vedono gia' sul palmare */
+    const localeMenu = url.searchParams.get('locale') || '';
+    const fascia = fasciaAttiva({ fasce: (fas.data ?? []) as Fascia[], adesso: oraLocale(new Date()), locale: localeMenu });
     const tutte = [...(cat.data ?? []), ...(art.data ?? []), ...(vari.data ?? []), ...(pref.data ?? [])].map((r) => String(r.aggiornato_il));
     /* i locali servono al palmare per «dove si prepara»: il ristorante
        che manda le bevande al Bistrot deve poterlo scegliere */
     const { data: locali } = await db.from('pos_locale').select('id, nome').order('nome');
-    return risposta({ categorie: cat.data ?? [], articoli: art.data ?? [], varianti: vari.data ?? [], preferiti: pref.data ?? [], locali: locali ?? [], aggiornato_il: tutte.sort().pop() ?? null });
+    return risposta({
+      categorie: cat.data ?? [],
+      articoli: applicaFascia({ articoli: (art.data ?? []) as { id: string; categoria: string | null; prezzo_cent: number }[], fascia, prezzi: (pf.data ?? []) as PrezzoFascia[] }),
+      varianti: vari.data ?? [], preferiti: pref.data ?? [], locali: locali ?? [],
+      fascia: fascia ? { id: fascia.id, nome: fascia.nome, alle: fascia.alle } : null,
+      aggiornato_il: tutte.sort().pop() ?? null,
+    });
   }
 
   if (azione === 'sala') {
@@ -449,17 +463,23 @@ Deno.serve(async (req) => {
       ? await db.from('pos_articolo').select('*, cat:pos_categoria(portata, stampante)').in('id', idArt) : { data: [] };
     const idVar = [...new Set(richieste.map((r) => String(r.variante_id ?? '')).filter(Boolean))];
     const { data: varianti } = idVar.length ? await db.from('pos_variante').select('*').in('id', idVar) : { data: [] };
+    /* il listino in vigore adesso, nel locale del tavolo (fasce.ts) */
+    const { data: tav } = await db.from('pos_tavolo').select('z:pos_zona(locale)').eq('id', c.tavolo as string).maybeSingle();
+    const localeConto = (tav?.z as unknown as { locale: string } | null)?.locale ?? null;
+    const [{ data: fasce }, { data: prezziFascia }] = await Promise.all([db.from('pos_fascia').select('*').eq('attiva', true), db.from('pos_prezzo_fascia').select('*')]);
+    const fascia = fasciaAttiva({ fasce: (fasce ?? []) as Fascia[], adesso: oraLocale(new Date()), locale: localeConto });
     const puoPrezzo = puo(cameriere!, 'prezzo');
     const righe: Riga[] = [];
     for (const r of richieste) {
       const a = (articoli ?? []).find((x) => x.id === r.articolo);
       if (!a) return risposta({ errore: `articolo sconosciuto: ${r.articolo}` }, 400);
       if (a.esaurito) return risposta({ errore: `${a.nome}: esaurito` }, 409);
+      const listino = prezzoInFascia({ articolo: { id: a.id as string, categoria: a.categoria as string | null, prezzo_cent: Number(a.prezzo_cent) }, fascia, prezzi: (prezziFascia ?? []) as PrezzoFascia[] }) ?? Number(a.prezzo_cent);
       const v = (varianti ?? []).find((x) => x.id === r.variante_id) ?? null;
       let prezzo: number;
       try {
         prezzo = prezzoRiga({
-          articolo: { prezzo_cent: Number(a.prezzo_cent), prezzo_libero: !!a.prezzo_libero },
+          articolo: { prezzo_cent: listino, prezzo_libero: !!a.prezzo_libero },
           variante: v ? { supplemento_cent: Number(v.supplemento_cent) } : null,
           prezzo_manuale_cent: r.prezzo_manuale_cent === undefined || r.prezzo_manuale_cent === null ? null : Number(r.prezzo_manuale_cent),
         }, puoPrezzo);
@@ -467,7 +487,7 @@ Deno.serve(async (req) => {
       /* un prezzo battuto a mano diverso dal listino vuole il perche':
          senza, la riga non entra (la proprieta', 4 settembre 2026) */
       const cambiato = prezzoCambiato({
-        prezzoListinoCent: Number(a.prezzo_cent), supplementoCent: v ? Number(v.supplemento_cent) : 0,
+        prezzoListinoCent: listino, supplementoCent: v ? Number(v.supplemento_cent) : 0,
         prezzoManualeCent: r.prezzo_manuale_cent === undefined || r.prezzo_manuale_cent === null ? null : Number(r.prezzo_manuale_cent),
         prezzoLibero: !!a.prezzo_libero,
       });
@@ -478,7 +498,7 @@ Deno.serve(async (req) => {
       righe.push({
         id: String(r.id ?? crypto.randomUUID()), conto, articolo: a.id, nome: a.nome,
         quantita: Math.max(1, Number(r.quantita ?? 1) || 1),
-        prezzo_listino_cent: Number(a.prezzo_cent), prezzo_cent: prezzo,
+        prezzo_listino_cent: listino, prezzo_cent: prezzo,
         variante: v ? v.nome : (r.variante ? String(r.variante) : null),
         nota: r.nota ? String(r.nota).slice(0, 200) : null,
         motivo_prezzo: cambiato ? motivoPrezzo : null,
@@ -776,10 +796,14 @@ Deno.serve(async (req) => {
     }
     const da = url.searchParams.get('da') || '1970-01-01T00:00:00Z';
     const locale = url.searchParams.get('locale') || '';
-    const tabelle = ['pos_locale', 'pos_zona', 'pos_tavolo', 'pos_categoria', 'pos_articolo', 'pos_variante', 'pos_preferito', 'pos_cameriere', 'pos_dispositivo'];
+    const tabelle = ['pos_locale', 'pos_zona', 'pos_tavolo', 'pos_categoria', 'pos_articolo', 'pos_variante', 'pos_preferito', 'pos_cameriere', 'pos_dispositivo', 'pos_fascia', 'pos_prezzo_fascia'];
     const fuori: Record<string, unknown> = { adesso: adesso() };
     for (const t of tabelle) {
-      const { data } = await db.from(t).select('*').gt('aggiornato_il', da).limit(5000);
+      /* le fasce e i loro prezzi scendono per intero: una fascia tolta o un
+         prezzo cancellato non hanno un aggiornato_il che li racconti */
+      const { data } = ['pos_fascia', 'pos_prezzo_fascia'].includes(t)
+        ? await db.from(t).select('*').limit(5000)
+        : await db.from(t).select('*').gt('aggiornato_il', da).limit(5000);
       fuori[t.slice(4)] = data ?? [];
     }
     /* le stampe nate nel cloud (palmare in modalita' cloud) le stampa il locale, se c'e' */
@@ -934,7 +958,7 @@ Deno.serve(async (req) => {
 
   /* ================= dal back office (accesso dell'hotel, amministrazione) ================= */
 
-  const azioniBackOffice = ['menu-salva', 'tavoli-salva', 'personale-salva', 'addebiti', 'addebito-segna', 'giornata'];
+  const azioniBackOffice = ['menu-salva', 'tavoli-salva', 'personale-salva', 'addebiti', 'addebito-segna', 'giornata', 'fasce-salva'];
   if (azioniBackOffice.includes(azione)) {
     /* «addebiti» e «giornata» si leggono, le altre si scrivono */
     if (req.method !== 'POST' && !(['addebiti', 'giornata'].includes(azione) && req.method === 'GET')) return risposta({ errore: 'metodo non ammesso' }, 405);
@@ -943,6 +967,38 @@ Deno.serve(async (req) => {
     /* la proprieta' lavora con l'account della reception (visto il 4
        settembre 2026): reception e amministrazione scrivono, la spa no */
     if (!acc.chiave && !['reception', 'amministrazione'].includes(acc.ruolo ?? '')) return risposta({ errore: 'solo reception e amministrazione' }, 403);
+  }
+
+  /* I listini a fasce dal back office: le fasce si riscrivono, i prezzi
+     scritti apposta si sostituiscono per intero fascia per fascia, e le
+     fasce tolte se ne vanno coi loro prezzi. Le regole sono in fasce.ts. */
+  if (azione === 'fasce-salva') {
+    const b = await corpo();
+    const ora = adesso();
+    try {
+      const fasce = (Array.isArray(b.fasce) ? b.fasce as Riga[] : []).map((f) => ({
+        id: String(f.id ?? crypto.randomUUID()), nome: String(f.nome ?? '').trim().slice(0, 60), locale: f.locale ? String(f.locale) : null,
+        dalle: String(f.dalle ?? '').trim(), alle: String(f.alle ?? '').trim(),
+        giorni: Array.isArray(f.giorni) && f.giorni.length ? (f.giorni as unknown[]).map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6) : null,
+        sconto_percento: f.sconto_percento === null || f.sconto_percento === undefined || f.sconto_percento === '' ? null : Math.max(0, Math.min(100, Math.round(Number(f.sconto_percento) || 0))),
+        categorie: Array.isArray(f.categorie) && f.categorie.length ? (f.categorie as unknown[]).map(String) : null,
+        attiva: !!f.attiva, aggiornato_il: ora,
+      }));
+      if (fasce.some((f) => !f.nome || minutiDi(f.dalle) === null || minutiDi(f.alle) === null)) return risposta({ errore: 'ogni fascia vuole nome, dalle e alle (HH:MM)' }, 400);
+      const tolte = (Array.isArray(b.tolte) ? b.tolte : []).map(String);
+      if (tolte.length) {
+        await db.from('pos_prezzo_fascia').delete().in('fascia', tolte);
+        await db.from('pos_fascia').delete().in('id', tolte);
+      }
+      if (fasce.length) { const { error } = await db.from('pos_fascia').upsert(fasce, { onConflict: 'id' }); if (error) throw new Error(`pos_fascia: ${error.message}`); }
+      const idFasce = fasce.map((f) => f.id);
+      const prezzi = (Array.isArray(b.prezzi) ? b.prezzi as Riga[] : [])
+        .filter((p) => p.articolo && idFasce.includes(String(p.fascia)))
+        .map((p) => ({ id: String(p.id ?? crypto.randomUUID()), fascia: String(p.fascia), articolo: String(p.articolo), prezzo_cent: Math.max(0, Math.round(Number(p.prezzo_cent) || 0)), aggiornato_il: ora }));
+      if (idFasce.length) await db.from('pos_prezzo_fascia').delete().in('fascia', idFasce);
+      if (prezzi.length) { const { error } = await db.from('pos_prezzo_fascia').insert(prezzi); if (error) throw new Error(`pos_prezzo_fascia: ${error.message}`); }
+      return risposta({ esito: 'ok', fasce: fasce.length, prezzi: prezzi.length });
+    } catch (e) { return risposta({ errore: (e as Error).message }, 500); }
   }
 
   /* La cassa di fine giornata: i conti chiusi fra «da» e «a» (la
