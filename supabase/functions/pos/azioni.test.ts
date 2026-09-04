@@ -34,6 +34,12 @@ Deno.test('sessione del cameriere su ogni azione del palmare; chiave hotel per l
 Deno.test('i PIN non si salvano in chiaro; il back office salva menu, tavoli e personale solo con accesso da amministrazione', () => {
   assert(S.includes("crypto.subtle.digest('SHA-256'"));
   const bo = S.slice(S.indexOf('const azioniBackOffice'));
+  /* un upsert e' un insert prima di essere un update: le colonne
+     obbligatorie che il back office non manda vanno rimesse nella riga,
+     o Postgres si ferma su «null value in column» (4 settembre 2026) */
+  assert(bo.includes('riga.pin_hash = e.pin_hash'), 'il PIN vuoto lascia l impronta vecchia');
+  assert(bo.includes('riga.token = e.token'), 'un palmare gia registrato tiene il suo codice');
+  assert(bo.includes('d.nuovo_token'), 'e il back office puo chiederne uno nuovo');
   assert(bo.includes('await autorizzato(req)') && bo.includes("'amministrazione'"), 'menu-salva e le altre passano da autorizzato');
 });
 

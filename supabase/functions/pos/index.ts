@@ -63,10 +63,15 @@ async function hashPin(codice: string, pin: string): Promise<string> {
   return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
 }
 
-/* un token per i dispositivi: 24 caratteri senza 0/O/1/I */
-function tokenCasuale(): string {
+/* Il codice di un palmare: OTTO caratteri senza 0/O/1/I, da digitare a mano
+   sul palmare («non basta un codice da 8 cifre?», la proprieta', 4 settembre
+   2026). Otto caratteri su trentadue sono mille miliardi di combinazioni, e
+   la pagina /pos risponde solo dall'IP dell'hotel: chi provasse a indovinare
+   dovrebbe gia' essere in casa, e poi servirebbe anche il PIN di un
+   cameriere. I codici lunghi di prima continuano a valere. */
+function tokenCasuale(lunghezza = 8): string {
   const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  return [...crypto.getRandomValues(new Uint8Array(24))].map((b) => a[b % 32]).join('');
+  return [...crypto.getRandomValues(new Uint8Array(lunghezza))].map((b) => a[b % 32]).join('');
 }
 
 /* ---------- chi entra dal back office (menu', tavoli, personale) ---------- */
@@ -550,11 +555,15 @@ Deno.serve(async (req) => {
         if (!codice || !c.nome) return risposta({ errore: 'ogni cameriere ha nome e codice' }, 400);
         const riga: Riga = { id, nome: c.nome, codice, ruolo: c.ruolo ?? 'cameriere', storni: !!c.storni, bloccato: !!c.bloccato, aggiornato_il: ora };
         const pin = String(c.pin ?? '').trim();
+        /* PIN vuoto = lascia com'era. L'impronta vecchia va RIMESSA nella
+           riga: un upsert e' un insert che poi diventa update, e Postgres
+           controlla «pin_hash not null» sulla riga da inserire, prima di
+           accorgersi che quell'id esiste gia' (difetto visto in reception
+           il 4 settembre 2026: «null value in column pin_hash»). */
+        const { data: e } = await db.from('pos_cameriere').select('pin_hash').eq('id', id).maybeSingle();
         if (pin) riga.pin_hash = await hashPin(codice, pin);
-        else {
-          const { data: e } = await db.from('pos_cameriere').select('pin_hash').eq('id', id).maybeSingle();
-          if (!e) return risposta({ errore: `${c.nome}: serve un PIN` }, 400);
-        }
+        else if (e) riga.pin_hash = e.pin_hash;
+        else return risposta({ errore: `${c.nome}: serve un PIN` }, 400);
         const { error } = await db.from('pos_cameriere').upsert(riga, { onConflict: 'id' });
         if (error) throw new Error(error.message);
       }
@@ -562,7 +571,11 @@ Deno.serve(async (req) => {
         const id = String(d.id ?? crypto.randomUUID());
         const { data: e } = await db.from('pos_dispositivo').select('token').eq('id', id).maybeSingle();
         const riga: Riga = { id, nome: d.nome ?? 'Palmare', locale: d.locale ?? null, bloccato: !!d.bloccato, aggiornato_il: ora };
-        if (!e) { riga.token = tokenCasuale(); tokenNuovi.push({ id, nome: String(riga.nome), token: String(riga.token) }); }
+        /* come sopra: il codice del palmare non puo' mancare nella riga.
+           Nuovo palmare, o «nuovo codice» chiesto dal back office (palmare
+           smarrito): se ne genera uno; altrimenti resta quello che c'e'. */
+        if (!e || d.nuovo_token) { riga.token = tokenCasuale(); tokenNuovi.push({ id, nome: String(riga.nome), token: String(riga.token) }); }
+        else riga.token = e.token;
         const { error } = await db.from('pos_dispositivo').upsert(riga, { onConflict: 'id' });
         if (error) throw new Error(error.message);
       }

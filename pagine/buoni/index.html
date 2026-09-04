@@ -2455,17 +2455,18 @@ function vistaPosPersonale() {
       <div class="riquadro"><b>Camerieri</b><div class="mini">Il codice è quello che si digita sul palmare, poi il PIN. Il PIN si scrive qui e non si rilegge: lasciarlo vuoto lo lascia com'è. Storni: il cameriere può stornare da solo una riga già partita. Capo sala e amministrazione possono anche cambiare i prezzi.</div>
         <table><tr><th>Nome</th><th>Codice</th><th>PIN</th><th>Ruolo</th><th>Storni</th><th>Bloccato</th></tr>
         ${D.camerieri.map((c) => `<tr data-cam="${esc(c.id)}"><td><input data-k="nome" value="${esc(c.nome)}" /></td><td><input data-k="codice" value="${esc(c.codice)}" style="width:60px;" inputmode="numeric" /></td>
-          <td><input data-k="pin" type="password" placeholder="••••" style="width:80px;" inputmode="numeric" autocomplete="new-password" /></td>
+          <td><input data-k="pin" type="password" placeholder="nuovo PIN" style="width:96px;" inputmode="numeric" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-bwignore /></td>
           <td><select data-k="ruolo">${opzPos(ruoli, c.ruolo)}</select></td>
           <td><input type="checkbox" data-k="storni" ${c.storni ? 'checked' : ''}/></td><td><input type="checkbox" data-k="bloccato" ${c.bloccato ? 'checked' : ''}/></td></tr>`).join('')}</table>
         <button type="button" class="azione sec mini" id="ppNuovoCam" style="width:auto;margin-top:6px;">+ cameriere</button></div>
-      <div class="riquadro"><b>Palmari</b><div class="mini">Ogni palmare ha il suo codice. Per registrarlo si apre una volta, sul palmare, il link qui sotto: il codice resta sul dispositivo. Un palmare bloccato non entra più, anche con il PIN giusto.</div>
-        <table><tr><th>Palmare</th><th>Locale</th><th>Bloccato</th><th>Ultimo accesso</th><th>Link di registrazione</th></tr>
+      <div class="riquadro"><b>Palmari</b><div class="mini">Ogni palmare ha il suo codice di otto caratteri: sul palmare si apre <b>hoteltermeleonardo.com/pos</b> e lo si scrive una volta sola. Un palmare bloccato non entra più, anche con il PIN giusto. «Nuovo codice» serve se un palmare si perde: il vecchio smette di funzionare al salvataggio.</div>
+        <table><tr><th>Palmare</th><th>Locale</th><th>Bloccato</th><th>Ultimo accesso</th><th>Codice</th><th></th></tr>
         ${D.dispositivi.map((d) => `<tr data-disp="${esc(d.id)}"><td><input data-d="nome" value="${esc(d.nome)}" /></td>
           <td><select data-d="locale">${opzPos([['', '—'], ...D.locali.map((l) => [l.id, l.nome])], d.locale || '')}</select></td>
           <td><input type="checkbox" data-d="bloccato" ${d.bloccato ? 'checked' : ''}/></td>
           <td class="mini">${d.ultimo_accesso ? esc(String(d.ultimo_accesso).slice(0, 16).replace('T', ' ')) : '—'}</td>
-          <td class="cod" style="font-size:12px;">${d.token ? `https://www.hoteltermeleonardo.com/pos?d=${esc(d.token)}` : '<span class="mini">dopo il salvataggio</span>'}</td></tr>`).join('')}</table>
+          <td class="cod" style="font-size:20px;letter-spacing:2px;">${d.token ? esc(d.token) : '<span class="mini">dopo il salvataggio</span>'}</td>
+          <td>${d.token ? `<label class="mini"><input type="checkbox" data-d="nuovo_token" /> nuovo codice</label>` : ''}</td></tr>`).join('')}</table>
         <button type="button" class="azione sec mini" id="ppNuovoDisp" style="width:auto;margin-top:6px;">+ palmare</button></div>`;
     const raccogli = () => {
       const camerieri = [...document.querySelectorAll('[data-cam]')].map((r) => { const c = D.camerieri.find((x) => x.id === r.dataset.cam); const out = { id: c.id }; r.querySelectorAll('[data-k]').forEach((el) => { out[el.dataset.k] = valoreCampo(el); }); if (!out.pin) delete out.pin; return out; });
