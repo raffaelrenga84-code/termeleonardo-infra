@@ -15,7 +15,9 @@ export const VERSIONE_TESTI = '2026-09-04';
 const LINGUE: readonly Lingua[] = ['it', 'en', 'de', 'fr'];
 const FIRMA_MAX = 200 * 1024;
 
-const TITOLARE = 'Stabilimento Termale Hotel Terme Leonardo Tria srl, via Monteortone 46, 35037 Teolo (PD), tel. 049 9939200, info@termeleonardo.com';
+/* l'indirizzo vero, nella forma che tutto il repo usa e che
+   supabase/functions/indirizzo.test.ts sorveglia (non e' Abano centro) */
+const TITOLARE = 'Stabilimento Termale Hotel Terme Leonardo Tria srl, Via Monteortone, 46 - 35037 Teolo (PD), tel. 049 9939200, info@termeleonardo.com';
 
 export type Testi = {
   titolo: string; saluto: string; autorizzo: string; nonAutorizzo: string;
