@@ -266,3 +266,12 @@ Deno.test('a cucina chiusa (pos_locale.orari_cucina) il biglietto della cucina e
   assert(c.includes('const stampante = stampanteAdesso(r.stampante, (locali ?? []).find((l) => l.id === dove)?.orari_cucina, adessoOra);'), 'la stampante la decide l ora');
   assert(c.includes("avviso: stampante !== originale ? 'cucina chiusa: al bancone' : null,"), 'il biglietto lo dice');
 });
+
+Deno.test('«ospiti (QR)» sul singolo articolo: il palmare vede tutto, l ospite solo cio che il Bistrot ha davvero', () => {
+  /* la proprieta', 5 settembre 2026: l acqua del Bistrot e solo la Tavina da mezzo litro */
+  const o = S.slice(S.indexOf("azione === 'ospite-menu'"), S.indexOf("azione === 'ospite-stato'"));
+  assert(o.includes("nomi, descrizioni, allergeni, orari, per_ospiti').eq('attivo', true)"), 'si legge la spunta');
+  assert(o.includes('&& !a.prezzo_libero && !a.esaurito && a.per_ospiti !== false)'), 'nel menu dell ospite non compare');
+  const ord = S.slice(S.indexOf('/* ospite-ordine */'), S.indexOf('/* ================= dal palmare'));
+  assert(ord.includes("prezzo_libero, attivo, per_ospiti, orari, cat:pos_categoria(") && ord.includes('c.per_ospiti !== false && a.per_ospiti !== false;'), 'e non si ordina nemmeno a mano');
+});

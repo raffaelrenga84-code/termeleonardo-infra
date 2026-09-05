@@ -62,3 +62,9 @@ Deno.test('nei locali si scrivono gli orari della cucina: fuori da quelli il big
   const tav = P.slice(P.indexOf('function vistaPosTavoli('), P.indexOf('function vistaPosPersonale('));
   assert(tav.includes('data-l="orari_cucina"') && tav.includes('placeholder="12:15-14:30"'), 'il campo, con l esempio');
 });
+
+Deno.test('nel menu ogni articolo ha la spunta «QR»: senza, l ospite non lo vede', () => {
+  const menu = P.slice(P.indexOf('function vistaPosMenu('), P.indexOf('function vistaPosTavoli('));
+  assert(menu.includes('data-a="per_ospiti" ${a.per_ospiti !== false ? \'checked\' : \'\'}'), 'la spunta, accesa se non e mai stata spenta');
+  assert(menu.includes('<th title="Lo vedono gli ospiti che ordinano dal QR">QR</th>'), 'la colonna');
+});

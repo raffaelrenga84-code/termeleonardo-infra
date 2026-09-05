@@ -360,7 +360,7 @@ Deno.serve(async (req) => {
     if (azione === 'ospite-menu') {
       const [cat, art, fas, pf] = await Promise.all([
         db.from('pos_categoria').select('id, nome, posizione, colore, sotto, per_ospiti, note_rapide, nomi, orari').eq('attiva', true),
-        db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, nomi, descrizioni, allergeni, orari').eq('attivo', true),
+        db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, nomi, descrizioni, allergeni, orari, per_ospiti').eq('attivo', true),
         db.from('pos_fascia').select('*').eq('attiva', true),
         db.from('pos_prezzo_fascia').select('*'),
       ]);
@@ -376,7 +376,7 @@ Deno.serve(async (req) => {
       const idCat = new Set(categorie.map((c) => c.id as string));
       const fascia = fasciaAttiva({ fasce: (fas.data ?? []) as Fascia[], adesso: oraLocale(new Date()), locale });
       const articoli = applicaFascia({
-        articoli: (art.data ?? []).filter((a) => idCat.has(a.categoria as string) && !a.prezzo_libero && !a.esaurito) as { id: string; categoria: string | null; prezzo_cent: number }[],
+        articoli: (art.data ?? []).filter((a) => idCat.has(a.categoria as string) && !a.prezzo_libero && !a.esaurito && a.per_ospiti !== false) as { id: string; categoria: string | null; prezzo_cent: number }[],
         fascia, prezzi: (pf.data ?? []) as PrezzoFascia[],
       });
       const articoliOspite = articoli.map((a) => { const finestre = restringi(leggiOrari((a as { orari?: unknown }).orari) ?? finestreCat(perId.get(a.categoria as string)), MARGINE_OSPITI); return { ...a, finestre, disponibile: apertoOra(finestre, adessoOra) }; });
@@ -396,7 +396,7 @@ Deno.serve(async (req) => {
     if (!modo) return risposta({ errore: 'come paga: carta o camera' }, 400);
     const richiesti = [...new Set((Array.isArray(b.righe) ? b.righe as Record<string, unknown>[] : []).map((r) => String(r?.articolo ?? '')).filter(Boolean))];
     const [{ data: arts }, { data: fas }, { data: pf }, { data: madri }] = await Promise.all([
-      richiesti.length ? db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, attivo, orari, cat:pos_categoria(portata, per_ospiti, attiva, sotto, orari)').in('id', richiesti) : Promise.resolve({ data: [] }),
+      richiesti.length ? db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, attivo, per_ospiti, orari, cat:pos_categoria(portata, per_ospiti, attiva, sotto, orari)').in('id', richiesti) : Promise.resolve({ data: [] }),
       db.from('pos_fascia').select('*').eq('attiva', true),
       db.from('pos_prezzo_fascia').select('*'),
       db.from('pos_categoria').select('id, orari'),
@@ -406,7 +406,7 @@ Deno.serve(async (req) => {
     /* gli orari: articolo, se no categoria, se no la categoria madre (orari.ts) */
     const orariMadre = (id: unknown) => (madri ?? []).find((m) => m.id === id)?.orari;
     const finestreDi = (a: { orari?: unknown; cat?: unknown }) => { const c = a.cat as { orari?: unknown; sotto?: unknown } | null; return leggiOrari(a.orari) ?? (c ? (leggiOrari(c.orari) ?? (c.sotto ? leggiOrari(orariMadre(c.sotto)) : null)) : null); };
-    const vendibili = (arts ?? []).filter((a) => { const c = a.cat as unknown as { per_ospiti: boolean; attiva: boolean } | null; return !!c && c.attiva && c.per_ospiti !== false; }).map((a) => ({
+    const vendibili = (arts ?? []).filter((a) => { const c = a.cat as unknown as { per_ospiti: boolean; attiva: boolean } | null; return !!c && c.attiva && c.per_ospiti !== false && a.per_ospiti !== false; }).map((a) => ({
       id: a.id as string, nome: String(a.nome), categoria: a.categoria as string, esaurito: !!a.esaurito, prezzo_libero: !!a.prezzo_libero, attivo: a.attivo !== false,
       fuori_orario: !apertoOra(restringi(finestreDi(a as { orari?: unknown; cat?: unknown }), MARGINE_OSPITI), adessoOra),
       portata: (a.portata as string | null) ?? ((a.cat as unknown as { portata: string } | null)?.portata ?? null),
