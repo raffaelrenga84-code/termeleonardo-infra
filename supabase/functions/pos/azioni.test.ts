@@ -207,7 +207,7 @@ Deno.test('conto-cambia accetta la camera: un conto esterno diventa in camera al
 
 Deno.test('l ordine dal tavolo col QR: menu pubblico firmato, carta via Stripe, camera con tessera che combacia', () => {
   /* la proprieta', 5 settembre 2026 */
-  assert(S.includes("import { cameraCombacia, numeroOrdine, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';"), 'le regole nel modulo puro');
+  assert(S.includes("import { cameraCombacia, codiceTessera, dallHotel, numeroOrdine, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';"), 'le regole nel modulo puro');
   assert(S.includes("const azioniOspite = ['ospite-menu', 'ospite-ordine', 'ospite-stato'];"), 'tre azioni pubbliche');
   const o = S.slice(S.indexOf('const azioniOspite'), S.indexOf('/* ================= dal palmare'));
   assert(o.includes("if (!(await tavoloFirmato(t, k, Deno.env.get('HOTEL_KEY'))))"), 'senza la firma del QR niente');
@@ -215,7 +215,7 @@ Deno.test('l ordine dal tavolo col QR: menu pubblico firmato, carta via Stripe, 
   assert(o.includes('if (!cameraCombacia(camera, f.camera)) return risposta'), 'la camera scritta deve combaciare con la tessera');
   assert(o.includes('dividiParametri(parametriLink({ numero, descrizione:'), 'il link Stripe nasce da parametriLink: a uso singolo, col numero nei metadati');
   assert(o.includes("if (evento.type !== 'checkout.session.completed')") && o.includes("if (o.stato !== 'in_attesa') return risposta({ esito: 'ok', gia: o.stato });"), 'il webhook manda in cucina una volta sola');
-  assert(S.includes('async function mandaInCucina(o: Riga)') && S.includes("const chi = inCamera ? `QR · IN CAMERA ${String(conto.camera ?? '')}` : 'QR · PAGATO ONLINE';"), 'il biglietto dice che e un ordine dal QR e come ha pagato');
+  assert(S.includes('async function mandaInCucina(o: Riga)') && S.includes('QR · IN CAMERA') && S.includes('QR · PAGATO ONLINE'), 'il biglietto dice che e un ordine dal QR e come ha pagato');
   assert(S.includes("aperto_da: OSPITI_QR") && S.includes("const OSPITI_QR = 'ospiti-qr';"), 'il cameriere fittizio');
   assert(S.includes("'fasce-salva', 'tavoli-qr']") && S.includes("azione === 'tavoli-qr'"), 'i QR dei tavoli dal back office');
   assert(S.includes('qr_recenti:'), 'la sala mostra gli ordini dal QR');
@@ -232,4 +232,11 @@ Deno.test('ospite-tavoli: l elenco pubblico dei tavoli con la firma, per chi scr
   const o = S.slice(S.indexOf("azione === 'ospite-tavoli'"), S.indexOf('const azioniOspite'));
   assert(o.includes('k: await firmaTavolo(String(tv.id), segreto)'), 'ogni tavolo porta la sua firma');
   assert(o.includes(".eq('attivo', true)"), 'solo i tavoli attivi');
+});
+
+Deno.test('l ordine dal tavolo solo dalla rete dell hotel, tessera dalle cifre stampate, consegna in camera', () => {
+  assert(S.includes("if (!dallHotel(req.headers, Deno.env.get('TOTEM_IP'))) return risposta({ errore: 'si ordina dalla rete Wi-Fi dell hotel' }, 403);"), 'fuori dall hotel niente');
+  assert(S.includes('const tessera = codiceTessera(b.tessera);'), 'il codice a barre lo rifa il server');
+  assert(S.includes("const consegna = String(b.consegna ?? '').trim().slice(0, 10) || null;"), 'la camera di consegna');
+  assert(S.includes("`QR · PAGATO ONLINE${o.camera ? ` · CAMERA ${String(o.camera)}` : ''}`"), 'e sul biglietto si legge');
 });

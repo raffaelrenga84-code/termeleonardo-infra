@@ -78,6 +78,41 @@ export function cameraCombacia(scritta: unknown, daFidra: string | null | undefi
   return !!a && !!b && a === b;
 }
 
+/** Il codice a barre della tessera (EAN-13) dalle cifre che l'ospite legge
+    sulla tessera: «1», zeri fino a dodici cifre, la cifra di controllo.
+    Tessera 1466 → 1000000014662 (visto dal vivo il 4 settembre 2026).
+    Cinque cifre possono essere la coda del codice a barre (numero piu'
+    controllo): se il controllo torna, si prende quella lettura. */
+export function codiceTessera(scritto: unknown): string | null {
+  const cifre = String(scritto ?? '').replace(/\D/g, '');
+  if (cifre.length < 3) return null;
+  if (cifre.length === 13) return cifre;
+  const ean = (numero: string) => {
+    const corpo = ('1' + numero.padStart(11, '0')).slice(-12);
+    let somma = 0;
+    for (let i = 0; i < 12; i++) somma += Number(corpo[i]) * (i % 2 === 0 ? 1 : 3);
+    return corpo + String((10 - (somma % 10)) % 10);
+  };
+  if (cifre.length >= 5 && cifre.length <= 12) {
+    const conCoda = ean(cifre.slice(0, -1));
+    if (conCoda.endsWith(cifre.slice(-1)) && conCoda.endsWith(cifre)) return conCoda;
+  }
+  return ean(cifre);
+}
+
+/** L'indirizzo di chi chiama: il primo della catena x-forwarded-for. */
+export function ipDi(intestazioni: Headers): string {
+  return (intestazioni.get('x-forwarded-for') || '').split(',')[0].trim();
+}
+
+/** Si ordina solo dalla rete dell'hotel («fai funzionare l'ordina solo con
+    l'IP dell'hotel», la proprieta', 5 settembre 2026). Senza l'IP
+    configurato non si blocca nessuno. */
+export function dallHotel(intestazioni: Headers, ipHotel: string | undefined): boolean {
+  if (!ipHotel) return true;
+  return ipDi(intestazioni) === ipHotel;
+}
+
 /** Il numero dell'ordine, corto e leggibile: Q piu' sei segni senza 0/O/1/I. */
 export function numeroOrdine(casuale: () => number = Math.random): string {
   const alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

@@ -112,15 +112,17 @@ input.campo{width:100%;padding:13px 14px;font:inherit;font-size:18px;border:1px 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos';
 const P = new URLSearchParams(location.search);
 const T_ID = P.get('t') || '', K = P.get('k') || '';
+/* «In camera»: l'ospite ha scelto la consegna in camera e ha scritto il numero */
+const CAMERA = (P.get('camera') || '').replace(/\D/g, '').slice(0, 10);
 const LINGUE = ['it', 'en', 'de', 'fr'];
 let LINGUA = LINGUE.includes(P.get('l')) ? P.get('l') : (LINGUE.find((l) => (navigator.language || 'it').toLowerCase().startsWith(l)) || 'it');
 
 /* ---------- le parole, in quattro lingue ---------- */
 const TESTI = {
-  it: { qualeTavolo: 'A che tavolo è seduto?', benvenuto: 'Benvenuti', scegli: 'Cosa desidera?', indietro: 'Indietro', vedi: 'Vedi l’ordine', articoli: (n) => `${n} ${n === 1 ? 'articolo' : 'articoli'}`, ordine: 'Il suo ordine', nota: 'Nota (es. senza ghiaccio)', aggiungiNota: '+ nota', totale: 'Totale', carta: 'Paga con carta, Apple Pay o Google Pay', camera: 'Addebita sulla mia camera', cameraSpiega: 'Solo per gli ospiti dell’hotel: servono la tessera della camera e il numero della camera.', tessera: 'Numero della tessera', inquadra: '📷', numeroCamera: 'Numero della camera', nome: 'Il suo nome (facoltativo)', conferma: 'Confermo l’addebito in camera', annulla: 'Annulla', continua: 'Continua a scegliere', grazie: 'Grazie!', ricevuto: (n) => `Ordine ${n} ricevuto.`, inArrivo: (t) => `Lo stiamo preparando: arriva al tavolo ${t}.`, attendo: 'Aspettiamo la conferma del pagamento…', nuovo: 'Nuovo ordine', vuoto: 'Non ha ancora scelto niente.', fascia: (n, a) => `${n} fino alle ${a}`, errore: 'Qualcosa non va: chiami il cameriere.', nonCombacia: 'Il numero di camera non corrisponde alla tessera.', tesseraNo: 'Tessera non riconosciuta.', esaurito: 'Un articolo è esaurito: lo tolga e riprovi.', tavoloNo: 'Tavolo non riconosciuto: inquadri di nuovo il codice sul tavolo.', mando: 'Un momento…', pagamentoNo: 'Il pagamento non è andato a buon fine. Può riprovare.' },
-  en: { qualeTavolo: 'Which table are you at?', benvenuto: 'Welcome', scegli: 'What would you like?', indietro: 'Back', vedi: 'View order', articoli: (n) => `${n} ${n === 1 ? 'item' : 'items'}`, ordine: 'Your order', nota: 'Note (e.g. no ice)', aggiungiNota: '+ note', totale: 'Total', carta: 'Pay by card, Apple Pay or Google Pay', camera: 'Charge to my room', cameraSpiega: 'Hotel guests only: you need your room card and your room number.', tessera: 'Card number', inquadra: '📷', numeroCamera: 'Room number', nome: 'Your name (optional)', conferma: 'Confirm the room charge', annulla: 'Cancel', continua: 'Keep choosing', grazie: 'Thank you!', ricevuto: (n) => `Order ${n} received.`, inArrivo: (t) => `We are preparing it: it will be brought to table ${t}.`, attendo: 'Waiting for the payment confirmation…', nuovo: 'New order', vuoto: 'Nothing chosen yet.', fascia: (n, a) => `${n} until ${a}`, errore: 'Something went wrong: please call the waiter.', nonCombacia: 'The room number does not match the card.', tesseraNo: 'Card not recognised.', esaurito: 'An item is sold out: remove it and try again.', tavoloNo: 'Table not recognised: please scan the code on the table again.', mando: 'One moment…', pagamentoNo: 'The payment did not go through. You can try again.' },
-  de: { qualeTavolo: 'An welchem Tisch sitzen Sie?', benvenuto: 'Willkommen', scegli: 'Was darf es sein?', indietro: 'Zurück', vedi: 'Bestellung ansehen', articoli: (n) => `${n} Artikel`, ordine: 'Ihre Bestellung', nota: 'Hinweis (z. B. ohne Eis)', aggiungiNota: '+ Hinweis', totale: 'Gesamt', carta: 'Mit Karte, Apple Pay oder Google Pay zahlen', camera: 'Auf mein Zimmer buchen', cameraSpiega: 'Nur für Hotelgäste: Sie brauchen Ihre Zimmerkarte und Ihre Zimmernummer.', tessera: 'Kartennummer', inquadra: '📷', numeroCamera: 'Zimmernummer', nome: 'Ihr Name (optional)', conferma: 'Zimmerbuchung bestätigen', annulla: 'Abbrechen', continua: 'Weiter auswählen', grazie: 'Danke!', ricevuto: (n) => `Bestellung ${n} erhalten.`, inArrivo: (t) => `Wir bereiten sie zu: sie kommt an Tisch ${t}.`, attendo: 'Wir warten auf die Zahlungsbestätigung…', nuovo: 'Neue Bestellung', vuoto: 'Noch nichts ausgewählt.', fascia: (n, a) => `${n} bis ${a}`, errore: 'Etwas stimmt nicht: bitte rufen Sie den Kellner.', nonCombacia: 'Die Zimmernummer passt nicht zur Karte.', tesseraNo: 'Karte nicht erkannt.', esaurito: 'Ein Artikel ist ausverkauft: bitte entfernen und erneut versuchen.', tavoloNo: 'Tisch nicht erkannt: bitte den Code auf dem Tisch erneut scannen.', mando: 'Einen Moment…', pagamentoNo: 'Die Zahlung ist nicht durchgegangen. Sie können es erneut versuchen.' },
-  fr: { qualeTavolo: 'À quelle table êtes-vous ?', benvenuto: 'Bienvenue', scegli: 'Que désirez-vous ?', indietro: 'Retour', vedi: 'Voir la commande', articoli: (n) => `${n} ${n === 1 ? 'article' : 'articles'}`, ordine: 'Votre commande', nota: 'Remarque (ex. sans glace)', aggiungiNota: '+ remarque', totale: 'Total', carta: 'Payer par carte, Apple Pay ou Google Pay', camera: 'Mettre sur ma chambre', cameraSpiega: 'Réservé aux clients de l’hôtel : il faut la carte de la chambre et le numéro de chambre.', tessera: 'Numéro de la carte', inquadra: '📷', numeroCamera: 'Numéro de chambre', nome: 'Votre nom (facultatif)', conferma: 'Confirmer sur la chambre', annulla: 'Annuler', continua: 'Continuer à choisir', grazie: 'Merci !', ricevuto: (n) => `Commande ${n} reçue.`, inArrivo: (t) => `Nous la préparons : elle arrive à la table ${t}.`, attendo: 'En attente de la confirmation du paiement…', nuovo: 'Nouvelle commande', vuoto: 'Rien de choisi pour l’instant.', fascia: (n, a) => `${n} jusqu’à ${a}`, errore: 'Un problème est survenu : appelez le serveur.', nonCombacia: 'Le numéro de chambre ne correspond pas à la carte.', tesseraNo: 'Carte non reconnue.', esaurito: 'Un article est épuisé : retirez-le et réessayez.', tavoloNo: 'Table non reconnue : scannez à nouveau le code sur la table.', mando: 'Un instant…', pagamentoNo: 'Le paiement n’a pas abouti. Vous pouvez réessayer.' },
+  it: { dove: 'Dove è seduto?', interno: 'Bistrot · interno', esterno: 'Bistrot · esterno', hall: 'Hall dell’hotel', inCamera: 'In camera', numeroTavolo: 'Che numero ha il tavolo?', qualeCamera: 'Numero della sua camera', avanti: 'Avanti', tesseraSpiega: 'Le cifre stampate sulla tessera (es. 1466).', consegnaIn: (c) => `Camera ${c}`, qualeTavolo: 'A che tavolo è seduto?', benvenuto: 'Benvenuti', scegli: 'Cosa desidera?', indietro: 'Indietro', vedi: 'Vedi l’ordine', articoli: (n) => `${n} ${n === 1 ? 'articolo' : 'articoli'}`, ordine: 'Il suo ordine', nota: 'Nota (es. senza ghiaccio)', aggiungiNota: '+ nota', totale: 'Totale', carta: 'Paga con carta, Apple Pay o Google Pay', camera: 'Addebita sulla mia camera', cameraSpiega: 'Solo per gli ospiti dell’hotel: servono la tessera della camera e il numero della camera.', tessera: 'Tessera della camera', inquadra: '📷', numeroCamera: 'Numero della camera', nome: 'Il suo nome (facoltativo)', conferma: 'Confermo l’addebito in camera', annulla: 'Annulla', continua: 'Continua a scegliere', grazie: 'Grazie!', ricevuto: (n) => `Ordine ${n} ricevuto.`, inArrivo: (t) => `Lo stiamo preparando: arriva al tavolo ${t}.`, attendo: 'Aspettiamo la conferma del pagamento…', nuovo: 'Nuovo ordine', vuoto: 'Non ha ancora scelto niente.', fascia: (n, a) => `${n} fino alle ${a}`, errore: 'Qualcosa non va: chiami il cameriere.', nonCombacia: 'Il numero di camera non corrisponde alla tessera.', tesseraNo: 'Tessera non riconosciuta.', esaurito: 'Un articolo è esaurito: lo tolga e riprovi.', tavoloNo: 'Tavolo non riconosciuto: inquadri di nuovo il codice sul tavolo.', mando: 'Un momento…', pagamentoNo: 'Il pagamento non è andato a buon fine. Può riprovare.' },
+  en: { dove: 'Where are you sitting?', interno: 'Bistrot · indoors', esterno: 'Bistrot · outdoors', hall: 'Hotel hall', inCamera: 'In my room', numeroTavolo: 'What is the table number?', qualeCamera: 'Your room number', avanti: 'Next', tesseraSpiega: 'The digits printed on the card (e.g. 1466).', consegnaIn: (c) => `Room ${c}`, qualeTavolo: 'Which table are you at?', benvenuto: 'Welcome', scegli: 'What would you like?', indietro: 'Back', vedi: 'View order', articoli: (n) => `${n} ${n === 1 ? 'item' : 'items'}`, ordine: 'Your order', nota: 'Note (e.g. no ice)', aggiungiNota: '+ note', totale: 'Total', carta: 'Pay by card, Apple Pay or Google Pay', camera: 'Charge to my room', cameraSpiega: 'Hotel guests only: you need your room card and your room number.', tessera: 'Room card', inquadra: '📷', numeroCamera: 'Room number', nome: 'Your name (optional)', conferma: 'Confirm the room charge', annulla: 'Cancel', continua: 'Keep choosing', grazie: 'Thank you!', ricevuto: (n) => `Order ${n} received.`, inArrivo: (t) => `We are preparing it: it will be brought to table ${t}.`, attendo: 'Waiting for the payment confirmation…', nuovo: 'New order', vuoto: 'Nothing chosen yet.', fascia: (n, a) => `${n} until ${a}`, errore: 'Something went wrong: please call the waiter.', nonCombacia: 'The room number does not match the card.', tesseraNo: 'Card not recognised.', esaurito: 'An item is sold out: remove it and try again.', tavoloNo: 'Table not recognised: please scan the code on the table again.', mando: 'One moment…', pagamentoNo: 'The payment did not go through. You can try again.' },
+  de: { dove: 'Wo sitzen Sie?', interno: 'Bistrot · innen', esterno: 'Bistrot · außen', hall: 'Hotelhalle', inCamera: 'Auf dem Zimmer', numeroTavolo: 'Welche Tischnummer?', qualeCamera: 'Ihre Zimmernummer', avanti: 'Weiter', tesseraSpiega: 'Die auf der Karte gedruckten Ziffern (z. B. 1466).', consegnaIn: (c) => `Zimmer ${c}`, qualeTavolo: 'An welchem Tisch sitzen Sie?', benvenuto: 'Willkommen', scegli: 'Was darf es sein?', indietro: 'Zurück', vedi: 'Bestellung ansehen', articoli: (n) => `${n} Artikel`, ordine: 'Ihre Bestellung', nota: 'Hinweis (z. B. ohne Eis)', aggiungiNota: '+ Hinweis', totale: 'Gesamt', carta: 'Mit Karte, Apple Pay oder Google Pay zahlen', camera: 'Auf mein Zimmer buchen', cameraSpiega: 'Nur für Hotelgäste: Sie brauchen Ihre Zimmerkarte und Ihre Zimmernummer.', tessera: 'Zimmerkarte', inquadra: '📷', numeroCamera: 'Zimmernummer', nome: 'Ihr Name (optional)', conferma: 'Zimmerbuchung bestätigen', annulla: 'Abbrechen', continua: 'Weiter auswählen', grazie: 'Danke!', ricevuto: (n) => `Bestellung ${n} erhalten.`, inArrivo: (t) => `Wir bereiten sie zu: sie kommt an Tisch ${t}.`, attendo: 'Wir warten auf die Zahlungsbestätigung…', nuovo: 'Neue Bestellung', vuoto: 'Noch nichts ausgewählt.', fascia: (n, a) => `${n} bis ${a}`, errore: 'Etwas stimmt nicht: bitte rufen Sie den Kellner.', nonCombacia: 'Die Zimmernummer passt nicht zur Karte.', tesseraNo: 'Karte nicht erkannt.', esaurito: 'Ein Artikel ist ausverkauft: bitte entfernen und erneut versuchen.', tavoloNo: 'Tisch nicht erkannt: bitte den Code auf dem Tisch erneut scannen.', mando: 'Einen Moment…', pagamentoNo: 'Die Zahlung ist nicht durchgegangen. Sie können es erneut versuchen.' },
+  fr: { dove: 'Où êtes-vous installé ?', interno: 'Bistrot · intérieur', esterno: 'Bistrot · extérieur', hall: 'Hall de l’hôtel', inCamera: 'Dans ma chambre', numeroTavolo: 'Quel est le numéro de la table ?', qualeCamera: 'Votre numéro de chambre', avanti: 'Suivant', tesseraSpiega: 'Les chiffres imprimés sur la carte (ex. 1466).', consegnaIn: (c) => `Chambre ${c}`, qualeTavolo: 'À quelle table êtes-vous ?', benvenuto: 'Bienvenue', scegli: 'Que désirez-vous ?', indietro: 'Retour', vedi: 'Voir la commande', articoli: (n) => `${n} ${n === 1 ? 'article' : 'articles'}`, ordine: 'Votre commande', nota: 'Remarque (ex. sans glace)', aggiungiNota: '+ remarque', totale: 'Total', carta: 'Payer par carte, Apple Pay ou Google Pay', camera: 'Mettre sur ma chambre', cameraSpiega: 'Réservé aux clients de l’hôtel : il faut la carte de la chambre et le numéro de chambre.', tessera: 'Carte de la chambre', inquadra: '📷', numeroCamera: 'Numéro de chambre', nome: 'Votre nom (facultatif)', conferma: 'Confirmer sur la chambre', annulla: 'Annuler', continua: 'Continuer à choisir', grazie: 'Merci !', ricevuto: (n) => `Commande ${n} reçue.`, inArrivo: (t) => `Nous la préparons : elle arrive à la table ${t}.`, attendo: 'En attente de la confirmation du paiement…', nuovo: 'Nouvelle commande', vuoto: 'Rien de choisi pour l’instant.', fascia: (n, a) => `${n} jusqu’à ${a}`, errore: 'Un problème est survenu : appelez le serveur.', nonCombacia: 'Le numéro de chambre ne correspond pas à la carte.', tesseraNo: 'Carte non reconnue.', esaurito: 'Un article est épuisé : retirez-le et réessayez.', tavoloNo: 'Table non reconnue : scannez à nouveau le code sur la table.', mando: 'Un instant…', pagamentoNo: 'Le paiement n’a pas abouti. Vous pouvez réessayer.' },
 };
 const T = () => TESTI[LINGUA];
 
@@ -207,7 +209,7 @@ const barra = () => {
 
 /* ---------- le schermate ---------- */
 const testa = () => {
-  $('tavolo').textContent = MENU ? MENU.tavolo.nome : '';
+  $('tavolo').textContent = MENU ? (CAMERA ? T().consegnaIn(CAMERA) : MENU.tavolo.nome) : '';
   $('lingue').innerHTML = LINGUE.map((l) => `<button data-l="${l}" class="${l === LINGUA ? 'attiva' : ''}">${l.toUpperCase()}</button>`).join('');
   $('lingue').querySelectorAll('[data-l]').forEach((b) => b.onclick = () => { LINGUA = b.dataset.l; disegna(); });
 };
@@ -257,7 +259,7 @@ const schermataCarrello = () => {
   if (pc) pc.onclick = async () => {
     pc.disabled = true; $('errore').textContent = T().mando;
     try {
-      const j = await chiama('ospite-ordine', { corpo: { modo: 'carta', righe: righe.map((r) => ({ articolo: r.articolo, quantita: r.quantita, nota: r.nota || null })) } });
+      const j = await chiama('ospite-ordine', { corpo: { modo: 'carta', consegna: CAMERA || null, righe: righe.map((r) => ({ articolo: r.articolo, quantita: r.quantita, nota: r.nota || null })) } });
       location.href = j.url;
     } catch (e) { $('errore').textContent = traduci(e.message); pc.disabled = false; }
   };
@@ -269,9 +271,9 @@ const schermataCamera = () => {
     <h1>${esc(T().camera)}</h1>
     <div class="riquadro"><div class="totale" style="border:0;margin:0;padding:0 0 6px;"><span>${esc(T().totale)}</span><span>${euro(totale())}</span></div>
       <p class="mini">${esc(T().cameraSpiega)}</p>
-      <label>${esc(T().tessera)}</label>
-      <div class="conFoto"><input class="campo" id="tessera" inputmode="numeric" autocomplete="off" />${puoScansionare() ? `<button type="button" class="foto" id="scansiona">${T().inquadra}</button>` : ''}</div>
-      <label>${esc(T().numeroCamera)}</label><input class="campo" id="camera" inputmode="numeric" autocomplete="off" />
+      <label>${esc(T().tessera)}</label><p class="mini" style="margin:2px 0 0;">${esc(T().tesseraSpiega)}</p>
+      <div class="conFoto"><input class="campo" id="tessera" inputmode="numeric" autocomplete="off" maxlength="13" placeholder="1466" />${puoScansionare() ? `<button type="button" class="foto" id="scansiona">${T().inquadra}</button>` : ''}</div>
+      <label>${esc(T().numeroCamera)}</label><input class="campo" id="camera" inputmode="numeric" autocomplete="off" value="${esc(CAMERA)}" />
       <label>${esc(T().nome)}</label><input class="campo" id="nome" maxlength="40" autocomplete="name" />
       <div class="errore" id="errore"></div>
       <div class="paga" style="margin-top:14px;"><button class="bottone" id="conferma">${esc(T().conferma)}</button><button class="bottone sec" id="annulla">${esc(T().annulla)}</button></div></div>`;
@@ -281,7 +283,7 @@ const schermataCamera = () => {
   $('conferma').onclick = async () => {
     const b = $('conferma'); b.disabled = true; $('errore').textContent = T().mando;
     try {
-      const j = await chiama('ospite-ordine', { corpo: { modo: 'camera', tessera: $('tessera').value, camera: $('camera').value, ospite: $('nome').value, righe: righe.map((r) => ({ articolo: r.articolo, quantita: r.quantita, nota: r.nota || null })) } });
+      const j = await chiama('ospite-ordine', { corpo: { modo: 'camera', consegna: CAMERA || null, tessera: $('tessera').value, camera: $('camera').value, ospite: $('nome').value, righe: righe.map((r) => ({ articolo: r.articolo, quantita: r.quantita, nota: r.nota || null })) } });
       CARRELLO = new Map();
       VISTA = { nome: 'grazie', numero: j.numero, stato: j.stato }; disegna();
     } catch (e) { $('errore').textContent = traduci(e.message); b.disabled = false; }
@@ -295,10 +297,10 @@ const schermataGrazie = () => {
   $('app').innerHTML = `<div class="grazie"><div class="icona">${male ? '⚠️' : inCucina ? '✅' : '<span class="spinner"></span>'}</div>
     <h1>${esc(male ? T().errore : T().grazie)}</h1>
     <p>${esc(T().ricevuto(VISTA.numero))}</p><div class="numero">${esc(VISTA.numero)}</div>
-    <p class="sotto" style="margin-top:14px;">${esc(male ? T().pagamentoNo : inCucina ? T().inArrivo(MENU ? MENU.tavolo.nome : '') : T().attendo)}</p>
+    <p class="sotto" style="margin-top:14px;">${esc(male ? T().pagamentoNo : inCucina ? T().inArrivo(CAMERA ? T().consegnaIn(CAMERA) : (MENU ? MENU.tavolo.nome : '')) : T().attendo)}</p>
     ${inCucina || male ? `<button class="bottone sec" id="nuovo" style="max-width:320px;margin:10px auto 0;">${esc(T().nuovo)}</button>` : ''}</div>`;
   const n = $('nuovo');
-  if (n) n.onclick = () => { history.replaceState(null, '', `${location.pathname}?t=${encodeURIComponent(T_ID)}&k=${encodeURIComponent(K)}&l=${LINGUA}`); VISTA = { nome: 'categorie' }; disegna(); };
+  if (n) n.onclick = () => { history.replaceState(null, '', `${location.pathname}?t=${encodeURIComponent(T_ID)}&k=${encodeURIComponent(K)}&l=${LINGUA}${CAMERA ? '&camera=' + CAMERA : ''}`); VISTA = { nome: 'categorie' }; disegna(); };
   clearInterval(sondaggio);
   if (!inCucina && !male) {
     /* dopo Stripe si torna qui: il webhook manda l'ordine in cucina entro
@@ -318,22 +320,50 @@ const schermataGrazie = () => {
 /* Senza QR: il tavolo si sceglie a mano, da una griglia di numeri (la
    proprieta', 5 settembre 2026). Scelto il tavolo, la pagina riparte con
    il suo indirizzo firmato, come se avesse inquadrato il QR. */
+/* Senza QR: «Dove e' seduto?» — Bistrot interno, Bistrot esterno (esterno
+   e terrazza insieme: l'ospite non sa che sono due zone), la Hall (un
+   posto solo, i tavoli li' non hanno numero) o in camera, col numero.
+   Poi, per interno ed esterno, il numero del tavolo. Scelto il posto, la
+   pagina riparte con l'indirizzo firmato, come dal QR (la proprieta', 5
+   settembre 2026). */
 const schermataScegliTavolo = (d) => {
-  const locali = d.locali.filter((l) => d.zone.some((z) => z.locale === l.id && d.tavoli.some((t) => t.zona === z.id)));
-  if (!VISTA.locale || !locali.some((l) => l.id === VISTA.locale)) VISTA.locale = locali[0] ? locali[0].id : null;
+  const zona = (nome) => d.zone.find((z) => z.locale === 'bistrot' && String(z.nome).toLowerCase() === nome);
+  const speciale = (nome) => d.tavoli.find((x) => String(x.nome).toLowerCase() === nome);
   const numero = (nome) => String(nome).replace(/^(tavolo|table|tisch)\s*/i, '');
-  $('app').innerHTML = `<h1>${esc(T().qualeTavolo)}</h1>
-    ${locali.length > 1 ? `<div class="locali">${locali.map((l) => `<button data-loc="${esc(l.id)}" class="${l.id === VISTA.locale ? 'attiva' : ''}">${esc(l.nome)}</button>`).join('')}</div>` : ''}
-    ${d.zone.filter((z) => z.locale === VISTA.locale).map((z) => {
-      const tt = d.tavoli.filter((t) => t.zona === z.id);
-      return tt.length ? `<div class="zonaTit">${esc(z.nome)}</div><div class="griglia numeri">${tt.map((t) => `<button class="quadro numero" data-tav="${esc(t.id)}" data-k="${esc(t.k)}"><b>${esc(numero(t.nome))}</b></button>`).join('')}</div>` : '';
-    }).join('')}`;
-  $('app').querySelectorAll('[data-loc]').forEach((b) => b.onclick = () => { VISTA.locale = b.dataset.loc; disegna(); });
-  $('app').querySelectorAll('[data-tav]').forEach((b) => b.onclick = () => {
-    location.replace(`${location.pathname}?t=${encodeURIComponent(b.dataset.tav)}&k=${encodeURIComponent(b.dataset.k)}&l=${LINGUA}`);
-  });
+  const tavoliDi = (nomi) => nomi.map(zona).filter(Boolean)
+    .flatMap((z) => d.tavoli.filter((x) => x.zona === z.id && /\d/.test(numero(x.nome))))
+    .sort((a, b) => Number(numero(a.nome)) - Number(numero(b.nome)));
+  const vai = (x, extra = '') => location.replace(`${location.pathname}?t=${encodeURIComponent(x.id)}&k=${encodeURIComponent(x.k)}&l=${LINGUA}${extra}`);
+  const hall = speciale('hall'), camera = speciale('camera');
+  if (!VISTA.posto) {
+    $('app').innerHTML = `<h1>${esc(T().dove)}</h1><div class="griglia">
+      <button class="quadro" data-posto="interno"><span class="icona">🏠</span><b>${esc(T().interno)}</b></button>
+      <button class="quadro" data-posto="esterno"><span class="icona">☀️</span><b>${esc(T().esterno)}</b></button>
+      ${hall ? `<button class="quadro" data-posto="hall"><span class="icona">🛋️</span><b>${esc(T().hall)}</b></button>` : ''}
+      ${camera ? `<button class="quadro" data-posto="camera"><span class="icona">🛏️</span><b>${esc(T().inCamera)}</b></button>` : ''}</div>`;
+    $('app').querySelectorAll('[data-posto]').forEach((b) => b.onclick = () => {
+      if (b.dataset.posto === 'hall') return vai(hall);
+      VISTA.posto = b.dataset.posto; disegna();
+    });
+    return;
+  }
+  if (VISTA.posto === 'camera') {
+    $('app').innerHTML = `<button class="indietro" id="indietro">‹ ${esc(T().indietro)}</button><h1>${esc(T().qualeCamera)}</h1>
+      <input class="campo" id="qCamera" inputmode="numeric" autocomplete="off" placeholder="229" style="font-size:26px;text-align:center;letter-spacing:2px;" />
+      <button class="bottone" id="qVai" style="margin-top:12px;">${esc(T().avanti)} ›</button>`;
+    $('indietro').onclick = () => { VISTA.posto = null; disegna(); };
+    const via = () => { const c = $('qCamera').value.replace(/\D/g, '').slice(0, 10); if (!c) return $('qCamera').focus(); vai(camera, `&camera=${encodeURIComponent(c)}`); };
+    $('qVai').onclick = via;
+    $('qCamera').onkeydown = (ev) => { if (ev.key === 'Enter') via(); };
+    setTimeout(() => $('qCamera').focus(), 50);
+    return;
+  }
+  const tt = VISTA.posto === 'interno' ? tavoliDi(['interno']) : tavoliDi(['esterno', 'terrazza']);
+  $('app').innerHTML = `<button class="indietro" id="indietro">‹ ${esc(T().indietro)}</button><h1>${esc(T().numeroTavolo)}</h1>
+    <div class="griglia numeri">${tt.map((x) => `<button class="quadro numero" data-tav="${esc(x.id)}" data-k="${esc(x.k)}"><b>${esc(numero(x.nome))}</b></button>`).join('')}</div>`;
+  $('indietro').onclick = () => { VISTA.posto = null; disegna(); };
+  $('app').querySelectorAll('[data-tav]').forEach((b) => b.onclick = () => vai({ id: b.dataset.tav, k: b.dataset.k }));
 };
-
 const disegna = () => {
   testa();
   if (VISTA.nome === 'tavolo') { schermataScegliTavolo(VISTA.dati); barra(); return; }

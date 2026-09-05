@@ -44,7 +44,7 @@ import { riepilogo } from './giornata.ts';
 import { chiusoCome, importoValido, residuo, resto } from './pagamenti.ts';
 import { applicaFascia, fasciaAttiva, minutiDi, oraLocale, prezzoInFascia } from './fasce.ts';
 import type { Fascia, PrezzoFascia } from './fasce.ts';
-import { cameraCombacia, numeroOrdine, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';
+import { cameraCombacia, codiceTessera, dallHotel, numeroOrdine, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';
 import { chiaveStripe, dividiParametri, firmaValida, parametriLink, segretoWebhook, STRIPE } from './stripe.ts';
 import { motivoDelPrezzo, motivoPulito, prezzoCambiato } from './motivi.ts';
 import { localeChePrepara, portareA, siStampa } from './dove.ts';
@@ -251,7 +251,7 @@ async function mandaInCucina(o: Riga): Promise<void> {
   const conto: Riga = {
     id: crypto.randomUUID(), tavolo: String(o.tavolo), tipo: inCamera ? 'camera' : 'esterno',
     camera: inCamera ? String(o.camera ?? '') || null : null, tessera: inCamera ? String(o.tessera ?? '') || null : null,
-    ospite: inCamera ? ((o.ospite as string | null) ?? null) : null, nome: `QR ${numero}`, lingua: (o.lingua as string | null) ?? null,
+    ospite: inCamera ? ((o.ospite as string | null) ?? null) : null, nome: `QR ${numero}${!inCamera && o.camera ? ` · camera ${String(o.camera)}` : ''}`, lingua: (o.lingua as string | null) ?? null,
     coperti: 1, stato: 'aperto', aperto_da: OSPITI_QR, aperto_il: ora, aggiornato_il: ora,
   };
   const { error: e1 } = await db.from('pos_conto').insert(conto);
@@ -270,7 +270,7 @@ async function mandaInCucina(o: Riga): Promise<void> {
   const { error: e2 } = await db.from('pos_riga').insert(inserite);
   if (e2) { await segnaErroreOrdine(numero, e2.message); return; }
   const tutte = await righeDelConto(conto.id as string);
-  const chi = inCamera ? `QR · IN CAMERA ${String(conto.camera ?? '')}` : 'QR · PAGATO ONLINE';
+  const chi = inCamera ? `QR · IN CAMERA ${String(conto.camera ?? '')}` : `QR · PAGATO ONLINE${o.camera ? ` · CAMERA ${String(o.camera)}` : ''}`;
   for (const p of PORTATE) {
     const rr = tutte.filter((r) => r.portata === p);
     if (rr.length) await creaStampe(conto, rr, p, 'comanda', chi);
@@ -323,6 +323,7 @@ Deno.serve(async (req) => {
      da sola non proteggeva niente di piu' — chi ordina paga prima, e la
      camera vuole tessera e numero. Il QR sul tavolo resta la scorciatoia. */
   if (azione === 'ospite-tavoli') {
+    if (!dallHotel(req.headers, Deno.env.get('TOTEM_IP'))) return risposta({ errore: 'si ordina dalla rete Wi-Fi dell hotel' }, 403);
     const segreto = Deno.env.get('HOTEL_KEY') ?? '';
     const [{ data: locali }, { data: zone }, { data: tavoli }] = await Promise.all([
       db.from('pos_locale').select('id, nome').order('nome'),
@@ -337,6 +338,8 @@ Deno.serve(async (req) => {
 
   const azioniOspite = ['ospite-menu', 'ospite-ordine', 'ospite-stato'];
   if (azioniOspite.includes(azione)) {
+    /* solo dalla rete dell'hotel (TOTEM_IP): fuori, la pagina non ordina */
+    if (!dallHotel(req.headers, Deno.env.get('TOTEM_IP'))) return risposta({ errore: 'si ordina dalla rete Wi-Fi dell hotel' }, 403);
     const b = req.method === 'POST' ? await corpo() : {};
     const t = String(url.searchParams.get('t') ?? b.t ?? ''), k = String(url.searchParams.get('k') ?? b.k ?? '');
     if (!(await tavoloFirmato(t, k, Deno.env.get('HOTEL_KEY')))) return risposta({ errore: 'tavolo non riconosciuto: inquadri di nuovo il codice sul tavolo' }, 403);
@@ -393,9 +396,9 @@ Deno.serve(async (req) => {
     if (modo === 'camera') {
       /* tessera E numero di camera, che devono combaciare: chi trova una
          tessera per terra non sa la camera */
-      const tessera = String(b.tessera ?? '').replace(/\D/g, '');
+      const tessera = codiceTessera(b.tessera);
       const camera = String(b.camera ?? '').trim();
-      if (!/^[0-9]{4,20}$/.test(tessera) || !camera) return risposta({ errore: 'servono la tessera della camera e il numero della camera' }, 400);
+      if (!tessera || !camera) return risposta({ errore: 'servono la tessera della camera e il numero della camera' }, 400);
       const f = await cameraDallaTessera(tessera);
       if (f.stato === 503) return risposta({ errore: 'addebito in camera non disponibile: paghi con la carta o chiami il cameriere' }, 503);
       if (f.stato !== 200) return risposta({ errore: 'tessera non riconosciuta' }, 404);
@@ -409,7 +412,8 @@ Deno.serve(async (req) => {
     /* carta: l'ordine aspetta la conferma di Stripe (webhook) */
     const chiave = chiaveStripe(POS_PROVA);
     if (!chiave) return risposta({ errore: 'pagamento con carta non disponibile: chiami il cameriere' }, 503);
-    const ordine = { id: numero, tavolo: t, lingua, righe: esito.righe, totale_cent: esito.totale_cent, modo, stato: 'in_attesa', prova: POS_PROVA, creato_il: ora, aggiornato_il: ora };
+    const consegna = String(b.consegna ?? '').trim().slice(0, 10) || null;
+    const ordine = { id: numero, tavolo: t, lingua, righe: esito.righe, totale_cent: esito.totale_cent, modo, camera: consegna, stato: 'in_attesa', prova: POS_PROVA, creato_il: ora, aggiornato_il: ora };
     const { error } = await db.from('pos_ordine_ospite').insert(ordine);
     if (error) return risposta({ errore: error.message }, 500);
     try {

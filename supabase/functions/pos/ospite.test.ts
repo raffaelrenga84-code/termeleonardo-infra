@@ -2,7 +2,7 @@
    ospite.test.ts — l'ordine dal tavolo col QR: firma, righe, camera.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { cameraCombacia, firmaTavolo, numeroOrdine, righeOrdine, tavoloFirmato } from './ospite.ts';
+import { cameraCombacia, codiceTessera, dallHotel, firmaTavolo, ipDi, numeroOrdine, righeOrdine, tavoloFirmato } from './ospite.ts';
 
 Deno.test('il QR porta una firma: senza quella giusta non si ordina su un tavolo', async () => {
   const f = await firmaTavolo('bistrot-t7', 'chiave-hotel');
@@ -63,4 +63,28 @@ Deno.test('il numero dell ordine e corto e senza lettere che si confondono', () 
   assertEquals(n.length, 7);
   assert(n.startsWith('Q'));
   for (const c of ['0', 'O', '1', 'I']) assert(!numeroOrdine().includes(c), c);
+});
+
+Deno.test('la tessera si scrive con le cifre stampate: il codice a barre lo ricostruisce il server', () => {
+  /* «chiedi solo le cifre stampate sulla tessera» (la proprieta', 5 settembre
+     2026). Il codice a barre e' un EAN-13: «1», zeri, il numero, la cifra
+     di controllo. Tessera 1466 → 1000000014662, 1796 → 1000000017960 (viste
+     dal vivo il 4 settembre). */
+  assertEquals(codiceTessera('1466'), '1000000014662');
+  assertEquals(codiceTessera('1796'), '1000000017960');
+  assertEquals(codiceTessera(' 14 66 '), '1000000014662', 'spazi e altro si buttano');
+  assertEquals(codiceTessera('1000000014662'), '1000000014662', 'il codice intero passa com e');
+  assertEquals(codiceTessera('14662'), '1000000014662', 'anche le ultime cinque cifre del codice a barre');
+  assertEquals(codiceTessera(''), null);
+  assertEquals(codiceTessera('12'), null, 'meno di tre cifre non e una tessera');
+});
+
+Deno.test('l indirizzo di chi chiama: il primo della catena, e solo l hotel passa', () => {
+  const testa = (v: string | null) => new Headers(v === null ? {} : { 'x-forwarded-for': v });
+  assertEquals(ipDi(testa('46.234.202.29, 10.0.0.1')), '46.234.202.29');
+  assertEquals(ipDi(testa(' 46.234.202.29 ')), '46.234.202.29');
+  assertEquals(ipDi(testa(null)), '');
+  assertEquals(dallHotel(testa('46.234.202.29'), '46.234.202.29'), true);
+  assertEquals(dallHotel(testa('5.6.7.8'), '46.234.202.29'), false);
+  assertEquals(dallHotel(testa('5.6.7.8'), undefined), true, 'senza IP dell hotel configurato non si blocca nessuno');
 });
