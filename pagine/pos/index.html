@@ -736,7 +736,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     const scorso = g0 ? g0.scrollTop : 0;
     $('app').innerHTML = `<div class="ordine ${compatta ? 'compatta' : ''}">
       <div class="portate"><span class="eti">Portata</span><button data-p="" class="${portataForzata ? '' : 'attiva'}">Auto</button>${PORTATE.map((p) => `<button data-p="${p}" class="${portataForzata === p ? 'attiva' : ''}">${NOMI_PORTATE[p]}</button>`).join('')}</div>
-      <div class="conti"><span class="eti">Conti</span>${contiDelTavolo().map((c, i) => `<button data-conto="${esc(c.id)}" class="${c.id === conto.id ? 'attiva' : ''}"><b>${i + 1}</b>${esc(titoloConto(c))}${c.id !== conto.id && BOZZE.has(c.id) ? ' •' : ''}</button>`).join('')}<button data-conto="nuovo">+ Conto</button></div>
+      <div class="conti"><span class="eti">Conti</span>${contiDelTavolo().map((c, i) => `<button data-conto="${esc(c.id)}" class="${c.id === conto.id ? 'attiva' : ''}"><b>${i + 1}</b>${esc(titoloConto(c))}${c.id !== conto.id && BOZZE.has(c.id) ? ' •' : ''}</button>`).join('')}<button data-conto="nuovo">+ Esterno</button><button data-conto="nuovo-camera">+ Camera</button></div>
       <div class="cercaRiga"><input id="cerca" placeholder="cerca (3 lettere)" value="${esc(cerca)}" autocomplete="off" />
         <div class="quantita" title="Quanti: si sceglie qui, poi si tocca l’articolo">${[1,2,3,4].map((n) => `<button data-q="${n}" class="${n === quantitaPronta ? 'attivo' : ''}">${n}×</button>`).join('')}<button id="quantitaAltra" class="${quantitaPronta > 4 ? 'attivo' : ''}">${quantitaPronta > 4 ? `${quantitaPronta}×` : '…'}</button></div></div>
       <div class="griglia">
@@ -1028,8 +1028,42 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     const altri = fratelli.filter((f) => f.id !== conto.id);
     if (altri.length) apriContoPerId(altri[0].id); else schermataSala();
   };
+  /* «+ Camera» nella riga dei conti: un altro conto in camera sullo stesso
+     tavolo, con tessera o numero di camera come dal tavolo (la
+     proprieta', 5 settembre 2026: «se invece e' un'altra camera?») */
+  const pannelloNuovoInCamera = () => {
+    const velo = document.createElement('div'); velo.className = 'velo';
+    const via = () => velo.remove();
+    let cop = 1;
+    velo.innerHTML = `<div class="pannello">
+      <h3>Nuovo conto in camera</h3>
+      <label>Tessera o numero di camera</label>
+      <div class="conFoto"><input id="pnCodice" inputmode="numeric" autocomplete="off" placeholder="passi la tessera, o scriva la camera" />${bottoneFotocamera('pnCodice')}</div>
+      <label>Nome dell’ospite (facoltativo)</label>
+      <input id="pnOspite" maxlength="40" autocomplete="off" />
+      <label>Coperti</label>
+      <div class="coperti">${[1,2,3,4,5,6].map((n) => `<button data-cop="${n}" class="${n === cop ? 'attivo' : ''}">${n}</button>`).join('')}</div>
+      <p class="mini" id="pnEsito"></p>
+      <div class="due"><button class="bottone sec" id="pnAnnulla">Annulla</button><button class="bottone" id="pnOk">Apri il conto</button></div></div>`;
+    document.body.appendChild(velo);
+    velo.onclick = (ev) => { if (ev.target === velo) via(); };
+    velo.querySelectorAll('[data-cop]').forEach((b) => b.onclick = () => { cop = Number(b.dataset.cop); velo.querySelectorAll('[data-cop]').forEach((x) => x.classList.toggle('attivo', Number(x.dataset.cop) === cop)); });
+    const esito = velo.querySelector('#pnEsito');
+    const letto = leggiTesseraOCamera(velo, 'pnCodice', esito);
+    velo.querySelector('#pnAnnulla').onclick = via;
+    velo.querySelector('#pnOk').onclick = async () => {
+      const s = await letto.conferma();
+      if (!s.camera) { esito.textContent = 'Serve la camera: passi la tessera o scriva il numero.'; return; }
+      try {
+        const j = await scrivi('conto', { tavolo: conto.tavolo, tipo: 'camera', camera: s.camera, tessera: s.daTessera ? s.tessera : null, lingua: s.daTessera ? s.lingua : null, ospite: velo.querySelector('#pnOspite').value.trim() || null, coperti: cop });
+        if (j.offline) return alert('Nessun server risponde: riprovi tra un momento.');
+        via(); cambiaConto(j.conto.id);
+      } catch (e) { esito.textContent = e.message; }
+    };
+  };
   const cambiaConto = async (id) => {
     salvaBozza();
+    if (id === 'nuovo-camera') return pannelloNuovoInCamera();
     try {
       let verso = id;
       if (id === 'nuovo') {

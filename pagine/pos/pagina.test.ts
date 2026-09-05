@@ -279,7 +279,7 @@ Deno.test('i conti del tavolo stanno nella schermata dell ordine: si passa dall 
      proprieta', 5 settembre 2026); le quantita 1× 2× restano quelle */
   assert(m.includes('const BOZZE = new Map();') && m.includes('let ordine = BOZZE.get(conto.id) || creaOrdine();'), 'le righe non inviate restano in memoria per conto');
   assert(m.includes("const salvaBozza = () => { if (daInviare(ordine).length) BOZZE.set(conto.id, ordine); };"), 'e si salvano quando si lascia il conto');
-  assert(m.includes('<div class="conti"><span class="eti">Conti</span>') && m.includes('<button data-conto="nuovo">+ Conto</button>'), 'la riga dei conti col +');
+  assert(m.includes('<div class="conti"><span class="eti">Conti</span>') && m.includes('<button data-conto="nuovo">+ Esterno</button><button data-conto="nuovo-camera">+ Camera</button>'), 'la riga dei conti con + Esterno e + Camera');
   assert(m.includes('const contiDelTavolo = () =>') && m.includes("String(a.id).localeCompare(String(b.id))"), 'numerati in un ordine che non balla');
   assert(m.includes("if (id === 'nuovo') {") && m.includes("scrivi('conto', { tavolo: conto.tavolo, tipo: 'esterno', coperti: 1 })"), 'il conto nuovo nasce da qui');
   assert(m.includes("schermataOrdine(j.conto, j.righe, j.fratelli || []);"), 'e si riapre la schermata sul conto scelto');
@@ -337,4 +337,11 @@ Deno.test('chiuso o tolto un conto, se il tavolo ne ha altri si resta sul tavolo
   /* «magari devo lavorare sugli altri conti aperti su quel tavolo» (5 set 2026) */
   assert(m.includes('const dopoChiuso = () => {') && m.includes('if (altri.length) apriContoPerId(altri[0].id); else schermataSala();'), 'sul primo degli altri, o in sala');
   assert(m.includes('if (j.chiuso) { via(); return dopoChiuso(); }') && m.includes('via(); dopoChiuso();'), 'dopo il pagamento, la camera e la chiusura a zero');
+});
+
+Deno.test('«+ Camera» nella riga dei conti apre un altro conto in camera sullo stesso tavolo', () => {
+  /* «se invece e un altra camera?» (la proprieta', 5 settembre 2026) */
+  assert(m.includes("if (id === 'nuovo-camera') return pannelloNuovoInCamera();"), 'il bottone passa dal pannello');
+  assert(m.includes('const pannelloNuovoInCamera = () =>') && m.includes("leggiTesseraOCamera(velo, 'pnCodice', esito)"), 'tessera o numero di camera, come dal tavolo');
+  assert(m.includes("tipo: 'camera', camera: s.camera, tessera: s.daTessera ? s.tessera : null") && m.includes('via(); cambiaConto(j.conto.id);'), 'nasce in camera e si apre subito');
 });
