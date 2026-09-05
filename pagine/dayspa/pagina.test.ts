@@ -12,8 +12,8 @@ import { assert, assertEquals } from 'jsr:@std/assert';
 const P = Deno.readTextFileSync(new URL('./index.html', import.meta.url));
 const modulo = () => (P.match(/<script type="module">([\s\S]*?)<\/script>/) ?? ['', ''])[1];
 
-Deno.test('e nascosta finche e di prova: noindex, chiave nell indirizzo, e la costante che lo dice', () => {
-  assert(/<meta name="robots" content="noindex, follow"/.test(P));
+Deno.test('in linea dal 5 settembre 2026: index, niente chiave nell indirizzo, e la costante che lo dice', () => {
+  assert(/<meta name="robots" content="index, follow"/.test(P), 'si fa trovare: il sito ci punta dalla barra');
   assert(/const PROVA = false;/.test(modulo()), "in linea dal 5 settembre 2026");
   assert(/\.get\('k'\) !== CHIAVE_PROVA/.test(modulo()), 'senza ?k= la pagina di prova non si apre');
 });

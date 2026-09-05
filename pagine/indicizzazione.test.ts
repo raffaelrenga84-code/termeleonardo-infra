@@ -34,6 +34,8 @@ const VISIBILI = [
   'prenota/index.html',
   'richieste/transfer/index.html',
   'buoni/regala/index.html',
+  /* il Day Spa venduto da noi, in linea dal 5 settembre 2026, col suo titolo */
+  'dayspa/index.html',
 ];
 
 /* Non devono comparire: back office, pagine di servizio, e il modulo delle
@@ -45,10 +47,6 @@ const NASCOSTE = [
   'buoni/index.html',
   'buoni/stampa/index.html',
   'richieste/index.html',
-  /* il Day Spa e' di prova (3 settembre 2026): quando andra' in linea con un
-     titolo suo, passa fra le VISIBILI e robots.txt del sito smette di
-     escluderlo */
-  'dayspa/index.html',
   /* lo sportello del Day Spa: pagina del tablet della reception */
   'ingresso/index.html',
   /* il POS di Bistrot e ristorante: pagina dei palmari, servita solo dall IP dell hotel */
@@ -58,8 +56,8 @@ const NASCOSTE = [
 ];
 
 Deno.test('gli elenchi non sono vuoti, altrimenti i cicli girano a vuoto', () => {
-  assertEquals(VISIBILI.length, 3);
-  assertEquals(NASCOSTE.length, 10);
+  assertEquals(VISIBILI.length, 4);
+  assertEquals(NASCOSTE.length, 9);
 });
 
 Deno.test('ogni pagina riservata dichiara noindex', () => {
