@@ -30,9 +30,14 @@ main{max-width:1340px;margin:0 auto;padding:20px 16px 60px;}
 color:var(--grigio);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
 .anteprima .telaio{background:#fff;border:1px solid var(--pietra);border-radius:8px;
 padding:14px;overflow:auto;}
-.anteprima .telaio > *{transform-origin:top left;}
+/* il buono non lo disegna piu' la pagina: e' il PDF del server, mostrato
+   dentro un iframe (vedi pdfUrl e iframePdf piu' sotto). Niente scala da
+   applicare a mano al foglio: ci pensa il lettore di PDF del browser. */
+.pdfFrame{width:100%;height:780px;border:1px solid #E5E0D8;border-radius:6px;background:#fff;}
+.anteprimaPdf .mini{padding:8px 0;}
 .azioni-buono{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
-.azioni-buono button{flex:1;min-width:150px;margin-top:0;}
+/* anche gli <a>: "Scarica il PDF" e' un link con download, non un pulsante */
+.azioni-buono button,.azioni-buono a{flex:1;min-width:150px;margin-top:0;text-align:center;}
 .famiglie{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
 .famiglie button{border:1px solid var(--pietra);background:#fff;border-radius:999px;padding:6px 14px;font:inherit;font-weight:600;cursor:pointer;color:var(--acqua-scura);}
 .famiglie button.attiva{background:var(--acqua-scura);color:#fff;border-color:var(--acqua-scura);}
@@ -58,7 +63,7 @@ button.azione,a.azione{background:var(--arancio);color:#fff;border:0;border-radi
 padding:13px 20px;font:600 15px Arial;cursor:pointer;margin-top:14px;
 display:inline-block;text-decoration:none;box-sizing:border-box;}
 button.azione:disabled{background:#CFCABF;}
-button.sec{background:#fff;color:var(--acqua-scura);border:1px solid var(--acqua);}
+button.sec,a.sec{background:#fff;color:var(--acqua-scura);border:1px solid var(--acqua);}
 button.mini-azione{background:#fff;color:var(--acqua-scura);border:1px solid var(--acqua);
 border-radius:6px;padding:5px 11px;font:11px/1 Arial;letter-spacing:.6px;
 text-transform:uppercase;cursor:pointer;}
@@ -128,16 +133,6 @@ tr.apribile:hover td{background:#F7F5EF;}
 .fatto{background:var(--acqua-chiara);border-left:4px solid var(--acqua);
 border-radius:0 8px 8px 0;padding:14px 16px;margin-top:14px;}
 .fatto .codice{font-family:monospace;font-size:26px;letter-spacing:2px;color:var(--acqua-scura);}
-/* il foglio A4 di stampa (#stampa e tutto il resto di questa regola) vive in
-   stampa.css, caricato qui sotto con <link>: lo stesso foglio serve anche a
-   pagine/buoni/stampa/index.html, la pagina pubblica che il cliente apre dal
-   pulsante «Stampa il tuo buono» nell'email. Una sola resa dell'aspetto,
-   come buonoStampaHTML() in buono.js è l'unica resa del markup — cambiare
-   qui l'aspetto stampato cambia entrambe le pagine, non serve ricordarsi
-   della seconda. Qui in più: nascosto finché non si stampa, perché il back
-   office ha anche altro da mostrare (la pagina pubblica invece no, e lo
-   tiene visibile — vedi il commento in cima a stampa.css). */
-#stampa{display:none;}
 /* l'esito della scansione allo sportello: grande, verde o rosso, si legge
    da un metro */
 .esitoGrande{font-size:22px;line-height:1.3;padding:14px 16px;border-radius:12px;margin:10px 0;}
@@ -147,7 +142,6 @@ border-radius:0 8px 8px 0;padding:14px 16px;margin-top:14px;}
 body.sportello .chi a{display:none;}
 body.sportello #dOggiCod{font-size:22px;padding:14px;}
 </style>
-<link rel="stylesheet" href="/buoni/stampa.css" />
 </head>
 <body>
 <div class="fascia"></div>
@@ -156,19 +150,20 @@ body.sportello #dOggiCod{font-size:22px;padding:14px;}
 <div class="chi"><span id="chiSono"></span> <a href="#" id="esci" style="color:var(--acqua);">esci</a></div>
 </header>
 <main id="app"></main>
-<div id="stampa"></div>
 
 <script type="module">
-/* il modello del buono sta in buono.js, condiviso con la pagina pubblica
-   di acquisto: due copie divergevano e quella pubblica era rimasta
-   indietro. Presidiato da buono.test.ts. */
+/* da buono.js, condiviso con la pagina pubblica di acquisto, restano i
+   testi tradotti e i due aiutanti che servono ancora qui: il buono in se'
+   non si disegna piu' da nessuna delle due parti — lo fa il server, in PDF
+   sulla carta intestata (la proprieta', 5 settembre 2026). Presidiato da
+   buono.test.ts e da pdf-pagine.test.ts. */
 /* percorso assoluto e non './buono.js': un modulo si risolve contro
    l'indirizzo nella barra, non contro il file servito. Qui funzionava per
    fortuna, perche' il back office si apre sotto /buoni/, che la riscrittura
    di vercel.json copre; sarebbe bastato aprirlo su /buoni (senza barra
    finale) per cercare /buono.js e trovare la SPA. '/buoni/buono.js' vale
    uguale sui due domini. Vedi percorsi-web.test.ts. */
-import { esc, COPERTINE, NARRATIVA, ETI, CONDIZIONI, COMPRENDE, dataLingua, categoriaBuono, buonoHTML, buonoStampaHTML, righeDescrizione } from '/buoni/buono.js';
+import { esc, ETI, CONDIZIONI, COMPRENDE, dataLingua, categoriaBuono, righeDescrizione } from '/buoni/buono.js';
 
 /* stessa regola di sopra: percorso assoluto, non relativo — `/comune/date.js`,
    mai `./date.js` o `../comune/date.js`. Vedi il commento in date.js. */
@@ -414,6 +409,33 @@ async function chiama(qs, opz = {}, base = FUNZIONE) {
   if (r.status === 401) { await esci(); throw new Error(j.errore || 'sessione scaduta'); }
   if (!r.ok) throw new Error(j.errore || ('errore ' + r.status));
   return j;
+}
+
+/* Il PDF del buono: la sola resa che esiste, disegnata dal server sulla
+   carta intestata. `chiama` non serve, perche' la risposta buona non e'
+   JSON ma il file: si legge come blob e si tiene un indirizzo blob: da
+   dare all'iframe, al pulsante Stampa e al link Scarica.
+   Con `corpo` la richiesta e' un POST e chiede la BOZZA di un buono non
+   ancora emesso (il modulo che l'operatore sta compilando); senza corpo e'
+   un GET, e la coda `qs` dice quale buono. L'errore invece torna in JSON,
+   e si legge solo in quel caso. */
+async function pdfUrl(qs, corpo) {
+  const r = await fetch(FUNZIONE + qs, {
+    method: corpo ? 'POST' : 'GET',
+    headers: { authorization: 'Bearer ' + TOKEN, 'content-type': 'application/json' },
+    body: corpo ? JSON.stringify(corpo) : undefined
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j.errore || ('errore ' + r.status));
+  }
+  return URL.createObjectURL(await r.blob());
+}
+
+/* il PDF si guarda dentro la pagina, senza aprire una finestra: e' quello
+   che la reception fa cento volte al giorno mentre compila */
+function iframePdf(contenitore, url) {
+  contenitore.innerHTML = `<iframe class="pdfFrame" src="${url}" title="Anteprima del buono"></iframe>`;
 }
 
 async function esci() {
@@ -774,23 +796,45 @@ function vistaEmetti() {
       dedica: $('fDedica').value, scade_il: $('fScade').value
     };
   }
+  /* l'ultima bozza chiesta al server: la tiene anche "Stampa anteprima",
+     che apre lo stesso foglio invece di chiederne un altro */
+  let attesaAnteprima = null;
+  let urlAnteprima = '';
+  /* L'anteprima e' il PDF vero, non un secondo disegno del buono: quello
+     che l'operatore vede mentre compila e' esattamente il foglio che il
+     cliente ricevera'. Il prezzo e' che ogni aggiornamento e' un giro al
+     server, quindi non si chiede a ogni tasto premuto: si aspetta che
+     l'operatore smetta di scrivere (900 ms), con un solo timer che i tasti
+     successivi riazzerano. */
   function aggiornaAnteprima() {
     const telaio = $('antTelaio');
     if (!telaio) return;
-    telaio.innerHTML = buonoHTML(buonoProvvisorio(), true);
-    /* il buono è largo 700px: lo rimpiccioliamo per farlo stare nella colonna */
-    const dentro = telaio.firstElementChild;
-    if (dentro) {
-      const scala = Math.min(1, (telaio.clientWidth - 4) / 700);
-      dentro.style.transform = `scale(${scala})`;
-      telaio.style.height = (dentro.offsetHeight * scala + 8) + 'px';
-    }
+    clearTimeout(attesaAnteprima);
+    attesaAnteprima = setTimeout(async () => {
+      try {
+        const url = await pdfUrl('?a=pdf', buonoProvvisorio());
+        /* senza revoca ogni modifica lascerebbe un PDF in memoria fino a
+           che la scheda resta aperta: una mattina di lavoro sono decine */
+        if (urlAnteprima) URL.revokeObjectURL(urlAnteprima);
+        urlAnteprima = url;
+        iframePdf(telaio, url);
+      } catch (e) {
+        telaio.innerHTML = `<span class="errore">${esc(e.message)}</span>`;
+      }
+    }, 900);
   }
   /* stampa di quello che si sta componendo: serve a farlo vedere al cliente
-     prima che paghi, quindi esce marcata BOZZA e senza codice */
-  $('antStampa').onclick = () => {
-    $('stampa').innerHTML = buonoStampaHTML(buonoProvvisorio(), true);
-    window.print();
+     prima che paghi, quindi il server lo marca BOZZA e senza codice */
+  $('antStampa').onclick = async () => {
+    try {
+      if (!urlAnteprima) {
+        urlAnteprima = await pdfUrl('?a=pdf', buonoProvvisorio());
+        iframePdf($('antTelaio'), urlAnteprima);
+      }
+      window.open(urlAnteprima, '_blank');
+    } catch (e) {
+      $('fEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
+    }
   };
   const conAnteprima = (f) => () => { f(); aggiornaAnteprima(); };
   $('fTipo').onchange = conAnteprima(agg);
@@ -917,6 +961,7 @@ function mostraFatto(b, contenitore = 'fFatto') {
         <div class="mini" style="padding-top:12px;">Come lo consegna?</div>
         <div class="azioni-buono">
           <button class="azione" id="bStampa">&#128424; Stampa subito</button>
+          <a class="azione sec" id="bScarica" download="Buono-Regalo-${esc(b.codice)}.pdf">&#11015; Scarica il PDF</a>
           ${b.destinatario_email
             ? `<button class="azione sec" id="bMailDest">&#9993; Email a ${esc(b.destinatario || 'chi lo riceve')}</button>` : ''}
           ${b.acquirente_email
@@ -928,8 +973,35 @@ function mostraFatto(b, contenitore = 'fFatto') {
       <button class="azione sec" id="bRipristina" style="margin-top:8px;">Rimetti valido (riscosso per sbaglio)</button></div>` : ''}
     <div class="esito" id="bEsito"></div>
     ${dettagliBuono(b)}
-    <div style="margin-top:16px;overflow:auto;">${buonoHTML(b, attesa)}</div>
+    <div class="anteprimaPdf" id="bAnteprima"><div class="mini">Carico l&rsquo;anteprima del buono&hellip;</div></div>
   </div>`;
+
+  /* Il PDF del buono, chiesto una volta sola: lo stesso foglio serve
+     all'anteprima qui sotto, a "Stampa subito" e a "Scarica il PDF". Un
+     buono ancora in attesa il server lo marca BOZZA da se': la pagina non
+     deve dirglielo, e non puo' sbagliarsi. */
+  let urlPdf = '';
+  /* window.open resta DENTRO il clic dell'operatore e non dopo un await:
+     una finestra aperta al ritorno di una promessa il browser la tratta
+     come aperta da sola, e la blocca. Il foglio ce l'abbiamo gia', perche'
+     l'anteprima qui sotto lo scarica appena il pannello compare. */
+  const apriPdf = () => {
+    if (!urlPdf) { $('bEsito').textContent = 'L’anteprima si sta ancora caricando: un momento.'; return; }
+    if (!window.open(urlPdf, '_blank')) {
+      $('bEsito').textContent = 'Il browser ha bloccato la finestra: stampi dall’anteprima qui sotto.';
+    }
+  };
+  /* il pannello puo' essere sparito mentre il PDF arrivava (l'operatore ha
+     cambiato scheda, o ha aperto un altro buono dall'elenco): allora non
+     c'e' piu' niente da riempire */
+  pdfUrl('?a=pdf&numero=' + encodeURIComponent(b.numero)).then((url) => {
+    urlPdf = url;
+    if (!$('bAnteprima')) return;
+    iframePdf($('bAnteprima'), url);
+    if ($('bScarica')) $('bScarica').href = url;
+  }).catch((e) => {
+    if ($('bAnteprima')) $('bAnteprima').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
+  });
 
   if ($('bRipristina')) $('bRipristina').onclick = async () => {
     if (!confirm(`Rimettere valido il buono ${b.codice}? Va fatto solo se e stato riscosso per sbaglio.`)) return;
@@ -962,10 +1034,7 @@ function mostraFatto(b, contenitore = 'fFatto') {
         $('bEsito').textContent = '\u2713 Copiata: incollala in Outlook e invia al cliente.';
       } catch (e) { $('bEsito').innerHTML = '<span class="errore">Copia non riuscita.</span>'; }
     };
-    $('bStampaBozza').onclick = () => {
-      $('stampa').innerHTML = buonoStampaHTML(b, true);
-      window.print();
-    };
+    $('bStampaBozza').onclick = apriPdf;
     $('bPagato').onclick = async () => {
       const rif = prompt('Riferimento del pagamento (CRO del bonifico, id della transazione\u2026). Puoi lasciare vuoto:') ?? null;
       if (rif === null) return;
@@ -976,39 +1045,38 @@ function mostraFatto(b, contenitore = 'fFatto') {
       } catch (e) { $('bEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
     };
   } else {
-    $('bStampa').onclick = () => { $('stampa').innerHTML = buonoStampaHTML(b); window.print(); };
+    const L = ['it','de','en','fr'].includes(b.lingua) ? b.lingua : 'it';
+    $('bStampa').onclick = apriPdf;
 
-    /* email: copia il buono e apre Outlook già indirizzato, come fa l'estensione */
-    const perEmail = async (dest, chi) => {
-      const L = ['it','de','en','fr'].includes(b.lingua) ? b.lingua : 'it';
-      const OGG = {
-        it:`Il suo Buono Regalo \u2014 Hotel Terme Leonardo`,
-        de:`Ihr Geschenkgutschein \u2014 Hotel Terme Leonardo`,
-        en:`Your Gift Voucher \u2014 Hotel Terme Leonardo`,
-        fr:`Votre Bon Cadeau \u2014 H\u00f4tel Terme Leonardo`
-      }[L];
+    /* L'email la manda il server, col PDF in allegato. Prima la reception
+       copiava il buono negli appunti e apriva Outlook gia' indirizzato,
+       poi incollava a mano: quello che arrivava al cliente dipendeva da
+       come Outlook rendeva l'HTML incollato, e spesso «viene un'immagine
+       in miniatura» (la proprieta', 5 settembre 2026). Il pulsante resta
+       spento mentre il server manda, cosi' un secondo clic impaziente non
+       spedisce due email allo stesso indirizzo. */
+    const perEmail = async (bottone, dest, chi) => {
+      bottone.disabled = true;
+      $('bEsito').textContent = 'Mando l\u2019email\u2026';
       try {
-        await navigator.clipboard.write([new ClipboardItem({
-          'text/html': new Blob([buonoHTML(b)], { type: 'text/html' }),
-          'text/plain': new Blob([buonoTesto(b)], { type: 'text/plain' })
-        })]);
-        window.open('https://outlook.office.com/mail/deeplink/compose?to=' +
-          encodeURIComponent(dest) + '&subject=' + encodeURIComponent(OGG), '_blank');
-        $('bEsito').innerHTML = `\u2713 Buono copiato e Outlook aperto verso <strong>${esc(dest)}</strong>:
-          premi <strong>Ctrl+V</strong> nel corpo del messaggio e invia.`;
+        await chiama('?a=manda', { method: 'POST', body: JSON.stringify({ numero: b.numero, a: chi }) });
+        $('bEsito').innerHTML = `\u2713 Email inviata a ${esc(dest)} con il buono in PDF allegato.`;
       } catch (e) {
-        $('bEsito').innerHTML = '<span class="errore">Copia non riuscita: usa il pulsante Copia.</span>';
+        $('bEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
       }
+      bottone.disabled = false;
     };
-    if ($('bMailDest')) $('bMailDest').onclick = () => perEmail(b.destinatario_email, 'destinatario');
-    if ($('bMailAcq')) $('bMailAcq').onclick = () => perEmail(b.acquirente_email, 'acquirente');
+    if ($('bMailDest')) $('bMailDest').onclick = () => perEmail($('bMailDest'), b.destinatario_email, 'destinatario');
+    if ($('bMailAcq')) $('bMailAcq').onclick = () => perEmail($('bMailAcq'), b.acquirente_email, 'acquirente');
+    /* Copia mette negli appunti SOLO testo, col link alla pagina da cui si
+       apre il PDF: era l'HTML negli appunti a diventare quell'immagine in
+       miniatura una volta incollato nell'email. Il buono vero e' il PDF,
+       e a quello porta il link. */
     $('bCopia').onclick = async () => {
       try {
-        await navigator.clipboard.write([new ClipboardItem({
-          'text/html': new Blob([buonoHTML(b)], { type: 'text/html' }),
-          'text/plain': new Blob([buonoTesto(b)], { type: 'text/plain' })
-        })]);
-        $('bEsito').textContent = '\u2713 Copiato: lo incolli nell\u2019email al cliente.';
+        await navigator.clipboard.writeText(buonoTesto(b) +
+          '\n\nPDF del buono: https://www.hoteltermeleonardo.com/buoni/stampa?codice=' + b.codice + '&l=' + L);
+        $('bEsito').textContent = '\u2713 Copiato il testo del buono, col link al PDF.';
       } catch (e) { $('bEsito').innerHTML = '<span class="errore">Copia non riuscita.</span>'; }
     };
   }
@@ -1023,11 +1091,17 @@ let LINK_PAGAMENTO = '';
    e non va escapato insieme al testo. La versione in testo semplice qui
    sotto non ne ha bisogno: li' il ritorno a capo e' gia' un ritorno a capo. */
 const righeHTML = (s) => String(s || '').split('\n').map(r => esc(r)).join('<br />');
+/* In coda a questa email c'era l'anteprima del buono disegnata in HTML:
+   non c'e' piu', perche' il buono e' il PDF del server e questa email e'
+   la richiesta di pagamento, non il buono. Via anche la frase «qui sotto
+   trova l'anteprima», che prometteva qualcosa che non arriva. La bozza in
+   PDF, se l'operatore la vuole allegare, la apre col pulsante «Stampa
+   l'anteprima (BOZZA)». */
 function emailRichiesta(b) {
   const link = b.pagamento === 'stripe' && LINK_PAGAMENTO;
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#2A2E2B;max-width:600px;">
   <p>Gentile ${esc(b.acquirente || 'Cliente')},</p>
-  <p>ecco il buono regalo che ci ha chiesto: qui sotto trova l&apos;anteprima.
+  <p>ecco il buono regalo che ci ha chiesto.
   Diventa valido appena registriamo il pagamento, e le inviamo subito il buono
   definitivo con il codice da consegnare.</p>
   <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:18px 0;">
@@ -1047,7 +1121,7 @@ function emailRichiesta(b) {
   a chi lo ricever\u00e0.</p>
   <p>Un cordiale saluto,<br />${esc(OPERATORE)}<br />
   <span style="color:#7B756A;font-size:13px;">Hotel Terme Leonardo &middot; +39 049 9939200</span></p>
-  </div>` + '<div style="margin-top:22px;">' + buonoHTML(b, true) + '</div>';
+  </div>`;
 }
 function emailRichiestaTesto(b) {
   return `Gentile ${b.acquirente || 'Cliente'},\n\necco il buono regalo che ci ha chiesto.\n` +
@@ -1061,23 +1135,18 @@ function emailRichiestaTesto(b) {
   `Hotel Terme Leonardo \u00b7 +39 049 9939200`;
 }
 
-/* ---------- il buono: due colonne, come la bozza ----------
-   Tabelle e non flexbox: Outlook non regge i layout moderni e
-   spaccherebbe il buono in due tronconi. */
-
-/* immagine di copertina per categoria — foto dell'hotel servite da questo
-   stesso sito: le email durano un anno, e un link al sito vecchio potrebbe
-   non reggere tanto. Le stesse tre foto stanno in fotoBuono() della
-   funzione `buoni`: cambiando qui, cambiare anche lì. */
+/* ---------- il buono scritto, per gli appunti ----------
+   L'unica resa del buono rimasta nella pagina, e non e' un disegno: e' il
+   testo che il pulsante "Copia" mette negli appunti, col link al PDF in
+   coda. Il buono da guardare e da stampare e' il PDF del server. */
 
 function buonoTesto(b) {
   const L = ['it','de','en','fr'].includes(b.lingua) ? b.lingua : 'it';
   const e = ETI[L];
-  /* la stessa scelta di buonoHTML e buonoStampaHTML: categoriaBuono guarda
-     solo la prima voce, e con due voci il Day Spa puo' essere la seconda.
-     Prima qui c'era COMPRENDE[categoriaBuono(b)] e la copia in testo
-     semplice \u2014 quella dei pulsanti "Copia" ed "Email a..." \u2014 ometteva
-     l'elenco delle piscine che la versione HTML mostrava. */
+  /* categoriaBuono guarda solo la prima voce, e con due voci il Day Spa
+     puo' essere la seconda. Prima qui c'era COMPRENDE[categoriaBuono(b)] e
+     la copia negli appunti ometteva l'elenco delle piscine che le altre
+     rese del buono mostravano. */
   const catComprende = /day spa/i.test(String(b.descrizione || '')) ? 'dayspa' : categoriaBuono(b);
   return `${e.titolo.toUpperCase()} \u2014 Hotel Terme Leonardo\n` +
     (b.destinatario ? e.haRicevuto(b.destinatario).replace(/<br \/>/g, ' ') + '\n' : '') +
@@ -1089,9 +1158,6 @@ function buonoTesto(b) {
     `\n${e.codice}: ${b.codice || '\u2014'}\n${e.valido(dataLingua(b.scade_il, L))}\n\n` +
     `+39 049 9939200 \u00b7 info@termeleonardo.com\n\n${CONDIZIONI[L] || CONDIZIONI.it}`;
 }
-
-/* buonoStampaHTML (il foglio A4) e ETI_STAMPA vivono ora in buono.js:
-   vedi il commento li' sopra la funzione per il perche'. */
 
 /* ---------- 2. elenco ---------- */
 /* Un buono pagato che non e' mai arrivato al cliente. `consegna` vale

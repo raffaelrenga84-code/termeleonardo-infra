@@ -30,8 +30,8 @@ main{max-width:1180px;margin:0 auto;padding:30px 16px 70px;}
 .colonne{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,560px);gap:26px;align-items:start;}
 @media (max-width:980px){
   /* minmax(0,1fr) e non 1fr: con 1fr la colonna non scende sotto il suo
-     contenuto, e il buono dell'anteprima è largo 700px fissi — la pagina
-     finirebbe per scorrere in orizzontale su ogni telefono */
+     contenuto, e basta un elemento largo dentro perché la pagina finisca
+     per scorrere in orizzontale su ogni telefono */
   .colonne{grid-template-columns:minmax(0,1fr);}
   /* al telefono l'anteprima va sopra: è quello che si sta comprando,
      e in fondo alla pagina non la vedrebbe nessuno prima di pagare */
@@ -78,10 +78,10 @@ input.vuoto:focus,select.vuoto:focus,textarea.vuoto:focus{outline:2px solid #C03
 .fissa{position:sticky;top:14px;}
 .fissa .etichetta{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--verde-medio);margin-bottom:8px;}
 .telaio{background:#fff;border:1px solid var(--sabbia);border-radius:10px;padding:12px;overflow:hidden;}
-/* il buono si adatta con il solo ridimensionamento: senza forzare qui la
-   larghezza naturale, il max-width:100% del markup (che serve nelle email)
-   lo restringerebbe una prima volta, e la scala una seconda */
-.telaio > *{transform-origin:top left;width:700px !important;max-width:none !important;}
+/* l'anteprima e' il PDF che disegna il server, dentro un iframe: niente
+   piu' buono da 700px da rimpicciolire con una scala, il lettore di PDF
+   del browser adatta il foglio da se' */
+.pdfFrame{width:100%;height:720px;border:1px solid #E5E0D8;background:#fff;}
 .grazie{max-width:640px;margin:40px auto;text-align:center;}
 .grazie .segno{font-size:44px;color:var(--verde);}
 .grazie h2{font-family:Georgia,serif;font-size:26px;letter-spacing:0;text-transform:none;
@@ -144,7 +144,7 @@ font-size:13px;color:var(--verde-medio);}
    — nessuna riscrittura lo copre, il modulo non carica e la pagina dei
    buoni regalo resta bianca. '/buoni/buono.js' vale uguale sui due domini
    e comunque sia scritto l'indirizzo. Vedi percorsi-web.test.ts. */
-import { buonoHTML, CONDIZIONI, esc, riepilogoVoci } from '/buoni/buono.js';
+import { CONDIZIONI, esc, riepilogoVoci } from '/buoni/buono.js';
 /* IDEM PERCORSO ASSOLUTO: i parametri che i pulsanti delle email della
    reception scrivono nell'indirizzo — vedi il commento in cima a
    ospite-url.js per il perche' e il contratto (ripulisce, non fa
@@ -250,7 +250,9 @@ const T = {
     mailDestNota:'Se la indichi, il buono arriva anche a lui/lei, gi\u00e0 pronto.',
     linguaBuono:'Lingua del buono',
     paga:(v)=>`Paga con carta \u2014 ${v} \u20ac`, pagoIn:'Pagamento sicuro con carta. Dopo il pagamento il buono \u00e8 emesso automaticamente e inviato per email.',
-    anteprima:'Anteprima del buono', mancaChe:(x)=>`Manca ancora: ${x}.`, mancaVoce:'Cosa regali', mancaImporto:'Importo',
+    anteprima:'Anteprima del buono',
+    anteprimaNonDisponibile:'L’anteprima non è disponibile in questo momento: il buono che riceverà è identico a quello che vede qui appena torna.',
+    mancaChe:(x)=>`Manca ancora: ${x}.`, mancaVoce:'Cosa regali', mancaImporto:'Importo',
     attesa:'Un momento, prepariamo il pagamento\u2026',
     erroreGen:'Non \u00e8 stato possibile avviare il pagamento. Riprova tra poco, oppure scrivici a info@termeleonardo.com o chiamaci al +39 049 9939200.',
     grazieTit:'Grazie! Il pagamento \u00e8 andato a buon fine.',
@@ -281,7 +283,9 @@ const T = {
     mailDestNota:'Wenn angegeben, erh\u00e4lt auch sie den fertigen Gutschein.',
     linguaBuono:'Sprache des Gutscheins',
     paga:(v)=>`Mit Karte zahlen \u2014 ${v} \u20ac`, pagoIn:'Sichere Kartenzahlung. Nach der Zahlung wird der Gutschein automatisch ausgestellt und per E-Mail versandt.',
-    anteprima:'Vorschau des Gutscheins', mancaChe:(x)=>`Es fehlt noch: ${x}.`, mancaVoce:'Was Sie verschenken', mancaImporto:'Betrag',
+    anteprima:'Vorschau des Gutscheins',
+    anteprimaNonDisponibile:'Die Vorschau ist im Moment nicht verfügbar: der Gutschein, den Sie erhalten, sieht genauso aus wie hier, sobald sie wieder da ist.',
+    mancaChe:(x)=>`Es fehlt noch: ${x}.`, mancaVoce:'Was Sie verschenken', mancaImporto:'Betrag',
     attesa:'Einen Moment, wir bereiten die Zahlung vor\u2026',
     erroreGen:'Die Zahlung konnte nicht gestartet werden. Bitte versuchen Sie es sp\u00e4ter erneut oder schreiben Sie an info@termeleonardo.com / rufen Sie +39 049 9939200 an.',
     grazieTit:'Danke! Die Zahlung war erfolgreich.',
@@ -312,7 +316,9 @@ const T = {
     mailDestNota:'If provided, they also receive the finished voucher.',
     linguaBuono:'Voucher language',
     paga:(v)=>`Pay by card \u2014 ${v} \u20ac`, pagoIn:'Secure card payment. After payment the voucher is issued automatically and sent by email.',
-    anteprima:'Voucher preview', mancaChe:(x)=>`Still missing: ${x}.`, mancaVoce:'What you are gifting', mancaImporto:'Amount',
+    anteprima:'Voucher preview',
+    anteprimaNonDisponibile:'The preview is not available right now: the voucher you receive looks exactly like the one shown here once it is back.',
+    mancaChe:(x)=>`Still missing: ${x}.`, mancaVoce:'What you are gifting', mancaImporto:'Amount',
     attesa:'One moment, preparing the payment\u2026',
     erroreGen:'We could not start the payment. Please try again shortly, or write to info@termeleonardo.com or call +39 049 9939200.',
     grazieTit:'Thank you! Your payment was successful.',
@@ -343,7 +349,9 @@ const T = {
     mailDestNota:'Si indiqu\u00e9, il/elle re\u00e7oit aussi le bon pr\u00eat \u00e0 l\u2019emploi.',
     linguaBuono:'Langue du bon',
     paga:(v)=>`Payer par carte \u2014 ${v} \u20ac`, pagoIn:'Paiement s\u00e9curis\u00e9 par carte. Apr\u00e8s le paiement, le bon est \u00e9mis automatiquement et envoy\u00e9 par e-mail.',
-    anteprima:'Aper\u00e7u du bon', mancaChe:(x)=>`Il manque encore : ${x}.`, mancaVoce:'Ce que vous offrez', mancaImporto:'Montant',
+    anteprima:'Aper\u00e7u du bon',
+    anteprimaNonDisponibile:'L\u2019aper\u00e7u n\u2019est pas disponible pour le moment : le bon que vous recevrez est identique \u00e0 celui affich\u00e9 ici d\u00e8s qu\u2019il revient.',
+    mancaChe:(x)=>`Il manque encore : ${x}.`, mancaVoce:'Ce que vous offrez', mancaImporto:'Montant',
     attesa:'Un instant, nous pr\u00e9parons le paiement\u2026',
     erroreGen:'Le paiement n\u2019a pas pu d\u00e9marrer. R\u00e9essayez dans un instant, ou \u00e9crivez \u00e0 info@termeleonardo.com ou appelez le +39 049 9939200.',
     grazieTit:'Merci ! Votre paiement a bien \u00e9t\u00e9 re\u00e7u.',
@@ -725,17 +733,50 @@ function modulo() {
       scade_il: fraDodiciMesi() };
   };
 
+  /* I campi che il server accetta nel corpo della bozza (POST ?a=pdf): non
+     si manda `stato()` intero, perche' porta anche le email e i dati della
+     fattura, che sul buono non compaiono e al server per disegnarlo non
+     servono. */
+  const CAMPI_PDF = ['tipo', 'voce_id', 'descrizione', 'valore', 'lingua',
+    'destinatario', 'acquirente', 'dedica', 'sottotitolo', 'scade_il'];
+  /* L'anteprima e' il PDF vero, chiesto al server: quello che l'ospite
+     vede mentre compila e' esattamente il buono che ricevera' per email.
+     Chiederlo a ogni tasto premuto sarebbe una richiesta per ogni lettera
+     del nome, quindi si aspetta che smetta di scrivere (900 ms), con un
+     solo timer che i tasti successivi riazzerano. */
+  let attesaPdf = null;
+  let urlPdf = '';
+  const chiediAnteprima = () => {
+    clearTimeout(attesaPdf);
+    attesaPdf = setTimeout(async () => {
+      const b = stato();
+      const corpo = {};
+      CAMPI_PDF.forEach((k) => { if (b[k] !== undefined) corpo[k] = b[k]; });
+      try {
+        /* nessuna intestazione di autenticazione: questa e' la bozza
+           pubblica, la stessa porta che il modulo del sito puo' bussare */
+        const r = await fetch(FUNZIONE + '?a=pdf', { method: 'POST',
+          headers: { 'content-type': 'application/json' }, body: JSON.stringify(corpo) });
+        if (!r.ok) throw new Error('errore ' + r.status);
+        const url = URL.createObjectURL(await r.blob());
+        /* senza revoca ogni modifica lascerebbe un PDF in memoria fino a
+           che la scheda resta aperta */
+        if (urlPdf) URL.revokeObjectURL(urlPdf);
+        urlPdf = url;
+        $('telaio').innerHTML = `<iframe class="pdfFrame" src="${url}" title="${esc(t.anteprima)}"></iframe>`;
+      } catch (e) {
+        /* il freno del server (429) o la rete giu': l'anteprima non c'e',
+           ma il buono si compra lo stesso — dirlo e' meglio che lasciare
+           un riquadro vuoto che sembra un guasto */
+        $('telaio').innerHTML = `<div class="mini">${esc(t.anteprimaNonDisponibile)}</div>`;
+      }
+    }, 900);
+  };
+
   const ridisegna = () => {
     const b = stato();
     $('fPaga').textContent = t.paga(eur(b.valore));
-    const tel = $('telaio');
-    tel.innerHTML = buonoHTML(b, true);
-    const dentro = tel.firstElementChild;
-    if (dentro) {
-      const scala = Math.min(1, (tel.clientWidth - 4) / 700);
-      dentro.style.transform = `scale(${scala})`;
-      tel.style.height = (dentro.offsetHeight * scala + 6) + 'px';
-    }
+    chiediAnteprima();
     /* l'avviso compare accanto alle tendine appena la scelta lo causa, non
        solo al momento di pagare; aggiornaPaga() spegne anche il pulsante,
        cosi' il messaggio e lo stato del modulo dicono la stessa cosa.
@@ -939,14 +980,10 @@ function modulo() {
     if (e.persisted) { inviando = false; $('fEsito').textContent = ''; aggiornaPaga(); }
   });
 
-  /* sul telefono la barra degli indirizzi che si apre e chiude scatena
-     un resize a ogni scorrimento: senza freno l'anteprima si ridisegna
-     di continuo e la pagina scatta */
-  let attesaResize;
-  window.addEventListener('resize', () => {
-    clearTimeout(attesaResize);
-    attesaResize = setTimeout(ridisegna, 150);
-  });
+  /* niente piu' ridisegno al resize: serviva a ricalcolare la scala del
+     buono da 700px, e l'iframe col PDF si adatta da solo. Sul telefono era
+     anche una seccatura, perche' la barra degli indirizzi che si apre e
+     chiude scatena un resize a ogni scorrimento. */
   ridisegna();
   aggiornaFattura();
 
