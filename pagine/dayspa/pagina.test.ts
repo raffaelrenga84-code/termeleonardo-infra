@@ -14,7 +14,7 @@ const modulo = () => (P.match(/<script type="module">([\s\S]*?)<\/script>/) ?? [
 
 Deno.test('e nascosta finche e di prova: noindex, chiave nell indirizzo, e la costante che lo dice', () => {
   assert(/<meta name="robots" content="noindex, follow"/.test(P));
-  assert(/const PROVA = true;/.test(modulo()));
+  assert(/const PROVA = false;/.test(modulo()), "in linea dal 5 settembre 2026");
   assert(/\.get\('k'\) !== CHIAVE_PROVA/.test(modulo()), 'senza ?k= la pagina di prova non si apre');
 });
 
