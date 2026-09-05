@@ -63,6 +63,13 @@ Deno.test('la lingua dal telefono solo se internazionale: «3316252791» e un ce
   assertEquals(linguaDi({ paese: 'IT', telefono: '+49 171 1234567' }), 'de', 'il numero tedesco batte la residenza italiana');
   assertEquals(linguaDi({ paese: 'DE', telefono: '' }), 'de');
   assertEquals(linguaDi({ paese: '', telefono: '' }), 'it');
+  /* la lunghezza: senza «+», un prefisso estero vale solo con almeno nove cifre dopo */
+  assertEquals(linguaDi({ paese: '', telefono: '33612345678' }), 'fr', '33 + nove cifre: francese anche senza il +');
+  assertEquals(linguaDi({ paese: '', telefono: '491711234567' }), 'de', '49 + dieci cifre');
+  assertEquals(linguaDi({ paese: '', telefono: '393331234567' }), 'it', '39 + dieci cifre');
+  assertEquals(linguaDi({ paese: '', telefono: '0498669270' }), 'it', 'un fisso italiano con lo 0');
+  assertEquals(linguaDi({ paese: '', telefono: '3481234567' }), 'it', 'un cellulare 348');
+  assertEquals(linguaDi({ paese: 'DE', telefono: '3316252791' }), 'de', 'il cellulare italiano non batte la residenza tedesca: e la stessa lingua di prima');
 });
 
 Deno.test('nella barra si vede chi ha gia firmato, e «Copia per la nota» mette negli appunti la riga da incollare in Fidra', () => {

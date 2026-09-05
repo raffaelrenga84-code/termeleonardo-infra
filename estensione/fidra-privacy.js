@@ -34,11 +34,20 @@
       dice, altrimenti l'intestatario; l'email solo sulla prima. */
   function linguaDi(d) {
     const dalPaese = LINGUA_DEL_PAESE[String(d.paese || '').toUpperCase()];
-    /* solo un numero INTERNAZIONALE (+33, 0033) dice qualcosa: «3316252791»
-       e' un cellulare italiano, non un francese — e la barra segnava
-       «Français» a un italiano (la proprieta', 5 settembre 2026) */
+    /* «3316252791» e' un cellulare italiano, non un francese: la barra segnava
+       «Français» (la proprieta', 5 settembre 2026). Due regole: col «+» (o 00)
+       vale il prefisso; senza, un numero italiano si riconosce da solo (dieci
+       cifre che cominciano per 3, o un fisso che comincia per 0), e un prefisso
+       estero conta solo se dopo restano almeno nove cifre — «letto come
+       francese sarebbe stato troppo breve per essere un numero» (la
+       proprieta', 5 settembre 2026). */
     const tel = String(d.telefono || '').replace(/[^\d+]/g, '').replace(/^00/, '+');
-    const dalTelefono = tel.startsWith('+') ? (LINGUA_DEL_PREFISSO.find(([re]) => re.test(tel)) || [])[1] : undefined;
+    const cifre = tel.replace(/\D/g, '');
+    const conPrefisso = (s) => (LINGUA_DEL_PREFISSO.find(([re]) => re.test(s)) || [])[1];
+    const lunghezzaBuona = (s) => { const m = s.match(/^\+?(49|43|41|423|33|32|352|377|39)(\d*)$/); return !!m && m[2].length >= 9; };
+    const dalTelefono = tel.startsWith('+') ? conPrefisso(tel)
+      : /^3\d{8,9}$/.test(cifre) || /^0\d{8,10}$/.test(cifre) ? 'it'
+      : lunghezzaBuona(cifre) ? conPrefisso('+' + cifre) : undefined;
     /* il telefono batte il paese quando dicono cose diverse: chi chiama da
        un numero tedesco parla tedesco anche se abita a Bolzano */
     if (dalTelefono && dalTelefono !== 'it') return dalTelefono;

@@ -8,3 +8,9 @@
 - «Copia per la nota»: una riga per ogni firma (quando, dove, chi, camera,
   conservazione, offerte, versione dei testi) finisce negli appunti: si incolla
   in «Aggiungi nota» sulla prenotazione. In Fidra non si scrive niente da soli.
+
+## 2.40.1
+
+- La lunghezza conta: un numero senza «+» che comincia con un prefisso estero vale solo
+  se dopo restano almeno nove cifre («letto come francese sarebbe stato troppo breve»,
+  la proprieta'); dieci cifre che cominciano per 3, o un fisso con lo 0, sono italiane.
