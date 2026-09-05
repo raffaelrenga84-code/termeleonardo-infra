@@ -77,3 +77,8 @@ Deno.test('nella barra si vede chi ha gia firmato, e «Copia per la nota» mette
   assert(S.includes("copia.textContent = 'Copia per la nota';") && S.includes('navigator.clipboard.writeText(firmati.map(rigaNota)'), 'la riga negli appunti');
   assert(S.includes('Privacy firmata il ${QUANDO(c.firmato_il)}'), 'la riga dice quando, dove, chi e le scelte');
 });
+
+Deno.test('accanto a ogni firma c e «Registra in Fidra»: apre privacy/create gia compilato, in una scheda nuova', () => {
+  assert(S.includes("window.open('https://leonardo.fidra.cloud/privacy/create?leo=' + encodeURIComponent(c.id), '_blank')"), 'con il consenso nell indirizzo');
+  assert(S.includes('reg.textContent = `Registra ${c.cognome} in Fidra`;'), 'un pulsante per firma');
+});

@@ -12,3 +12,11 @@ riquadro. Le nostre firme (iPad e totem) lì non ci finivano.
   e disegna la firma dell'ospite nel riquadro (`privacy?a=firma-di`).
 - Non salva niente: l'abbinamento all'ospite e «Salva» sono dell'operatore. Se
   Fidra non accetta la firma disegnata, l'ospite rifirma lì.
+
+## 2.41.1
+
+- Accanto a «✓ Firmata» sulla prenotazione: «Registra Cognome in Fidra». Apre
+  `privacy/create?leo=<consenso>` in una scheda nuova e il modulo si compila da
+  solo, firma compresa; prova anche a scrivere il cognome nella ricerca dell'ospite.
+  Alla reception restano l'abbinamento e «Salva» («meno lavoro possibile», la
+  proprieta', 5 settembre 2026).

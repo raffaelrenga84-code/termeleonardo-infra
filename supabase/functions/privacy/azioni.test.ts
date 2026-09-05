@@ -87,3 +87,8 @@ Deno.test('la firma di un consenso, una alla volta e con la chiave hotel: per il
   assert(f.includes("if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);") && f.includes("select('firma, stato').eq('id', id)"), 'una firma, con la chiave');
   assert(f.includes("data.stato !== 'firmato' || !data.firma"), 'solo se firmato');
 });
+
+Deno.test('lo stato si chiede anche per un consenso solo (?id=): e quello che «Registra in Fidra» passa al modulo', () => {
+  const s = S.slice(S.indexOf("azione === 'stato'"), S.indexOf("azione === 'attese'"));
+  assert(s.includes("if (id) q = q.eq('id', id);"), 'per id');
+});

@@ -163,10 +163,12 @@ Deno.serve(async (req) => {
     if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);
     const fidra = (url.searchParams.get('fidra') || '').trim();
     const giorno = (url.searchParams.get('giorno') || '').trim();
-    if (!fidra && !/^d{4}-d{2}-d{2}$/.test(giorno)) return risposta({ errore: 'serve la prenotazione di Fidra, o un giorno' }, 400);
+    const id = (url.searchParams.get('id') || '').trim();
+    if (!id && !fidra && !/^\d{4}-\d{2}-\d{2}$/.test(giorno)) return risposta({ errore: 'serve un consenso, la prenotazione di Fidra, o un giorno' }, 400);
     let q = db.from('consenso').select('id, stato, firmato_il, camera, cognome, nome, email, lingua, conservazione, messaggi, marketing, testi_versione, fonte, fidra_prenotazione')
       .neq('stato', 'annullato').order('firmato_il', { ascending: false, nullsFirst: false });
-    if (fidra) q = q.eq('fidra_prenotazione', fidra);
+    if (id) q = q.eq('id', id);
+    else if (fidra) q = q.eq('fidra_prenotazione', fidra);
     else {
       /* le firme di un giorno, nell'ora dell'hotel: il modulo di Fidra
          (privacy/create) si riempie da qui (la proprieta', 5 settembre 2026) */

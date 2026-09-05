@@ -50,6 +50,8 @@
       messaggi:      campoConEtichetta(radice, /telefono e messaggi/i, 'spunta'),
       conservazione: campoConEtichetta(radice, /consenso dati/i, 'spunta'),
       marketing:     campoConEtichetta(radice, /newsletter/i, 'spunta'),
+      /* la ricerca dell'ospite da abbinare, se e' un campo di testo: si scrive il cognome e la scelta resta all'operatore */
+      abbinamento:   campoConEtichetta(radice, /abbinamento/i),
     };
   }
 
@@ -102,6 +104,12 @@
     const j = await r.json();
     return (j.consensi || []).filter((c) => c.stato === 'firmato');
   }
+  async function consensoDi(id, hotelKey) {
+    const r = await fetch(STATO + '&id=' + encodeURIComponent(id), { headers: { 'x-hotel-key': hotelKey } });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return (j.consensi || []).find((c) => c.stato === 'firmato') || null;
+  }
   async function firmaDi(id, hotelKey) {
     const r = await fetch(FIRMA + '&id=' + encodeURIComponent(id), { headers: { 'x-hotel-key': hotelKey } });
     if (!r.ok) return null;
@@ -127,6 +135,7 @@
       if (!f[k]) { saltati.push(nome + ' (spunta non trovata)'); continue; }
       spunta(f[k], c[k]); scritti.push(nome + (c[k] ? ' sì' : ' no'));
     }
+    if (f.abbinamento && !(f.abbinamento.value || '').trim()) { scriviNativo(f.abbinamento, c.cognome); scritti.push('ricerca ospite'); }
     const firma = await firmaDi(c.id, hotelKey);
     const disegnata = await disegnaFirma(radice, firma);
     if (disegnata) scritti.push('firma'); else saltati.push('firma (riquadro non trovato)');
@@ -171,6 +180,19 @@
       }));
     };
     await disegna();
+    /* aperto da «Registra in Fidra» sulla prenotazione: si compila da solo
+       («meno lavoro possibile alla reception», la proprieta', 5 settembre 2026) */
+    const leo = new URLSearchParams(location.search).get('leo');
+    if (leo) {
+      const e = box.querySelector('#' + ID + 'Esito');
+      e.textContent = 'Compilo…';
+      try {
+        const c = await consensoDi(leo, hotelKey);
+        if (!c) { e.textContent = 'Consenso non trovato: scelga dalla riga qui sopra.'; return; }
+        const r = await riempi(radice, c, hotelKey);
+        e.textContent = 'Compilato: ' + r.scritti.join(', ') + (r.saltati.length ? ' · lasciati stare: ' + r.saltati.join(', ') : '') + '. Controlli l’abbinamento all’ospite e prema Salva.';
+      } catch (err) { e.textContent = 'Errore: ' + err.message; }
+    }
   }
 
   /* Livewire disegna il modulo dopo il caricamento: si aspetta che ci siano i campi */

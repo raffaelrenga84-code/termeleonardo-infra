@@ -28,7 +28,7 @@ Deno.test('non salva mai e non clicca niente: riempie i campi vuoti, disegna la 
 
 Deno.test('parla solo con la nostra funzione, con la chiave hotel: le firme del giorno e la firma di uno', () => {
   const post = S.match(/fetch\((\w+) \+/g) ?? [];
-  assert(post.length === 2 && post.every((p) => /fetch\((STATO|FIRMA) \+/.test(p)), post.join(' '));
+  assert(post.length === 3 && post.every((p) => /fetch\((STATO|FIRMA) \+/.test(p)), post.join(' '));
   assert(S.includes("const STATO = FUNZIONE + '?a=stato';") && S.includes("const FIRMA = FUNZIONE + '?a=firma-di';"));
   assert(S.includes("chrome.storage.local.get(['hotelKey'])") && S.includes("'x-hotel-key': hotelKey"));
 });
@@ -37,4 +37,10 @@ Deno.test('i tre consensi di Fidra combaciano coi nostri: telefono e messaggi = 
   assert(S.includes("messaggi:      campoConEtichetta(radice, /telefono e messaggi/i, 'spunta')"));
   assert(S.includes("conservazione: campoConEtichetta(radice, /consenso dati/i, 'spunta')"));
   assert(S.includes("marketing:     campoConEtichetta(radice, /newsletter/i, 'spunta')"));
+});
+
+Deno.test('aperto con ?leo=<consenso> dalla prenotazione, il modulo si compila da solo: meno lavoro alla reception', () => {
+  assert(S.includes("const leo = new URLSearchParams(location.search).get('leo');") && S.includes('const c = await consensoDi(leo, hotelKey);'), 'il consenso dall indirizzo');
+  assert(S.includes('Controlli l’abbinamento all’ospite e prema Salva.'), 'e dice cosa resta da fare');
+  assert(S.includes("abbinamento:   campoConEtichetta(radice, /abbinamento/i)"), 'prova anche la ricerca dell ospite');
 });

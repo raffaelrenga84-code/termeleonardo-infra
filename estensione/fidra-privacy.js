@@ -158,6 +158,19 @@
     const stato = document.createElement('span');
     stato.style.cssText = 'flex-basis:100%;display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
     stato.textContent = '✓ Firmata: ' + firmati.map((c) => `${c.cognome} ${QUANDO(c.firmato_il).slice(11)} (${c.fonte === 'totem' ? 'totem' : 'iPad'})`).join(' · ');
+    /* «Registra in Fidra»: apre privacy/create gia' compilato con quella firma
+       (fidra-privacy-crea.js legge ?leo=): alla reception restano
+       l'abbinamento all'ospite e Salva («meno lavoro possibile alla
+       reception», la proprieta', 5 settembre 2026) */
+    for (const c of firmati) {
+      const reg = document.createElement('button');
+      reg.type = 'button';
+      reg.textContent = `Registra ${c.cognome} in Fidra`;
+      reg.title = 'Apre il modulo privacy di Fidra gia\u2019 compilato, con la firma. Salva lo premi tu.';
+      reg.style.cssText = 'font:inherit;padding:4px 8px;border-radius:6px;border:0;background:#C9A961;color:#1A3626;cursor:pointer;white-space:nowrap;';
+      reg.onclick = () => { window.open('https://leonardo.fidra.cloud/privacy/create?leo=' + encodeURIComponent(c.id), '_blank'); };
+      stato.appendChild(reg);
+    }
     const copia = document.createElement('button');
     copia.type = 'button';
     copia.textContent = 'Copia per la nota';
