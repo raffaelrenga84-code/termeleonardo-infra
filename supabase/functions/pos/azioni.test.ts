@@ -227,3 +227,9 @@ Deno.test('conto-elimina: con soli storni dentro il conto si chiude a zero, gli 
   assert(c.includes("update({ stato: 'chiuso', chiuso_come: null, chiuso_da: cameriere!.id"), 'con soli storni si chiude, non si cancella');
   assert(c.includes("return risposta({ esito: 'ok', chiuso: true });"), 'e lo dice');
 });
+
+Deno.test('ospite-tavoli: l elenco pubblico dei tavoli con la firma, per chi scrive il tavolo a mano', () => {
+  const o = S.slice(S.indexOf("azione === 'ospite-tavoli'"), S.indexOf('const azioniOspite'));
+  assert(o.includes('k: await firmaTavolo(String(tv.id), segreto)'), 'ogni tavolo porta la sua firma');
+  assert(o.includes(".eq('attivo', true)"), 'solo i tavoli attivi');
+});

@@ -2648,9 +2648,10 @@ function vistaPosTavoli() {
           .tavolo p{margin:4mm 0 0;font-size:14px;color:#3C5346;}
           @media print{body{padding:8mm;} .no{display:none;}}</style></head><body>
           <p class="no">${j.tavoli.length} tavoli · Ctrl+P per stampare · <a href="${esc(j.pagina)}">${esc(j.pagina)}</a></p>
-          <div class="foglio">${j.tavoli.map((t, i) => `<div class="tavolo"><h2>${esc(t.nome)}</h2><div class="zona">${esc(t.zona || '')}${t.locale ? ` · ${esc(t.locale)}` : ''}</div><div class="qr" id="qr${i}"></div><p>Ordina e paga dal tavolo · Order &amp; pay at the table<br>Bestellen &amp; zahlen am Tisch · Commander &amp; payer à table</p></div>`).join('')}</div>
+          <div class="foglio"><div class="tavolo"><h2>Bistrot</h2><div class="zona">qualsiasi tavolo · any table · jeder Tisch</div><div class="qr" id="qrTutti"></div><p>L’ospite sceglie il tavolo dalla griglia · The guest picks the table</p></div>
+          ${j.tavoli.map((t, i) => `<div class="tavolo"><h2>${esc(t.nome)}</h2><div class="zona">${esc(t.zona || '')}${t.locale ? ` · ${esc(t.locale)}` : ''}</div><div class="qr" id="qr${i}"></div><p>Ordina e paga dal tavolo · Order &amp; pay at the table<br>Bestellen &amp; zahlen am Tisch · Commander &amp; payer à table</p></div>`).join('')}</div>
           <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
-          <script>const T=${JSON.stringify(j.tavoli.map((t) => t.url))};T.forEach((u,i)=>new QRCode(document.getElementById('qr'+i),{text:u,width:200,height:200,correctLevel:QRCode.CorrectLevel.M}));<\/script>
+          <script>const T=${JSON.stringify(j.tavoli.map((t) => t.url))};new QRCode(document.getElementById('qrTutti'),{text:${JSON.stringify(j.pagina)},width:200,height:200,correctLevel:QRCode.CorrectLevel.M});T.forEach((u,i)=>new QRCode(document.getElementById('qr'+i),{text:u,width:200,height:200,correctLevel:QRCode.CorrectLevel.M}));<\/script>
           </body></html>`);
         w.document.close();
         $('ptEsito').innerHTML = `${j.tavoli.length} QR pronti nella nuova finestra.` + elenco;

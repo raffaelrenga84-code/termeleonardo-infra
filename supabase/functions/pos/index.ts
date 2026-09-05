@@ -317,6 +317,24 @@ Deno.serve(async (req) => {
      (ospite.ts). Il menu' e' pubblico; l'ordine diventa un conto solo
      dopo il pagamento (Stripe, webhook) o con tessera e camera che
      combaciano (la proprieta', 5 settembre 2026). */
+  /* Senza QR: l'ospite sceglie il tavolo da una griglia («puoi anche
+     mettere il numero del tavolo a mano», la proprieta', 5 settembre
+     2026). L'elenco e' pubblico e porta la firma di ogni tavolo: la firma
+     da sola non proteggeva niente di piu' — chi ordina paga prima, e la
+     camera vuole tessera e numero. Il QR sul tavolo resta la scorciatoia. */
+  if (azione === 'ospite-tavoli') {
+    const segreto = Deno.env.get('HOTEL_KEY') ?? '';
+    const [{ data: locali }, { data: zone }, { data: tavoli }] = await Promise.all([
+      db.from('pos_locale').select('id, nome').order('nome'),
+      db.from('pos_zona').select('id, locale, nome, posizione').order('posizione'),
+      db.from('pos_tavolo').select('id, zona, nome').eq('attivo', true),
+    ]);
+    const fuori = [];
+    for (const tv of tavoli ?? []) fuori.push({ id: tv.id, nome: tv.nome, zona: tv.zona, k: await firmaTavolo(String(tv.id), segreto) });
+    fuori.sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'it', { numeric: true }));
+    return risposta({ locali: locali ?? [], zone: zone ?? [], tavoli: fuori });
+  }
+
   const azioniOspite = ['ospite-menu', 'ospite-ordine', 'ospite-stato'];
   if (azioniOspite.includes(azione)) {
     const b = req.method === 'POST' ? await corpo() : {};
@@ -975,8 +993,12 @@ Deno.serve(async (req) => {
          Bistrot deve stampare al Bistrot, non dove capita. Le due
          variabili d'ambiente restano per il collaudo a un locale solo. */
       const { data: suo } = await db.from('pos_locale').select('stampante_cucina, stampante_bar').eq('id', s.locale as string).maybeSingle();
-      const dest = (s.stampante === 'bar' ? suo?.stampante_bar : suo?.stampante_cucina) as string | null
-        || Deno.env.get(s.stampante === 'bar' ? 'POS_STAMPANTE_BAR' : 'POS_STAMPANTE_CUCINA');
+      /* dal cloud alle stampanti si arriva solo dall'esterno, via router:
+         prima i secret (host pubblico:porta), poi l'indirizzo LAN del
+         locale, che e' quello del PC del Bistrot e da qui non risponde
+         («abilita le stampanti anche da cloud per fare prove», 5 set 2026) */
+      const dest = Deno.env.get(s.stampante === 'bar' ? 'POS_STAMPANTE_BAR' : 'POS_STAMPANTE_CUCINA')
+        || ((s.stampante === 'bar' ? suo?.stampante_bar : suo?.stampante_cucina) as string | null);
       if (!dest) { saltate++; continue; }
       const [hostname, porta] = dest.split(':');
       const ora = adesso();
