@@ -50,6 +50,67 @@ const Y_ALTO = 718;
 /** sotto questa quota comincia il pie' della carta: il testo non ci arriva */
 const Y_MINIMA = 80;
 
+/* TUTTE le misure che cambiano fra il foglio largo e quello stretto, in un
+   posto solo. Stanno insieme perche' non sono numeri indipendenti: fra il
+   marchio (y 718) e il pie' (y 80) ci sono 638 punti e basta, e il foglio
+   deve dire tutto quello che deve dire — fotografia, titolo, dedica,
+   riquadro, codice col QR, come prenotare e le condizioni per esteso.
+   Sono i numeri della seconda misurazione (la proprieta' ha guardato i due
+   fogli di prova il 5 settembre 2026): con la prima il buono piu' comune
+   finiva tre punti sotto il limite e il caso peggiore andava a sbattere
+   sul pie'. Chi ne cambia uno rilanci le due prove d'ingombro in fondo a
+   pdf-buono.test.ts: dicono dove finisce il testo, non se «sembra giusto». */
+type Misure = {
+  foto: number; dopoFoto: number;
+  dopoOcchiello: number;
+  titolo: number; interTitolo: number;
+  primaDa: number; nome: number;
+  primaDedica: number; dedica: number; interDedica: number;
+  primaRiquadro: number; padding: number;
+  descr: number; interDescr: number;
+  voce: number; interVoce: number;
+  nota: number; interNota: number;
+  primaRiga: number; dopoRiga: number;
+  codice: number;
+  qr: number;
+  primaPrenota: number; prenota: number; interPrenota: number;
+  primaCondizioni: number; condizioni: number; interCondizioni: number;
+};
+
+const LARGO: Misure = {
+  foto: 120, dopoFoto: 14,
+  dopoOcchiello: 7,
+  titolo: 22, interTitolo: 26,
+  primaDa: 8, nome: 13,
+  primaDedica: 7, dedica: 11.5, interDedica: 14.5,
+  primaRiquadro: 12, padding: 12,
+  descr: 15, interDescr: 18,
+  voce: 9.5, interVoce: 13,
+  nota: 8, interNota: 10.5,
+  primaRiga: 12, dopoRiga: 10,
+  codice: 17,
+  qr: 80,
+  primaPrenota: 12, prenota: 10, interPrenota: 13,
+  primaCondizioni: 10, condizioni: 6.6, interCondizioni: 8.2,
+};
+
+const STRETTO: Misure = {
+  foto: 90, dopoFoto: 10,
+  dopoOcchiello: 5,
+  titolo: 20, interTitolo: 23,
+  primaDa: 6, nome: 12,
+  primaDedica: 5, dedica: 10.5, interDedica: 13,
+  primaRiquadro: 9, padding: 8,
+  descr: 14, interDescr: 16.5,
+  voce: 8.5, interVoce: 11.5,
+  nota: 7, interNota: 9.5,
+  primaRiga: 9, dopoRiga: 8,
+  codice: 16,
+  qr: 70,
+  primaPrenota: 9, prenota: 9.5, interPrenota: 12,
+  primaCondizioni: 8, condizioni: 6.1, interCondizioni: 7.4,
+};
+
 const colore = (esa: string) =>
   rgb(parseInt(esa.slice(1, 3), 16) / 255, parseInt(esa.slice(3, 5), 16) / 255, parseInt(esa.slice(5, 7), 16) / 255);
 
@@ -72,6 +133,11 @@ const CODICE_FINTO = colore('#C7C2B6');
 /* ---------- la fotografia in cima ---------- */
 
 export const FOTO_BANNER = 'https://arrivo-terme-leonardo.vercel.app/buoni/img/buono-terme.jpg';
+/* le proporzioni con cui la fotografia e' stata ritagliata (483 × 140 =
+   1449 × 420 px, il rapporto 3.45 del file). Sul foglio si disegna piu'
+   bassa — 120 punti, 90 nel foglio stretto: vedi Misure — perche' la
+   colonna non basterebbe; la fotografia si schiaccia un po', ed e' una
+   scelta di disegno, non un errore. */
 export const FOTO_LARGHEZZA = 483, FOTO_ALTEZZA = 140;
 
 let fotoInMemoria: Uint8Array | null = null;
@@ -223,47 +289,46 @@ function scriviSpaziato(a: Attrezzi, testo: unknown, x: number, base: number, fo
 
 type PezziRiquadro = {
   descrizione: string[]; sottotitolo: string; voci: string[][]; nota: string[];
-  padding: number;
 };
 
 /** Percorre il riquadro una volta per misurarlo e una volta per disegnarlo:
  * lo stesso codice per tutte e due, cosi' lo sfondo non puo' finire piu'
  * corto del testo che contiene. Torna l'altezza consumata. */
-function riquadro(a: Attrezzi, p: PezziRiquadro, alto: number, disegna: boolean): number {
-  const x = SX + p.padding;
-  let y = alto - p.padding;
+function riquadro(a: Attrezzi, p: PezziRiquadro, m: Misure, alto: number, disegna: boolean): number {
+  const x = SX + m.padding;
+  let y = alto - m.padding;
 
   for (const r of p.descrizione) {
-    if (disegna) scrivi(a, r, x, y - 15, a.T, 15, VERDE);
-    y -= 19;
+    if (disegna) scrivi(a, r, x, y - m.descr, a.T, m.descr, VERDE);
+    y -= m.interDescr;
   }
   if (p.sottotitolo) {
-    y -= 6;
+    y -= 5;
     if (disegna) scriviSpaziato(a, p.sottotitolo, x, y - 8, a.H, 8, ORO, 2);
     y -= 8;
   }
   if (p.voci.length) {
-    y -= 8;
+    y -= 7;
     for (const voce of p.voci) {
       for (let i = 0; i < voce.length; i++) {
         if (disegna) {
-          if (i === 0) scrivi(a, '· ', x, y - 9.5, a.H, 9.5, ORO);
-          scrivi(a, voce[i], x + 8, y - 9.5, a.H, 9.5, GRIGIO_SCURO);
+          if (i === 0) scrivi(a, '· ', x, y - m.voce, a.H, m.voce, ORO);
+          scrivi(a, voce[i], x + 8, y - m.voce, a.H, m.voce, GRIGIO_SCURO);
         }
-        y -= 13.5;
+        y -= m.interVoce;
       }
     }
   }
-  y -= 8;
+  y -= 7;
   if (disegna) {
     a.page.drawLine({ start: { x, y }, end: { x: SX + LARGH - 16, y }, thickness: 0.7, color: FILO });
   }
-  y -= 8;
+  y -= 7;
   for (const r of p.nota) {
-    if (disegna) scrivi(a, r, x, y - 8, a.H, 8, GRIGIO);
-    y -= 11;
+    if (disegna) scrivi(a, r, x, y - m.nota, a.H, m.nota, GRIGIO);
+    y -= m.interNota;
   }
-  return alto - y + p.padding;
+  return alto - y + m.padding;
 }
 
 /* ---------- il QR ---------- */
@@ -298,119 +363,115 @@ function disegnaBuono(a: Attrezzi, b: BuonoPerPdf, opz: OpzioniPdf, compatto: bo
   const L = lingua(b.lingua);
   const e = ETI[L];
   const bozza = !!opz.bozza;
+  const m = compatto ? STRETTO : LARGO;
   let y = Y_ALTO;
 
   /* 1. la fotografia (o il suo posto) */
-  const hFoto = compatto ? 100 : FOTO_ALTEZZA;
   if (foto) {
-    a.page.drawImage(foto, { x: SX, y: y - hFoto, width: FOTO_LARGHEZZA, height: hFoto });
+    a.page.drawImage(foto, { x: SX, y: y - m.foto, width: FOTO_LARGHEZZA, height: m.foto });
   } else {
-    a.page.drawRectangle({ x: SX, y: y - hFoto, width: FOTO_LARGHEZZA, height: hFoto, color: FOTO_ASSENTE, borderWidth: 0 });
+    a.page.drawRectangle({ x: SX, y: y - m.foto, width: FOTO_LARGHEZZA, height: m.foto, color: FOTO_ASSENTE, borderWidth: 0 });
   }
-  y -= hFoto + 16;
+  y -= m.foto + m.dopoFoto;
 
   /* 2. l'occhiello: BUONO REGALO */
   scriviSpaziato(a, String(e.titolo).toUpperCase(), SX, y - 8.5, a.H, 8.5, ORO, 2.5);
-  y -= 8.5 + 8;
+  y -= 8.5 + m.dopoOcchiello;
 
   /* 3. il titolo: «Anna, hai ricevuto un dono speciale». Nell'email va a
      capo con <br />, qui no: la riga la decide la larghezza della colonna. */
   const dest = String(b.destinatario ?? '').trim();
   const titolo = String(dest ? e.haRicevuto(dest) : e.senzaNome).replace(/<br\s*\/?>/gi, ' ');
-  const interTitolo = compatto ? 25 : 27;
-  for (const r of righe(a, titolo, a.T, 22, LARGH)) {
-    scrivi(a, r, SX, y - 22, a.T, 22, VERDE);
-    y -= interTitolo;
+  for (const r of righe(a, titolo, a.T, m.titolo, LARGH)) {
+    scrivi(a, r, SX, y - m.titolo, a.T, m.titolo, VERDE);
+    y -= m.interTitolo;
   }
 
   /* 4. da chi arriva */
   const acquirente = String(b.acquirente ?? '').trim();
   if (acquirente) {
-    y -= 10;
+    y -= m.primaDa;
     scriviSpaziato(a, e.da, SX, y - 7.5, a.H, 7.5, GRIGIO, 2);
-    y -= 7.5 + 5;
-    scrivi(a, acquirente, SX, y - 13, a.TI, 13, VERDE);
-    y -= 13;
+    y -= 7.5 + 4;
+    scrivi(a, acquirente, SX, y - m.nome, a.TI, m.nome, VERDE);
+    y -= m.nome;
   }
 
   /* 5. la dedica di chi regala */
   const dedica = String(b.dedica ?? '').trim();
   if (dedica) {
-    y -= 8;
-    for (const r of righe(a, dedica, a.TI, 11.5, LARGH)) {
-      scrivi(a, r, SX, y - 11.5, a.TI, 11.5, GRIGIO_SCURO);
-      y -= 15;
+    y -= m.primaDedica;
+    for (const r of righe(a, dedica, a.TI, m.dedica, LARGH)) {
+      scrivi(a, r, SX, y - m.dedica, a.TI, m.dedica, GRIGIO_SCURO);
+      y -= m.interDedica;
     }
   }
 
   /* 6. il riquadro del servizio: cosa si e' regalato */
-  y -= 16;
-  const padding = compatto ? 10 : 13;
-  const largTesto = LARGH - padding - 16;
+  y -= m.primaRiquadro;
+  const largTesto = LARGH - m.padding - 16;
   /* le righe della descrizione arrivano gia' separate dagli a capo (i buoni
      a piu' voci ne hanno una per voce); si spezzano lo stesso sulla
      larghezza, perche' una voce lunga non deve uscire dal riquadro */
   const descrizione: string[] = [];
   for (const r of String(b.descrizione ?? '').split('\n')) {
     if (!r.trim()) continue;
-    for (const riga of righe(a, r, a.T, 15, largTesto)) descrizione.push(riga);
+    for (const riga of righe(a, r, a.T, m.descr, largTesto)) descrizione.push(riga);
   }
   const voci = comprende({ voce_id: b.voce_id, descrizione: String(b.descrizione ?? '') }, L)
-    .map((v) => righe(a, v, a.H, 9.5, largTesto - 8));
+    .map((v) => righe(a, v, a.H, m.voce, largTesto - 8));
   const pezzi: PezziRiquadro = {
     descrizione,
     sottotitolo: String(b.sottotitolo ?? '').trim(),
     voci,
-    nota: righe(a, e.nota, a.H, 8, largTesto),
-    padding,
+    nota: righe(a, e.nota, a.H, m.nota, largTesto),
   };
-  const hRiquadro = riquadro(a, pezzi, 0, false);
+  const hRiquadro = riquadro(a, pezzi, m, 0, false);
   a.page.drawRectangle({ x: SX, y: y - hRiquadro, width: LARGH, height: hRiquadro, color: CARTA, borderWidth: 0 });
   a.page.drawRectangle({ x: SX, y: y - hRiquadro, width: 3, height: hRiquadro, color: ORO, borderWidth: 0 });
-  riquadro(a, pezzi, y, true);
+  riquadro(a, pezzi, m, y, true);
   y -= hRiquadro;
 
   /* 7. il codice, la validita' e il QR */
-  y -= 14;
+  y -= m.primaRiga;
   a.page.drawLine({ start: { x: SX, y }, end: { x: DX, y }, thickness: 0.7, color: RIGA });
-  y -= 12;
+  y -= m.dopoRiga;
   const altoRiga = y;
-  const latoQr = 84;
-  const largSinistra = LARGH - latoQr - 16;
+  const largSinistra = LARGH - m.qr - 16;
 
   let ys = altoRiga;
   scriviSpaziato(a, e.codice, SX, ys - 7.5, a.H, 7.5, GRIGIO, 2);
-  ys -= 7.5 + 6;
+  ys -= 7.5 + 5;
   /* in bozza il codice non c'e' ancora: al suo posto dei trattini, cosi'
      nessuno prova a presentarsi in reception con un'anteprima */
-  if (bozza) scriviSpaziato(a, '— — — — —', SX, ys - 17, a.CB, 17, CODICE_FINTO, 2);
-  else scriviSpaziato(a, String(b.codice ?? ''), SX, ys - 17, a.CB, 17, VERDE, 2);
-  ys -= 17 + 8;
+  if (bozza) scriviSpaziato(a, '— — — — —', SX, ys - m.codice, a.CB, m.codice, CODICE_FINTO, 2);
+  else scriviSpaziato(a, String(b.codice ?? ''), SX, ys - m.codice, a.CB, m.codice, VERDE, 2);
+  ys -= m.codice + 6;
   scrivi(a, e.valido(b.scade_il ? dataLingua(String(b.scade_il), L) : '—'), SX, ys - 10, a.H, 10, ORO);
   ys -= 10;
   /* la proroga si spiega solo quando c'e' stata davvero: un buono che scade
      a giugno non ha niente da spiegare */
   if (b.prorogato && b.scade_il_base) {
-    ys -= 5;
+    ys -= 4;
     const spiega = e.prorogato(dataLingua(String(b.scade_il_base), L), dataLingua(String(b.scade_il ?? ''), L));
     for (const r of righe(a, spiega, a.H, 8.5, largSinistra)) {
       scrivi(a, r, SX, ys - 8.5, a.H, 8.5, GRIGIO);
-      ys -= 11;
+      ys -= 10.5;
     }
   }
 
   let hDestra = 0;
   if (b.codice && !bozza) {
-    disegnaQr(a, String(b.codice), DX - latoQr, altoRiga, latoQr);
-    const centro = DX - latoQr / 2;
-    let yq = altoRiga - latoQr - 7;
+    disegnaQr(a, String(b.codice), DX - m.qr, altoRiga, m.qr);
+    const centro = DX - m.qr / 2;
+    let yq = altoRiga - m.qr - 7;
     const nota = righe(a, ETI_PDF[L].qrNota, a.H, 7, 100);
     for (const r of nota) {
       const larg = a.H.widthOfTextAtSize(ripulisci(a, r), 7);
       scrivi(a, r, centro - larg / 2, yq, a.H, 7, GRIGIO);
-      yq -= 9;
+      yq -= 8.5;
     }
-    hDestra = latoQr + 7 + 9 * nota.length;
+    hDestra = m.qr + 7 + 8.5 * nota.length;
   } else if (bozza) {
     /* al posto del QR, l'avviso: questo foglio non vale ancora niente */
     const eb = ETI_BOZZA[L] || ETI_BOZZA.it;
@@ -429,41 +490,51 @@ function disegnaBuono(a: Attrezzi, b: BuonoPerPdf, opz: OpzioniPdf, compatto: bo
   y = altoRiga - Math.max(altoRiga - ys, hDestra);
 
   /* 8. come prenotare: chi compra dal sito non passa dalla reception, ed
-     e' l'unica volta in cui glielo si dice */
-  y -= 14;
+     e' l'unica volta in cui glielo si dice. Il telefono e l'indirizzo del
+     sito stanno in UN paragrafo solo — «ci chiami o ci scriva... oppure
+     prenoti online su hoteltermeleonardo.com/it/day-spa» — perche' sono la
+     stessa cosa detta in due modi, non due istruzioni diverse. */
+  y -= m.primaPrenota;
   const p = PRENOTA[L] || PRENOTA.it;
   scriviSpaziato(a, p.titolo, SX, y - 7.5, a.H, 7.5, GRIGIO, 2);
-  y -= 7.5 + 6;
-  for (const r of righe(a, p.come, a.H, 10, LARGH)) {
-    scrivi(a, r, SX, y - 10, a.H, 10, INCHIOSTRO);
-    y -= 13;
-  }
-  const online = ripulisci(a, ETI_PDF[L].online);
-  const dominio = 'hoteltermeleonardo.com' + percorsoPrenota(b);
-  const lOnline = a.H.widthOfTextAtSize(online, 10);
-  const lDominio = a.HB.widthOfTextAtSize(ripulisci(a, dominio), 10);
-  if (lOnline + lDominio <= LARGH) {
-    scrivi(a, online, SX, y - 10, a.H, 10, INCHIOSTRO);
-    scrivi(a, dominio, SX + lOnline, y - 10, a.HB, 10, VERDE);
-    y -= 13;
-  } else {
-    /* l'indirizzo non si spezza mai a meta': va tutto sulla riga dopo */
-    scrivi(a, online, SX, y - 10, a.H, 10, INCHIOSTRO);
-    y -= 13;
-    scrivi(a, dominio, SX, y - 10, a.HB, 10, VERDE);
-    y -= 13;
+  y -= 7.5 + 5;
+  const dominio = ripulisci(a, 'hoteltermeleonardo.com' + percorsoPrenota(b));
+  const paragrafo = ripulisci(a, p.come) + ' ' + ripulisci(a, ETI_PDF[L].online) + dominio;
+  /* l'indirizzo si disegna in grassetto: la riga che lo contiene va misurata
+     col grassetto, o sborda di quel tanto che il neretto e' piu' largo */
+  const misuraMista = (s: string) => {
+    const i = s.indexOf(dominio);
+    if (i < 0) return a.H.widthOfTextAtSize(s, m.prenota);
+    return a.H.widthOfTextAtSize(s.slice(0, i), m.prenota) +
+      a.HB.widthOfTextAtSize(dominio, m.prenota) +
+      a.H.widthOfTextAtSize(s.slice(i + dominio.length), m.prenota);
+  };
+  for (const r of spezza(paragrafo, misuraMista, LARGH)) {
+    const i = r.indexOf(dominio);
+    if (i < 0) {
+      scrivi(a, r, SX, y - m.prenota, a.H, m.prenota, INCHIOSTRO);
+    } else {
+      const prima = r.slice(0, i), dopo = r.slice(i + dominio.length);
+      let x = SX;
+      if (prima) {
+        scrivi(a, prima, x, y - m.prenota, a.H, m.prenota, INCHIOSTRO);
+        x += a.H.widthOfTextAtSize(prima, m.prenota);
+      }
+      scrivi(a, dominio, x, y - m.prenota, a.HB, m.prenota, VERDE);
+      x += a.HB.widthOfTextAtSize(dominio, m.prenota);
+      if (dopo) scrivi(a, dopo, x, y - m.prenota, a.H, m.prenota, INCHIOSTRO);
+    }
+    y -= m.interPrenota;
   }
 
   /* 9. le condizioni, per esteso: sono quelle che il cliente ha accettato
      prima di pagare, e sul foglio ci devono stare tutte */
-  y -= 12;
+  y -= m.primaCondizioni;
   scriviSpaziato(a, ETI_PDF[L].condizioni, SX, y - 7.5, a.H, 7.5, GRIGIO, 2);
-  y -= 7.5 + 5;
-  const misCond = compatto ? 6.3 : 6.8;
-  const interCond = compatto ? 8 : 8.6;
-  for (const r of righe(a, CONDIZIONI[L] || CONDIZIONI.it, a.H, misCond, LARGH)) {
-    scrivi(a, r, SX, y - misCond, a.H, misCond, GRIGIO);
-    y -= interCond;
+  y -= 7.5 + 4;
+  for (const r of righe(a, CONDIZIONI[L] || CONDIZIONI.it, a.H, m.condizioni, LARGH)) {
+    scrivi(a, r, SX, y - m.condizioni, a.H, m.condizioni, GRIGIO);
+    y -= m.interCondizioni;
   }
 
   /* 10. il riferimento amministrativo, sempre appena sopra il pie': serve

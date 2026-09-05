@@ -155,32 +155,34 @@ Deno.test('un emoji nella dedica non fa fallire l\'emissione del buono', async (
 
 /* ---------- l'ingombro ---------- */
 
-Deno.test('il buono piu\' comune sta nel foglio senza scendere sotto la quota del pie\'', async () => {
+/* Le due prove che sorvegliano le misure del foglio (Misure, LARGO e
+   STRETTO in pdf-buono.ts). La prima stesura le aveva sbagliate: il buono
+   comune finiva tre punti sotto il limite e usciva stretto per niente, e il
+   caso peggiore andava a sbattere sul pie' della carta. Chi cambia un
+   numero del disegno rilanci queste: dicono dove il testo finisce davvero,
+   non se «sembra giusto». */
+
+Deno.test('il buono piu\' comune sta nel foglio largo, senza doverlo stringere', async () => {
   const esito = await provaLayout(BUONO_DAYSPA, { foto: null });
+  assertEquals(esito.compatto, false);
   assert(esito.yFinale >= 80, `il testo finisce a y ${esito.yFinale}, sotto la quota 80 del pie'`);
 });
 
-/* ⚠ ATTENZIONE, DA DECIDERE CON LA PROPRIETA'.
-   Il piano chiedeva che il caso peggiore restasse SOPRA la quota 80 anche
-   nel foglio compatto. Misurato, non ci sta: il disegno chiesto (foto 140,
-   titolo 22, riquadro, riga del codice col QR 84, come prenotare e le
-   condizioni per esteso) occupa circa 712 punti nella versione compatta,
-   e fra il marchio (y 718) e il pie' (y 80) ce ne sono 638. Il caso
-   peggiore finisce a y 6, cioe' sopra il pie' della carta intestata.
-   Non e' una taratura: nemmeno togliendo del tutto la fotografia in
-   compatto (cento punti) il tedesco arriverebbe comodo. Serve una scelta
-   di disegno — accorciare le condizioni sul foglio, limitare la lunghezza
-   della dedica, o lasciare che i buoni piu' carichi vadano su due pagine.
-   Fino ad allora questa prova sorveglia due cose che valgono comunque:
-   il foglio si stringe da solo, e non si perde nemmeno una parola. */
-Deno.test('il caso peggiore stringe il foglio da solo (ma il testo scende sotto la quota del pie\')', async () => {
+Deno.test('il caso peggiore stringe il foglio e ci sta comunque, sopra la quota del pie\'', async () => {
   const esito = await provaLayout(BUONO_PEGGIORE, { foto: null });
   assertEquals(esito.compatto, true);
-  /* se qualcuno alleggerisce il disegno la prova va aggiornata verso l'alto:
-     il numero e' qui apposta perche' non peggiori in silenzio */
-  assert(esito.yFinale > -10, `il testo finisce a y ${esito.yFinale}: peggiorato ancora`);
+  assert(esito.yFinale >= 80, `il testo finisce a y ${esito.yFinale}, sotto la quota 80 del pie'`);
   const byte = await pdfBuono(BUONO_PEGGIORE, { foto: null });
   assertEquals(new TextDecoder().decode(byte.slice(0, 5)), '%PDF-');
+});
+
+Deno.test('il caso peggiore ci sta in tutte e quattro le lingue, non solo in tedesco', async () => {
+  /* il tedesco ha le parole piu' lunghe, ma le condizioni francesi sono
+     lunghe quasi uguali: un foglio che va bene in una lingua sola non va bene */
+  for (const L of ['it', 'de', 'en', 'fr']) {
+    const esito = await provaLayout({ ...BUONO_PEGGIORE, lingua: L }, { foto: null });
+    assert(esito.yFinale >= 80, `${L}: il testo finisce a y ${esito.yFinale}`);
+  }
 });
 
 /* ---------- i due fogli da guardare ---------- */
