@@ -88,7 +88,15 @@ button{font:inherit;cursor:pointer;color:inherit;}
 .portate .eti{font-size:12px;color:var(--grigio);white-space:nowrap;padding-right:2px;}
 /* sul palmare, scorrendo in giu' fra gli articoli, le due righe in cima
    spariscono per lasciare spazio; tornano scorrendo in su (4 set 2026) */
-.ordine.compatta .portate,.ordine.compatta .cercaRiga{display:none;}
+.ordine.compatta .portate,.ordine.compatta .cercaRiga,.ordine.compatta .conti{display:none;}
+/* i conti del tavolo, a portata di dito: si passa dall'uno all'altro
+   senza tornare in sala, e «+ Conto» ne apre uno nuovo da qui (la
+   proprieta', 5 settembre 2026). Il pallino: righe non ancora inviate. */
+.conti{display:flex;gap:6px;padding:6px 10px;overflow-x:auto;background:var(--crema);border-bottom:1px solid var(--pietra);align-items:center;}
+.conti .eti{font-size:12px;color:var(--grigio);white-space:nowrap;padding-right:2px;}
+.conti button{padding:7px 12px;border-radius:999px;border:1px solid var(--pietra);background:#fff;white-space:nowrap;font-size:14px;color:var(--verde);}
+.conti button b{margin-right:5px;}
+.conti button.attiva{background:var(--oro);border-color:var(--oro);}
 .portate button{padding:7px 12px;border-radius:999px;border:1px solid var(--verde-medio);background:#fff;color:var(--verde-medio);white-space:nowrap;font-size:14px;}
 .portate button.attiva{background:var(--verde);color:#fff;border-color:var(--verde);}
 .cercaRiga{display:flex;gap:8px;padding:8px 10px;background:#fff;align-items:center;}
@@ -174,10 +182,10 @@ button{font:inherit;cursor:pointer;color:inherit;}
    non deve obbligare a scorrere tutto il pannello (4 settembre 2026) */
 .pannello .due{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;position:sticky;bottom:0;background:#fff;padding:10px 0 16px;margin-bottom:-16px;}
 @media (min-width: 900px){
-  .ordine{display:grid;grid-template-columns:1fr 420px;grid-template-rows:auto auto 1fr;height:100%;}
-  .portate,.cercaRiga{grid-column:1;}
-  .griglia{grid-column:1;grid-row:3;}
-  .comanda{grid-column:2;grid-row:1/3;max-height:none;border-top:0;border-left:2px solid var(--verde);}
+  .ordine{display:grid;grid-template-columns:1fr 420px;grid-template-rows:auto auto auto 1fr;height:100%;}
+  .portate,.conti,.cercaRiga{grid-column:1;}
+  .griglia{grid-column:1;grid-row:4;}
+  .comanda{grid-column:2;grid-row:1/4;max-height:none;border-top:0;border-left:2px solid var(--verde);}
   .totale,.azioni{grid-column:2;}
 }
 </style>
@@ -238,6 +246,9 @@ let SESSIONE = sessionStorage.getItem('posSessione') || '';
 let CAMERIERE = JSON.parse(sessionStorage.getItem('posCameriere') || 'null');
 let MENU = JSON.parse(localStorage.getItem('posMenu') || 'null');
 let MENU_LETTO_IL = 0;           // quando si e' letto dal server l'ultima volta
+/* le righe non ancora inviate di ogni conto: restano qui quando si passa
+   a un altro conto o si torna in sala, e si ritrovano riaprendolo */
+const BOZZE = new Map();
 
 function pallino() {
   const p = $('pallino');
@@ -629,8 +640,11 @@ async function apriConto(id) {
 
 /* ---------- l'ordine: dove si vive ---------- */
 function schermataOrdine(conto, righeServer, fratelli = []) {
-  testa(`${titoloConto(conto)} · ${conto.coperti} cop.`, schermataSala);
-  let ordine = creaOrdine();
+  /* la bozza lasciata su questo conto, se c'e', torna in mano */
+  let ordine = BOZZE.get(conto.id) || creaOrdine();
+  BOZZE.delete(conto.id);
+  const salvaBozza = () => { if (daInviare(ordine).length) BOZZE.set(conto.id, ordine); };
+  testa(`${titoloConto(conto)} · ${conto.coperti} cop.`, () => { salvaBozza(); schermataSala(); });
   let portataForzata = '';         // '' = quella dell'articolo
   let compatta = false;            // le righe in cima nascoste dallo scorrimento
   let comandaAperta = false;       // sul palmare il riepilogo parte chiuso
@@ -669,6 +683,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     const scorso = g0 ? g0.scrollTop : 0;
     $('app').innerHTML = `<div class="ordine ${compatta ? 'compatta' : ''}">
       <div class="portate"><span class="eti">Portata</span><button data-p="" class="${portataForzata ? '' : 'attiva'}">Auto</button>${PORTATE.map((p) => `<button data-p="${p}" class="${portataForzata === p ? 'attiva' : ''}">${NOMI_PORTATE[p]}</button>`).join('')}</div>
+      <div class="conti"><span class="eti">Conti</span>${contiDelTavolo().map((c, i) => `<button data-conto="${esc(c.id)}" class="${c.id === conto.id ? 'attiva' : ''}"><b>${i + 1}</b>${esc(titoloConto(c))}${c.id !== conto.id && BOZZE.has(c.id) ? ' •' : ''}</button>`).join('')}<button data-conto="nuovo">+ Conto</button></div>
       <div class="cercaRiga"><input id="cerca" placeholder="cerca (3 lettere)" value="${esc(cerca)}" autocomplete="off" />
         <div class="quantita" title="Quanti: si sceglie qui, poi si tocca l’articolo">${[1,2,3,4].map((n) => `<button data-q="${n}" class="${n === quantitaPronta ? 'attivo' : ''}">${n}×</button>`).join('')}<button id="quantitaAltra" class="${quantitaPronta > 4 ? 'attivo' : ''}">${quantitaPronta > 4 ? `${quantitaPronta}×` : '…'}</button></div></div>
       <div class="griglia">
@@ -693,6 +708,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       </div></div>`;
     const app = $('app');
     app.querySelectorAll('.portate button').forEach((b) => b.onclick = () => { portataForzata = b.dataset.p; disegna(); });
+    app.querySelectorAll('.conti button[data-conto]').forEach((b) => b.onclick = () => { if (b.dataset.conto !== conto.id) cambiaConto(b.dataset.conto); });
     app.querySelectorAll('.quantita button[data-q]').forEach((b) => b.onclick = () => { quantitaPronta = Number(b.dataset.q); disegna(); });
     $('quantitaAltra').onclick = async () => {
       const n = await chiediNumero('Quante?', { valore: quantitaPronta > 4 ? String(quantitaPronta) : '' });
@@ -904,6 +920,24 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
   };
 
   /* Invia: le righe nuove al server, poi l'invio (prima portata e bevande subito, il resto in attesa) */
+  /* I conti aperti del tavolo, numerati in un ordine che non balla, e il
+     passaggio dall'uno all'altro senza uscire: «aprire piu' conti dalla
+     stessa schermata» (la proprieta', 5 settembre 2026). Le righe non
+     inviate del conto che si lascia restano in BOZZE. */
+  const contiDelTavolo = () => [conto, ...fratelli.filter((f) => f.id !== conto.id)].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  const cambiaConto = async (id) => {
+    salvaBozza();
+    try {
+      let verso = id;
+      if (id === 'nuovo') {
+        const j = await scrivi('conto', { tavolo: conto.tavolo, tipo: 'esterno', coperti: 1 });
+        if (j.offline) return alert('Nessun server risponde: riprovi tra un momento.');
+        verso = j.conto.id;
+      }
+      const j = await chiama('conto', { qs: `&id=${encodeURIComponent(verso)}` });
+      schermataOrdine(j.conto, j.righe, j.fratelli || []);
+    } catch (e) { alert(e.message); }
+  };
   const invia = async () => {
     const nuove = daInviare(ordine);
     if (!nuove.length) return;

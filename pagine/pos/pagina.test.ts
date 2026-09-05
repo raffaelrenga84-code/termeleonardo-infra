@@ -194,7 +194,7 @@ Deno.test('sul palmare niente si schiaccia e la tastiera non copre il campo', ()
 Deno.test('scorrendo in giu fra gli articoli, portata e ricerca si nascondono; la griglia resta dov era', () => {
   /* «menu sopra fallo scomparire se scrollo in giu per lasciare piu spazio
      per vedere le categorie» (la proprieta', 4 settembre 2026) */
-  assert(P.includes('.ordine.compatta .portate,.ordine.compatta .cercaRiga{display:none;}'), 'in CSS spariscono');
+  assert(P.includes('.ordine.compatta .portate,.ordine.compatta .cercaRiga,.ordine.compatta .conti{display:none;}'), 'in CSS spariscono');
   assert(m.includes('let compatta = false;') && m.includes('<div class="ordine ${compatta ? \'compatta\' : \'\'}">'), 'e lo stato sopravvive al ridisegno');
   assert(m.includes('g.onscroll = () => {') && m.includes('window.innerWidth >= 900 || cerca'), 'solo sul palmare, e non mentre si cerca');
   assert(m.includes('const scorso = g0 ? g0.scrollTop : 0;') && m.includes('g.scrollTop = scorso;'), 'a ogni tocco la griglia non torna in cima');
@@ -272,4 +272,17 @@ Deno.test('tessera o camera: un campo solo, tre cifre sono la camera, di piu e u
   assert(m.includes("leggiTesseraOCamera(velo, 'pkCodice', esito)") && m.includes("leggiTesseraOCamera(velo, 'pcCodice', esito)"), 'dal tavolo e al momento di pagare');
   assert(!m.includes('id="pkCamera"') && !m.includes('id="pcCamera"'), 'il secondo campo non c e piu');
   assert(m.includes('tessera: s.daTessera ? s.tessera : null'), 'la tessera viaggia solo se letta davvero');
+});
+
+Deno.test('i conti del tavolo stanno nella schermata dell ordine: si passa dall uno all altro, e se ne apre uno nuovo da li', () => {
+  /* «aprire piu conti dalla stessa schermata senza dover uscire» (la
+     proprieta', 5 settembre 2026); le quantita 1× 2× restano quelle */
+  assert(m.includes('const BOZZE = new Map();') && m.includes('let ordine = BOZZE.get(conto.id) || creaOrdine();'), 'le righe non inviate restano in memoria per conto');
+  assert(m.includes("const salvaBozza = () => { if (daInviare(ordine).length) BOZZE.set(conto.id, ordine); };"), 'e si salvano quando si lascia il conto');
+  assert(m.includes('<div class="conti"><span class="eti">Conti</span>') && m.includes('<button data-conto="nuovo">+ Conto</button>'), 'la riga dei conti col +');
+  assert(m.includes('const contiDelTavolo = () =>') && m.includes("String(a.id).localeCompare(String(b.id))"), 'numerati in un ordine che non balla');
+  assert(m.includes("if (id === 'nuovo') {") && m.includes("scrivi('conto', { tavolo: conto.tavolo, tipo: 'esterno', coperti: 1 })"), 'il conto nuovo nasce da qui');
+  assert(m.includes("schermataOrdine(j.conto, j.righe, j.fratelli || []);"), 'e si riapre la schermata sul conto scelto');
+  assert(m.includes("${n}×</button>"), 'le quantita non sono state toccate');
+  assert(P.includes('.ordine.compatta .portate,.ordine.compatta .cercaRiga,.ordine.compatta .conti{display:none;}'), 'scorrendo sparisce con le altre righe in cima');
 });
