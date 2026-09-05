@@ -52,7 +52,7 @@ Deno.test('la sala si importa dalla piantina di Fidra: una zona per volta, senza
 });
 
 Deno.test('una riga passa a un altro conto dello stesso tavolo: chi paga cambia, la cucina no', () => {
-  const b = S.slice(S.indexOf("azione === 'sposta'"), S.indexOf("azione === 'chiudi'"));
+  const b = S.slice(S.indexOf("azione === 'sposta'"), S.indexOf("/* ---------- gli ordini dal QR, dal palmare"));
   assert(S.includes("'storna', 'sposta', 'chiudi'"), 'lo spostamento e un gesto del cameriere');
   assert(b.includes("verso.tavolo !== da.tavolo"), 'solo fra conti dello stesso tavolo');
   assert(b.includes('b.nuovo') && b.includes("from('pos_conto').insert("), 'e si puo aprire li per li un conto nuovo');
@@ -105,7 +105,7 @@ Deno.test('la coda degli addebiti la legge e la segna il back office, non il pal
   const l = S.slice(S.indexOf("azione === 'addebiti'"), S.indexOf("azione === 'menu-salva'"));
   assert(l.includes("['da_riportare', 'riportato', 'annullato'].includes"), 'tre stati e basta');
   assert(l.includes('riportato_da'), 'si segna chi l ha riportato');
-  assert(S.includes("['addebiti', 'giornata', 'tavoli-qr'].includes(azione) && req.method === 'GET'"), 'la lista si legge in GET, come la giornata');
+  assert(S.includes("['addebiti', 'giornata', 'tavoli-qr', 'ospite-ordini'].includes(azione) && req.method === 'GET'"), 'la lista si legge in GET, come la giornata');
 });
 
 Deno.test('la firma dell ospite sull addebito: un PNG, piccolo, e facoltativa', () => {
@@ -162,7 +162,7 @@ Deno.test('la cassa di fine giornata si legge dal back office, e i numeri li fa 
   /* «il riepilogo di fine giornata (incassato per cameriere, per
      contanti/carta/camera, articoli piu venduti)» (4 settembre 2026) */
   assert(S.includes("'addebito-segna', 'giornata'"), 'azione del back office');
-  assert(S.includes("['addebiti', 'giornata', 'tavoli-qr'].includes(azione) && req.method === 'GET'"), 'si legge, non si scrive');
+  assert(S.includes("['addebiti', 'giornata', 'tavoli-qr', 'ospite-ordini'].includes(azione) && req.method === 'GET'"), 'si legge, non si scrive');
   assert(S.includes("import { riepilogo } from './giornata.ts';") && S.includes('giornata: riepilogo({'), 'i numeri li fa il modulo puro');
   assert(S.includes(".eq('stato', 'chiuso').gte('chiuso_il', da).lt('chiuso_il', a)"), 'solo i conti chiusi nella finestra chiesta');
 });
@@ -217,7 +217,7 @@ Deno.test('l ordine dal tavolo col QR: menu pubblico firmato, carta via Stripe, 
   assert(o.includes("if (evento.type !== 'checkout.session.completed')") && o.includes("if (o.stato !== 'in_attesa') return risposta({ esito: 'ok', gia: o.stato });"), 'il webhook manda in cucina una volta sola');
   assert(S.includes('async function mandaInCucina(o: Riga)') && S.includes('QR · IN CAMERA') && S.includes('QR · PAGATO ONLINE'), 'il biglietto dice che e un ordine dal QR e come ha pagato');
   assert(S.includes("aperto_da: OSPITI_QR") && S.includes("const OSPITI_QR = 'ospiti-qr';"), 'il cameriere fittizio');
-  assert(S.includes("'fasce-salva', 'tavoli-qr']") && S.includes("azione === 'tavoli-qr'"), 'i QR dei tavoli dal back office');
+  assert(S.includes("'fasce-salva', 'tavoli-qr', 'ospite-ordini'") && S.includes("azione === 'tavoli-qr'"), 'i QR dei tavoli dal back office');
   assert(S.includes('qr_recenti:'), 'la sala mostra gli ordini dal QR');
 });
 
@@ -264,7 +264,7 @@ Deno.test('a cucina chiusa (pos_locale.orari_cucina) il biglietto della cucina e
   const c = S.slice(S.indexOf('async function creaStampe('), S.indexOf('async function creaStampe(') + 4000);
   assert(c.includes("select('id, nome, stampante_cucina, stampante_bar, orari_cucina')"), 'si leggono gli orari della cucina del locale');
   assert(c.includes('const stampante = stampanteAdesso(r.stampante, (locali ?? []).find((l) => l.id === dove)?.orari_cucina, adessoOra);'), 'la stampante la decide l ora');
-  assert(c.includes("avviso: stampante !== originale ? 'cucina chiusa: al bancone' : null,"), 'il biglietto lo dice');
+  assert(c.includes("avviso: [avviso, stampante !== originale ? 'cucina chiusa: al bancone' : null].filter(Boolean).join(' · ') || null,"), 'il biglietto lo dice, insieme a un eventuale altro avviso (ristampa)');
 });
 
 Deno.test('«ospiti (QR)» sul singolo articolo: il palmare vede tutto, l ospite solo cio che il Bistrot ha davvero', () => {
@@ -280,4 +280,26 @@ Deno.test('una categoria e aperta se almeno un suo articolo lo e: le insalatone 
   const o = S.slice(S.indexOf("azione === 'ospite-menu'"), S.indexOf("azione === 'ospite-stato'"));
   assert(o.includes('disponibile: suoi.length ? suoi.some((a) => a.disponibile) : apertoOra(finestre, adessoOra)'), 'la categoria guarda i suoi articoli');
   assert(o.indexOf('const articoliOspite') < o.indexOf('const categorieOspite'), 'prima gli articoli, poi le categorie');
+});
+
+Deno.test('gli ordini dal QR dal back office: elenco, rimborso, annullo dell addebito, ristampa, nota', () => {
+  /* spec docs/superpowers/specs/2026-09-05-ordini-qr-design.md */
+  assert(S.includes("import { corpoRimborsoStripe, importoRiga, importoRimborso, type OrdineRimborsabile, residuoRimborso, statoDopoRimborso } from './rimborsi.ts';"), 'le regole pure');
+  assert(S.includes("'ospite-ordini', 'ospite-rimborsa', 'ospite-annulla-addebito', 'ospite-ristampa', 'ospite-nota'"), 'nel gruppo del back office');
+  assert(S.includes("['addebiti', 'giornata', 'tavoli-qr', 'ospite-ordini'].includes(azione) && req.method === 'GET'"), 'l elenco si legge');
+  const r = S.slice(S.indexOf("azione === 'ospite-rimborsa'"), S.indexOf("azione === 'ospite-annulla-addebito'"));
+  assert(r.includes('const esito = importoRimborso(o as OrdineRimborsabile, b.importo_cent);') && r.includes("stripe(chiave, '/refunds', corpoRimborsoStripe("), 'con la carta si chiede a Stripe');
+  assert(r.includes("if (ad.stato === 'riportato') return risposta({ errore: 'l addebito e gia riportato in Fidra: si corregge la' }, 409);"), 'in camera si toglie dall addebito, se non e gia in Fidra');
+  assert(S.includes('async function ristampaConto(contoId: string, chi: string): Promise<number>') && S.includes('cameriere: string, avviso: string | null = null)'), 'la ristampa con l avviso in cima');
+  assert(S.includes('rimborsi_qr_cent'), 'la giornata li mostra');
+});
+
+Deno.test('il palmare: gli ordini dal QR di oggi sul tavolo, la coda di stampa, ristampa, sposta, storna e rimborsa', () => {
+  const s = S.slice(S.indexOf("azione === 'sala'"), S.indexOf("azione === 'conto')"));
+  assert(s.includes('const { data: qrOggi } = idTavoli.length') && s.includes('qr: qrPronti.filter((o) => o.tavolo === t.id)'), 'gli ordini dal QR di oggi, tavolo per tavolo');
+  assert(s.includes('coda_stampa: { n: (coda ?? []).length, minuti:'), 'la coda di stampa del locale');
+  assert(S.includes("'conto-ristampa', 'conto-sposta', 'riga-storna-rimborsa'"), 'nel gruppo del palmare');
+  const st = S.slice(S.indexOf("azione === 'riga-storna-rimborsa'"), S.indexOf("azione === 'conto-sposta'"));
+  assert(st.includes("if (!puo(cameriere!, 'storno')) return risposta({ errore: 'storno non permesso' }, 403);"), 'solo chi puo stornare');
+  assert(st.includes('const cent = importoRiga({ quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent) });'), 'torna l importo della riga');
 });

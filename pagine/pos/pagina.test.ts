@@ -345,3 +345,12 @@ Deno.test('«+ Camera» nella riga dei conti apre un altro conto in camera sullo
   assert(m.includes('const pannelloNuovoInCamera = () =>') && m.includes("leggiTesseraOCamera(velo, 'pnCodice', esito)"), 'tessera o numero di camera, come dal tavolo');
   assert(m.includes("tipo: 'camera', camera: s.camera, tessera: s.daTessera ? s.tessera : null") && m.includes('via(); cambiaConto(j.conto.id);'), 'nasce in camera e si apre subito');
 });
+
+Deno.test('gli ordini dal QR restano sul tavolo tutto il giorno: pannello con ristampa, sposta, storna e rimborsa; la coda di stampa avvisa', () => {
+  /* spec docs/superpowers/specs/2026-09-05-ordini-qr-design.md */
+  assert(m.includes('const pannelloQr = (o) => {') && m.includes("chiama('conto-ristampa', { method: 'POST', body: JSON.stringify({ conto: o.conto }), cloud: true })"), 'ristampa dal cloud');
+  assert(m.includes("chiama('conto-sposta', { method: 'POST', body: JSON.stringify({ conto: o.conto, a: b.dataset.verso }), cloud: true })"), 'sposta un conto solo');
+  assert(m.includes("chiama('riga-storna-rimborsa', { method: 'POST', body: JSON.stringify({ riga: r.id, motivo }), cloud: true })"), 'storna e rimborsa la riga');
+  assert(m.includes('qrBlocco') && m.includes("📱 ${o.modo === 'camera' ? `in camera ${esc(o.camera || '')}` : 'pagato'}"), 'l etichetta sul tavolo');
+  assert(m.includes('s.coda_stampa && s.coda_stampa.minuti >= 2') && m.includes('class="codaStampa"'), 'la fascia rossa sopra i due minuti');
+});

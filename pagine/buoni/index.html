@@ -33,7 +33,10 @@ padding:14px;overflow:auto;}
 .anteprima .telaio > *{transform-origin:top left;}
 .azioni-buono{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
 .azioni-buono button{flex:1;min-width:150px;margin-top:0;}
-.schede{display:flex;gap:8px;border-bottom:1px solid var(--pietra);margin-bottom:18px;}
+.famiglie{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+.famiglie button{border:1px solid var(--pietra);background:#fff;border-radius:999px;padding:6px 14px;font:inherit;font-weight:600;cursor:pointer;color:var(--acqua-scura);}
+.famiglie button.attiva{background:var(--acqua-scura);color:#fff;border-color:var(--acqua-scura);}
+.schede{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--pietra);margin-bottom:18px;}
 .schede button{background:none;border:0;border-bottom:3px solid transparent;
 padding:10px 14px;font:600 14px Arial;color:var(--grigio);cursor:pointer;}
 .schede button.attiva{color:var(--acqua-scura);border-bottom-color:var(--acqua);}
@@ -299,12 +302,25 @@ const SCHEDE = [
   ['posMenu', 'POS · Menù'],
   ['posTavoli', 'POS · Tavoli'],
   ['posPersonale', 'POS · Personale'],
-  ['posAddebiti', 'POS · Addebiti in camera'],
+  ['posOrdiniQr', 'POS · Ordini dal QR'],  ['posAddebiti', 'POS · Addebiti in camera'],
   ['posGiornata', 'POS · Giornata'],
   ['posFasce', 'POS · Fasce orarie'],
   /* i consensi privacy firmati al totem e sugli iPad (4 settembre 2026) */
   ['privacy', 'Privacy'],
 ];
+
+/* LE QUATTRO FAMIGLIE. Sedici schede in fila non si leggevano piu' («si sta
+   affollando», la proprieta', 5 settembre 2026): una barra sopra con le
+   famiglie, sotto le schede della famiglia aperta. L'ordine per indirizzo
+   (ORDINE_SCHEDE) e le schede nascoste restano come sono: qui si decide
+   solo dove sta ogni scheda. */
+const FAMIGLIE = [
+  ['buoni', 'Buoni', ['emetti', 'elenco', 'verifica']],
+  ['ospiti', 'Ospiti', ['richieste', 'arrivi', 'privacy']],
+  ['dayspa', 'Day Spa', ['dayspaOggi', 'dayspaDisponibilita', 'dayspaPrenotazioni']],
+  ['pos', 'POS', ['posOrdiniQr', 'posAddebiti', 'posGiornata', 'posMenu', 'posTavoli', 'posPersonale', 'posFasce']],
+];
+const famigliaDi = (scheda) => (FAMIGLIE.find(([, , schede]) => schede.includes(scheda)) || FAMIGLIE[0])[0];
 
 /* CHI NON VEDE COSA. Alla spa «Emetti un buono» non serve e non
    funziona: puoScrivereBuoni() la rifiuta, quindi oggi e' un vicolo
@@ -458,16 +474,26 @@ function disegna() {
   /* se la scheda corrente non e' fra quelle visibili si torna alla prima:
      senza, la pagina disegnerebbe una vista senza il pulsante per uscirne */
   if (!visibili.some(([v]) => v === VISTA)) VISTA = visibili[0][0];
-  $('app').innerHTML = `<div class="schede">${visibili.map(([v, t]) =>
+  /* due righe: le famiglie sopra, sotto le schede della famiglia aperta
+     (5 settembre 2026). Il pulsante di una famiglia apre la sua prima
+     scheda visibile, nell'ordine di chi e' entrato. */
+  const fam = famigliaDi(VISTA);
+  const famiglie = FAMIGLIE.filter(([, , schede]) => schede.some((v) => visibili.some(([x]) => x === v)));
+  const diQuesta = visibili.filter(([v]) => famigliaDi(v) === fam);
+  $('app').innerHTML = `<div class="famiglie">${famiglie.map(([f, nome]) =>
+    `<button data-famiglia="${f}" class="${f === fam ? 'attiva' : ''}">${esc(nome)}</button>`
+  ).join('')}</div><div class="schede">${diQuesta.map(([v, t]) =>
     `<button data-scheda="${v}" class="${VISTA === v ? 'attiva' : ''}">${esc(t)}</button>`
   ).join('')}</div><div id="vista"></div>`;
+  document.querySelectorAll('.famiglie button').forEach((b) =>
+    b.onclick = () => { const prima = visibili.find(([v]) => famigliaDi(v) === b.dataset.famiglia); if (prima) { VISTA = prima[0]; disegna(); } });
   document.querySelectorAll('.schede button').forEach(b =>
     b.onclick = () => { VISTA = b.dataset.scheda; disegna(); });
   ({ emetti: vistaEmetti, elenco: vistaElenco, verifica: vistaVerifica,
      richieste: vistaRichieste, arrivi: vistaArrivi, dayspaOggi: vistaDayspaOggi,
      dayspaDisponibilita: vistaDayspaDisponibilita, dayspaPrenotazioni: vistaDayspaPrenotazioni,
      posMenu: vistaPosMenu, posTavoli: vistaPosTavoli, posPersonale: vistaPosPersonale,
-     posAddebiti: vistaPosAddebiti, posGiornata: vistaPosGiornata, posFasce: vistaPosFasce, privacy: vistaPrivacy })[VISTA]();
+     posOrdiniQr: vistaPosOrdiniQr, posAddebiti: vistaPosAddebiti, posGiornata: vistaPosGiornata, posFasce: vistaPosFasce, privacy: vistaPrivacy })[VISTA]();
   aggiornaContatore();
 }
 
@@ -479,7 +505,7 @@ function disegna() {
    vista. Il numero e' un aiuto, non un dato: se la chiamata fallisce il
    pulsante resta com'e', senza errori a video. */
 async function aggiornaContatore() {
-  const b = document.querySelector('.schede button[data-scheda="richieste"]');
+  const b = document.querySelector('.schede button[data-scheda="richieste"]') || document.querySelector('.famiglie button[data-famiglia="ospiti"]');
   if (!b) return;
   try {
     const j = await chiama('?a=elenco&stato=nuova&cerca=', {}, FUNZIONE_RICHIESTE);
@@ -2485,6 +2511,76 @@ function vistaPosAddebiti() {
   carica();
 }
 
+/* Gli ordini dal QR, un giorno alla volta (la proprieta', 5 settembre 2026):
+   righe, come ha pagato, stato; «Rimborsa» tutto o una parte (con Stripe,
+   come i buoni), «Annulla l'addebito» per quelli in camera, «Ristampa la
+   comanda», una nota per ricordare cosa e' successo. Le regole stanno nel
+   server (rimborsi.ts); qui si guarda e si preme. */
+function vistaPosOrdiniQr() {
+  const oggi = new Date();
+  if (oggi.getHours() < 4) oggi.setDate(oggi.getDate() - 1);
+  const aData = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  let giorno = aData(oggi);
+  const finestra = (g) => { const [y, m, d] = g.split('-').map(Number); return { da: new Date(y, m - 1, d, 4, 0, 0).toISOString(), a: new Date(y, m - 1, d + 1, 4, 0, 0).toISOString() }; };
+  const STATI = { in_attesa: 'in attesa del pagamento', pagato: 'pagato', in_cucina: 'in cucina', annullato: 'annullato', errore: 'errore', rimborsato: 'rimborsato' };
+  const pagati = (o) => ['in_cucina', 'pagato', 'rimborsato'].includes(o.stato);
+  $('vista').innerHTML = `<div class="riquadro"><div class="esito" id="poEsito">Carico…</div></div>`;
+  const disegna = (ordini) => {
+    const tot = ordini.filter(pagati).reduce((t, o) => t + Number(o.totale_cent || 0) - Number(o.rimborsato_cent || 0), 0);
+    $('vista').innerHTML = `<div class="riquadro">
+      <div class="due"><div><label>Giorno (dalle 4 alle 4)</label><input type="date" id="poGiorno" value="${giorno}" /></div>
+        <div><label>&nbsp;</label><button type="button" class="azione sec" id="poRicarica" style="width:auto;">Aggiorna</button></div></div>
+      <div class="mini">${ordini.length} ordini dal QR, incassati <b>${euroPos(tot)} €</b> al netto dei rimborsi. Con la carta il rimborso lo fa Stripe (il cliente lo vede in qualche giorno); in camera si toglie dall’addebito, finché non è riportato in Fidra.</div>
+      <div class="esito" id="poEsito"></div></div>
+      ${ordini.length ? ordini.map((o) => `<div class="riquadro">
+        <div class="due"><div><b>${esc(o.tavolo_nome)}</b> · ${o.modo === 'camera' ? `camera ${esc(o.camera || '')}` : 'carta'} · <span class="mini">${esc(STATI[o.stato] || o.stato)}</span>
+          <div class="mini">${esc(o.id)} · ${esc(new Date(o.creato_il).toLocaleString('it-IT'))}${o.stripe_pagamento ? ` · ${esc(o.stripe_pagamento)}` : ''}${o.addebito ? ` · addebito ${esc(o.addebito.stato)}` : ''}</div></div>
+          <div style="text-align:right;"><b style="font-size:20px;">${euroPos(o.totale_cent)} €</b>${Number(o.rimborsato_cent) ? `<div class="mini">rimborsati ${euroPos(o.rimborsato_cent)} €</div>` : ''}</div></div>
+        <table><tr><th>Q.tà</th><th>Articolo</th><th>Nota</th><th style="text-align:right;">Totale</th></tr>
+          ${(o.righe_conto && o.righe_conto.length ? o.righe_conto : (Array.isArray(o.righe) ? o.righe : [])).map((x) => `<tr${x.stato === 'stornata' ? ' style="text-decoration:line-through;opacity:.6;"' : ''}><td>${Number(x.quantita)}</td><td>${esc(x.nome)}</td><td class="mini">${esc(x.nota || '')}</td><td style="text-align:right;">${euroPos(Number(x.quantita) * Number(x.prezzo_cent))} €</td></tr>`).join('')}</table>
+        ${o.errore ? `<div class="mini errore">Errore: ${esc(o.errore)}</div>` : ''}
+        <div class="due" style="margin-top:8px;align-items:end;"><div><label>Nota</label><input data-nota="${esc(o.id)}" value="${esc(o.nota || '')}" maxlength="500" /></div><div><button type="button" class="azione sec" data-salva-nota="${esc(o.id)}" style="width:auto;">Salva la nota</button></div></div>
+        <div class="due" style="margin-top:8px;">
+          <div>${pagati(o) && Number(o.totale_cent) > Number(o.rimborsato_cent || 0)
+            ? (o.modo === 'carta'
+              ? `<button type="button" class="azione" data-rimborsa="${esc(o.id)}" style="width:auto;">Rimborsa</button>`
+              : `<button type="button" class="azione" data-rimborsa="${esc(o.id)}" style="width:auto;">Rimborsa una parte</button> <button type="button" class="azione sec" data-annulla="${esc(o.id)}" style="width:auto;">Annulla l’addebito</button>`)
+            : ''}</div>
+          <div style="text-align:right;">${o.conto ? `<button type="button" class="azione sec" data-ristampa="${esc(o.id)}" style="width:auto;">Ristampa la comanda</button>` : ''}</div></div></div>`).join('')
+        : '<div class="riquadro"><div class="mini">Nessun ordine dal QR in questo giorno.</div></div>'}`;
+    $('poGiorno').onchange = () => { giorno = $('poGiorno').value || giorno; carica(); };
+    $('poRicarica').onclick = carica;
+    const manda = async (b, qs, corpo, dopo) => {
+      b.disabled = true;
+      try { const j = await chiama(qs, { method: 'POST', body: JSON.stringify({ ...corpo, da: OPERATORE || 'reception' }) }, FUNZIONE_POS); if (dopo) dopo(j); carica(); }
+      catch (e) { $('poEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; b.disabled = false; window.scrollTo(0, 0); }
+    };
+    document.querySelectorAll('[data-rimborsa]').forEach((b) => b.onclick = () => {
+      const o = ordini.find((x) => x.id === b.dataset.rimborsa);
+      const residuo = Number(o.totale_cent) - Number(o.rimborsato_cent || 0);
+      const euro = prompt(`Quanto restituire? Al massimo ${euroPos(residuo)} €. Vuoto = tutto.`, euroPos(residuo));
+      if (euro === null) return;
+      const cent = euro.trim() ? centPos(euro) : null;
+      if (euro.trim() && (!cent || cent <= 0)) return alert('Importo non valido.');
+      const motivo = prompt('Il motivo (resta scritto sull’ordine):') || '';
+      manda(b, '?a=ospite-rimborsa', { ordine: o.id, importo_cent: cent, motivo }, (j) => alert(`Restituiti ${euroPos(j.importo_cent)} €.`));
+    });
+    document.querySelectorAll('[data-annulla]').forEach((b) => b.onclick = () => {
+      if (!confirm('Annullo l’addebito in camera? La reception non lo riporterà in Fidra.')) return;
+      const motivo = prompt('Il motivo:') || '';
+      manda(b, '?a=ospite-annulla-addebito', { ordine: b.dataset.annulla, motivo });
+    });
+    document.querySelectorAll('[data-ristampa]').forEach((b) => b.onclick = () => manda(b, '?a=ospite-ristampa', { ordine: b.dataset.ristampa }, (j) => alert(`Ristampa in coda: ${j.biglietti} ${j.biglietti === 1 ? 'biglietto' : 'biglietti'}.`)));
+    document.querySelectorAll('[data-salva-nota]').forEach((b) => b.onclick = () => manda(b, '?a=ospite-nota', { ordine: b.dataset.salvaNota, nota: document.querySelector(`[data-nota="${b.dataset.salvaNota}"]`).value }));
+  };
+  const carica = async () => {
+    const f = finestra(giorno);
+    try { const j = await chiama(`?a=ospite-ordini&da=${encodeURIComponent(f.da)}&fino=${encodeURIComponent(f.a)}`, {}, FUNZIONE_POS); disegna(j.ordini || []); }
+    catch (e) { $('poEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  };
+  carica();
+}
+
 /* La cassa di fine giornata (la proprieta', 4 settembre 2026): i conti
    chiusi dalle quattro del mattino alle quattro del giorno dopo — la
    giornata di un bar non finisce a mezzanotte. I numeri li fa il server
@@ -2512,7 +2608,7 @@ function vistaPosGiornata() {
     $('vista').innerHTML = testa() + `
       <div class="riquadro"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;">
         ${cifra('Incasso (contanti + carta)', num(g.incasso_cent))}${cifra('Contanti', num(g.per_modo.contanti))}${cifra('Carta', num(g.per_modo.carta))}
-        ${cifra('In camera (da riportare)', num(g.camera_cent))}${cifra('Conti chiusi', g.conti)}${cifra('Coperti', g.coperti)}
+        ${cifra('In camera (da riportare)', num(g.camera_cent))}${cifra('Rimborsi dal QR', num(g.rimborsi_qr_cent))}${cifra('Conti chiusi', g.conti)}${cifra('Coperti', g.coperti)}
       </div></div>
       <div class="riquadro"><b>Per cameriere</b> <span class="mini">chi ha chiuso il conto</span>
         <table><tr><th>Cameriere</th><th>Conti</th><th style="text-align:right;">Totale</th></tr>
@@ -2529,7 +2625,7 @@ function vistaPosGiornata() {
     const f = finestra(giorno);
     try {
       const j = await chiama(`?a=giornata&da=${encodeURIComponent(f.da)}&fino=${encodeURIComponent(f.a)}&locale=${encodeURIComponent(locale)}`, {}, FUNZIONE_POS);
-      disegna(j.giornata);
+      disegna({ ...j.giornata, rimborsi_qr_cent: j.rimborsi_qr_cent || 0 });
     } catch (e) { $('vista').innerHTML = testa(); collega(); $('pgEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
   };
   $('vista').innerHTML = testa() + '<div class="riquadro"><div class="mini">Carico…</div></div>';

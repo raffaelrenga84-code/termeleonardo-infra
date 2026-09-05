@@ -59,6 +59,9 @@ button{font:inherit;cursor:pointer;color:inherit;}
 .zone button.vista{margin-left:auto;border-style:dashed;color:var(--verde-medio);border-color:var(--verde-medio);}
 /* gli ordini dal QR degli ultimi venti minuti, in cima alla sala */
 .qrRecenti{margin:8px 10px 0;display:flex;flex-direction:column;gap:6px;}
+.qrBlocco .eti{display:block;font-size:12px;color:var(--grigio);margin-bottom:4px;}
+.qrBlocco .apri b{color:var(--oro);}
+.codaStampa{margin:8px 10px 0;padding:8px 12px;border-radius:12px;background:var(--allarme);color:#fff;font-weight:600;}
 .qrRiga{display:flex;align-items:center;gap:10px;background:#FFF3D6;border:1px solid var(--oro);border-radius:10px;padding:8px 12px;font-size:14px;}
 .qrRiga b{color:var(--verde);}
 .qrRiga span:nth-child(2){flex:1;}
@@ -510,7 +513,10 @@ async function schermataSala() {
        oro, con da quanto sono arrivati — il cameriere li porta anche se
        la stampante tace (5 settembre 2026) */
     const qr = (s.qr_recenti || []).map((o) => `<div class="qrRiga"><b>📱 ${esc(o.tavolo)}</b><span>${euro(o.totale_cent)} · ${o.modo === 'camera' ? `camera ${esc(o.camera || '')}` : 'pagato online'}</span><span class="mini">${minuti(o.creato_il)}′</span></div>`).join('');
-    $('app').innerHTML = barra + (qr ? `<div class="qrRecenti">${qr}</div>` : '') + corpo;
+    /* i biglietti fermi in coda da piu' di due minuti: la stampante e' spenta
+       o senza carta, e nessuno se ne accorgerebbe (la proprieta', 5 settembre 2026) */
+    const coda = s.coda_stampa && s.coda_stampa.minuti >= 2 ? `<div class="codaStampa">🖨️ ${s.coda_stampa.n} ${s.coda_stampa.n === 1 ? 'biglietto fermo' : 'biglietti fermi'} da ${s.coda_stampa.minuti}′: stampante spenta?</div>` : '';
+    $('app').innerHTML = barra + coda + (qr ? `<div class="qrRecenti">${qr}</div>` : '') + corpo;
     $('app').querySelectorAll('.zone button[data-z]').forEach((b) => b.onclick = () => { ZONA = b.dataset.z; localStorage.setItem('posZona', ZONA); disegna(); });
     $('cambiaVista').onclick = () => { VISTA_SALA = VISTA_SALA === 'elenco' ? 'piantina' : 'elenco'; localStorage.setItem('posVistaSala', VISTA_SALA); disegna(); };
     /* tavolo libero: la schermata del tavolo (coperti, in camera). Tavolo
@@ -610,8 +616,62 @@ function schermataTavolo(t) {
       } catch (e) { alert(e.message); }
     });
   };
+  /* Un ordine dal QR di oggi: le righe, la ristampa, lo spostamento su un
+     altro tavolo, e per chi puo' stornare «storna e rimborsa» sulla riga —
+     l'importo torna al cliente (la proprieta', 5 settembre 2026). Tutto nel
+     cloud: e' li' che vivono Stripe e l'archivio degli ordini. */
+  const pannelloQr = (o) => {
+    if (!o) return;
+    const puoStorno = CAMERIERE && (CAMERIERE.ruolo !== 'cameriere' || CAMERIERE.storni);
+    const velo = document.createElement('div'); velo.className = 'velo';
+    const via = () => velo.remove();
+    velo.innerHTML = `<div class="pannello">
+      <h3>📱 ${esc(o.numero)} · ${o.modo === 'camera' ? `in camera ${esc(o.camera || '')}` : 'pagato online'}</h3>
+      <p class="mini">${minuti(o.creato_il)}′ fa · ${euro(o.totale_cent)}${o.rimborsato_cent ? ` · rimborsati ${euro(o.rimborsato_cent)}` : ''}</p>
+      ${o.righe.map((r) => `<div class="due" style="align-items:center;margin-bottom:6px;"><span${r.stato === 'stornata' ? ' style="text-decoration:line-through;opacity:.6;"' : ''}>${Number(r.quantita)} × ${esc(r.nome)}${r.nota ? ` <span class="mini">› ${esc(r.nota)}</span>` : ''}</span>${puoStorno && r.stato !== 'stornata' ? `<button class="bottone sec" data-storna="${esc(r.id)}" style="border-color:var(--allarme);color:var(--allarme);">Storna e rimborsa</button>` : '<span></span>'}</div>`).join('')}
+      <div class="due" style="margin-top:10px;"><button class="bottone sec" id="qrRistampa">Ristampa</button><button class="bottone sec" id="qrSposta">Sposta al tavolo…</button></div>
+      <div class="due"><button class="bottone sec" id="qrChiudi">Chiudi</button><span></span></div></div>`;
+    document.body.appendChild(velo);
+    velo.onclick = (ev) => { if (ev.target === velo) via(); };
+    velo.querySelector('#qrChiudi').onclick = via;
+    velo.querySelector('#qrRistampa').onclick = async () => {
+      try {
+        const j = await chiama('conto-ristampa', { method: 'POST', body: JSON.stringify({ conto: o.conto }), cloud: true });
+        alert(`Ristampa in coda: ${j.biglietti} ${j.biglietti === 1 ? 'biglietto' : 'biglietti'}.`);
+      } catch (e) { alert(e.message); }
+    };
+    velo.querySelector('#qrSposta').onclick = async () => {
+      let s;
+      try { s = await chiama('sala', { qs: `&locale=${encodeURIComponent(LOCALE_ID)}` }); } catch (e) { return alert(e.message); }
+      const nomeT = (x) => String(x.nome).replace(/^Tavolo\s*/i, 'T');
+      const inOrdine = (zona) => s.tavoli.filter((x) => x.zona === zona && x.id !== t.id).sort((a, b) => numeroTavolo(a.nome) - numeroTavolo(b.nome) || String(a.nome).localeCompare(b.nome));
+      const v2 = document.createElement('div'); v2.className = 'velo';
+      v2.innerHTML = `<div class="pannello"><h3>Sposta ${esc(o.numero)} su…</h3>
+        ${s.zone.map((z) => `<label>${esc(z.nome)}</label><div class="chips">${inOrdine(z.id).map((x) => `<button data-verso="${esc(x.id)}">${esc(nomeT(x))}</button>`).join('') || '<span class="mini">nessun tavolo</span>'}</div>`).join('')}
+        <div class="due"><button class="bottone sec" id="qsAnnulla">Annulla</button><span></span></div></div>`;
+      document.body.appendChild(v2);
+      v2.onclick = (ev) => { if (ev.target === v2) v2.remove(); };
+      v2.querySelector('#qsAnnulla').onclick = () => v2.remove();
+      v2.querySelectorAll('[data-verso]').forEach((b) => b.onclick = async () => {
+        try {
+          const j = await chiama('conto-sposta', { method: 'POST', body: JSON.stringify({ conto: o.conto, a: b.dataset.verso }), cloud: true });
+          v2.remove(); via(); alert(`Spostato su ${j.tavolo.nome}.`); await rileggi();
+        } catch (e) { alert(e.message); }
+      });
+    };
+    velo.querySelectorAll('[data-storna]').forEach((b) => b.onclick = async () => {
+      const r = o.righe.find((x) => x.id === b.dataset.storna);
+      const motivo = prompt(`Storno ${Number(r.quantita)} × ${r.nome}: il motivo? Al cliente tornano ${euro(Number(r.quantita) * Number(r.prezzo_cent))}.`);
+      if (!motivo || !motivo.trim()) return;
+      try {
+        const j = await chiama('riga-storna-rimborsa', { method: 'POST', body: JSON.stringify({ riga: r.id, motivo }), cloud: true });
+        alert(`Stornata: tornano ${euro(j.rimborsato_cent)} al cliente.`); via(); await rileggi();
+      } catch (e) { alert(e.message); }
+    });
+  };
   const disegna = () => {
     $('app').innerHTML = `<div class="riquadro">${aperti.length ? aperti.map((c) => `<div class="contoRiga"><button type="button" class="apri" data-c="${esc(c.id)}"><span><b>${esc(c.titolo || titoloConto(c))}</b><br><span class="mini">${c.coperti} coperti${c.attesa ? ' · portata in attesa' : ''}</span></span><b>${euro(c.totale_cent)}</b></button><button type="button" class="altro" data-altro="${esc(c.id)}" title="Nome, coperti, elimina">⋯</button></div>`).join('') : '<p class="mini">Tavolo libero.</p>'}</div>
+      ${(t.qr || []).length ? `<div class="riquadro qrBlocco"><span class="eti">Ordini dal QR di oggi</span>${t.qr.map((o) => `<div class="contoRiga"><button type="button" class="apri" data-qr="${esc(o.numero)}"><span><b>📱 ${o.modo === 'camera' ? `in camera ${esc(o.camera || '')}` : 'pagato'}${o.stato === 'rimborsato' ? ' · rimborsato' : ''}</b><br><span class="mini">${esc(o.numero)} · ${minuti(o.creato_il)}′ · ${o.righe.filter((r) => r.stato !== 'stornata').length} righe</span></span><span>${euro(Number(o.totale_cent) - Number(o.rimborsato_cent || 0))}</span></button></div>`).join('')}</div>` : ''}
       ${aperti.length ? '<div class="riquadro"><button type="button" class="bottone sec" id="spostaTavolo">Sposta tutto il tavolo…</button></div>' : ''}
       <div class="riquadro"><b>Nuovo conto</b><p class="mini">Quanti coperti?</p>
         <div class="coperti">${[1,2,3,4,5,6,7,8,9,10,11,12].map((n) => `<button data-n="${n}" class="${n === coperti ? 'attivo' : ''}">${n}</button>`).join('')}</div>
@@ -621,6 +681,7 @@ function schermataTavolo(t) {
     $('app').querySelectorAll('.coperti button[data-n]').forEach((b) => b.onclick = () => { coperti = Number(b.dataset.n); disegna(); });
     $('app').querySelectorAll('[data-c]').forEach((r) => r.onclick = () => apriConto(r.dataset.c));
     $('app').querySelectorAll('[data-altro]').forEach((b) => b.onclick = () => pannelloConto(aperti.find((c) => c.id === b.dataset.altro)));
+    $('app').querySelectorAll('[data-qr]').forEach((b) => b.onclick = () => pannelloQr((t.qr || []).find((o) => o.numero === b.dataset.qr)));
     $('nuovoEsterno').onclick = async () => {
       try {
         const j = await scrivi('conto', { tavolo: t.id, tipo: 'esterno', coperti });

@@ -46,6 +46,7 @@ import { applicaFascia, fasciaAttiva, minutiDi, oraLocale, prezzoInFascia } from
 import type { Fascia, PrezzoFascia } from './fasce.ts';
 import { cameraCombacia, codiceTessera, dallHotel, ipDi, numeroOrdine, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';
 import { apertoOra, leggiOrari, restringi, stampanteAdesso } from './orari.ts';
+import { corpoRimborsoStripe, importoRiga, importoRimborso, type OrdineRimborsabile, residuoRimborso, statoDopoRimborso } from './rimborsi.ts';
 /* chi ordina dal QR si ferma dieci minuti prima della fine di ogni orario:
    alle 14:30 in punto la cucina non deve trovare un ordine nuovo (la
    proprieta', 5 settembre 2026) */
@@ -186,7 +187,7 @@ async function righeDelConto(conto: string): Promise<RigaStampabile[]> {
 }
 
 /* ---------- le stampe di una portata: un biglietto per stampante ---------- */
-async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata, tipo: 'comanda' | 'vai' | 'storno' | 'modifica', cameriere: string) {
+async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata, tipo: 'comanda' | 'vai' | 'storno' | 'modifica', cameriere: string, avviso: string | null = null) {
   const { data: tavolo } = await db.from('pos_tavolo').select('nome, z:pos_zona(l:pos_locale(id, nome))').eq('id', conto.tavolo as string).single();
   const locale = (tavolo?.z as unknown as { l: { id: string; nome: string } } | null)?.l;
   if (!locale) return;
@@ -217,12 +218,26 @@ async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata
       righe: rr.map((r) => ({ quantita: Number(r.quantita), nome: String(r.nome), variante: (r.variante as string | null) ?? null, nota: (r.nota as string | null) ?? null })),
       noteVitto: null,
       portareA: portareA({ preparaIn: dove, tavoloIn: locale.id, nomeDelLocale }),
-      avviso: stampante !== originale ? 'cucina chiusa: al bancone' : null,
+      avviso: [avviso, stampante !== originale ? 'cucina chiusa: al bancone' : null].filter(Boolean).join(' · ') || null,
     };
     return [{ id: crypto.randomUUID(), locale: dove, stampante, testo: testoBiglietto(b) }];
   });
   if (stampe.length) await db.from('pos_stampa').insert(stampe);
   await db.from('pos_comanda').insert({ id: crypto.randomUUID(), conto: conto.id, portata, tipo, righe: righe.map((r) => r.id) });
+}
+
+/* La comanda di nuovo, per portata, con «RISTAMPA» in cima: la stampante
+   era spenta e il biglietto e' andato perso (la proprieta', 5 settembre 2026). */
+async function ristampaConto(contoId: string, chi: string): Promise<number> {
+  const { data: c } = await db.from('pos_conto').select('*').eq('id', contoId).maybeSingle();
+  if (!c) return 0;
+  const tutte = (await righeDelConto(contoId)).filter((r) => r.stato !== 'stornata' && r.stato !== 'da_inviare');
+  let n = 0;
+  for (const p of PORTATE) {
+    const rr = tutte.filter((r) => r.portata === p);
+    if (rr.length) { await creaStampe(c, rr, p, 'comanda', chi, 'ristampa'); n++; }
+  }
+  return n;
 }
 
 /* ---------- allineamento: upsert per id, vince aggiornato_il piu' recente ---------- */
@@ -508,7 +523,7 @@ Deno.serve(async (req) => {
   }
 
   const cameriere = await cameriereDi(req);
-  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'tessera', 'tavolo-sposta', 'paga'];
+  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'conto-ristampa', 'conto-sposta', 'riga-storna-rimborsa', 'tessera', 'tavolo-sposta', 'paga'];
   if (azioniPalmare.includes(azione) && !cameriere) return risposta({ errore: 'sessione non valida' }, 401);
 
   if (azione === 'menu') {
@@ -566,11 +581,28 @@ Deno.serve(async (req) => {
     const { data: qr } = idTavoli.length
       ? await db.from('pos_ordine_ospite').select('id, tavolo, totale_cent, modo, camera, creato_il').eq('stato', 'in_cucina').gte('creato_il', daQuando).in('tavolo', idTavoli).order('creato_il', { ascending: false }).limit(20)
       : { data: [] };
+    /* gli ordini dal QR di oggi (dalle quattro del mattino), tavolo per
+       tavolo: il conto e' chiuso, ma il cameriere deve vedere cosa ha preso
+       il tavolo, ristampare, spostare (la proprieta', 5 settembre 2026) */
+    const adessoRoma = oraLocale(new Date());
+    const inizio = new Date(); inizio.setUTCSeconds(0, 0);
+    inizio.setUTCMinutes(inizio.getUTCMinutes() - adessoRoma.minuti + 4 * 60);
+    if (adessoRoma.minuti < 4 * 60) inizio.setUTCDate(inizio.getUTCDate() - 1);
+    const { data: qrOggi } = idTavoli.length
+      ? await db.from('pos_ordine_ospite').select('id, tavolo, conto, totale_cent, rimborsato_cent, modo, camera, stato, creato_il').in('stato', ['in_cucina', 'rimborsato']).gte('creato_il', inizio.toISOString()).in('tavolo', idTavoli).order('creato_il')
+      : { data: [] };
+    const idContiQr = (qrOggi ?? []).map((o) => o.conto as string | null).filter((x): x is string => !!x);
+    const { data: righeQr } = idContiQr.length ? await db.from('pos_riga').select('id, conto, nome, quantita, prezzo_cent, nota, stato').in('conto', idContiQr) : { data: [] };
+    const qrPronti = (qrOggi ?? []).map((o) => ({ numero: o.id, conto: o.conto, tavolo: o.tavolo, totale_cent: o.totale_cent, rimborsato_cent: o.rimborsato_cent ?? 0, modo: o.modo, camera: o.camera, stato: o.stato, creato_il: o.creato_il, righe: (righeQr ?? []).filter((r) => r.conto === o.conto) }));
+    /* i biglietti fermi in coda per questo locale: sopra i due minuti il palmare avvisa */
+    const { data: coda } = await db.from('pos_stampa').select('creato_il').eq('locale', locale).eq('stato', 'da_stampare').order('creato_il').limit(50);
+
     const nomeTavolo = new Map((tavoli ?? []).map((t) => [t.id as string, String(t.nome)]));
     return risposta({
       zone: zone ?? [],
-      tavoli: (tavoli ?? []).map((t) => ({ ...t, conti: contiPronti.filter((c) => c.tavolo === t.id) })),
+      tavoli: (tavoli ?? []).map((t) => ({ ...t, conti: contiPronti.filter((c) => c.tavolo === t.id), qr: qrPronti.filter((o) => o.tavolo === t.id) })),
       qr_recenti: (qr ?? []).map((o) => ({ numero: o.id, tavolo: nomeTavolo.get(o.tavolo as string) ?? o.tavolo, totale_cent: o.totale_cent, modo: o.modo, camera: o.camera, creato_il: o.creato_il })),
+      coda_stampa: { n: (coda ?? []).length, minuti: coda?.length ? Math.floor((Date.now() - Date.parse(String(coda[0].creato_il))) / 60000) : 0 },
     });
   }
 
@@ -878,6 +910,75 @@ Deno.serve(async (req) => {
      aperti cambiano tavolo tutti insieme, e restano nello stesso locale:
      le stampanti sono quelle, e la cucina non deve cercare il piatto in
      un'altra sala. */
+  /* ---------- gli ordini dal QR, dal palmare (la proprieta', 5 settembre 2026) ---------- */
+  if (azione === 'conto-ristampa') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const b = await corpo();
+    const n = await ristampaConto(String(b.conto ?? ''), cameriere!.nome);
+    return n ? risposta({ esito: 'ok', biglietti: n }) : risposta({ errore: 'conto non trovato o senza righe' }, 404);
+  }
+
+  /* la riga di un ordine dal QR: stornata come le altre, e l'importo torna
+     al cliente — con Stripe se ha pagato con la carta, dall'addebito se era
+     in camera. Solo chi puo' stornare (capo sala, amministrazione). */
+  if (azione === 'riga-storna-rimborsa') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    if (!puo(cameriere!, 'storno')) return risposta({ errore: 'storno non permesso' }, 403);
+    const b = await corpo();
+    const motivo = motivoPulito(b.motivo);
+    if (!motivo) return risposta({ errore: 'scriva il motivo dello storno' }, 400);
+    const { data: r } = await db.from('pos_riga').select('*').eq('id', String(b.riga ?? '')).maybeSingle();
+    if (!r || r.stato === 'stornata') return risposta({ errore: 'riga non trovata o gia stornata' }, 404);
+    const { data: o } = await db.from('pos_ordine_ospite').select('*').eq('conto', String(r.conto)).maybeSingle();
+    if (!o) return risposta({ errore: 'non e una riga di un ordine dal QR' }, 409);
+    const cent = importoRiga({ quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent) });
+    const esito = importoRimborso(o as OrdineRimborsabile, Math.min(cent, residuoRimborso(o as OrdineRimborsabile)));
+    if (!esito.ok) return risposta({ errore: esito.errore }, 400);
+    const ora = adesso();
+    let rimborsoId: string | null = null;
+    if (o.modo === 'carta') {
+      const chiave = chiaveStripe(POS_PROVA);
+      if (!chiave) return risposta({ errore: 'manca la chiave Stripe' }, 500);
+      try { const rr = await stripe(chiave, '/refunds', corpoRimborsoStripe(String(o.stripe_pagamento), esito.cent)); rimborsoId = String(rr.id ?? '') || null; }
+      catch (e) { return risposta({ errore: (e as Error).message }, 502); }
+    } else {
+      const { data: ad } = await db.from('pos_addebito').select('*').eq('conto', String(o.conto)).maybeSingle();
+      if (!ad) return risposta({ errore: 'addebito non trovato' }, 404);
+      if (ad.stato === 'riportato') return risposta({ errore: 'l addebito e gia riportato in Fidra: si corregge la' }, 409);
+      const nuovoTot = Math.max(0, Number(ad.totale_cent) - esito.cent);
+      await db.from('pos_addebito').update({ totale_cent: nuovoTot, stato: nuovoTot === 0 ? 'annullato' : ad.stato, nota: `${ad.nota ? String(ad.nota) + ' · ' : ''}storno ${String(r.nome)} (${cameriere!.nome})`.slice(0, 200), aggiornato_il: ora }).eq('id', ad.id);
+    }
+    await db.from('pos_riga').update({ stato: 'stornata', stornata_da: cameriere!.id, stornata_il: ora, motivo_storno: motivo, aggiornato_il: ora }).eq('id', r.id);
+    const rimborsato = Number(o.rimborsato_cent ?? 0) + esito.cent;
+    const agg: Riga = { rimborsato_cent: rimborsato, rimborso_stripe: rimborsoId ?? o.rimborso_stripe ?? null, nota: `${o.nota ? String(o.nota) + ' · ' : ''}storno ${String(r.quantita)}× ${String(r.nome)}: ${motivo} (${cameriere!.nome})`.slice(0, 500), aggiornato_il: ora };
+    const nuovoStato = statoDopoRimborso(Number(o.totale_cent), rimborsato);
+    if (nuovoStato) agg.stato = nuovoStato;
+    await db.from('pos_ordine_ospite').update(agg).eq('id', o.id);
+    if (r.stato === 'partita') {
+      const { data: c } = await db.from('pos_conto').select('*').eq('id', String(r.conto)).single();
+      const questa = (await righeDelConto(String(r.conto))).filter((x) => x.id === r.id);
+      if (c && questa.length) await creaStampe(c, questa, r.portata as Portata, 'storno', cameriere!.nome);
+    }
+    return risposta({ esito: 'ok', rimborsato_cent: esito.cent, rimborso: rimborsoId });
+  }
+
+  /* un conto solo — anche chiuso, come quelli del QR — su un altro tavolo
+     dello stesso locale: era stato scritto il numero sbagliato */
+  if (azione === 'conto-sposta') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const b = await corpo();
+    const { data: c } = await db.from('pos_conto').select('*, t:pos_tavolo(z:pos_zona(locale))').eq('id', String(b.conto ?? '')).maybeSingle();
+    if (!c) return risposta({ errore: 'conto non trovato' }, 404);
+    const { data: a } = await db.from('pos_tavolo').select('id, nome, z:pos_zona(locale)').eq('id', String(b.a ?? '')).maybeSingle();
+    if (!a) return risposta({ errore: 'tavolo non trovato' }, 404);
+    const localeDi = (x: unknown) => (x as { locale: string } | null)?.locale ?? null;
+    if (localeDi((c.t as { z: unknown } | null)?.z) !== localeDi(a.z)) return risposta({ errore: 'l altro tavolo e di un altro locale' }, 409);
+    const ora = adesso();
+    await db.from('pos_conto').update({ tavolo: a.id, aggiornato_il: ora }).eq('id', c.id);
+    await db.from('pos_ordine_ospite').update({ tavolo: a.id, aggiornato_il: ora }).eq('conto', c.id);
+    return risposta({ esito: 'ok', tavolo: { id: a.id, nome: a.nome } });
+  }
+
   if (azione === 'tavolo-sposta') {
     if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
     const b = await corpo();
@@ -1236,10 +1337,10 @@ Deno.serve(async (req) => {
 
   /* ================= dal back office (accesso dell'hotel, amministrazione) ================= */
 
-  const azioniBackOffice = ['menu-salva', 'tavoli-salva', 'personale-salva', 'addebiti', 'addebito-segna', 'giornata', 'fasce-salva', 'tavoli-qr'];
+  const azioniBackOffice = ['menu-salva', 'tavoli-salva', 'personale-salva', 'addebiti', 'addebito-segna', 'giornata', 'fasce-salva', 'tavoli-qr', 'ospite-ordini', 'ospite-rimborsa', 'ospite-annulla-addebito', 'ospite-ristampa', 'ospite-nota'];
   if (azioniBackOffice.includes(azione)) {
     /* «addebiti» e «giornata» si leggono, le altre si scrivono */
-    if (req.method !== 'POST' && !(['addebiti', 'giornata', 'tavoli-qr'].includes(azione) && req.method === 'GET')) return risposta({ errore: 'metodo non ammesso' }, 405);
+    if (req.method !== 'POST' && !(['addebiti', 'giornata', 'tavoli-qr', 'ospite-ordini'].includes(azione) && req.method === 'GET')) return risposta({ errore: 'metodo non ammesso' }, 405);
     const acc = await autorizzato(req);
     if (!acc.ok) return risposta({ errore: 'non autorizzato' }, 401);
     /* la proprieta' lavora con l'account della reception (visto il 4
@@ -1250,6 +1351,79 @@ Deno.serve(async (req) => {
   /* I listini a fasce dal back office: le fasce si riscrivono, i prezzi
      scritti apposta si sostituiscono per intero fascia per fascia, e le
      fasce tolte se ne vanno coi loro prezzi. Le regole sono in fasce.ts. */
+  /* ---------- gli ordini dal QR, dal back office (la proprieta', 5 settembre 2026) ---------- */
+  if (azione === 'ospite-ordini') {
+    const da = url.searchParams.get('da') ?? '', a = url.searchParams.get('fino') ?? '';
+    if (!da || !a || Number.isNaN(Date.parse(da)) || Number.isNaN(Date.parse(a))) return risposta({ errore: 'servono «da» e «fino» come date' }, 400);
+    const { data: ordini, error } = await db.from('pos_ordine_ospite').select('*, tav:pos_tavolo(nome)').gte('creato_il', da).lt('creato_il', a).order('creato_il', { ascending: false });
+    if (error) return risposta({ errore: error.message }, 500);
+    const idConti = (ordini ?? []).map((o) => o.conto as string | null).filter((x): x is string => !!x);
+    const { data: addebiti } = idConti.length ? await db.from('pos_addebito').select('id, conto, stato, totale_cent').in('conto', idConti) : { data: [] };
+    const { data: righe } = idConti.length ? await db.from('pos_riga').select('id, conto, nome, quantita, prezzo_cent, nota, stato').in('conto', idConti) : { data: [] };
+    return risposta({ ordini: (ordini ?? []).map((o) => { const { tav, ...resto } = o as Riga & { tav: { nome: string } | null }; return { ...resto, tavolo_nome: tav?.nome ?? o.tavolo, addebito: (addebiti ?? []).find((x) => x.conto === o.conto) ?? null, righe_conto: (righe ?? []).filter((r) => r.conto === o.conto) }; }) });
+  }
+
+  if (azione === 'ospite-rimborsa') {
+    const b = await corpo();
+    const { data: o } = await db.from('pos_ordine_ospite').select('*').eq('id', String(b.ordine ?? '')).maybeSingle();
+    if (!o) return risposta({ errore: 'ordine non trovato' }, 404);
+    const esito = importoRimborso(o as OrdineRimborsabile, b.importo_cent);
+    if (!esito.ok) return risposta({ errore: esito.errore }, 400);
+    const chi = String(b.da ?? 'reception').slice(0, 80);
+    const ora = adesso();
+    let rimborsoId: string | null = null;
+    if (o.modo === 'carta') {
+      const chiave = chiaveStripe(POS_PROVA);
+      if (!chiave) return risposta({ errore: 'manca la chiave Stripe' }, 500);
+      try { const r = await stripe(chiave, '/refunds', corpoRimborsoStripe(String(o.stripe_pagamento), esito.cent)); rimborsoId = String(r.id ?? '') || null; }
+      catch (e) { return risposta({ errore: (e as Error).message }, 502); }
+    } else {
+      /* in camera: si toglie dall'addebito, se non e' ancora in Fidra */
+      const { data: ad } = await db.from('pos_addebito').select('*').eq('conto', String(o.conto ?? '')).maybeSingle();
+      if (!ad) return risposta({ errore: 'addebito non trovato' }, 404);
+      if (ad.stato === 'riportato') return risposta({ errore: 'l addebito e gia riportato in Fidra: si corregge la' }, 409);
+      const nuovoTot = Math.max(0, Number(ad.totale_cent) - esito.cent);
+      await db.from('pos_addebito').update({ totale_cent: nuovoTot, stato: nuovoTot === 0 ? 'annullato' : ad.stato, nota: `${ad.nota ? String(ad.nota) + ' · ' : ''}rimborso ${(esito.cent / 100).toFixed(2)} € (${chi})`.slice(0, 200), aggiornato_il: ora }).eq('id', ad.id);
+    }
+    const rimborsato = Number(o.rimborsato_cent ?? 0) + esito.cent;
+    const agg: Riga = { rimborsato_cent: rimborsato, rimborso_stripe: rimborsoId ?? o.rimborso_stripe ?? null, aggiornato_il: ora };
+    const nuovoStato = statoDopoRimborso(Number(o.totale_cent), rimborsato);
+    if (nuovoStato) agg.stato = nuovoStato;
+    if (b.motivo) agg.nota = `${o.nota ? String(o.nota) + ' · ' : ''}rimborso ${(esito.cent / 100).toFixed(2)} €: ${String(b.motivo).slice(0, 200)} (${chi})`.slice(0, 500);
+    const { data: dopo } = await db.from('pos_ordine_ospite').update(agg).eq('id', o.id).select('*').single();
+    return risposta({ ordine: dopo, rimborso: rimborsoId, importo_cent: esito.cent });
+  }
+
+  if (azione === 'ospite-annulla-addebito') {
+    const b = await corpo();
+    const { data: o } = await db.from('pos_ordine_ospite').select('*').eq('id', String(b.ordine ?? '')).maybeSingle();
+    if (!o) return risposta({ errore: 'ordine non trovato' }, 404);
+    if (o.modo !== 'camera') return risposta({ errore: 'non e un addebito in camera: si rimborsa' }, 400);
+    const { data: ad } = await db.from('pos_addebito').select('*').eq('conto', String(o.conto ?? '')).maybeSingle();
+    if (!ad) return risposta({ errore: 'addebito non trovato' }, 404);
+    if (ad.stato === 'riportato') return risposta({ errore: 'l addebito e gia riportato in Fidra: si corregge la' }, 409);
+    const ora = adesso(), chi = String(b.da ?? 'reception').slice(0, 80);
+    const motivo = b.motivo ? String(b.motivo).slice(0, 200) : null;
+    await db.from('pos_addebito').update({ stato: 'annullato', riportato_il: ora, riportato_da: chi, nota: motivo ?? ad.nota ?? null, aggiornato_il: ora }).eq('id', ad.id);
+    const { data: dopo } = await db.from('pos_ordine_ospite').update({ stato: 'annullato', annullato_il: ora, annullato_da: chi, rimborsato_cent: Number(o.totale_cent), nota: motivo ?? o.nota ?? null, aggiornato_il: ora }).eq('id', o.id).select('*').single();
+    return risposta({ ordine: dopo });
+  }
+
+  if (azione === 'ospite-ristampa') {
+    const b = await corpo();
+    const { data: o } = await db.from('pos_ordine_ospite').select('id, conto').eq('id', String(b.ordine ?? '')).maybeSingle();
+    if (!o?.conto) return risposta({ errore: 'ordine non trovato, o mai andato in cucina' }, 404);
+    const n = await ristampaConto(String(o.conto), String(b.da ?? 'reception').slice(0, 40));
+    return n ? risposta({ esito: 'ok', biglietti: n }) : risposta({ errore: 'niente da ristampare' }, 404);
+  }
+
+  if (azione === 'ospite-nota') {
+    const b = await corpo();
+    const { data: dopo, error } = await db.from('pos_ordine_ospite').update({ nota: String(b.nota ?? '').trim().slice(0, 500) || null, aggiornato_il: adesso() }).eq('id', String(b.ordine ?? '')).select('*').single();
+    if (error) return risposta({ errore: error.message }, 404);
+    return risposta({ ordine: dopo });
+  }
+
   if (azione === 'fasce-salva') {
     const b = await corpo();
     const ora = adesso();
@@ -1325,9 +1499,13 @@ Deno.serve(async (req) => {
       const { data } = await db.from('pos_pagamento').select('conto, modo, importo_cent').in('conto', ids.slice(i, i + 100));
       pagamenti.push(...(data ?? []));
     }
+    /* i rimborsi degli ordini dal QR del giorno (5 settembre 2026): li fa
+       Stripe, i pagamenti registrati non li vedono */
+    const { data: rimborsi } = await db.from('pos_ordine_ospite').select('rimborsato_cent').gt('rimborsato_cent', 0).gte('creato_il', da).lt('creato_il', a);
+    const rimborsi_qr_cent = (rimborsi ?? []).reduce((tot, o) => tot + (Number(o.rimborsato_cent) || 0), 0);
     const nomi = Object.fromEntries((camerieri ?? []).map((c) => [c.id as string, String(c.nome)]));
     return risposta({
-      da, a, locale: locale || null,
+      da, a, locale: locale || null, rimborsi_qr_cent,
       giornata: riepilogo({
         conti: conti.map((c) => ({ id: c.id as string, chiuso_come: c.chiuso_come as string | null, chiuso_da: c.chiuso_da as string | null, coperti: Number(c.coperti) || 0, camera: c.camera as string | null })),
         righe: righe.map((r) => ({ conto: String(r.conto), nome: String(r.nome), quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent), stato: String(r.stato), motivo_storno: r.motivo_storno as string | null, stornata_da: r.stornata_da as string | null })),

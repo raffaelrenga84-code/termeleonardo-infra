@@ -68,3 +68,18 @@ Deno.test('nel menu ogni articolo ha la spunta «QR»: senza, l ospite non lo ve
   assert(menu.includes('data-a="per_ospiti" ${a.per_ospiti !== false ? \'checked\' : \'\'}'), 'la spunta, accesa se non e mai stata spenta');
   assert(menu.includes('<th title="Lo vedono gli ospiti che ordinano dal QR">QR</th>'), 'la colonna');
 });
+
+Deno.test('la scheda «POS · Ordini dal QR»: un giorno alla volta, rimborsa, annulla l addebito, ristampa, nota', () => {
+  /* spec docs/superpowers/specs/2026-09-05-ordini-qr-design.md */
+  assert(P.includes("['posOrdiniQr', 'POS · Ordini dal QR']") && P.includes('posOrdiniQr: vistaPosOrdiniQr'), 'la scheda c e');
+  const v = P.slice(P.indexOf('function vistaPosOrdiniQr('), P.indexOf('function vistaPosGiornata('));
+  for (const a of ['a=ospite-ordini&da=', 'a=ospite-rimborsa', 'a=ospite-annulla-addebito', 'a=ospite-ristampa', 'a=ospite-nota']) assert(v.includes(a), a);
+  assert(v.includes('>Rimborsa<') && v.includes('Annulla l’addebito') && v.includes('Ristampa la comanda'), 'i pulsanti');
+  assert(P.includes("cifra('Rimborsi dal QR', num(g.rimborsi_qr_cent))"), 'la giornata mostra i rimborsi');
+});
+
+Deno.test('le schede stanno in quattro famiglie: Buoni, Ospiti, Day Spa, POS', () => {
+  assert(P.includes('const FAMIGLIE = [') && P.includes("['pos', 'POS', ['posOrdiniQr', 'posAddebiti', 'posGiornata', 'posMenu', 'posTavoli', 'posPersonale', 'posFasce']]"), 'la famiglia del POS');
+  assert(P.includes('class="famiglie"') && P.includes('const famigliaDi = (scheda) =>'), 'la barra delle famiglie');
+  for (const f of ["['buoni', 'Buoni', ['emetti', 'elenco', 'verifica']]", "['ospiti', 'Ospiti', ['richieste', 'arrivi', 'privacy']]", "['dayspa', 'Day Spa', ['dayspaOggi', 'dayspaDisponibilita', 'dayspaPrenotazioni']]"]) assert(P.includes(f), f);
+});
