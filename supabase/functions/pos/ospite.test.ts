@@ -88,3 +88,18 @@ Deno.test('l indirizzo di chi chiama: il primo della catena, e solo l hotel pass
   assertEquals(dallHotel(testa('5.6.7.8'), '46.234.202.29'), false);
   assertEquals(dallHotel(testa('5.6.7.8'), undefined), true, 'senza IP dell hotel configurato non si blocca nessuno');
 });
+
+Deno.test('la rete dell hotel puo essere piu di un IP (reception e Wi-Fi ospiti), separati da virgola', () => {
+  const testa = (ip: string) => new Headers({ 'x-forwarded-for': `${ip}, 10.0.0.1` });
+  assertEquals(dallHotel(testa('46.234.202.29'), '46.234.202.29, 93.1.2.3'), true);
+  assertEquals(dallHotel(testa('93.1.2.3'), '46.234.202.29, 93.1.2.3'), true);
+  assertEquals(dallHotel(testa('5.6.7.8'), '46.234.202.29, 93.1.2.3'), false);
+});
+
+Deno.test('fuori orario non si ordina: l articolo chiuso adesso ferma l ordine con un messaggio chiaro', () => {
+  const listino = [{ id: 'A1', nome: 'Cotoletta', prezzo_cent: 1400, fuori_orario: true }, { id: 'A2', nome: 'Acqua', prezzo_cent: 300 }];
+  const r = righeOrdine([{ articolo: 'A2', quantita: 1 }, { articolo: 'A1', quantita: 1 }], listino);
+  assertEquals(r.ok, false);
+  assertEquals((r as { errore: string }).errore, 'Cotoletta: non a quest ora');
+  assertEquals(righeOrdine([{ articolo: 'A2', quantita: 1 }], listino).ok, true);
+});

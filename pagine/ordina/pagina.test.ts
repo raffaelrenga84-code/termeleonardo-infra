@@ -55,3 +55,13 @@ Deno.test('i nomi per l ospite: nella sua lingua, con gli ingredienti e le sigle
   for (const l of ['it', 'en', 'de', 'fr']) assert(m.includes(`  ${l}: 'Allerg`), `legenda ${l}`);
   assert(m.includes('const LEGENDA_ALLERGENI = {') && m.includes('LEGENDA_ALLERGENI[LINGUA]'), 'la legenda in fondo alla lista');
 });
+
+Deno.test('gli orari del menu: un articolo chiuso adesso si vede ma non si aggiunge, con il suo orario tradotto', () => {
+  /* fase 2 della spec 2026-09-05-menu-ospiti-design.md */
+  assert(m.includes('const ORARI_TESTI = {') && m.includes('const orarioTesto = (finestre) =>'), 'i testi e la resa delle finestre');
+  for (const l of ['it', 'en', 'de', 'fr']) assert(m.includes(`  ${l}: { giorni: [`), `giorni ${l}`);
+  assert(m.includes("a.disponibile === false ? 'chiusa' : ''") && m.includes('class="orario"'), 'la riga chiusa e l orario');
+  assert(m.includes("${a.disponibile === false ? 'disabled' : ''} aria-label=\"+\""), 'il + non si preme');
+  assert(m.includes('c.disponibile === false ?'), 'il quadratone della categoria chiusa dice quando apre');
+  assert(m.includes('/rete Wi-Fi/i.test(s)') && m.includes('/a quest ora|fuori orario/i.test(s)'), 'gli errori tradotti');
+});

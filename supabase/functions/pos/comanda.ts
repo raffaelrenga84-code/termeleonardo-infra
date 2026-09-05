@@ -19,6 +19,9 @@ export type Biglietto = {
      e' proprio quello che si vuole togliere (la proprieta', 4 settembre
      2026). Vuoto: si serve dove si e' ordinato. */
   portareA?: string | null;
+  /* Un avviso in cima: «cucina chiusa: al bancone» quando i cuochi non ci
+     sono piu' e il biglietto della cucina esce al bar (orari.ts). */
+  avviso?: string | null;
 };
 
 const L = 32;
@@ -43,6 +46,7 @@ export function testoBiglietto(b: Biglietto): string {
   /* subito sotto il titolo, prima ancora del tavolo: chi legge il
      biglietto deve capire in un colpo che questa roba se ne va altrove */
   if (b.portareA) righe.push(taglia(`>>> PORTARE AL ${b.portareA.toUpperCase()}`));
+  if (b.avviso) righe.push(taglia(`>>> ${b.avviso.toUpperCase()}`));
   righe.push(taglia(`${b.tavolo}  (${b.coperti} cop.)  ${b.conto}`));
   righe.push(taglia(`${b.ora}  ${b.cameriere}  ${b.locale}`));
   if (b.noteVitto) righe.push(taglia(`!!! ${b.noteVitto} !!!`));

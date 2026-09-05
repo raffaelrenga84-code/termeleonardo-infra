@@ -411,3 +411,20 @@ Deno.test('un conto con dentro solo storni e a zero: si chiude, e gli storni res
   const sala = await esegui(db, 'sala', req('GET', null, { locale: 'L1' }), cfg);
   assertEquals((sala.corpo as { tavoli: { id: string; conti: unknown[] }[] }).tavoli.find((t) => t.id === 'T7')!.conti.length, 0, 'e il tavolo e libero');
 });
+
+Deno.test('a cucina chiusa (orari_cucina del locale) il biglietto della cucina esce al bancone, con l avviso in cima', async () => {
+  /* la proprieta', 5 settembre 2026: «dopo le 14:30 ogni comanda esce al bancone» */
+  const db = base();
+  const { oraLocale } = await import('../supabase/functions/pos/fasce.ts');
+  const chiusa = oraLocale(new Date()).minuti < 12 * 60 ? '13:00-13:05' : '02:00-02:05';   // un orario che adesso e' sicuramente passato
+  db.prepare('update pos_locale set orari_cucina = ? where id = ?').run(chiusa, 'L1');
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 2 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  await esegui(db, 'righe', req('POST', { conto, righe: [{ id: 'r1', articolo: 'A1', quantita: 1, portata: 'primi' }, { id: 'r2', articolo: 'A2', quantita: 1, portata: 'bevande' }] }), cfg);
+  await esegui(db, 'invia', req('POST', { conto }), cfg);
+  const stampe = db.prepare('select stampante, testo from pos_stampa order by testo').all() as { stampante: string; testo: string }[];
+  assertEquals(stampe.map((s) => s.stampante), ['bar', 'bar'], 'tutti e due i biglietti escono al bar');
+  const cucina = stampe.find((s) => s.testo.includes('Tagliatelle'))!;
+  assertEquals(cucina.testo.split('\n')[1], '>>> CUCINA CHIUSA: AL BANCONE');
+  assert(!stampe.find((s) => s.testo.includes('Birra'))!.testo.includes('CUCINA CHIUSA'), 'il biglietto del bar e normale');
+});

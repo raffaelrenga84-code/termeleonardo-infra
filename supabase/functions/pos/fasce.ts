@@ -84,3 +84,9 @@ export function applicaFascia<T extends { id: string; categoria?: string | null;
     return p === null ? a : { ...a, prezzo_cent: p, prezzo_base_cent: Number(a.prezzo_cent), in_fascia: true };
   });
 }
+
+/** Una finestra oraria qualunque (gli orari del menu, orari.ts, la usano):
+    giorni con 0 = domenica, fine esclusa, anche a cavallo della mezzanotte. */
+export function dentroFinestra(dalle: string, alle: string, giorni: number[] | null | undefined, adesso: Adesso): boolean {
+  return dentro({ id: '', nome: '', dalle, alle, giorni: giorni ?? null }, adesso);
+}

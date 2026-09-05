@@ -44,3 +44,34 @@ sabato 20:30): seconda fase, con un orario per categoria.
 - La pagina usa `nomi[LINGUA] || nomi.it || nome` (prova sul sorgente).
 - Lo script in prova a vuoto elenca cosa scriverebbe; le due incongruenze di
   prezzo con il PDF (Veggie Delizia, Bruschetta) restano in attesa.
+
+## Fase 2: gli orari (approvata il 5 settembre 2026, «Procedi con orari»)
+
+Il menù stampato dice: «Piatti disponibili dalle ore 12:15 alle 14:30.
+"X" disponibile fino alle ore 17:30, venerdì e sabato fino alle ore 20:30».
+
+1. **Una riga di testo** `orari` sulla categoria e sull'articolo, nel
+   formato «12:15-14:30; ven,sab 12:15-20:30» (parti separate da `;`,
+   davanti alle ore i giorni: «ven,sab» o «lun-ven»; vuoto = sempre).
+   L'articolo vince sulla categoria; la categoria dentro un'altra eredita.
+   Modulo puro `orari.ts`: `leggiOrari`, `apertoOra`, `restringi`,
+   `stampanteAdesso`.
+2. **Chi ordina dal QR** vede la voce chiusa (grigia, col suo orario nella
+   sua lingua) ma non la aggiunge; il server rifiuta comunque un ordine
+   fuori orario («non a quest'ora»). **La fine si anticipa di dieci
+   minuti** per l'ospite (`MARGINE_OSPITI`): alle 14:30 in punto la cucina
+   non deve trovare un ordine nuovo. Il palmare non guarda gli orari.
+3. **A cucina chiusa il biglietto esce al bancone.** Sul locale
+   (`pos_locale.orari_cucina`, back office → POS · Tavoli) si scrivono gli
+   orari della cucina; fuori da quelli ogni biglietto «cucina» esce sulla
+   stampante del bar con in cima «>>> CUCINA CHIUSA: AL BANCONE». Vale per
+   il palmare e per il QR, nel cloud e sul PC del Bistrot.
+4. **Riempimento** (`strumenti/orari-menu.js`, solo dove vuoto): le sei
+   categorie del cibo prendono «12:15-14:30»; gli articoli con la «X» che
+   si riconoscono dal PDF (Mozzarella di bufala, Cannelloni, le tre
+   insalatone, i tre hamburger) «12:15-17:30; ven,sab 12:15-20:30»; il
+   locale Bistrot `orari_cucina` «12:15-14:30». Quali piatti abbiano
+   davvero la X va controllato sulla carta: il simbolo si perde nel PDF.
+5. **La rete dell'hotel** può essere più di un IP (`POS_IP_OSPITI`, lista
+   separata da virgola, con `TOTEM_IP` come riserva); chi è fuori legge
+   nel messaggio l'indirizzo che il server ha visto.

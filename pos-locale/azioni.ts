@@ -18,6 +18,7 @@ import { chiusoCome, importoValido, residuo, resto } from '../supabase/functions
 import { applicaFascia, fasciaAttiva, oraLocale, prezzoInFascia } from '../supabase/functions/pos/fasce.ts';
 import type { Fascia, PrezzoFascia } from '../supabase/functions/pos/fasce.ts';
 import { localeChePrepara, portareA, siStampa } from '../supabase/functions/pos/dove.ts';
+import { stampanteAdesso } from '../supabase/functions/pos/orari.ts';
 
 export type Richiesta = { metodo: string; query: Record<string, string>; corpo: unknown; intestazioni: Record<string, string> };
 export type Risposta = { stato: number; corpo: unknown };
@@ -79,16 +80,19 @@ function creaStampe(db: Db, conto: Riga, righe: RigaStampabile[], portata: Porta
   /* Un biglietto per ogni coppia (locale che prepara, stampante): di
      regola si prepara dove si mangia, ma il ristorante puo' mandare le
      bevande al Bistrot e allora il biglietto esce di la'. */
-  const nomi = db.prepare('select id, nome, stampante_cucina, stampante_bar from pos_locale').all() as Riga[];
+  const nomi = db.prepare('select id, nome, stampante_cucina, stampante_bar, orari_cucina from pos_locale').all() as Riga[];
+  const adessoOra = oraLocale(new Date());
   const nomeDelLocale = (id: string) => (nomi.find((l) => l.id === id)?.nome as string) ?? null;
   const gruppi = new Map<string, RigaStampabile[]>();
   for (const r of righe) {
     const dove = localeChePrepara({ riga: r.locale_stampa, tavolo: String(t.locale_id) });
-    const chiave = `${dove}|${r.stampante}`;
+    /* a cucina chiusa il biglietto della cucina esce al bancone (orari.ts) */
+    const stampante = stampanteAdesso(r.stampante, nomi.find((l) => l.id === dove)?.orari_cucina, adessoOra);
+    const chiave = `${dove}|${stampante}|${r.stampante}`;
     gruppi.set(chiave, [...(gruppi.get(chiave) ?? []), r]);
   }
   for (const [chiave, rr] of gruppi) {
-    const [dove, stampante] = chiave.split('|');
+    const [dove, stampante, originale] = chiave.split('|');
     /* dove non c'e' stampante non si stampa: la cucina del ristorante non
        ne ha, e il biglietto resterebbe in coda per sempre */
     const suo = nomi.find((l) => l.id === dove) as { stampante_cucina?: string | null; stampante_bar?: string | null } | undefined;
@@ -100,6 +104,7 @@ function creaStampe(db: Db, conto: Riga, righe: RigaStampabile[], portata: Porta
       righe: rr.map((r) => ({ quantita: Number(r.quantita), nome: String(r.nome), variante: (r.variante as string | null) ?? null, nota: (r.nota as string | null) ?? null })),
       noteVitto: null,
       portareA: portareA({ preparaIn: dove, tavoloIn: String(t.locale_id), nomeDelLocale }),
+      avviso: stampante !== originale ? 'cucina chiusa: al bancone' : null,
     };
     salva(db, 'pos_stampa', { id: crypto.randomUUID(), locale: dove, stampante, testo: testoBiglietto(b), stato: 'da_stampare', creato_il: ora, stampata_il: null, stampata_da: null, errore: null, aggiornato_il: ora, allineato: 0 });
   }

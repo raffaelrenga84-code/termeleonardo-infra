@@ -71,3 +71,12 @@ Deno.test('il biglietto di casa non dice niente di strano', () => {
   });
   assert(!t.includes('PORTARE'), 'si serve dove si e ordinato');
 });
+
+Deno.test('a cucina chiusa il biglietto esce al bancone con l avviso in cima, sotto il titolo', async () => {
+  /* la proprieta', 5 settembre 2026: «dopo le 14:30 ogni comanda esce al bancone» */
+  const { testoBiglietto: testo } = await import('./comanda.ts');
+  const t = testo({ tipo: 'COMANDA', locale: 'Bistrot', tavolo: 'Tavolo 3', conto: 'Esterno', coperti: 2, portata: 'secondi', ora: '15:10', cameriere: 'Anna', righe: [{ quantita: 1, nome: 'Piadina romagnola' }], avviso: 'cucina chiusa: al bancone' });
+  const righe = t.split('\n');
+  assertEquals(righe[1], '>>> CUCINA CHIUSA: AL BANCONE');
+  assert(!testo({ tipo: 'COMANDA', locale: 'Bistrot', tavolo: 'Tavolo 3', conto: 'Esterno', coperti: 2, portata: 'secondi', ora: '13:10', cameriere: 'Anna', righe: [{ quantita: 1, nome: 'Piadina' }] }).includes('>>>'), 'senza avviso niente');
+});

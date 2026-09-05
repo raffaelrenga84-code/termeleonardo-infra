@@ -56,6 +56,8 @@ button{font:inherit;cursor:pointer;color:inherit;}
 .riga .nome b{display:block;font-size:16px;line-height:1.25;color:#2A2E2B;}
 .riga .desc{display:block;font-size:13px;color:var(--grigio);line-height:1.3;margin-top:2px;}
 .riga .allergeni{display:inline-block;font-size:11px;color:var(--grigio);border:1px solid var(--pietra);border-radius:6px;padding:1px 6px;margin-top:4px;letter-spacing:.4px;}
+.riga.chiusa{opacity:.6;}
+.riga .orario{display:block;font-size:12px;color:var(--allarme);margin-top:3px;}
 .riga .prezzo{color:var(--grigio);font-size:15px;}
 .riga.scelta{border-color:var(--verde);background:#F3F7F4;}
 .qta{display:flex;align-items:center;gap:2px;}
@@ -188,6 +190,8 @@ const traduci = (m) => {
   if (/non corrisponde/i.test(s)) return T().nonCombacia;
   if (/tessera non riconosciuta|tessera non trovata/i.test(s)) return T().tesseraNo;
   if (/esaurito/i.test(s)) return T().esaurito;
+  if (/rete Wi-Fi/i.test(s)) return OT().soloHotel + (s.includes('indirizzo:') ? ' (IP ' + s.slice(s.indexOf('indirizzo:') + 10).replace(')', '').trim() + ')' : '');
+  if (/a quest ora|fuori orario/i.test(s)) return OT().fuoriOrario;
   if (/tavolo non riconosciuto|tavolo non trovato/i.test(s)) return T().tavoloNo;
   return LINGUA === 'it' ? s : `${T().errore} (${s})`;
 };
@@ -219,7 +223,7 @@ const categorieRadice = () => MENU.categorie.filter((c) => !c.sotto).sort((a, b)
 const sottoDi = (id) => MENU.categorie.filter((c) => c.sotto === id).sort((a, b) => (Number(a.posizione) || 0) - (Number(b.posizione) || 0) || String(a.nome).localeCompare(String(b.nome), 'it'));
 const articoliDi = (id) => MENU.articoli.filter((a) => a.categoria === id).sort((a, b) => (Number(a.posizione) || 0) - (Number(b.posizione) || 0) || String(a.nome).localeCompare(String(b.nome), 'it'));
 const quantiIn = (c) => articoliDi(c.id).length + sottoDi(c.id).reduce((t, s) => t + articoliDi(s.id).length, 0);
-const quadro = (c) => `<button class="quadro" data-cat="${esc(c.id)}"><span class="icona">${icona(c.nome)}</span><span><b>${esc(nomeDi(c))}</b><br><span class="mini">${quantiIn(c)}</span></span></button>`;
+const quadro = (c) => `<button class="quadro" data-cat="${esc(c.id)}"><span class="icona">${icona(c.nome)}</span><span><b>${esc(nomeDi(c))}</b><br><span class="mini">${c.disponibile === false ? '🕒 ' + esc(orarioTesto(c.finestre)) : quantiIn(c)}</span></span></button>`;
 
 const schermataCategorie = () => {
   const cats = categorieRadice().filter((c) => quantiIn(c) > 0);
@@ -236,6 +240,17 @@ const LEGENDA_ALLERGENI = {
   de: 'Allergene: GL Gluten · LA Milch · U Eier · CR Krebstiere · P Fisch · SE Sesam · FG Schalenfrüchte · CE Sellerie · AS Sulfite',
   fr: 'Allergènes : GL gluten · LA lait · U œufs · CR crustacés · P poisson · SE sésame · FG fruits à coque · CE céleri · AS sulfites',
 };
+/* Gli orari del menu (fase 2 della spec): il server dice per ogni voce se e'
+   ordinabile adesso (disponibile) e le sue finestre; qui si mostrano nella
+   lingua dell'ospite. Chiuso = si vede, ma il + non si preme. */
+const ORARI_TESTI = {
+  it: { giorni: ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'], chiuso: 'Ora non disponibile', soloHotel: 'Si ordina dalla rete Wi-Fi dell’hotel.', fuoriOrario: 'Un articolo non è disponibile a quest’ora: lo tolga dall’ordine.' },
+  en: { giorni: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], chiuso: 'Not available right now', soloHotel: 'Orders are taken from the hotel Wi-Fi only.', fuoriOrario: 'An item is not available at this time: please remove it from the order.' },
+  de: { giorni: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'], chiuso: 'Jetzt nicht erhältlich', soloHotel: 'Bestellen nur über das Hotel-WLAN.', fuoriOrario: 'Ein Artikel ist um diese Zeit nicht erhältlich: bitte aus der Bestellung entfernen.' },
+  fr: { giorni: ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'], chiuso: 'Pas disponible en ce moment', soloHotel: 'On commande depuis le Wi-Fi de l’hôtel.', fuoriOrario: 'Un article n’est pas disponible à cette heure : retirez-le de la commande.' },
+};
+const OT = () => ORARI_TESTI[LINGUA] || ORARI_TESTI.it;
+const orarioTesto = (finestre) => (finestre || []).map((f) => (f.giorni && f.giorni.length ? f.giorni.map((g) => OT().giorni[g]).join(', ') + ' ' : '') + f.dalle + '–' + f.alle).join(' · ');
 const nomeDi = (x) => (x.nomi && (x.nomi[LINGUA] || x.nomi.it)) || x.nome;
 const descDi = (x) => (x.descrizioni && (x.descrizioni[LINGUA] || x.descrizioni.it)) || '';
 const allergeniDi = (a) => String(a.allergeni || '').split('-').map((s) => s.trim()).filter(Boolean);
@@ -243,10 +258,10 @@ const rigaArticolo = (a) => {
   const q = quantita(a.id), c = CARRELLO.get(a.id);
   const parti = q ? partiNota(c && c.nota) : [];
   const pronte = q ? noteDi(a) : [];
-  return `<div class="riga ${q ? 'scelta' : ''}" data-art="${esc(a.id)}"><div class="nome"><b>${esc(nomeDi(a))}</b>${descDi(a) ? `<span class="desc">${esc(descDi(a))}</span>` : ''}<span class="prezzo">${euro(a.prezzo_cent)}${a.in_fascia ? ' ★' : ''}</span>${allergeniDi(a).length ? `<span class="allergeni">${allergeniDi(a).map(esc).join(' · ')}</span>` : ''}
+  return `<div class="riga ${q ? 'scelta' : ''} ${a.disponibile === false ? 'chiusa' : ''}" data-art="${esc(a.id)}"><div class="nome"><b>${esc(nomeDi(a))}</b>${descDi(a) ? `<span class="desc">${esc(descDi(a))}</span>` : ''}<span class="prezzo">${euro(a.prezzo_cent)}${a.in_fascia ? ' ★' : ''}</span>${allergeniDi(a).length ? `<span class="allergeni">${allergeniDi(a).map(esc).join(' · ')}</span>` : ''}${a.disponibile === false ? `<span class="orario">🕒 ${esc(OT().chiuso)} · ${esc(orarioTesto(a.finestre))}</span>` : ''}
     ${pronte.length ? `<div class="chips">${pronte.map((n) => `<button type="button" class="chip ${parti.includes(n) ? 'attiva' : ''}" data-chip-art="${esc(a.id)}" data-chip="${esc(n)}">${esc(etichettaNota(n))}</button>`).join('')}</div>` : ''}
     ${q ? (c && (c.aperta || c.nota) ? `<div class="notaRiga"><input data-nota="${esc(a.id)}" placeholder="${esc(T().nota)}" value="${esc(c.nota || '')}" maxlength="120" /></div>` : `<button class="aggiungiNota" data-apri-nota="${esc(a.id)}">${esc(T().aggiungiNota)}</button>`) : ''}</div>
-    <div class="qta"><button data-meno="${esc(a.id)}" ${q ? '' : 'disabled'} aria-label="−">−</button><output>${q || ''}</output><button data-piu="${esc(a.id)}" aria-label="+">+</button></div></div>`;
+    <div class="qta"><button data-meno="${esc(a.id)}" ${q ? '' : 'disabled'} aria-label="−">−</button><output>${q || ''}</output><button data-piu="${esc(a.id)}" ${a.disponibile === false ? 'disabled' : ''} aria-label="+">+</button></div></div>`;
 };
 const schermataArticoli = (cat) => {
   const figlie = sottoDi(cat.id).filter((c) => quantiIn(c) > 0);

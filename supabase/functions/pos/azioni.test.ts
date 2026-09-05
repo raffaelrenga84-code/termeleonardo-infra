@@ -130,7 +130,7 @@ Deno.test('il motivo lo pretende il server, non solo la pagina', () => {
 Deno.test('un biglietto per ogni coppia locale-stampante, e il cloud stampa dove va stampato', () => {
   const c = S.slice(S.indexOf('async function creaStampe'), S.indexOf('/* ---------- allineamento'));
   assert(c.includes('localeChePrepara({') && c.includes('portareA({'), 'la regola sta nel modulo puro');
-  assert(c.includes('const chiave = `${dove}|${r.stampante}`'), 'si raggruppa per locale e stampante');
+  assert(c.includes('const chiave = `${dove}|${stampante}|${r.stampante}`'), 'si raggruppa per locale e stampante (quella decisa dall ora, e quella di partenza per l avviso)');
   assert(c.includes('locale: dove'), 'e il biglietto va in coda al locale che prepara');
   const p = S.slice(S.indexOf("azione === 'stampa-cloud'"), S.indexOf("azione === 'allinea-su'"));
   assert(p.includes("from('pos_locale').select('stampante_cucina, stampante_bar')"), 'la stampante e quella del locale del biglietto');
@@ -143,7 +143,7 @@ Deno.test('dove non c e stampante non nasce nessun biglietto', () => {
   const c = S.slice(S.indexOf('async function creaStampe'), S.indexOf('/* ---------- allineamento'));
   assert(c.includes('siStampa({ stampante: stampante as'), 'si controlla prima di creare');
   assert(c.includes('return [];'), 'e quel gruppo non produce biglietti');
-  assert(c.includes("select('id, nome, stampante_cucina, stampante_bar')"), 'le stampanti dei locali arrivano da li');
+  assert(c.includes("select('id, nome, stampante_cucina, stampante_bar, orari_cucina')"), 'le stampanti dei locali arrivano da li, con gli orari della cucina');
   assert(c.includes("from('pos_comanda').insert("), 'la comanda resta scritta lo stesso: cosa e stato mandato si sa');
 });
 
@@ -207,7 +207,7 @@ Deno.test('conto-cambia accetta la camera: un conto esterno diventa in camera al
 
 Deno.test('l ordine dal tavolo col QR: menu pubblico firmato, carta via Stripe, camera con tessera che combacia', () => {
   /* la proprieta', 5 settembre 2026 */
-  assert(S.includes("import { cameraCombacia, codiceTessera, dallHotel, numeroOrdine, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';"), 'le regole nel modulo puro');
+  assert(S.includes("import { cameraCombacia, codiceTessera, dallHotel, ipDi, numeroOrdine, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';"), 'le regole nel modulo puro');
   assert(S.includes("const azioniOspite = ['ospite-menu', 'ospite-ordine', 'ospite-stato'];"), 'tre azioni pubbliche');
   const o = S.slice(S.indexOf('const azioniOspite'), S.indexOf('/* ================= dal palmare'));
   assert(o.includes("if (!(await tavoloFirmato(t, k, Deno.env.get('HOTEL_KEY'))))"), 'senza la firma del QR niente');
@@ -235,7 +235,7 @@ Deno.test('ospite-tavoli: l elenco pubblico dei tavoli con la firma, per chi scr
 });
 
 Deno.test('l ordine dal tavolo solo dalla rete dell hotel, tessera dalle cifre stampate, consegna in camera', () => {
-  assert(S.includes("if (!dallHotel(req.headers, Deno.env.get('TOTEM_IP'))) return risposta({ errore: 'si ordina dalla rete Wi-Fi dell hotel' }, 403);"), 'fuori dall hotel niente');
+  assert(S.includes("if (!dallHotel(req.headers, Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP'))) return risposta({ errore: `si ordina dalla rete Wi-Fi dell hotel (il suo indirizzo: ${ipDi(req.headers)})` }, 403);"), 'fuori dall hotel niente');
   assert(S.includes('const tessera = codiceTessera(b.tessera);'), 'il codice a barre lo rifa il server');
   assert(S.includes("const consegna = String(b.consegna ?? '').trim().slice(0, 10) || null;"), 'la camera di consegna');
   assert(S.includes("`QR · PAGATO ONLINE${o.camera ? ` · CAMERA ${String(o.camera)}` : ''}`"), 'e sul biglietto si legge');
@@ -244,6 +244,25 @@ Deno.test('l ordine dal tavolo solo dalla rete dell hotel, tessera dalle cifre s
 Deno.test('il menu per l ospite porta i nomi tradotti, le descrizioni e gli allergeni; le categorie il loro nome tradotto', () => {
   /* spec docs/superpowers/specs/2026-09-05-menu-ospiti-design.md */
   const o = S.slice(S.indexOf("azione === 'ospite-menu'"), S.indexOf("azione === 'ospite-stato'"));
-  assert(o.includes("select('id, nome, posizione, colore, sotto, per_ospiti, note_rapide, nomi').eq('attiva', true)"), 'categorie con nomi');
-  assert(o.includes("select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, nomi, descrizioni, allergeni').eq('attivo', true)"), 'articoli con nomi, descrizioni, allergeni');
+  assert(o.includes("select('id, nome, posizione, colore, sotto, per_ospiti, note_rapide, nomi, orari').eq('attiva', true)"), 'categorie con nomi');
+  assert(o.includes("select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, nomi, descrizioni, allergeni, orari').eq('attivo', true)"), 'articoli con nomi, descrizioni, allergeni');
+});
+
+Deno.test('gli orari del menu: il menu per l ospite dice cosa e ordinabile adesso, e l ordine fuori orario si ferma', () => {
+  /* fase 2 della spec 2026-09-05-menu-ospiti-design.md */
+  assert(S.includes("import { apertoOra, leggiOrari, restringi, stampanteAdesso } from './orari.ts';"), 'il modulo puro');
+  const o = S.slice(S.indexOf("azione === 'ospite-menu'"), S.indexOf("azione === 'ospite-stato'"));
+  assert(o.includes('note_rapide, nomi, orari') && o.includes('nomi, descrizioni, allergeni, orari'), 'si leggono gli orari di categorie e articoli');
+  assert(o.includes('disponibile: apertoOra(') && o.includes('finestre'), 'ogni categoria e ogni articolo dice se e aperto adesso, con le sue finestre');
+  const ord = S.slice(S.indexOf('/* ospite-ordine */'), S.indexOf("azione === 'ospite-stato'") > 0 ? S.indexOf('/* ================= dal palmare') : S.length);
+  assert(ord.includes('fuori_orario:'), 'l ordine porta il segno «fuori orario» a righeOrdine');
+  assert(S.includes("(il suo indirizzo: ${ipDi(req.headers)})") && S.includes("Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP')"), 'chi e fuori dalla rete legge il suo IP, e gli IP ammessi possono essere piu di uno');
+});
+
+Deno.test('a cucina chiusa (pos_locale.orari_cucina) il biglietto della cucina esce al bancone, con l avviso', () => {
+  /* la proprieta', 5 settembre 2026 */
+  const c = S.slice(S.indexOf('async function creaStampe('), S.indexOf('async function creaStampe(') + 4000);
+  assert(c.includes("select('id, nome, stampante_cucina, stampante_bar, orari_cucina')"), 'si leggono gli orari della cucina del locale');
+  assert(c.includes('const stampante = stampanteAdesso(r.stampante, (locali ?? []).find((l) => l.id === dove)?.orari_cucina, adessoOra);'), 'la stampante la decide l ora');
+  assert(c.includes("avviso: stampante !== originale ? 'cucina chiusa: al bancone' : null,"), 'il biglietto lo dice');
 });

@@ -45,6 +45,7 @@ export async function tavoloFirmato(tavolo: unknown, firma: unknown, segreto: st
 export type ArticoloVendibile = {
   id: string; nome: string; prezzo_cent: number; categoria?: string | null; portata?: string | null;
   esaurito?: boolean | null; prezzo_libero?: boolean | null; attivo?: boolean | null;
+  fuori_orario?: boolean | null;   // gli orari del menu (orari.ts): chiuso adesso
 };
 export type RigaOspite = { articolo: string; nome: string; quantita: number; prezzo_cent: number; nota: string | null; portata: string | null };
 
@@ -58,6 +59,7 @@ export function righeOrdine(richieste: unknown, articoli: ArticoloVendibile[]): 
     const a = articoli.find((x) => x.id === String(r?.articolo ?? ''));
     if (!a || a.attivo === false) return { ok: false, errore: 'un articolo non e piu in listino' };
     if (a.esaurito) return { ok: false, errore: `${a.nome}: esaurito` };
+    if (a.fuori_orario) return { ok: false, errore: `${a.nome}: non a quest ora` };
     if (a.prezzo_libero) return { ok: false, errore: `${a.nome}: si ordina al cameriere` };
     const q = Math.round(Number(r?.quantita));
     if (!Number.isInteger(q) || q < 1 || q > OSPITE_MAX_QUANTITA) return { ok: false, errore: `${a.nome}: quantita fra 1 e ${OSPITE_MAX_QUANTITA}` };
@@ -106,11 +108,13 @@ export function ipDi(intestazioni: Headers): string {
 }
 
 /** Si ordina solo dalla rete dell'hotel («fai funzionare l'ordina solo con
-    l'IP dell'hotel», la proprieta', 5 settembre 2026). Senza l'IP
-    configurato non si blocca nessuno. */
+    l'IP dell'hotel», la proprieta', 5 settembre 2026). Gli IP ammessi
+    possono essere piu di uno, separati da virgola (la reception e il
+    Wi-Fi degli ospiti escono da linee diverse). Senza l'IP configurato
+    non si blocca nessuno. */
 export function dallHotel(intestazioni: Headers, ipHotel: string | undefined): boolean {
   if (!ipHotel) return true;
-  return ipDi(intestazioni) === ipHotel;
+return ipHotel.split(',').map((s) => s.trim()).filter(Boolean).includes(ipDi(intestazioni));
 }
 
 /** Il numero dell'ordine, corto e leggibile: Q piu' sei segni senza 0/O/1/I. */

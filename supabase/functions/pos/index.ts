@@ -44,7 +44,12 @@ import { riepilogo } from './giornata.ts';
 import { chiusoCome, importoValido, residuo, resto } from './pagamenti.ts';
 import { applicaFascia, fasciaAttiva, minutiDi, oraLocale, prezzoInFascia } from './fasce.ts';
 import type { Fascia, PrezzoFascia } from './fasce.ts';
-import { cameraCombacia, codiceTessera, dallHotel, numeroOrdine, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';
+import { cameraCombacia, codiceTessera, dallHotel, ipDi, numeroOrdine, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';
+import { apertoOra, leggiOrari, restringi, stampanteAdesso } from './orari.ts';
+/* chi ordina dal QR si ferma dieci minuti prima della fine di ogni orario:
+   alle 14:30 in punto la cucina non deve trovare un ordine nuovo (la
+   proprieta', 5 settembre 2026) */
+const MARGINE_OSPITI = 10;
 import { chiaveStripe, dividiParametri, firmaValida, parametriLink, segretoWebhook, STRIPE } from './stripe.ts';
 import { motivoDelPrezzo, motivoPulito, prezzoCambiato } from './motivi.ts';
 import { localeChePrepara, portareA, siStampa } from './dove.ts';
@@ -188,16 +193,19 @@ async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata
   /* Un biglietto per ogni coppia (locale che prepara, stampante): di
      regola si prepara dove si mangia, ma il ristorante puo' mandare le
      bevande al Bistrot e allora il biglietto esce di la'. */
-  const { data: locali } = await db.from('pos_locale').select('id, nome, stampante_cucina, stampante_bar');
+  const { data: locali } = await db.from('pos_locale').select('id, nome, stampante_cucina, stampante_bar, orari_cucina');
+  const adessoOra = oraLocale(new Date());
   const nomeDelLocale = (id: string) => (locali ?? []).find((l) => l.id === id)?.nome as string ?? null;
   const gruppi = new Map<string, RigaStampabile[]>();
   for (const r of righe) {
     const dove = localeChePrepara({ riga: r.locale_stampa as string | null, tavolo: locale.id });
-    const chiave = `${dove}|${r.stampante}`;
+    /* a cucina chiusa il biglietto della cucina esce al bancone (orari.ts) */
+    const stampante = stampanteAdesso(r.stampante, (locali ?? []).find((l) => l.id === dove)?.orari_cucina, adessoOra);
+    const chiave = `${dove}|${stampante}|${r.stampante}`;
     gruppi.set(chiave, [...(gruppi.get(chiave) ?? []), r]);
   }
   const stampe = [...gruppi].flatMap(([chiave, rr]) => {
-    const [dove, stampante] = chiave.split('|');
+    const [dove, stampante, originale] = chiave.split('|');
     /* dove non c'e' stampante non si stampa: il biglietto resterebbe in
        coda per sempre. La riga resta sul conto, e il giorno che una
        stampante arriva comincia a uscire da sola. */
@@ -209,6 +217,7 @@ async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata
       righe: rr.map((r) => ({ quantita: Number(r.quantita), nome: String(r.nome), variante: (r.variante as string | null) ?? null, nota: (r.nota as string | null) ?? null })),
       noteVitto: null,
       portareA: portareA({ preparaIn: dove, tavoloIn: locale.id, nomeDelLocale }),
+      avviso: stampante !== originale ? 'cucina chiusa: al bancone' : null,
     };
     return [{ id: crypto.randomUUID(), locale: dove, stampante, testo: testoBiglietto(b) }];
   });
@@ -323,7 +332,7 @@ Deno.serve(async (req) => {
      da sola non proteggeva niente di piu' — chi ordina paga prima, e la
      camera vuole tessera e numero. Il QR sul tavolo resta la scorciatoia. */
   if (azione === 'ospite-tavoli') {
-    if (!dallHotel(req.headers, Deno.env.get('TOTEM_IP'))) return risposta({ errore: 'si ordina dalla rete Wi-Fi dell hotel' }, 403);
+    if (!dallHotel(req.headers, Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP'))) return risposta({ errore: `si ordina dalla rete Wi-Fi dell hotel (il suo indirizzo: ${ipDi(req.headers)})` }, 403);
     const segreto = Deno.env.get('HOTEL_KEY') ?? '';
     const [{ data: locali }, { data: zone }, { data: tavoli }] = await Promise.all([
       db.from('pos_locale').select('id, nome').order('nome'),
@@ -339,7 +348,7 @@ Deno.serve(async (req) => {
   const azioniOspite = ['ospite-menu', 'ospite-ordine', 'ospite-stato'];
   if (azioniOspite.includes(azione)) {
     /* solo dalla rete dell'hotel (TOTEM_IP): fuori, la pagina non ordina */
-    if (!dallHotel(req.headers, Deno.env.get('TOTEM_IP'))) return risposta({ errore: 'si ordina dalla rete Wi-Fi dell hotel' }, 403);
+    if (!dallHotel(req.headers, Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP'))) return risposta({ errore: `si ordina dalla rete Wi-Fi dell hotel (il suo indirizzo: ${ipDi(req.headers)})` }, 403);
     const b = req.method === 'POST' ? await corpo() : {};
     const t = String(url.searchParams.get('t') ?? b.t ?? ''), k = String(url.searchParams.get('k') ?? b.k ?? '');
     if (!(await tavoloFirmato(t, k, Deno.env.get('HOTEL_KEY')))) return risposta({ errore: 'tavolo non riconosciuto: inquadri di nuovo il codice sul tavolo' }, 403);
@@ -350,19 +359,28 @@ Deno.serve(async (req) => {
 
     if (azione === 'ospite-menu') {
       const [cat, art, fas, pf] = await Promise.all([
-        db.from('pos_categoria').select('id, nome, posizione, colore, sotto, per_ospiti, note_rapide, nomi').eq('attiva', true),
-        db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, nomi, descrizioni, allergeni').eq('attivo', true),
+        db.from('pos_categoria').select('id, nome, posizione, colore, sotto, per_ospiti, note_rapide, nomi, orari').eq('attiva', true),
+        db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, nomi, descrizioni, allergeni, orari').eq('attivo', true),
         db.from('pos_fascia').select('*').eq('attiva', true),
         db.from('pos_prezzo_fascia').select('*'),
       ]);
       const categorie = (cat.data ?? []).filter((c) => c.per_ospiti !== false);
+      /* gli orari del menu (orari.ts): l'articolo vince sulla categoria, la
+         categoria figlia eredita dalla madre; vuoto = sempre. Ogni voce dice
+         se e' ordinabile adesso (disponibile) e le sue finestre, che la
+         pagina mostra tradotte */
+      const adessoOra = oraLocale(new Date());
+      const perId = new Map(categorie.map((c) => [c.id as string, c]));
+      const finestreCat = (c: { orari?: unknown; sotto?: unknown } | undefined) => c ? (leggiOrari(c.orari) ?? (c.sotto ? leggiOrari(perId.get(c.sotto as string)?.orari) : null)) : null;
+      const categorieOspite = categorie.map((c) => { const finestre = restringi(finestreCat(c), MARGINE_OSPITI); return { ...c, finestre, disponibile: apertoOra(finestre, adessoOra) }; });
       const idCat = new Set(categorie.map((c) => c.id as string));
       const fascia = fasciaAttiva({ fasce: (fas.data ?? []) as Fascia[], adesso: oraLocale(new Date()), locale });
       const articoli = applicaFascia({
         articoli: (art.data ?? []).filter((a) => idCat.has(a.categoria as string) && !a.prezzo_libero && !a.esaurito) as { id: string; categoria: string | null; prezzo_cent: number }[],
         fascia, prezzi: (pf.data ?? []) as PrezzoFascia[],
       });
-      return risposta({ tavolo: { id: tav.id, nome: tav.nome, zona: zona?.nome ?? null, locale }, categorie, articoli, fascia: fascia ? { nome: fascia.nome, alle: fascia.alle } : null, prova: POS_PROVA, carta: !!chiaveStripe(POS_PROVA) });
+      const articoliOspite = articoli.map((a) => { const finestre = restringi(leggiOrari((a as { orari?: unknown }).orari) ?? finestreCat(perId.get(a.categoria as string)), MARGINE_OSPITI); return { ...a, finestre, disponibile: apertoOra(finestre, adessoOra) }; });
+      return risposta({ tavolo: { id: tav.id, nome: tav.nome, zona: zona?.nome ?? null, locale }, categorie: categorieOspite, articoli: articoliOspite, fascia: fascia ? { nome: fascia.nome, alle: fascia.alle } : null, prova: POS_PROVA, carta: !!chiaveStripe(POS_PROVA) });
     }
 
     if (azione === 'ospite-stato') {
@@ -377,14 +395,20 @@ Deno.serve(async (req) => {
     const modo = b.modo === 'camera' ? 'camera' : b.modo === 'carta' ? 'carta' : null;
     if (!modo) return risposta({ errore: 'come paga: carta o camera' }, 400);
     const richiesti = [...new Set((Array.isArray(b.righe) ? b.righe as Record<string, unknown>[] : []).map((r) => String(r?.articolo ?? '')).filter(Boolean))];
-    const [{ data: arts }, { data: fas }, { data: pf }] = await Promise.all([
-      richiesti.length ? db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, attivo, cat:pos_categoria(portata, per_ospiti, attiva)').in('id', richiesti) : Promise.resolve({ data: [] }),
+    const [{ data: arts }, { data: fas }, { data: pf }, { data: madri }] = await Promise.all([
+      richiesti.length ? db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, attivo, orari, cat:pos_categoria(portata, per_ospiti, attiva, sotto, orari)').in('id', richiesti) : Promise.resolve({ data: [] }),
       db.from('pos_fascia').select('*').eq('attiva', true),
       db.from('pos_prezzo_fascia').select('*'),
+      db.from('pos_categoria').select('id, orari'),
     ]);
-    const fascia = fasciaAttiva({ fasce: (fas ?? []) as Fascia[], adesso: oraLocale(new Date()), locale });
+    const adessoOra = oraLocale(new Date());
+    const fascia = fasciaAttiva({ fasce: (fas ?? []) as Fascia[], adesso: adessoOra, locale });
+    /* gli orari: articolo, se no categoria, se no la categoria madre (orari.ts) */
+    const orariMadre = (id: unknown) => (madri ?? []).find((m) => m.id === id)?.orari;
+    const finestreDi = (a: { orari?: unknown; cat?: unknown }) => { const c = a.cat as { orari?: unknown; sotto?: unknown } | null; return leggiOrari(a.orari) ?? (c ? (leggiOrari(c.orari) ?? (c.sotto ? leggiOrari(orariMadre(c.sotto)) : null)) : null); };
     const vendibili = (arts ?? []).filter((a) => { const c = a.cat as unknown as { per_ospiti: boolean; attiva: boolean } | null; return !!c && c.attiva && c.per_ospiti !== false; }).map((a) => ({
       id: a.id as string, nome: String(a.nome), categoria: a.categoria as string, esaurito: !!a.esaurito, prezzo_libero: !!a.prezzo_libero, attivo: a.attivo !== false,
+      fuori_orario: !apertoOra(restringi(finestreDi(a as { orari?: unknown; cat?: unknown }), MARGINE_OSPITI), adessoOra),
       portata: (a.portata as string | null) ?? ((a.cat as unknown as { portata: string } | null)?.portata ?? null),
       prezzo_cent: prezzoInFascia({ articolo: { id: a.id as string, categoria: a.categoria as string, prezzo_cent: Number(a.prezzo_cent) }, fascia, prezzi: (pf ?? []) as PrezzoFascia[] }) ?? Number(a.prezzo_cent),
     }));

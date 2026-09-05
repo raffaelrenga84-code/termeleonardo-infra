@@ -2321,7 +2321,7 @@ function vistaPosMenu() {
       const c = cat(b.dataset.cat); if (!c) return;
       b.querySelectorAll('[data-c]').forEach((el) => {
         const k = el.dataset.c, v = valoreCampo(el);
-        c[k] = k === 'note_rapide' ? String(v).split(',').map((s) => s.trim()).filter(Boolean) : (k === 'sotto' || k === 'locale_stampa') ? (v || null) : v;
+        c[k] = k === 'note_rapide' ? String(v).split(',').map((s) => s.trim()).filter(Boolean) : (k === 'sotto' || k === 'locale_stampa' || k === 'orari') ? (v || null) : v;
       });
       const cn = {}; b.querySelectorAll('[data-cn]').forEach((el) => { if (el.value.trim()) cn[el.dataset.cn] = el.value.trim(); });
       c.nomi = Object.keys(cn).length ? cn : null;
@@ -2340,6 +2340,7 @@ function vistaPosMenu() {
       r.querySelectorAll('[data-ad]').forEach((el) => { if (el.value.trim()) d[el.dataset.ad] = el.value.trim(); });
       a.nomi = Object.keys(n).length ? n : null; a.descrizioni = Object.keys(d).length ? d : null;
       const al = r.querySelector('[data-allergeni]'); a.allergeni = al && al.value.trim() ? al.value.trim().toUpperCase() : null;
+      const or = r.querySelector('[data-orari]'); a.orari = or && or.value.trim() ? or.value.trim() : null;
     });
     document.querySelectorAll('[data-var]').forEach((r) => {
       const v = D.varianti.find((x) => x.id === r.dataset.var); if (!v) return;
@@ -2375,6 +2376,8 @@ function vistaPosMenu() {
         <div class="due"><div><label>Si prepara a</label><select data-c="locale_stampa">${opzPos(localeOpz, c.locale_stampa || '')}</select>
           <div class="mini">«Dove si mangia» è il solito. Scegliendo un locale, il biglietto esce sempre là: il ristorante ordina le bevande e il Bistrot le prepara, con scritto dove portarle.</div></div><div></div></div>
         <div><label>Nome per gli ospiti dal QR · it · en · de · fr (vuoto = il nome della categoria)</label><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">${LINGUE.map((l) => `<input data-cn="${l}" placeholder="${l}" value="${esc((c.nomi || {})[l] || '')}" />`).join('')}</div></div>
+        <div class="due"><div><label>Orari per gli ospiti dal QR (vuoto = sempre)</label><input data-c="orari" placeholder="12:15-14:30; ven,sab 12:15-20:30" value="${esc(c.orari || '')}" /></div>
+          <div class="mini" style="align-self:end;">Ore e, davanti, i giorni: «12:15-14:30; ven,sab 12:15-20:30». L’articolo può avere il suo orario (pulsante 🌐); una categoria dentro un’altra eredita. Il palmare non ne tiene conto.</div></div>
         <div class="due"><div><label>Note rapide per la cucina (separate da virgola)</label><input data-c="note_rapide" value="${esc((c.note_rapide || []).join(', '))}" /></div>
           <div><label>Posizione</label><input data-c="posizione" type="number" value="${Number(c.posizione || 0)}" style="width:80px;" />
             <label style="display:inline;margin-left:12px;"><input type="checkbox" data-c="attiva" ${c.attiva !== false ? 'checked' : ''}/> attiva</label>
@@ -2390,7 +2393,7 @@ function vistaPosMenu() {
           <td><input type="checkbox" data-a="esaurito" ${a.esaurito ? 'checked' : ''}/></td>
           <td><input type="checkbox" data-a="attivo" ${a.attivo !== false ? 'checked' : ''}/></td>
           <td><button type="button" class="azione sec mini" data-tradu="${esc(a.id)}" style="width:auto;padding:2px 8px;" title="Nomi, ingredienti e allergeni per gli ospiti dal QR">🌐${a.nomi ? '' : ' ·'}</button></td></tr>
-          <tr data-tradu-di="${esc(a.id)}" hidden><td colspan="10"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:2px 0 6px;">${LINGUE.map((l) => `<input data-an="${l}" placeholder="nome ${l}" value="${esc((a.nomi || {})[l] || '')}" />`).join('')}${LINGUE.map((l) => `<input data-ad="${l}" placeholder="ingredienti ${l}" value="${esc((a.descrizioni || {})[l] || '')}" />`).join('')}<input data-allergeni placeholder="allergeni, es. GL-LA-U" value="${esc(a.allergeni || '')}" /></div></td></tr>`).join('')}</table>` : '<div class="mini">Nessun articolo.</div>'}
+          <tr data-tradu-di="${esc(a.id)}" hidden><td colspan="10"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:2px 0 6px;">${LINGUE.map((l) => `<input data-an="${l}" placeholder="nome ${l}" value="${esc((a.nomi || {})[l] || '')}" />`).join('')}${LINGUE.map((l) => `<input data-ad="${l}" placeholder="ingredienti ${l}" value="${esc((a.descrizioni || {})[l] || '')}" />`).join('')}<input data-allergeni placeholder="allergeni, es. GL-LA-U" value="${esc(a.allergeni || '')}" /><input data-orari placeholder="orari, es. 12:15-17:30; ven,sab 12:15-20:30" value="${esc(a.orari || '')}" /></div></td></tr>`).join('')}</table>` : '<div class="mini">Nessun articolo.</div>'}
         <button type="button" class="azione sec mini" data-nuovo-art="${esc(c.id)}" style="width:auto;margin-top:6px;">+ articolo</button></div>`;
     };
     const varianti = `<div class="riquadro"><b>Varianti</b><div class="mini">Una variante vale per un articolo o per una categoria intera; il supplemento si somma al prezzo.</div>
@@ -2623,9 +2626,10 @@ function vistaPosTavoli() {
   };
   const disegna = () => {
     const locali = `<div class="riquadro"><b>Locali</b><div class="mini">Le stampanti qui sono gli indirizzi sulla rete dell'hotel (host:porta) che usa il PC del Bistrot; il cloud ha i suoi.</div>
-      <table><tr><th>Locale</th><th>Reparto</th><th>Stampante cucina (LAN)</th><th>Stampante bar (LAN)</th></tr>
+      <table><tr><th>Locale</th><th>Reparto</th><th>Stampante cucina (LAN)</th><th>Stampante bar (LAN)</th><th title="Fuori da questi orari il biglietto della cucina esce al bancone: i cuochi non ci sono più">Orari cucina</th></tr>
       ${D.locali.map((l) => `<tr data-loc="${esc(l.id)}"><td><input data-l="nome" value="${esc(l.nome)}" /></td><td><input data-l="reparto" value="${esc(l.reparto || 'F&B')}" /></td>
-        <td><input data-l="stampante_cucina" value="${esc(l.stampante_cucina || '')}" placeholder="192.168.0.x:9100" /></td><td><input data-l="stampante_bar" value="${esc(l.stampante_bar || '')}" placeholder="192.168.0.x:9100" /></td></tr>`).join('')}</table></div>`;
+        <td><input data-l="stampante_cucina" value="${esc(l.stampante_cucina || '')}" placeholder="192.168.0.x:9100" /></td><td><input data-l="stampante_bar" value="${esc(l.stampante_bar || '')}" placeholder="192.168.0.x:9100" /></td>
+        <td><input data-l="orari_cucina" value="${esc(l.orari_cucina || '')}" placeholder="12:15-14:30" title="Vuoto = cucina sempre aperta. Fuori orario il biglietto della cucina esce al bancone." /></td></tr>`).join('')}</table></div>`;
     const zone = D.locali.map((l) => `<div class="riquadro"><b>Zone · ${esc(l.nome)}</b>
       ${D.zone.filter((z) => z.locale === l.id).map((z) => { const tt = D.tavoli.filter((t) => t.zona === z.id);
         return `<div style="margin-top:10px;"><div class="due" data-zona="${esc(z.id)}"><div><label>Zona</label><input data-z="nome" value="${esc(z.nome)}" /></div><div><label>Posizione</label><input data-z="posizione" type="number" value="${Number(z.posizione || 0)}" style="width:80px;" /></div></div>
@@ -2639,7 +2643,7 @@ function vistaPosTavoli() {
       <button type="button" class="azione sec" id="ptNuovoLoc" style="width:auto;">+ locale</button>
       <button type="button" class="azione sec" id="ptQr" style="width:auto;" title="Un foglio per tavolo: l’ospite inquadra il codice e ordina da solo">Stampa i QR dei tavoli</button>
       <div class="mini">x e y sono la posizione del tavolo sulla piantina del palmare, in percentuale da sinistra e dall'alto.</div><div class="esito" id="ptEsito"></div></div>` + locali + zone;
-    $('ptNuovoLoc').onclick = () => { raccogli(); const id = crypto.randomUUID(); D.locali.push({ id, nome: 'Nuovo locale', reparto: 'F&B', stampante_cucina: null, stampante_bar: null }); disegna(); };
+    $('ptNuovoLoc').onclick = () => { raccogli(); const id = crypto.randomUUID(); D.locali.push({ id, nome: 'Nuovo locale', reparto: 'F&B', stampante_cucina: null, stampante_bar: null, orari_cucina: null }); disegna(); };
     /* I QR dei tavoli (la proprieta', 5 settembre 2026): un foglio per
        tavolo con il codice che porta alla pagina dell'ordine, firmato dal
        server. Si stampano da una finestra a parte; il QR lo disegna una

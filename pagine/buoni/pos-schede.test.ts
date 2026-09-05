@@ -49,3 +49,16 @@ Deno.test('nel menu i nomi per gli ospiti dal QR: un pulsante per articolo apre 
   assert(menu.includes('a.nomi = Object.keys(n).length ? n : null;') && menu.includes('c.nomi = Object.keys(cn).length ? cn : null;'), 'campi vuoti = null, non {}');
   assert(menu.includes("a.allergeni = al && al.value.trim() ? al.value.trim().toUpperCase() : null;"), 'le sigle in maiuscolo');
 });
+
+Deno.test('nel menu gli orari per gli ospiti dal QR: una riga sulla categoria, una sull articolo', () => {
+  /* fase 2 della spec 2026-09-05-menu-ospiti-design.md */
+  const menu = P.slice(P.indexOf('function vistaPosMenu('), P.indexOf('function vistaPosTavoli('));
+  assert(menu.includes('data-c="orari"') && menu.includes('12:15-14:30; ven,sab 12:15-20:30'), 'la categoria, con l esempio');
+  assert(menu.includes('data-orari') && menu.includes("a.orari = or && or.value.trim() ? or.value.trim() : null;"), 'l articolo, nella riga dei nomi');
+  assert(menu.includes("(k === 'sotto' || k === 'locale_stampa' || k === 'orari') ? (v || null) : v"), 'vuoto = null');
+});
+
+Deno.test('nei locali si scrivono gli orari della cucina: fuori da quelli il biglietto della cucina esce al bancone', () => {
+  const tav = P.slice(P.indexOf('function vistaPosTavoli('), P.indexOf('function vistaPosPersonale('));
+  assert(tav.includes('data-l="orari_cucina"') && tav.includes('placeholder="12:15-14:30"'), 'il campo, con l esempio');
+});
