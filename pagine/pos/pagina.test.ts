@@ -215,7 +215,7 @@ Deno.test('il conto si paga a pezzi: in parti uguali, un importo a scelta, e i c
   assert(m.includes('data-parti=') && m.includes("`in ${n}`"), 'in parti uguali');
   assert(m.includes('id="pzAltro"') && m.includes("chiediNumero('Importo da pagare adesso (euro)'"), 'o un importo a scelta');
   assert(m.includes('Contanti ricevuti (dovuti') && m.includes('Resto da dare:'), 'i contanti: quanto ha dato, e il resto');
-  assert(m.includes('if (j.chiuso) { via(); return schermataSala(); }'), 'quando i pezzi coprono il totale il conto e chiuso e si torna in sala');
+  assert(m.includes('if (j.chiuso) { via(); return dopoChiuso(); }'), 'quando i pezzi coprono il totale il conto e chiuso: si resta sul tavolo se ha altri conti, se no in sala');
   assert(m.includes("j.pagamenti || []"), 'quanto e gia pagato lo dice il server');
   assert(m.includes('inCamera && !pagato()'), 'in camera va tutto il conto, non un pezzo');
 });
@@ -331,4 +331,10 @@ Deno.test('col conto ancora vuoto il riepilogo in fondo non c e: le categorie ha
   assert(m.includes('const vuoto = !dalServer.length && !ordine.righe.length;'), 'vuoto = niente dal server e niente in bozza');
   assert(m.includes("${vuoto ? '' : `<div class=\"comanda "), 'la comanda si disegna solo se c e qualcosa');
   assert(m.includes("if ($('totaleRiga')) $('totaleRiga').onclick") && m.includes("if ($('comanda')) $('comanda').scrollTop"), 'e il codice non inciampa quando manca');
+});
+
+Deno.test('chiuso o tolto un conto, se il tavolo ne ha altri si resta sul tavolo', () => {
+  /* «magari devo lavorare sugli altri conti aperti su quel tavolo» (5 set 2026) */
+  assert(m.includes('const dopoChiuso = () => {') && m.includes('if (altri.length) apriContoPerId(altri[0].id); else schermataSala();'), 'sul primo degli altri, o in sala');
+  assert(m.includes('if (j.chiuso) { via(); return dopoChiuso(); }') && m.includes('via(); dopoChiuso();'), 'dopo il pagamento, la camera e la chiusura a zero');
 });

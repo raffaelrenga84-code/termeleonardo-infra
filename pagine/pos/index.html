@@ -1020,6 +1020,14 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
      stessa schermata» (la proprieta', 5 settembre 2026). Le righe non
      inviate del conto che si lascia restano in BOZZE. */
   const contiDelTavolo = () => [conto, ...fratelli.filter((f) => f.id !== conto.id)].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  /* Chiuso o tolto un conto, se il tavolo ha altri conti aperti si resta
+     li', sul primo di quelli: «magari devo lavorare sugli altri conti
+     aperti su quel tavolo» (la proprieta', 5 settembre 2026). Se era
+     l'ultimo, si torna in sala. */
+  const dopoChiuso = () => {
+    const altri = fratelli.filter((f) => f.id !== conto.id);
+    if (altri.length) apriContoPerId(altri[0].id); else schermataSala();
+  };
   const cambiaConto = async (id) => {
     salvaBozza();
     try {
@@ -1075,7 +1083,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       try {
         const j = await scrivi('chiudi', { conto: conto.id, modo: 'camera', firma });
         if (j.offline) alert('Nessun server risponde: il conto si chiude appena torna la linea.');
-        via(); schermataSala();
+        via(); dopoChiuso();
       } catch (e) { alert(e.message); }
     };
     const disegna = () => {
@@ -1185,7 +1193,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
         try {
           const j = await scrivi('conto-elimina', { conto: conto.id });
           if (j.offline) alert('Nessun server risponde: il conto si chiude appena torna la linea.');
-          via(); schermataSala();
+          via(); dopoChiuso();
         } catch (e) { alert(e.message); }
       };
       return;
@@ -1238,9 +1246,9 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
         velo.querySelectorAll('[data-modo]').forEach((x) => x.disabled = true);
         try {
           const j = await scrivi('paga', { conto: conto.id, modo, importo_cent: cifra, ricevuto_cent: ricevuto });
-          if (j.offline) { alert('Nessun server risponde: il pagamento si registra appena torna la linea.'); via(); return schermataSala(); }
+          if (j.offline) { alert('Nessun server risponde: il pagamento si registra appena torna la linea.'); via(); return dopoChiuso(); }
           if (j.resto_cent) alert(`Resto da dare: ${euro(j.resto_cent)}`);
-          if (j.chiuso) { via(); return schermataSala(); }
+          if (j.chiuso) { via(); return dopoChiuso(); }
           pagamenti = [...pagamenti, j.pagamento];
           if (importo != null) importo = null; else if (parti > 1) parti -= 1;
           disegna();
