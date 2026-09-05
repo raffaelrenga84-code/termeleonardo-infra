@@ -257,3 +257,9 @@ Deno.test('all accesso si vede dove si scrive, e il PIN si tocca per scriverci',
   assert(m.includes("$('vPin').onclick = () => { campo = 'pin'; disegna(); };"), 'toccando il PIN ci si scrive');
   assert(m.includes("campo === 'pin' ? 'Ora il suo PIN, poi ↵' : 'Il suo codice, poi ↵'"), 'e la riga in alto dice cosa fare adesso');
 });
+
+Deno.test('le quantita si chiamano 1× 2× 3× 4×, e Safari non colora i bottoni di blu', () => {
+  /* «questi campi cosa servono? 1234?» (la proprieta', dall iPhone, 5 set 2026) */
+  assert(m.includes("'attivo' : ''}\">${n}×</button>"), 'con la × si capisce che e una quantita');
+  assert(P.includes('button{font:inherit;cursor:pointer;color:inherit;}'), 'i bottoni ereditano il colore: niente blu di Safari');
+});

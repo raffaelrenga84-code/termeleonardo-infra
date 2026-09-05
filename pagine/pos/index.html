@@ -31,7 +31,8 @@ header .chi{font-size:13px;opacity:.85;}
 /* di lato non si scorre mai: se qualcosa e' piu' largo dello schermo,
    e' lui che deve scorrere dentro di se' (la pianta), non la pagina */
 main{height:calc(100% - 52px);overflow:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
-button{font:inherit;cursor:pointer;}
+/* color:inherit — Safari colora di blu il testo dei bottoni, e sull iPhone sembravano link (5 set 2026) */
+button{font:inherit;cursor:pointer;color:inherit;}
 .bottone{width:100%;padding:16px;border:0;border-radius:12px;background:var(--verde);color:#fff;font:600 18px inherit;}
 .bottone.sec{background:#fff;color:var(--verde);border:2px solid var(--verde);}
 .bottone.oro{background:var(--oro);color:var(--verde);}
@@ -95,7 +96,7 @@ button{font:inherit;cursor:pointer;}
    naturale e sul palmare la riga sborda: la pagina scorreva di lato */
 .cercaRiga input{flex:1;min-width:0;padding:12px;font:inherit;border:1px solid #DCD6CB;border-radius:10px;background:#FCFBF8;}
 .quantita{display:flex;gap:4px;}
-.quantita button{width:38px;height:44px;border-radius:8px;border:1px solid var(--pietra);background:#fff;font-size:17px;}
+.quantita button{width:40px;height:44px;border-radius:8px;border:1px solid var(--pietra);background:#fff;font-size:15px;padding:0;color:var(--verde);}
 .pannello.tastiera{max-width:420px;margin:0 auto;border-radius:18px;}
 .tastieraCifre{display:block;text-align:center;font:700 34px ui-monospace,Menlo,monospace;color:var(--verde);padding:8px 0;}
 .quantita button.attivo{background:var(--oro);border-color:var(--oro);color:var(--verde);}
@@ -688,7 +689,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     $('app').innerHTML = `<div class="ordine ${compatta ? 'compatta' : ''}">
       <div class="portate"><span class="eti">Portata</span><button data-p="" class="${portataForzata ? '' : 'attiva'}">Auto</button>${PORTATE.map((p) => `<button data-p="${p}" class="${portataForzata === p ? 'attiva' : ''}">${NOMI_PORTATE[p]}</button>`).join('')}</div>
       <div class="cercaRiga"><input id="cerca" placeholder="cerca (3 lettere)" value="${esc(cerca)}" autocomplete="off" />
-        <div class="quantita">${[1,2,3,4].map((n) => `<button data-q="${n}" class="${n === quantitaPronta ? 'attivo' : ''}">${n}</button>`).join('')}<button id="quantitaAltra" class="${quantitaPronta > 4 ? 'attivo' : ''}">${quantitaPronta > 4 ? quantitaPronta : '…'}</button></div></div>
+        <div class="quantita" title="Quanti: si sceglie qui, poi si tocca l’articolo">${[1,2,3,4].map((n) => `<button data-q="${n}" class="${n === quantitaPronta ? 'attivo' : ''}">${n}×</button>`).join('')}<button id="quantitaAltra" class="${quantitaPronta > 4 ? 'attivo' : ''}">${quantitaPronta > 4 ? `${quantitaPronta}×` : '…'}</button></div></div>
       <div class="griglia">
         ${MENU.fascia ? `<div class="sezione" style="color:var(--oro);">${esc(MENU.fascia.nome)} · fino alle ${esc(MENU.fascia.alle)}</div>` : ''}
         ${dentroUna ? `<div class="categorie"><button data-cat="">‹ Categorie</button>${categoria ? sottoDi(categoria).map((c) => `<button data-cat="${esc(c.id)}">${esc(c.nome)}</button>`).join('') : ''}</div>` : ''}
