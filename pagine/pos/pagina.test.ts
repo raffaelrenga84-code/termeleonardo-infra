@@ -245,7 +245,7 @@ Deno.test('sul palmare: categorie sempre a portata, riepilogo chiuso, in camera 
   assert(m.includes("scrivi('conto-cambia', {") && m.includes('conto = j.conto;') && m.includes('via(); firmaOspite(totale);'), 'il conto cambia tipo e poi firma');
   assert(m.includes("'BarcodeDetector' in window") && m.includes('function scansiona()') && m.includes("facingMode: 'environment'"), 'la fotocamera legge il codice');
   assert(m.includes('window.isSecureContext &&'), 'solo in https: in http Chrome non da la fotocamera');
-  assert(m.includes("bottoneFotocamera('pkTessera')") && m.includes("bottoneFotocamera('pcTessera')"), 'in tutti e due i pannelli della tessera');
+  assert(m.includes("bottoneFotocamera('pkCodice')") && m.includes("bottoneFotocamera('pcCodice')"), 'in tutti e due i pannelli della tessera');
   assert(m.includes("campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))"), 'e il codice letto entra come dal lettore');
 });
 
@@ -262,4 +262,14 @@ Deno.test('le quantita si chiamano 1× 2× 3× 4×, e Safari non colora i botton
   /* «questi campi cosa servono? 1234?» (la proprieta', dall iPhone, 5 set 2026) */
   assert(m.includes("'attivo' : ''}\">${n}×</button>"), 'con la × si capisce che e una quantita');
   assert(P.includes('button{font:inherit;cursor:pointer;color:inherit;}'), 'i bottoni ereditano il colore: niente blu di Safari');
+});
+
+Deno.test('tessera o camera: un campo solo, tre cifre sono la camera, di piu e una tessera', () => {
+  /* «un unico campo sia per il numero di camera che per il numero di
+     tessera... le camere sono solo di tre cifre» (la proprieta', 5 set 2026) */
+  assert(m.includes('const CAMERA_CIFRE_MAX = 3;') && m.includes('function leggiTesseraOCamera(velo, idCampo, esito)'), 'la regola sta in un posto solo');
+  assert(m.includes('if (cifre.length <= CAMERA_CIFRE_MAX) { stato.camera = cifre;'), 'tre cifre: la camera');
+  assert(m.includes("leggiTesseraOCamera(velo, 'pkCodice', esito)") && m.includes("leggiTesseraOCamera(velo, 'pcCodice', esito)"), 'dal tavolo e al momento di pagare');
+  assert(!m.includes('id="pkCamera"') && !m.includes('id="pcCamera"'), 'il secondo campo non c e piu');
+  assert(m.includes('tessera: s.daTessera ? s.tessera : null'), 'la tessera viaggia solo se letta davvero');
 });

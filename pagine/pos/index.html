@@ -581,15 +581,13 @@ function schermataTavolo(t) {
      scrive la camera a mano: capita che l'ospite l'abbia lasciata su. */
   const pannelloCamera = () => {
     const velo = document.createElement('div'); velo.className = 'velo';
-    let cop = coperti, tessera = '', camera = '', lingua = null;
+    let cop = coperti;
     const via = () => velo.remove();
     velo.innerHTML = `<div class="pannello">
       <h3>Conto in camera</h3>
-      <label>Passi la tessera</label>
-      <div class="conFoto"><input id="pkTessera" inputmode="numeric" autocomplete="off" placeholder="numero della tessera" />${bottoneFotocamera('pkTessera')}</div>
-      <p class="mini">Col lettore del palmare basta puntarla. Se la tessera non c’è, scriva la camera qui sotto.</p>
-      <label>Camera</label>
-      <input id="pkCamera" inputmode="numeric" autocomplete="off" placeholder="es. 229" />
+      <label>Tessera o numero di camera</label>
+      <div class="conFoto"><input id="pkCodice" inputmode="numeric" autocomplete="off" placeholder="passi la tessera, o scriva la camera" />${bottoneFotocamera('pkCodice')}</div>
+      <p class="mini">Col lettore del palmare basta puntare la tessera. Tre cifre sono la camera scritta a mano.</p>
       <label>Nome dell’ospite (facoltativo)</label>
       <input id="pkOspite" maxlength="40" autocomplete="off" />
       <label>Coperti</label>
@@ -603,33 +601,16 @@ function schermataTavolo(t) {
       velo.querySelectorAll('[data-cop]').forEach((x) => x.classList.toggle('attivo', Number(x.dataset.cop) === cop));
     });
     const esito = velo.querySelector('#pkEsito');
-    const leggi = async () => {
-      const codice = velo.querySelector('#pkTessera').value.replace(/\D/g, '');
-      if (codice.length < 4) return;
-      esito.textContent = 'Leggo la tessera…';
-      try {
-        const j = await chiama('tessera', { qs: `&codice=${encodeURIComponent(codice)}`, cloud: true });
-        tessera = codice; camera = String(j.camera || '');
-        /* la lingua dell'ospite la sa Fidra: serve alla schermata della
-           firma, che il palmare gli mette in mano */
-        lingua = ['it', 'en', 'de', 'fr'].includes(j.lingua) ? j.lingua : null;
-        velo.querySelector('#pkCamera').value = camera;
-        esito.textContent = `Camera ${camera}.`;
-      } catch (e) { esito.textContent = e instanceof TypeError ? 'Serve la linea per leggere la tessera: scriva la camera.' : e.message; }
-    };
-    const t1 = velo.querySelector('#pkTessera');
-    t1.onkeydown = (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); leggi(); } };
-    t1.onblur = leggi;
-    setTimeout(() => t1.focus(), 50);
+    const letto = leggiTesseraOCamera(velo, 'pkCodice', esito);
     velo.querySelector('#pkChiudi').onclick = via;
     velo.querySelector('#pkOk').onclick = async () => {
-      const scritta = velo.querySelector('#pkCamera').value.trim();
-      if (!scritta) { esito.textContent = 'Serve la camera: passi la tessera o scriva il numero.'; return; }
+      const s = await letto.conferma();
+      if (!s.camera) { esito.textContent = 'Serve la camera: passi la tessera o scriva il numero.'; return; }
       try {
         const j = await scrivi('conto', {
-          tavolo: t.id, tipo: 'camera', camera: scritta,
-          tessera: scritta === camera ? tessera : null,
-          lingua: scritta === camera ? lingua : null,
+          tavolo: t.id, tipo: 'camera', camera: s.camera,
+          tessera: s.daTessera ? s.tessera : null,
+          lingua: s.daTessera ? s.lingua : null,
           ospite: velo.querySelector('#pkOspite').value.trim() || null, coperti: cop,
         });
         if (j.offline) return alert('Nessun server risponde: riprovi tra un momento.');
@@ -1017,14 +998,11 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
   const pannelloCameraConto = (totale) => {
     const velo = document.createElement('div'); velo.className = 'velo';
     const via = () => velo.remove();
-    let tessera = '', camera = '', lingua = null;
     velo.innerHTML = `<div class="pannello">
       <h3>Addebito in camera · ${euro(totale)}</h3>
-      <label>Passi la tessera</label>
-      <div class="conFoto"><input id="pcTessera" inputmode="numeric" autocomplete="off" placeholder="numero della tessera" />${bottoneFotocamera('pcTessera')}</div>
-      <p class="mini">Col lettore del palmare basta puntarla. Se la tessera non c’è, scriva la camera qui sotto.</p>
-      <label>Camera</label>
-      <input id="pcCamera" inputmode="numeric" autocomplete="off" placeholder="es. 229" />
+      <label>Tessera o numero di camera</label>
+      <div class="conFoto"><input id="pcCodice" inputmode="numeric" autocomplete="off" placeholder="passi la tessera, o scriva la camera" />${bottoneFotocamera('pcCodice')}</div>
+      <p class="mini">Col lettore del palmare basta puntare la tessera. Tre cifre sono la camera scritta a mano.</p>
       <label>Nome dell’ospite (facoltativo)</label>
       <input id="pcOspite" maxlength="40" autocomplete="off" />
       <p class="mini" id="pcEsito"></p>
@@ -1032,31 +1010,16 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     document.body.appendChild(velo);
     velo.onclick = (ev) => { if (ev.target === velo) via(); };
     const esito = velo.querySelector('#pcEsito');
-    const leggi = async () => {
-      const codice = velo.querySelector('#pcTessera').value.replace(/\D/g, '');
-      if (codice.length < 4) return;
-      esito.textContent = 'Leggo la tessera…';
-      try {
-        const j = await chiama('tessera', { qs: `&codice=${encodeURIComponent(codice)}`, cloud: true });
-        tessera = codice; camera = String(j.camera || '');
-        lingua = ['it', 'en', 'de', 'fr'].includes(j.lingua) ? j.lingua : null;
-        velo.querySelector('#pcCamera').value = camera;
-        esito.textContent = `Camera ${camera}.`;
-      } catch (e) { esito.textContent = e instanceof TypeError ? 'Serve la linea per leggere la tessera: scriva la camera.' : e.message; }
-    };
-    const t1 = velo.querySelector('#pcTessera');
-    t1.onkeydown = (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); leggi(); } };
-    t1.onblur = leggi;
-    setTimeout(() => t1.focus(), 50);
+    const letto = leggiTesseraOCamera(velo, 'pcCodice', esito);
     velo.querySelector('#pcAnnulla').onclick = via;
     velo.querySelector('#pcOk').onclick = async () => {
-      const scritta = velo.querySelector('#pcCamera').value.trim();
-      if (!scritta) { esito.textContent = 'Serve la camera: passi la tessera o scriva il numero.'; return; }
+      const s = await letto.conferma();
+      if (!s.camera) { esito.textContent = 'Serve la camera: passi la tessera o scriva il numero.'; return; }
       try {
         const j = await scrivi('conto-cambia', {
-          conto: conto.id, camera: scritta,
-          tessera: scritta === camera ? tessera : null,
-          lingua: scritta === camera ? lingua : null,
+          conto: conto.id, camera: s.camera,
+          tessera: s.daTessera ? s.tessera : null,
+          lingua: s.daTessera ? s.lingua : null,
           ospite: velo.querySelector('#pcOspite').value.trim() || null,
         });
         if (j.offline) return alert('Nessun server risponde: riprovi tra un momento.');
@@ -1155,6 +1118,41 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
      dopo dieci minuti si rilegge, e i prezzi in vista tornano quelli in
      vigore (sulla riga li applica comunque il server) */
   if (Date.now() - MENU_LETTO_IL > 10 * 60 * 1000) caricaMenu().then(() => disegna()).catch(() => {});
+}
+
+/* ---------- tessera o camera: un campo solo ----------
+   «un unico campo sia per il numero di camera che per il numero di
+   tessera» (la proprieta', 5 settembre 2026): le camere hanno tre cifre,
+   le tessere di piu'. Fino a tre cifre e' la camera scritta a mano; da
+   quattro in su e' una tessera, e si chiede a Fidra di che camera e'
+   (legge e basta). Lo usano il conto in camera dal tavolo e l'addebito al
+   momento di pagare. */
+const CAMERA_CIFRE_MAX = 3;
+function leggiTesseraOCamera(velo, idCampo, esito) {
+  const stato = { tessera: '', camera: '', lingua: null, daTessera: false, ultimo: null };
+  const campo = velo.querySelector('#' + idCampo);
+  const leggi = async () => {
+    const cifre = campo.value.replace(/\D/g, '');
+    if (cifre === stato.ultimo) return;
+    stato.ultimo = cifre;
+    stato.tessera = ''; stato.lingua = null; stato.daTessera = false; stato.camera = '';
+    if (!cifre) { esito.textContent = ''; return; }
+    if (cifre.length <= CAMERA_CIFRE_MAX) { stato.camera = cifre; esito.textContent = `Camera ${cifre}, scritta a mano.`; return; }
+    esito.textContent = 'Leggo la tessera…';
+    try {
+      const j = await chiama('tessera', { qs: `&codice=${encodeURIComponent(cifre)}`, cloud: true });
+      stato.tessera = cifre; stato.camera = String(j.camera || ''); stato.daTessera = !!stato.camera;
+      /* la lingua dell'ospite la sa Fidra: serve alla schermata della firma */
+      stato.lingua = ['it', 'en', 'de', 'fr'].includes(j.lingua) ? j.lingua : null;
+      esito.textContent = stato.camera ? `Tessera letta: camera ${stato.camera}.` : 'Tessera non riconosciuta: scriva il numero della camera.';
+    } catch (e) { esito.textContent = e instanceof TypeError ? 'Serve la linea per leggere la tessera: scriva il numero della camera.' : e.message; }
+  };
+  campo.onkeydown = (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); leggi(); } };
+  campo.onblur = leggi;
+  setTimeout(() => campo.focus(), 50);
+  /* al momento di confermare vale quello che c'e' nel campo, letto o no */
+  stato.conferma = async () => { await leggi(); return stato; };
+  return stato;
 }
 
 /* ---------- la tessera con la fotocamera ----------
