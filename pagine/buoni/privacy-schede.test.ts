@@ -20,3 +20,7 @@ Deno.test('si cerca per cognome o camera, si stampa con la firma, si annulla un 
   assert(v.includes('in_attesa') && v.includes('Annulla'), 'le attese si annullano');
   assert(!v.includes('pin_hash'));
 });
+
+Deno.test('da ogni firma si apre il modulo privacy di Fidra gia compilato: «Registra in Fidra» (la proprieta, 5 settembre 2026)', () => {
+  assert(P.includes('href="https://leonardo.fidra.cloud/privacy/create?leo=${encodeURIComponent(c.id)}" target="_blank"'), 'il link col consenso, in una scheda nuova');
+});

@@ -2283,7 +2283,7 @@ function vistaPrivacy() {
           <td class="mini">${esc(quando(c.firmato_il))}</td><td>${esc(c.camera)}</td>
           <td>${esc(c.cognome)} ${esc(c.nome || '')}<div class="mini">${esc(c.email || '')}${c.email_inviata ? '' : ' · email non inviata'}</div></td>
           <td>${segno(c.conservazione)}</td><td>${segno(c.messaggi)}</td><td>${segno(c.marketing)}</td><td class="mini">${esc(c.fonte || '')}</td>
-          <td><button type="button" class="azione sec mini" data-stampa="${esc(c.id)}" style="width:auto;">Stampa</button></td></tr>`).join('')}</table>` : '';
+          <td style="white-space:nowrap;"><button type="button" class="azione sec mini" data-stampa="${esc(c.id)}" style="width:auto;">Stampa</button> <a class="azione sec mini" href="https://leonardo.fidra.cloud/privacy/create?leo=${encodeURIComponent(c.id)}" target="_blank" rel="noopener" style="width:auto;display:inline-block;text-decoration:none;" title="Apre il modulo privacy di Fidra già compilato con questa firma (serve l’estensione): Salva lo premi tu.">Registra in Fidra</a></td></tr>`).join('')}</table>` : '';
       document.querySelectorAll('[data-annulla]').forEach((b) => b.onclick = async () => {
         if (!confirm('Annullare questo consenso in attesa?')) return;
         try { await chiama('?a=annulla', { method: 'POST', body: JSON.stringify({ id: b.dataset.annulla }) }, FUNZIONE_PRIVACY); carica(); }
