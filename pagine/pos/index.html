@@ -57,6 +57,11 @@ button{font:inherit;cursor:pointer;color:inherit;}
 .zone button{padding:9px 14px;border-radius:999px;border:1px solid var(--verde);background:#fff;color:var(--verde);white-space:nowrap;}
 .zone button.attiva{background:var(--verde);color:#fff;}
 .zone button.vista{margin-left:auto;border-style:dashed;color:var(--verde-medio);border-color:var(--verde-medio);}
+/* gli ordini dal QR degli ultimi venti minuti, in cima alla sala */
+.qrRecenti{margin:8px 10px 0;display:flex;flex-direction:column;gap:6px;}
+.qrRiga{display:flex;align-items:center;gap:10px;background:#FFF3D6;border:1px solid var(--oro);border-radius:10px;padding:8px 12px;font-size:14px;}
+.qrRiga b{color:var(--verde);}
+.qrRiga span:nth-child(2){flex:1;}
 /* elenco: pastiglie grandi quanto un dito, in fila per numero */
 .elencoTavoli{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px;padding:12px;}
 .tavoloVoce{min-height:78px;border-radius:14px;border:2px solid var(--verde);background:#fff;color:var(--verde);
@@ -480,7 +485,11 @@ async function schermataSala() {
         const m = misuraPianta({ tavoli, larghezza: app.clientWidth - 20, altezzaDisponibile: app.clientHeight - 74 });
         return `<div class="piantaScorri"><div class="piantina" id="piantina" style="width:${m.larghezza}px;height:${m.altezza}px;"><div class="campo">${tavoli.map((t) => { const c = conStato(t); return `<button class="tavolo ${c.stato}" data-t="${esc(t.id)}" style="left:${t.x}%;top:${t.y}%;">${c.dentro}</button>`; }).join('')}</div></div></div>`;
       })();
-    $('app').innerHTML = barra + corpo;
+    /* gli ordini dal QR sul tavolo degli ultimi venti minuti: in cima, in
+       oro, con da quanto sono arrivati — il cameriere li porta anche se
+       la stampante tace (5 settembre 2026) */
+    const qr = (s.qr_recenti || []).map((o) => `<div class="qrRiga"><b>📱 ${esc(o.tavolo)}</b><span>${euro(o.totale_cent)} · ${o.modo === 'camera' ? `camera ${esc(o.camera || '')}` : 'pagato online'}</span><span class="mini">${minuti(o.creato_il)}′</span></div>`).join('');
+    $('app').innerHTML = barra + (qr ? `<div class="qrRecenti">${qr}</div>` : '') + corpo;
     $('app').querySelectorAll('.zone button[data-z]').forEach((b) => b.onclick = () => { ZONA = b.dataset.z; localStorage.setItem('posZona', ZONA); disegna(); });
     $('cambiaVista').onclick = () => { VISTA_SALA = VISTA_SALA === 'elenco' ? 'piantina' : 'elenco'; localStorage.setItem('posVistaSala', VISTA_SALA); disegna(); };
     $('app').querySelectorAll('[data-t]').forEach((b) => b.onclick = () => { clearInterval(timerSala); schermataTavolo(s.tavoli.find((t) => t.id === b.dataset.t)); });

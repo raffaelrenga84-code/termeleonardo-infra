@@ -105,7 +105,7 @@ Deno.test('la coda degli addebiti la legge e la segna il back office, non il pal
   const l = S.slice(S.indexOf("azione === 'addebiti'"), S.indexOf("azione === 'menu-salva'"));
   assert(l.includes("['da_riportare', 'riportato', 'annullato'].includes"), 'tre stati e basta');
   assert(l.includes('riportato_da'), 'si segna chi l ha riportato');
-  assert(S.includes("['addebiti', 'giornata'].includes(azione) && req.method === 'GET'"), 'la lista si legge in GET, come la giornata');
+  assert(S.includes("['addebiti', 'giornata', 'tavoli-qr'].includes(azione) && req.method === 'GET'"), 'la lista si legge in GET, come la giornata');
 });
 
 Deno.test('la firma dell ospite sull addebito: un PNG, piccolo, e facoltativa', () => {
@@ -162,7 +162,7 @@ Deno.test('la cassa di fine giornata si legge dal back office, e i numeri li fa 
   /* «il riepilogo di fine giornata (incassato per cameriere, per
      contanti/carta/camera, articoli piu venduti)» (4 settembre 2026) */
   assert(S.includes("'addebito-segna', 'giornata'"), 'azione del back office');
-  assert(S.includes("['addebiti', 'giornata'].includes(azione) && req.method === 'GET'"), 'si legge, non si scrive');
+  assert(S.includes("['addebiti', 'giornata', 'tavoli-qr'].includes(azione) && req.method === 'GET'"), 'si legge, non si scrive');
   assert(S.includes("import { riepilogo } from './giornata.ts';") && S.includes('giornata: riepilogo({'), 'i numeri li fa il modulo puro');
   assert(S.includes(".eq('stato', 'chiuso').gte('chiuso_il', da).lt('chiuso_il', a)"), 'solo i conti chiusi nella finestra chiesta');
 });
@@ -203,4 +203,20 @@ Deno.test('conto-cambia accetta la camera: un conto esterno diventa in camera al
   assert(c.includes("if (b.camera !== undefined) {") && c.includes("agg.tipo = 'camera'; agg.camera = camera;"), 'la camera cambia il tipo');
   assert(c.includes("if (!camera) return risposta({ errore: 'serve la camera' }, 400);"), 'ma vuota no');
   assert(c.includes('agg.tessera = b.tessera ? String(b.tessera) : null;') && c.includes("['it', 'en', 'de', 'fr'].includes(String(b.lingua))"), 'con tessera e lingua per la firma');
+});
+
+Deno.test('l ordine dal tavolo col QR: menu pubblico firmato, carta via Stripe, camera con tessera che combacia', () => {
+  /* la proprieta', 5 settembre 2026 */
+  assert(S.includes("import { cameraCombacia, numeroOrdine, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';"), 'le regole nel modulo puro');
+  assert(S.includes("const azioniOspite = ['ospite-menu', 'ospite-ordine', 'ospite-stato'];"), 'tre azioni pubbliche');
+  const o = S.slice(S.indexOf('const azioniOspite'), S.indexOf('/* ================= dal palmare'));
+  assert(o.includes("if (!(await tavoloFirmato(t, k, Deno.env.get('HOTEL_KEY'))))"), 'senza la firma del QR niente');
+  assert(o.includes('const esito = righeOrdine(b.righe, vendibili);'), 'le righe si ricostruiscono dal listino');
+  assert(o.includes('if (!cameraCombacia(camera, f.camera)) return risposta'), 'la camera scritta deve combaciare con la tessera');
+  assert(o.includes('dividiParametri(parametriLink({ numero, descrizione:'), 'il link Stripe nasce da parametriLink: a uso singolo, col numero nei metadati');
+  assert(o.includes("if (evento.type !== 'checkout.session.completed')") && o.includes("if (o.stato !== 'in_attesa') return risposta({ esito: 'ok', gia: o.stato });"), 'il webhook manda in cucina una volta sola');
+  assert(S.includes('async function mandaInCucina(o: Riga)') && S.includes("const chi = inCamera ? `QR · IN CAMERA ${String(conto.camera ?? '')}` : 'QR · PAGATO ONLINE';"), 'il biglietto dice che e un ordine dal QR e come ha pagato');
+  assert(S.includes("aperto_da: OSPITI_QR") && S.includes("const OSPITI_QR = 'ospiti-qr';"), 'il cameriere fittizio');
+  assert(S.includes("'fasce-salva', 'tavoli-qr']") && S.includes("azione === 'tavoli-qr'"), 'i QR dei tavoli dal back office');
+  assert(S.includes('qr_recenti:'), 'la sala mostra gli ordini dal QR');
 });

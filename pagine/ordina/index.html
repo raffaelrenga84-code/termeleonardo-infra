@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#1A3626" />
+<!-- ci si arriva solo inquadrando il QR sul tavolo: niente motori di ricerca -->
+<meta name="robots" content="noindex, nofollow" />
+<title>Ordina al tavolo — Hotel Terme Leonardo</title>
+<link rel="icon" href="/buoni/img/logo-quadrato.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+/* L'ORDINE DAL TAVOLO. Chi apre questa pagina ha inquadrato il QR sul
+   tavolo: e' un ospite, col suo telefono, spesso non parla italiano, e
+   vuole due cose in fretta — scegliere e pagare. Quadrati grandi con
+   un'icona, una barra in fondo col totale, due modi di pagare. Niente
+   accessi, niente app (la proprieta', 5 settembre 2026). */
+:root{--verde:#1A3626;--verde-medio:#3C5346;--oro:#C9A961;--crema:#F9F6F0;--pietra:#DCD6CB;--grigio:#7B756A;--allarme:#C0392B;--acqua-chiara:#E4F0EA;}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{margin:0;background:var(--crema);color:#2A2E2B;font:17px/1.4 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;-webkit-text-size-adjust:100%;}
+header{background:var(--verde);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+header .marchio{font-family:"Cormorant Garamond",Georgia,serif;font-size:22px;letter-spacing:.3px;flex:1;white-space:nowrap;}
+header .tavolo{font-weight:600;font-size:15px;background:rgba(255,255,255,.14);padding:5px 10px;border-radius:999px;white-space:nowrap;}
+.lingue{display:flex;gap:4px;}
+.lingue button{border:1px solid rgba(255,255,255,.4);background:none;color:#fff;border-radius:999px;padding:4px 9px;font:600 12px inherit;letter-spacing:.5px;cursor:pointer;}
+.lingue button.attiva{background:#fff;color:var(--verde);border-color:#fff;}
+main{padding:14px 14px 110px;max-width:640px;margin:0 auto;}
+h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:30px;line-height:1.15;color:var(--verde);margin:6px 0 4px;text-wrap:balance;}
+.sotto{color:var(--grigio);margin:0 0 14px;font-size:15px;}
+.fascia{display:inline-block;background:var(--oro);color:var(--verde);font-weight:600;font-size:13px;padding:5px 10px;border-radius:999px;margin-bottom:12px;}
+button{font:inherit;cursor:pointer;color:inherit;}
+/* i quadratoni delle categorie */
+.griglia{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+@media (min-width:520px){.griglia{grid-template-columns:repeat(3,1fr);}}
+.quadro{min-height:118px;border:1px solid var(--pietra);border-radius:18px;background:#fff;padding:14px 12px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;gap:8px;box-shadow:0 1px 2px rgba(26,54,38,.06);}
+.quadro .icona{font-size:36px;line-height:1;}
+.quadro b{font-size:17px;line-height:1.2;color:var(--verde);}
+.quadro .mini{font-size:13px;color:var(--grigio);font-weight:400;}
+.quadro:active{background:var(--acqua-chiara);}
+.indietro{border:0;background:none;color:var(--verde-medio);font-size:16px;padding:6px 0 12px;display:inline-flex;align-items:center;gap:4px;}
+/* gli articoli */
+.lista{display:flex;flex-direction:column;gap:10px;}
+.riga{background:#fff;border:1px solid var(--pietra);border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px;}
+.riga .nome{flex:1;min-width:0;}
+.riga .nome b{display:block;font-size:16px;line-height:1.25;color:#2A2E2B;}
+.riga .prezzo{color:var(--grigio);font-size:15px;}
+.riga.scelta{border-color:var(--verde);background:#F3F7F4;}
+.qta{display:flex;align-items:center;gap:2px;}
+.qta button{width:42px;height:42px;border-radius:50%;border:1.5px solid var(--verde);background:#fff;color:var(--verde);font-size:24px;line-height:1;display:flex;align-items:center;justify-content:center;}
+.qta button:disabled{opacity:.25;}
+.qta output{min-width:32px;text-align:center;font-weight:600;font-size:19px;}
+.notaRiga{margin-top:8px;width:100%;}
+.notaRiga input{width:100%;padding:10px 12px;font:inherit;font-size:15px;border:1px solid var(--pietra);border-radius:10px;background:#FCFBF8;}
+.aggiungiNota{border:0;background:none;color:var(--verde-medio);font-size:14px;padding:6px 0 0;text-decoration:underline;}
+/* la barra in fondo */
+.barra{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--pietra);padding:10px 14px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -4px 16px rgba(26,54,38,.08);}
+.barra .dentro{max-width:640px;margin:0 auto;display:flex;align-items:center;gap:12px;}
+.barra .somma{flex:1;}
+.barra .somma b{display:block;font-size:20px;color:var(--verde);}
+.barra .somma span{font-size:13px;color:var(--grigio);}
+.bottone{padding:15px 18px;border:0;border-radius:14px;background:var(--verde);color:#fff;font-weight:600;font-size:17px;width:100%;}
+.bottone.oro{background:var(--oro);color:var(--verde);}
+.bottone.sec{background:#fff;color:var(--verde);border:2px solid var(--verde);}
+.bottone:disabled{opacity:.45;}
+.barra .bottone{width:auto;white-space:nowrap;}
+/* il riepilogo e il pagamento */
+.riquadro{background:#fff;border:1px solid var(--pietra);border-radius:18px;padding:16px;margin-bottom:14px;}
+.totale{display:flex;justify-content:space-between;align-items:center;font-size:20px;font-weight:600;color:var(--verde);padding:12px 0 4px;border-top:1px solid var(--pietra);margin-top:10px;}
+.paga{display:flex;flex-direction:column;gap:10px;margin-top:6px;}
+.mini{font-size:14px;color:var(--grigio);}
+label{display:block;font-size:14px;color:var(--verde-medio);font-weight:600;margin-top:12px;}
+input.campo{width:100%;padding:13px 14px;font:inherit;font-size:18px;border:1px solid var(--pietra);border-radius:12px;background:#FCFBF8;margin-top:5px;}
+.conFoto{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;}
+.foto{font-size:22px;padding:8px 12px;border:1px solid var(--pietra);border-radius:12px;background:#fff;margin-top:5px;}
+.errore{color:var(--allarme);font-size:15px;margin-top:8px;}
+.grazie{text-align:center;padding:30px 10px;}
+.grazie .icona{font-size:64px;}
+.grazie h1{font-size:34px;}
+.numero{font:600 22px ui-monospace,Menlo,monospace;letter-spacing:3px;color:var(--verde);}
+.velo{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px;}
+.velo .dentro{background:#fff;border-radius:18px;padding:16px;width:100%;max-width:480px;text-align:center;}
+.spinner{display:inline-block;width:28px;height:28px;border:3px solid var(--pietra);border-top-color:var(--verde);border-radius:50%;animation:gira 1s linear infinite;}
+@keyframes gira{to{transform:rotate(360deg);}}
+@media (prefers-reduced-motion:reduce){.spinner{animation:none;}}
+</style>
+</head>
+<body>
+<header>
+  <div class="marchio">Hotel Terme Leonardo</div>
+  <div class="tavolo" id="tavolo"></div>
+  <div class="lingue" id="lingue"></div>
+</header>
+<main id="app"></main>
+<div class="barra" id="barra" hidden></div>
+
+<script type="module">
+const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos';
+const P = new URLSearchParams(location.search);
+const T_ID = P.get('t') || '', K = P.get('k') || '';
+const LINGUE = ['it', 'en', 'de', 'fr'];
+let LINGUA = LINGUE.includes(P.get('l')) ? P.get('l') : (LINGUE.find((l) => (navigator.language || 'it').toLowerCase().startsWith(l)) || 'it');
+
+/* ---------- le parole, in quattro lingue ---------- */
+const TESTI = {
+  it: { benvenuto: 'Benvenuti', scegli: 'Cosa desidera?', indietro: 'Indietro', vedi: 'Vedi l’ordine', articoli: (n) => `${n} ${n === 1 ? 'articolo' : 'articoli'}`, ordine: 'Il suo ordine', nota: 'Nota (es. senza ghiaccio)', aggiungiNota: '+ nota', totale: 'Totale', carta: 'Paga con carta, Apple Pay o Google Pay', camera: 'Addebita sulla mia camera', cameraSpiega: 'Solo per gli ospiti dell’hotel: servono la tessera della camera e il numero della camera.', tessera: 'Numero della tessera', inquadra: '📷', numeroCamera: 'Numero della camera', nome: 'Il suo nome (facoltativo)', conferma: 'Confermo l’addebito in camera', annulla: 'Annulla', continua: 'Continua a scegliere', grazie: 'Grazie!', ricevuto: (n) => `Ordine ${n} ricevuto.`, inArrivo: (t) => `Lo stiamo preparando: arriva al tavolo ${t}.`, attendo: 'Aspettiamo la conferma del pagamento…', nuovo: 'Nuovo ordine', vuoto: 'Non ha ancora scelto niente.', fascia: (n, a) => `${n} fino alle ${a}`, errore: 'Qualcosa non va: chiami il cameriere.', nonCombacia: 'Il numero di camera non corrisponde alla tessera.', tesseraNo: 'Tessera non riconosciuta.', esaurito: 'Un articolo è esaurito: lo tolga e riprovi.', tavoloNo: 'Tavolo non riconosciuto: inquadri di nuovo il codice sul tavolo.', mando: 'Un momento…', pagamentoNo: 'Il pagamento non è andato a buon fine. Può riprovare.' },
+  en: { benvenuto: 'Welcome', scegli: 'What would you like?', indietro: 'Back', vedi: 'View order', articoli: (n) => `${n} ${n === 1 ? 'item' : 'items'}`, ordine: 'Your order', nota: 'Note (e.g. no ice)', aggiungiNota: '+ note', totale: 'Total', carta: 'Pay by card, Apple Pay or Google Pay', camera: 'Charge to my room', cameraSpiega: 'Hotel guests only: you need your room card and your room number.', tessera: 'Card number', inquadra: '📷', numeroCamera: 'Room number', nome: 'Your name (optional)', conferma: 'Confirm the room charge', annulla: 'Cancel', continua: 'Keep choosing', grazie: 'Thank you!', ricevuto: (n) => `Order ${n} received.`, inArrivo: (t) => `We are preparing it: it will be brought to table ${t}.`, attendo: 'Waiting for the payment confirmation…', nuovo: 'New order', vuoto: 'Nothing chosen yet.', fascia: (n, a) => `${n} until ${a}`, errore: 'Something went wrong: please call the waiter.', nonCombacia: 'The room number does not match the card.', tesseraNo: 'Card not recognised.', esaurito: 'An item is sold out: remove it and try again.', tavoloNo: 'Table not recognised: please scan the code on the table again.', mando: 'One moment…', pagamentoNo: 'The payment did not go through. You can try again.' },
+  de: { benvenuto: 'Willkommen', scegli: 'Was darf es sein?', indietro: 'Zurück', vedi: 'Bestellung ansehen', articoli: (n) => `${n} Artikel`, ordine: 'Ihre Bestellung', nota: 'Hinweis (z. B. ohne Eis)', aggiungiNota: '+ Hinweis', totale: 'Gesamt', carta: 'Mit Karte, Apple Pay oder Google Pay zahlen', camera: 'Auf mein Zimmer buchen', cameraSpiega: 'Nur für Hotelgäste: Sie brauchen Ihre Zimmerkarte und Ihre Zimmernummer.', tessera: 'Kartennummer', inquadra: '📷', numeroCamera: 'Zimmernummer', nome: 'Ihr Name (optional)', conferma: 'Zimmerbuchung bestätigen', annulla: 'Abbrechen', continua: 'Weiter auswählen', grazie: 'Danke!', ricevuto: (n) => `Bestellung ${n} erhalten.`, inArrivo: (t) => `Wir bereiten sie zu: sie kommt an Tisch ${t}.`, attendo: 'Wir warten auf die Zahlungsbestätigung…', nuovo: 'Neue Bestellung', vuoto: 'Noch nichts ausgewählt.', fascia: (n, a) => `${n} bis ${a}`, errore: 'Etwas stimmt nicht: bitte rufen Sie den Kellner.', nonCombacia: 'Die Zimmernummer passt nicht zur Karte.', tesseraNo: 'Karte nicht erkannt.', esaurito: 'Ein Artikel ist ausverkauft: bitte entfernen und erneut versuchen.', tavoloNo: 'Tisch nicht erkannt: bitte den Code auf dem Tisch erneut scannen.', mando: 'Einen Moment…', pagamentoNo: 'Die Zahlung ist nicht durchgegangen. Sie können es erneut versuchen.' },
+  fr: { benvenuto: 'Bienvenue', scegli: 'Que désirez-vous ?', indietro: 'Retour', vedi: 'Voir la commande', articoli: (n) => `${n} ${n === 1 ? 'article' : 'articles'}`, ordine: 'Votre commande', nota: 'Remarque (ex. sans glace)', aggiungiNota: '+ remarque', totale: 'Total', carta: 'Payer par carte, Apple Pay ou Google Pay', camera: 'Mettre sur ma chambre', cameraSpiega: 'Réservé aux clients de l’hôtel : il faut la carte de la chambre et le numéro de chambre.', tessera: 'Numéro de la carte', inquadra: '📷', numeroCamera: 'Numéro de chambre', nome: 'Votre nom (facultatif)', conferma: 'Confirmer sur la chambre', annulla: 'Annuler', continua: 'Continuer à choisir', grazie: 'Merci !', ricevuto: (n) => `Commande ${n} reçue.`, inArrivo: (t) => `Nous la préparons : elle arrive à la table ${t}.`, attendo: 'En attente de la confirmation du paiement…', nuovo: 'Nouvelle commande', vuoto: 'Rien de choisi pour l’instant.', fascia: (n, a) => `${n} jusqu’à ${a}`, errore: 'Un problème est survenu : appelez le serveur.', nonCombacia: 'Le numéro de chambre ne correspond pas à la carte.', tesseraNo: 'Carte non reconnue.', esaurito: 'Un article est épuisé : retirez-le et réessayez.', tavoloNo: 'Table non reconnue : scannez à nouveau le code sur la table.', mando: 'Un instant…', pagamentoNo: 'Le paiement n’a pas abouti. Vous pouvez réessayer.' },
+};
+const T = () => TESTI[LINGUA];
+
+/* l'icona di una categoria, dal nome: un quadratone si riconosce prima
+   di leggerlo, in qualunque lingua */
+const ICONE = [
+  [/acqua/i, '💧'], [/bevand|bibit|soft|succ/i, '🥤'], [/birr/i, '🍺'], [/caff|tisan|the\b|tè/i, '☕'],
+  [/cocktail|long drink|aperitiv/i, '🍹'], [/amar|grapp|rum|whisk|brandy|cognac|liquor|distill/i, '🥃'],
+  [/dealcol/i, '🍾'], [/bollicin|champagn|spumant/i, '🥂'], [/calice/i, '🍷'], [/vin[oi]|rose|rosé/i, '🍷'],
+  [/dessert|dolc|vetrinett|gelat|tort/i, '🍰'], [/hamburg|panin|toast|piadin/i, '🍔'], [/insalat/i, '🥗'],
+  [/pizza/i, '🍕'], [/pasta|primi|piatti caldi/i, '🍝'], [/freddi|tagliere|formagg|salum/i, '🧀'], [/contorn|verdur/i, '🥦'],
+  [/condivid/i, '🧆'], [/giorno|menu|menù/i, '📋'], [/bambin|kids/i, '🧒'],
+];
+const icona = (nome) => (ICONE.find(([re]) => re.test(nome)) || [null, '🍽️'])[1];
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const euro = (c) => (Number(c || 0) / 100).toFixed(2).replace('.', ',') + ' €';
+
+let MENU = null;
+let CARRELLO = new Map();          // articolo → { quantita, nota }
+let VISTA = { nome: 'categorie', categoria: null };
+
+const chiama = async (azione, opz = {}) => {
+  const r = await fetch(`${FUNZIONE}?a=${azione}&t=${encodeURIComponent(T_ID)}&k=${encodeURIComponent(K)}${opz.qs || ''}`, {
+    method: opz.corpo ? 'POST' : 'GET', headers: opz.corpo ? { 'content-type': 'application/json' } : {},
+    body: opz.corpo ? JSON.stringify({ ...opz.corpo, t: T_ID, k: K, lingua: LINGUA }) : undefined,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.errore || `errore ${r.status}`);
+  return j;
+};
+/* gli errori del server sono in italiano: i piu' comuni si traducono */
+const traduci = (m) => {
+  const s = String(m || '');
+  if (/non corrisponde/i.test(s)) return T().nonCombacia;
+  if (/tessera non riconosciuta|tessera non trovata/i.test(s)) return T().tesseraNo;
+  if (/esaurito/i.test(s)) return T().esaurito;
+  if (/tavolo non riconosciuto|tavolo non trovato/i.test(s)) return T().tavoloNo;
+  return LINGUA === 'it' ? s : `${T().errore} (${s})`;
+};
+
+/* ---------- il carrello ---------- */
+const quantita = (id) => (CARRELLO.get(id) || {}).quantita || 0;
+const metti = (id, q) => { if (q <= 0) CARRELLO.delete(id); else CARRELLO.set(id, { ...(CARRELLO.get(id) || { nota: '' }), quantita: Math.min(20, q) }); barra(); };
+const righeCarrello = () => [...CARRELLO.entries()].map(([id, c]) => ({ articolo: id, ...c, a: MENU.articoli.find((x) => x.id === id) })).filter((r) => r.a);
+const totale = () => righeCarrello().reduce((t, r) => t + r.quantita * r.a.prezzo_cent, 0);
+const quanti = () => righeCarrello().reduce((t, r) => t + r.quantita, 0);
+
+const barra = () => {
+  const b = $('barra');
+  const n = quanti();
+  if (!n || VISTA.nome === 'carrello' || VISTA.nome === 'grazie' || VISTA.nome === 'camera') { b.hidden = true; return; }
+  b.hidden = false;
+  b.innerHTML = `<div class="dentro"><div class="somma"><b>${euro(totale())}</b><span>${T().articoli(n)}</span></div><button class="bottone" id="vediOrdine">${esc(T().vedi)} ›</button></div>`;
+  $('vediOrdine').onclick = () => { VISTA = { nome: 'carrello' }; disegna(); };
+};
+
+/* ---------- le schermate ---------- */
+const testa = () => {
+  $('tavolo').textContent = MENU ? MENU.tavolo.nome : '';
+  $('lingue').innerHTML = LINGUE.map((l) => `<button data-l="${l}" class="${l === LINGUA ? 'attiva' : ''}">${l.toUpperCase()}</button>`).join('');
+  $('lingue').querySelectorAll('[data-l]').forEach((b) => b.onclick = () => { LINGUA = b.dataset.l; disegna(); });
+};
+const categorieRadice = () => MENU.categorie.filter((c) => !c.sotto).sort((a, b) => (Number(a.posizione) || 0) - (Number(b.posizione) || 0) || String(a.nome).localeCompare(String(b.nome), 'it'));
+const sottoDi = (id) => MENU.categorie.filter((c) => c.sotto === id).sort((a, b) => (Number(a.posizione) || 0) - (Number(b.posizione) || 0) || String(a.nome).localeCompare(String(b.nome), 'it'));
+const articoliDi = (id) => MENU.articoli.filter((a) => a.categoria === id).sort((a, b) => (Number(a.posizione) || 0) - (Number(b.posizione) || 0) || String(a.nome).localeCompare(String(b.nome), 'it'));
+const quantiIn = (c) => articoliDi(c.id).length + sottoDi(c.id).reduce((t, s) => t + articoliDi(s.id).length, 0);
+const quadro = (c) => `<button class="quadro" data-cat="${esc(c.id)}"><span class="icona">${icona(c.nome)}</span><span><b>${esc(c.nome)}</b><br><span class="mini">${quantiIn(c)}</span></span></button>`;
+
+const schermataCategorie = () => {
+  const cats = categorieRadice().filter((c) => quantiIn(c) > 0);
+  $('app').innerHTML = `<h1>${esc(T().benvenuto)}</h1><p class="sotto">${esc(T().scegli)}</p>
+    ${MENU.fascia ? `<div class="fascia">★ ${esc(T().fascia(MENU.fascia.nome, MENU.fascia.alle))}</div>` : ''}
+    <div class="griglia">${cats.map(quadro).join('')}</div>`;
+};
+const rigaArticolo = (a) => {
+  const q = quantita(a.id), c = CARRELLO.get(a.id);
+  return `<div class="riga ${q ? 'scelta' : ''}" data-art="${esc(a.id)}"><div class="nome"><b>${esc(a.nome)}</b><span class="prezzo">${euro(a.prezzo_cent)}${a.in_fascia ? ' ★' : ''}</span>
+    ${q ? (c && c.nota !== undefined && (c.aperta || c.nota) ? `<div class="notaRiga"><input data-nota="${esc(a.id)}" placeholder="${esc(T().nota)}" value="${esc(c.nota || '')}" maxlength="120" /></div>` : `<button class="aggiungiNota" data-apri-nota="${esc(a.id)}">${esc(T().aggiungiNota)}</button>`) : ''}</div>
+    <div class="qta"><button data-meno="${esc(a.id)}" ${q ? '' : 'disabled'} aria-label="−">−</button><output>${q || ''}</output><button data-piu="${esc(a.id)}" aria-label="+">+</button></div></div>`;
+};
+const schermataArticoli = (cat) => {
+  const figlie = sottoDi(cat.id).filter((c) => quantiIn(c) > 0);
+  const arts = articoliDi(cat.id);
+  $('app').innerHTML = `<button class="indietro" id="indietro">‹ ${esc(T().indietro)}</button>
+    <h1>${icona(cat.nome)} ${esc(cat.nome)}</h1>
+    ${figlie.length ? `<div class="griglia" style="margin-bottom:14px;">${figlie.map(quadro).join('')}</div>` : ''}
+    <div class="lista">${arts.map(rigaArticolo).join('')}</div>`;
+  $('indietro').onclick = () => { VISTA = cat.sotto ? { nome: 'articoli', categoria: cat.sotto } : { nome: 'categorie' }; disegna(); };
+};
+const schermataCarrello = () => {
+  const righe = righeCarrello();
+  $('app').innerHTML = `<button class="indietro" id="indietro">‹ ${esc(T().continua)}</button>
+    <h1>${esc(T().ordine)}</h1>
+    <div class="riquadro">${righe.length ? `<div class="lista">${righe.map((r) => rigaArticolo(r.a)).join('')}</div>
+      <div class="totale"><span>${esc(T().totale)}</span><span>${euro(totale())}</span></div>` : `<p class="mini">${esc(T().vuoto)}</p>`}</div>
+    ${righe.length ? `<div class="paga">
+      ${MENU.carta ? `<button class="bottone oro" id="pagaCarta">${esc(T().carta)}</button>` : ''}
+      <button class="bottone sec" id="pagaCamera">${esc(T().camera)}</button>
+      <p class="mini">${esc(T().cameraSpiega)}</p>
+      <div class="errore" id="errore"></div></div>` : ''}`;
+  $('indietro').onclick = () => { VISTA = { nome: 'categorie' }; disegna(); };
+  const pc = $('pagaCarta');
+  if (pc) pc.onclick = async () => {
+    pc.disabled = true; $('errore').textContent = T().mando;
+    try {
+      const j = await chiama('ospite-ordine', { corpo: { modo: 'carta', righe: righe.map((r) => ({ articolo: r.articolo, quantita: r.quantita, nota: r.nota || null })) } });
+      location.href = j.url;
+    } catch (e) { $('errore').textContent = traduci(e.message); pc.disabled = false; }
+  };
+  $('pagaCamera').onclick = () => { VISTA = { nome: 'camera' }; disegna(); };
+};
+const schermataCamera = () => {
+  const righe = righeCarrello();
+  $('app').innerHTML = `<button class="indietro" id="indietro">‹ ${esc(T().indietro)}</button>
+    <h1>${esc(T().camera)}</h1>
+    <div class="riquadro"><div class="totale" style="border:0;margin:0;padding:0 0 6px;"><span>${esc(T().totale)}</span><span>${euro(totale())}</span></div>
+      <p class="mini">${esc(T().cameraSpiega)}</p>
+      <label>${esc(T().tessera)}</label>
+      <div class="conFoto"><input class="campo" id="tessera" inputmode="numeric" autocomplete="off" />${puoScansionare() ? `<button type="button" class="foto" id="scansiona">${T().inquadra}</button>` : ''}</div>
+      <label>${esc(T().numeroCamera)}</label><input class="campo" id="camera" inputmode="numeric" autocomplete="off" />
+      <label>${esc(T().nome)}</label><input class="campo" id="nome" maxlength="40" autocomplete="name" />
+      <div class="errore" id="errore"></div>
+      <div class="paga" style="margin-top:14px;"><button class="bottone" id="conferma">${esc(T().conferma)}</button><button class="bottone sec" id="annulla">${esc(T().annulla)}</button></div></div>`;
+  $('indietro').onclick = $('annulla').onclick = () => { VISTA = { nome: 'carrello' }; disegna(); };
+  const sc = $('scansiona');
+  if (sc) sc.onclick = async () => { const c = await scansiona(); if (c) $('tessera').value = c; };
+  $('conferma').onclick = async () => {
+    const b = $('conferma'); b.disabled = true; $('errore').textContent = T().mando;
+    try {
+      const j = await chiama('ospite-ordine', { corpo: { modo: 'camera', tessera: $('tessera').value, camera: $('camera').value, ospite: $('nome').value, righe: righe.map((r) => ({ articolo: r.articolo, quantita: r.quantita, nota: r.nota || null })) } });
+      CARRELLO = new Map();
+      VISTA = { nome: 'grazie', numero: j.numero, stato: j.stato }; disegna();
+    } catch (e) { $('errore').textContent = traduci(e.message); b.disabled = false; }
+  };
+  setTimeout(() => $('tessera').focus(), 50);
+};
+let sondaggio = null;
+const schermataGrazie = () => {
+  const inCucina = VISTA.stato === 'in_cucina';
+  const male = VISTA.stato === 'errore' || VISTA.stato === 'annullato';
+  $('app').innerHTML = `<div class="grazie"><div class="icona">${male ? '⚠️' : inCucina ? '✅' : '<span class="spinner"></span>'}</div>
+    <h1>${esc(male ? T().errore : T().grazie)}</h1>
+    <p>${esc(T().ricevuto(VISTA.numero))}</p><div class="numero">${esc(VISTA.numero)}</div>
+    <p class="sotto" style="margin-top:14px;">${esc(male ? T().pagamentoNo : inCucina ? T().inArrivo(MENU ? MENU.tavolo.nome : '') : T().attendo)}</p>
+    ${inCucina || male ? `<button class="bottone sec" id="nuovo" style="max-width:320px;margin:10px auto 0;">${esc(T().nuovo)}</button>` : ''}</div>`;
+  const n = $('nuovo');
+  if (n) n.onclick = () => { history.replaceState(null, '', `${location.pathname}?t=${encodeURIComponent(T_ID)}&k=${encodeURIComponent(K)}&l=${LINGUA}`); VISTA = { nome: 'categorie' }; disegna(); };
+  clearInterval(sondaggio);
+  if (!inCucina && !male) {
+    /* dopo Stripe si torna qui: il webhook manda l'ordine in cucina entro
+       pochi secondi, e la pagina lo aspetta */
+    let giri = 0;
+    sondaggio = setInterval(async () => {
+      giri += 1;
+      try {
+        const j = await chiama('ospite-stato', { qs: `&ordine=${encodeURIComponent(VISTA.numero)}` });
+        if (j.ordine && j.ordine.stato !== VISTA.stato) { VISTA.stato = j.ordine.stato; if (j.ordine.stato !== 'pagato') disegna(); }
+      } catch (e) { /* si riprova */ }
+      if (giri > 60) clearInterval(sondaggio);
+    }, 3000);
+  }
+};
+
+const disegna = () => {
+  testa();
+  if (VISTA.nome === 'categorie') schermataCategorie();
+  else if (VISTA.nome === 'articoli') { const c = MENU.categorie.find((x) => x.id === VISTA.categoria); c ? schermataArticoli(c) : schermataCategorie(); }
+  else if (VISTA.nome === 'carrello') schermataCarrello();
+  else if (VISTA.nome === 'camera') schermataCamera();
+  else if (VISTA.nome === 'grazie') schermataGrazie();
+  barra();
+  window.scrollTo(0, 0);
+};
+
+/* un solo ascoltatore per tutti i tocchi: quadratoni, piu' e meno, note */
+document.addEventListener('click', (ev) => {
+  const el = ev.target.closest ? ev.target.closest('[data-cat],[data-piu],[data-meno],[data-apri-nota]') : null;
+  if (!el) return;
+  if (el.dataset.cat) { VISTA = { nome: 'articoli', categoria: el.dataset.cat }; disegna(); return; }
+  if (el.dataset.piu) { metti(el.dataset.piu, quantita(el.dataset.piu) + 1); aggiornaRiga(el.dataset.piu); return; }
+  if (el.dataset.meno) { metti(el.dataset.meno, quantita(el.dataset.meno) - 1); aggiornaRiga(el.dataset.meno); return; }
+  if (el.dataset.apriNota) { const c = CARRELLO.get(el.dataset.apriNota); if (c) { c.aperta = true; aggiornaRiga(el.dataset.apriNota); const i = document.querySelector(`[data-nota="${el.dataset.apriNota}"]`); if (i) i.focus(); } }
+});
+document.addEventListener('input', (ev) => {
+  const i = ev.target;
+  if (i && i.dataset && i.dataset.nota) { const c = CARRELLO.get(i.dataset.nota); if (c) c.nota = i.value.slice(0, 120); }
+});
+/* si ridisegna la riga sola, non la pagina: il dito resta dov'e' */
+const aggiornaRiga = (id) => {
+  const a = MENU.articoli.find((x) => x.id === id);
+  const vecchia = document.querySelector(`.riga[data-art="${id}"]`);
+  if (!a || !vecchia) { disegna(); return; }
+  if (VISTA.nome === 'carrello' && !quantita(id)) { disegna(); return; }
+  const tmp = document.createElement('div'); tmp.innerHTML = rigaArticolo(a);
+  vecchia.replaceWith(tmp.firstElementChild);
+  if (VISTA.nome === 'carrello') { const tot = document.querySelector('.totale span:last-child'); if (tot) tot.textContent = euro(totale()); }
+};
+
+/* ---------- la tessera con la fotocamera (solo dove Chrome la da') ---------- */
+const puoScansionare = () => window.isSecureContext && 'BarcodeDetector' in window && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+function scansiona() {
+  const velo = document.createElement('div'); velo.className = 'velo';
+  velo.innerHTML = `<div class="dentro"><video id="fotoVideo" autoplay playsinline muted style="width:100%;max-height:50vh;border-radius:12px;background:#000;"></video>
+    <button class="bottone sec" id="fotoChiudi" style="margin-top:10px;">${esc(T().annulla)}</button></div>`;
+  document.body.appendChild(velo);
+  let flusso = null, timer = null;
+  const chiudi = () => { clearInterval(timer); if (flusso) flusso.getTracks().forEach((t) => t.stop()); velo.remove(); };
+  return new Promise((risolvi) => {
+    velo.querySelector('#fotoChiudi').onclick = () => { chiudi(); risolvi(null); };
+    (async () => {
+      try {
+        flusso = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        velo.querySelector('#fotoVideo').srcObject = flusso;
+        const voluti = ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf', 'codabar', 'qr_code'];
+        const formati = (await BarcodeDetector.getSupportedFormats()).filter((f) => voluti.includes(f));
+        const lettore = new BarcodeDetector({ formats: formati });
+        timer = setInterval(async () => {
+          try { const c = await lettore.detect(velo.querySelector('#fotoVideo')); if (c.length && c[0].rawValue) { const v = c[0].rawValue; chiudi(); risolvi(v); } } catch (e) { /* prossimo fotogramma */ }
+        }, 300);
+      } catch (e) { chiudi(); risolvi(null); }
+    })();
+  });
+}
+
+/* ---------- avvio ---------- */
+(async () => {
+  if (!T_ID || !K) { $('app').innerHTML = `<h1>${esc(TESTI[LINGUA].tavoloNo)}</h1>`; return; }
+  try {
+    MENU = await chiama('ospite-menu');
+  } catch (e) { $('app').innerHTML = `<h1>${esc(traduci(e.message))}</h1>`; return; }
+  const ordine = P.get('ordine');
+  if (ordine) VISTA = { nome: 'grazie', numero: ordine, stato: 'in_attesa' };
+  disegna();
+})();
+</script>
+</body>
+</html>

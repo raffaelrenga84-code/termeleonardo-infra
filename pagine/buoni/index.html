@@ -2365,7 +2365,8 @@ function vistaPosMenu() {
           <div class="mini">«Dove si mangia» è il solito. Scegliendo un locale, il biglietto esce sempre là: il ristorante ordina le bevande e il Bistrot le prepara, con scritto dove portarle.</div></div><div></div></div>
         <div class="due"><div><label>Note rapide per la cucina (separate da virgola)</label><input data-c="note_rapide" value="${esc((c.note_rapide || []).join(', '))}" /></div>
           <div><label>Posizione</label><input data-c="posizione" type="number" value="${Number(c.posizione || 0)}" style="width:80px;" />
-            <label style="display:inline;margin-left:12px;"><input type="checkbox" data-c="attiva" ${c.attiva !== false ? 'checked' : ''}/> attiva</label></div></div>
+            <label style="display:inline;margin-left:12px;"><input type="checkbox" data-c="attiva" ${c.attiva !== false ? 'checked' : ''}/> attiva</label>
+            <label style="display:inline;margin-left:12px;" title="La vedono gli ospiti che ordinano dal QR sul tavolo"><input type="checkbox" data-c="per_ospiti" ${c.per_ospiti !== false ? 'checked' : ''}/> ospiti (QR)</label></div></div>
         ${arts.length ? `<table><tr><th>Articolo</th><th>Prezzo €</th><th>IVA</th><th>Stampante</th><th>Portata</th><th>Si prepara a</th><th>Libero</th><th>Esaurito</th><th>Attivo</th></tr>
         ${arts.map((a) => `<tr data-art="${esc(a.id)}"><td><input data-a="nome" value="${esc(a.nome)}" /></td>
           <td><input data-a="prezzo_cent" value="${euroPos(a.prezzo_cent)}" style="width:72px;" /></td>
@@ -2621,8 +2622,37 @@ function vistaPosTavoli() {
       <button type="button" class="azione sec mini" data-nuova-zona="${esc(l.id)}" style="width:auto;margin-top:10px;">+ zona</button></div>`).join('');
     $('vista').innerHTML = `<div class="riquadro"><button type="button" class="azione" id="ptSalva" style="width:auto;">Salva locali, zone e tavoli</button>
       <button type="button" class="azione sec" id="ptNuovoLoc" style="width:auto;">+ locale</button>
+      <button type="button" class="azione sec" id="ptQr" style="width:auto;" title="Un foglio per tavolo: l’ospite inquadra il codice e ordina da solo">Stampa i QR dei tavoli</button>
       <div class="mini">x e y sono la posizione del tavolo sulla piantina del palmare, in percentuale da sinistra e dall'alto.</div><div class="esito" id="ptEsito"></div></div>` + locali + zone;
     $('ptNuovoLoc').onclick = () => { raccogli(); const id = crypto.randomUUID(); D.locali.push({ id, nome: 'Nuovo locale', reparto: 'F&B', stampante_cucina: null, stampante_bar: null }); disegna(); };
+    /* I QR dei tavoli (la proprieta', 5 settembre 2026): un foglio per
+       tavolo con il codice che porta alla pagina dell'ordine, firmato dal
+       server. Si stampano da una finestra a parte; il QR lo disegna una
+       libreria caricata solo li'. */
+    $('ptQr').onclick = async () => {
+      $('ptEsito').textContent = 'Preparo i QR…';
+      try {
+        const j = await chiama('?a=tavoli-qr', {}, FUNZIONE_POS);
+        const w = window.open('', '_blank');
+        if (!w) { $('ptEsito').textContent = 'Il browser ha bloccato la finestra: permetta le finestre a comparsa per questa pagina.'; return; }
+        w.document.write(`<!doctype html><html lang="it"><head><meta charset="utf-8"><title>QR dei tavoli</title>
+          <style>body{font:15px -apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1A3626;margin:0;padding:12mm;}
+          .foglio{display:grid;grid-template-columns:repeat(2,1fr);gap:10mm;}
+          .tavolo{border:1px solid #DCD6CB;border-radius:12px;padding:8mm;text-align:center;break-inside:avoid;page-break-inside:avoid;}
+          .tavolo h2{font:500 26px "Cormorant Garamond",Georgia,serif;margin:0 0 2mm;}
+          .tavolo .zona{color:#7B756A;margin-bottom:4mm;}
+          .qr{display:inline-block;margin:0 auto;}
+          .tavolo p{margin:4mm 0 0;font-size:14px;color:#3C5346;}
+          @media print{body{padding:8mm;} .no{display:none;}}</style></head><body>
+          <p class="no">${j.tavoli.length} tavoli · Ctrl+P per stampare · <a href="${esc(j.pagina)}">${esc(j.pagina)}</a></p>
+          <div class="foglio">${j.tavoli.map((t, i) => `<div class="tavolo"><h2>${esc(t.nome)}</h2><div class="zona">${esc(t.zona || '')}${t.locale ? ` · ${esc(t.locale)}` : ''}</div><div class="qr" id="qr${i}"></div><p>Ordina e paga dal tavolo · Order &amp; pay at the table<br>Bestellen &amp; zahlen am Tisch · Commander &amp; payer à table</p></div>`).join('')}</div>
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+          <script>const T=${JSON.stringify(j.tavoli.map((t) => t.url))};T.forEach((u,i)=>new QRCode(document.getElementById('qr'+i),{text:u,width:200,height:200,correctLevel:QRCode.CorrectLevel.M}));<\/script>
+          </body></html>`);
+        w.document.close();
+        $('ptEsito').textContent = `${j.tavoli.length} QR pronti nella nuova finestra.`;
+      } catch (e) { $('ptEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+    };
     document.querySelectorAll('[data-nuova-zona]').forEach((b) => b.onclick = () => { raccogli(); D.zone.push({ id: crypto.randomUUID(), locale: b.dataset.nuovaZona, nome: 'Nuova zona', posizione: D.zone.length }); disegna(); });
     document.querySelectorAll('[data-nuovo-tav]').forEach((b) => b.onclick = () => { raccogli(); const n = D.tavoli.filter((t) => t.zona === b.dataset.nuovoTav).length + 1; D.tavoli.push({ id: crypto.randomUUID(), zona: b.dataset.nuovoTav, nome: `Tavolo ${n}`, posti: 4, x: 50, y: 50, attivo: true }); disegna(); });
     $('ptSalva').onclick = async () => {

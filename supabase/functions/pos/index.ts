@@ -44,6 +44,8 @@ import { riepilogo } from './giornata.ts';
 import { chiusoCome, importoValido, residuo, resto } from './pagamenti.ts';
 import { applicaFascia, fasciaAttiva, minutiDi, oraLocale, prezzoInFascia } from './fasce.ts';
 import type { Fascia, PrezzoFascia } from './fasce.ts';
+import { cameraCombacia, numeroOrdine, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';
+import { chiaveStripe, dividiParametri, firmaValida, parametriLink, segretoWebhook, STRIPE } from './stripe.ts';
 import { motivoDelPrezzo, motivoPulito, prezzoCambiato } from './motivi.ts';
 import { localeChePrepara, portareA, siStampa } from './dove.ts';
 import { categoriaVino } from './vini.ts';
@@ -215,6 +217,80 @@ async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata
 }
 
 /* ---------- allineamento: upsert per id, vince aggiornato_il piu' recente ---------- */
+/* ---------- l'ordine dal tavolo (QR): Stripe e la cucina ---------- */
+const PAGINA_ORDINA = Deno.env.get('PAGINA_ORDINA') || 'https://www.hoteltermeleonardo.com/ordina';
+const POS_PROVA = Deno.env.get('POS_PROVA') === '1';
+/* il cameriere fittizio che apre e chiude i conti degli ospiti col QR:
+   bloccato, con un codice che nessun tastierino puo' battere */
+const OSPITI_QR = 'ospiti-qr';
+
+async function stripe(chiave: string, percorso: string, corpo: Record<string, string>): Promise<Record<string, unknown>> {
+  const r = await fetch(STRIPE + percorso, {
+    method: 'POST', headers: { authorization: 'Bearer ' + chiave, 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(corpo),
+  });
+  const j = await r.json().catch(() => ({})) as Record<string, unknown>;
+  if (!r.ok) throw new Error(`Stripe ${percorso}: ${r.status} ${String((j.error as { message?: string } | undefined)?.message ?? '')}`);
+  return j;
+}
+
+const segnaErroreOrdine = (numero: string, messaggio: string) =>
+  db.from('pos_ordine_ospite').update({ stato: 'errore', errore: messaggio.slice(0, 300), aggiornato_il: adesso() }).eq('id', numero);
+
+/* L'ordine pagato (o addebitato) diventa un conto vero: le righe, la
+   comanda in cucina e al bar con scritto chi l'ha fatto e come ha pagato,
+   e la chiusura subito — con la carta gia' incassata (pos_pagamento), o
+   in camera nella coda degli addebiti. Le portate partono tutte insieme:
+   nessun cameriere premera' «Vai» per un conto gia' chiuso. */
+async function mandaInCucina(o: Riga): Promise<void> {
+  const ora = adesso();
+  const numero = String(o.id);
+  const righe = (Array.isArray(o.righe) ? o.righe : []) as RigaOspite[];
+  const totale = Number(o.totale_cent) || 0;
+  const inCamera = o.modo === 'camera';
+  const conto: Riga = {
+    id: crypto.randomUUID(), tavolo: String(o.tavolo), tipo: inCamera ? 'camera' : 'esterno',
+    camera: inCamera ? String(o.camera ?? '') || null : null, tessera: inCamera ? String(o.tessera ?? '') || null : null,
+    ospite: inCamera ? ((o.ospite as string | null) ?? null) : null, nome: `QR ${numero}`, lingua: (o.lingua as string | null) ?? null,
+    coperti: 1, stato: 'aperto', aperto_da: OSPITI_QR, aperto_il: ora, aggiornato_il: ora,
+  };
+  const { error: e1 } = await db.from('pos_conto').insert(conto);
+  if (e1) { await segnaErroreOrdine(numero, e1.message); return; }
+  const { data: arts } = await db.from('pos_articolo').select('id, portata, cat:pos_categoria(portata)').in('id', righe.map((r) => r.articolo));
+  const inserite: Riga[] = righe.map((r) => {
+    const a = (arts ?? []).find((x) => x.id === r.articolo);
+    const cat = a?.cat as unknown as { portata: Portata } | null;
+    const portata = ePortata(r.portata) ? r.portata : (a && ePortata(a.portata) ? a.portata : (cat?.portata ?? 'secondi'));
+    return {
+      id: crypto.randomUUID(), conto: conto.id, articolo: r.articolo, nome: r.nome, quantita: r.quantita,
+      prezzo_listino_cent: r.prezzo_cent, prezzo_cent: r.prezzo_cent, variante: null, nota: r.nota, motivo_prezzo: null, locale_stampa: null,
+      portata, stato: 'partita', partita_il: ora, creata_da: OSPITI_QR, aggiornato_il: ora,
+    };
+  });
+  const { error: e2 } = await db.from('pos_riga').insert(inserite);
+  if (e2) { await segnaErroreOrdine(numero, e2.message); return; }
+  const tutte = await righeDelConto(conto.id as string);
+  const chi = inCamera ? `QR · IN CAMERA ${String(conto.camera ?? '')}` : 'QR · PAGATO ONLINE';
+  for (const p of PORTATE) {
+    const rr = tutte.filter((r) => r.portata === p);
+    if (rr.length) await creaStampe(conto, rr, p, 'comanda', chi);
+  }
+  const come = inCamera ? 'camera' : 'carta';
+  await db.from('pos_conto').update({ stato: 'chiuso', chiuso_come: come, chiuso_da: OSPITI_QR, chiuso_il: ora, aggiornato_il: ora }).eq('id', conto.id as string);
+  if (!inCamera) {
+    await db.from('pos_pagamento').insert({ id: crypto.randomUUID(), conto: conto.id, modo: 'carta', importo_cent: totale, ricevuto_cent: null, cameriere: OSPITI_QR, il: ora, aggiornato_il: ora });
+  } else {
+    const { data: tv } = await db.from('pos_tavolo').select('z:pos_zona(locale)').eq('id', String(o.tavolo)).maybeSingle();
+    const locale = (tv?.z as unknown as { locale: string } | null)?.locale ?? null;
+    await db.from('pos_addebito').insert({
+      id: crypto.randomUUID(), conto: conto.id, locale, camera: String(conto.camera ?? ''), tessera: conto.tessera ?? null, ospite: conto.ospite ?? null,
+      totale_cent: totale, righe: righe.map((r) => ({ quantita: r.quantita, nome: r.nome, totale_cent: r.quantita * r.prezzo_cent })),
+      firma: null, firmato_il: null, chiuso_da: OSPITI_QR, chiuso_il: ora, stato: 'da_riportare', aggiornato_il: ora,
+    });
+  }
+  await db.from('pos_ordine_ospite').update({ stato: 'in_cucina', conto: conto.id, aggiornato_il: adesso() }).eq('id', numero);
+}
+
 async function upsertSeNuovi(tabella: string, righe: Riga[]): Promise<number> {
   if (!righe.length) return 0;
   const ids = righe.map((r) => r.id as string);
@@ -235,6 +311,126 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const azione = url.searchParams.get('a') || '';
   const corpo = async () => (req.method === 'POST' ? await req.json().catch(() => ({})) : {}) as Record<string, unknown>;
+
+  /* ================= dall'ospite al tavolo (QR) =================
+     Nessuna sessione: il QR porta l'id del tavolo e la sua firma
+     (ospite.ts). Il menu' e' pubblico; l'ordine diventa un conto solo
+     dopo il pagamento (Stripe, webhook) o con tessera e camera che
+     combaciano (la proprieta', 5 settembre 2026). */
+  const azioniOspite = ['ospite-menu', 'ospite-ordine', 'ospite-stato'];
+  if (azioniOspite.includes(azione)) {
+    const b = req.method === 'POST' ? await corpo() : {};
+    const t = String(url.searchParams.get('t') ?? b.t ?? ''), k = String(url.searchParams.get('k') ?? b.k ?? '');
+    if (!(await tavoloFirmato(t, k, Deno.env.get('HOTEL_KEY')))) return risposta({ errore: 'tavolo non riconosciuto: inquadri di nuovo il codice sul tavolo' }, 403);
+    const { data: tav } = await db.from('pos_tavolo').select('id, nome, attivo, z:pos_zona(nome, locale)').eq('id', t).maybeSingle();
+    if (!tav || tav.attivo === false) return risposta({ errore: 'tavolo non trovato' }, 404);
+    const zona = tav.z as unknown as { nome: string; locale: string } | null;
+    const locale = zona?.locale ?? null;
+
+    if (azione === 'ospite-menu') {
+      const [cat, art, fas, pf] = await Promise.all([
+        db.from('pos_categoria').select('id, nome, posizione, colore, sotto, per_ospiti').eq('attiva', true),
+        db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero').eq('attivo', true),
+        db.from('pos_fascia').select('*').eq('attiva', true),
+        db.from('pos_prezzo_fascia').select('*'),
+      ]);
+      const categorie = (cat.data ?? []).filter((c) => c.per_ospiti !== false);
+      const idCat = new Set(categorie.map((c) => c.id as string));
+      const fascia = fasciaAttiva({ fasce: (fas.data ?? []) as Fascia[], adesso: oraLocale(new Date()), locale });
+      const articoli = applicaFascia({
+        articoli: (art.data ?? []).filter((a) => idCat.has(a.categoria as string) && !a.prezzo_libero && !a.esaurito) as { id: string; categoria: string | null; prezzo_cent: number }[],
+        fascia, prezzi: (pf.data ?? []) as PrezzoFascia[],
+      });
+      return risposta({ tavolo: { id: tav.id, nome: tav.nome, zona: zona?.nome ?? null, locale }, categorie, articoli, fascia: fascia ? { nome: fascia.nome, alle: fascia.alle } : null, prova: POS_PROVA, carta: !!chiaveStripe(POS_PROVA) });
+    }
+
+    if (azione === 'ospite-stato') {
+      const numero = String(url.searchParams.get('ordine') ?? '');
+      const { data: o } = await db.from('pos_ordine_ospite').select('id, stato, modo, totale_cent, errore').eq('id', numero).eq('tavolo', t).maybeSingle();
+      if (!o) return risposta({ errore: 'ordine non trovato' }, 404);
+      return risposta({ ordine: o });
+    }
+
+    /* ospite-ordine */
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const modo = b.modo === 'camera' ? 'camera' : b.modo === 'carta' ? 'carta' : null;
+    if (!modo) return risposta({ errore: 'come paga: carta o camera' }, 400);
+    const richiesti = [...new Set((Array.isArray(b.righe) ? b.righe as Record<string, unknown>[] : []).map((r) => String(r?.articolo ?? '')).filter(Boolean))];
+    const [{ data: arts }, { data: fas }, { data: pf }] = await Promise.all([
+      richiesti.length ? db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, attivo, cat:pos_categoria(portata, per_ospiti, attiva)').in('id', richiesti) : Promise.resolve({ data: [] }),
+      db.from('pos_fascia').select('*').eq('attiva', true),
+      db.from('pos_prezzo_fascia').select('*'),
+    ]);
+    const fascia = fasciaAttiva({ fasce: (fas ?? []) as Fascia[], adesso: oraLocale(new Date()), locale });
+    const vendibili = (arts ?? []).filter((a) => { const c = a.cat as unknown as { per_ospiti: boolean; attiva: boolean } | null; return !!c && c.attiva && c.per_ospiti !== false; }).map((a) => ({
+      id: a.id as string, nome: String(a.nome), categoria: a.categoria as string, esaurito: !!a.esaurito, prezzo_libero: !!a.prezzo_libero, attivo: a.attivo !== false,
+      portata: (a.portata as string | null) ?? ((a.cat as unknown as { portata: string } | null)?.portata ?? null),
+      prezzo_cent: prezzoInFascia({ articolo: { id: a.id as string, categoria: a.categoria as string, prezzo_cent: Number(a.prezzo_cent) }, fascia, prezzi: (pf ?? []) as PrezzoFascia[] }) ?? Number(a.prezzo_cent),
+    }));
+    const esito = righeOrdine(b.righe, vendibili);
+    if (!esito.ok) return risposta({ errore: esito.errore }, 400);
+    const lingua = ['it', 'en', 'de', 'fr'].includes(String(b.lingua)) ? String(b.lingua) : 'it';
+    const numero = numeroOrdine();
+    const ora = adesso();
+    if (modo === 'camera') {
+      /* tessera E numero di camera, che devono combaciare: chi trova una
+         tessera per terra non sa la camera */
+      const tessera = String(b.tessera ?? '').replace(/\D/g, '');
+      const camera = String(b.camera ?? '').trim();
+      if (!/^[0-9]{4,20}$/.test(tessera) || !camera) return risposta({ errore: 'servono la tessera della camera e il numero della camera' }, 400);
+      const f = await cameraDallaTessera(tessera);
+      if (f.stato === 503) return risposta({ errore: 'addebito in camera non disponibile: paghi con la carta o chiami il cameriere' }, 503);
+      if (f.stato !== 200) return risposta({ errore: 'tessera non riconosciuta' }, 404);
+      if (!cameraCombacia(camera, f.camera)) return risposta({ errore: 'il numero di camera non corrisponde alla tessera' }, 403);
+      const ordine = { id: numero, tavolo: t, lingua, righe: esito.righe, totale_cent: esito.totale_cent, modo, camera: f.camera, tessera, ospite: String(b.ospite ?? '').trim().slice(0, 40) || null, stato: 'pagato', prova: POS_PROVA, creato_il: ora, aggiornato_il: ora };
+      const { error } = await db.from('pos_ordine_ospite').insert(ordine);
+      if (error) return risposta({ errore: error.message }, 500);
+      await mandaInCucina(ordine);
+      return risposta({ numero, stato: 'in_cucina' });
+    }
+    /* carta: l'ordine aspetta la conferma di Stripe (webhook) */
+    const chiave = chiaveStripe(POS_PROVA);
+    if (!chiave) return risposta({ errore: 'pagamento con carta non disponibile: chiami il cameriere' }, 503);
+    const ordine = { id: numero, tavolo: t, lingua, righe: esito.righe, totale_cent: esito.totale_cent, modo, stato: 'in_attesa', prova: POS_PROVA, creato_il: ora, aggiornato_il: ora };
+    const { error } = await db.from('pos_ordine_ospite').insert(ordine);
+    if (error) return risposta({ errore: error.message }, 500);
+    try {
+      const ritorno = `${PAGINA_ORDINA}?t=${encodeURIComponent(t)}&k=${encodeURIComponent(k)}&ordine=${numero}&l=${lingua}`;
+      const { prezzo, link } = dividiParametri(parametriLink({ numero, descrizione: `Hotel Terme Leonardo · ${String(tav.nome)} · ${numero}`, importoCent: esito.totale_cent, redirect: ritorno }));
+      const p = await stripe(chiave, '/prices', prezzo);
+      const l = await stripe(chiave, '/payment_links', { 'line_items[0][price]': String(p.id), ...link });
+      await db.from('pos_ordine_ospite').update({ stripe_link: String(l.id), aggiornato_il: adesso() }).eq('id', numero);
+      return risposta({ numero, stato: 'in_attesa', url: String(l.url) });
+    } catch (e) {
+      await segnaErroreOrdine(numero, (e as Error).message);
+      return risposta({ errore: 'il pagamento non parte: riprovi o chiami il cameriere' }, 502);
+    }
+  }
+
+  /* Stripe conferma l'incasso dell'ordine al tavolo: l'ordine va in cucina.
+     Lo stesso evento arriva anche ai webhook dei buoni e del Day Spa, che
+     lo ignorano perche' il numero non e' loro; qui vale il contrario. */
+  if (azione === 'webhook') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const grezzo = await req.text();
+    if (!(await firmaValida(grezzo, req.headers.get('stripe-signature'), segretoWebhook(POS_PROVA)))) {
+      console.warn('webhook con firma non valida: ignorato');
+      return risposta({ errore: 'firma non valida' }, 400);
+    }
+    const evento = JSON.parse(grezzo) as { type: string; data: { object: Record<string, unknown> } };
+    if (evento.type !== 'checkout.session.completed') return risposta({ esito: 'ok', ignorato: evento.type });
+    const s = evento.data.object;
+    const numero = String((s.metadata as Record<string, string> | null)?.numero ?? '');
+    const linkId = String(s.payment_link ?? '');
+    let q = db.from('pos_ordine_ospite').select('*');
+    q = numero ? q.eq('id', numero) : q.eq('stripe_link', linkId);
+    const { data: o } = await q.maybeSingle();
+    if (!o) { console.log('webhook per un ordine non nostro', numero || linkId); return risposta({ esito: 'ok', sconosciuto: true }); }
+    if (o.stato !== 'in_attesa') return risposta({ esito: 'ok', gia: o.stato });
+    await db.from('pos_ordine_ospite').update({ stato: 'pagato', stripe_pagamento: String(s.payment_intent ?? '') || null, aggiornato_il: adesso() }).eq('id', o.id);
+    await mandaInCucina({ ...o, stato: 'pagato' });
+    return risposta({ esito: 'ok' });
+  }
 
   /* ================= dal palmare ================= */
 
@@ -315,9 +511,18 @@ Deno.serve(async (req) => {
         ultima: rr.map((r) => String(r.creata_il)).sort().pop() ?? c.aperto_il,
       };
     });
+    /* gli ordini arrivati dal QR sul tavolo negli ultimi venti minuti: il
+       cameriere li vede in cima alla sala, anche se la stampante tace
+       (il conto e' gia' chiuso, pagato o in camera: qui non ci sarebbe) */
+    const daQuando = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+    const { data: qr } = idTavoli.length
+      ? await db.from('pos_ordine_ospite').select('id, tavolo, totale_cent, modo, camera, creato_il').eq('stato', 'in_cucina').gte('creato_il', daQuando).in('tavolo', idTavoli).order('creato_il', { ascending: false }).limit(20)
+      : { data: [] };
+    const nomeTavolo = new Map((tavoli ?? []).map((t) => [t.id as string, String(t.nome)]));
     return risposta({
       zone: zone ?? [],
       tavoli: (tavoli ?? []).map((t) => ({ ...t, conti: contiPronti.filter((c) => c.tavolo === t.id) })),
+      qr_recenti: (qr ?? []).map((o) => ({ numero: o.id, tavolo: nomeTavolo.get(o.tavolo as string) ?? o.tavolo, totale_cent: o.totale_cent, modo: o.modo, camera: o.camera, creato_il: o.creato_il })),
     });
   }
 
@@ -968,10 +1173,10 @@ Deno.serve(async (req) => {
 
   /* ================= dal back office (accesso dell'hotel, amministrazione) ================= */
 
-  const azioniBackOffice = ['menu-salva', 'tavoli-salva', 'personale-salva', 'addebiti', 'addebito-segna', 'giornata', 'fasce-salva'];
+  const azioniBackOffice = ['menu-salva', 'tavoli-salva', 'personale-salva', 'addebiti', 'addebito-segna', 'giornata', 'fasce-salva', 'tavoli-qr'];
   if (azioniBackOffice.includes(azione)) {
     /* «addebiti» e «giornata» si leggono, le altre si scrivono */
-    if (req.method !== 'POST' && !(['addebiti', 'giornata'].includes(azione) && req.method === 'GET')) return risposta({ errore: 'metodo non ammesso' }, 405);
+    if (req.method !== 'POST' && !(['addebiti', 'giornata', 'tavoli-qr'].includes(azione) && req.method === 'GET')) return risposta({ errore: 'metodo non ammesso' }, 405);
     const acc = await autorizzato(req);
     if (!acc.ok) return risposta({ errore: 'non autorizzato' }, 401);
     /* la proprieta' lavora con l'account della reception (visto il 4
@@ -1009,6 +1214,20 @@ Deno.serve(async (req) => {
       if (prezzi.length) { const { error } = await db.from('pos_prezzo_fascia').insert(prezzi); if (error) throw new Error(`pos_prezzo_fascia: ${error.message}`); }
       return risposta({ esito: 'ok', fasce: fasce.length, prezzi: prezzi.length });
     } catch (e) { return risposta({ errore: (e as Error).message }, 500); }
+  }
+
+  /* I QR dei tavoli, da stampare: l'indirizzo della pagina dell'ospite con
+     l'id del tavolo e la sua firma. Cambia solo se cambia la chiave hotel. */
+  if (azione === 'tavoli-qr') {
+    const segreto = Deno.env.get('HOTEL_KEY') ?? '';
+    const { data: tavoli } = await db.from('pos_tavolo').select('id, nome, attivo, z:pos_zona(nome, posizione, locale)').eq('attivo', true);
+    const fuori = [];
+    for (const tv of tavoli ?? []) {
+      const z = tv.z as unknown as { nome: string; posizione: number; locale: string } | null;
+      fuori.push({ id: tv.id, nome: tv.nome, zona: z?.nome ?? null, posizione: z?.posizione ?? 0, locale: z?.locale ?? null, url: `${PAGINA_ORDINA}?t=${encodeURIComponent(String(tv.id))}&k=${await firmaTavolo(String(tv.id), segreto)}` });
+    }
+    fuori.sort((a, b) => String(a.locale).localeCompare(String(b.locale)) || Number(a.posizione) - Number(b.posizione) || String(a.nome).localeCompare(String(b.nome), 'it', { numeric: true }));
+    return risposta({ pagina: PAGINA_ORDINA, tavoli: fuori });
   }
 
   /* La cassa di fine giornata: i conti chiusi fra «da» e «a» (la

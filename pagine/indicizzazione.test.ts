@@ -53,11 +53,13 @@ const NASCOSTE = [
   'ingresso/index.html',
   /* il POS di Bistrot e ristorante: pagina dei palmari, servita solo dall IP dell hotel */
   'pos/index.html',
+  /* l ordine dal tavolo col QR: ci si arriva solo inquadrando il codice sul tavolo */
+  'ordina/index.html',
 ];
 
 Deno.test('gli elenchi non sono vuoti, altrimenti i cicli girano a vuoto', () => {
   assertEquals(VISIBILI.length, 3);
-  assertEquals(NASCOSTE.length, 9);
+  assertEquals(NASCOSTE.length, 10);
 });
 
 Deno.test('ogni pagina riservata dichiara noindex', () => {
