@@ -26,7 +26,10 @@
    resterebbe senza buono. Meglio un buono senza l'emoji che nessun buono.
    ============================================================ */
 
-import { degrees, PDFDocument, PDFFont, PDFImage, PDFPage, rgb, StandardFonts } from 'pdf-lib';
+import {
+  clip, degrees, endPath, PDFDocument, PDFFont, PDFImage, PDFPage, popGraphicsState,
+  pushGraphicsState, rectangle, rgb, StandardFonts,
+} from 'pdf-lib';
 import { cartaIntestata } from './carta-intestata.ts';
 import { comprende, CONDIZIONI, dataLingua, ETI, percorsoPrenota, PRENOTA } from './email-buono.ts';
 import { QrCode } from './qr.js';
@@ -133,11 +136,12 @@ const CODICE_FINTO = colore('#C7C2B6');
 /* ---------- la fotografia in cima ---------- */
 
 export const FOTO_BANNER = 'https://arrivo-terme-leonardo.vercel.app/buoni/img/buono-terme.jpg';
-/* le proporzioni con cui la fotografia e' stata ritagliata (483 × 140 =
-   1449 × 420 px, il rapporto 3.45 del file). Sul foglio si disegna piu'
-   bassa — 120 punti, 90 nel foglio stretto: vedi Misure — perche' la
-   colonna non basterebbe; la fotografia si schiaccia un po', ed e' una
-   scelta di disegno, non un errore. */
+/* Le proporzioni con cui il FILE e' stato ritagliato (1449 × 420 px, cioe'
+   483 × 140 pt, rapporto 3.45): servono a chi prepara l'immagine e alla
+   prova che sorveglia il file. NON sono la misura del riquadro sul foglio,
+   che e' 483 × 120 (90 nel foglio stretto, vedi Misure): la fotografia ci
+   entra a copertura, ingrandita quanto basta e tagliata sopra e sotto —
+   mai schiacciata (misuraCopertura piu' sotto). */
 export const FOTO_LARGHEZZA = 483, FOTO_ALTEZZA = 140;
 
 let fotoInMemoria: Uint8Array | null = null;
@@ -211,6 +215,31 @@ export function codificabile(testo: string, ammessi: Set<number>): string {
   return fuori;
 }
 
+/** Come sta una fotografia dentro un riquadro senza deformarsi: la si
+ * ingrandisce quanto basta perche' copra tutti e due i lati, la si centra e
+ * quello che avanza si taglia — e' l'`object-fit: cover` dei fogli di stile.
+ * Torna la misura da dare a `drawImage` (`w`, `h`) e lo scostamento
+ * dall'angolo in basso a sinistra del riquadro (`dx`, `dy`, negativi quando
+ * l'immagine sborda, come deve).
+ *
+ * Serve perche' il riquadro del buono (483 × 120, 90 nel foglio stretto) non
+ * ha le proporzioni del file (3.45): allungare l'immagine per farcela stare
+ * schiaccerebbe la piscina e le persone. Le proporzioni si prendono
+ * dall'immagine vera, non da FOTO_ALTEZZA, cosi' anche una fotografia
+ * ritagliata domani in un altro formato copre lo stesso.
+ *
+ * Si arrotonda al millesimo di punto (meno di un micron): sono numeri che
+ * finiscono in un PDF, e cosi' restano leggibili e confrontabili. */
+export function misuraCopertura(largRiq: number, altRiq: number, largImg: number, altImg: number) {
+  const mille = (n: number) => Math.round(n * 1000) / 1000;
+  /* un'immagine senza misure non si puo' proporzionare: si riempie il
+     riquadro e basta, meglio di una divisione per zero */
+  if (!(largImg > 0) || !(altImg > 0)) return { w: largRiq, h: altRiq, dx: 0, dy: 0 };
+  const scala = Math.max(largRiq / largImg, altRiq / altImg);
+  const w = mille(largImg * scala), h = mille(altImg * scala);
+  return { w, h, dx: mille((largRiq - w) / 2), dy: mille((altRiq - h) / 2) };
+}
+
 /** Il nome con cui il foglio arriva sul computer di chi lo scarica o lo
  * riceve in allegato. Senza codice (bozza, o buono non ancora pagato) non
  * si nomina nessun codice: non esiste ancora. */
@@ -239,7 +268,7 @@ export const ETI_PDF: Record<string, { condizioni: string; online: string; rif: 
    email-buono.ts non lo tiene perche' l'email di un buono non pagato non
    parte mai. Terza copia obbligata, come CONDIZIONI in email-buono.ts:
    se cambia la' va cambiata anche qui. */
-const ETI_BOZZA: Record<string, { anteprima: string; anteprimaNota: string }> = {
+export const ETI_BOZZA: Record<string, { anteprima: string; anteprimaNota: string }> = {
   it: { anteprima: 'ANTEPRIMA — NON ANCORA VALIDO', anteprimaNota: 'Il codice viene assegnato al momento del pagamento.' },
   de: { anteprima: 'VORSCHAU — NOCH NICHT GÜLTIG', anteprimaNota: 'Der Code wird bei Zahlungseingang vergeben.' },
   en: { anteprima: 'PREVIEW — NOT YET VALID', anteprimaNota: 'The code is assigned once payment is received.' },
@@ -366,9 +395,18 @@ function disegnaBuono(a: Attrezzi, b: BuonoPerPdf, opz: OpzioniPdf, compatto: bo
   const m = compatto ? STRETTO : LARGO;
   let y = Y_ALTO;
 
-  /* 1. la fotografia (o il suo posto) */
+  /* 1. la fotografia (o il suo posto). Entra a copertura: si ingrandisce
+     finche' copre il riquadro, si centra e quello che avanza si taglia col
+     ritaglio del PDF (pushGraphicsState + rectangle + clip, e alla fine
+     popGraphicsState). Schiacciarla per farcela stare — che e' quello che
+     succede passando a drawImage l'altezza del riquadro — deformerebbe la
+     piscina e le persone: la proprieta' l'ha visto sul primo foglio di
+     prova (5 settembre 2026). */
   if (foto) {
-    a.page.drawImage(foto, { x: SX, y: y - m.foto, width: FOTO_LARGHEZZA, height: m.foto });
+    const cop = misuraCopertura(LARGH, m.foto, foto.width, foto.height);
+    a.page.pushOperators(pushGraphicsState(), rectangle(SX, y - m.foto, LARGH, m.foto), clip(), endPath());
+    a.page.drawImage(foto, { x: SX + cop.dx, y: y - m.foto + cop.dy, width: cop.w, height: cop.h });
+    a.page.pushOperators(popGraphicsState());
   } else {
     a.page.drawRectangle({ x: SX, y: y - m.foto, width: FOTO_LARGHEZZA, height: m.foto, color: FOTO_ASSENTE, borderWidth: 0 });
   }

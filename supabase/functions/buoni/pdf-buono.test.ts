@@ -1,6 +1,9 @@
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
-import { type BuonoPerPdf, codificabile, ETI_PDF, nomeFilePdf, pdfBuono, provaLayout, spezza } from './pdf-buono.ts';
+import {
+  type BuonoPerPdf, codificabile, ETI_BOZZA, ETI_PDF, misuraCopertura, nomeFilePdf,
+  pdfBuono, provaLayout, spezza,
+} from './pdf-buono.ts';
 
 /* l'insieme dei caratteri che i font standard sanno scrivere (WinAnsi):
    si prende dal font vero e non da una lista scritta a mano, cosi' la
@@ -47,6 +50,27 @@ Deno.test('codificabile trasforma <br /> e <br> in un a capo vero', () => {
 
 Deno.test('codificabile sostituisce spazio unificatore, freccia e spunta invece di buttarli via', () => {
   assertEquals(codificabile('50 min → ok ✓', AMMESSI), '50 min - ok v');
+});
+
+/* ---------- misuraCopertura ---------- */
+
+Deno.test('la fotografia del buono copre il riquadro senza schiacciarsi: sborda sopra e sotto', () => {
+  /* il file e' 1449 × 420 px (rapporto 3.45), il riquadro 483 × 120: larga
+     giusta, l'immagine viene alta 140 e ne restano fuori 10 sopra e 10 sotto */
+  assertEquals(misuraCopertura(483, 120, 1449, 420), { w: 483, h: 140, dx: 0, dy: -10 });
+});
+
+Deno.test('una fotografia quadrata copre lo stesso: si ingrandisce sulla larghezza e si taglia', () => {
+  assertEquals(misuraCopertura(483, 120, 100, 100), { w: 483, h: 483, dx: 0, dy: -181.5 });
+});
+
+Deno.test('una fotografia piu\' larga del riquadro si taglia ai lati, non lascia bianchi', () => {
+  /* 1000 × 100 (rapporto 10) in un riquadro 483 × 120: qui comanda l'altezza */
+  assertEquals(misuraCopertura(483, 120, 1000, 100), { w: 1200, h: 120, dx: -358.5, dy: 0 });
+});
+
+Deno.test('un\'immagine senza misure riempie il riquadro invece di dividere per zero', () => {
+  assertEquals(misuraCopertura(483, 120, 0, 0), { w: 483, h: 120, dx: 0, dy: 0 });
 });
 
 /* ---------- nomeFilePdf ---------- */
@@ -133,6 +157,56 @@ Deno.test('con la fotografia vera il foglio esce lo stesso', async () => {
   assertEquals(doc.getPageCount(), 1);
 });
 
+Deno.test('la fotografia non sposta niente: il testo finisce alla stessa quota con o senza', async () => {
+  /* entra a copertura e sborda fuori dal riquadro, ma quello che sborda e'
+     tagliato: l'impaginazione non deve accorgersene */
+  const senza = await provaLayout(BUONO_DAYSPA, { foto: null });
+  const con = await provaLayout(BUONO_DAYSPA, { foto: FOTO_VERA });
+  assertEquals(con, senza);
+});
+
+/** Il flusso di disegno che questo modulo scrive sulla pagina, decompresso.
+ * Serve alla prova qui sotto: e' l'unico modo, senza un lettore di PDF, di
+ * vedere gli operatori veri che finiscono nel foglio. */
+async function flussoDelDisegno(byte: Uint8Array): Promise<string> {
+  const testo = new TextDecoder('latin1').decode(byte);
+  let da = 0;
+  while (true) {
+    const i = testo.indexOf('stream', da);
+    if (i < 0) break;
+    if (testo.slice(i - 3, i) === 'end') { da = i + 6; continue; }
+    let inizio = i + 6;
+    while (testo[inizio] === '\r' || testo[inizio] === '\n') inizio++;
+    let fine = testo.indexOf('endstream', inizio);
+    if (fine < 0) break;
+    da = fine + 9;
+    while (fine > inizio && (testo[fine - 1] === '\r' || testo[fine - 1] === '\n')) fine--;
+    try {
+      const s = new Blob([byte.slice(inizio, fine)]).stream().pipeThrough(new DecompressionStream('deflate'));
+      const dentro = await new Response(s).text();
+      if (dentro.startsWith('q\n') && dentro.includes(' re\nW\nn\n')) return dentro;
+    } catch { /* i flussi delle immagini e dei font non sono testo */ }
+  }
+  throw new Error('nel PDF non si trova il flusso di disegno del buono');
+}
+
+Deno.test('il ritaglio della fotografia si apre e si richiude, o mangerebbe tutto il foglio', async () => {
+  /* la fotografia sborda dal riquadro apposta (copertura) e si taglia col
+     ritaglio del PDF. Se il ritaglio restasse aperto — un popGraphicsState
+     dimenticato — tutto quello che viene dopo sarebbe invisibile fuori dal
+     riquadro della foto: il buono uscirebbe bianco e nessun'altra prova se
+     ne accorgerebbe, perche' i byte del PDF sarebbero validi lo stesso. */
+  const flusso = await flussoDelDisegno(await pdfBuono(BUONO_DAYSPA, { foto: FOTO_VERA }));
+  const righe = flusso.split('\n');
+  /* il riquadro della fotografia nel foglio largo: x 56, y 718 − 120, 483 × 120 */
+  assertEquals(righe.slice(0, 4), ['q', '56 598 483 120 re', 'W', 'n']);
+  assertEquals(
+    righe.filter((r) => r === 'q').length,
+    righe.filter((r) => r === 'Q').length,
+    'q e Q sbilanciati: il ritaglio resta aperto',
+  );
+});
+
 Deno.test('una lingua che non conosciamo ricade sull\'italiano, non lascia il foglio vuoto', async () => {
   const byte = await pdfBuono({ ...BUONO_DAYSPA, lingua: 'es' }, { foto: null });
   const doc = await PDFDocument.load(byte);
@@ -182,6 +256,41 @@ Deno.test('il caso peggiore ci sta in tutte e quattro le lingue, non solo in ted
   for (const L of ['it', 'de', 'en', 'fr']) {
     const esito = await provaLayout({ ...BUONO_PEGGIORE, lingua: L }, { foto: null });
     assert(esito.yFinale >= 80, `${L}: il testo finisce a y ${esito.yFinale}`);
+  }
+});
+
+/* ---------- la copia dell'avviso di bozza ---------- */
+
+/* ETI_BOZZA e' una copia: l'originale sta in pagine/buoni/buono.js, che gira
+   nel browser e che una edge function non puo' importare. Questa prova legge
+   il sorgente di quel file e confronta parola per parola, come buono.test.ts
+   fa con le due copie di CONDIZIONI: se qualcuno cambia l'avviso di li',
+   il buono in PDF non puo' restare indietro in silenzio. Si legge il file
+   invece di importarlo apposta: il modulo delle pagine non deve nemmeno
+   sfiorare l'albero di quello che si pubblica come funzione. */
+Deno.test('ETI_BOZZA e\' identica all\'avviso di anteprima di pagine/buoni/buono.js', () => {
+  const sorgente = Deno.readTextFileSync(new URL('../../../pagine/buoni/buono.js', import.meta.url));
+  const da = sorgente.indexOf('export const ETI = {');
+  const a = sorgente.indexOf('export const MESI_L');
+  assert(da >= 0 && a > da, 'in buono.js non si trova piu\' il blocco ETI: prova da aggiornare');
+  const blocco = sorgente.slice(da, a);
+  const LINGUE = ['it', 'de', 'en', 'fr'];
+
+  const voce = (l: string, chiave: string) => {
+    const inizio = blocco.indexOf(`\n  ${l}:{`);
+    assert(inizio >= 0, `in buono.js manca il blocco della lingua ${l}`);
+    const dopo = LINGUE.slice(LINGUE.indexOf(l) + 1)
+      .map((x) => blocco.indexOf(`\n  ${x}:{`)).filter((i) => i > inizio);
+    const pezzo = blocco.slice(inizio, dopo.length ? dopo[0] : blocco.length);
+    const trovato = new RegExp(`${chiave}:'([^']*)'`).exec(pezzo);
+    assert(trovato, `in buono.js manca ${l}.${chiave}`);
+    /* buono.js scrive gli accenti come \\uXXXX: JSON.parse li rimette a posto */
+    return JSON.parse(`"${trovato[1]}"`);
+  };
+
+  for (const l of LINGUE) {
+    assertEquals(ETI_BOZZA[l].anteprima, voce(l, 'anteprima'), `anteprima ${l}`);
+    assertEquals(ETI_BOZZA[l].anteprimaNota, voce(l, 'anteprimaNota'), `anteprimaNota ${l}`);
   }
 });
 
