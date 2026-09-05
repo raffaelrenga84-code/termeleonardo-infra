@@ -191,3 +191,60 @@ export const TIPI_COL_BUONO = ['trattamenti', 'dayspa'];
 export function buonoUsabileSu(tipo) {
   return TIPI_COL_BUONO.includes(String(tipo ?? ''));
 }
+
+/* ============================================================
+   QUANTE PERSONE ENTRANO COL BUONO, e CHI E' — per precompilare il modulo
+   delle richieste da solo.
+
+   «Dovrebbe metterlo in automatico in base al buono, precompilando anche i
+   nomi... deve essere tutto piu' proattivo» (la proprieta', 5 settembre
+   2026): il campo Persone del Day Spa restava a 1 e il campo Nome vuoto
+   anche quando il buono diceva gia' tutto, e chi apriva il modulo dal
+   proprio buono doveva ricompilarli a mano.
+
+   DUE FONTI, PERCHE' UN BUONO PUO' NASCERE IN DUE MODI. Un buono venduto
+   online ha `voci` (le righe del listino, ognuna con la sua quantita'): li'
+   si somma la quantita' dei soli ingressi Day Spa, perche' sono loro a
+   contare le persone — un massaggio nello stesso buono non ne aggiunge
+   nessuna. Un buono scritto a mano in reception non ha `voci` (solo la
+   descrizione libera): il numero si legge dalla riga che parla di Day Spa,
+   davanti alla quale la reception scrive «n. 2 · …» o «2 × …» (la stessa
+   forma che usa il server, in acquista.ts e nelle email). Le due letture
+   non vanno mai contro: un buono ha l'una o l'altra fonte, mai tutte e due.
+
+   SE NON SI SA, UNA PERSONA SOLA. E' la stessa scelta gia' presa per la
+   disponibilita' del Day Spa (in caso di dubbio si dice disponibile, mai
+   esaurito): un numero indovinato per eccesso rischia di dire «esaurito»
+   a un ospite per cui c'era posto, un numero indovinato per difetto no. */
+const PERSONE_DAYSPA_MAX = 8; // PERSONE_DAYSPA_MAX di richieste/tipi.ts
+const persone = (n) => Math.min(PERSONE_DAYSPA_MAX, Math.max(1, n));
+
+/* «n. 2 · …» (un buono scritto a mano) o «2 × …» (la forma di acquista.ts,
+   componiDescrizione): il numero sta sempre davanti alla riga, mai dentro. */
+const NUMERO_IN_TESTA = /^n\.\s*(\d+)\s*·|^(\d+)\s*×/i;
+
+/** Quante persone entrano col buono: la somma delle quantita' delle voci
+ *  dayspa_*; senza `voci`, il numero davanti alla riga della descrizione
+ *  che parla di Day Spa («n. 2 · …», «2 × …»); se non si sa, 1. Sempre fra
+ *  1 e 8 (PERSONE_DAYSPA_MAX del server). */
+export function personeDalBuono(b) {
+  if (!b) return 1;
+  if (Array.isArray(b.voci)) {
+    const somma = b.voci
+      .filter((v) => eIngressoDaySpa(String(v?.voce_id ?? '')))
+      .reduce((tot, v) => tot + (Number(v?.quantita) || 1), 0);
+    return somma > 0 ? persone(somma) : 1;
+  }
+  const riga = String(b.descrizione ?? '').split('\n')
+    .map((r) => r.trim()).filter(Boolean).find(eRigaDaySpa);
+  if (!riga) return 1;
+  const m = riga.match(NUMERO_IN_TESTA);
+  if (!m) return 1;
+  return persone(Number(m[1] ?? m[2]));
+}
+
+/** Il nome di chi usa il buono, per il campo «Nome»: il destinatario,
+ *  ripulito; '' se manca. */
+export function nomeDalBuono(b) {
+  return String(b?.destinatario ?? '').trim();
+}

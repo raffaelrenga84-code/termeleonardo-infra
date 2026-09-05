@@ -1,7 +1,7 @@
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { buonoUsabileSu, codiceDaUrl, contieneDaySpa, normalizzaCodice, TIPI_COL_BUONO } from './buono-url.js';
 import { differenzaBuono as dalServer } from '../../supabase/functions/richieste/differenza-buono.ts';
-import { coperturaBuono, differenzaBuono as dallaPagina } from './buono-url.js';
+import { coperturaBuono, differenzaBuono as dallaPagina, nomeDalBuono, personeDalBuono } from './buono-url.js';
 import { TRATTAMENTI } from './trattamenti.js';
 import { LISTINO } from '../../supabase/functions/buoni/acquista.ts';
 
@@ -329,4 +329,72 @@ Deno.test('non si usa dove non paga niente', () => {
    Aggiungerne un terzo senza quel riquadro rifarebbe il difetto. */
 Deno.test('i moduli ammessi sono due, e sono quelli', () => {
   assertEquals(TIPI_COL_BUONO, ['trattamenti', 'dayspa']);
+});
+
+/* ============================================================
+   QUANTE PERSONE ENTRANO COL BUONO, sul modulo delle richieste.
+
+   IL DIFETTO CHE PRESIDIA. «Dovrebbe metterlo in automatico in base al
+   buono, precompilando anche i nomi... deve essere tutto piu' proattivo»
+   (la proprieta', 5 settembre 2026): il campo Persone del Day Spa restava a
+   1 anche quando il buono ne copriva due o quattro, e chi lo compilava
+   doveva ricordarsi di cambiarlo — o l'ospite si presentava in piu' di
+   quanti il modulo avesse chiesto.
+
+   LA FONTE CAMBIA COL BUONO. Un buono venduto online ha `voci` (il
+   listino, con la quantita' di ogni riga); un buono scritto a mano in
+   reception non ha `voci` — solo la descrizione libera — e il numero va
+   letto dalla riga che parla di Day Spa («n. 2 · …», «2 × …»). Le due
+   fonti non vanno mai contro: se non si sa, 1 e' la scelta che non manda
+   via nessuno (stessa regola gia' dichiarata per la disponibilita' del
+   Day Spa).
+   ============================================================ */
+Deno.test('con le voci, le persone sono la somma delle quantita dei soli ingressi Day Spa', () => {
+  assertEquals(personeDalBuono({ voci: [{ voce_id: 'dayspa_serale', quantita: 2 }] }), 2);
+  assertEquals(personeDalBuono({
+    voci: [{ voce_id: 'dayspa_fer', quantita: 1 }, { voce_id: 'dayspa_wknd', quantita: 3 }],
+  }), 4);
+});
+
+Deno.test('un trattamento senza nessun ingresso Day Spa non dice niente sulle persone', () => {
+  assertEquals(personeDalBuono({ voci: [{ voce_id: 'relax50', quantita: 1 }] }), 1);
+});
+
+Deno.test('senza voci (buono scritto a mano) le persone si leggono dalla riga del Day Spa', () => {
+  assertEquals(personeDalBuono({
+    voci: null,
+    descrizione: 'n. 2 · ingressi Day Spa serale — piscine e grotte, venerdì e sabato, 18.00–22.30',
+  }), 2);
+  assertEquals(personeDalBuono({ voci: null, descrizione: '3 × Ingresso Day Spa feriale' }), 3);
+});
+
+Deno.test('senza un numero davanti, la riga del Day Spa vale una persona sola', () => {
+  assertEquals(personeDalBuono({ voci: null, descrizione: 'Ingresso Day Spa' }), 1);
+});
+
+Deno.test('le persone non superano mai il limite del server, PERSONE_DAYSPA_MAX', () => {
+  assertEquals(personeDalBuono({ voci: [{ voce_id: 'dayspa_feriale', quantita: 12 }] }), 8);
+});
+
+Deno.test('senza buono, una persona sola: e non deve esplodere', () => {
+  assertEquals(personeDalBuono(null), 1);
+});
+
+/* ============================================================
+   IL NOME DI CHI USA IL BUONO, per il campo «Nome».
+
+   E' il destinatario del buono, ripulito degli spazi con cui a volte arriva
+   dal server: e' la stessa persona che il buono ha in mente e non c'e'
+   ragione di farla ridigitare il proprio nome. Senza destinatario (un
+   buono a importo, o una verifica senza quel campo) resta '' e il modulo
+   non scrive niente — meglio un campo vuoto che un «undefined» in faccia
+   all'ospite.
+   ============================================================ */
+Deno.test('il nome di chi usa il buono e il destinatario, ripulito', () => {
+  assertEquals(nomeDalBuono({ destinatario: '  Anna Rossi ' }), 'Anna Rossi');
+});
+
+Deno.test('senza destinatario il nome resta vuoto', () => {
+  assertEquals(nomeDalBuono({}), '');
+  assertEquals(nomeDalBuono(null), '');
 });
