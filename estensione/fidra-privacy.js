@@ -145,9 +145,11 @@
     const lingua = document.createElement('select');
     lingua.id = 'leoPrivacyLingua';
     lingua.title = 'La lingua del modulo. La indovino dal paese e dal telefono: se sbaglio, la corregga qui prima di mandare.';
-    lingua.style.cssText = 'font:inherit;padding:5px 8px;border-radius:6px;border:0;';
+    /* colore e sfondo espliciti: la barra e' verde con testo bianco, e la tendina ereditava il bianco — bianco su bianco, illeggibile (la proprieta', 5 settembre 2026) */
+    lingua.style.cssText = 'font:inherit;padding:5px 8px;border-radius:6px;border:0;color:#1A3626;background:#fff;';
     let indovinata = 'it';
     try { const d = estrai(); if (d && d.ok) indovinata = linguaDi(d); } catch (e) { /* la barra si mette lo stesso */ }
+    if (!NOMI_LINGUA[indovinata]) indovinata = 'it';
     for (const [k, n] of Object.entries(NOMI_LINGUA)) {
       const o = document.createElement('option');
       o.value = k; o.textContent = n; o.selected = k === indovinata;
@@ -162,7 +164,8 @@
       b.onclick = () => { b.disabled = true; manda(esito, destinazione, annulla, lingua).catch((e) => { esito.textContent = vecchia(e) ? AVVISO_VECCHIA : 'Errore: ' + e.message; }).finally(() => { b.disabled = false; }); };
       return b;
     };
-    barra.append(lingua,
+    const etichetta = document.createElement('span'); etichetta.textContent = 'Lingua:'; etichetta.style.cssText = 'opacity:.9;';
+    barra.append(etichetta, lingua,
       pulsante('Privacy all’iPad', 'ipad', 'Mette l’ospite nell’elenco dell’iPad della reception, per tre minuti. Non scrive niente in Fidra.'),
       pulsante('Privacy al totem', 'totem', 'L’ospite passa la tessera al totem in hall e trova il modulo compilato. Non scrive niente in Fidra.'),
       annulla, esito);
