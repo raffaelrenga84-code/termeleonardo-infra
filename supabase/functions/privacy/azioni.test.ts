@@ -72,6 +72,18 @@ Deno.test('lo stato per la prenotazione di Fidra: l estensione lo chiede con la 
   /* la proprieta', 5 settembre 2026: la firma si vede in Fidra, e si copia per la nota */
   const s = S.slice(S.indexOf("azione === 'stato'"), S.indexOf("azione === 'attese'"));
   assert(s.includes("if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);"), 'chiave hotel');
-  assert(s.includes(".eq('fidra_prenotazione', fidra).neq('stato', 'annullato')"), 'per prenotazione, senza gli annullati');
+  assert(s.includes(".neq('stato', 'annullato')") && s.includes("if (fidra) q = q.eq('fidra_prenotazione', fidra);"), 'per prenotazione, senza gli annullati');
   assert(!/select\('[^']*\bfirma\b/.test(s), 'le firme restano nel server');
+});
+
+Deno.test('lo stato si chiede anche per giorno: le firme di oggi, per riempire il modulo privacy/create di Fidra', () => {
+  const s = S.slice(S.indexOf("azione === 'stato'"), S.indexOf("azione === 'attese'"));
+  assert(s.includes("const giorno = (url.searchParams.get('giorno') || '').trim();") && s.includes("q = q.eq('stato', 'firmato').gte('firmato_il', da.toISOString())"), 'per giorno, solo le firmate');
+  assert(S.includes('const inizioGiornoRoma = (giorno: string): Date =>') && S.includes("timeZone: 'Europe/Rome'"), 'la mezzanotte dell hotel, non di Greenwich');
+});
+
+Deno.test('la firma di un consenso, una alla volta e con la chiave hotel: per il modulo privacy/create di Fidra', () => {
+  const f = S.slice(S.indexOf("azione === 'firma-di'"), S.indexOf("azione === 'stato'"));
+  assert(f.includes("if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);") && f.includes("select('firma, stato').eq('id', id)"), 'una firma, con la chiave');
+  assert(f.includes("data.stato !== 'firmato' || !data.firma"), 'solo se firmato');
 });

@@ -143,12 +143,37 @@ Deno.serve(async (req) => {
      lo mostra nella barra («le email della privacy non riusciamo a
      importarle in Fidra?», la proprieta', 5 settembre 2026). Senza le firme:
      bastano stato, ora, fonte e le scelte. */
+  /** La mezzanotte di Roma di quel giorno: a 00:00Z Roma segna l'una o le due. */
+  const inizioGiornoRoma = (giorno: string): Date => {
+    const mezzanotteUtc = new Date(giorno + 'T00:00:00Z');
+    const ore = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Rome', hour: '2-digit', hourCycle: 'h23' }).format(mezzanotteUtc)) || 0;
+    return new Date(mezzanotteUtc.getTime() - ore * 3600 * 1000);
+  };
+  /* la firma di UN consenso, per disegnarla nel modulo privacy/create di
+     Fidra (l'estensione, chiave hotel): una alla volta, mai nell'elenco */
+  if (azione === 'firma-di') {
+    if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);
+    const id = url.searchParams.get('id') || '';
+    const { data } = await db.from('consenso').select('firma, stato').eq('id', id).maybeSingle();
+    if (!data || data.stato !== 'firmato' || !data.firma) return risposta({ errore: 'consenso non trovato o non firmato' }, 404);
+    return risposta({ firma: data.firma });
+  }
+
   if (azione === 'stato') {
     if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);
     const fidra = (url.searchParams.get('fidra') || '').trim();
-    if (!fidra) return risposta({ errore: 'serve la prenotazione di Fidra' }, 400);
-    const { data, error } = await db.from('consenso').select('id, stato, firmato_il, camera, cognome, nome, lingua, conservazione, messaggi, marketing, testi_versione, fonte')
-      .eq('fidra_prenotazione', fidra).neq('stato', 'annullato').order('firmato_il', { ascending: false, nullsFirst: false });
+    const giorno = (url.searchParams.get('giorno') || '').trim();
+    if (!fidra && !/^d{4}-d{2}-d{2}$/.test(giorno)) return risposta({ errore: 'serve la prenotazione di Fidra, o un giorno' }, 400);
+    let q = db.from('consenso').select('id, stato, firmato_il, camera, cognome, nome, email, lingua, conservazione, messaggi, marketing, testi_versione, fonte, fidra_prenotazione')
+      .neq('stato', 'annullato').order('firmato_il', { ascending: false, nullsFirst: false });
+    if (fidra) q = q.eq('fidra_prenotazione', fidra);
+    else {
+      /* le firme di un giorno, nell'ora dell'hotel: il modulo di Fidra
+         (privacy/create) si riempie da qui (la proprieta', 5 settembre 2026) */
+      const da = inizioGiornoRoma(giorno);
+      q = q.eq('stato', 'firmato').gte('firmato_il', da.toISOString()).lt('firmato_il', new Date(da.getTime() + 24 * 3600 * 1000).toISOString());
+    }
+    const { data, error } = await q;
     if (error) return risposta({ errore: error.message }, 500);
     return risposta({ consensi: data ?? [] });
   }
