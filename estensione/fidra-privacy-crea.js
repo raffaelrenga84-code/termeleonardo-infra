@@ -255,7 +255,30 @@
     const firma = await firmaDi(c.id, hotelKey);
     const disegnata = await disegnaFirma(radice, firma);
     if (disegnata) scritti.push('firma'); else saltati.push('firma (riquadro non trovato)');
+    /* chi e' l'ospite, per l'abbinamento dopo Salva (fidra-privacy-abbina.js) */
+    try { sessionStorage.setItem('leoAbbina', JSON.stringify({ leo: c.id, cognome: c.cognome || '', nome: c.nome || '', camera: c.camera || '', quando: Date.now() })); } catch (e) { /* senza memoria si abbina a mano */ }
+    aspettaSalvato(radice);
     return { scritti, saltati };
+  }
+
+  /* Dopo «Salva» Fidra dice «successo» e la privacy esiste, ma slegata
+     dall'ospite: bisognava aprire l'elenco, la riga, e premere Abbina
+     («molti passaggi, troppo macchinoso», la proprieta', 5 settembre 2026).
+     Da qui in poi lo fa l'estensione: appena il modulo sparisce e la pagina
+     dice che ha salvato, si va all'elenco, e fidra-privacy-abbina.js
+     continua. innerText e non textContent: i messaggi nascosti nel DOM non
+     contano, solo quello che si vede. */
+  let orologioSalvato = null;
+  function aspettaSalvato(radice) {
+    clearInterval(orologioSalvato);
+    const inizio = Date.now();
+    orologioSalvato = setInterval(() => {
+      if (Date.now() - inizio > 15 * 60 * 1000) { clearInterval(orologioSalvato); return; }
+      if (campi(radice).cognome) return;
+      if (!/succes|salvat/i.test(document.body.innerText || '')) return;
+      clearInterval(orologioSalvato);
+      location.href = 'https://leonardo.fidra.cloud/privacy';
+    }, 800);
   }
 
   /* ---------- la riga sopra il modulo ---------- */
@@ -283,7 +306,7 @@
           ${!firme.length && !errore ? '<span style="color:#7B756A;">nessuna firma in questo giorno</span>' : ''}
         </div>
         <div id="${ID}Esito" style="padding-top:6px;color:#55524B;"></div>
-        <div style="padding-top:6px;color:#8C8578;font-size:12px;">Un tocco riempie i campi vuoti e disegna la firma. L&rsquo;abbinamento all&rsquo;ospite e <strong>Salva</strong> li fai tu; se Fidra non accetta la firma disegnata, l&rsquo;ospite rifirma qui.</div>`;
+        <div style="padding-top:6px;color:#8C8578;font-size:12px;">Un tocco riempie i campi vuoti e disegna la firma. <strong>Salva</strong> lo premi tu; dopo, l&rsquo;abbinamento all&rsquo;ospite lo fa l&rsquo;estensione da sola.</div>`;
       box.querySelector('#' + ID + 'Giorno').addEventListener('change', (ev) => { giorno = ev.target.value || giorno; disegna(); });
       box.querySelectorAll('button[data-id]').forEach((b) => b.addEventListener('click', async () => {
         const c = firme.find((x) => x.id === b.dataset.id);
@@ -306,7 +329,7 @@
         const c = await consensoDi(leo, hotelKey);
         if (!c) { e.textContent = 'Consenso non trovato: scelga dalla riga qui sopra.'; return; }
         const r = await riempi(radice, c, hotelKey);
-        e.textContent = 'Compilato: ' + r.scritti.join(', ') + (r.saltati.length ? ' · lasciati stare: ' + r.saltati.join(', ') : '') + '. Controlli l’abbinamento all’ospite e prema Salva.';
+        e.textContent = 'Compilato: ' + r.scritti.join(', ') + (r.saltati.length ? ' · lasciati stare: ' + r.saltati.join(', ') : '') + '. Controlli e prema Salva: all’abbinamento con l’ospite pensa l’estensione.';
       } catch (err) { e.textContent = 'Errore: ' + err.message; }
     }
   }

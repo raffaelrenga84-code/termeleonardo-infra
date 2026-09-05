@@ -48,7 +48,7 @@ Deno.test('i tre consensi di Fidra sono radio «Autorizzo / Non autorizzo» sott
 
 Deno.test('aperto con ?leo=<consenso> dalla prenotazione, il modulo si compila da solo: meno lavoro alla reception', () => {
   assert(S.includes("const leo = leoScelto();") && S.includes('const c = await consensoDi(leo, hotelKey);'), 'il consenso dall indirizzo');
-  assert(S.includes('Controlli l’abbinamento all’ospite e prema Salva.'), 'e dice cosa resta da fare');
+  assert(S.includes('Controlli e prema Salva: all’abbinamento con l’ospite pensa l’estensione.'), 'e dice cosa resta da fare (dal 2.44 l abbinamento lo fa fidra-privacy-abbina.js)');
   assert(S.includes("abbinamento:   campoConEtichetta(radice, /abbinamento/i)"), 'prova anche la ricerca dell ospite');
 });
 
