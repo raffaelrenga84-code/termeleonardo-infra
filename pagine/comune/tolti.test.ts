@@ -16,10 +16,15 @@
    prompt lo elencava ancora — se ne è accorto un test, non una persona.
 
    COSA NON PRESIDIA, E PERCHÉ. Le espressioni regolari che classificano
-   un buono già emesso — buono.js, email-buono.ts, ruoli.ts — devono
-   continuare a nominare `shiatsu`: servono a smistare un buono venduto
-   PRIMA della decisione, non a venderne di nuovi. L'ultima prova qui sotto
-   le difende, così nessuno le cancella scambiandole per un residuo.
+   un buono già emesso — buono.js, ruoli.ts — devono continuare a nominare
+   `shiatsu`: servono a smistare un buono venduto PRIMA della decisione,
+   non a venderne di nuovi. L'ultima prova qui sotto le difende, così
+   nessuno le cancella scambiandole per un residuo.
+   Erano tre: c'era anche email-buono.ts, che da un prefisso sceglieva la
+   fotografia dell'email. Il 5 settembre 2026 quella regola è sparita con
+   la fotografia — l'email non ne porta più nessuna e il buono in PDF ne
+   ha una sola, uguale per tutti — e con lei l'ultimo posto dove il nome
+   di un trattamento decideva qualcosa in quel file.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { LISTINO, validaAcquisto } from '../../supabase/functions/buoni/acquista.ts';
@@ -178,10 +183,6 @@ Deno.test('lo stesso buono non si puo piu comprare', () => {
 Deno.test('le regole di classificazione conoscono ancora lo shiatsu', () => {
   const regole = [
     { file: '../buoni/buono.js', cosa: 'il modulo che sceglie dove mandare chi prenota col buono' },
-    {
-      file: '../../supabase/functions/buoni/email-buono.ts',
-      cosa: 'la mail del buono, che ne sceglie il testo',
-    },
     {
       file: '../../supabase/functions/buoni/ruoli.ts',
       cosa: 'lo smistamento per reparto: senza, il buono non arriva alla spa',

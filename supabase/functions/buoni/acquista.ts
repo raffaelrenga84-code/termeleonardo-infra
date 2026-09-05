@@ -224,9 +224,14 @@ export function validaAcquisto(b: Record<string, unknown>, stagioni: Stagione[] 
     const n = normalizzaVoci(b.voci, b.voce_id);
     if (n.errore || !n.voci) return { errore: n.errore };
     voci = n.voci;
-    /* voce_id resta valorizzato con la prima voce: la fotografia del buono
-       la sceglie fotoBuono() da li', e con due voci si prende quella della
-       prima — che e' la prima che l'ospite ha scelto e la prima che legge */
+    /* voce_id resta valorizzato con la prima voce: da li' si decide cosa il
+       buono comprende (comprende(), email-buono.ts, e con lui il foglio in
+       PDF) e quale fotografia esce sul buono disegnato nel browser
+       (categoriaBuono(), pagine/buoni/buono.js); con due voci si prende
+       quella della prima — che e' la prima che l'ospite ha scelto e la prima
+       che legge. Fino al 5 settembre 2026 qui c'era scritto fotoBuono(), che
+       sceglieva la fotografia dell'email: quella funzione non c'e' piu',
+       l'email non porta fotografie e il foglio ne ha una sola. */
     voce_id = voci[0].voce_id;
     descrizione = componiDescrizione(voci);
     valore = sommaVoci(voci);

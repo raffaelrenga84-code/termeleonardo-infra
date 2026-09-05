@@ -1,7 +1,9 @@
 /* Test del modulo email: il buono in HTML e le tre spedizioni
    (acquirente, destinatario, amministrazione) via Resend. */
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert';
-import { avvisaAmministrazione, buonoEmailHTML, destinatariInCopia, fotoBuono, inviaBuonoEmesso, linkPrenota, linkQr, linkStampa, moduloDelBuono, ricevutaEmailHTML, statoConsegna } from './email-buono.ts';
+import { allegatoPdf, avvisaAmministrazione, buonoEmailHTML, destinatariInCopia, inviaBuonoA, inviaBuonoEmesso, linkPrenota, linkQr, linkStampa, moduloDelBuono, nomeFilePdf as nomeFileEmail, ricevutaEmailHTML, statoConsegna } from './email-buono.ts';
+/* l'originale, per confrontarci la copia: vedi la prova più sotto */
+import { nomeFilePdf as nomeFileFoglio } from './pdf-buono.ts';
 
 const IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
@@ -74,8 +76,12 @@ Deno.test('senza scade_il_base non si inventa niente: si mostra solo la data val
 });
 
 /* piccolo aiuto: intercetta fetch e raccoglie i destinatari */
+type Spedita = {
+  to: string[]; subject: string; html: string; cc?: string[];
+  attachments?: { filename: string; content: string }[];
+};
 function conFetchFinto() {
-  const spedite: { to: string[]; subject: string; html: string }[] = [];
+  const spedite: Spedita[] = [];
   const orig = globalThis.fetch;
   globalThis.fetch = ((_url: unknown, init?: RequestInit) => {
     spedite.push(JSON.parse(String(init?.body)));
@@ -123,35 +129,36 @@ Deno.test('se il destinatario ha la stessa email dell’acquirente, una copia so
   } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
 });
 
-Deno.test('la foto segue il tipo di buono', () => {
-  assertEquals(fotoBuono({ tipo: 'valore' }), `${IMG}/valore.jpg`);
-  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'dayspa_fer' }), `${IMG}/dayspa.jpg`);
-  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'relax25' }), `${IMG}/trattamenti.jpg`);
-  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: null }), `${IMG}/valore.jpg`);
-  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'altro' }), `${IMG}/valore.jpg`);
+/* ============================================================
+   NIENTE FOTOGRAFIE NELL'EMAIL. Il buono bello — carta intestata,
+   fotografia in cima — adesso e' il PDF in allegato (pdf-buono.ts), e
+   l'email e' la lettera che lo accompagna: una colonna sola, il marchio
+   in cima e il QR accanto al codice, nient'altro da scaricare.
+
+   Le tre fotografie di prima (dayspa.jpg, valore.jpg, trattamenti.jpg)
+   viaggiavano a ogni apertura dell'email, una per tipo di buono, e in
+   Outlook uscivano schiacciate appena il file cambiava forma. Questa prova
+   conta le immagini: se qualcuno ne rimette una, si vede qui.
+   ============================================================ */
+Deno.test('l’email non porta nessuna fotografia: le sole immagini sono il marchio e il QR', () => {
+  const html = buonoEmailHTML(BUONO);
+  const src = [...html.matchAll(/<img[^>]*\ssrc="([^"]*)"/g)].map((m) => m[1]);
+  assertEquals(src.length, 2, `immagini nel buono: ${JSON.stringify(src)}`);
+  assertEquals(src[0], `${IMG}/logo-nero.png`);
+  assertStringIncludes(src[1], 'a=qr');
+  for (const vecchia of ['dayspa.jpg', 'valore.jpg', 'trattamenti.jpg']) {
+    assertEquals(html.includes(vecchia), false, `l’email nomina ancora ${vecchia}`);
+  }
 });
 
-Deno.test('il buono HTML contiene la foto del suo tipo', () => {
-  const html = buonoEmailHTML({ ...BUONO, tipo: 'servizio', voce_id: 'dayspa_fer' });
-  assertStringIncludes(html, `${IMG}/dayspa.jpg`);
-  const html2 = buonoEmailHTML(BUONO);            // BUONO è tipo 'valore'
-  assertStringIncludes(html2, `${IMG}/valore.jpg`);
-});
-
-/* le categorie sono quelle del back office (categoriaBuono): l'email e
-   la stampa devono mostrare la stessa foto per lo stesso buono */
-Deno.test('viso e corpo sono trattamenti; una voce sconosciuta ricade sul panorama', () => {
-  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'visofango25' }), `${IMG}/trattamenti.jpg`);
-  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'scrubmar40' }), `${IMG}/trattamenti.jpg`);
-  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'progCoccola' }), `${IMG}/trattamenti.jpg`);
-  assertEquals(fotoBuono({ tipo: 'servizio', voce_id: 'xyz123' }), `${IMG}/valore.jpg`);
-});
-
-/* Gmail e Outlook scartano l'SVG: nel buono spedito il logo dev'essere
-   un'immagine raster, altrimenti al cliente arriva un buco bianco */
+/* Gmail e Outlook scartano l'SVG: nel buono spedito il marchio dev'essere
+   un'immagine raster, altrimenti al cliente arriva un buco bianco.
+   E' logo-nero.png (intestazione(), la stessa delle altre email) e non
+   logo.png: quello ha il fondo verde acqua incorporato perche' stava sulla
+   colonna colorata di prima — su bianco si vedrebbe il rettangolo. */
 Deno.test('nell’email il logo è un PNG, mai un SVG', () => {
   const html = buonoEmailHTML(BUONO);
-  assertStringIncludes(html, `${IMG}/logo.png`);
+  assertStringIncludes(html, `${IMG}/logo-nero.png`);
   assertEquals(html.includes('logo.svg'), false);
 });
 
@@ -751,4 +758,191 @@ Deno.test('l’ospite non riceve mai la spa in copia', async () => {
     ripristina();
     Deno.env.delete('RESEND_API_KEY'); Deno.env.delete('EMAIL_SPA');
   }
+});
+
+/* ============================================================
+   IL BUONO IN ALLEGATO, IN PDF.
+
+   «Il buono deve essere un PDF sulla carta intestata» (la proprieta',
+   5 settembre 2026). Il foglio lo disegna pdf-buono.ts; qui si presidia
+   il trasporto: che l'allegato entri nel corpo che va a Resend, col nome
+   giusto, e SOLO nelle due email che portano il buono vero — il riepilogo
+   d'acquisto e l'avviso interno non sono il buono e non lo ricevono.
+
+   Il PDF non si genera qui dentro (sarebbe provare pdf-buono.ts una
+   seconda volta, e lento): bastano dei byte finti, perche' quello che si
+   misura e' la codifica e il punto in cui l'allegato viene attaccato.
+   ============================================================ */
+
+const FINTO_PDF = new TextEncoder().encode('%PDF-1.7 finto');
+
+Deno.test('allegatoPdf nomina il file col codice del buono e ne porta il contenuto in base64', () => {
+  const a = allegatoPdf(BUONO, new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+  assertEquals(a.filename, 'Buono-Regalo-LEO-ACDE-FGHJ.pdf');
+  assertEquals(a.content, 'JVBERg==');
+});
+
+/* Le due copie di nomeFilePdf — questa e quella di pdf-buono.ts — devono
+   dare lo stesso nome allo stesso buono: e' lo stesso file, chiesto per due
+   strade (l'allegato dell'email e il download di ?a=pdf), e due nomi
+   diversi per lo stesso foglio confonderebbero chi se ne ritrova due nella
+   cartella dei download. La copia esiste per forza (il perche' sta sopra
+   la funzione, in email-buono.ts): questa prova e' il suo presidio. */
+Deno.test('il nome del file è lo stesso dell’originale in pdf-buono.ts, caso per caso', () => {
+  const casi: { codice: string | null }[] = [
+    { codice: 'LEO-ACDE-FGHJ' }, { codice: null }, { codice: '' },
+    { codice: '  LEO-ACDE-FGHJ  ' }, { codice: 'LEO/ACDE FGHJ' },
+  ];
+  for (const c of casi) {
+    for (const bozza of [true, false, undefined]) {
+      assertEquals(nomeFileEmail(c, bozza), nomeFileFoglio(c, bozza),
+        `codice ${JSON.stringify(c.codice)}, bozza ${bozza}`);
+    }
+  }
+});
+
+Deno.test('allegatoPdf su una bozza non nomina un codice che non c’è', () => {
+  assertEquals(allegatoPdf(BUONO, FINTO_PDF, true).filename, 'Buono-Regalo-BOZZA.pdf');
+  assertEquals(allegatoPdf({ ...BUONO, codice: null }, FINTO_PDF).filename, 'Buono-Regalo-BOZZA.pdf');
+});
+
+/* Un buono vero pesa un centinaio di migliaia di byte: passarli tutti in
+   un colpo a String.fromCharCode.apply fa saltare lo stack (RangeError) e
+   l'email partirebbe senza allegato, o non partirebbe affatto. Si codifica
+   a blocchi: questa prova lo verifica su un byte array piu' lungo di un
+   blocco, byte per byte, non sulla sola lunghezza. */
+Deno.test('un PDF vero, più lungo di un blocco, si codifica tutto e senza perdere byte', () => {
+  const grande = new Uint8Array(200_000);
+  for (let i = 0; i < grande.length; i++) grande[i] = i % 256;
+  const { content } = allegatoPdf(BUONO, grande);
+  const tornati = atob(content);
+  assertEquals(tornati.length, grande.length);
+  for (const i of [0, 1, 255, 256, 32_767, 32_768, 65_536, 199_999]) {
+    assertEquals(tornati.charCodeAt(i), grande[i], `byte ${i}`);
+  }
+});
+
+Deno.test('il buono emesso parte col PDF in allegato, ad acquirente e destinatario', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    await inviaBuonoEmesso(BUONO, FINTO_PDF);
+    assertEquals(spedite.length, 2);
+    for (const s of spedite) {
+      assertEquals(s.attachments?.length, 1);
+      assertEquals(s.attachments?.[0].filename, 'Buono-Regalo-LEO-ACDE-FGHJ.pdf');
+      assert((s.attachments?.[0].content || '').length > 0, 'allegato vuoto');
+      assertEquals(atob(s.attachments![0].content), '%PDF-1.7 finto');
+    }
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
+});
+
+/* Il foglio si genera dal server e puo' non riuscire (la carta intestata,
+   la fotografia, un carattere strano in una dedica): l'email parte lo
+   stesso, senza allegato — un buono che arriva senza il PDF e' un buono,
+   un buono che non arriva no. */
+Deno.test('senza PDF l’email parte comunque, e il campo attachments non c’è proprio', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    const esiti = await inviaBuonoEmesso(BUONO);
+    assertEquals(esiti.acquirente, true);
+    assertEquals(spedite.length, 2);
+    for (const s of spedite) assertEquals(s.attachments, undefined);
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
+});
+
+Deno.test('il riepilogo d’acquisto e l’avviso interno non portano l’allegato: non sono il buono', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.set('EMAIL_AMMINISTRAZIONE', 'amministrazione@termeleonardo.com');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    await inviaBuonoEmesso({ ...BUONO, ricevuta_email: 'studio@example.com' }, FINTO_PDF);
+    assertEquals(spedite.map((s) => s.to[0]), ['max@example.com', 'anna@example.com',
+      'studio@example.com', 'amministrazione@termeleonardo.com']);
+    assertEquals(spedite[2].attachments, undefined, 'il riepilogo d’acquisto');
+    assertEquals(spedite[3].attachments, undefined, 'l’avviso all’amministrazione');
+  } finally {
+    ripristina();
+    Deno.env.delete('RESEND_API_KEY'); Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  }
+});
+
+/* ============================================================
+   MANDARE IL BUONO A UNO SOLO DEI DUE — il pulsante «manda» del back
+   office (?a=manda in index.ts). Serve quando l'ospite dice che non gli e'
+   arrivato niente, o quando l'indirizzo si corregge dopo l'emissione:
+   inviaBuonoEmesso spedirebbe a tutti e due e riscriverebbe anche l'avviso
+   all'amministrazione, che qui non c'entra.
+   ============================================================ */
+
+Deno.test('inviaBuonoA manda solo all’acquirente, col suo oggetto e il PDF in allegato', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    const r = await inviaBuonoA(BUONO, 'acquirente', FINTO_PDF);
+    assertEquals(r, { ok: true, a: 'max@example.com' });
+    assertEquals(spedite.length, 1);
+    assertEquals(spedite[0].to, ['max@example.com']);
+    assertStringIncludes(spedite[0].subject, 'BR-2026-0042');
+    assertStringIncludes(spedite[0].html, 'Max Muster');
+    assertStringIncludes(spedite[0].html, 'LEO-ACDE-FGHJ');
+    assertEquals(spedite[0].attachments?.[0].filename, 'Buono-Regalo-LEO-ACDE-FGHJ.pdf');
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
+});
+
+Deno.test('inviaBuonoA al destinatario usa l’altro indirizzo, l’altro oggetto e l’altro corpo', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    const r = await inviaBuonoA({ ...BUONO, lingua: 'it' }, 'destinatario', null);
+    assertEquals(r, { ok: true, a: 'anna@example.com' });
+    assertEquals(spedite.length, 1);
+    assertEquals(spedite[0].subject, 'Il suo Buono Regalo — Hotel Terme Leonardo');
+    assertStringIncludes(spedite[0].html, 'Gentile Anna,');
+    assertStringIncludes(spedite[0].html, 'qualcuno ha pensato a lei');
+    assertEquals(spedite[0].attachments, undefined);
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
+});
+
+/* Il back office deve poter dire «non c'e' nessun indirizzo» invece di
+   «non e' partita»: sono due guai diversi, e si rimediano in due modi
+   diversi (scrivere l'indirizzo, o riprovare). */
+Deno.test('inviaBuonoA senza indirizzo non manda niente e lo dice', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    const r = await inviaBuonoA({ ...BUONO, destinatario_email: null }, 'destinatario', FINTO_PDF);
+    assertEquals(r, { ok: false, a: null });
+    assertEquals(spedite.length, 0);
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
+});
+
+/* La riga sotto il pulsante di stampa diceva «un foglio pronto da
+   stampare»: adesso il foglio e' in allegato, e chi legge deve sapere che
+   ce l'ha gia' — altrimenti clicca per andare a prendere quello che ha
+   sotto gli occhi. In tutte e quattro le lingue, come ogni testo qui. */
+Deno.test('l’email dice che il buono è in allegato, nella lingua del buono', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  const TESTI: Record<string, string> = {
+    it: 'Il buono è in allegato a questa email, in PDF: lo apra e lo stampi, o lo inoltri a chi lo riceverà.',
+    de: 'Der Gutschein liegt dieser E-Mail als PDF bei: öffnen und ausdrucken, oder an den Beschenkten weiterleiten.',
+    en: 'The voucher is attached to this email as a PDF: open and print it, or forward it to the recipient.',
+    fr: 'Le bon est joint à cet e-mail en PDF : ouvrez-le et imprimez-le, ou transférez-le à son destinataire.',
+  };
+  for (const lingua of ['it', 'de', 'en', 'fr']) {
+    const { spedite, ripristina } = conFetchFinto();
+    try {
+      await inviaBuonoEmesso({ ...BUONO, lingua }, FINTO_PDF);
+      /* esc() trasforma le virgolette, non le lettere accentate: il testo
+         si ritrova tale e quale */
+      assertStringIncludes(spedite[0].html, TESTI[lingua]);
+      assertEquals(spedite[0].html.includes('Un foglio pronto da stampare'), false,
+        'la vecchia riga, quella di quando il foglio non era in allegato');
+    } finally { ripristina(); }
+  }
+  Deno.env.delete('RESEND_API_KEY');
 });

@@ -43,7 +43,8 @@ import { type Stagione } from './scadenza.ts';
 import { nasceGiaPagato } from './pagamenti.ts';
 import { idoneitaRimborso, eseguiRimborsoStripe, messaggioScritturaFallita } from './rimborso.ts';
 import { entroIlLimiteAcquista, entroIlLimiteQr, entroIlLimiteStampa, troppiDalSito } from './limite.ts';
-import { avvisaAmministrazione, inviaBuonoEmesso, statoConsegna } from './email-buono.ts';
+import { avvisaAmministrazione, inviaBuonoA, inviaBuonoEmesso, statoConsegna } from './email-buono.ts';
+import { type BuonoPerPdf, fotoBanner, nomeFilePdf, pdfBuono } from './pdf-buono.ts';
 import { inviaEmailPromemoria } from './email-promemoria.ts';
 import { daAvvisare, type RigaBuono } from './promemoria.ts';
 import { datiStampa } from './stampa.ts';
@@ -55,7 +56,12 @@ import { dataConsenso } from './consenso.ts';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'content-type, authorization, x-hotel-key, x-totem-key',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  /* il nome del file del PDF viaggia in content-disposition, e un browser
+     lo lascia leggere a una pagina di un'altra origine solo se glielo si
+     dice: senza questa riga le pagine che scaricano il buono (back office,
+     /buoni/stampa) lo salverebbero come «download.pdf» */
+  'Access-Control-Expose-Headers': 'content-disposition'
 };
 
 const db = createClient(
@@ -173,6 +179,43 @@ const risposta = (corpo: unknown, stato = 200) =>
     { status: stato, headers: { ...CORS, 'content-type': 'application/json' } });
 
 /* ============================================================
+   IL BUONO IN PDF — un solo foglio, generato qui.
+
+   «Il buono deve essere un PDF sulla carta intestata» (la proprieta',
+   5 settembre 2026). Il disegno sta tutto in pdf-buono.ts; qui c'e' solo
+   il modo di chiederlo (?a=pdf, tre strade, piu' sotto) e di rispondere.
+
+   La fotografia si chiede a ogni foglio ma si scarica una volta sola per
+   istanza (fotoBanner la tiene in memoria) e non lancia mai: se il sito
+   delle pagine non risponde il buono esce col riquadro al posto della
+   fotografia, invece di non uscire.
+   ============================================================ */
+async function pdfDelBuono(b: Record<string, unknown>, bozza: boolean): Promise<Uint8Array> {
+  return await pdfBuono(b as BuonoPerPdf, { bozza, foto: await fotoBanner() });
+}
+
+/* `inline` e non `attachment`: le pagine lo mostrano dentro un iframe, e
+   chi lo apre da solo lo vede nel visualizzatore del browser, da cui puo'
+   stampare o salvare — col nome giusto, che e' quello che conta.
+   Cache PRIVATA: il foglio porta nome, dedica e codice spendibile di una
+   persona sola, e non deve fermarsi in nessuna cache condivisa. Un minuto
+   basta a coprire la ricarica di una pagina o il secondo giro di un
+   iframe, senza congelare un buono che intanto e' stato riscosso. */
+const rispostaPdf = (bytes: Uint8Array, nome: string) =>
+  /* new Uint8Array(...): stessa ragione del PNG del QR piu' sotto —
+     pdfBuono dichiara un Uint8Array<ArrayBufferLike> (potenzialmente su un
+     SharedArrayBuffer), che Response non accetta piu' come corpo. Qui si
+     copia in una vista fresca, di sicuro su un ArrayBuffer vero. */
+  new Response(new Uint8Array(bytes), {
+    headers: {
+      ...CORS,
+      'content-type': 'application/pdf',
+      'content-disposition': 'inline; filename="' + nome + '"',
+      'cache-control': 'private, max-age=60'
+    }
+  });
+
+/* ============================================================
    ACCESSO: tre strati, tutti e tre devono passare.
    1. utente autenticato con Supabase (email e password personali)
    2. email del dominio dell'hotel
@@ -235,9 +278,21 @@ async function autorizzato(req: Request) {
    L'emissione non si blocca mai per un'email non partita: il buono e'
    valido comunque, e si rimanda dal back office. */
 async function consegnaERegistra(buono: any): Promise<string> {
+  /* il foglio in allegato. Se non esce — la carta intestata, la fotografia,
+     un carattere che il font non sa scrivere in una dedica — si scrive nel
+     registro e si spedisce lo stesso senza: un buono che arriva senza il PDF
+     e' un buono, un buono che non arriva perche' un disegno non e' riuscito,
+     no. Fuori dal try dell'invio, cosi' i due guai restano distinti. */
+  let pdf: Uint8Array | null = null;
+  try {
+    pdf = await pdfDelBuono(buono, false);
+  } catch (e) {
+    console.error('PDF del buono non generato, email senza allegato -', buono?.numero, e);
+    pdf = null;
+  }
   let esiti: Record<string, boolean> = {};
   try {
-    esiti = await inviaBuonoEmesso(buono);
+    esiti = await inviaBuonoEmesso(buono, pdf);
   } catch (e) {
     console.error('invio email buono', e);
     /* un'eccezione non e' "nessun indirizzo": e' un invio fallito */
@@ -444,6 +499,76 @@ Deno.serve(async (req) => {
       .select('codice, tipo, voce_id, descrizione, lingua, sottotitolo, destinatario, dedica, acquirente, numero, scade_il, scade_il_base, prorogato, stato')
       .eq('codice', codice).maybeSingle();
     return risposta(datiStampa(data), data ? 200 : 404);
+  }
+
+  /* ---------- pubblico: lo stesso buono, ma in PDF ----------
+     La strada che l'ospite percorre davvero: il PDF in allegato all'email,
+     e questo indirizzo per riaverlo quando l'allegato si perde. Non aggiunge
+     NIENTE a quello che ?a=stampa qui sopra gia' dava a chi ha il codice —
+     stessa select, stesso freno per IP, e la stessa `datiStampa` a decidere:
+     un buono non pagato, scaduto o gia' riscosso non esce in PDF come se
+     valesse, esce il suo stato in JSON con un 404.
+
+     `valore` non entra nella select, benche' un buono a importo lo abbia:
+     datiStampa non lo lascia uscire per scelta (vedi stampa.ts) e il foglio
+     non lo stampa — l'importo di un buono a valore sta gia' scritto nella
+     descrizione. Aggiungerlo qui sarebbe una colonna in piu' su una porta
+     pubblica, letta e buttata via. */
+  if (azione === 'pdf' && req.method === 'GET' && url.searchParams.get('codice')) {
+    const codice = (url.searchParams.get('codice') || '').toUpperCase().trim();
+    if (!entroIlLimiteStampa(ipRichiesta(req))) {
+      console.warn('pdf respinto per troppe richieste, ip', ipRichiesta(req));
+      return risposta({ errore: 'troppe richieste, riprovi tra qualche minuto' }, 429);
+    }
+    const { data } = await db.from('buono_regalo')
+      .select('codice, tipo, voce_id, descrizione, lingua, sottotitolo, destinatario, dedica, acquirente, numero, scade_il, scade_il_base, prorogato, stato')
+      .eq('codice', codice).maybeSingle();
+    const d = datiStampa(data);
+    if (!d.valido) return risposta(d, 404);
+    return rispostaPdf(await pdfDelBuono(d.buono, false), nomeFilePdf(d.buono));
+  }
+
+  /* ---------- pubblico: l'anteprima di un buono che non esiste ancora ----------
+     La usa il modulo di /buoni/regala mentre il cliente compila: quello che
+     si vede prima di pagare dev'essere lo STESSO foglio che arrivera' dopo,
+     o si sta mostrando un buono e vendendone un altro.
+
+     NON TOCCA IL DATABASE, e non deve. Non legge un buono e non ne scrive
+     uno: disegna quello che le arriva nel corpo. Per questo i campi si
+     prendono a uno a uno e si ripuliscono con `testo()` come in ?a=crea —
+     un elenco di cosa entra, non di cosa si scarta — e codice, numero e
+     stato NON si accettano affatto: si scrivono qui, vuoti e «attesa», cosi'
+     un'anteprima non puo' mai uscire con l'aria di un buono pagato. La
+     filigrana BOZZA gliela mette pdf-buono.ts, che riceve `bozza: true`.
+
+     Il freno e' quello di ?a=stampa: disegnare un PDF costa (font, carta
+     intestata, fotografia), e questa e' l'unica porta pubblica che lo fa
+     senza nemmeno un codice da conoscere. */
+  if (azione === 'pdf' && req.method === 'POST') {
+    if (!entroIlLimiteStampa(ipRichiesta(req))) {
+      console.warn('bozza pdf respinta per troppe richieste, ip', ipRichiesta(req));
+      return risposta({ errore: 'troppe richieste, riprovi tra qualche minuto' }, 429);
+    }
+    let g: Record<string, unknown>;
+    try { g = await req.json(); }
+    catch { return risposta({ errore: 'corpo non leggibile' }, 400); }
+    const valoreBozza = Number(g.valore);
+    const campi = {
+      descrizione: testo(g.descrizione, 300),
+      sottotitolo: testo(g.sottotitolo, 80),
+      destinatario: testo(g.destinatario, 80),
+      acquirente: testo(g.acquirente, 80),
+      dedica: testo(g.dedica, 300),
+      voce_id: testo(g.voce_id, 40),
+      lingua: ['it', 'de', 'en', 'fr'].includes(String(g.lingua)) ? String(g.lingua) : 'it',
+      tipo: g.tipo === 'valore' ? 'valore' : 'servizio',
+      /* una data si accetta solo se e' una data: finisce dentro un
+         `new Date(...)` e stampata sul foglio */
+      scade_il: /^\d{4}-\d{2}-\d{2}$/.test(String(g.scade_il ?? '')) ? String(g.scade_il) : null,
+      valore: isFinite(valoreBozza) ? valoreBozza : 0,
+      codice: null, numero: null, stato: 'attesa'
+    };
+    return rispostaPdf(await pdfDelBuono(campi, true), nomeFilePdf(campi, true));
   }
 
   /* ---------- pubblico: il QR del codice, come immagine, per l'email ----------
@@ -770,6 +895,27 @@ Deno.serve(async (req) => {
     return risposta({ buoni: (data ?? []).filter(puoVedere) });
   }
 
+  /* ---------- il buono in PDF per il back office, per NUMERO ----------
+     Sta qui, dietro il cancello e prima del muro dei POST qui sotto, per
+     la stessa ragione di ?a=elenco: e' un GET, e il 405 piu' avanti lo
+     fermerebbe.
+
+     Per numero e non per codice, e con la chiave: il numero (BR-2026-0042)
+     non e' una chiave che vale il buono, e un buono in attesa un codice non
+     ce l'ha nemmeno — ma la reception deve poterlo vedere lo stesso, per
+     mostrarlo al cliente prima che paghi. Esce come BOZZA, filigrana
+     compresa, finche' non e' pagato: cosi' un'anteprima stampata per
+     sbaglio non si puo' scambiare per un buono valido. */
+  if (req.method === 'GET' && azione === 'pdf') {
+    const numero = (url.searchParams.get('numero') || '').toUpperCase().trim();
+    if (!numero) return risposta({ errore: 'numero mancante' }, 400);
+    const { data } = await db.from('buono_regalo').select('*').eq('numero', numero).maybeSingle();
+    if (!data) return risposta({ errore: 'buono non trovato' }, 404);
+    if (!puoVedere(data)) return risposta({ errore: 'non autorizzato' }, 403);
+    const bozza = data.stato === 'attesa';
+    return rispostaPdf(await pdfDelBuono(data, bozza), nomeFilePdf(data, bozza));
+  }
+
   /* (il ramo ?a=promemoria sta piu' sopra, prima del controllo di accesso:
      il perche' e' spiegato li'. POST e non GET perche' ha un effetto —
      email vere e scritture — e un GET sarebbe visitabile per sbaglio da un
@@ -850,6 +996,58 @@ Deno.serve(async (req) => {
       catch (e) { console.error('avviso amministrazione', e); }
     }
     return risposta({ ok: true, buono: creato });
+  }
+
+  /* ---------- manda (o rimanda) il buono a uno dei due ----------
+     Il pulsante del back office. Serve tutte le volte che l'email non e'
+     arrivata — un indirizzo sbagliato corretto dopo, una casella piena, il
+     rifiuto di Resend che consegnaERegistra ha registrato come «fallito» —
+     e per il buono emesso in reception, che al cliente non parte mai da
+     solo (vedi ?a=crea qui sopra) ma che ora si puo' mandare per email
+     invece di stamparlo.
+
+     A UNO SOLO, e mai all'amministrazione: inviaBuonoEmesso spedirebbe a
+     tutti e due e rifarebbe partire l'avviso interno, cioe' un incasso da
+     riconciliare due volte. Solo un buono PAGATO: uno in attesa non ha un
+     codice spendibile, e mandarlo vorrebbe dire spedire una bozza con
+     l'aria del buono vero.
+
+     La consegna si registra come la registra l'invio automatico, o la
+     reception continuerebbe a vedere «fallito» su un buono che ha appena
+     rimandato con successo. Si scrive solo l'esito di CHI si e' mandato:
+     gli altri restano come stavano. */
+  if (azione === 'manda') {
+    const numero = String(b.numero || '').toUpperCase().trim();
+    const a = String(b.a || '');
+    if (!numero) return risposta({ errore: 'numero mancante' }, 400);
+    if (a !== 'acquirente' && a !== 'destinatario')
+      return risposta({ errore: 'si manda all’acquirente o al destinatario' }, 400);
+    const { data: riga } = await db.from('buono_regalo').select('*').eq('numero', numero).maybeSingle();
+    if (!riga) return risposta({ errore: 'buono non trovato' }, 404);
+    if (!puoVedere(riga)) return risposta({ errore: 'non autorizzato' }, 403);
+    if (riga.stato !== 'pagato') return risposta({ errore: 'si manda solo un buono pagato' }, 409);
+
+    /* stessa regola di consegnaERegistra: se il foglio non esce, l'email
+       parte lo stesso senza allegato */
+    let pdf: Uint8Array | null = null;
+    try {
+      pdf = await pdfDelBuono(riga, false);
+    } catch (e) {
+      console.error('PDF del buono non generato, email senza allegato -', numero, e);
+      pdf = null;
+    }
+
+    const r = await inviaBuonoA(riga, a, pdf);
+    if (!r.a) return risposta({ errore: 'nessun indirizzo per ' + a }, 400);
+    if (r.ok) {
+      const { error } = await db.from('buono_regalo').update({
+        consegna: 'inviato',
+        consegna_il: new Date().toISOString(),
+        consegna_esiti: { ...(riga.consegna_esiti ?? {}), [a]: true }
+      }).eq('numero', numero);
+      if (error) console.error('consegna non registrata dopo ?a=manda -', numero, error.message);
+    }
+    return risposta({ ok: r.ok, a: r.a, allegato: !!pdf }, r.ok ? 200 : 500);
   }
 
   /* ---------- l'incasso è arrivato: si emette il codice ---------- */

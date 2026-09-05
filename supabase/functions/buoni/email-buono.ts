@@ -1,7 +1,18 @@
 /* ============================================================
    email-buono.ts — il buono via email, lato server.
-   Stessa identità del back office: due colonne, verde acqua e oro,
-   tabelle HTML perché Outlook non regge i layout moderni.
+
+   UNA COLONNA, E IL BUONO VERO E' IN ALLEGATO. Dal 5 settembre 2026 il
+   buono bello — carta intestata, fotografia, tutto — e' il PDF che
+   pdf-buono.ts disegna e che parte allegato a queste email («il buono
+   deve essere un PDF sulla carta intestata», la proprieta'). Quello che
+   resta qui e' la LETTERA che lo accompagna: dice a chi e da chi, cosa
+   comprende, il codice col suo QR (che si legge dal telefono, senza
+   aprire l'allegato) e come si prenota. Una colonna sola, larga 620,
+   senza nessuna fotografia: le tre di prima si scaricavano a ogni
+   apertura e in Outlook uscivano schiacciate appena il file cambiava
+   forma, e adesso la fotografia sta dove serve, sul foglio.
+
+   Tabelle HTML e non layout moderni: Outlook non li regge.
    ============================================================ */
 
 import { buonoDellaSpa } from './ruoli.ts';
@@ -38,7 +49,7 @@ export const ETI: Record<string, any> = {
     saluto: 'Un cordiale saluto,<br />Hotel Terme Leonardo',
     nota: 'Ogni ingresso o trattamento vale per una persona. Per prenotare basta chiamarci o scriverci: ci organizziamo insieme.',
     stampaBtn: 'Stampa il tuo buono',
-    stampaNota: 'Un foglio pronto da stampare, con il solo buono — utile se preferisce portarlo con sé su carta.',
+    stampaNota: 'Il buono è in allegato a questa email, in PDF: lo apra e lo stampi, o lo inoltri a chi lo riceverà.',
     qrNota: 'Mostri questo codice in reception.' },
   de: { titolo: 'Geschenkgutschein', haRicevuto: (n: string) => `${n}, Sie haben<br />ein besonderes Geschenk erhalten`,
     senzaNome: 'Ein besonderes<br />Geschenk für Sie', da: 'HERZLICHST, VON', codice: 'GUTSCHEINCODE',
@@ -52,7 +63,7 @@ export const ETI: Record<string, any> = {
     saluto: 'Mit freundlichen Grüßen,<br />Hotel Terme Leonardo',
     nota: 'Jeder Eintritt und jede Anwendung gilt für eine Person. Für die Reservierung rufen Sie uns an oder schreiben Sie uns: wir organisieren alles gemeinsam.',
     stampaBtn: 'Gutschein ausdrucken',
-    stampaNota: 'Ein druckfertiges Blatt mit nur dem Gutschein — praktisch, wenn Sie ihn lieber auf Papier dabeihaben.',
+    stampaNota: 'Der Gutschein liegt dieser E-Mail als PDF bei: öffnen und ausdrucken, oder an den Beschenkten weiterleiten.',
     qrNota: 'Zeigen Sie diesen Code an der Rezeption.' },
   en: { titolo: 'Gift Voucher', haRicevuto: (n: string) => `${n}, you have received<br />a special gift`,
     senzaNome: 'A special gift<br />for you', da: 'WITH LOVE, FROM', codice: 'VOUCHER CODE',
@@ -66,7 +77,7 @@ export const ETI: Record<string, any> = {
     saluto: 'Kind regards,<br />Hotel Terme Leonardo',
     nota: 'Each admission or treatment is for one person. To book, just call or write to us: we will arrange everything together.',
     stampaBtn: 'Print your voucher',
-    stampaNota: 'A ready-to-print page with just the voucher — handy if you would rather bring it along on paper.',
+    stampaNota: 'The voucher is attached to this email as a PDF: open and print it, or forward it to the recipient.',
     qrNota: 'Show this code at reception.' },
   fr: { titolo: 'Bon Cadeau', haRicevuto: (n: string) => `${n}, vous avez reçu<br />un cadeau très spécial`,
     senzaNome: 'Un cadeau spécial<br />pour vous', da: 'AVEC AFFECTION, DE', codice: 'CODE DU BON',
@@ -80,7 +91,7 @@ export const ETI: Record<string, any> = {
     saluto: 'Cordialement,<br />Hôtel Terme Leonardo',
     nota: 'Chaque entrée ou soin vaut pour une personne. Pour réserver, appelez-nous ou écrivez-nous : nous organisons tout ensemble.',
     stampaBtn: 'Imprimer votre bon',
-    stampaNota: 'Une page prête à imprimer, avec le seul bon — pratique si vous préférez l’avoir sur papier.',
+    stampaNota: 'Le bon est joint à cet e-mail en PDF : ouvrez-le et imprimez-le, ou transférez-le à son destinataire.',
     qrNota: 'Présentez ce code à la réception.' }
 };
 
@@ -160,22 +171,13 @@ export function comprende(b: { voce_id?: string | null; descrizione?: string }, 
   return COMPRENDE.dayspa[lingua] || COMPRENDE.dayspa.it;
 }
 
-/* la foto del buono: una per tipo, servita dal sito delle pagine.
-   Le immagini sono già ritagliate nel formato del riquadro, così
-   restano giuste anche dove object-fit non viene applicato. */
+/* Dove stanno le immagini dell'email: il marchio, e nient'altro. Le tre
+   fotografie di prima (dayspa.jpg, valore.jpg, trattamenti.jpg) le sceglieva
+   fotoBuono(), tolta il 5 settembre 2026 insieme alla colonna colorata: la
+   fotografia adesso sta sul PDF in allegato, dove non si scarica a ogni
+   apertura e non puo' uscire schiacciata. I file restano sul sito finche' li
+   nomina pagine/buoni/buono.js, che disegna ancora il buono nel browser. */
 const BASE_IMG = 'https://arrivo-terme-leonardo.vercel.app/buoni/img';
-export function fotoBuono(b: { tipo?: string; voce_id?: string | null }): string {
-  const id = String(b.voce_id || '');
-  if (b.tipo === 'valore') return `${BASE_IMG}/valore.jpg`;
-  if (id.startsWith('dayspa')) return `${BASE_IMG}/dayspa.jpg`;
-  /* stesse categorie di categoriaBuono() nel back office: se cambiano
-     lì, vanno cambiate anche qui, o email e stampa si smentiscono */
-  if (/^(prog|relax|plantare|candle|antistress|ayurveda|hotstone|pindasweda|linfo|shiatsu)/.test(id) ||
-      /^(visofango|pulizia|ialuronico|collagene|vitaminac)/.test(id) ||
-      /^(scrub|riducente|seno|antiage|manicure|pedicure|epil)/.test(id))
-    return `${BASE_IMG}/trattamenti.jpg`;
-  return `${BASE_IMG}/valore.jpg`;
-}
 
 /* Dove vive la funzione `buoni` stessa — non il dominio dell'hotel (quello
    è BASE_HOTEL più sotto, per linkStampa). Qui non si tratta di un
@@ -199,6 +201,19 @@ export function linkQr(codice: string | null | undefined): string {
 
 /* il buono in HTML — versione email, autosufficiente.
 
+   UNA COLONNA SOLA, LARGA 620. Prima erano due: a sinistra una colonna
+   verde acqua col marchio e una fotografia, a destra il buono. Con il PDF
+   in allegato quella colonna non ha più niente da dire — la fotografia sta
+   sul foglio — e su un telefono le due colonne si stringevano fino a
+   spezzare le parole. In cima resta il marchio nero di intestazione(), lo
+   stesso delle altre email.
+
+   I RECAPITI NON SONO PIÙ QUI. Stavano nella terza casella accanto al
+   codice; adesso stanno nel saluto (avvolgi, più sotto), che è dove uno
+   li cerca in una lettera — e dove ci sono già per ogni altra email
+   dell'hotel. Scriverli in tutti e due i posti li avrebbe fatti leggere
+   due volte a due righe di distanza.
+
    IL QR ACCANTO AL CODICE. In portineria c'è un lettore di codici QR, ma
    chi si presenta al banco tipicamente non ha il foglio stampato — ha il
    telefono, con l'email — e senza un QR nell'email la reception finisce
@@ -218,20 +233,15 @@ export function buonoEmailHTML(b: any) {
   const righeDescr = String(b.descrizione || '').split('\n').filter(Boolean);
   const incluso = comprende(b, L);
   const p = PRENOTA[L] || PRENOTA.it;
-  return `<table cellpadding="0" cellspacing="0" border="0" width="700" style="width:700px;max-width:100%;border-collapse:collapse;font-family:Georgia,'Times New Roman',serif;background:#FFFFFF;">
+  return `<table cellpadding="0" cellspacing="0" border="0" width="620" style="width:620px;max-width:100%;border-collapse:collapse;font-family:Georgia,'Times New Roman',serif;background:#FFFFFF;">
 <tr>
-  <td width="270" valign="top" style="width:270px;background:#E4F0EA;padding:34px 26px;">
-    <img src="${BASE_IMG}/logo.png" width="150" alt="Hotel Terme Leonardo" style="display:block;width:150px;height:auto;border:0;" />
-    <img src="${fotoBuono(b)}" width="218" height="150" alt="" style="display:block;width:218px;height:150px;object-fit:cover;border-radius:2px;margin:26px 0 8px;" />
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:8.5px;letter-spacing:2px;color:#7A9490;padding-top:34px;">ABANO TERME &middot; COLLI EUGANEI</div>
-  </td>
-  <td valign="top" style="padding:34px 30px;">
-    <div style="width:34px;height:2px;background:#C9A961;margin-bottom:14px;"></div>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9.5px;letter-spacing:3px;color:#C9A961;">${e.titolo.toUpperCase()}</div>
+  <td valign="top" style="padding:0;">
+    ${intestazione()}
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9.5px;letter-spacing:3px;color:#C9A961;padding-top:22px;">${e.titolo.toUpperCase()}</div>
     <div style="font-size:25px;line-height:1.3;color:#1B4D4A;margin:12px 0 0;">${dest ? e.haRicevuto(dest) : e.senzaNome}</div>
-    ${b.dedica ? `<div style="font-size:13.5px;font-style:italic;color:#5C736F;margin-top:14px;line-height:1.5;">${esc(b.dedica)}</div>` : ''}
     ${b.acquirente ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#9AA9A6;margin-top:20px;">${e.da}</div>
     <div style="font-size:15px;font-style:italic;color:#1B4D4A;margin-top:4px;">${esc(b.acquirente)}</div>` : ''}
+    ${b.dedica ? `<div style="font-size:13.5px;font-style:italic;color:#5C736F;margin-top:14px;line-height:1.5;">${esc(b.dedica)}</div>` : ''}
     <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:26px;border-collapse:collapse;">
       <tr><td style="border-left:3px solid #C9A961;background:#FBFAF7;padding:18px 20px;">
         ${righeDescr.map((r, i) => `<div style="font-size:17px;color:#1B4D4A;${i ? 'margin-top:6px;' : ''}">${esc(r)}</div>`).join('')}
@@ -252,13 +262,10 @@ export function buonoEmailHTML(b: any) {
             ${e.prorogato(dataLingua(b.scade_il_base, L), dataLingua(b.scade_il, L))}
           </div>` : ''}
         </td>
-        ${b.codice ? `<td valign="top" align="center" style="padding-top:14px;padding-left:16px;padding-right:16px;">
+        ${b.codice ? `<td valign="top" align="right" style="padding-top:14px;padding-left:16px;">
           <img src="${esc(linkQr(b.codice))}" width="92" height="92" alt="QR" style="display:block;width:92px;height:92px;border:0;" />
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:8.5px;line-height:1.4;color:#8A938F;text-align:center;margin-top:5px;max-width:100px;">${esc(e.qrNota)}</div>
         </td>` : ''}
-        <td valign="top" align="right" style="padding-top:14px;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.6;color:#5C736F;">
-          <strong style="color:#1B4D4A;">+39 049 9939200</strong><br />info@termeleonardo.com<br />www.termeleonardo.com
-        </td>
       </tr>
     </table>
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#C9A961;padding-top:20px;">${p.titolo}</div>
@@ -440,14 +447,59 @@ function avvolgi(caro: string, corpo: string, saluto: string, buono: string, bot
   <p>${saluto}<br /><span style="color:#7B756A;font-size:13px;">+39 049 9939200 &middot; info@termeleonardo.com</span></p></div>`;
 }
 
+/* ============================================================
+   L'ALLEGATO — il buono vero, in PDF.
+
+   Resend prende gli allegati dentro lo stesso corpo JSON dell'email,
+   `attachments: [{ filename, content }]`, col contenuto in base64. Il
+   campo si mette SOLO quando c'e' qualcosa da allegare: un `attachments`
+   vuoto e' un modo di chiedere guai a un'API che non ne ha bisogno.
+   ============================================================ */
+export type Allegato = { filename: string; content: string };
+
+/* ⚠ SECONDA COPIA di nomeFilePdf() (pdf-buono.ts), per forza — quattro
+   righe, e email-buono.test.ts le confronta caso per caso con l'originale.
+   Importarla da li' farebbe dipendere QUESTO file da pdf-lib, e con lui
+   ogni prova delle pagine che da qui prende le condizioni o le etichette
+   (pagine/buoni/buono.test.ts): quelle girano dalla radice del repository,
+   dove il pacchetto npm non si risolve, e si spegnerebbero tutte. Il verso
+   giusto della dipendenza e' quello che c'e': pdf-buono.ts importa da qui. */
+export function nomeFilePdf(b: { codice?: string | null }, bozza?: boolean): string {
+  const c = String(b?.codice ?? '').trim().replace(/[^A-Za-z0-9-]/g, '');
+  if (bozza || !c) return 'Buono-Regalo-BOZZA.pdf';
+  return `Buono-Regalo-${c}.pdf`;
+}
+
+/* base64 di un Uint8Array, a blocchi. Un buono pesa un centinaio di
+   migliaia di byte, e passarli tutti in un colpo a fromCharCode.apply fa
+   saltare lo stack (RangeError): l'allegato non partirebbe, e il cliente
+   riceverebbe l'email senza il suo buono. Il blocco da 32 KB e' la misura
+   con cui questa tecnica gira dappertutto. */
+function base64(b: Uint8Array): string {
+  const BLOCCO = 0x8000;
+  let s = '';
+  for (let i = 0; i < b.length; i += BLOCCO) {
+    s += String.fromCharCode.apply(null, b.subarray(i, i + BLOCCO) as unknown as number[]);
+  }
+  return btoa(s);
+}
+
+/** Il PDF del buono pronto da attaccare a un'email: il nome che chi lo
+ * riceve si trova sul computer, e i byte in base64. */
+export function allegatoPdf(b: { codice?: string | null }, pdf: Uint8Array, bozza = false): Allegato {
+  return { filename: nomeFilePdf(b, bozza), content: base64(pdf) };
+}
+
 /* `cc` e' facoltativo e di default vuoto: dei tre punti che chiamano
    `invia` (acquirente, destinatario, riepilogo per la ricevuta) nessuno lo
    passa — sono email che arrivano all'ospite o a chi tiene la contabilita',
    e non devono portare in copia nessun indirizzo interno. Solo l'avviso
    interno (avvisaAmministrazione, qui sotto) lo usa, per mettere la spa in
    copia sullo STESSO invio: due invii separati non direbbero a nessuno dei
-   due che l'altro l'ha ricevuto. */
-async function invia(a: string, oggetto: string, html: string, cc: string[] = []) {
+   due che l'altro l'ha ricevuto.
+   `allegati` lo passano le sole due email che portano il buono vero: il
+   riepilogo d'acquisto e l'avviso interno non sono il buono. */
+async function invia(a: string, oggetto: string, html: string, cc: string[] = [], allegati: Allegato[] = []) {
   const chiave = Deno.env.get('RESEND_API_KEY');
   if (!chiave) { console.error('email non inviata: RESEND_API_KEY mancante ->', a, oggetto); return false; }
   const r = await fetch('https://api.resend.com/emails', {
@@ -456,7 +508,8 @@ async function invia(a: string, oggetto: string, html: string, cc: string[] = []
     body: JSON.stringify({
       from: Deno.env.get('MITTENTE_EMAIL') || 'Hotel Terme Leonardo <noreply@hoteltermeleonardo.com>',
       to: [a], subject: oggetto, html,
-      ...(cc.length ? { cc } : {})
+      ...(cc.length ? { cc } : {}),
+      ...(allegati.length ? { attachments: allegati } : {})
     })
   });
   if (!r.ok) console.error('Resend', r.status, await r.text());
@@ -575,8 +628,12 @@ export function statoConsegna(esiti: Record<string, boolean>): EsitoConsegna {
   return alCliente.every(([, andato]) => andato) ? 'inviato' : 'fallito';
 }
 
-/* da chiamare quando il buono passa a "pagato" (webhook E a=pagato) */
-export async function inviaBuonoEmesso(b: any) {
+/* da chiamare quando il buono passa a "pagato" (webhook E a=pagato).
+   `pdf` sono i byte del foglio (index.ts li genera con pdf-buono.ts):
+   quando ci sono, partono in allegato ad acquirente e destinatario. Quando
+   non ci sono — il foglio non e' uscito — l'email parte lo stesso, senza:
+   un buono che arriva senza il PDF e' un buono, un buono che non arriva no. */
+export async function inviaBuonoEmesso(b: any, pdf: Uint8Array | null = null) {
   const L = ['it', 'de', 'en', 'fr'].includes(b.lingua) ? b.lingua : 'it';
   const e = ETI[L];
   const buono = buonoEmailHTML(b);
@@ -585,15 +642,16 @@ export async function inviaBuonoEmesso(b: any) {
      sotto non lo ricevono, apposta — non sono il buono, sono posta a
      margine, e uno di più non è "chi lo riceve" nel senso di stampa.ts */
   const bottone = b.codice ? bottoneStampa(b, e) : '';
+  const allegati = pdf ? [allegatoPdf(b, pdf)] : [];
   const esiti: Record<string, boolean> = {};
 
   if (b.acquirente_email)
     esiti.acquirente = await invia(b.acquirente_email, e.oggettoAcq(b.numero),
-      avvolgi(e.caro(esc(b.acquirente)), e.corpoAcq, e.saluto, buono, bottone));
+      avvolgi(e.caro(esc(b.acquirente)), e.corpoAcq, e.saluto, buono, bottone), [], allegati);
 
   if (b.destinatario_email && b.destinatario_email !== b.acquirente_email)
     esiti.destinatario = await invia(b.destinatario_email, e.oggetto,
-      avvolgi(e.caro(esc(b.destinatario)), e.corpoDest, e.saluto, buono, bottone));
+      avvolgi(e.caro(esc(b.destinatario)), e.corpoDest, e.saluto, buono, bottone), [], allegati);
 
   /* riepilogo d'acquisto a un indirizzo diverso, se richiesto */
   if (b.ricevuta_email)
@@ -604,4 +662,35 @@ export async function inviaBuonoEmesso(b: any) {
     esiti.amministrazione = await avvisaAmministrazione(b);
 
   return esiti;
+}
+
+/* ============================================================
+   MANDARE IL BUONO A UNO SOLO DEI DUE — il pulsante «manda» del back
+   office (?a=manda in index.ts).
+
+   Serve quando l'ospite dice che non gli e' arrivato niente, o quando
+   l'indirizzo si corregge dopo l'emissione: inviaBuonoEmesso qui sopra
+   spedirebbe a tutti e due e rifarebbe partire anche l'avviso interno,
+   che non c'entra — l'amministrazione ha gia' avuto il suo avviso quando
+   il buono e' stato incassato, e riceverne un secondo uguale vorrebbe
+   dire un incasso da riconciliare due volte.
+
+   Torna anche l'indirizzo a cui e' andata: chi sta al banco deve poter
+   leggere DOVE e' partita, e distinguere «non c'e' nessun indirizzo» (si
+   rimedia scrivendolo) da «non e' partita» (si rimedia riprovando).
+   ============================================================ */
+export async function inviaBuonoA(
+  b: any, chi: 'acquirente' | 'destinatario', pdf: Uint8Array | null,
+): Promise<{ ok: boolean; a: string | null }> {
+  const a = b[chi + '_email'] as string | null | undefined;
+  if (!a) return { ok: false, a: null };
+  const L = ['it', 'de', 'en', 'fr'].includes(b.lingua) ? b.lingua : 'it';
+  const e = ETI[L];
+  const bottone = b.codice ? bottoneStampa(b, e) : '';
+  const corpo = avvolgi(e.caro(esc(b[chi])),
+    chi === 'acquirente' ? e.corpoAcq : e.corpoDest,
+    e.saluto, buonoEmailHTML(b), bottone);
+  const ok = await invia(a, chi === 'acquirente' ? e.oggettoAcq(b.numero) : e.oggetto,
+    corpo, [], pdf ? [allegatoPdf(b, pdf)] : []);
+  return { ok, a };
 }
