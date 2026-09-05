@@ -372,7 +372,6 @@ Deno.serve(async (req) => {
       const adessoOra = oraLocale(new Date());
       const perId = new Map(categorie.map((c) => [c.id as string, c]));
       const finestreCat = (c: { orari?: unknown; sotto?: unknown } | undefined) => c ? (leggiOrari(c.orari) ?? (c.sotto ? leggiOrari(perId.get(c.sotto as string)?.orari) : null)) : null;
-      const categorieOspite = categorie.map((c) => { const finestre = restringi(finestreCat(c), MARGINE_OSPITI); return { ...c, finestre, disponibile: apertoOra(finestre, adessoOra) }; });
       const idCat = new Set(categorie.map((c) => c.id as string));
       const fascia = fasciaAttiva({ fasce: (fas.data ?? []) as Fascia[], adesso: oraLocale(new Date()), locale });
       const articoli = applicaFascia({
@@ -380,6 +379,9 @@ Deno.serve(async (req) => {
         fascia, prezzi: (pf.data ?? []) as PrezzoFascia[],
       });
       const articoliOspite = articoli.map((a) => { const finestre = restringi(leggiOrari((a as { orari?: unknown }).orari) ?? finestreCat(perId.get(a.categoria as string)), MARGINE_OSPITI); return { ...a, finestre, disponibile: apertoOra(finestre, adessoOra) }; });
+      /* una categoria e' aperta se almeno un suo articolo lo e': le insalatone
+         con la «X» tengono aperta «Insalate» anche dopo le 14:20 */
+      const categorieOspite = categorie.map((c) => { const finestre = restringi(finestreCat(c), MARGINE_OSPITI); const suoi = articoliOspite.filter((a) => a.categoria === c.id); return { ...c, finestre, disponibile: suoi.length ? suoi.some((a) => a.disponibile) : apertoOra(finestre, adessoOra) }; });
       return risposta({ tavolo: { id: tav.id, nome: tav.nome, zona: zona?.nome ?? null, locale }, categorie: categorieOspite, articoli: articoliOspite, fascia: fascia ? { nome: fascia.nome, alle: fascia.alle } : null, prova: POS_PROVA, carta: !!chiaveStripe(POS_PROVA) });
     }
 

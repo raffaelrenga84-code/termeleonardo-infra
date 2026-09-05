@@ -275,3 +275,9 @@ Deno.test('«ospiti (QR)» sul singolo articolo: il palmare vede tutto, l ospite
   const ord = S.slice(S.indexOf('/* ospite-ordine */'), S.indexOf('/* ================= dal palmare'));
   assert(ord.includes("prezzo_libero, attivo, per_ospiti, orari, cat:pos_categoria(") && ord.includes('c.per_ospiti !== false && a.per_ospiti !== false;'), 'e non si ordina nemmeno a mano');
 });
+
+Deno.test('una categoria e aperta se almeno un suo articolo lo e: le insalatone con la «X» tengono aperta «Insalate» fino alle 17:20', () => {
+  const o = S.slice(S.indexOf("azione === 'ospite-menu'"), S.indexOf("azione === 'ospite-stato'"));
+  assert(o.includes('disponibile: suoi.length ? suoi.some((a) => a.disponibile) : apertoOra(finestre, adessoOra)'), 'la categoria guarda i suoi articoli');
+  assert(o.indexOf('const articoliOspite') < o.indexOf('const categorieOspite'), 'prima gli articoli, poi le categorie');
+});
