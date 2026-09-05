@@ -19,7 +19,10 @@
   --crema:#F9F6F0;--grigio:#7B756A;--allarme:#C0392B;--pietra:#EDE7DC;--bianco:#fff;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;}
-body{margin:0;background:var(--crema);color:#2A2E2B;font:16px/1.4 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow:hidden;user-select:none;}
+body{margin:0;background:var(--crema);color:#2A2E2B;font:16px/1.4 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
+/* Safari vuole il prefisso, se no il tocco lungo seleziona il testo (5 set 2026);
+   nelle caselle si deve poter selezionare, per correggere */
+input,textarea{user-select:text;-webkit-user-select:text;}
 header{background:var(--verde);color:#fff;padding:8px 12px;display:flex;align-items:center;gap:10px;height:52px;}
 header .indietro{background:none;border:0;color:#fff;font-size:26px;padding:0 6px;cursor:pointer;}
 header .titolo{flex:1;font-weight:600;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -207,7 +210,7 @@ button{font:inherit;cursor:pointer;color:inherit;}
 
 <script type="module">
 'use strict';
-import { aggiungi, cambia, creaOrdine, daInviare, euro, perPortata, PORTATE, togli, totaleCent } from '/pos/stato.js';
+import { aggiungi, cambia, creaOrdine, daInviare, dividi, euro, perPortata, PORTATE, togli, totaleCent } from '/pos/stato.js';
 import { creaCoda, creaServer } from '/pos/server.js';
 import { misuraPianta } from '/pos/pianta.js';
 
@@ -869,6 +872,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     velo.innerHTML = `<div class="pannello">
       <h3>${esc(r.nome)}</h3>
       ${nuova ? `<label>Quantità</label><div class="piumeno"><button id="pMeno">−</button><output id="pQ">${r.quantita}</output><button id="pPiu">+</button></div>
+      <div id="pPer"></div>
       <label>Nota per la cucina</label><textarea id="pNota" rows="2">${esc(r.nota || '')}</textarea>
       <div class="chips">${(cat.note_rapide || ['Senza glutine', 'No lattosio', 'Allergia', 'Caldo', 'Freddo', 'Con ghiaccio', 'Senza ghiaccio']).map((n) => `<button data-nota="${esc(n)}">${esc(n)}</button>`).join('')}</div>
       ${varianti.length ? `<label>Variante</label><div class="chips">${varianti.map((v) => `<button data-v="${esc(v.id)}" class="${r.variante_id === v.id ? 'attiva' : ''}">${esc(v.nome)}${v.supplemento_cent ? ` +${euro(v.supplemento_cent)}` : ''}</button>`).join('')}</div>` : ''}
@@ -895,8 +899,19 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
         dove = b.dataset.dove;
         velo.querySelectorAll('[data-dove]').forEach((x) => x.classList.toggle('attiva', x.dataset.dove === dove));
       });
-      velo.querySelector('#pMeno').onclick = () => { q = Math.max(1, q - 1); velo.querySelector('#pQ').textContent = q; };
-      velo.querySelector('#pPiu').onclick = () => { q += 1; velo.querySelector('#pQ').textContent = q; };
+      /* «tre piadine, una senza formaggio»: con piu' di una, si sceglie a
+         quante vale la nota (e la variante, la portata, il prezzo). Zero =
+         a tutte, come sempre. */
+      let perQuante = 0;
+      const disegnaPer = () => {
+        const p = velo.querySelector('#pPer');
+        if (perQuante >= q) perQuante = 0;
+        p.innerHTML = q > 1 ? `<label>La nota vale per</label><div class="chips"><button data-per="0" class="${perQuante ? '' : 'attiva'}">Tutte e ${q}</button>${Array.from({ length: q - 1 }, (_, i) => `<button data-per="${i + 1}" class="${perQuante === i + 1 ? 'attiva' : ''}">${i + 1}</button>`).join('')}</div>` : '';
+        p.querySelectorAll('[data-per]').forEach((b) => b.onclick = () => { perQuante = Number(b.dataset.per); disegnaPer(); });
+      };
+      disegnaPer();
+      velo.querySelector('#pMeno').onclick = () => { q = Math.max(1, q - 1); velo.querySelector('#pQ').textContent = q; disegnaPer(); };
+      velo.querySelector('#pPiu').onclick = () => { q += 1; velo.querySelector('#pQ').textContent = q; disegnaPer(); };
       velo.querySelectorAll('[data-nota]').forEach((b) => b.onclick = () => { const t = velo.querySelector('#pNota'); t.value = (t.value ? t.value + ', ' : '') + b.dataset.nota; });
       velo.querySelectorAll('[data-v]').forEach((b) => b.onclick = () => { varianteId = varianteId === b.dataset.v ? null : b.dataset.v; velo.querySelectorAll('[data-v]').forEach((x) => x.classList.toggle('attiva', x.dataset.v === varianteId)); });
       velo.querySelectorAll('[data-p]').forEach((b) => b.onclick = () => { portata = b.dataset.p; velo.querySelectorAll('[data-p]').forEach((x) => x.classList.toggle('attiva', x.dataset.p === portata)); });
@@ -923,7 +938,15 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
           c.insertAdjacentHTML('afterend', '<p class="mini" style="color:var(--allarme);margin:4px 0 0;">Scriva perché cambia il prezzo, o metta la nota.</p>');
           return;
         }
-        ordine = cambia(ordine, id, campi); chiudiPannello(); disegna();
+        if (perQuante > 0 && perQuante < q) {
+          /* la riga si divide: quelle di prima restano com'erano, la nota
+             (variante, portata, prezzo) va solo alla parte scelta */
+          const d = dividi(cambia(ordine, id, { quantita: q }), id, perQuante);
+          ordine = cambia(d.ordine, d.nuova, { ...campi, quantita: perQuante });
+        } else {
+          ordine = cambia(ordine, id, campi);
+        }
+        chiudiPannello(); disegna();
       };
     } else {
       velo.querySelectorAll('[data-sposta]').forEach((b) => b.onclick = () => {

@@ -46,3 +46,21 @@ export const euro = (cent) => {
   return (cent < 0 ? '-' : '') + intero.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + dec + ' €';
 };
 export { PORTATE };
+
+/** Ne stacca `quante` da una riga: tre piadine, una senza formaggio — la
+    nota va solo a quella (la proprieta', 5 settembre 2026). La riga
+    vecchia tiene il resto, la nuova e' una copia con un id suo, subito
+    dopo. Per zero, per tutte, o su una riga che non c'e', non cambia
+    niente. */
+export function dividi(o, id, quante) {
+  const r = o.righe.find((x) => x.id === id);
+  const n = Math.floor(Number(quante) || 0);
+  if (!r || n <= 0 || n >= r.quantita) return { ordine: o, nuova: null };
+  const nuova = { ...r, id: crypto.randomUUID(), quantita: n };
+  const righe = [];
+  for (const x of o.righe) {
+    if (x.id === id) righe.push({ ...x, quantita: x.quantita - n }, nuova);
+    else righe.push(x);
+  }
+  return { ordine: { ...o, righe }, nuova: nuova.id };
+}

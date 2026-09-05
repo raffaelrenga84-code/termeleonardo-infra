@@ -296,3 +296,11 @@ Deno.test('si vede che l articolo e entrato: numero sul riquadro, lampo al tocco
   assert(m.includes('accumulo > 70 && y > 120') && m.includes('accumulo < -40 || y < 30'), 'con isteresi, non a ogni pixel');
   assert(m.includes('y < 0 || y > massimo'), 'il rimbalzo di iOS non conta');
 });
+
+Deno.test('tre piadine, una senza formaggio: nel pannello la nota vale per tutte o per alcune, e la riga si divide', () => {
+  assert(m.includes("from '/pos/stato.js'") && m.includes('dividi,'), 'dividi() viene dal modulo puro');
+  assert(m.includes('<div id="pPer"></div>') && m.includes('La nota vale per'), 'la scelta nel pannello');
+  assert(m.includes('const d = dividi(cambia(ordine, id, { quantita: q }), id, perQuante);'), 'la riga si divide');
+  assert(m.includes('ordine = cambia(d.ordine, d.nuova, { ...campi, quantita: perQuante });'), 'e la nota va solo alla parte scelta');
+  assert(P.includes('-webkit-user-select:none;-webkit-touch-callout:none;'), 'su iPhone il tocco lungo non seleziona il testo');
+});

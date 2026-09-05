@@ -2,7 +2,7 @@
    stato.test.ts — l'ordine in mano al cameriere: puro, senza DOM.
    ============================================================ */
 import { assertEquals } from 'jsr:@std/assert';
-import { aggiungi, cambia, creaOrdine, daInviare, perPortata, togli, totaleCent } from './stato.js';
+import { aggiungi, cambia, creaOrdine, daInviare, dividi, perPortata, togli, totaleCent } from './stato.js';
 
 const birra = { id: 'a1', nome: 'Birra', prezzo_cent: 500, portata: 'bevande', prezzo_libero: false };
 const pasta = { id: 'a2', nome: 'Tagliatelle', prezzo_cent: 1400, portata: 'primi', prezzo_libero: false };
@@ -44,4 +44,23 @@ Deno.test('la portata si puo scegliere a mano, e il prezzo a mano vince sul list
   o = aggiungi(o, pasta, { portata: 'secondi', prezzoManualeCent: 1000 });
   assertEquals(o.righe[0].portata, 'secondi');
   assertEquals(totaleCent(o), 1000);
+});
+
+Deno.test('tre piadine, una senza formaggio: la riga si divide, e la nota va solo a quella', () => {
+  /* «se uno ordina tre piadine ma una sola deve essere senza formaggio»
+     (la proprieta', 5 settembre 2026) */
+  let o = creaOrdine();
+  o = aggiungi(o, pasta, { quantita: 3 });
+  const id = o.righe[0].id;
+  const d = dividi(o, id, 1);
+  assertEquals(d.ordine.righe.length, 2);
+  assertEquals(d.ordine.righe[0].quantita, 2, 'le due di prima restano sulla riga vecchia');
+  assertEquals(d.ordine.righe[1].quantita, 1);
+  assertEquals(d.ordine.righe[1].id, d.nuova, 'la riga nuova ha un id suo');
+  assertEquals(d.ordine.righe[1].articolo, 'a2');
+  assertEquals(d.ordine.righe[1].nota, null, 'nasce uguale: la nota la mette chi divide');
+  /* dividere per tutte, o per zero, non divide niente */
+  assertEquals(dividi(o, id, 3).ordine, o);
+  assertEquals(dividi(o, id, 0).ordine, o);
+  assertEquals(dividi(o, 'x', 1).ordine, o);
 });
