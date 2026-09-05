@@ -56,3 +56,13 @@ Deno.test('il consenso da compilare sopravvive al cambio di indirizzo della scel
   assert(S.includes("sessionStorage.setItem('leoPrivacy', dalUrl)") && S.includes("sessionStorage.getItem('leoPrivacy')"), 'messo da parte nella scheda');
   assert(S.includes('const leo = leoScelto();'), 'e riletto quando compaiono i campi');
 });
+
+Deno.test('la firma si ridisegna come farebbe un dito: il blocco firma di Fidra la riconosce senza il punto a mano', () => {
+  /* «la trovo gia' precompilata pero' non la riconosce: deve fare solo un
+     punto dentro il campo firma e poi salvare» (la proprieta', 5 settembre 2026) */
+  assert(S.includes('function ridisegnaConIlDito(canvas, img, offX, offY, scala)'), 'i tratti dall immagine');
+  assert(S.includes("new PointerEvent('pointer' + tipo") && S.includes("new MouseEvent('mouse' + tipo"), 'pointer e mouse: il pad ascolta gli uni o gli altri');
+  assert(S.includes("buttons: tipo.endsWith('up') ? 0 : 1") && S.includes('isPrimary: true'), 'come un dito vero: tasto premuto e puntatore primario');
+  assert(S.includes('corse.length * 3 <= 4000'), 'un tetto agli eventi');
+  assert(S.includes('ridisegnaConIlDito(canvas, img, offX, offY, w / img.width);'), 'dopo aver disegnato l immagine, con la stessa scala');
+});

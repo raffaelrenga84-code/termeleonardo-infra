@@ -107,6 +107,47 @@
      deformarla. Se Fidra all'invio legge il canvas, la firma parte con il
      resto; se legge solo i tratti fatti col dito, chiede di rifirmare —
      lo dice l'esito, e l'operatore lo vede prima di salvare. */
+  /* I tratti della firma, riga per riga: ogni corsa di pixel scuri
+     dell'immagine diventa un tratto (pointerdown, pointermove..., pointerup
+     e lo stesso coi mouse events), in coordinate dello schermo. Al massimo
+     ~4000 eventi: se la firma e' fitta si saltano piu' righe. */
+  function ridisegnaConIlDito(canvas, img, offX, offY, scala) {
+    const letto = document.createElement('canvas');
+    letto.width = img.width; letto.height = img.height;
+    const c2 = letto.getContext('2d');
+    if (!c2) return 0;
+    c2.drawImage(img, 0, 0);
+    const px = c2.getImageData(0, 0, letto.width, letto.height).data;
+    const scuro = (x, y) => { const i = (y * letto.width + x) * 4; return px[i + 3] > 80 && (px[i] + px[i + 1] + px[i + 2]) < 450; };
+    const corse = [];
+    for (let passo = 3; passo <= 12; passo *= 2) {
+      corse.length = 0;
+      for (let y = 0; y < letto.height; y += passo) {
+        let inizio = -1;
+        for (let x = 0; x <= letto.width; x++) {
+          const s = x < letto.width && scuro(x, y);
+          if (s && inizio < 0) inizio = x;
+          if (!s && inizio >= 0) { corse.push([inizio, x - 1, y]); inizio = -1; }
+        }
+      }
+      if (corse.length * 3 <= 4000) break;
+    }
+    const r = canvas.getBoundingClientRect();
+    const sx = r.width / canvas.width, sy = r.height / canvas.height;
+    const punto = (x, y) => ({ clientX: r.left + (offX + x * scala) * sx, clientY: r.top + (offY + y * scala) * sy });
+    const manda = (tipo, p) => {
+      const base = { bubbles: true, cancelable: true, clientX: p.clientX, clientY: p.clientY, button: 0, buttons: tipo.endsWith('up') ? 0 : 1 };
+      if (window.PointerEvent) canvas.dispatchEvent(new PointerEvent('pointer' + tipo, { ...base, pointerId: 1, pointerType: 'pen', isPrimary: true, pressure: tipo.endsWith('up') ? 0 : 0.5 }));
+      canvas.dispatchEvent(new MouseEvent('mouse' + tipo, base));
+    };
+    let eventi = 0;
+    for (const [x0, x1, y] of corse) {
+      manda('down', punto(x0, y)); eventi++;
+      for (let x = x0 + 2; x < x1; x += 2) { manda('move', punto(x, y)); eventi++; }
+      manda('move', punto(x1, y)); manda('up', punto(x1, y)); eventi += 2;
+    }
+    return eventi;
+  }
   function disegnaFirma(radice, dataUrl) {
     return new Promise((risolvi) => {
       const canvas = radice.querySelector('canvas');
@@ -117,8 +158,20 @@
         if (!ctx) return risolvi(false);
         const scala = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.9;
         const w = img.width * scala, h = img.height * scala;
-        ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
-        for (const t of ['pointerup', 'mouseup', 'touchend', 'change']) canvas.dispatchEvent(new Event(t, { bubbles: true }));
+        const offX = (canvas.width - w) / 2, offY = (canvas.height - h) / 2;
+        ctx.drawImage(img, offX, offY, w, h);
+        /* Il blocco firma di Fidra (un signature pad) tiene i tratti per
+           conto suo: un'immagine disegnata sul canvas la vede l'occhio, non
+           lui, e la firma «non la riconosce»: la reception doveva fare un
+           punto a mano prima di Salva (la proprieta', 5 settembre 2026).
+           Allora la firma la si RIDISEGNA come farebbe un dito: la si legge
+           pixel per pixel e ogni tratto scuro diventa una corsa di eventi
+           pointer e mouse sul canvas (il pad ascolta gli uni o gli altri,
+           a seconda della versione; quelli che non ascolta cadono nel
+           vuoto). Cosi' isEmpty() e' falso e toData() porta la firma vera.
+           Non e' un clic: Salva resta della reception. */
+        ridisegnaConIlDito(canvas, img, offX, offY, w / img.width);
+        for (const t of ['change']) canvas.dispatchEvent(new Event(t, { bubbles: true }));
         risolvi(true);
       };
       img.onerror = () => risolvi(false);
