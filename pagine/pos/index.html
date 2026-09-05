@@ -42,6 +42,10 @@ button{font:inherit;cursor:pointer;}
 .accesso{max-width:360px;margin:30px auto;padding:0 16px;text-align:center;}
 .accesso h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:30px;color:var(--verde);margin:0 0 6px;}
 .accesso .campo{font:600 28px ui-monospace,Menlo,monospace;letter-spacing:6px;min-height:46px;color:var(--verde);}
+/* si vede in quale campo si sta scrivendo, e si tocca l'altro per
+   passarci: «non riesco a selezionare il PIN» (la proprieta', 5 set 2026) */
+.accesso .campo{display:inline-block;min-width:170px;padding:4px 10px;border-radius:8px;border-bottom:3px solid transparent;cursor:pointer;}
+.accesso .campo.attivo{background:#fff;border-bottom-color:var(--oro);}
 .tastierino{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0;}
 .tastierino button{padding:18px 0;font-size:24px;border:1px solid var(--pietra);border-radius:12px;background:#fff;color:var(--verde);}
 /* sala: la barra delle zone resta in vista anche scorrendo */
@@ -317,14 +321,18 @@ function accesso() {
   const disegna = () => {
     $('app').innerHTML = `<div class="accesso">
       <h1>Buon servizio</h1>
-      <p class="mini">Il suo codice, poi ↵</p>
-      <label class="mini">Codice</label><div class="campo" id="vCodice">${esc(codice) || '·'}</div>
-      <label class="mini">PIN</label><div class="campo" id="vPin">${'•'.repeat(pin.length) || '·'}</div>
+      <p class="mini">${campo === 'pin' ? 'Ora il suo PIN, poi ↵' : 'Il suo codice, poi ↵'}</p>
+      <label class="mini">Codice</label><div class="campo ${campo === 'codice' ? 'attivo' : ''}" id="vCodice">${esc(codice) || '·'}</div>
+      <label class="mini">PIN</label><div class="campo ${campo === 'pin' ? 'attivo' : ''}" id="vPin">${'•'.repeat(pin.length) || '·'}</div>
       <div class="tastierino">${[1,2,3,4,5,6,7,8,9].map((n) => `<button data-n="${n}">${n}</button>`).join('')}
         <button data-n="c">C</button><button data-n="0">0</button><button data-n="ok">↵</button></div>
       <div class="errore" id="accErrore"></div>
       <p class="mini" id="impostazioni">Server locale: ${SERVER_LOCALE ? esc(SERVER_LOCALE) : 'nessuno, si usa il cloud'}</p></div>`;
     $('app').querySelectorAll('.tastierino button').forEach((b) => b.onclick = () => tasto(b.dataset.n));
+    /* toccando un campo si scrive li': chi ha il PIN lo mette subito,
+       senza aspettare che il server lo chieda */
+    $('vCodice').onclick = () => { campo = 'codice'; disegna(); };
+    $('vPin').onclick = () => { campo = 'pin'; disegna(); };
     /* le impostazioni del palmare: tocco lungo sulla riga del server */
     toccoLungo($('impostazioni'), impostazioni);
   };

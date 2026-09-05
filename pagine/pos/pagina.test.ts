@@ -248,3 +248,12 @@ Deno.test('sul palmare: categorie sempre a portata, riepilogo chiuso, in camera 
   assert(m.includes("bottoneFotocamera('pkTessera')") && m.includes("bottoneFotocamera('pcTessera')"), 'in tutti e due i pannelli della tessera');
   assert(m.includes("campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))"), 'e il codice letto entra come dal lettore');
 });
+
+Deno.test('all accesso si vede dove si scrive, e il PIN si tocca per scriverci', () => {
+  /* «non riesco a selezionare il PIN per inserirlo, la schermata e un po
+     scomoda» (la proprieta', dall iPhone, 5 settembre 2026) */
+  assert(P.includes('.accesso .campo.attivo{'), 'il campo attivo si vede');
+  assert(m.includes("class=\"campo ${campo === 'pin' ? 'attivo' : ''}\" id=\"vPin\""), 'e il PIN lo e quando tocca a lui');
+  assert(m.includes("$('vPin').onclick = () => { campo = 'pin'; disegna(); };"), 'toccando il PIN ci si scrive');
+  assert(m.includes("campo === 'pin' ? 'Ora il suo PIN, poi ↵' : 'Il suo codice, poi ↵'"), 'e la riga in alto dice cosa fare adesso');
+});
