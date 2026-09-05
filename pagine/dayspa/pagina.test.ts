@@ -18,7 +18,7 @@ Deno.test('e nascosta finche e di prova: noindex, chiave nell indirizzo, e la co
   assert(/\.get\('k'\) !== CHIAVE_PROVA/.test(modulo()), 'senza ?k= la pagina di prova non si apre');
 });
 
-Deno.test('sette giorni in fila al posto del calendario, giorni dal server, testi da testi.js', () => {
+Deno.test('quattordici giorni in fila al posto del calendario, giorni dal server, testi da testi.js', () => {
   /* «al massimo 7 giorni: la disponibilita dipende dal meteo e
      dall occupazione dell hotel» (la proprieta', 3 settembre 2026) */
   assert(/from '\/dayspa\/giorni\.js'/.test(P), 'i sette giorni stanno in un modulo loro');

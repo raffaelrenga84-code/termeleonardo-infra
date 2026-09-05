@@ -11,10 +11,10 @@ Deno.test('le quattro lingue hanno le stesse chiavi', () => {
   for (const l of ['de', 'en', 'fr']) assertEquals(Object.keys(TT[l]).sort(), chiavi, `chiavi diverse in ${l}`);
 });
 
-Deno.test('la riga dei sette giorni dice il perche, in ogni lingua, con il numero', () => {
+Deno.test('la riga dei quattordici giorni dice il perche, in ogni lingua, con il numero', () => {
   for (const l of ['it', 'de', 'en', 'fr']) {
     const o = String(TT[l].orizzonte);
-    assert(/7|sette|sieben|seven|sept/i.test(o), `${l}: manca il numero dei giorni`);
+    assert(/14|quattordici|vierzehn|fourteen|quatorze/i.test(o), `${l}: manca il numero dei giorni`);
     assert(/tempo|meteo|Wetter|weather|météo/i.test(o), `${l}: non dice che dipende dal tempo`);
   }
 });

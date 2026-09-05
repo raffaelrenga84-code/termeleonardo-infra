@@ -8,16 +8,16 @@
    giorni da oggi, ognuno con la sua parola.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { haSerale, ORIZZONTE_GIORNI, pezziGiorno, setteGiorni, statoDelGiorno } from './giorni.js';
+import { haSerale, ORIZZONTE_GIORNI, pezziGiorno, giorniInFila, statoDelGiorno } from './giorni.js';
 /* i nomi dei giorni e dei mesi sono quelli del calendario comune: il modulo
    li riceve come parametro, cosi' non importa un percorso web che Deno non
    saprebbe aprire */
 import { TESTI } from '../comune/calendario.js';
 
-Deno.test('sette giorni da oggi compreso, in fila', () => {
-  assertEquals(ORIZZONTE_GIORNI, 7);
-  assertEquals(setteGiorni('2026-09-03'), ['2026-09-03', '2026-09-04', '2026-09-05', '2026-09-06', '2026-09-07', '2026-09-08', '2026-09-09']);
-  assertEquals(setteGiorni('2026-12-29')[3], '2027-01-01', 'attraversa l anno');
+Deno.test('quattordici giorni da oggi compreso, in fila (la proprieta, 5 settembre 2026)', () => {
+  assertEquals(ORIZZONTE_GIORNI, 14);
+  assertEquals(giorniInFila('2026-09-03'), ['2026-09-03', '2026-09-04', '2026-09-05', '2026-09-06', '2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-11', '2026-09-12', '2026-09-13', '2026-09-14', '2026-09-15', '2026-09-16']);
+  assertEquals(giorniInFila('2026-12-29')[3], '2027-01-01', 'attraversa l anno');
 });
 
 Deno.test('il giorno si legge nella lingua dell ospite: giorno della settimana, numero, mese', () => {

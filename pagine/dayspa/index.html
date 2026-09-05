@@ -38,7 +38,7 @@ label{display:block;font-size:13.5px;color:var(--verde-medio);font-weight:500;ma
 input,select{width:100%;margin-top:6px;padding:12px 13px;font:15px inherit;border:1px solid #DCD6CB;border-radius:9px;background:#FCFBF8;color:#2A2E2B;}
 input:focus,select:focus{outline:2px solid var(--acqua);border-color:transparent;}
 input.vuoto{border-color:var(--allarme);}
-/* i sette giorni in fila: pulsanti grandi, uno per giorno, con la parola
+/* i quattordici giorni in fila, due righe da sette: pulsanti grandi, uno per giorno, con la parola
    dello stato sotto; il giorno scelto e' verde pieno */
 .giorni{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin-top:8px;}
 .gg{border:1px solid #DCD6CB;border-radius:10px;background:#FCFBF8;padding:8px 2px 6px;text-align:center;cursor:pointer;font:inherit;color:#2A2E2B;min-height:78px;}
@@ -159,7 +159,7 @@ input.vuoto{border-color:var(--allarme);}
    pagina vive sotto una riscrittura e un percorso relativo si romperebbe
    (vedi il commento in prenota/index.html). */
 import { leggiChiusure, notaChiusura, oggiLocale, TESTI as TESTI_CAL } from '/comune/calendario.js';
-import { haSerale, ORIZZONTE_GIORNI, pezziGiorno, setteGiorni, statoDelGiorno } from '/dayspa/giorni.js';
+import { haSerale, ORIZZONTE_GIORNI, pezziGiorno, giorniInFila, statoDelGiorno } from '/dayspa/giorni.js';
 import { normalizzaLingua, parametriOspite } from '/comune/ospite-url.js';
 import { T } from '/dayspa/testi.js';
 
@@ -221,7 +221,7 @@ function testi() {
 }
 
 /* ---------- i giorni dal server: una parola per fascia ---------- */
-/* la fila dei sette giorni: da oggi, ognuno con la sua parola. Un giorno
+/* la fila dei quattordici giorni: da oggi, ognuno con la sua parola. Un giorno
    chiuso per stagione lo dice il server (stato 'chiuso' su ogni fascia)
    e, se il server ancora tace, le chiusure lette a parte; sopra la fila la
    riga con le date della chiusura, come nel calendario di Prenota. */
@@ -229,7 +229,7 @@ function disegnaGiorni() {
   const x = t();
   const scelto = $('fGiorno').value;
   const chiusoPerStagione = (iso) => CHIUSURE.some((c) => iso >= c.chiusura && iso < c.riapertura);
-  $('giorni').innerHTML = setteGiorni(oggiLocale()).map((iso) => {
+  $('giorni').innerHTML = giorniInFila(oggiLocale()).map((iso) => {
     const g = GIORNI.get(iso) || null;
     const stato = chiusoPerStagione(iso) ? 'chiuso' : statoDelGiorno(g);
     const p = pezziGiorno(iso, LNG, TESTI_CAL);
@@ -257,7 +257,7 @@ const piuGiorni = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTC
 
 async function caricaGiorni() {
   const oggi = oggiLocale();
-  /* solo i sette giorni: oltre, la disponibilita' non esiste ancora */
+  /* solo i giorni in fila: oltre, la disponibilita' non esiste ancora */
   const fino = piuGiorni(oggi, ORIZZONTE_GIORNI - 1);
   try {
     const r = await fetch(`${FUNZIONE}?a=giorni&da=${oggi}&fino=${fino}`);
@@ -435,7 +435,7 @@ if (PROVA && Q.get('k') !== CHIAVE_PROVA && !Q.get('grazie')) {
   if (Number.isInteger(persone) && persone >= 1 && persone <= 8) { ADULTI = persone; BAMBINI = 0; }
   /* un giorno precompilato da un link vale solo se sta nei sette giorni */
   const giorno = Q.get('giorno');
-  if (giorno && setteGiorni(oggiLocale()).includes(giorno)) $('fGiorno').value = giorno;
+  if (giorno && giorniInFila(oggiLocale()).includes(giorno)) $('fGiorno').value = giorno;
 
   /* l'avviso di prova si decide qui, subito: aspettare il server lo faceva
      comparire dopo, spingendo giu' tutta la pagina */

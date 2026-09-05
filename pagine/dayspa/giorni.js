@@ -8,7 +8,8 @@
    questo modulo si prova in Deno senza un percorso web da aprire. */
 'use strict';
 
-export const ORIZZONTE_GIORNI = 7;
+/* quattordici, non piu' sette: «fai vedere 14 giorni per prenotare» (la proprieta', 5 settembre 2026) */
+export const ORIZZONTE_GIORNI = 14;
 
 const piu = (iso, n) => {
   const d = new Date(iso + 'T12:00:00Z');
@@ -17,7 +18,7 @@ const piu = (iso, n) => {
 };
 
 /** I sette giorni da `oggi` compreso. */
-export function setteGiorni(oggi) {
+export function giorniInFila(oggi) {
   return Array.from({ length: ORIZZONTE_GIORNI }, (_, i) => piu(oggi, i));
 }
 
