@@ -240,8 +240,13 @@ import { nomeCompleto, ORDINE_GRUPPI, prezzoTesto, SPIEGAZIONI, TRATTAMENTI } fr
    Deno, da qui non si importa): buono-url.test.ts confronta le due su
    ogni caso, cosi' una divergenza diventa rossa invece di far leggere
    all'ospite una cifra sulla pagina e sentirne un'altra alla cassa. */
-import { codiceDaUrl, normalizzaCodice, coperturaBuono, differenzaBuono, contieneDaySpa, buonoUsabileSu } from '/comune/buono-url.js';
+import { codiceDaUrl, normalizzaCodice, coperturaBuono, differenzaBuono, contieneDaySpa, buonoUsabileSu, personeDalBuono, nomeDalBuono } from '/comune/buono-url.js';
 import { mancanti, segnaEtichette, segnaVuoti, nomiMancanti } from '/comune/obbligatori.js';
+/* IDEM PERCORSO ASSOLUTO: l'orizzonte del Day Spa (14 giorni da oggi) vive
+   in un modulo solo, condiviso con la pagina che vende gli ingressi — una
+   seconda copia qui sarebbe la stessa divergenza gia' pagata coi listini,
+   il giorno che quell'orizzonte cambiasse. */
+import { ORIZZONTE_GIORNI, giorniInFila } from '/dayspa/giorni.js';
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/richieste';
 /* le chiusure per il calendario, dal server: arrivano dopo, il calendario le
@@ -690,6 +695,13 @@ const DAL = DA_URL.arrivo && DA_URL.arrivo > oggiISO() ? DA_URL.arrivo : oggiISO
 const AL = DA_URL.partenza || '';
 const limitiSoggiorno = () => `min="${esc(DAL)}"` + (AL ? ` max="${esc(AL)}"` : '');
 
+/* Il Day Spa non prende i limiti del soggiorno: lo stesso orizzonte della
+   prenotazione Day Spa (giorniInFila, /dayspa/giorni.js) — oltre non si
+   prenota comunque (la proprieta', 5 settembre 2026), quindi lasciare
+   scegliere un giorno piu' in la' vorrebbe dire raccogliere una richiesta
+   che il server rifiuterebbe comunque. */
+const ultimoGiornoDayspa = () => giorniInFila(oggiISO())[ORIZZONTE_GIORNI - 1];
+
 /* Un parametro dentro un indirizzo che puo' gia' avere una query o no, senza
    doppioni: serve al cambio di lingua qui sotto. Valore vuoto, niente da
    aggiungere. */
@@ -802,6 +814,13 @@ function campiTipo(t) {
      (9.00–18.30 per l'infrasettimanale e il festivo). Le note stanno gia'
      nel riquadro dei dati, come per tutti gli altri tipi.
 
+     Il campo giorno NON prende i limiti del soggiorno (limitiSoggiorno()):
+     prende ultimoGiornoDayspa(), lo stesso orizzonte della prenotazione
+     Day Spa — oltre non si prenota comunque (la proprieta', 5 settembre
+     2026). Un soggiorno che finisse prima resta comunque il limite vero
+     (AL, se piu' vicino): non avrebbe senso proporre un giorno dopo la
+     partenza dell'ospite.
+
      Sotto i due campi c'e' la riga della disponibilita': nasce VUOTA e
      nascosta, perche' finche' l'ospite non sceglie un giorno non c'e'
      niente da dire e non parte nessuna chiamata. `aria-live="polite"`
@@ -819,7 +838,7 @@ function campiTipo(t) {
   if (TIPO === 'dayspa') return `
     <div class="due">
       <div><label for="fGiorno">${esc(t.giorno)}</label>
-        <input type="date" id="fGiorno" ${limitiSoggiorno()} /></div>
+        <input type="date" id="fGiorno" min="${esc(DAL)}" max="${esc(AL && AL < ultimoGiornoDayspa() ? AL : ultimoGiornoDayspa())}" /></div>
       <div><label for="fPersone">${esc(t.persone)}</label>
         <input type="number" id="fPersone" min="1" max="8" value="1" /></div>
     </div>
@@ -1256,8 +1275,8 @@ function preselezionaDalBuono() {
   /* I due moduli che un buono puo' aprire, e nessun altro: la regola della
      specifica §4-bis e' «se c'e' almeno un trattamento → trattamenti,
      altrimenti → Day Spa». Sul Day Spa non c'e' niente da spuntare e
-     nessuna differenza da mostrare, ma la NOTA per la reception serve
-     uguale — vedi `mancante` qui sotto. */
+     nessuna differenza da mostrare, ma la NOTA per la reception si scrive
+     uguale — sempre, qui sotto. */
   if (TIPO !== 'trattamenti' && TIPO !== 'dayspa') return;
   /* Valori predefiniti nella destrutturazione, e non per pignoleria: l'HTML
      e il modulo /comune/buono-url.js sono due file che il browser tiene in
@@ -1269,7 +1288,7 @@ function preselezionaDalBuono() {
      si perde al massimo un avviso in console.
      (Non e' teoria: mi e' successo in prova, con una copia rimasta
      indietro, e la pagina era bianca esattamente cosi'.) */
-  const { copre = null, indici: dalBuono = [], ignorate = [], ripetute = [], sconosciute = [] } =
+  const { copre = null, indici: dalBuono = [], sconosciute = [] } =
     coperturaBuono(BUONO, TRATTAMENTI) || {};
   if (sconosciute.length) {
     /* non si perde in silenzio: se un domani il LISTINO dei buoni prendesse
@@ -1286,48 +1305,25 @@ function preselezionaDalBuono() {
     console.warn('voci del buono senza trattamento corrispondente su questo modulo:',
       sconosciute.join(', '));
   }
-  /* ---- quello che QUESTO modulo non sa rappresentare ----
-     La domanda e' la stessa nei due moduli — «di questo buono, cosa non si
-     vede da qui?» — ma guarda cose opposte, perche' i due moduli
-     rappresentano cose opposte.
+  /* ---- la nota per la reception, SEMPRE che ci sia un buono ----
+     PRIMA la nota compariva solo quando il modulo non sapeva rappresentare
+     tutto quello che il buono conteneva (`mancante`, calcolato da
+     `ignorate`/`ripetute`/`dalBuono`: un ingresso Day Spa in piu' sui
+     trattamenti, un massaggio in piu' sul Day Spa, una quantita' di due).
+     Un buono che il modulo sapeva gia' spuntare per intero non lasciava
+     nessuna traccia scritta del suo contenuto, e in reception restava solo
+     un codice da controllare a mano.
 
-     · Sui TRATTAMENTI si spuntano i massaggi: manca quello che NON e' un
-       trattamento (`ignorate`), e il caso vero e' la specifica §4-bis —
-       un ingresso Day Spa piu' un massaggio. Sono una visita sola, quindi
-       una richiesta sola: si compila il modulo dei trattamenti, ma senza
-       questa nota la richiesta arriva in reception nominando solo il
-       massaggio e l'ingresso sparisce.
-
-     · Sul DAY SPA si chiede un ingresso: manca l'opposto, cioe' i
-       trattamenti (`dalBuono`) — lo stesso buono aperto di la' arrivava
-       in reception senza dire che comprende anche il massaggio. E manca
-       tutto quello che sta oltre un ingresso solo: piu' di una voce, o
-       una quantita' maggiore di uno.
-
-     · `ripetute` vale per tutti e due: le caselle dei trattamenti non
-       hanno una quantita', e il campo `persone` del Day Spa lo lascia
-       decidere all'ospite, non al buono. Senza la nota — «2 × Massaggio
-       Hot Stone (55 min)» — in reception preparerebbero un turno invece di
-       due.
-
-     Buco noto, della stessa dimensione di prima: sul modulo Day Spa una
-     voce sola che non fosse ne' un trattamento ne' un ingresso — cioe' un
-     tipo di voce che il LISTINO oggi non ha — non verrebbe detta. A
-     segnalarla resta il console.warn qui sopra. */
-  const quanteVoci = Array.isArray(BUONO.voci) ? BUONO.voci.length : 0;
-  const mancante = ripetute.length > 0 || (TIPO === 'dayspa'
-    ? (dalBuono.length > 0 || quanteVoci > 1)
-    : ignorate.length > 0);
-  if (mancante) {
-    /* I ritorni a capo diventano ' · ' come fa gia' il server quando deve
-       mettere la descrizione su una riga sola (vedi product_data[name] in
-       buoni/index.ts). La nota elenca TUTTO il contenuto del buono e non
-       solo il pezzo mancante: e' la stessa cosa che l'ospite vede nel
-       riquadro in cima, e chi legge in reception ha davanti il buono
-       intero senza doverlo ricostruire. */
-    CONTENUTO_DA_DIRE = String(BUONO.descrizione ?? '').split('\n')
-      .map((r) => r.trim()).filter(Boolean).join(' · ');
-  }
+     «Dovrebbe metterlo in automatico in base al buono... deve essere
+     tutto piu' proattivo» (la proprieta', 5 settembre 2026): la nota
+     ricapitola SEMPRE cosa comprende il buono, spuntato o no che sia dal
+     modulo — e' la stessa cosa che l'ospite legge nel riquadro in cima, e
+     chi la trova in reception ha il buono davanti senza doverlo
+     ricostruire. Resta INVARIATA, qui sotto, la logica della copertura:
+     quali caselle spuntare e quanto dire che il buono copre non dipendono
+     da questa nota. */
+  CONTENUTO_DA_DIRE = String(BUONO.descrizione ?? '').split('\n')
+    .map((r) => r.trim()).filter(Boolean).join(' · ');
   /* da qui in giu' e' roba del solo modulo dei trattamenti: spuntare le
      caselle e dire quanto il buono copre. Sul Day Spa non c'e' niente da
      spuntare, e COPERTURA resta null — la riga della differenza non esiste
@@ -1348,6 +1344,34 @@ function preselezionaDalBuono() {
     COPERTURA = copre;
   }
   for (const i of indici) SCELTI_TRATT.add(i);
+}
+
+/* ---- il modulo si compila da solo, dal buono ----
+   «Dovrebbe metterlo in automatico in base al buono, precompilando anche i
+   nomi... deve essere tutto piu' proattivo» (la proprieta', 5 settembre
+   2026).
+
+   Va DOPO modulo(), a differenza di preselezionaDalBuono() qui sopra: scrive
+   dentro campi che modulo() ha appena disegnato, e prima che esistano non
+   c'e' niente su cui scrivere.
+
+   `fPersone` riceve il numero vero del buono e lancia `change` a mano:
+   quell'evento e' quello che fa partire la domanda di disponibilita' del
+   Day Spa (attivaDayspa() qui sopra, e programmaDisponibilita() piu' sotto)
+   — senza dispatchEvent il campo cambierebbe numero ma la riga della
+   disponibilita' resterebbe ferma su quella di un ospite solo.
+
+   `fNome` si scrive SOLO se e' vuoto: un ospite gia' riconosciuto dal token
+   (OSPITE, da precompila()) o arrivato con `?nome=` nell'indirizzo ha gia'
+   il proprio nome scritto, ed e' quello — non il destinatario del buono,
+   che puo' essere chi l'ha regalato — a dover restare. */
+function proattivoDalBuono() {
+  if (!BUONO) return;
+  if ($('fPersone')) {
+    $('fPersone').value = personeDalBuono(BUONO);
+    $('fPersone').dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  if ($('fNome') && !$('fNome').value.trim()) $('fNome').value = nomeDalBuono(BUONO);
 }
 
 /* La differenza, aggiornata mentre l'ospite cambia scelta: la chiama
@@ -1788,6 +1812,9 @@ await verificaBuono();
 preselezionaDalBuono();
 testata();
 modulo();
+/* dopo modulo(): scrive nei campi che il disegno ha appena creato (vedi il
+   commento sopra proattivoDalBuono). Senza buono non fa niente. */
+proattivoDalBuono();
 </script>
 </body>
 </html>
