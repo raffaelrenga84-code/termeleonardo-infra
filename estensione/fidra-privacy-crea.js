@@ -66,6 +66,37 @@
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
+  /* I tre consensi del modulo di Fidra (visto il 5 settembre 2026) sono tre
+     domande numerate, ognuna con due radio «Autorizzo / Non autorizzo»:
+     1. comunicazione esterna per ricevere messaggi e telefonate = messaggi;
+     2. conservazione delle generalita' = conservazione;
+     3. invio di tariffe e offerte = marketing.
+     La domanda si riconosce dalle parole; i radio sono il primo gruppo che
+     viene dopo di lei nella pagina. */
+  const DOMANDE = [
+    ['messaggi', /messaggi e telefonate|telefonate a me|Nachrichten und Anrufe|messages and (phone )?calls|messages et (des )?appels/i],
+    ['conservazione', /conservazione delle mie generalit|Aufbewahrung|storage of my|conservation de mes/i],
+    ['marketing', /tariffe e sulle offerte|offerte praticate|Tarife und Angebote|rates and offers|tarifs et (les )?offres/i],
+  ];
+  function radioDomanda(radice, parole) {
+    const domanda = [...radice.querySelectorAll('p, div, span, label, li, h3, h4')]
+      .find((el) => el.children.length <= 3 && (el.textContent || '').length < 400 && parole.test((el.textContent || '').trim()) && !el.querySelector('input'));
+    if (!domanda) return null;
+    const tutti = [...radice.querySelectorAll('input[type="radio"]')];
+    const primo = tutti.find((r) => domanda.compareDocumentPosition(r) & Node.DOCUMENT_POSITION_FOLLOWING);
+    if (!primo) return null;
+    const gruppo = primo.name ? tutti.filter((r) => r.name === primo.name) : tutti.slice(tutti.indexOf(primo), tutti.indexOf(primo) + 2);
+    const testoDi = (r) => ((r.closest('label') || r.parentElement || r).textContent || '').trim();
+    const no = gruppo.find((r) => /^non|nicht|not|^ne |n.autorise pas|do not/i.test(testoDi(r)));
+    const si = gruppo.find((r) => r !== no) || null;
+    return si && no ? { si, no } : null;
+  }
+  function scegliRadio(r) {
+    if (r.checked) return;
+    r.checked = true;
+    r.dispatchEvent(new Event('input', { bubbles: true }));
+    r.dispatchEvent(new Event('change', { bubbles: true }));
+  }
   function spunta(el, voluto) {
     if (el.checked === !!voluto) return;
     el.checked = !!voluto;
@@ -140,20 +171,32 @@
   async function riempi(radice, c, hotelKey) {
     const f = campi(radice);
     const scritti = [], saltati = [];
-    const testo = (nome, campo, valore) => {
+    const testo = (nome, campo, valore, facoltativo) => {
       if (!valore) return;
-      if (!campo) { saltati.push(nome + ' (campo non trovato)'); return; }
+      if (!campo) { if (!facoltativo) saltati.push(nome + ' (campo non trovato)'); return; }
       if ((campo.value || '').trim()) { saltati.push(nome + ' (gia scritto)'); return; }
       scriviNativo(campo, valore); scritti.push(nome);
     };
     const giorno = String(c.firmato_il || '').slice(0, 10);
-    testo('data', f.data, f.data && f.data.type === 'date' ? giorno : italiana(giorno));
+    testo('data', f.data, f.data && f.data.type === 'date' ? giorno : italiana(giorno), true);
     testo('cognome', f.cognome, c.cognome);
     testo('nome', f.nome, c.nome);
     testo('email', f.email, c.email);
-    for (const [k, nome] of [['messaggi', 'telefono e messaggi'], ['conservazione', 'dati'], ['marketing', 'newsletter']]) {
-      if (!f[k]) { saltati.push(nome + ' (spunta non trovata)'); continue; }
-      spunta(f[k], c[k]); scritti.push(nome + (c[k] ? ' sì' : ' no'));
+    /* la domanda 1 (messaggi e telefonate) nel nostro modulo non c'e' piu': la
+       proprieta' l'ha tolta «per toglierci dai problemi» e ha chiesto di mettere
+       «Autorizzo» da soli (5 settembre 2026). Se un consenso vecchio la porta,
+       vale quella. */
+    const valori = {
+      messaggi: c.messaggi === null || c.messaggi === undefined ? true : !!c.messaggi,
+      conservazione: !!c.conservazione,
+      marketing: !!c.marketing,
+    };
+    for (const [k, nome] of [['messaggi', 'telefono e messaggi'], ['conservazione', 'dati'], ['marketing', 'offerte']]) {
+      const parole = (DOMANDE.find(([x]) => x === k) || [])[1];
+      const radio = parole ? radioDomanda(radice, parole) : null;
+      if (radio) { scegliRadio(valori[k] ? radio.si : radio.no); scritti.push(nome + (valori[k] ? ' sì' : ' no')); continue; }
+      if (!f[k]) { saltati.push(nome + ' (domanda non trovata)'); continue; }
+      spunta(f[k], valori[k]); scritti.push(nome + (valori[k] ? ' sì' : ' no'));
     }
     if (f.abbinamento && !(f.abbinamento.value || '').trim()) { scriviNativo(f.abbinamento, c.cognome); scritti.push('ricerca ospite'); }
     const firma = await firmaDi(c.id, hotelKey);

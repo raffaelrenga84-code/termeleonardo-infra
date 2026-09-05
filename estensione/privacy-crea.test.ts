@@ -38,10 +38,12 @@ Deno.test('parla solo con la nostra funzione, con la chiave hotel: le firme del 
   assert(S.includes("chrome.storage.local.get(['hotelKey'])") && S.includes("'x-hotel-key': hotelKey"));
 });
 
-Deno.test('i tre consensi di Fidra combaciano coi nostri: telefono e messaggi = messaggi, dati = conservazione, newsletter = marketing', () => {
-  assert(S.includes("messaggi:      campoConEtichetta(radice, /telefono e messaggi/i, 'spunta')"));
-  assert(S.includes("conservazione: campoConEtichetta(radice, /consenso dati/i, 'spunta')"));
-  assert(S.includes("marketing:     campoConEtichetta(radice, /newsletter/i, 'spunta')"));
+Deno.test('i tre consensi di Fidra sono radio «Autorizzo / Non autorizzo» sotto tre domande: si riconoscono dalle parole e si scelgono coi nostri valori', () => {
+  assert(S.includes("['messaggi', /messaggi e telefonate|") && S.includes("['conservazione', /conservazione delle mie generalit|") && S.includes("['marketing', /tariffe e sulle offerte|"), 'le tre domande');
+  assert(S.includes('function radioDomanda(radice, parole)') && S.includes('domanda.compareDocumentPosition(r) & Node.DOCUMENT_POSITION_FOLLOWING'), 'il primo gruppo di radio dopo la domanda');
+  assert(S.includes('function scegliRadio(r)') && S.includes("r.dispatchEvent(new Event('change', { bubbles: true }));"), 'si sceglie col change, senza clic');
+  /* la domanda 1 nel nostro modulo non c'e' piu': «Autorizzo» da soli (la proprieta', 5 settembre 2026) */
+  assert(S.includes('messaggi: c.messaggi === null || c.messaggi === undefined ? true : !!c.messaggi,'), 'messaggi: autorizzo se il nostro modulo non lo chiede');
 });
 
 Deno.test('aperto con ?leo=<consenso> dalla prenotazione, il modulo si compila da solo: meno lavoro alla reception', () => {
