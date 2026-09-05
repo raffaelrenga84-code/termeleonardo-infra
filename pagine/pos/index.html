@@ -317,12 +317,33 @@ function esci() {
 }
 
 /* ---------- testa ---------- */
-function testa(titolo, indietro) {
+function testa(titolo, indietro, sulTitolo = null) {
   $('titolo').textContent = titolo;
+  $('titolo').onclick = sulTitolo;
+  $('titolo').style.cursor = sulTitolo ? 'pointer' : '';
   $('chi').textContent = CAMERIERE ? CAMERIERE.nome : '';
   $('indietro').hidden = !indietro;
   $('indietro').onclick = indietro || null;
   pallino();
+}
+
+/* Un conto per id, dalla sala: si va dritti nella comanda («se un tavolo
+   e' gia' aperto, quando clicco sopra entra subito nella comanda», la
+   proprieta', 5 settembre 2026). */
+async function apriContoPerId(id) {
+  try {
+    const j = await chiama('conto', { qs: `&id=${encodeURIComponent(id)}` });
+    schermataOrdine(j.conto, j.righe, j.fratelli || []);
+  } catch (e) { alert(e.message); }
+}
+/* La schermata del tavolo (nome, coperti, in camera, sposta) da dentro
+   la comanda: si tocca il titolo in alto. */
+async function apriTavoloPerId(id) {
+  try {
+    const s = await chiama('sala', { qs: `&locale=${encodeURIComponent(LOCALE_ID)}` });
+    const t = s.tavoli.find((x) => x.id === id);
+    if (t) schermataTavolo(t); else schermataSala();
+  } catch (e) { alert(e.message); }
 }
 
 /* ---------- accesso col PIN ---------- */
@@ -492,7 +513,15 @@ async function schermataSala() {
     $('app').innerHTML = barra + (qr ? `<div class="qrRecenti">${qr}</div>` : '') + corpo;
     $('app').querySelectorAll('.zone button[data-z]').forEach((b) => b.onclick = () => { ZONA = b.dataset.z; localStorage.setItem('posZona', ZONA); disegna(); });
     $('cambiaVista').onclick = () => { VISTA_SALA = VISTA_SALA === 'elenco' ? 'piantina' : 'elenco'; localStorage.setItem('posVistaSala', VISTA_SALA); disegna(); };
-    $('app').querySelectorAll('[data-t]').forEach((b) => b.onclick = () => { clearInterval(timerSala); schermataTavolo(s.tavoli.find((t) => t.id === b.dataset.t)); });
+    /* tavolo libero: la schermata del tavolo (coperti, in camera). Tavolo
+       gia' aperto: dritti nella comanda del primo conto; gli altri conti
+       stanno nella riga «Conti», il tavolo si riapre toccando il titolo. */
+    $('app').querySelectorAll('[data-t]').forEach((b) => b.onclick = () => {
+      clearInterval(timerSala);
+      const t = s.tavoli.find((x) => x.id === b.dataset.t);
+      const aperti = t.conti.filter((c) => c.stato !== 'chiuso').sort((a, c) => String(a.id).localeCompare(String(c.id)));
+      if (aperti.length) apriContoPerId(aperti[0].id); else schermataTavolo(t);
+    });
   };
   await disegna();
   timerSala = setInterval(disegna, 10000);
@@ -662,7 +691,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
   let ordine = BOZZE.get(conto.id) || creaOrdine();
   BOZZE.delete(conto.id);
   const salvaBozza = () => { if (daInviare(ordine).length) BOZZE.set(conto.id, ordine); };
-  testa(`${titoloConto(conto)} · ${conto.coperti} cop.`, () => { salvaBozza(); schermataSala(); });
+  testa(`${titoloConto(conto)} · ${conto.coperti} cop. ▾`, () => { salvaBozza(); schermataSala(); }, () => { salvaBozza(); apriTavoloPerId(conto.tavolo); });
   let portataForzata = '';         // '' = quella dell'articolo
   let compatta = false;            // le righe in cima nascoste dallo scorrimento
   let comandaAperta = false;       // sul palmare il riepilogo parte chiuso

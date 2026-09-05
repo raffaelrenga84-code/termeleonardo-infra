@@ -304,3 +304,12 @@ Deno.test('tre piadine, una senza formaggio: nel pannello la nota vale per tutte
   assert(m.includes('ordine = cambia(d.ordine, d.nuova, { ...campi, quantita: perQuante });'), 'e la nota va solo alla parte scelta');
   assert(P.includes('-webkit-user-select:none;-webkit-touch-callout:none;'), 'su iPhone il tocco lungo non seleziona il testo');
 });
+
+Deno.test('un tavolo gia aperto si apre dritto sulla comanda; il tavolo si riapre toccando il titolo', () => {
+  /* «se un tavolo e gia aperto quando clicco sopra entra subito nella
+     comanda, non nell anteprima» (la proprieta', 5 settembre 2026) */
+  assert(m.includes('if (aperti.length) apriContoPerId(aperti[0].id); else schermataTavolo(t);'), 'aperto → comanda, libero → tavolo');
+  assert(m.includes('async function apriContoPerId(id)') && m.includes('async function apriTavoloPerId(id)'), 'le due strade');
+  assert(m.includes('function testa(titolo, indietro, sulTitolo = null)') && m.includes("$('titolo').onclick = sulTitolo;"), 'il titolo si tocca');
+  assert(m.includes('cop. ▾`, () => { salvaBozza(); schermataSala(); }, () => { salvaBozza(); apriTavoloPerId(conto.tavolo); });'), 'e dalla comanda porta al tavolo, tenendo la bozza');
+});
