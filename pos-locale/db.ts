@@ -37,11 +37,13 @@ create table if not exists pos_tavolo (
   x integer not null default 0, y integer not null default 0, attivo integer not null default 1,
   aggiornato_il text not null default ${ORA});
 create table if not exists pos_categoria (
+  nomi text,
   id text primary key, nome text not null, posizione integer not null default 0, colore text,
   stampante text not null, portata text not null default 'secondi', sotto text,
   note_rapide text not null default '[]', fidra_id text, locale_stampa text, attiva integer not null default 1,
   aggiornato_il text not null default ${ORA});
 create table if not exists pos_articolo (
+  nomi text, descrizioni text, allergeni text,
   id text primary key, categoria text not null, nome text not null, prezzo_cent integer not null default 0,
   iva integer not null default 10, portata text, stampante text, prezzo_libero integer not null default 0,
   incluso_trattamento integer not null default 0, conto_ricavo text, esaurito integer not null default 0,

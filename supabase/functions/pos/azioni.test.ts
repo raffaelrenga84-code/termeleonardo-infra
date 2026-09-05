@@ -240,3 +240,10 @@ Deno.test('l ordine dal tavolo solo dalla rete dell hotel, tessera dalle cifre s
   assert(S.includes("const consegna = String(b.consegna ?? '').trim().slice(0, 10) || null;"), 'la camera di consegna');
   assert(S.includes("`QR · PAGATO ONLINE${o.camera ? ` · CAMERA ${String(o.camera)}` : ''}`"), 'e sul biglietto si legge');
 });
+
+Deno.test('il menu per l ospite porta i nomi tradotti, le descrizioni e gli allergeni; le categorie il loro nome tradotto', () => {
+  /* spec docs/superpowers/specs/2026-09-05-menu-ospiti-design.md */
+  const o = S.slice(S.indexOf("azione === 'ospite-menu'"), S.indexOf("azione === 'ospite-stato'"));
+  assert(o.includes("select('id, nome, posizione, colore, sotto, per_ospiti, note_rapide, nomi').eq('attiva', true)"), 'categorie con nomi');
+  assert(o.includes("select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, nomi, descrizioni, allergeni').eq('attivo', true)"), 'articoli con nomi, descrizioni, allergeni');
+});

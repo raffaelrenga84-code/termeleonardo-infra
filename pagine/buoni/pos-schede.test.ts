@@ -39,3 +39,13 @@ Deno.test('nella coda si vede la firma dell ospite, o che manca', () => {
   assert(P.includes('firmato dall’ospite') && P.includes('Senza firma: l’ospite non era al tavolo'), 'lo dice in cima');
   assert(P.includes('alt="firma dell’ospite"'), 'e la firma si guarda: al check-out chiude la discussione');
 });
+
+Deno.test('nel menu i nomi per gli ospiti dal QR: un pulsante per articolo apre nomi, ingredienti e allergeni; la categoria ha i nomi tradotti', () => {
+  /* spec docs/superpowers/specs/2026-09-05-menu-ospiti-design.md */
+  const menu = P.slice(P.indexOf('function vistaPosMenu('), P.indexOf('function vistaPosTavoli('));
+  assert(menu.includes('data-tradu="${esc(a.id)}"') && menu.includes('data-tradu-di="${esc(a.id)}" hidden'), 'il pulsante e la riga che si apre');
+  for (const k of ['data-an="${l}"', 'data-ad="${l}"', 'data-allergeni']) assert(menu.includes(k), k);
+  assert(menu.includes('data-cn="${l}"'), 'i nomi della categoria nelle quattro lingue');
+  assert(menu.includes('a.nomi = Object.keys(n).length ? n : null;') && menu.includes('c.nomi = Object.keys(cn).length ? cn : null;'), 'campi vuoti = null, non {}');
+  assert(menu.includes("a.allergeni = al && al.value.trim() ? al.value.trim().toUpperCase() : null;"), 'le sigle in maiuscolo');
+});

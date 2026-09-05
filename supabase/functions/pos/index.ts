@@ -350,8 +350,8 @@ Deno.serve(async (req) => {
 
     if (azione === 'ospite-menu') {
       const [cat, art, fas, pf] = await Promise.all([
-        db.from('pos_categoria').select('id, nome, posizione, colore, sotto, per_ospiti, note_rapide').eq('attiva', true),
-        db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero').eq('attivo', true),
+        db.from('pos_categoria').select('id, nome, posizione, colore, sotto, per_ospiti, note_rapide, nomi').eq('attiva', true),
+        db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, nomi, descrizioni, allergeni').eq('attivo', true),
         db.from('pos_fascia').select('*').eq('attiva', true),
         db.from('pos_prezzo_fascia').select('*'),
       ]);

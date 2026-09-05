@@ -54,6 +54,8 @@ button{font:inherit;cursor:pointer;color:inherit;}
 .riga{background:#fff;border:1px solid var(--pietra);border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px;}
 .riga .nome{flex:1;min-width:0;}
 .riga .nome b{display:block;font-size:16px;line-height:1.25;color:#2A2E2B;}
+.riga .desc{display:block;font-size:13px;color:var(--grigio);line-height:1.3;margin-top:2px;}
+.riga .allergeni{display:inline-block;font-size:11px;color:var(--grigio);border:1px solid var(--pietra);border-radius:6px;padding:1px 6px;margin-top:4px;letter-spacing:.4px;}
 .riga .prezzo{color:var(--grigio);font-size:15px;}
 .riga.scelta{border-color:var(--verde);background:#F3F7F4;}
 .qta{display:flex;align-items:center;gap:2px;}
@@ -217,7 +219,7 @@ const categorieRadice = () => MENU.categorie.filter((c) => !c.sotto).sort((a, b)
 const sottoDi = (id) => MENU.categorie.filter((c) => c.sotto === id).sort((a, b) => (Number(a.posizione) || 0) - (Number(b.posizione) || 0) || String(a.nome).localeCompare(String(b.nome), 'it'));
 const articoliDi = (id) => MENU.articoli.filter((a) => a.categoria === id).sort((a, b) => (Number(a.posizione) || 0) - (Number(b.posizione) || 0) || String(a.nome).localeCompare(String(b.nome), 'it'));
 const quantiIn = (c) => articoliDi(c.id).length + sottoDi(c.id).reduce((t, s) => t + articoliDi(s.id).length, 0);
-const quadro = (c) => `<button class="quadro" data-cat="${esc(c.id)}"><span class="icona">${icona(c.nome)}</span><span><b>${esc(c.nome)}</b><br><span class="mini">${quantiIn(c)}</span></span></button>`;
+const quadro = (c) => `<button class="quadro" data-cat="${esc(c.id)}"><span class="icona">${icona(c.nome)}</span><span><b>${esc(nomeDi(c))}</b><br><span class="mini">${quantiIn(c)}</span></span></button>`;
 
 const schermataCategorie = () => {
   const cats = categorieRadice().filter((c) => quantiIn(c) > 0);
@@ -225,11 +227,23 @@ const schermataCategorie = () => {
     ${MENU.fascia ? `<div class="fascia">★ ${esc(T().fascia(MENU.fascia.nome, MENU.fascia.alle))}</div>` : ''}
     <div class="griglia">${cats.map(quadro).join('')}</div>`;
 };
+/* Il nome per l'ospite: nella sua lingua, se manca in italiano, se manca quello del
+   POS. Sotto gli ingredienti; gli allergeni come le sigle del menu stampato
+   (spec 2026-09-05-menu-ospiti-design.md). */
+const LEGENDA_ALLERGENI = {
+  it: 'Allergeni: GL glutine · LA latte · U uova · CR crostacei · P pesce · SE sesamo · FG frutta a guscio · CE sedano · AS solfiti',
+  en: 'Allergens: GL gluten · LA milk · U eggs · CR shellfish · P fish · SE sesame · FG nuts · CE celery · AS sulphites',
+  de: 'Allergene: GL Gluten · LA Milch · U Eier · CR Krebstiere · P Fisch · SE Sesam · FG Schalenfrüchte · CE Sellerie · AS Sulfite',
+  fr: 'Allergènes : GL gluten · LA lait · U œufs · CR crustacés · P poisson · SE sésame · FG fruits à coque · CE céleri · AS sulfites',
+};
+const nomeDi = (x) => (x.nomi && (x.nomi[LINGUA] || x.nomi.it)) || x.nome;
+const descDi = (x) => (x.descrizioni && (x.descrizioni[LINGUA] || x.descrizioni.it)) || '';
+const allergeniDi = (a) => String(a.allergeni || '').split('-').map((s) => s.trim()).filter(Boolean);
 const rigaArticolo = (a) => {
   const q = quantita(a.id), c = CARRELLO.get(a.id);
   const parti = q ? partiNota(c && c.nota) : [];
   const pronte = q ? noteDi(a) : [];
-  return `<div class="riga ${q ? 'scelta' : ''}" data-art="${esc(a.id)}"><div class="nome"><b>${esc(a.nome)}</b><span class="prezzo">${euro(a.prezzo_cent)}${a.in_fascia ? ' ★' : ''}</span>
+  return `<div class="riga ${q ? 'scelta' : ''}" data-art="${esc(a.id)}"><div class="nome"><b>${esc(nomeDi(a))}</b>${descDi(a) ? `<span class="desc">${esc(descDi(a))}</span>` : ''}<span class="prezzo">${euro(a.prezzo_cent)}${a.in_fascia ? ' ★' : ''}</span>${allergeniDi(a).length ? `<span class="allergeni">${allergeniDi(a).map(esc).join(' · ')}</span>` : ''}
     ${pronte.length ? `<div class="chips">${pronte.map((n) => `<button type="button" class="chip ${parti.includes(n) ? 'attiva' : ''}" data-chip-art="${esc(a.id)}" data-chip="${esc(n)}">${esc(etichettaNota(n))}</button>`).join('')}</div>` : ''}
     ${q ? (c && (c.aperta || c.nota) ? `<div class="notaRiga"><input data-nota="${esc(a.id)}" placeholder="${esc(T().nota)}" value="${esc(c.nota || '')}" maxlength="120" /></div>` : `<button class="aggiungiNota" data-apri-nota="${esc(a.id)}">${esc(T().aggiungiNota)}</button>`) : ''}</div>
     <div class="qta"><button data-meno="${esc(a.id)}" ${q ? '' : 'disabled'} aria-label="−">−</button><output>${q || ''}</output><button data-piu="${esc(a.id)}" aria-label="+">+</button></div></div>`;
@@ -238,9 +252,10 @@ const schermataArticoli = (cat) => {
   const figlie = sottoDi(cat.id).filter((c) => quantiIn(c) > 0);
   const arts = articoliDi(cat.id);
   $('app').innerHTML = `<button class="indietro" id="indietro">‹ ${esc(T().indietro)}</button>
-    <h1>${icona(cat.nome)} ${esc(cat.nome)}</h1>
+    <h1>${icona(cat.nome)} ${esc(nomeDi(cat))}</h1>
     ${figlie.length ? `<div class="griglia" style="margin-bottom:14px;">${figlie.map(quadro).join('')}</div>` : ''}
-    <div class="lista">${arts.map(rigaArticolo).join('')}</div>`;
+    <div class="lista">${arts.map(rigaArticolo).join('')}</div>
+    ${arts.some((a) => a.allergeni) ? `<p class="mini" style="margin-top:14px;">${esc(LEGENDA_ALLERGENI[LINGUA])}</p>` : ''}`;
   $('indietro').onclick = () => { VISTA = cat.sotto ? { nome: 'articoli', categoria: cat.sotto } : { nome: 'categorie' }; disegna(); };
 };
 const schermataCarrello = () => {

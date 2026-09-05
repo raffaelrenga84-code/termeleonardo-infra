@@ -46,3 +46,12 @@ Deno.test('«Dove e seduto?»: interno, esterno (con la terrazza), la Hall come 
   assert(m.includes("const CAMERA = (P.get('camera') || '')") && m.includes("consegna: CAMERA || null"), 'e la camera viaggia con l ordine');
   assert(m.includes("${esc(T().tesseraSpiega)}") && m.includes('placeholder="1466"'), 'la tessera: le cifre stampate');
 });
+
+Deno.test('i nomi per l ospite: nella sua lingua, con gli ingredienti e le sigle degli allergeni del menu stampato', () => {
+  /* spec docs/superpowers/specs/2026-09-05-menu-ospiti-design.md */
+  assert(m.includes('const nomeDi = (x) => (x.nomi && (x.nomi[LINGUA] || x.nomi.it)) || x.nome;'), 'la sua lingua, poi l italiano, poi il nome del POS');
+  assert(m.includes('<b>${esc(nomeDi(a))}</b>') && m.includes('<b>${esc(nomeDi(c))}</b>') && m.includes('${esc(nomeDi(cat))}</h1>'), 'righe, quadratoni e titolo');
+  assert(m.includes('class="desc"') && m.includes('class="allergeni"'), 'ingredienti sotto il nome, allergeni come sigle');
+  for (const l of ['it', 'en', 'de', 'fr']) assert(m.includes(`  ${l}: 'Allerg`), `legenda ${l}`);
+  assert(m.includes('const LEGENDA_ALLERGENI = {') && m.includes('LEGENDA_ALLERGENI[LINGUA]'), 'la legenda in fondo alla lista');
+});

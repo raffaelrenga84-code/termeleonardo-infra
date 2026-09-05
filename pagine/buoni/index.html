@@ -2323,6 +2323,8 @@ function vistaPosMenu() {
         const k = el.dataset.c, v = valoreCampo(el);
         c[k] = k === 'note_rapide' ? String(v).split(',').map((s) => s.trim()).filter(Boolean) : (k === 'sotto' || k === 'locale_stampa') ? (v || null) : v;
       });
+      const cn = {}; b.querySelectorAll('[data-cn]').forEach((el) => { if (el.value.trim()) cn[el.dataset.cn] = el.value.trim(); });
+      c.nomi = Object.keys(cn).length ? cn : null;
       b.querySelectorAll('[data-art]').forEach((r) => {
         const a = D.articoli.find((x) => x.id === r.dataset.art); if (!a) return;
         r.querySelectorAll('[data-a]').forEach((el) => {
@@ -2330,6 +2332,14 @@ function vistaPosMenu() {
           a[k] = k === 'prezzo_cent' ? centPos(v) : (k === 'stampante' || k === 'portata' || k === 'locale_stampa') ? (v || null) : v;
         });
       });
+    });
+    document.querySelectorAll('[data-tradu-di]').forEach((r) => {
+      const a = D.articoli.find((x) => x.id === r.dataset.traduDi); if (!a) return;
+      const n = {}, d = {};
+      r.querySelectorAll('[data-an]').forEach((el) => { if (el.value.trim()) n[el.dataset.an] = el.value.trim(); });
+      r.querySelectorAll('[data-ad]').forEach((el) => { if (el.value.trim()) d[el.dataset.ad] = el.value.trim(); });
+      a.nomi = Object.keys(n).length ? n : null; a.descrizioni = Object.keys(d).length ? d : null;
+      const al = r.querySelector('[data-allergeni]'); a.allergeni = al && al.value.trim() ? al.value.trim().toUpperCase() : null;
     });
     document.querySelectorAll('[data-var]').forEach((r) => {
       const v = D.varianti.find((x) => x.id === r.dataset.var); if (!v) return;
@@ -2353,6 +2363,7 @@ function vistaPosMenu() {
     /* dove si prepara: vuoto = dove si mangia (il locale del tavolo) */
     const localeOpz = [['', 'dove si mangia'], ...D.locali.map((l) => [l.id, l.nome])];
     const artOpz = [['', '—']].concat(D.categorie.flatMap((c) => D.articoli.filter((a) => a.categoria === c.id).map((a) => [a.id, `${c.nome} › ${a.nome}`])));
+    const LINGUE = ['it', 'en', 'de', 'fr']; /* i nomi per gli ospiti dal QR */
     const blocco = (c) => {
       const arts = D.articoli.filter((a) => a.categoria === c.id && (!f || String(a.nome).toLowerCase().includes(f)));
       if (f && !arts.length && !String(c.nome).toLowerCase().includes(f)) return '';
@@ -2363,11 +2374,12 @@ function vistaPosMenu() {
           <div><label>Sotto la categoria</label><select data-c="sotto">${opzPos(catOpz(c.id), c.sotto || '')}</select></div></div>
         <div class="due"><div><label>Si prepara a</label><select data-c="locale_stampa">${opzPos(localeOpz, c.locale_stampa || '')}</select>
           <div class="mini">«Dove si mangia» è il solito. Scegliendo un locale, il biglietto esce sempre là: il ristorante ordina le bevande e il Bistrot le prepara, con scritto dove portarle.</div></div><div></div></div>
+        <div><label>Nome per gli ospiti dal QR · it · en · de · fr (vuoto = il nome della categoria)</label><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">${LINGUE.map((l) => `<input data-cn="${l}" placeholder="${l}" value="${esc((c.nomi || {})[l] || '')}" />`).join('')}</div></div>
         <div class="due"><div><label>Note rapide per la cucina (separate da virgola)</label><input data-c="note_rapide" value="${esc((c.note_rapide || []).join(', '))}" /></div>
           <div><label>Posizione</label><input data-c="posizione" type="number" value="${Number(c.posizione || 0)}" style="width:80px;" />
             <label style="display:inline;margin-left:12px;"><input type="checkbox" data-c="attiva" ${c.attiva !== false ? 'checked' : ''}/> attiva</label>
             <label style="display:inline;margin-left:12px;" title="La vedono gli ospiti che ordinano dal QR sul tavolo"><input type="checkbox" data-c="per_ospiti" ${c.per_ospiti !== false ? 'checked' : ''}/> ospiti (QR)</label></div></div>
-        ${arts.length ? `<table><tr><th>Articolo</th><th>Prezzo €</th><th>IVA</th><th>Stampante</th><th>Portata</th><th>Si prepara a</th><th>Libero</th><th>Esaurito</th><th>Attivo</th></tr>
+        ${arts.length ? `<table><tr><th>Articolo</th><th>Prezzo €</th><th>IVA</th><th>Stampante</th><th>Portata</th><th>Si prepara a</th><th>Libero</th><th>Esaurito</th><th>Attivo</th><th title="Per gli ospiti dal QR">🌐</th></tr>
         ${arts.map((a) => `<tr data-art="${esc(a.id)}"><td><input data-a="nome" value="${esc(a.nome)}" /></td>
           <td><input data-a="prezzo_cent" value="${euroPos(a.prezzo_cent)}" style="width:72px;" /></td>
           <td><input data-a="iva" type="number" value="${Number(a.iva ?? 10)}" style="width:52px;" /></td>
@@ -2376,7 +2388,9 @@ function vistaPosMenu() {
           <td><select data-a="locale_stampa">${opzPos(localeOpz, a.locale_stampa || '')}</select></td>
           <td><input type="checkbox" data-a="prezzo_libero" ${a.prezzo_libero ? 'checked' : ''}/></td>
           <td><input type="checkbox" data-a="esaurito" ${a.esaurito ? 'checked' : ''}/></td>
-          <td><input type="checkbox" data-a="attivo" ${a.attivo !== false ? 'checked' : ''}/></td></tr>`).join('')}</table>` : '<div class="mini">Nessun articolo.</div>'}
+          <td><input type="checkbox" data-a="attivo" ${a.attivo !== false ? 'checked' : ''}/></td>
+          <td><button type="button" class="azione sec mini" data-tradu="${esc(a.id)}" style="width:auto;padding:2px 8px;" title="Nomi, ingredienti e allergeni per gli ospiti dal QR">🌐${a.nomi ? '' : ' ·'}</button></td></tr>
+          <tr data-tradu-di="${esc(a.id)}" hidden><td colspan="10"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:2px 0 6px;">${LINGUE.map((l) => `<input data-an="${l}" placeholder="nome ${l}" value="${esc((a.nomi || {})[l] || '')}" />`).join('')}${LINGUE.map((l) => `<input data-ad="${l}" placeholder="ingredienti ${l}" value="${esc((a.descrizioni || {})[l] || '')}" />`).join('')}<input data-allergeni placeholder="allergeni, es. GL-LA-U" value="${esc(a.allergeni || '')}" /></div></td></tr>`).join('')}</table>` : '<div class="mini">Nessun articolo.</div>'}
         <button type="button" class="azione sec mini" data-nuovo-art="${esc(c.id)}" style="width:auto;margin-top:6px;">+ articolo</button></div>`;
     };
     const varianti = `<div class="riquadro"><b>Varianti</b><div class="mini">Una variante vale per un articolo o per una categoria intera; il supplemento si somma al prezzo.</div>
@@ -2400,6 +2414,7 @@ function vistaPosMenu() {
     $('pmFiltro').oninput = () => { raccogli(); filtro = $('pmFiltro').value; disegna(); const n = $('pmFiltro'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
     $('pmNuovaCat').onclick = () => { raccogli(); D.categorie.push({ id: crypto.randomUUID(), nome: 'Nuova categoria', posizione: D.categorie.length, colore: null, stampante: 'cucina', portata: 'secondi', sotto: null, note_rapide: [], fidra_id: null, locale_stampa: null, attiva: true }); filtro = ''; disegna(); };
     $('pmNuovaVar').onclick = () => { raccogli(); D.varianti.push({ id: crypto.randomUUID(), articolo: null, categoria: null, nome: '', supplemento_cent: 0, posizione: D.varianti.length }); disegna(); };
+    document.querySelectorAll('[data-tradu]').forEach((b) => b.onclick = () => { const r = document.querySelector(`[data-tradu-di="${b.dataset.tradu}"]`); if (r) r.hidden = !r.hidden; });
     document.querySelectorAll('[data-nuovo-art]').forEach((b) => b.onclick = () => { raccogli(); D.articoli.push({ id: crypto.randomUUID(), categoria: b.dataset.nuovoArt, nome: '', prezzo_cent: 0, iva: 10, portata: null, stampante: null, prezzo_libero: false, incluso_trattamento: false, conto_ricavo: null, esaurito: false, posizione: D.articoli.length, fidra_id: null, locale_stampa: null, attivo: true }); disegna(); });
     $('pmSalva').onclick = async () => {
       raccogli();
