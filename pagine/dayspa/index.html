@@ -298,7 +298,7 @@ function disegnaFasce() {
     const scelta = f.fascia === FASCIA;
     return `<label class="fascia${scelta ? ' scelta' : ''}${spenta ? ' spenta' : ''}">
       <input type="radio" name="fascia" value="${esc(f.fascia)}" ${scelta ? 'checked' : ''} ${spenta ? 'disabled' : ''} />
-      <span><span class="nome">${esc(x.fasce[f.fascia] || f.fascia)}</span><br />
+      <span><span class="nome">${f.fascia === 'serale' ? '🌙 ' : '☀️ '}${esc(x.fasce[f.fascia] || f.fascia)}</span><br />
         <span class="ore">${esc(LISTINO.orari[f.fascia] || '')}</span>
         ${f.stato !== 'disponibile' ? `<span class="stato">${esc(x.stati[f.stato] || f.stato)}</span>` : ''}
         ${f.fascia === 'serale' && !spenta ? `<span class="vendi">${esc(x.seraleVendita)}</span>` : ''}</span>

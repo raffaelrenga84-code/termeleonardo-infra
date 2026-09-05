@@ -105,3 +105,7 @@ Deno.test('«sistema» (3 settembre, notte): numero del passo leggibile, errore 
   assert(p.includes('.focus(') && p.includes('scrollIntoView('), 'il fuoco e lo scorrimento vanno al primo campo mancante');
   assert(M.includes("addEventListener('input'"), 'il rosso sparisce mentre si scrive');
 });
+
+Deno.test('le fasce hanno un icona: il sole di giorno, la luna la sera («per alleggerire il modulo», la proprieta, 5 settembre 2026)', () => {
+  assert(modulo().includes("${f.fascia === 'serale' ? '🌙 ' : '☀️ '}${esc(x.fasce[f.fascia] || f.fascia)}"), 'l icona davanti al nome della fascia');
+});

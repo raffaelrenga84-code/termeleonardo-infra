@@ -65,3 +65,11 @@ Deno.test('gli orari del menu: un articolo chiuso adesso si vede ma non si aggiu
   assert(m.includes('c.disponibile === false ?'), 'il quadratone della categoria chiusa dice quando apre');
   assert(m.includes('/rete Wi-Fi/i.test(s)') && m.includes('/a quest ora|fuori orario/i.test(s)'), 'gli errori tradotti');
 });
+
+Deno.test('prima «da mangiare» o «da bere», poi la categoria («per semplificare la scelta al cliente», la proprieta, 5 settembre 2026)', () => {
+  assert(m.includes('const GRUPPI_TESTI = {') && m.includes('const gruppoDi = (c) =>'), 'i due gruppi, dalla stampante della categoria');
+  assert(m.includes('data-gruppo="cibo"') && m.includes('data-gruppo="bere"'), 'i due quadratoni grandi');
+  assert(m.includes("if (el.dataset.gruppo) { VISTA = { nome: 'categorie', gruppo: el.dataset.gruppo }; disegna(); return; }"), 'il tocco apre il gruppo');
+  assert(m.includes("VISTA = cat.sotto ? { nome: 'articoli', categoria: cat.sotto } : { nome: 'categorie', gruppo: gruppoDi(cat) }; disegna();"), 'indietro torna al gruppo, non ai due quadratoni');
+  for (const l of ['it', 'en', 'de', 'fr']) assert(m.includes(`  ${l}: { cibo: '`), `gruppo ${l}`);
+});

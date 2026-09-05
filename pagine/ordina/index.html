@@ -37,6 +37,8 @@ button{font:inherit;cursor:pointer;color:inherit;}
 @media (min-width:520px){.griglia{grid-template-columns:repeat(3,1fr);}}
 .quadro{min-height:118px;border:1px solid var(--pietra);border-radius:18px;background:#fff;padding:14px 12px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;gap:8px;box-shadow:0 1px 2px rgba(26,54,38,.06);}
 .quadro .icona{font-size:36px;line-height:1;}
+.quadro.grande{min-height:150px;}
+.quadro.grande .icona{font-size:46px;}
 .quadro b{font-size:17px;line-height:1.2;color:var(--verde);}
 .quadro .mini{font-size:13px;color:var(--grigio);font-weight:400;}
 .quadro:active{background:var(--acqua-chiara);}
@@ -225,11 +227,39 @@ const articoliDi = (id) => MENU.articoli.filter((a) => a.categoria === id).sort(
 const quantiIn = (c) => articoliDi(c.id).length + sottoDi(c.id).reduce((t, s) => t + articoliDi(s.id).length, 0);
 const quadro = (c) => `<button class="quadro" data-cat="${esc(c.id)}"><span class="icona">${icona(c.nome)}</span><span><b>${esc(nomeDi(c))}</b><br><span class="mini">${c.disponibile === false ? '🕒 ' + esc(orarioTesto(c.finestre)) : quantiIn(c)}</span></span></button>`;
 
+/* Prima «da mangiare» o «da bere», poi la categoria: venticinque quadratoni
+   in una volta erano troppi («conviene dividere meglio se cibo o bevande, per
+   semplificare la scelta al cliente», la proprieta', 5 settembre 2026). Il
+   gruppo lo dice la stampante della categoria — cucina = cibo — con la
+   vetrinetta e i dolci dalla parte del cibo; una categoria dentro un'altra
+   segue la madre. */
+const GRUPPI_TESTI = {
+  it: { cibo: 'Da mangiare', bere: 'Da bere' },
+  en: { cibo: 'Food', bere: 'Drinks' },
+  de: { cibo: 'Essen', bere: 'Getränke' },
+  fr: { cibo: 'À manger', bere: 'À boire' },
+};
+const GT = () => GRUPPI_TESTI[LINGUA] || GRUPPI_TESTI.it;
+const gruppoDi = (c) => {
+  const radice = c.sotto ? (MENU.categorie.find((x) => x.id === c.sotto) || c) : c;
+  return radice.stampante === 'cucina' || /vetrinetta|dessert|dolci/i.test(String(radice.nome)) ? 'cibo' : 'bere';
+};
 const schermataCategorie = () => {
-  const cats = categorieRadice().filter((c) => quantiIn(c) > 0);
-  $('app').innerHTML = `<h1>${esc(T().benvenuto)}</h1><p class="sotto">${esc(T().scegli)}</p>
-    ${MENU.fascia ? `<div class="fascia">★ ${esc(T().fascia(MENU.fascia.nome, MENU.fascia.alle))}</div>` : ''}
+  const tutte = categorieRadice().filter((c) => quantiIn(c) > 0);
+  const fascia = MENU.fascia ? `<div class="fascia">★ ${esc(T().fascia(MENU.fascia.nome, MENU.fascia.alle))}</div>` : '';
+  if (!VISTA.gruppo) {
+    const conta = (g) => tutte.filter((c) => gruppoDi(c) === g).reduce((n, c) => n + quantiIn(c), 0);
+    $('app').innerHTML = `<h1>${esc(T().benvenuto)}</h1><p class="sotto">${esc(T().scegli)}</p>${fascia}
+      <div class="griglia">
+        <button class="quadro grande" data-gruppo="cibo"><span class="icona">🍽️</span><span><b>${esc(GT().cibo)}</b><br><span class="mini">${conta('cibo')}</span></span></button>
+        <button class="quadro grande" data-gruppo="bere"><span class="icona">🍹</span><span><b>${esc(GT().bere)}</b><br><span class="mini">${conta('bere')}</span></span></button></div>`;
+    return;
+  }
+  const cats = tutte.filter((c) => gruppoDi(c) === VISTA.gruppo);
+  $('app').innerHTML = `<button class="indietro" id="indietro">‹ ${esc(T().indietro)}</button>
+    <h1>${VISTA.gruppo === 'cibo' ? '🍽️' : '🍹'} ${esc(GT()[VISTA.gruppo])}</h1>${fascia}
     <div class="griglia">${cats.map(quadro).join('')}</div>`;
+  $('indietro').onclick = () => { VISTA = { nome: 'categorie' }; disegna(); };
 };
 /* Il nome per l'ospite: nella sua lingua, se manca in italiano, se manca quello del
    POS. Sotto gli ingredienti; gli allergeni come le sigle del menu stampato
@@ -271,7 +301,7 @@ const schermataArticoli = (cat) => {
     ${figlie.length ? `<div class="griglia" style="margin-bottom:14px;">${figlie.map(quadro).join('')}</div>` : ''}
     <div class="lista">${arts.map(rigaArticolo).join('')}</div>
     ${arts.some((a) => a.allergeni) ? `<p class="mini" style="margin-top:14px;">${esc(LEGENDA_ALLERGENI[LINGUA])}</p>` : ''}`;
-  $('indietro').onclick = () => { VISTA = cat.sotto ? { nome: 'articoli', categoria: cat.sotto } : { nome: 'categorie' }; disegna(); };
+  $('indietro').onclick = () => { VISTA = cat.sotto ? { nome: 'articoli', categoria: cat.sotto } : { nome: 'categorie', gruppo: gruppoDi(cat) }; disegna(); };
 };
 const schermataCarrello = () => {
   const righe = righeCarrello();
@@ -408,7 +438,7 @@ const disegna = () => {
 
 /* un solo ascoltatore per tutti i tocchi: quadratoni, piu' e meno, note */
 document.addEventListener('click', (ev) => {
-  const el = ev.target.closest ? ev.target.closest('[data-cat],[data-piu],[data-meno],[data-apri-nota],[data-chip]') : null;
+  const el = ev.target.closest ? ev.target.closest('[data-gruppo],[data-cat],[data-piu],[data-meno],[data-apri-nota],[data-chip]') : null;
   if (!el) return;
   if (el.dataset.chip) {
     /* una nota pronta si accende e si spegne; nella nota vanno le parole
@@ -418,6 +448,7 @@ document.addEventListener('click', (ev) => {
     c.nota = (parti.includes(el.dataset.chip) ? parti.filter((p) => p !== el.dataset.chip) : [...parti, el.dataset.chip]).join(', ').slice(0, 120);
     aggiornaRiga(el.dataset.chipArt); return;
   }
+  if (el.dataset.gruppo) { VISTA = { nome: 'categorie', gruppo: el.dataset.gruppo }; disegna(); return; }
   if (el.dataset.cat) { VISTA = { nome: 'articoli', categoria: el.dataset.cat }; disegna(); return; }
   if (el.dataset.piu) { metti(el.dataset.piu, quantita(el.dataset.piu) + 1); aggiornaRiga(el.dataset.piu); return; }
   if (el.dataset.meno) { metti(el.dataset.meno, quantita(el.dataset.meno) - 1); aggiornaRiga(el.dataset.meno); return; }
