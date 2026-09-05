@@ -20,7 +20,12 @@ Deno.test('gira solo sul modulo di creazione della privacy di Fidra', () => {
 });
 
 Deno.test('non salva mai e non clicca niente: riempie i campi vuoti, disegna la firma, e Salva e dell operatore', () => {
-  assert(!/\.click\(\)|\.submit\(\)|fidra\.cloud\/api/.test(S), 'niente clic ne submit');
+  assert(!/\.submit\(\)|fidra\.cloud\/api/.test(S), 'niente submit');
+  /* l'unico clic e' la scelta della lingua (ITA · DEU · ENG · FRA), che apre la
+     pagina dei campi: Salva resta dell'operatore */
+  const clic = S.match(/\.click\(\)/g) ?? [];
+  assert(clic.length === 1 && /function scegliLingua\(lingua\) \{[\s\S]*?b\.click\(\);/.test(S), 'un clic solo, sulla lingua');
+  assert(!/salva|conferma|submit/i.test((S.match(/function scegliLingua[\s\S]*?\n  \}/) ?? [''])[0]), 'la lingua, non il salvataggio');
   assert(S.includes("if ((campo.value || '').trim()) { saltati.push(nome + ' (gia scritto)'); return; }"), 'un campo gia scritto non si tocca');
   assert(S.includes('function scriviNativo(el, valore)') && S.includes("el.dispatchEvent(new Event('input', { bubbles: true }));"), 'col setter nativo, come il cliente nuovo');
   assert(S.includes('function disegnaFirma(radice, dataUrl)') && S.includes("radice.querySelector('canvas')"), 'la firma nel riquadro');
@@ -40,7 +45,12 @@ Deno.test('i tre consensi di Fidra combaciano coi nostri: telefono e messaggi = 
 });
 
 Deno.test('aperto con ?leo=<consenso> dalla prenotazione, il modulo si compila da solo: meno lavoro alla reception', () => {
-  assert(S.includes("const leo = new URLSearchParams(location.search).get('leo');") && S.includes('const c = await consensoDi(leo, hotelKey);'), 'il consenso dall indirizzo');
+  assert(S.includes("const leo = leoScelto();") && S.includes('const c = await consensoDi(leo, hotelKey);'), 'il consenso dall indirizzo');
   assert(S.includes('Controlli l’abbinamento all’ospite e prema Salva.'), 'e dice cosa resta da fare');
   assert(S.includes("abbinamento:   campoConEtichetta(radice, /abbinamento/i)"), 'prova anche la ricerca dell ospite');
+});
+
+Deno.test('il consenso da compilare sopravvive al cambio di indirizzo della scelta della lingua', () => {
+  assert(S.includes("sessionStorage.setItem('leoPrivacy', dalUrl)") && S.includes("sessionStorage.getItem('leoPrivacy')"), 'messo da parte nella scheda');
+  assert(S.includes('const leo = leoScelto();'), 'e riletto quando compaiono i campi');
 });

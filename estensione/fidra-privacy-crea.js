@@ -95,6 +95,26 @@
     });
   }
 
+  /* il consenso da compilare: ?leo= nell'indirizzo, oppure quello messo da
+     parte prima di scegliere la lingua (la scelta puo' cambiare indirizzo) */
+  const leoScelto = () => {
+    const dalUrl = new URLSearchParams(location.search).get('leo');
+    if (dalUrl) { try { sessionStorage.setItem('leoPrivacy', dalUrl); } catch (e) { /* senza memoria si va avanti lo stesso */ } return dalUrl; }
+    try { return sessionStorage.getItem('leoPrivacy'); } catch (e) { return null; }
+  };
+  /* Il modulo di Fidra parte dalla scelta della lingua (ITA · DEU · ENG · FRA):
+     e' la lingua dell'ospite, che conosciamo, e senza sceglierla i campi non
+     compaiono. E' l'unico tocco che l'estensione da' su Fidra: non salva, non
+     manda niente — apre la pagina seguente del modulo (5 settembre 2026). */
+  const SIGLA = { it: /^ita/i, de: /^deu/i, en: /^eng/i, fr: /^fra/i };
+  function scegliLingua(lingua) {
+    const re = SIGLA[lingua] || SIGLA.it;
+    const b = [...document.querySelectorAll('button, a')].find((el) => re.test((el.textContent || '').trim()) && (el.textContent || '').trim().length <= 4);
+    if (!b) return false;
+    b.click();
+    return true;
+  }
+
   async function chiave() {
     try { const { hotelKey } = await chrome.storage.local.get(['hotelKey']); return hotelKey || null; } catch (e) { return null; }
   }
@@ -182,7 +202,7 @@
     await disegna();
     /* aperto da «Registra in Fidra» sulla prenotazione: si compila da solo
        («meno lavoro possibile alla reception», la proprieta', 5 settembre 2026) */
-    const leo = new URLSearchParams(location.search).get('leo');
+    const leo = leoScelto();
     if (leo) {
       const e = box.querySelector('#' + ID + 'Esito');
       e.textContent = 'Compilo…';
@@ -195,12 +215,24 @@
     }
   }
 
-  /* Livewire disegna il modulo dopo il caricamento: si aspetta che ci siano i campi */
-  let tentativi = 0;
-  const attesa = setInterval(() => {
+  /* Livewire disegna il modulo dopo il caricamento, e prima chiede la lingua:
+     si sceglie quella dell'ospite (se c'e' un consenso da compilare) e si
+     aspetta che compaiano i campi */
+  let tentativi = 0, linguaScelta = false, linguaDelConsenso = null;
+  const leoIniziale = leoScelto();
+  const attesa = setInterval(async () => {
     const radice = document.querySelector('form') || document.querySelector('main') || document.body;
     const c = campi(radice);
     if (c.cognome && c.nome) { clearInterval(attesa); mostra(radice); return; }
-    if (++tentativi > 40) clearInterval(attesa);
+    if (!linguaScelta) {
+      if (linguaDelConsenso === null && leoIniziale) {
+        linguaDelConsenso = 'it';
+        const hotelKey = await chiave();
+        const cons = hotelKey ? await consensoDi(leoIniziale, hotelKey) : null;
+        if (cons && cons.lingua) linguaDelConsenso = cons.lingua;
+      }
+      if (linguaDelConsenso !== null) linguaScelta = scegliLingua(linguaDelConsenso);
+    }
+    if (++tentativi > 120) clearInterval(attesa);
   }, 500);
 })();

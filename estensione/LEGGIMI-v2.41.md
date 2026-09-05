@@ -26,3 +26,9 @@ riquadro. Le nostre firme (iPad e totem) lì non ci finivano.
 - La barra trova anche le firme fatte sull'iPad senza l'attesa mandata da Fidra:
   cerca per camera e giorno d'arrivo, non solo per numero di prenotazione (le tre
   firme della 523 del 5 settembre non comparivano).
+
+## 2.41.3
+
+- privacy/create di Fidra parte dalla scelta della lingua (ITA · DEU · ENG · FRA): con un
+  consenso da compilare l'estensione la sceglie da sola, quella dell'ospite, poi
+  compila. Il numero del consenso resta nella scheda anche se l'indirizzo cambia.
