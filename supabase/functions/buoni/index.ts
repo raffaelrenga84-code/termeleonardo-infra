@@ -49,12 +49,12 @@ import { daAvvisare, type RigaBuono } from './promemoria.ts';
 import { datiStampa } from './stampa.ts';
 import { generaPngQR } from './qr.js';
 import { filtroRicercaBuoni } from './ricerca.ts';
-import { buonoDellaSpa, puoScrivereBuoni, ruoloDi, vedeIBuoni } from './ruoli.ts';
+import { buonoDellaSpa, puoScrivereBuoni, riscuotibileDalTotem, ruoloDi, vedeIBuoni } from './ruoli.ts';
 import { dataConsenso } from './consenso.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type, authorization, x-hotel-key',
+  'Access-Control-Allow-Headers': 'content-type, authorization, x-hotel-key, x-totem-key',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
 };
 
@@ -398,15 +398,22 @@ Deno.serve(async (req) => {
     const codice = (url.searchParams.get('codice') || '').toUpperCase().trim();
     if (!codice) return risposta({ errore: 'codice mancante' }, 400);
     const { data } = await db.from('buono_regalo')
-      .select('codice, descrizione, valore, scade_il, stato, riscosso_il, voci')
+      .select('codice, descrizione, valore, scade_il, stato, riscosso_il, voci, tipo, voce_id, destinatario')
       .eq('codice', codice).maybeSingle();
     if (!data) return risposta({ valido: false, motivo: 'non trovato' }, 404);
     const scaduto = new Date(data.scade_il + 'T23:59:59') < new Date();
+    /* `totem`: il totem in hall lo riscuote da solo (solo gli ingressi Day
+       Spa, vedi riscuotibileDalTotem). `destinatario`: il modulo del sito
+       precompila il nome di chi lo usa («deve essere tutto piu' proattivo»,
+       la proprieta', 5 settembre 2026). Il codice e' gia' la chiave che
+       apre il foglio intero (?a=stampa): il nome non aggiunge esposizione. */
     return risposta({
       valido: data.stato === 'pagato' && !scaduto,
       stato: scaduto && data.stato === 'pagato' ? 'scaduto' : data.stato,
       descrizione: data.descrizione, valore: data.valore, voci: data.voci,
-      scade_il: data.scade_il, riscosso_il: data.riscosso_il
+      scade_il: data.scade_il, riscosso_il: data.riscosso_il,
+      totem: riscuotibileDalTotem(data) && !scaduto,
+      destinatario: data.destinatario ?? null
     });
   }
 
@@ -677,6 +684,41 @@ Deno.serve(async (req) => {
     return risposta(await eseguiPromemoria());
   }
 
+  /* ---------- il totem in hall riscuote da solo gli ingressi Day Spa ----------
+     Sta PRIMA del cancello perche' il totem non ha un utente: si riconosce
+     come nel Day Spa (x-totem-key con TOTEM_KEY, o l'IP fisso dell'hotel,
+     vedi eTotem in dayspa/index.ts) e apre una cosa sola: segnare riscosso
+     un ingresso Day Spa pagato di cui ha appena letto il QR. Tutto il
+     resto — massaggi, importi, annullamenti — resta dietro il cancello.
+     «Quando lo riscatto al totem non registra riscattato» (la proprieta',
+     5 settembre 2026): prima il totem diceva solo se il buono valeva. */
+  const eTotem = (r: Request): boolean => {
+    const chiaveTotem = Deno.env.get('TOTEM_KEY');
+    const ipTotem = Deno.env.get('TOTEM_IP');
+    const portata = r.headers.get('x-totem-key');
+    if (portata === null) return false;
+    return (!!chiaveTotem && portata === chiaveTotem) || (!!ipTotem && ipRichiesta(r) === ipTotem);
+  };
+  if (req.method === 'POST' && azione === 'riscuoti' && eTotem(req)) {
+    const bt = await req.json().catch(() => ({})) as Record<string, unknown>;
+    const codice = String(bt.codice ?? '').toUpperCase().trim();
+    if (!codice) return risposta({ errore: 'codice mancante' }, 400);
+    const { data: esistente } = await db.from('buono_regalo')
+      .select('stato, tipo, voce_id, scade_il').eq('codice', codice).maybeSingle();
+    if (!esistente) return risposta({ errore: 'buono non trovato' }, 404);
+    if (esistente.stato !== 'pagato') return risposta({ errore: `il buono risulta ${esistente.stato}` }, 409);
+    if (esistente.scade_il && new Date(esistente.scade_il + 'T23:59:59') < new Date()) return risposta({ errore: 'il buono e scaduto' }, 409);
+    if (!riscuotibileDalTotem(esistente)) return risposta({ errore: 'al totem si riscuotono solo gli ingressi Day Spa: si rivolga alla reception' }, 403);
+    /* .eq('stato', 'pagato') anche qui: due letture del QR a un secondo
+       l'una dall'altra non devono riscuotere due volte */
+    const { data: agg, error } = await db.from('buono_regalo')
+      .update({ stato: 'riscosso', riscosso_il: new Date().toISOString(), riscosso_da: 'totem', riscosso_note: 'letto al totem in hall' })
+      .eq('codice', codice).eq('stato', 'pagato').select('codice').maybeSingle();
+    if (error) return risposta({ errore: error.message }, 500);
+    if (!agg) return risposta({ errore: 'il buono risulta gia riscosso' }, 409);
+    return risposta({ ok: true, riscosso: true });
+  }
+
   /* ---------- da qui in poi serve la chiave ---------- */
   const acc = await autorizzato(req);
   if (!acc.ok) {
@@ -850,6 +892,25 @@ Deno.serve(async (req) => {
     } catch (e) {
       return risposta({ errore: String((e as Error).message) }, 502);
     }
+  }
+
+  /* Un buono riscosso per sbaglio — una lettura al totem il giorno prima,
+     un clic di troppo — torna valido. Solo da riscosso a pagato, e solo
+     chi puo' emettere: e' l'inverso della riscossione, non un annullamento. */
+  if (azione === 'ripristina') {
+    if (!PUO_SCRIVERE) return risposta({ errore: 'non autorizzato' }, 403);
+    const codice = String(b.codice || '').toUpperCase().trim();
+    if (!codice) return risposta({ errore: 'codice mancante' }, 400);
+    const { data: esistente } = await db.from('buono_regalo')
+      .select('stato, tipo, voce_id').or(`codice.eq.${codice},numero.eq.${codice}`).maybeSingle();
+    if (!esistente) return risposta({ errore: 'buono non trovato' }, 404);
+    if (!puoVedere(esistente)) return risposta({ errore: 'non autorizzato' }, 403);
+    if (esistente.stato !== 'riscosso') return risposta({ errore: `il buono risulta ${esistente.stato}, non riscosso` }, 409);
+    const { error } = await db.from('buono_regalo')
+      .update({ stato: 'pagato', riscosso_il: null, riscosso_da: null, riscosso_note: testo(`rimesso valido da ${OPERATORE || 'reception'}: ${b.note || ''}`, 300) })
+      .or(`codice.eq.${codice},numero.eq.${codice}`);
+    if (error) return risposta({ errore: error.message }, 500);
+    return risposta({ ok: true });
   }
 
   if (azione === 'riscuoti' || azione === 'annulla') {

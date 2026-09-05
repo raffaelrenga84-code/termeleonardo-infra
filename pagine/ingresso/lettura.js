@@ -70,6 +70,20 @@ const euro = (n) => Number(n).toFixed(2).replace('.', ',') + ' €';
 export function messaggioBuono(v) {
   const valore = euro(v.valore);
   const reception = 'Per usarlo si rivolga alla reception, qui accanto.';
+  /* riscosso adesso, al totem: un ingresso Day Spa, si entra (5 settembre 2026) */
+  if (v.valido && v.riscossoAdesso) {
+    return {
+      classe: 'ok',
+      titolo: 'Benvenuti, buona giornata alle terme',
+      testo: `${v.descrizione} · buono utilizzato adesso`,
+      sotto: 'Cuffia obbligatoria in piscina, in vendita alla reception · Swim cap required, on sale at the reception · Badekappe Pflicht, an der Rezeption erhältlich.',
+      tradotto: [
+        'Welcome! Your voucher has been redeemed: enjoy your day at the thermal pools.',
+        'Willkommen! Ihr Gutschein wurde eingelöst: einen schönen Tag im Thermalbad.',
+        'Bienvenue ! Votre bon a été utilisé : bonne journée aux thermes.',
+      ],
+    };
+  }
   if (v.valido) {
     return {
       classe: 'ok',

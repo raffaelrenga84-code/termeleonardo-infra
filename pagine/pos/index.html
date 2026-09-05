@@ -314,6 +314,11 @@ function tocco() {
 }
 document.addEventListener('pointerdown', tocco, { passive: true });
 function esci() {
+  /* la sala si ricarica da sola ogni dieci secondi: se continuasse dopo
+     l'uscita chiederebbe la sala senza sessione, riceverebbe 401 e
+     scriverebbe «sessione non valida» sopra il tastierino del PIN (un
+     palmare acceso da ore, 5 settembre 2026) */
+  clearInterval(timerSala);
   SESSIONE = ''; CAMERIERE = null;
   sessionStorage.removeItem('posSessione'); sessionStorage.removeItem('posCameriere');
   accesso();
@@ -482,7 +487,12 @@ async function schermataSala() {
   const disegna = async () => {
     let s;
     try { s = await chiama('sala', { qs: `&locale=${encodeURIComponent(LOCALE_ID)}` }); }
-    catch (e) { $('app').innerHTML = `<div class="errore">${esc(e.message)}</div>`; return; }
+    catch (e) { if (!SESSIONE) return;
+      /* senza sessione c'e' gia' il tastierino: non lo si copre. Con la
+         sessione e' la rete: si riprova da qui, senza chiudere l'app */
+      $('app').innerHTML = `<div class="errore">${esc(e.message)}</div><div style="padding:0 14px;"><button type="button" class="bottone sec" id="salaRiprova">Riprova</button></div>`;
+      $('salaRiprova').onclick = () => disegna();
+      return; }
     if (!s.zone.some((z) => z.id === ZONA)) ZONA = (s.zone[0] || {}).id || '';
     const tavoli = s.tavoli.filter((t) => t.zona === ZONA).sort((a, b) => numeroTavolo(a.nome) - numeroTavolo(b.nome) || String(a.nome).localeCompare(b.nome));
     /* lo stato di un tavolo: quello che il cameriere deve vedere da lontano */

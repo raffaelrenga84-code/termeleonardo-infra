@@ -383,6 +383,19 @@ const FIGURA_QR = `<svg class="totemFig" viewBox="0 0 330 230" aria-hidden="true
   <rect x="256" y="96" width="48" height="42" rx="6" fill="#0E1F17"/>
   <circle cx="280" cy="117" r="11" fill="#C9A961"/><circle cx="280" cy="117" r="5" fill="#0E1F17"/>
 </svg>`;
+/* Mentre la privacy e' aperta la pagina non deve muoversi sotto il dito:
+   su iOS 12 overflow:hidden non basta e il tocco la fa scorrere e
+   ingrandire. Si ferma a mano lo scorrimento (tranne la colonna delle
+   frasi e l'informativa, che scorrono da sole se non entrano) e il
+   pizzico. Su un browser recente e' tutto gia' fermo dal CSS: qui non
+   cambia niente. */
+document.addEventListener('touchmove', (ev) => {
+  if (!document.body.classList.contains('privacyAperta')) return;
+  const el = ev.target;
+  if (el && el.closest && el.closest('.pvFrasi, .pvSintesi')) return;
+  ev.preventDefault();
+}, { passive: false });
+document.addEventListener('gesturestart', (ev) => { if (document.body.classList.contains('privacyAperta')) ev.preventDefault(); }, { passive: false });
 const escT = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function totem() {
@@ -789,6 +802,20 @@ const AGGIORNA_DOPO_MS = 30 * 60 * 1000;
       cv.addEventListener('pointermove', (ev) => { if (!giu) return; const [x, y] = punto(ev); ctx.lineTo(x, y); ctx.stroke(); tratti++; });
       const su = () => { giu = false; };
       cv.addEventListener('pointerup', su); cv.addEventListener('pointercancel', su);
+      /* L'iPad Air bianco della reception ha iOS 12: niente Pointer Events,
+         niente touch-action. Col dito il canvas non disegnava niente, e la
+         pagina si ingrandiva e scorreva «come una foto» (la proprieta', 5
+         settembre 2026). Coi touch events si disegna uguale, e il
+         preventDefault ferma scorrimento e zoom del doppio tocco. Solo
+         dove i Pointer Events mancano: dove ci sono, i due ascoltatori
+         disegnerebbero due volte. */
+      if (!window.PointerEvent) {
+        const dito = (ev) => (ev.touches && ev.touches[0]) || (ev.changedTouches && ev.changedTouches[0]) || ev;
+        cv.addEventListener('touchstart', (ev) => { ev.preventDefault(); giu = true; const [x, y] = punto(dito(ev)); ctx.beginPath(); ctx.moveTo(x, y); tocco(); }, { passive: false });
+        cv.addEventListener('touchmove', (ev) => { ev.preventDefault(); if (!giu) return; const [x, y] = punto(dito(ev)); ctx.lineTo(x, y); ctx.stroke(); tratti++; }, { passive: false });
+        cv.addEventListener('touchend', (ev) => { ev.preventDefault(); su(); }, { passive: false });
+        cv.addEventListener('touchcancel', su);
+      }
       $('pvCancella').onclick = () => { ctx.clearRect(0, 0, cv.width, cv.height); tratti = 0; tocco(); };
       $('pvIndietro').onclick = indietro;
       $('pvConferma').onclick = async () => {
@@ -829,7 +856,17 @@ const AGGIORNA_DOPO_MS = 30 * 60 * 1000;
         /* la verifica dei buoni e' pubblica: niente chiave, niente token */
         const r = await fetch(`${FUNZIONE_BUONI}?a=verifica&codice=${encodeURIComponent(codice)}`);
         if (!r.ok && r.status !== 404) throw new Error('la verifica del buono non risponde');
-        const m = messaggioBuono(await r.json());
+        const v = await r.json();
+        /* un ingresso Day Spa pagato si riscuote qui, con la chiave del
+           totem: l'ospite appoggia il buono ed entra. Se la riscossione
+           non riesce il buono resta valido e lo si dice come prima. */
+        if (v.valido && v.totem && TOTEM) {
+          try {
+            const rr = await fetch(`${FUNZIONE_BUONI}?a=riscuoti`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-totem-key': TOTEM }, body: JSON.stringify({ codice }) });
+            if (rr.ok) { v.riscossoAdesso = true; if (navigator.vibrate) navigator.vibrate([60, 40, 60]); }
+          } catch (e) { /* vale lo stesso: alla reception */ }
+        }
+        const m = messaggioBuono(v);
         schermo(m.classe, `${m.classe === 'ok' ? '✓' : '✗'} ${escT(m.titolo)}`, escT(m.testo), m.tradotto.map(escT).join('<br>'), escT(m.sotto));
         if (m.classe !== 'ok') durata = 10000;
       } else if (tipo === 'tessera') {

@@ -923,11 +923,21 @@ function mostraFatto(b, contenitore = 'fFatto') {
             ? `<button class="azione sec" id="bMailAcq">&#9993; Email a ${esc(b.acquirente || 'chi compra')}</button>` : ''}
           <button class="azione sec" id="bCopia">&#128203; Copia</button>
         </div>`}
+    ${b.stato === 'riscosso' ? `<div class="avviso-consegna" style="margin-top:12px;">
+      <strong>Riscosso</strong>${b.riscosso_il ? ' il ' + dataIT(b.riscosso_il) : ''}${b.riscosso_da ? ' da ' + esc(b.riscosso_da) : ''}${b.riscosso_note ? ' · ' + esc(b.riscosso_note) : ''}.
+      <button class="azione sec" id="bRipristina" style="margin-top:8px;">Rimetti valido (riscosso per sbaglio)</button></div>` : ''}
     <div class="esito" id="bEsito"></div>
     ${dettagliBuono(b)}
     <div style="margin-top:16px;overflow:auto;">${buonoHTML(b, attesa)}</div>
   </div>`;
 
+  if ($('bRipristina')) $('bRipristina').onclick = async () => {
+    if (!confirm(`Rimettere valido il buono ${b.codice}? Va fatto solo se e stato riscosso per sbaglio.`)) return;
+    try {
+      await chiama('?a=ripristina', { method: 'POST', body: JSON.stringify({ codice: b.codice, note: '' }) });
+      mostraFatto({ ...b, stato: 'pagato', riscosso_il: null, riscosso_da: null, riscosso_note: null }, contenitore);
+    } catch (e) { $('bEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  };
   if (attesa) {
     if ($('bLink')) $('bLink').onclick = async () => {
       $('bEsito').textContent = 'Chiedo il link a Stripe\u2026';
@@ -1097,7 +1107,13 @@ function nonConsegnato(b) {
   return b.consegna === 'senza-indirizzo' && b.creato_da === 'sito';
 }
 
+/* L'elenco si rilegge da solo ogni mezzo minuto, finche' non c'e' un
+   buono aperto sotto: una riscossione al totem si vede senza ricaricare
+   («non si aggiorna la pagina del backend», la proprieta', 5 settembre
+   2026). Un solo orologio: cambiando scheda si ferma. */
+let orologioElenco = null;
 async function vistaElenco() {
+  clearInterval(orologioElenco);
   $('vista').innerHTML = `<div class="riquadro">
     <div class="due">
       <div><label>Cerca (codice, acquirente, destinatario, email)</label><input type="text" id="eCerca" /></div>
@@ -1113,6 +1129,11 @@ async function vistaElenco() {
     <div id="eTab"></div></div>
     <div id="eDettaglio"></div>`;
   let CARICATI = [];
+  orologioElenco = setInterval(() => {
+    if (!$('eTab') || !$('eDettaglio')) { clearInterval(orologioElenco); return; }
+    if (document.visibilityState !== 'visible' || $('eDettaglio').innerHTML) return;
+    carica().catch(() => {});
+  }, 30000);
   const carica = async () => {
     $('eEsito').textContent = 'Carico\u2026';
     $('eDettaglio').innerHTML = '';

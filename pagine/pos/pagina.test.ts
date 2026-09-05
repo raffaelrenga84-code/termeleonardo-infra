@@ -354,3 +354,16 @@ Deno.test('gli ordini dal QR restano sul tavolo tutto il giorno: pannello con ri
   assert(m.includes('qrBlocco') && m.includes("📱 ${o.modo === 'camera' ? `in camera ${esc(o.camera || '')}` : 'pagato'}"), 'l etichetta sul tavolo');
   assert(m.includes('s.coda_stampa && s.coda_stampa.minuti >= 2') && m.includes('class="codaStampa"'), 'la fascia rossa sopra i due minuti');
 });
+
+Deno.test('la sala smette di aggiornarsi quando si esce: il tastierino del PIN non viene coperto da «sessione non valida»', () => {
+  /* Il 5 settembre 2026 un palmare acceso da ore mostrava solo la scritta
+     rossa «sessione non valida», senza tastierino: dopo i cinque minuti
+     senza tocchi esci() disegnava l accesso, ma il ricaricamento della
+     sala ogni dieci secondi continuava, chiedeva la sala senza sessione,
+     riceveva 401 e scriveva l errore sopra il tastierino. */
+  const esci = m.slice(m.indexOf('function esci()'), m.indexOf('/* ---------- testa ---------- */'));
+  assert(esci.includes('clearInterval(timerSala)'), 'uscendo si ferma la sala');
+  const sala = m.slice(m.indexOf('async function schermataSala()'), m.indexOf('timerSala = setInterval(disegna, 10000);'));
+  assert(sala.includes("catch (e) { if (!SESSIONE) return;"), 'senza sessione l errore non si scrive: c e gia il tastierino');
+  assert(sala.includes('id="salaRiprova"') && sala.includes('Riprova'), 'un errore vero ha un pulsante per riprovare, senza chiudere l app');
+});

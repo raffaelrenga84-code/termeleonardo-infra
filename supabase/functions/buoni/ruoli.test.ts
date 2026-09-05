@@ -19,7 +19,7 @@
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { LISTINO } from './acquista.ts';
-import { buonoDellaSpa, FAMIGLIE_SPA, puoScrivereBuoni, ruoloDi, vedeIBuoni } from './ruoli.ts';
+import { buonoDellaSpa, FAMIGLIE_SPA, puoScrivereBuoni, riscuotibileDalTotem, ruoloDi, vedeIBuoni } from './ruoli.ts';
 
 /* ---------- la guardia sul listino ---------- */
 
@@ -118,4 +118,21 @@ Deno.test('senza ruolo non si scrive niente', () => {
    non poter servire chi si presenta al banco col buono in mano. */
 Deno.test('la spa legge i suoi buoni anche se non li scrive', () => {
   assertEquals(vedeIBuoni(ruoloDi('spa@termeleonardo.com')), 'solo spa');
+});
+
+/* ---------- il totem in hall riscuote da solo gli ingressi Day Spa ---------- */
+
+Deno.test('al totem si riscuotono da soli solo gli ingressi Day Spa: trattamenti e importi restano alla reception', () => {
+  /* «quando lo riscatto al totem non registra riscattato» (la proprieta',
+     5 settembre 2026): chi arriva col buono per il Day Spa lo appoggia al
+     lettore ed entra. Un massaggio lo riscuote la spa al suo banco, un
+     buono a importo la reception contro un conto. */
+  assert(riscuotibileDalTotem({ stato: 'pagato', tipo: 'servizio', voce_id: 'dayspa_serale' }));
+  assert(riscuotibileDalTotem({ stato: 'pagato', tipo: 'servizio', voce_id: 'dayspa_feriale' }));
+  assert(!riscuotibileDalTotem({ stato: 'pagato', tipo: 'servizio', voce_id: 'relax50' }), 'un massaggio no');
+  assert(!riscuotibileDalTotem({ stato: 'pagato', tipo: 'valore', voce_id: null }), 'un importo no');
+  assert(!riscuotibileDalTotem({ stato: 'pagato', tipo: 'servizio', voce_id: null }), 'scritto a mano: non si sa cos e, alla reception');
+  assert(!riscuotibileDalTotem({ stato: 'riscosso', tipo: 'servizio', voce_id: 'dayspa_serale' }), 'gia usato no');
+  assert(!riscuotibileDalTotem({ stato: 'attesa', tipo: 'servizio', voce_id: 'dayspa_serale' }), 'non pagato no');
+  assert(!riscuotibileDalTotem(null));
 });

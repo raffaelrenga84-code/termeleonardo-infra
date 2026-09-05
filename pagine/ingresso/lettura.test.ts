@@ -76,3 +76,12 @@ Deno.test('etichetteConto: «tocchi lo schermo per chiudere» in quattro lingue'
   for (const l of ['it', 'en', 'de', 'fr']) assert(etichetteConto(l).tocca, l);
   assertEquals(etichetteConto('de').tocca, 'Zum Schließen den Bildschirm berühren');
 });
+
+Deno.test('messaggioBuono: riscosso adesso al totem, si entra', () => {
+  const m = messaggioBuono({ valido: true, stato: 'pagato', descrizione: 'n. 2 · ingressi Day Spa serale', valore: 58, scade_il: '2027-09-05', riscossoAdesso: true });
+  assertEquals(m.classe, 'ok');
+  assert(/benvenut/i.test(m.titolo), m.titolo);
+  assert(m.testo.includes('n. 2 · ingressi Day Spa serale') && /utilizzato|registrato/i.test(m.testo), m.testo);
+  assert(/cuffia/i.test(m.sotto), 'la cuffia, come sul biglietto');
+  assert(m.tradotto.length >= 2 && /welcome/i.test(m.tradotto[0]) && /willkommen/i.test(m.tradotto[1]), m.tradotto.join(' | '));
+});

@@ -78,13 +78,14 @@ Deno.test('al totem anche i buoni regalo: letto il QR del buono risponde se vale
   /* «aggiungi buoni regalo al totem» (la proprieta', 3 settembre 2026, sera).
      Il totem riconosce il codice dal formato (lettura.js), chiede alla
      funzione dei buoni la verifica pubblica e dice «vale / non vale, per
-     usarlo alla reception». Riscuotere resta della reception: qui non c'e'. */
+     usarlo alla reception». Dal 5 settembre 2026 gli ingressi Day Spa li
+     riscuote da solo (vedi la prova piu' sotto): il resto resta alla reception. */
   const m = modulo();
   assert(m.includes("from '/ingresso/lettura.js'"), 'il riconoscimento del codice sta in un modulo puro, provato a parte');
   const t = m.slice(m.indexOf('function totem('), m.indexOf('function sportello('));
   assert(t.includes('tipoCodice(') && t.includes('a=verifica') && t.includes('messaggioBuono('),
     'il totem distingue Day Spa e buono e chiede la verifica pubblica del buono');
-  assert(!m.includes('a=riscuoti'), 'il totem non riscuote mai un buono');
+  assert(t.includes('a=riscuoti') && t.includes('v.totem'), 'il totem riscuote da solo solo quello che la verifica gli dice (v.totem: gli ingressi Day Spa)');
   const s = m.slice(m.indexOf('function sportello('));
   assert(!s.includes('a=verifica'), 'lo sportello resta quello del Day Spa: i buoni li riscuote il back office');
 });
@@ -161,4 +162,13 @@ Deno.test('il tempo di chiusura del conto si vede: barra rossa in cima che si co
   assert(conto.includes("classList.add('ultimi')"), 'gli ultimi secondi si segnalano');
   assert(P.includes('.contoBarra{') && /\.contoBarra\{[^}]*transition:width 60s linear/.test(P), 'la barra impiega 60 secondi, quanto il conto');
   assert(/\.contoSecondi\{[^}]*var\(--allarme\)/.test(P) && /\.contoBarra\{[^}]*var\(--allarme\)/.test(P), 'in rosso');
+});
+
+Deno.test('il totem riscuote da solo il buono del Day Spa: dopo la verifica manda ?a=riscuoti con la sua chiave, e se non riesce dice comunque che vale', () => {
+  const m = modulo();
+  const t = m.slice(m.indexOf('function totem('), m.indexOf('function sportello('));
+  const b = t.slice(t.indexOf("} else if (tipo === 'buono') {"), t.indexOf("} else if (tipo === 'tessera') {"));
+  assert(b.includes('v.totem') && b.includes('?a=riscuoti') && b.includes("'x-totem-key': TOTEM"), 'la riscossione col totem');
+  assert(b.includes('v.riscossoAdesso = true'), 'il benvenuto');
+  assert(b.includes('catch'), 'se la riscossione non riesce il buono resta valido e lo si dice');
 });

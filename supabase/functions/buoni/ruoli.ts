@@ -65,6 +65,18 @@ export function buonoDellaSpa(b: Record<string, unknown> | null | undefined): bo
   return FAMIGLIE_SPA.some((f) => id.startsWith(f));
 }
 
+/** Se il totem in hall puo' riscuotere questo buono da solo: un ingresso
+ *  Day Spa pagato, e nient'altro. Un massaggio lo riscuote la spa al suo
+ *  banco, un buono a importo la reception contro un conto, un buono scritto
+ *  a mano non si sa cos'e' («quando lo riscatto al totem non registra
+ *  riscattato», la proprieta', 5 settembre 2026). */
+export function riscuotibileDalTotem(b: Record<string, unknown> | null | undefined): boolean {
+  if (!b) return false;
+  if (piatto(b.stato) !== 'pagato') return false;
+  if (piatto(b.tipo) === 'valore') return false;
+  return String(b.voce_id ?? '').trim().toLowerCase().startsWith('dayspa');
+}
+
 export type Ruolo = 'reception' | 'spa' | 'amministrazione';
 
 export const DOMINI_AMMESSI = (Deno.env.get('DOMINI_AMMESSI') || 'termeleonardo.com,hldv.com')

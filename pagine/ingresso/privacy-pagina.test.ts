@@ -174,3 +174,19 @@ Deno.test('a chi non ha lasciato l email la si chiede sul modulo, senza obbligar
   assert(p.includes("email: ($('pvEmail') || {}).value || null"), 'e parte con la firma');
   assert(p.includes('T.emailEtichetta'), 'nella lingua dell ospite');
 });
+
+Deno.test('sull iPad con iOS 12 si firma lo stesso: touch events al posto dei Pointer Events, e la pagina non si ingrandisce ne scorre sotto il dito', () => {
+  /* L'iPad Air bianco della reception ha iOS 12: niente PointerEvent,
+     niente touch-action. Col dito il canvas non disegnava niente, e la
+     pagina si ingrandiva e scorreva «come una foto» (la proprieta', 5
+     settembre 2026). */
+  assert(p.includes('if (!window.PointerEvent)'), 'il ripiego parte solo dove i Pointer Events mancano');
+  for (const ev of ['touchstart', 'touchmove', 'touchend']) assert(p.includes("'" + ev + "'"), ev);
+  assert(p.includes('{ passive: false }') && p.includes('ev.preventDefault()'), 'i tocchi sul canvas non scorrono e non ingrandiscono');
+  /* la pagina intera: mentre la privacy e aperta il dito non la muove,
+     tranne la colonna delle frasi che scorre da sola se non entra */
+  assert(m.includes("document.addEventListener('touchmove'") && m.includes("classList.contains('privacyAperta')") && m.includes(".closest('.pvFrasi, .pvSintesi')"), 'lo scorrimento della pagina si ferma a mano');
+  assert(m.includes("document.addEventListener('gesturestart'"), 'niente pizzico');
+  /* Safari 12 non conosce ?? e ?. : nel pezzo della privacy non devono comparire */
+  assert(!/\?\?|\?\./.test(p.replace(/'[^']*'/g, '')), 'niente ?? o ?. per Safari 12');
+});
