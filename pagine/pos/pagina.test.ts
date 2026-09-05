@@ -326,3 +326,9 @@ Deno.test('un conto vuoto si toglie dalla comanda stessa: il bottone dice «Togl
   assert(m.includes("${!dalServer.length && !ordine.righe.length ? 'Togli conto' : 'Conto'}"), 'il bottone cambia nome');
   assert(m.includes("const soliStorni = dalServer.some((r) => r.stato === 'stornata');") && m.includes("'Togli il conto'"), 'e il pannello distingue vuoto da soli storni');
 });
+
+Deno.test('col conto ancora vuoto il riepilogo in fondo non c e: le categorie hanno tutto lo schermo', () => {
+  assert(m.includes('const vuoto = !dalServer.length && !ordine.righe.length;'), 'vuoto = niente dal server e niente in bozza');
+  assert(m.includes("${vuoto ? '' : `<div class=\"comanda "), 'la comanda si disegna solo se c e qualcosa');
+  assert(m.includes("if ($('totaleRiga')) $('totaleRiga').onclick") && m.includes("if ($('comanda')) $('comanda').scrollTop"), 'e il codice non inciampa quando manca');
+});

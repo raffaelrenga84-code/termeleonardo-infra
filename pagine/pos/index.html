@@ -725,6 +725,8 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     const totale = tutte.reduce((t, r) => t + r.quantita * r.prezzo_cent, 0);
     const gruppi = new Map();
     for (const p of PORTATE) { const rr = tutte.filter((r) => r.portata === p); if (rr.length) gruppi.set(p, rr); }
+    /* conto ancora vuoto: il riepilogo in fondo e solo d intralcio, le categorie hanno tutto lo schermo (la proprieta, 5 settembre 2026) */
+    const vuoto = !dalServer.length && !ordine.righe.length;
     /* quanto di ogni articolo e' gia' sul conto: il numero sul riquadro */
     const nelConto = new Map(), daMandare = new Map();
     for (const r of tutte) nelConto.set(r.articolo, (nelConto.get(r.articolo) || 0) + r.quantita);
@@ -750,8 +752,8 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
             return `<button class="catVoce ${n ? '' : 'vuota'}" data-cat="${esc(c.id)}" ${c.colore ? `style="border-left:7px solid ${esc(c.colore)}"` : ''}><span>${esc(c.nome)}</span><span class="mini">${n ? `${n} articol${n === 1 ? 'o' : 'i'}` : 'ancora vuota'}</span></button>`;
           }).join('')}</div>`}
       </div>
-      <div class="comanda ${window.innerWidth < 900 ? (comandaAperta ? 'aperta' : 'chiusa') : ''}" id="comanda">${[...gruppi].map(([p, rr]) => `<div class="portataTit"><span>${NOMI_PORTATE[p]}</span>${prossima === p ? '<span>in attesa</span>' : ''}</div>${rr.map((r) => `<div class="riga ${r.stato}" data-r="${esc(r.id)}"><span class="q">${r.quantita}×</span><span>${esc(r.nome)}${r.variante ? `<div class="dett">+ ${esc(r.variante)}</div>` : ''}${r.nota ? `<div class="dett">› ${esc(r.nota)}</div>` : ''}</span><span>${euro(r.quantita * r.prezzo_cent)}</span></div>`).join('')}`).join('') || `<p class="mini">Tocchi un articolo per aggiungerlo. Tocco lungo su una riga per nota, variante, quantità${puoDisponibilita ? '; tocco lungo su un articolo per prezzo e disponibilità' : ''}.</p>`}</div>
-      <div class="totale" id="totaleRiga"><span>Totale${window.innerWidth < 900 && tutte.length ? ` · ${tutte.length} righe ${comandaAperta ? '▾' : '▴'}` : ''}</span><b>${euro(totale)}</b></div>
+      ${vuoto ? '' : `<div class="comanda ${window.innerWidth < 900 ? (comandaAperta ? 'aperta' : 'chiusa') : ''}" id="comanda">${[...gruppi].map(([p, rr]) => `<div class="portataTit"><span>${NOMI_PORTATE[p]}</span>${prossima === p ? '<span>in attesa</span>' : ''}</div>${rr.map((r) => `<div class="riga ${r.stato}" data-r="${esc(r.id)}"><span class="q">${r.quantita}×</span><span>${esc(r.nome)}${r.variante ? `<div class="dett">+ ${esc(r.variante)}</div>` : ''}${r.nota ? `<div class="dett">› ${esc(r.nota)}</div>` : ''}</span><span>${euro(r.quantita * r.prezzo_cent)}</span></div>`).join('')}`).join('') || `<p class="mini">Tocchi un articolo per aggiungerlo. Tocco lungo su una riga per nota, variante, quantità${puoDisponibilita ? '; tocco lungo su un articolo per prezzo e disponibilità' : ''}.</p>`}</div>
+      <div class="totale" id="totaleRiga"><span>Totale${window.innerWidth < 900 && tutte.length ? ` · ${tutte.length} righe ${comandaAperta ? '▾' : '▴'}` : ''}</span><b>${euro(totale)}</b></div>`}
       <div class="azioni">
         <button class="bottone" id="invia" ${nuove ? '' : 'disabled'}>Invia${nuove ? ` (${nuove})` : ''}</button>
         <button class="bottone oro" id="vai" ${prossima ? '' : 'disabled'}>${prossima ? `Vai coi ${NOMI_PORTATE[prossima].toLowerCase()}` : 'Vai'}</button>
@@ -784,8 +786,8 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     $('invia').onclick = invia;
     $('vai').onclick = vai;
     $('chiudi').onclick = chiudi;
-    $('totaleRiga').onclick = () => { comandaAperta = !comandaAperta; disegna(); };
-    $('comanda').scrollTop = $('comanda').scrollHeight;
+    if ($('totaleRiga')) $('totaleRiga').onclick = () => { comandaAperta = !comandaAperta; disegna(); };
+    if ($('comanda')) $('comanda').scrollTop = $('comanda').scrollHeight;
     /* «menu sopra fallo scomparire se scrollo in giu'» (la proprieta', 4
        settembre 2026): sul palmare, scendendo fra gli articoli, portata
        e ricerca si nascondono; risalendo tornano. Sul PC c'e' posto. */
