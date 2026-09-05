@@ -286,3 +286,13 @@ Deno.test('i conti del tavolo stanno nella schermata dell ordine: si passa dall 
   assert(m.includes("${n}×</button>"), 'le quantita non sono state toccate');
   assert(P.includes('.ordine.compatta .portate,.ordine.compatta .cercaRiga,.ordine.compatta .conti{display:none;}'), 'scorrendo sparisce con le altre righe in cima');
 });
+
+Deno.test('si vede che l articolo e entrato: numero sul riquadro, lampo al tocco; e lo scorrimento non salta', () => {
+  /* «come fa a capire che l articolo e andato dentro» e «lo scroll ogni
+     tanto ha dei problemi» (la proprieta', 5 settembre 2026) */
+  assert(m.includes('const nelConto = new Map(), daMandare = new Map();') && m.includes('<span class="nel ${daMandare.get(a.id) ? \'nuovo\' : \'\'}">'), 'il numero sul riquadro, oro se da inviare');
+  assert(m.includes("toccato.classList.add('aggiunto')"), 'il lampo al tocco');
+  assert(m.includes('const altezzaCima = () =>') && m.includes('g.scrollTop = Math.max(0, y - h);'), 'quel che era sotto il dito ci resta');
+  assert(m.includes('accumulo > 70 && y > 120') && m.includes('accumulo < -40 || y < 30'), 'con isteresi, non a ogni pixel');
+  assert(m.includes('y < 0 || y > massimo'), 'il rimbalzo di iOS non conta');
+});

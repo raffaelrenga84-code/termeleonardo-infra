@@ -111,7 +111,13 @@ button{font:inherit;cursor:pointer;color:inherit;}
 .griglia{flex:1;overflow:auto;padding:8px 10px;}
 .sezione{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--bronzo);margin:8px 2px 4px;}
 .articoli{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;}
-.articolo{min-height:66px;padding:8px;border-radius:10px;border:1px solid var(--pietra);background:#fff;text-align:left;display:flex;flex-direction:column;justify-content:space-between;font-size:14px;line-height:1.2;}
+.articolo{min-height:66px;padding:8px;border-radius:10px;border:1px solid var(--pietra);background:#fff;text-align:left;display:flex;flex-direction:column;justify-content:space-between;font-size:14px;line-height:1.2;position:relative;transition:background .25s,border-color .25s;}
+/* quanti ce ne sono gia' sul conto: il numero in alto a destra, oro se
+   ancora da inviare; e il riquadro lampeggia al tocco («come fa a capire
+   che l'articolo e' andato dentro», la proprieta', 5 settembre 2026) */
+.articolo .nel{position:absolute;top:-7px;right:-7px;min-width:24px;height:24px;padding:0 7px;border-radius:12px;background:var(--verde);color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+.articolo .nel.nuovo{background:var(--oro);color:var(--verde);}
+.articolo.aggiunto{background:#DCEBE1;border-color:var(--verde);}
 .articolo .prezzo{font-size:12px;color:var(--grigio);}
 .articolo.esaurito{opacity:.35;text-decoration:line-through;}
 /* «‹ Categorie» resta in vista anche in fondo a una categoria lunga: non
@@ -678,6 +684,10 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     const totale = tutte.reduce((t, r) => t + r.quantita * r.prezzo_cent, 0);
     const gruppi = new Map();
     for (const p of PORTATE) { const rr = tutte.filter((r) => r.portata === p); if (rr.length) gruppi.set(p, rr); }
+    /* quanto di ogni articolo e' gia' sul conto: il numero sul riquadro */
+    const nelConto = new Map(), daMandare = new Map();
+    for (const r of tutte) nelConto.set(r.articolo, (nelConto.get(r.articolo) || 0) + r.quantita);
+    for (const r of ordine.righe) daMandare.set(r.articolo, (daMandare.get(r.articolo) || 0) + r.quantita);
     /* si ridisegna tutto a ogni tocco: la griglia deve restare dov'era */
     const g0 = $('app').querySelector('.griglia');
     const scorso = g0 ? g0.scrollTop : 0;
@@ -691,7 +701,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
         ${dentroUna ? `<div class="categorie"><button data-cat="">‹ Categorie</button>${categoria ? sottoDi(categoria).map((c) => `<button data-cat="${esc(c.id)}">${esc(c.nome)}</button>`).join('') : ''}</div>` : ''}
         ${lista.map(([tit, arts]) => `<div class="sezione">${esc(tit)}</div><div class="articoli">${arts.map((a) => {
           const col = (categoriaDi(a.categoria) || {}).colore;
-          return `<button class="articolo ${a.esaurito ? 'esaurito' : ''}" data-a="${esc(a.id)}" ${col ? `style="border-left:7px solid ${esc(col)}"` : ''}><span>${esc(a.nome)}</span><span class="prezzo">${a.esaurito ? 'esaurito' : a.prezzo_libero ? '# prezzo libero' : euro(a.prezzo_cent) + (a.in_fascia ? ' ★' : '')}</span></button>`;
+          return `<button class="articolo ${a.esaurito ? 'esaurito' : ''}" data-a="${esc(a.id)}" ${col ? `style="border-left:7px solid ${esc(col)}"` : ''}><span>${esc(a.nome)}</span><span class="prezzo">${a.esaurito ? 'esaurito' : a.prezzo_libero ? '# prezzo libero' : euro(a.prezzo_cent) + (a.in_fascia ? ' ★' : '')}</span>${nelConto.get(a.id) ? `<span class="nel ${daMandare.get(a.id) ? 'nuovo' : ''}">${nelConto.get(a.id)}</span>` : ''}</button>`;
         }).join('')}</div>`).join('')}
         ${dentroUna ? (lista.some(([, a]) => a.length) ? '' : '<p class="mini">Nessun articolo qui.</p>')
           : `<div class="sezione">Categorie</div><div class="categorieGriglia">${categorieRadice().map((c) => {
@@ -741,15 +751,33 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     const g = app.querySelector('.griglia');
     g.scrollTop = scorso;
     let ultimo = g.scrollTop;
+    /* Con isteresi: si decide dopo un tratto di dito, non a ogni pixel;
+       il rimbalzo di iOS (scrollTop sotto zero o oltre il fondo) non
+       conta; e quando le righe in cima spariscono la griglia sale di
+       altrettanto, quindi si scorre indietro della stessa misura e quel
+       che era sotto il dito ci resta («ogni tanto ha dei problemi», la
+       proprieta', 5 settembre 2026). */
+    let accumulo = 0, ignora = false;
+    const altezzaCima = () => ['.portate', '.conti', '.cercaRiga'].reduce((t, s) => t + ((app.querySelector(s) || {}).offsetHeight || 0), 0);
     g.onscroll = () => {
-      const y = g.scrollTop;
-      if (window.innerWidth >= 900 || cerca) { ultimo = y; return; }
-      const nascondi = y > ultimo + 8 && y > 60;
-      const mostra = y < ultimo - 8 || y < 20;
-      ultimo = y;
-      if (nascondi === compatta || (!nascondi && !mostra)) return;
-      compatta = nascondi;
-      app.querySelector('.ordine').classList.toggle('compatta', compatta);
+      if (ignora) { ignora = false; ultimo = g.scrollTop; return; }
+      const y = g.scrollTop, massimo = Math.max(0, g.scrollHeight - g.clientHeight);
+      if (window.innerWidth >= 900 || cerca || y < 0 || y > massimo) { ultimo = Math.max(0, Math.min(y, massimo)); return; }
+      const delta = y - ultimo; ultimo = y;
+      accumulo = (delta > 0) === (accumulo > 0) ? accumulo + delta : delta;
+      const nascondi = !compatta && accumulo > 70 && y > 120;
+      const mostra = compatta && (accumulo < -40 || y < 30);
+      if (!nascondi && !mostra) return;
+      const ordineEl = app.querySelector('.ordine');
+      if (nascondi) {
+        const h = altezzaCima();
+        compatta = true; ordineEl.classList.add('compatta');
+        ignora = true; g.scrollTop = Math.max(0, y - h);
+      } else {
+        compatta = false; ordineEl.classList.remove('compatta');
+        ignora = true; g.scrollTop = y + altezzaCima();
+      }
+      ultimo = g.scrollTop; accumulo = 0;
     };
   };
 
@@ -820,6 +848,10 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     quantitaPronta = 1;
     if (navigator.vibrate) navigator.vibrate(15);
     disegna();
+    /* il riquadro toccato lampeggia: si vede che e' entrato, anche senza
+       guardare il riepilogo in fondo */
+    const toccato = $('app').querySelector(`.articolo[data-a="${a.id}"]`);
+    if (toccato) { toccato.classList.add('aggiunto'); setTimeout(() => toccato.classList.remove('aggiunto'), 350); }
   };
 
   /* il pannello di una riga: quantita', nota, variante, prezzo a mano, togli o storna */
