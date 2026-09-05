@@ -2633,8 +2633,11 @@ function vistaPosTavoli() {
       $('ptEsito').textContent = 'Preparo i QR…';
       try {
         const j = await chiama('?a=tavoli-qr', {}, FUNZIONE_POS);
+        /* i link anche qui, in chiaro: da un telefono la finestra di stampa
+           non si apre, e per una prova basta toccarne uno */
+        const elenco = `<div class="mini" style="margin-top:8px;">Link dei tavoli (per provare senza stampare): ${j.tavoli.map((t) => `<a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.nome)}</a>`).join(' · ')}</div>`;
         const w = window.open('', '_blank');
-        if (!w) { $('ptEsito').textContent = 'Il browser ha bloccato la finestra: permetta le finestre a comparsa per questa pagina.'; return; }
+        if (!w) { $('ptEsito').innerHTML = 'La finestra di stampa è bloccata dal browser (finestre a comparsa). I link qui sotto funzionano lo stesso.' + elenco; return; }
         w.document.write(`<!doctype html><html lang="it"><head><meta charset="utf-8"><title>QR dei tavoli</title>
           <style>body{font:15px -apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1A3626;margin:0;padding:12mm;}
           .foglio{display:grid;grid-template-columns:repeat(2,1fr);gap:10mm;}
@@ -2650,7 +2653,7 @@ function vistaPosTavoli() {
           <script>const T=${JSON.stringify(j.tavoli.map((t) => t.url))};T.forEach((u,i)=>new QRCode(document.getElementById('qr'+i),{text:u,width:200,height:200,correctLevel:QRCode.CorrectLevel.M}));<\/script>
           </body></html>`);
         w.document.close();
-        $('ptEsito').textContent = `${j.tavoli.length} QR pronti nella nuova finestra.`;
+        $('ptEsito').innerHTML = `${j.tavoli.length} QR pronti nella nuova finestra.` + elenco;
       } catch (e) { $('ptEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
     };
     document.querySelectorAll('[data-nuova-zona]').forEach((b) => b.onclick = () => { raccogli(); D.zone.push({ id: crypto.randomUUID(), locale: b.dataset.nuovaZona, nome: 'Nuova zona', posizione: D.zone.length }); disegna(); });
