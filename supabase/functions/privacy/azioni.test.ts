@@ -72,13 +72,13 @@ Deno.test('lo stato per la prenotazione di Fidra: l estensione lo chiede con la 
   /* la proprieta', 5 settembre 2026: la firma si vede in Fidra, e si copia per la nota */
   const s = S.slice(S.indexOf("azione === 'stato'"), S.indexOf("azione === 'attese'"));
   assert(s.includes("if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);"), 'chiave hotel');
-  assert(s.includes(".neq('stato', 'annullato')") && s.includes("if (fidra) q = q.eq('fidra_prenotazione', fidra);"), 'per prenotazione, senza gli annullati');
+  assert(s.includes(".neq('stato', 'annullato')") && s.includes("await base().eq('fidra_prenotazione', fidra)"), 'per prenotazione, senza gli annullati');
   assert(!/select\('[^']*\bfirma\b/.test(s), 'le firme restano nel server');
 });
 
 Deno.test('lo stato si chiede anche per giorno: le firme di oggi, per riempire il modulo privacy/create di Fidra', () => {
   const s = S.slice(S.indexOf("azione === 'stato'"), S.indexOf("azione === 'attese'"));
-  assert(s.includes("const giorno = (url.searchParams.get('giorno') || '').trim();") && s.includes("q = q.eq('stato', 'firmato').gte('firmato_il', da.toISOString())"), 'per giorno, solo le firmate');
+  assert(s.includes("const giorno = (url.searchParams.get('giorno') || '').trim();") && s.includes("await base().eq('stato', 'firmato').gte('firmato_il', inizio.toISOString())"), 'per giorno, solo le firmate');
   assert(S.includes('const inizioGiornoRoma = (giorno: string): Date =>') && S.includes("timeZone: 'Europe/Rome'"), 'la mezzanotte dell hotel, non di Greenwich');
 });
 
@@ -90,5 +90,11 @@ Deno.test('la firma di un consenso, una alla volta e con la chiave hotel: per il
 
 Deno.test('lo stato si chiede anche per un consenso solo (?id=): e quello che «Registra in Fidra» passa al modulo', () => {
   const s = S.slice(S.indexOf("azione === 'stato'"), S.indexOf("azione === 'attese'"));
-  assert(s.includes("if (id) q = q.eq('id', id);"), 'per id');
+  assert(s.includes("await base().eq('id', id)"), 'per id');
+});
+
+Deno.test('lo stato per prenotazione guarda anche le camere e l arrivo: le firme fatte sull iPad senza l attesa non hanno il numero di Fidra', () => {
+  const s = S.slice(S.indexOf("azione === 'stato'"), S.indexOf("azione === 'attese'"));
+  assert(s.includes(".is('fidra_prenotazione', null).in('camera', camere).gte('firmato_il', inizioGiornoRoma(da).toISOString())"), 'camera e giorno');
+  assert(s.includes('if (!righe.some((x) => x.id === r.id)) righe.push(r);'), 'senza doppioni');
 });

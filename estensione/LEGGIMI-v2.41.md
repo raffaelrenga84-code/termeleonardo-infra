@@ -20,3 +20,9 @@ riquadro. Le nostre firme (iPad e totem) lì non ci finivano.
   solo, firma compresa; prova anche a scrivere il cognome nella ricerca dell'ospite.
   Alla reception restano l'abbinamento e «Salva» («meno lavoro possibile», la
   proprieta', 5 settembre 2026).
+
+## 2.41.2
+
+- La barra trova anche le firme fatte sull'iPad senza l'attesa mandata da Fidra:
+  cerca per camera e giorno d'arrivo, non solo per numero di prenotazione (le tre
+  firme della 523 del 5 settembre non comparivano).

@@ -82,3 +82,7 @@ Deno.test('accanto a ogni firma c e «Registra in Fidra»: apre privacy/create g
   assert(S.includes("window.open('https://leonardo.fidra.cloud/privacy/create?leo=' + encodeURIComponent(c.id), '_blank')"), 'con il consenso nell indirizzo');
   assert(S.includes('reg.textContent = `Registra ${c.cognome} in Fidra`;'), 'un pulsante per firma');
 });
+
+Deno.test('lo stato si chiede per prenotazione E per camere con l arrivo: le firme senza numero di Fidra si trovano lo stesso', () => {
+  assert(S.includes("(camere ? '&camere=' + encodeURIComponent(camere) : '') + (arrivo ? '&da=' + encodeURIComponent(arrivo) : '')"), 'camere e arrivo nell indirizzo');
+});

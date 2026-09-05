@@ -150,7 +150,11 @@
     if (!d || !d.ok || !d.id) return;
     let hotelKey; try { ({ hotelKey } = await chrome.storage.local.get(['hotelKey'])); } catch (e) { return; }
     if (!hotelKey) return;
-    const r = await fetch(STATO + '&fidra=' + encodeURIComponent(String(d.id)), { headers: { 'x-hotel-key': hotelKey } });
+    /* anche camere e arrivo: chi ha firmato sull'iPad senza l'attesa non porta il numero di Fidra */
+    const lista = attese(d);
+    const camere = [...new Set(lista.map((x) => x.camera).filter(Boolean))].join(',');
+    const arrivo = (lista[0] && lista[0].arrivo) || '';
+    const r = await fetch(STATO + '&fidra=' + encodeURIComponent(String(d.id)) + (camere ? '&camere=' + encodeURIComponent(camere) : '') + (arrivo ? '&da=' + encodeURIComponent(arrivo) : ''), { headers: { 'x-hotel-key': hotelKey } });
     if (!r.ok) return;
     const j = await r.json();
     const firmati = (j.consensi || []).filter((c) => c.stato === 'firmato');

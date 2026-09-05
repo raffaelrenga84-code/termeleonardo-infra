@@ -164,20 +164,39 @@ Deno.serve(async (req) => {
     const fidra = (url.searchParams.get('fidra') || '').trim();
     const giorno = (url.searchParams.get('giorno') || '').trim();
     const id = (url.searchParams.get('id') || '').trim();
-    if (!id && !fidra && !/^\d{4}-\d{2}-\d{2}$/.test(giorno)) return risposta({ errore: 'serve un consenso, la prenotazione di Fidra, o un giorno' }, 400);
-    let q = db.from('consenso').select('id, stato, firmato_il, camera, cognome, nome, email, lingua, conservazione, messaggi, marketing, testi_versione, fonte, fidra_prenotazione')
-      .neq('stato', 'annullato').order('firmato_il', { ascending: false, nullsFirst: false });
-    if (id) q = q.eq('id', id);
-    else if (fidra) q = q.eq('fidra_prenotazione', fidra);
-    else {
+    /* le camere della prenotazione e l'arrivo: chi firma sull'iPad senza
+       passare dall'attesa mandata da Fidra non porta il numero della
+       prenotazione, ma camera e giorno si' (le tre firme della 523 del 5
+       settembre 2026 non comparivano nella barra) */
+    const camere = (url.searchParams.get('camere') || '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 10);
+    const da = (url.searchParams.get('da') || '').trim();
+    const eData = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+    if (!id && !fidra && !eData(giorno)) return risposta({ errore: 'serve un consenso, la prenotazione di Fidra, o un giorno' }, 400);
+    const COLONNE = 'id, stato, firmato_il, camera, cognome, nome, email, lingua, conservazione, messaggi, marketing, testi_versione, fonte, fidra_prenotazione';
+    const base = () => db.from('consenso').select(COLONNE).neq('stato', 'annullato');
+    let righe: Record<string, unknown>[] = [];
+    if (id) {
+      const { data, error } = await base().eq('id', id);
+      if (error) return risposta({ errore: error.message }, 500);
+      righe = data ?? [];
+    } else if (fidra) {
+      const { data, error } = await base().eq('fidra_prenotazione', fidra);
+      if (error) return risposta({ errore: error.message }, 500);
+      righe = data ?? [];
+      if (camere.length && eData(da)) {
+        const { data: perCamera } = await base().eq('stato', 'firmato').is('fidra_prenotazione', null).in('camera', camere).gte('firmato_il', inizioGiornoRoma(da).toISOString());
+        for (const r of perCamera ?? []) if (!righe.some((x) => x.id === r.id)) righe.push(r);
+      }
+    } else {
       /* le firme di un giorno, nell'ora dell'hotel: il modulo di Fidra
          (privacy/create) si riempie da qui (la proprieta', 5 settembre 2026) */
-      const da = inizioGiornoRoma(giorno);
-      q = q.eq('stato', 'firmato').gte('firmato_il', da.toISOString()).lt('firmato_il', new Date(da.getTime() + 24 * 3600 * 1000).toISOString());
+      const inizio = inizioGiornoRoma(giorno);
+      const { data, error } = await base().eq('stato', 'firmato').gte('firmato_il', inizio.toISOString()).lt('firmato_il', new Date(inizio.getTime() + 24 * 3600 * 1000).toISOString());
+      if (error) return risposta({ errore: error.message }, 500);
+      righe = data ?? [];
     }
-    const { data, error } = await q;
-    if (error) return risposta({ errore: error.message }, 500);
-    return risposta({ consensi: data ?? [] });
+    righe.sort((a, b) => String(b.firmato_il ?? '').localeCompare(String(a.firmato_il ?? '')));
+    return risposta({ consensi: righe });
   }
 
   /* ---------- dal totem e dall'iPad ---------- */
