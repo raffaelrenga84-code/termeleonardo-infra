@@ -320,3 +320,9 @@ Deno.test('un conto con solo storni si chiude a zero, dal bottone Conto', () => 
   assert(m.includes('id="pzZero"') && m.includes('Chiudi il conto a zero'), 'il bottone');
   assert(m.includes("const j = await scrivi('conto-elimina', { conto: conto.id });"), 'che passa da conto-elimina: il server chiude a zero e tiene gli storni');
 });
+
+Deno.test('un conto vuoto si toglie dalla comanda stessa: il bottone dice «Togli conto»', () => {
+  /* «mi restano aperti tavoli a zero senza possibilita di chiuderli» (5 set 2026) */
+  assert(m.includes("${!dalServer.length && !ordine.righe.length ? 'Togli conto' : 'Conto'}"), 'il bottone cambia nome');
+  assert(m.includes("const soliStorni = dalServer.some((r) => r.stato === 'stornata');") && m.includes("'Togli il conto'"), 'e il pannello distingue vuoto da soli storni');
+});

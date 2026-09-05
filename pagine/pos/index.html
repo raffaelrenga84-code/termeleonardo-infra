@@ -755,7 +755,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       <div class="azioni">
         <button class="bottone" id="invia" ${nuove ? '' : 'disabled'}>Invia${nuove ? ` (${nuove})` : ''}</button>
         <button class="bottone oro" id="vai" ${prossima ? '' : 'disabled'}>${prossima ? `Vai coi ${NOMI_PORTATE[prossima].toLowerCase()}` : 'Vai'}</button>
-        <button class="bottone sec" id="chiudi" ${(tutte.length || dalServer.some((r) => r.stato === 'stornata')) && !nuove ? '' : 'disabled'}>Conto</button>
+        <button class="bottone sec" id="chiudi" ${!dalServer.length && !ordine.righe.length ? '' : (tutte.length || dalServer.some((r) => r.stato === 'stornata')) && !nuove ? '' : 'disabled'}>${!dalServer.length && !ordine.righe.length ? 'Togli conto' : 'Conto'}</button>
       </div></div>`;
     const app = $('app');
     app.querySelectorAll('.portate button').forEach((b) => b.onclick = () => { portataForzata = b.dataset.p; disegna(); });
@@ -1167,10 +1167,14 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       /* dentro ci sono solo storni: niente da incassare, il conto si
          chiude a zero («non c'e' modo di chiuderlo», la proprieta', 5
          settembre 2026). Gli storni restano nella giornata. */
+      /* e un conto senza niente dentro (aperto per sbaglio) si toglie da
+         qui, senza andare a cercare il «⋯» del tavolo («mi restano aperti
+         tavoli a zero senza possibilita di chiuderli», 5 settembre 2026) */
+      const soliStorni = dalServer.some((r) => r.stato === 'stornata');
       const velo = document.createElement('div'); velo.className = 'velo';
-      velo.innerHTML = `<div class="pannello"><h3>Conto · ${euro(0)}</h3>
-        <p class="mini">Il conto è a zero: dentro ci sono solo storni. Si chiude senza incasso e il tavolo torna libero.</p>
-        <div class="due"><button class="bottone sec" id="pzAnnulla">Annulla</button><button class="bottone" id="pzZero">Chiudi il conto a zero</button></div></div>`;
+      velo.innerHTML = `<div class="pannello"><h3>${soliStorni ? `Conto · ${euro(0)}` : 'Conto vuoto'}</h3>
+        <p class="mini">${soliStorni ? 'Il conto è a zero: dentro ci sono solo storni. Si chiude senza incasso e il tavolo torna libero.' : 'Non c’è niente su questo conto. Lo tolgo? Il tavolo torna libero.'}</p>
+        <div class="due"><button class="bottone sec" id="pzAnnulla">Annulla</button><button class="bottone" id="pzZero">${soliStorni ? 'Chiudi il conto a zero' : 'Togli il conto'}</button></div></div>`;
       document.body.appendChild(velo);
       const via = () => velo.remove();
       velo.onclick = (ev) => { if (ev.target === velo) via(); };
