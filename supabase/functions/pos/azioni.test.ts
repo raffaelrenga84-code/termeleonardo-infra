@@ -71,7 +71,7 @@ Deno.test('nome del conto, conto vuoto tolto, prezzo e disponibilita: le nuove a
   assert(S.includes('function titoloConto('), 'come si chiama un conto lo dice una funzione sola');
   assert(S.includes('nome: c.nome ?? null, titolo: titoloConto(c),'), 'la sala manda il nome scritto e come si legge');
   const el = S.slice(S.indexOf("azione === 'conto-elimina'"), S.indexOf("azione === 'articolo-cambia'"));
-  assert(el.includes('if (righe.length) return risposta') && el.includes('409'), 'con delle righe dentro non si cancella');
+  assert(el.includes('if (vive.length) return risposta') && el.includes('409'), 'con delle righe vive dentro non si cancella');
   assert(el.includes("from('pos_conto').delete()"), 'vuoto invece se ne va');
   const ar = S.slice(S.indexOf("azione === 'articolo-cambia'"));
   assert(ar.includes("puo(cameriere!, 'menu')"), 'il prezzo lo cambia l amministrazione');
@@ -219,4 +219,11 @@ Deno.test('l ordine dal tavolo col QR: menu pubblico firmato, carta via Stripe, 
   assert(S.includes("aperto_da: OSPITI_QR") && S.includes("const OSPITI_QR = 'ospiti-qr';"), 'il cameriere fittizio');
   assert(S.includes("'fasce-salva', 'tavoli-qr']") && S.includes("azione === 'tavoli-qr'"), 'i QR dei tavoli dal back office');
   assert(S.includes('qr_recenti:'), 'la sala mostra gli ordini dal QR');
+});
+
+Deno.test('conto-elimina: con soli storni dentro il conto si chiude a zero, gli storni restano', () => {
+  const c = S.slice(S.indexOf("azione === 'conto-elimina'"), S.indexOf("azione === 'articolo-cambia'"));
+  assert(c.includes("const vive = righe.filter((r) => r.stato !== 'stornata');"), 'contano solo le righe vive');
+  assert(c.includes("update({ stato: 'chiuso', chiuso_come: null, chiuso_da: cameriere!.id"), 'con soli storni si chiude, non si cancella');
+  assert(c.includes("return risposta({ esito: 'ok', chiuso: true });"), 'e lo dice');
 });

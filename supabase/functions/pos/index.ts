@@ -621,7 +621,18 @@ Deno.serve(async (req) => {
     if (!c) return risposta({ errore: 'conto non trovato' }, 404);
     if (c.stato === 'chiuso') return risposta({ errore: 'conto gia chiuso' }, 409);
     const righe = await righeDelConto(id);
-    if (righe.length) return risposta({ errore: 'il conto ha delle righe: le storni prima, oppure lo chiuda' }, 409);
+    const vive = righe.filter((r) => r.stato !== 'stornata');
+    if (vive.length) return risposta({ errore: 'il conto ha delle righe: le storni prima, oppure lo chiuda' }, 409);
+    if (righe.length) {
+      /* dentro ci sono solo storni: il conto e' a zero ma la traccia degli
+         storni (motivo, chi) deve restare per la giornata — si chiude a
+         zero invece di sparire («mi dice che ha delle righe anche se e a
+         zero», la proprieta', 5 settembre 2026) */
+      const ora = adesso();
+      const { error } = await db.from('pos_conto').update({ stato: 'chiuso', chiuso_come: null, chiuso_da: cameriere!.id, chiuso_il: ora, aggiornato_il: ora }).eq('id', id);
+      if (error) return risposta({ errore: error.message }, 500);
+      return risposta({ esito: 'ok', chiuso: true });
+    }
     const { error } = await db.from('pos_conto').delete().eq('id', id);
     if (error) return risposta({ errore: error.message }, 500);
     return risposta({ esito: 'ok' });

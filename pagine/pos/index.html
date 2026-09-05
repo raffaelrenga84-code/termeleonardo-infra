@@ -755,7 +755,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       <div class="azioni">
         <button class="bottone" id="invia" ${nuove ? '' : 'disabled'}>Invia${nuove ? ` (${nuove})` : ''}</button>
         <button class="bottone oro" id="vai" ${prossima ? '' : 'disabled'}>${prossima ? `Vai coi ${NOMI_PORTATE[prossima].toLowerCase()}` : 'Vai'}</button>
-        <button class="bottone sec" id="chiudi" ${tutte.length && !nuove ? '' : 'disabled'}>Conto</button>
+        <button class="bottone sec" id="chiudi" ${(tutte.length || dalServer.some((r) => r.stato === 'stornata')) && !nuove ? '' : 'disabled'}>Conto</button>
       </div></div>`;
     const app = $('app');
     app.querySelectorAll('.portate button').forEach((b) => b.onclick = () => { portataForzata = b.dataset.p; disegna(); });
@@ -1163,6 +1163,27 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
   const chiudi = async () => {
     const tutte = [...dalServer.filter((r) => r.stato !== 'stornata'), ...ordine.righe];
     const totale = tutte.reduce((t, r) => t + r.quantita * r.prezzo_cent, 0);
+    if (!totale) {
+      /* dentro ci sono solo storni: niente da incassare, il conto si
+         chiude a zero («non c'e' modo di chiuderlo», la proprieta', 5
+         settembre 2026). Gli storni restano nella giornata. */
+      const velo = document.createElement('div'); velo.className = 'velo';
+      velo.innerHTML = `<div class="pannello"><h3>Conto · ${euro(0)}</h3>
+        <p class="mini">Il conto è a zero: dentro ci sono solo storni. Si chiude senza incasso e il tavolo torna libero.</p>
+        <div class="due"><button class="bottone sec" id="pzAnnulla">Annulla</button><button class="bottone" id="pzZero">Chiudi il conto a zero</button></div></div>`;
+      document.body.appendChild(velo);
+      const via = () => velo.remove();
+      velo.onclick = (ev) => { if (ev.target === velo) via(); };
+      velo.querySelector('#pzAnnulla').onclick = via;
+      velo.querySelector('#pzZero').onclick = async () => {
+        try {
+          const j = await scrivi('conto-elimina', { conto: conto.id });
+          if (j.offline) alert('Nessun server risponde: il conto si chiude appena torna la linea.');
+          via(); schermataSala();
+        } catch (e) { alert(e.message); }
+      };
+      return;
+    }
     const inCamera = conto.tipo === 'camera' && String(conto.camera || '').trim();
     /* quanto e' gia' stato pagato lo sa il server */
     let pagamenti = [];
@@ -1289,7 +1310,7 @@ function leggiTesseraOCamera(velo, idCampo, esito) {
    la fotocamera solo alle pagine in https: dal PC del Bistrot, in http,
    il bottone non compare — li' resta il lettore di sistema del Sunmi, che
    scrive nel campo come una tastiera. */
-const puoScansionare = () => window.isSecureContext && 'BarcodeDetector' in window && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+const puoScansionare = () => window.isSecureContext && 'BarcodeDetector' in window && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && !localStorage.getItem('posSenzaFotocamera');
 const bottoneFotocamera = (idCampo) => puoScansionare() ? `<button type="button" class="foto" data-foto="${idCampo}" title="Leggi con la fotocamera">📷</button>` : '';
 function scansiona() {
   const velo = document.createElement('div'); velo.className = 'velo';
@@ -1307,6 +1328,15 @@ function scansiona() {
         const video = velo.querySelector('#fotoVideo'); video.srcObject = flusso;
         const voluti = ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf', 'codabar', 'qr_code'];
         const formati = (await BarcodeDetector.getSupportedFormats()).filter((f) => voluti.includes(f));
+        /* Chrome c'e' ma il modulo dei codici no (sul Sunmi senza i servizi
+           Google risponde con zero formati, e «Failed to construct
+           BarcodeDetector», 5 settembre 2026): si dice, e il bottone non
+           compare piu' su questo palmare — resta il lettore del Sunmi */
+        if (!formati.length) {
+          chiudi(); localStorage.setItem('posSenzaFotocamera', '1');
+          alert('Questo palmare non legge i codici con la fotocamera: usi il lettore del palmare, che scrive nel campo da solo.');
+          risolvi(null); return;
+        }
         const lettore = new BarcodeDetector({ formats: formati });
         timer = setInterval(async () => {
           try {

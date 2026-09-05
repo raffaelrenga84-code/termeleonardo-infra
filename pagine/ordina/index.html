@@ -326,6 +326,7 @@ function scansiona() {
         velo.querySelector('#fotoVideo').srcObject = flusso;
         const voluti = ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf', 'codabar', 'qr_code'];
         const formati = (await BarcodeDetector.getSupportedFormats()).filter((f) => voluti.includes(f));
+        if (!formati.length) { chiudi(); risolvi(null); return; }
         const lettore = new BarcodeDetector({ formats: formati });
         timer = setInterval(async () => {
           try { const c = await lettore.detect(velo.querySelector('#fotoVideo')); if (c.length && c[0].rawValue) { const v = c[0].rawValue; chiudi(); risolvi(v); } } catch (e) { /* prossimo fotogramma */ }

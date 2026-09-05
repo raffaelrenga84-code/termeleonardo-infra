@@ -247,7 +247,14 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     const c = contoDi(db, id);
     if (!c) return errore('conto non trovato', 404);
     if (c.stato === 'chiuso') return errore('conto gia chiuso', 409);
-    if (righeDelConto(db, id).length) return errore('il conto ha delle righe: le storni prima, oppure lo chiuda', 409);
+    const righe = righeDelConto(db, id);
+    if (righe.some((r) => r.stato !== 'stornata')) return errore('il conto ha delle righe: le storni prima, oppure lo chiuda', 409);
+    if (righe.length) {
+      /* solo storni dentro: si chiude a zero, la traccia resta (vedi il cloud) */
+      const ora = adesso();
+      db.prepare("update pos_conto set stato = 'chiuso', chiuso_come = null, chiuso_da = ?, chiuso_il = ?, aggiornato_il = ?, allineato = 0 where id = ?").run(cameriere!.id, ora, ora, id);
+      return ok({ esito: 'ok', chiuso: true });
+    }
     db.prepare('delete from pos_conto where id = ?').run(id);
     db.prepare("insert or replace into pos_eliminato (id, tabella, quando) values (?, 'pos_conto', ?)").run(id, adesso());
     return ok({ esito: 'ok' });

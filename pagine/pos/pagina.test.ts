@@ -313,3 +313,10 @@ Deno.test('un tavolo gia aperto si apre dritto sulla comanda; il tavolo si riapr
   assert(m.includes('function testa(titolo, indietro, sulTitolo = null)') && m.includes("$('titolo').onclick = sulTitolo;"), 'il titolo si tocca');
   assert(m.includes('cop. ▾`, () => { salvaBozza(); schermataSala(); }, () => { salvaBozza(); apriTavoloPerId(conto.tavolo); });'), 'e dalla comanda porta al tavolo, tenendo la bozza');
 });
+
+Deno.test('un conto con solo storni si chiude a zero, dal bottone Conto', () => {
+  /* «non c e modo di chiuderlo» (la proprieta', 5 settembre 2026) */
+  assert(m.includes("(tutte.length || dalServer.some((r) => r.stato === 'stornata')) && !nuove ? '' : 'disabled'"), 'Conto si accende anche con soli storni');
+  assert(m.includes('id="pzZero"') && m.includes('Chiudi il conto a zero'), 'il bottone');
+  assert(m.includes("const j = await scrivi('conto-elimina', { conto: conto.id });"), 'che passa da conto-elimina: il server chiude a zero e tiene gli storni');
+});

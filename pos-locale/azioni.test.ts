@@ -390,3 +390,24 @@ Deno.test('un conto esterno diventa in camera al momento di pagare: conto-cambia
   const add = db.prepare('select camera, totale_cent from pos_addebito where conto = ?').get(conto) as { camera: string; totale_cent: number };
   assertEquals(add, { camera: '229', totale_cent: 1000 });
 });
+
+Deno.test('un conto con dentro solo storni e a zero: si chiude, e gli storni restano', async () => {
+  /* «se cancello un conto che non ha nulla dentro mi dice che ha delle
+     righe... anche se e a zero» (la proprieta', 5 settembre 2026) */
+  const db = base();
+  db.exec("update pos_cameriere set storni = 1 where id = 'K1'");
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 1 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  await esegui(db, 'righe', req('POST', { conto, righe: [{ id: 'r1', articolo: 'A2', quantita: 1, portata: 'bevande' }] }), cfg);
+  await esegui(db, 'invia', req('POST', { conto }), cfg);
+  assertEquals((await esegui(db, 'conto-elimina', req('POST', { conto }), cfg)).stato, 409, 'con una riga viva no');
+  assertEquals((await esegui(db, 'storna', req('POST', { riga: 'r1', motivo: 'cambiato idea' }), cfg)).stato, 200);
+  const e = await esegui(db, 'conto-elimina', req('POST', { conto }), cfg);
+  assertEquals(e.stato, 200);
+  assertEquals((e.corpo as { chiuso: boolean }).chiuso, true, 'non sparisce: si chiude a zero');
+  const dopo = db.prepare('select stato, chiuso_come from pos_conto where id = ?').get(conto) as { stato: string; chiuso_come: string | null };
+  assertEquals(dopo, { stato: 'chiuso', chiuso_come: null });
+  assertEquals((db.prepare("select count(*) as n from pos_riga where conto = ? and stato = 'stornata'").get(conto) as { n: number }).n, 1, 'lo storno resta per la giornata');
+  const sala = await esegui(db, 'sala', req('GET', null, { locale: 'L1' }), cfg);
+  assertEquals((sala.corpo as { tavoli: { id: string; conti: unknown[] }[] }).tavoli.find((t) => t.id === 'T7')!.conti.length, 0, 'e il tavolo e libero');
+});
