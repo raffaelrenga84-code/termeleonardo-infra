@@ -226,3 +226,12 @@ Deno.test('happy hour sul palmare: il menu chiede il locale, si rinfresca, e la 
   assert(m.includes('MENU.fascia ?') && m.includes('fino alle'), 'la fascia in corso si legge in cima');
   assert(m.includes("a.in_fascia ? ' ★' : ''"), 'e i prezzi toccati hanno la stellina');
 });
+
+Deno.test('servita dal PC del Bistrot (http://IP:8080/pos) la pagina sa da sola chi e il server locale', () => {
+  /* «una cosa che basta che copio e incollo e funziona» (la proprieta', 5
+     settembre 2026): niente certificati sui palmari, niente indirizzi da
+     scrivere a mano */
+  assert(m.includes("const DAL_PC = location.protocol === 'http:'"), 'si riconosce dall indirizzo');
+  assert(m.includes('const SERVER_LOCALE = DAL_PC ? location.origin :'), 'e il server locale e l origine della pagina');
+  assert(m.includes('if (!crypto.randomUUID) {') && m.includes('crypto.getRandomValues(new Uint8Array(16))'), 'fuori da https randomUUID manca: si rifa');
+});

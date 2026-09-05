@@ -178,6 +178,17 @@ import { aggiungi, cambia, creaOrdine, daInviare, euro, perPortata, PORTATE, tog
 import { creaCoda, creaServer } from '/pos/server.js';
 import { misuraPianta } from '/pos/pianta.js';
 
+/* Fuori da https (la pagina servita dal PC del Bistrot in http) il browser
+   non da' crypto.randomUUID: si rifa' con getRandomValues, che c'e' sempre */
+if (!crypto.randomUUID) {
+  crypto.randomUUID = () => {
+    const b = crypto.getRandomValues(new Uint8Array(16));
+    b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;
+    const h = [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+  };
+}
+
 const CLOUD = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos';
 const USCITA_DOPO_MS = 5 * 60 * 1000;   // senza tocchi per cinque minuti si torna al PIN
 const Q = new URLSearchParams(location.search);
@@ -185,7 +196,10 @@ const Q = new URLSearchParams(location.search);
 if (Q.get('d')) { localStorage.setItem('posDispositivo', Q.get('d')); history.replaceState(null, '', location.pathname); }
 const DISPOSITIVO = localStorage.getItem('posDispositivo') || '';
 const LOCALE_ID = localStorage.getItem('posLocaleId') || 'bistrot';
-const SERVER_LOCALE = localStorage.getItem('posServerLocale') || '';
+/* Se la pagina arriva dal PC del Bistrot (http://IP:8080/pos), il server
+   locale e' quello: niente da impostare sul palmare (5 settembre 2026) */
+const DAL_PC = location.protocol === 'http:' && /^\d+\.\d+\.\d+\.\d+$/.test(location.hostname);
+const SERVER_LOCALE = DAL_PC ? location.origin : (localStorage.getItem('posServerLocale') || '');
 const NOMI_PORTATE = { bevande: 'Bevande', antipasti: 'Antipasti', primi: 'Primi', secondi: 'Secondi', dolci: 'Dolci' };
 
 const $ = (id) => document.getElementById(id);
