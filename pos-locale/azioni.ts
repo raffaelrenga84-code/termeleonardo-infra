@@ -221,10 +221,20 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     const c = contoDi(db, String(b.conto ?? ''));
     if (!c || c.stato === 'chiuso') return errore('conto non aperto', 409);
     const ora = adesso();
-    const nome = b.nome === undefined ? c.nome : (String(b.nome ?? '').trim().slice(0, 40) || null);
-    const coperti = b.coperti === undefined ? c.coperti : Math.max(1, Number(b.coperti) || 1);
-    db.prepare('update pos_conto set nome = ?, coperti = ?, aggiornato_il = ?, allineato = 0 where id = ?')
-      .run(nome === null ? null : String(nome), Number(coperti), ora, String(c.id));
+    const agg: Record<string, string | number | null> = { aggiornato_il: ora, allineato: 0 };
+    if (b.nome !== undefined) agg.nome = String(b.nome ?? '').trim().slice(0, 40) || null;
+    if (b.coperti !== undefined) agg.coperti = Math.max(1, Number(b.coperti) || 1);
+    /* «In camera» anche a conto gia' aperto come esterno (vedi il cloud) */
+    if (b.camera !== undefined) {
+      const camera = String(b.camera ?? '').trim();
+      if (!camera) return errore('serve la camera', 400);
+      agg.tipo = 'camera'; agg.camera = camera;
+      agg.tessera = b.tessera ? String(b.tessera) : null;
+      agg.ospite = String(b.ospite ?? '').trim().slice(0, 40) || null;
+      agg.lingua = ['it', 'en', 'de', 'fr'].includes(String(b.lingua)) ? String(b.lingua) : null;
+    }
+    const chiavi = Object.keys(agg);
+    db.prepare(`update pos_conto set ${chiavi.map((k) => `${k} = ?`).join(', ')} where id = ?`).run(...chiavi.map((k) => agg[k]), String(c.id));
     return ok({ conto: contoDi(db, String(c.id)) });
   }
 

@@ -235,3 +235,16 @@ Deno.test('servita dal PC del Bistrot (http://IP:8080/pos) la pagina sa da sola 
   assert(m.includes('const SERVER_LOCALE = DAL_PC ? location.origin :'), 'e il server locale e l origine della pagina');
   assert(m.includes('if (!crypto.randomUUID) {') && m.includes('crypto.getRandomValues(new Uint8Array(16))'), 'fuori da https randomUUID manca: si rifa');
 });
+
+Deno.test('sul palmare: categorie sempre a portata, riepilogo chiuso, in camera anche pagando un esterno, tessera con la fotocamera', () => {
+  /* le richieste della proprieta' del 5 settembre 2026 */
+  assert(/\.categorie\{[^}]*position:sticky/.test(P), 'il tasto «‹ Categorie» resta in vista');
+  assert(P.includes('.comanda.chiusa{max-height:96px;}') && m.includes("comandaAperta ? 'aperta' : 'chiusa'"), 'il riepilogo parte chiuso');
+  assert(m.includes("$('totaleRiga').onclick = () => { comandaAperta = !comandaAperta; disegna(); };"), 'e si apre toccando Totale');
+  assert(m.includes('id="pzInCamera"') && m.includes('const pannelloCameraConto = (totale) =>'), 'in camera dal pannello del conto');
+  assert(m.includes("scrivi('conto-cambia', {") && m.includes('conto = j.conto;') && m.includes('via(); firmaOspite(totale);'), 'il conto cambia tipo e poi firma');
+  assert(m.includes("'BarcodeDetector' in window") && m.includes('function scansiona()') && m.includes("facingMode: 'environment'"), 'la fotocamera legge il codice');
+  assert(m.includes('window.isSecureContext &&'), 'solo in https: in http Chrome non da la fotocamera');
+  assert(m.includes("bottoneFotocamera('pkTessera')") && m.includes("bottoneFotocamera('pcTessera')"), 'in tutti e due i pannelli della tessera');
+  assert(m.includes("campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))"), 'e il codice letto entra come dal lettore');
+});

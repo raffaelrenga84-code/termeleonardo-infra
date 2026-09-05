@@ -197,3 +197,10 @@ Deno.test('i listini a fasce: il menu e le righe usano il prezzo in vigore, il b
   assert(S.includes("'giornata', 'fasce-salva'"), 'si salvano dal back office');
   assert(S.includes("['pos_fascia', 'pos_prezzo_fascia'].includes(t)"), 'e scendono al PC del Bistrot per intero');
 });
+
+Deno.test('conto-cambia accetta la camera: un conto esterno diventa in camera al momento di pagare', () => {
+  const c = S.slice(S.indexOf("azione === 'conto-cambia'"), S.indexOf("azione === 'conto-elimina'"));
+  assert(c.includes("if (b.camera !== undefined) {") && c.includes("agg.tipo = 'camera'; agg.camera = camera;"), 'la camera cambia il tipo');
+  assert(c.includes("if (!camera) return risposta({ errore: 'serve la camera' }, 400);"), 'ma vuota no');
+  assert(c.includes('agg.tessera = b.tessera ? String(b.tessera) : null;') && c.includes("['it', 'en', 'de', 'fr'].includes(String(b.lingua))"), 'con tessera e lingua per la firma');
+});

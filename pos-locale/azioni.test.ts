@@ -370,3 +370,23 @@ Deno.test('dentro una fascia il listino e quello della fascia: nel menu e sulla 
   assertEquals(righe.find((x) => x.id === 'r2')!.prezzo_cent, 250);
   assertEquals(righe.find((x) => x.id === 'r2')!.prezzo_listino_cent, 250, 'il listino in vigore e quello della fascia');
 });
+
+Deno.test('un conto esterno diventa in camera al momento di pagare: conto-cambia con la camera, poi chiudi in camera', async () => {
+  /* «basta aggiungere il pulsante in camera... al posto di uscire e
+     rientrare dall altra parte» (la proprieta', 5 settembre 2026) */
+  const db = base();
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 2 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  await esegui(db, 'righe', req('POST', { conto, righe: [{ id: 'r1', articolo: 'A2', quantita: 2, portata: 'bevande' }] }), cfg);
+  await esegui(db, 'invia', req('POST', { conto }), cfg);
+  assertEquals((await esegui(db, 'chiudi', req('POST', { conto, modo: 'camera' }), cfg)).stato, 409, 'senza camera non si addebita');
+  assertEquals((await esegui(db, 'conto-cambia', req('POST', { conto, camera: '  ' }), cfg)).stato, 400, 'una camera vuota no');
+  const cambiato = await esegui(db, 'conto-cambia', req('POST', { conto, camera: '229', tessera: '12345', ospite: 'Rossi', lingua: 'de' }), cfg);
+  assertEquals(cambiato.stato, 200);
+  const dopo = (cambiato.corpo as { conto: { tipo: string; camera: string; tessera: string; ospite: string; lingua: string; coperti: number } }).conto;
+  assertEquals([dopo.tipo, dopo.camera, dopo.tessera, dopo.ospite, dopo.lingua, dopo.coperti], ['camera', '229', '12345', 'Rossi', 'de', 2]);
+  const chiuso = await esegui(db, 'chiudi', req('POST', { conto, modo: 'camera' }), cfg);
+  assertEquals(chiuso.stato, 200);
+  const add = db.prepare('select camera, totale_cent from pos_addebito where conto = ?').get(conto) as { camera: string; totale_cent: number };
+  assertEquals(add, { camera: '229', totale_cent: 1000 });
+});

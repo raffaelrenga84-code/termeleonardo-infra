@@ -390,6 +390,16 @@ Deno.serve(async (req) => {
     const agg: Riga = { aggiornato_il: adesso() };
     if (b.nome !== undefined) agg.nome = String(b.nome ?? '').trim().slice(0, 40) || null;
     if (b.coperti !== undefined) agg.coperti = Math.max(1, Number(b.coperti) || 1);
+    /* «In camera» anche a conto gia' aperto come esterno: la tessera si
+       passa al momento di pagare (la proprieta', 5 settembre 2026) */
+    if (b.camera !== undefined) {
+      const camera = String(b.camera ?? '').trim();
+      if (!camera) return risposta({ errore: 'serve la camera' }, 400);
+      agg.tipo = 'camera'; agg.camera = camera;
+      agg.tessera = b.tessera ? String(b.tessera) : null;
+      agg.ospite = String(b.ospite ?? '').trim().slice(0, 40) || null;
+      agg.lingua = ['it', 'en', 'de', 'fr'].includes(String(b.lingua)) ? String(b.lingua) : null;
+    }
     const { data, error } = await db.from('pos_conto').update(agg).eq('id', c.id).select('*').single();
     if (error) return risposta({ errore: error.message }, 500);
     return risposta({ conto: data });

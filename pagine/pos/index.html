@@ -101,7 +101,15 @@ button{font:inherit;cursor:pointer;}
 .articolo{min-height:66px;padding:8px;border-radius:10px;border:1px solid var(--pietra);background:#fff;text-align:left;display:flex;flex-direction:column;justify-content:space-between;font-size:14px;line-height:1.2;}
 .articolo .prezzo{font-size:12px;color:var(--grigio);}
 .articolo.esaurito{opacity:.35;text-decoration:line-through;}
-.categorie{display:flex;gap:6px;overflow-x:auto;padding:6px 0;}
+/* «‹ Categorie» resta in vista anche in fondo a una categoria lunga: non
+   si torna su per cambiare categoria (la proprieta', 5 settembre 2026) */
+.categorie{display:flex;gap:6px;overflow-x:auto;padding:6px 0;position:sticky;top:-8px;z-index:2;background:var(--crema);margin-top:-8px;padding-top:8px;}
+/* un nome lungo si ferma a tre righe: il riquadro non cresce a dismisura */
+.articolo span:first-child{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+/* la tessera letta con la fotocamera, quando c'e' */
+.conFoto{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-top:4px;}
+.conFoto input{margin-top:0;}
+.foto{font-size:22px;padding:6px 12px;border:1px solid var(--pietra);border-radius:10px;background:#fff;line-height:1.2;}
 .categorie button{padding:8px 12px;border-radius:8px;border:1px solid var(--pietra);background:#fff;white-space:nowrap;font-size:14px;}
 .categorie button.attiva{background:var(--verde-medio);color:#fff;border-color:var(--verde-medio);}
 /* Le categorie come sul POS di prima: tutte insieme in un riquadro per
@@ -128,6 +136,12 @@ button{font:inherit;cursor:pointer;}
 .fmQui{position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:13px;color:var(--grigio);pointer-events:none;}
 .fmQui::before{content:"";display:block;width:62%;margin:0 auto 6px;border-bottom:1px solid #C9C2B5;}
 .comanda{background:#fff;border-top:2px solid var(--verde);max-height:38vh;overflow:auto;padding:6px 10px;}
+/* sul palmare il riepilogo copriva mezza schermata (la proprieta', 5
+   settembre 2026): chiuso mostra le ultime due righe, si apre toccando
+   «Totale» */
+.comanda.chiusa{max-height:96px;}
+.comanda.aperta{max-height:60vh;}
+.totale{cursor:pointer;user-select:none;}
 .comanda .portataTit{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--bronzo);margin:6px 0 2px;display:flex;justify-content:space-between;}
 .riga{display:grid;grid-template-columns:34px 1fr auto;gap:8px;align-items:start;padding:7px 0;border-top:1px solid #F3EEE4;font-size:15px;}
 .riga .q{font-weight:700;color:var(--verde);}
@@ -563,7 +577,7 @@ function schermataTavolo(t) {
     velo.innerHTML = `<div class="pannello">
       <h3>Conto in camera</h3>
       <label>Passi la tessera</label>
-      <input id="pkTessera" inputmode="numeric" autocomplete="off" placeholder="numero della tessera" />
+      <div class="conFoto"><input id="pkTessera" inputmode="numeric" autocomplete="off" placeholder="numero della tessera" />${bottoneFotocamera('pkTessera')}</div>
       <p class="mini">Col lettore del palmare basta puntarla. Se la tessera non c’è, scriva la camera qui sotto.</p>
       <label>Camera</label>
       <input id="pkCamera" inputmode="numeric" autocomplete="off" placeholder="es. 229" />
@@ -629,6 +643,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
   let ordine = creaOrdine();
   let portataForzata = '';         // '' = quella dell'articolo
   let compatta = false;            // le righe in cima nascoste dallo scorrimento
+  let comandaAperta = false;       // sul palmare il riepilogo parte chiuso
   let quantitaPronta = 1;
   let categoria = '';              // '' = preferiti e ultimi
   let cerca = '';
@@ -679,8 +694,8 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
             return `<button class="catVoce ${n ? '' : 'vuota'}" data-cat="${esc(c.id)}" ${c.colore ? `style="border-left:7px solid ${esc(c.colore)}"` : ''}><span>${esc(c.nome)}</span><span class="mini">${n ? `${n} articol${n === 1 ? 'o' : 'i'}` : 'ancora vuota'}</span></button>`;
           }).join('')}</div>`}
       </div>
-      <div class="comanda" id="comanda">${[...gruppi].map(([p, rr]) => `<div class="portataTit"><span>${NOMI_PORTATE[p]}</span>${prossima === p ? '<span>in attesa</span>' : ''}</div>${rr.map((r) => `<div class="riga ${r.stato}" data-r="${esc(r.id)}"><span class="q">${r.quantita}×</span><span>${esc(r.nome)}${r.variante ? `<div class="dett">+ ${esc(r.variante)}</div>` : ''}${r.nota ? `<div class="dett">› ${esc(r.nota)}</div>` : ''}</span><span>${euro(r.quantita * r.prezzo_cent)}</span></div>`).join('')}`).join('') || `<p class="mini">Tocchi un articolo per aggiungerlo. Tocco lungo su una riga per nota, variante, quantità${puoDisponibilita ? '; tocco lungo su un articolo per prezzo e disponibilità' : ''}.</p>`}</div>
-      <div class="totale"><span>Totale</span><b>${euro(totale)}</b></div>
+      <div class="comanda ${window.innerWidth < 900 ? (comandaAperta ? 'aperta' : 'chiusa') : ''}" id="comanda">${[...gruppi].map(([p, rr]) => `<div class="portataTit"><span>${NOMI_PORTATE[p]}</span>${prossima === p ? '<span>in attesa</span>' : ''}</div>${rr.map((r) => `<div class="riga ${r.stato}" data-r="${esc(r.id)}"><span class="q">${r.quantita}×</span><span>${esc(r.nome)}${r.variante ? `<div class="dett">+ ${esc(r.variante)}</div>` : ''}${r.nota ? `<div class="dett">› ${esc(r.nota)}</div>` : ''}</span><span>${euro(r.quantita * r.prezzo_cent)}</span></div>`).join('')}`).join('') || `<p class="mini">Tocchi un articolo per aggiungerlo. Tocco lungo su una riga per nota, variante, quantità${puoDisponibilita ? '; tocco lungo su un articolo per prezzo e disponibilità' : ''}.</p>`}</div>
+      <div class="totale" id="totaleRiga"><span>Totale${window.innerWidth < 900 && tutte.length ? ` · ${tutte.length} righe ${comandaAperta ? '▾' : '▴'}` : ''}</span><b>${euro(totale)}</b></div>
       <div class="azioni">
         <button class="bottone" id="invia" ${nuove ? '' : 'disabled'}>Invia${nuove ? ` (${nuove})` : ''}</button>
         <button class="bottone oro" id="vai" ${prossima ? '' : 'disabled'}>${prossima ? `Vai coi ${NOMI_PORTATE[prossima].toLowerCase()}` : 'Vai'}</button>
@@ -712,6 +727,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     $('invia').onclick = invia;
     $('vai').onclick = vai;
     $('chiudi').onclick = chiudi;
+    $('totaleRiga').onclick = () => { comandaAperta = !comandaAperta; disegna(); };
     $('comanda').scrollTop = $('comanda').scrollHeight;
     /* «menu sopra fallo scomparire se scrollo in giu'» (la proprieta', 4
        settembre 2026): sul palmare, scendendo fra gli articoli, portata
@@ -984,6 +1000,63 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
   /* La chiusura: contanti, carta, o in camera se il conto e' di una
      camera. «In camera» non e' un incasso — l'importo entra in una coda
      che la reception riporta nel conto camera di Fidra. */
+  /* Il conto e' nato «esterno» ma paga la camera: si passa la tessera
+     adesso, al momento di pagare, senza uscire e rientrare dall'altra
+     parte (la proprieta', 5 settembre 2026). Il conto diventa «in camera»
+     (conto-cambia) e poi va per la strada di sempre: la firma dell'ospite
+     e la coda degli addebiti. */
+  const pannelloCameraConto = (totale) => {
+    const velo = document.createElement('div'); velo.className = 'velo';
+    const via = () => velo.remove();
+    let tessera = '', camera = '', lingua = null;
+    velo.innerHTML = `<div class="pannello">
+      <h3>Addebito in camera · ${euro(totale)}</h3>
+      <label>Passi la tessera</label>
+      <div class="conFoto"><input id="pcTessera" inputmode="numeric" autocomplete="off" placeholder="numero della tessera" />${bottoneFotocamera('pcTessera')}</div>
+      <p class="mini">Col lettore del palmare basta puntarla. Se la tessera non c’è, scriva la camera qui sotto.</p>
+      <label>Camera</label>
+      <input id="pcCamera" inputmode="numeric" autocomplete="off" placeholder="es. 229" />
+      <label>Nome dell’ospite (facoltativo)</label>
+      <input id="pcOspite" maxlength="40" autocomplete="off" />
+      <p class="mini" id="pcEsito"></p>
+      <div class="due"><button class="bottone sec" id="pcAnnulla">Annulla</button><button class="bottone oro" id="pcOk">Addebita in camera</button></div></div>`;
+    document.body.appendChild(velo);
+    velo.onclick = (ev) => { if (ev.target === velo) via(); };
+    const esito = velo.querySelector('#pcEsito');
+    const leggi = async () => {
+      const codice = velo.querySelector('#pcTessera').value.replace(/\D/g, '');
+      if (codice.length < 4) return;
+      esito.textContent = 'Leggo la tessera…';
+      try {
+        const j = await chiama('tessera', { qs: `&codice=${encodeURIComponent(codice)}`, cloud: true });
+        tessera = codice; camera = String(j.camera || '');
+        lingua = ['it', 'en', 'de', 'fr'].includes(j.lingua) ? j.lingua : null;
+        velo.querySelector('#pcCamera').value = camera;
+        esito.textContent = `Camera ${camera}.`;
+      } catch (e) { esito.textContent = e instanceof TypeError ? 'Serve la linea per leggere la tessera: scriva la camera.' : e.message; }
+    };
+    const t1 = velo.querySelector('#pcTessera');
+    t1.onkeydown = (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); leggi(); } };
+    t1.onblur = leggi;
+    setTimeout(() => t1.focus(), 50);
+    velo.querySelector('#pcAnnulla').onclick = via;
+    velo.querySelector('#pcOk').onclick = async () => {
+      const scritta = velo.querySelector('#pcCamera').value.trim();
+      if (!scritta) { esito.textContent = 'Serve la camera: passi la tessera o scriva il numero.'; return; }
+      try {
+        const j = await scrivi('conto-cambia', {
+          conto: conto.id, camera: scritta,
+          tessera: scritta === camera ? tessera : null,
+          lingua: scritta === camera ? lingua : null,
+          ospite: velo.querySelector('#pcOspite').value.trim() || null,
+        });
+        if (j.offline) return alert('Nessun server risponde: riprovi tra un momento.');
+        conto = j.conto;
+        via(); firmaOspite(totale);
+      } catch (e) { esito.textContent = e.message; }
+    };
+  };
+
   /* Dal 5 settembre 2026 si paga anche a pezzi: in parti uguali («dividere
      il conto fra persone al tavolo») o un importo a scelta; i contanti
      dicono il resto. Ogni pezzo e' un pagamento (azione «paga»), e il
@@ -1014,9 +1087,11 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
         <div class="due"><button class="bottone" data-modo="contanti">Contanti</button><button class="bottone" data-modo="carta">Carta</button></div>
         ${inCamera && !pagato() ? `<button class="bottone oro" data-modo="camera" style="margin-top:8px;">Tutto in camera ${esc(String(conto.camera))}</button>
           <p class="mini">Va in coda: la reception lo riporta sul conto camera in Fidra.</p>`
-          : inCamera ? '' : '<p class="mini" style="margin-top:10px;">Per addebitare in camera il conto va aperto con «In camera» dal tavolo.</p>'}
+          : inCamera ? '' : (!pagato() ? '<button class="bottone sec" id="pzInCamera" style="margin-top:8px;">In camera… (con la tessera)</button>' : '')}
         <div class="due"><button class="bottone sec" id="pzChiudi">Annulla</button><span></span></div></div>`;
       velo.querySelector('#pzChiudi').onclick = via;
+      const ic = velo.querySelector('#pzInCamera');
+      if (ic) ic.onclick = () => { via(); pannelloCameraConto(totale); };
       velo.querySelectorAll('[data-parti]').forEach((b) => b.onclick = () => { parti = Number(b.dataset.parti); importo = null; disegna(); });
       velo.querySelector('#pzAltro').onclick = async () => {
         const n = await chiediNumero('Importo da pagare adesso (euro)', { decimale: true });
@@ -1072,6 +1147,50 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
      vigore (sulla riga li applica comunque il server) */
   if (Date.now() - MENU_LETTO_IL > 10 * 60 * 1000) caricaMenu().then(() => disegna()).catch(() => {});
 }
+
+/* ---------- la tessera con la fotocamera ----------
+   Se il palmare non ha il lettore, il codice a barre si legge con la
+   fotocamera (BarcodeDetector di Chrome, «posso farla da fotocamera se il
+   palmare e' sprovvisto?», la proprieta', 5 settembre 2026). Chrome da'
+   la fotocamera solo alle pagine in https: dal PC del Bistrot, in http,
+   il bottone non compare — li' resta il lettore di sistema del Sunmi, che
+   scrive nel campo come una tastiera. */
+const puoScansionare = () => window.isSecureContext && 'BarcodeDetector' in window && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+const bottoneFotocamera = (idCampo) => puoScansionare() ? `<button type="button" class="foto" data-foto="${idCampo}" title="Leggi con la fotocamera">📷</button>` : '';
+function scansiona() {
+  const velo = document.createElement('div'); velo.className = 'velo';
+  velo.innerHTML = `<div class="pannello" style="text-align:center;"><h3>Inquadri il codice della tessera</h3>
+    <video id="fotoVideo" autoplay playsinline muted style="width:100%;max-height:50vh;border-radius:12px;background:#000;"></video>
+    <div class="due"><button class="bottone sec" id="fotoChiudi">Annulla</button><span></span></div></div>`;
+  document.body.appendChild(velo);
+  let flusso = null, timer = null;
+  const chiudi = () => { clearInterval(timer); if (flusso) flusso.getTracks().forEach((t) => t.stop()); velo.remove(); };
+  return new Promise((risolvi) => {
+    velo.querySelector('#fotoChiudi').onclick = () => { chiudi(); risolvi(null); };
+    (async () => {
+      try {
+        flusso = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        const video = velo.querySelector('#fotoVideo'); video.srcObject = flusso;
+        const voluti = ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf', 'codabar', 'qr_code'];
+        const formati = (await BarcodeDetector.getSupportedFormats()).filter((f) => voluti.includes(f));
+        const lettore = new BarcodeDetector({ formats: formati });
+        timer = setInterval(async () => {
+          try {
+            const codici = await lettore.detect(video);
+            if (codici.length && codici[0].rawValue) { const v = codici[0].rawValue; chiudi(); risolvi(v); }
+          } catch (e) { /* il fotogramma non e' pronto: si riprova */ }
+        }, 300);
+      } catch (e) { chiudi(); alert('Fotocamera non disponibile: ' + e.message); risolvi(null); }
+    })();
+  });
+}
+document.addEventListener('click', async (ev) => {
+  const b = ev.target && ev.target.closest ? ev.target.closest('[data-foto]') : null;
+  if (!b) return;
+  const campo = document.getElementById(b.dataset.foto);
+  const codice = await scansiona();
+  if (codice && campo) { campo.value = codice; campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); }
+});
 
 /* ---------- il tastierino: quantita' e prezzi si battono, non si scrivono ----------
    Come sul POS che i camerieri conoscono: si digita la cifra e si conferma.
