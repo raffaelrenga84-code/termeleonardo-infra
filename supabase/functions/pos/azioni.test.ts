@@ -245,7 +245,7 @@ Deno.test('il menu per l ospite porta i nomi tradotti, le descrizioni e gli alle
   /* spec docs/superpowers/specs/2026-09-05-menu-ospiti-design.md */
   const o = S.slice(S.indexOf("azione === 'ospite-menu'"), S.indexOf("azione === 'ospite-stato'"));
   assert(o.includes("select('id, nome, posizione, colore, sotto, per_ospiti, note_rapide, nomi, orari').eq('attiva', true)"), 'categorie con nomi');
-  assert(o.includes("select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, nomi, descrizioni, allergeni, orari').eq('attivo', true)"), 'articoli con nomi, descrizioni, allergeni');
+  assert(o.includes("select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, nomi, descrizioni, allergeni, orari, per_ospiti').eq('attivo', true)"), 'articoli con nomi, descrizioni, allergeni');
 });
 
 Deno.test('gli orari del menu: il menu per l ospite dice cosa e ordinabile adesso, e l ordine fuori orario si ferma', () => {
