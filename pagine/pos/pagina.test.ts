@@ -122,9 +122,9 @@ Deno.test('prezzo e disponibilita dal POS, col tocco lungo su un articolo', () =
 Deno.test('conto in camera: si passa la tessera, o si scrive la camera', () => {
   assert(m.includes('const pannelloCamera = () =>'), 'il pannello');
   assert(m.includes('id="nuovoCamera"'), 'il pulsante al tavolo');
-  assert(m.includes("chiama('tessera', { qs: `&codice=${encodeURIComponent(codice)}`, cloud: true })"), 'la tessera la legge il cloud');
+  assert(m.includes("chiama('tessera', { qs: `&codice=${encodeURIComponent(cifre)}`, cloud: true })"), 'la tessera la legge il cloud');
   assert(m.includes("if (ev.key === 'Enter')"), 'il lettore del palmare scrive e manda invio');
-  assert(m.includes("tessera: scritta === camera ? tessera : null"), 'se la camera viene cambiata a mano, la tessera non la certifica piu');
+  assert(m.includes("tessera: s.daTessera ? s.tessera : null"), 'se la camera viene cambiata a mano, la tessera non la certifica piu');
   assert(m.includes("tipo: 'camera'"), 'e il conto nasce di tipo camera');
 });
 
@@ -139,7 +139,7 @@ Deno.test('la chiusura non e piu una finestrella di sistema, e in camera avvisa'
 Deno.test('l ospite firma l addebito sul palmare, nella sua lingua', () => {
   assert(m.includes('const firmaOspite = (totale) =>'), 'la schermata della firma');
   assert(m.includes('const FIRMA_TESTI = {') && ['it:', 'en:', 'de:', 'fr:'].every((l) => m.includes(l)), 'quattro lingue');
-  assert(m.includes("lingua: scritta === camera ? lingua : null"), 'la lingua la dice Fidra con la tessera');
+  assert(m.includes("lingua: s.daTessera ? s.lingua : null"), 'la lingua la dice Fidra con la tessera');
   assert(m.includes("if (modo === 'camera') { via(); return firmaOspite(totale); }"), 'in camera si passa dalla firma');
   assert(m.includes("toDataURL('image/png')") && m.includes('pointerdown') && m.includes('pointermove'), 'si firma col dito');
   assert(m.includes('if (tratti < 5)'), 'un tocco solo non e una firma');
