@@ -90,7 +90,7 @@ const MESI: Record<string, string[]> = {
   en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
   fr: ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
 };
-function dataLingua(iso: string, l: string) {
+export function dataLingua(iso: string, l: string) {
   if (!iso) return '';
   const d = new Date(String(iso).slice(0, 10) + 'T12:00:00Z');
   const m = (MESI[l] || MESI.it)[d.getUTCMonth()];
@@ -117,7 +117,7 @@ export const CONDIZIONI: Record<string, string> = {
 /* `come` RESTA: il pulsante qui sotto si aggiunge, non sostituisce. Chi
    preferisce il telefono deve continuare a trovare il telefono — e chi legge
    da un programma di posta che blocca tutto vede comunque come fare. */
-const PRENOTA: Record<string, { titolo: string; come: string; bottone: string }> = {
+export const PRENOTA: Record<string, { titolo: string; come: string; bottone: string }> = {
   it: { titolo: 'COME PRENOTARE', come: 'Per prenotare ci chiami o ci scriva: fissiamo insieme il giorno e l’ora.',
     bottone: 'Prenota online' },
   de: { titolo: 'SO RESERVIEREN SIE', come: 'Rufen Sie uns an oder schreiben Sie uns: wir vereinbaren gemeinsam Tag und Uhrzeit.',
@@ -153,7 +153,7 @@ const COMPRENDE: Record<string, Record<string, string[]>> = {
 
 /* l'elenco esce se il buono contiene un Day Spa, anche quando non è la
    prima voce: nei buoni con più righe può stare in mezzo */
-function comprende(b: { voce_id?: string | null; descrizione?: string }, lingua: string): string[] {
+export function comprende(b: { voce_id?: string | null; descrizione?: string }, lingua: string): string[] {
   const daySpa = String(b.voce_id || '').startsWith('dayspa') ||
     /day spa/i.test(String(b.descrizione || ''));
   if (!daySpa) return [];
