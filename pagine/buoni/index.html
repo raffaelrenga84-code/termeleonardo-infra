@@ -2509,7 +2509,7 @@ function vistaPosGiornata() {
   const carica = async () => {
     const f = finestra(giorno);
     try {
-      const j = await chiama(`?a=giornata&da=${encodeURIComponent(f.da)}&a=${encodeURIComponent(f.a)}&locale=${encodeURIComponent(locale)}`, {}, FUNZIONE_POS);
+      const j = await chiama(`?a=giornata&da=${encodeURIComponent(f.da)}&fino=${encodeURIComponent(f.a)}&locale=${encodeURIComponent(locale)}`, {}, FUNZIONE_POS);
       disegna(j.giornata);
     } catch (e) { $('vista').innerHTML = testa(); collega(); $('pgEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
   };

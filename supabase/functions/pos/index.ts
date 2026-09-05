@@ -1268,7 +1268,8 @@ Deno.serve(async (req) => {
      per modo, per cameriere, gli articoli piu' venduti e gli storni.
      I numeri li fa giornata.ts; qui solo le letture. */
   if (azione === 'giornata') {
-    const da = url.searchParams.get('da') ?? '', a = url.searchParams.get('a') ?? '';
+    /* «fino», non «a»: «a» e' gia' il nome dell'azione nell'indirizzo (5 set 2026) */
+    const da = url.searchParams.get('da') ?? '', a = url.searchParams.get('fino') ?? '';
     if (!da || !a || Number.isNaN(Date.parse(da)) || Number.isNaN(Date.parse(a))) return risposta({ errore: 'servono «da» e «a» come date' }, 400);
     const locale = url.searchParams.get('locale') || '';
     const [{ data: contiTutti, error: e1 }, { data: tavoli }, { data: zone }, { data: camerieri }] = await Promise.all([
