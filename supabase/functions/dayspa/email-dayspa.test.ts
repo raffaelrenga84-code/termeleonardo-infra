@@ -69,3 +69,12 @@ Deno.test('data e importo nelle quattro lingue', () => {
   assertEquals(euro(13500, 'it'), '135,00 €');
   assertEquals(euro(13500, 'en'), '€135.00');
 });
+
+Deno.test('l avviso alla reception: numero, giorno, fascia, persone, importo, cliente, e il collegamento al back office', async () => {
+  /* come mandava Fidra («Notifica acquisto Day-Spa»), la proprieta', 5 settembre 2026 */
+  const { emailAvvisoReception } = await import('./email-dayspa.ts');
+  const e = emailAvvisoReception({ numero: 'DS-2026-0007', giorno: '2026-09-12', fascia: 'serale', persone: 2, importo_cent: 5800, nome: 'Maria Rossi', email: 'maria@esempio.it', telefono: '+39 333 1234567', lingua: 'de', codice: 'ABCDEFGHJK' } as never, 'https://www.hoteltermeleonardo.com/backend?scheda=dayspaPrenotazioni');
+  assert(e.oggetto.startsWith('Day Spa venduto: DS-2026-0007 · 2 persone · sabato 12 settembre 2026'), e.oggetto);
+  for (const s of ['Ingresso serale', '58,00', 'Maria Rossi', 'maria@esempio.it', '+39 333 1234567', 'scheda=dayspaPrenotazioni', 'documento commerciale']) assert(e.html.includes(s), s);
+  assert(e.testo.includes('Lingua: de') && !e.html.includes('QR '), 'senza il QR: quello e dell ospite');
+});

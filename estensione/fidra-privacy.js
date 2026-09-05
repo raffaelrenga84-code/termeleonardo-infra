@@ -18,12 +18,13 @@
   const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/privacy';
   const MANDA = FUNZIONE + '?a=attesa';
   const ANNULLA = FUNZIONE + '?a=annulla';
+  const STATO = FUNZIONE + '?a=stato';
   const MESI = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
   const LINGUA_DEL_PAESE = { IT: 'it', SM: 'it', VA: 'it', DE: 'de', AT: 'de', CH: 'de', LI: 'de', FR: 'fr', BE: 'fr', LU: 'fr', MC: 'fr' };
   /* il prefisso del telefono quando il paese manca o non dice niente:
      un ospite di lingua tedesca con residenza italiana (Alto Adige) e'
      normale qui, e finiva in inglese (4 settembre 2026) */
-  const LINGUA_DEL_PREFISSO = [[/^\+?(49|43|41|423)/, 'de'], [/^\+?(33|32|352|377)/, 'fr'], [/^\+?39/, 'it']];
+  const LINGUA_DEL_PREFISSO = [[/^\+(49|43|41|423)/, 'de'], [/^\+(33|32|352|377)/, 'fr'], [/^\+39/, 'it']];
 
   const iso = (anno, mese, giorno) => (anno && MESI[mese] && giorno) ? `${anno}-${String(MESI[mese]).padStart(2, '0')}-${String(giorno).padStart(2, '0')}` : null;
   /* Fidra scrive «Cognome Nome»: la prima parola e' il cognome */
@@ -33,8 +34,11 @@
       dice, altrimenti l'intestatario; l'email solo sulla prima. */
   function linguaDi(d) {
     const dalPaese = LINGUA_DEL_PAESE[String(d.paese || '').toUpperCase()];
-    const tel = String(d.telefono || '').replace(/[^\d+]/g, '');
-    const dalTelefono = (LINGUA_DEL_PREFISSO.find(([re]) => re.test(tel)) || [])[1];
+    /* solo un numero INTERNAZIONALE (+33, 0033) dice qualcosa: «3316252791»
+       e' un cellulare italiano, non un francese — e la barra segnava
+       «Français» a un italiano (la proprieta', 5 settembre 2026) */
+    const tel = String(d.telefono || '').replace(/[^\d+]/g, '').replace(/^00/, '+');
+    const dalTelefono = tel.startsWith('+') ? (LINGUA_DEL_PREFISSO.find(([re]) => re.test(tel)) || [])[1] : undefined;
     /* il telefono batte il paese quando dicono cose diverse: chi chiama da
        un numero tedesco parla tedesco anche se abita a Bolzano */
     if (dalTelefono && dalTelefono !== 'it') return dalTelefono;
@@ -125,6 +129,39 @@
 
   const NOMI_LINGUA = { it: 'Italiano', en: 'English', de: 'Deutsch', fr: 'Français' };
 
+  /* Chi ha gia' firmato, letto dalla nostra funzione (in Fidra non si scrive):
+     «le email della privacy non riusciamo a importarle in Fidra?» (la
+     proprieta', 5 settembre 2026). La riga si copia con un tocco e si
+     incolla in «Aggiungi nota» sulla prenotazione: e' l'importazione.
+     Sola lettura, come il resto della barra. */
+  const QUANDO = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); };
+  const rigaNota = (c) => `Privacy firmata il ${QUANDO(c.firmato_il)} (${c.fonte === 'totem' ? 'totem' : 'iPad'}): ${c.cognome} ${c.nome || ''} · camera ${c.camera} · conservazione ${c.conservazione ? 'sì' : 'no'} · offerte ${c.marketing ? 'sì' : 'no'} · testi ${c.testi_versione || ''}`.replace(/\s+/g, ' ').trim();
+  async function mostraStato(barra, esito) {
+    const d = estrai();
+    if (!d || !d.ok || !d.id) return;
+    let hotelKey; try { ({ hotelKey } = await chrome.storage.local.get(['hotelKey'])); } catch (e) { return; }
+    if (!hotelKey) return;
+    const r = await fetch(STATO + '&fidra=' + encodeURIComponent(String(d.id)), { headers: { 'x-hotel-key': hotelKey } });
+    if (!r.ok) return;
+    const j = await r.json();
+    const firmati = (j.consensi || []).filter((c) => c.stato === 'firmato');
+    if (!firmati.length) return;
+    const stato = document.createElement('span');
+    stato.style.cssText = 'flex-basis:100%;display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
+    stato.textContent = '✓ Firmata: ' + firmati.map((c) => `${c.cognome} ${QUANDO(c.firmato_il).slice(11)} (${c.fonte === 'totem' ? 'totem' : 'iPad'})`).join(' · ');
+    const copia = document.createElement('button');
+    copia.type = 'button';
+    copia.textContent = 'Copia per la nota';
+    copia.title = 'Copia una riga per ogni firma: si incolla in «Aggiungi nota» sulla prenotazione.';
+    copia.style.cssText = 'font:inherit;padding:4px 8px;border-radius:6px;border:1px solid #fff;background:transparent;color:#fff;cursor:pointer;white-space:nowrap;';
+    copia.onclick = async () => {
+      try { await navigator.clipboard.writeText(firmati.map(rigaNota).join('\n')); copia.textContent = 'Copiata: incolli in «Aggiungi nota»'; }
+      catch (e) { esito.textContent = 'Non riesco a copiare: ' + e.message; }
+    };
+    stato.appendChild(copia);
+    barra.appendChild(stato);
+  }
+
   function metti() {
     if (document.getElementById(ID)) return;
     if (typeof estrai !== 'function') return;
@@ -170,6 +207,7 @@
       pulsante('Privacy al totem', 'totem', 'L’ospite passa la tessera al totem in hall e trova il modulo compilato. Non scrive niente in Fidra.'),
       annulla, esito);
     document.body.appendChild(barra);
+    mostraStato(barra, esito).catch(() => { /* senza stato la barra resta com'e' */ });
     const stile = document.createElement('style');
     stile.textContent = '@media print{#' + ID + '{display:none !important;}}';
     document.head.appendChild(stile);

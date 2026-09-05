@@ -131,3 +131,9 @@ Deno.test('il conto camera al totem: solo per il totem, chiave di Fidra nei secr
   const pagina = Deno.readTextFileSync(new URL('../../../pagine/ingresso/index.html', import.meta.url));
   assert(!pagina.includes('FIDRA_TOTEM_KEY') && !pagina.includes('bill-scanner'), 'la pagina non conosce ne la chiave ne l indirizzo di Fidra');
 });
+
+Deno.test('a ogni ingresso pagato la reception riceve l avviso, come con Fidra (la proprieta, 5 settembre 2026)', () => {
+  assert(S.includes("const EMAIL_RECEPTION = Deno.env.get('EMAIL_RECEPTION') || 'reception@termeleonardo.com';"), 'l indirizzo, cambiabile dai secret');
+  const c = S.slice(S.indexOf('async function confermaPagata('), S.indexOf('Deno.serve('));
+  assert(c.includes('const r = emailAvvisoReception(p, `${PAGINA_BACKEND}?scheda=dayspaPrenotazioni`);') && c.includes('await inviaEmail(EMAIL_RECEPTION, r.oggetto, r.html, r.testo);'), 'dopo l email all ospite');
+});

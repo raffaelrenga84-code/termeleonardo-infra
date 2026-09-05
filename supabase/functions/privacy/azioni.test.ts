@@ -67,3 +67,11 @@ Deno.test('una firma per persona, non per camera: il compagno di stanza resta in
   const t = S.slice(S.indexOf("azione === 'tessera'"), S.indexOf("azione === 'firma'"));
   assert(t.includes('attese') && t.includes('limit(8)'), 'la tessera porta tutte le persone in attesa della camera');
 });
+
+Deno.test('lo stato per la prenotazione di Fidra: l estensione lo chiede con la chiave hotel, senza le firme', () => {
+  /* la proprieta', 5 settembre 2026: la firma si vede in Fidra, e si copia per la nota */
+  const s = S.slice(S.indexOf("azione === 'stato'"), S.indexOf("azione === 'attese'"));
+  assert(s.includes("if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);"), 'chiave hotel');
+  assert(s.includes(".eq('fidra_prenotazione', fidra).neq('stato', 'annullato')"), 'per prenotazione, senza gli annullati');
+  assert(!/select\('[^']*\bfirma\b/.test(s), 'le firme restano nel server');
+});

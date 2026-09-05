@@ -138,6 +138,21 @@ Deno.serve(async (req) => {
     return risposta({ esito: 'ok', id: data.id });
   }
 
+  /* Chi ha gia' firmato per questa prenotazione di Fidra: lo chiede
+     l'estensione dalla pagina della prenotazione, con la chiave hotel, e
+     lo mostra nella barra («le email della privacy non riusciamo a
+     importarle in Fidra?», la proprieta', 5 settembre 2026). Senza le firme:
+     bastano stato, ora, fonte e le scelte. */
+  if (azione === 'stato') {
+    if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);
+    const fidra = (url.searchParams.get('fidra') || '').trim();
+    if (!fidra) return risposta({ errore: 'serve la prenotazione di Fidra' }, 400);
+    const { data, error } = await db.from('consenso').select('id, stato, firmato_il, camera, cognome, nome, lingua, conservazione, messaggi, marketing, testi_versione, fonte')
+      .eq('fidra_prenotazione', fidra).neq('stato', 'annullato').order('firmato_il', { ascending: false, nullsFirst: false });
+    if (error) return risposta({ errore: error.message }, 500);
+    return risposta({ consensi: data ?? [] });
+  }
+
   /* ---------- dal totem e dall'iPad ---------- */
   /* Un consenso in attesa vive TRE MINUTI nell'elenco dell'iPad: dopo,
      nome e camera non si vedono piu' («togli in automatico dopo 3

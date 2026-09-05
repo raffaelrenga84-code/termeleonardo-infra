@@ -163,3 +163,37 @@ export function emailConferma(p: Prenotazione, linkQr: string): { oggetto: strin
   ].join('\n');
   return { oggetto: t.oggetto(p.numero), html, testo };
 }
+
+/** L'avviso alla reception a ogni ingresso pagato, come mandava Fidra
+    («Notifica acquisto Day-Spa»): numero, giorno, fascia, persone, importo,
+    nome ed email, e il collegamento al back office. In italiano, sempre
+    (la proprieta', 5 settembre 2026). */
+export function emailAvvisoReception(p: Prenotazione & { email: string; telefono?: string | null }, linkBackOffice: string): { oggetto: string; html: string; testo: string } {
+  const t = TESTI_EMAIL.it;
+  const fascia = p.fascia as Fascia;
+  const righe: [string, string][] = [
+    ['Numero', p.numero],
+    ['Giorno', dataEstesa(p.giorno, 'it')],
+    ['Fascia', `${t.fascia[fascia] ?? p.fascia} · ${ORARI[fascia] ?? ''}`],
+    ['Persone', t.persone(p.persone)],
+    ['Importo', euro(p.importo_cent, 'it')],
+    ['Cliente', `${p.nome} · ${p.email}${p.telefono ? ' · ' + p.telefono : ''}`],
+    ['Lingua', p.lingua],
+  ];
+  const tabella = righe.map(([k, v]) =>
+    `<tr><td style="padding:6px 12px 6px 0;color:#7B756A;font-size:13px;white-space:nowrap;">${esc(k)}</td><td style="padding:6px 0;color:#1C1C1C;">${esc(v)}</td></tr>`).join('');
+  const oggetto = `Day Spa venduto: ${p.numero} · ${t.persone(p.persone)} · ${dataEstesa(p.giorno, 'it')}`;
+  const html = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1C1C1C;line-height:1.5;">
+  <div style="background:#1A3626;color:#F9F6F0;padding:22px 26px;">
+    <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#E7C98B;">Hotel Terme Leonardo</div>
+    <div style="font-size:22px;margin-top:6px;">Ingresso Day Spa venduto sul sito</div>
+  </div>
+  <div style="padding:22px 26px;background:#FFFFFF;">
+    <table style="border-collapse:collapse;margin:0 0 14px;">${tabella}</table>
+    <p><a href="${esc(linkBackOffice)}" style="display:inline-block;background:#B08D57;color:#FFFFFF;text-decoration:none;padding:10px 18px;border-radius:6px;">Apri nel back office</a></p>
+    <p style="font-size:13px;color:#5A5A5A;">L'ospite ha ricevuto l'email col QR. Il documento commerciale va battuto dalla cassa.</p>
+  </div>
+</div>`;
+  const testo = [oggetto, '', ...righe.map(([k, v]) => `${k}: ${v}`), '', `Back office: ${linkBackOffice}`].join('\n');
+  return { oggetto, html, testo };
+}

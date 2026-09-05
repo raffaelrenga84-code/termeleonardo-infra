@@ -28,7 +28,7 @@ import { fasceDelGiorno, listinoPubblico, prezzoCent, tipoDelGiorno, FASCE, TIPI
 import { codicePrenotazione, numeroPrenotazione, scadenza, statoPosti } from './posti.ts';
 import { dataValida, validaPrenotazione } from './validazione.ts';
 import { chiaveStripe, dividi, firmaValida, parametriLink, segretoWebhook, STRIPE } from './stripe.ts';
-import { dataEstesa, emailConferma, TESTI_EMAIL } from './email-dayspa.ts';
+import { dataEstesa, emailAvvisoReception, emailConferma, TESTI_EMAIL } from './email-dayspa.ts';
 import { creaFrenoIp } from './limite-ip.ts';
 import { generaPngQR } from './qr.js';
 import { destinatariOpinione, emailOpinione, leggiOpinione } from './opinione.ts';
@@ -43,6 +43,9 @@ const PAGINA = Deno.env.get('PAGINA_DAYSPA') || 'https://www.hoteltermeleonardo.
 const EMAIL_HOTEL = Deno.env.get('EMAIL_HOTEL') || 'info@termeleonardo.com';
 /* le opinioni degli ospiti dal totem vanno alla direzione (4 settembre 2026) */
 const EMAIL_DIREZIONE = Deno.env.get('EMAIL_DIREZIONE') || 'direzione@termeleonardo.com';
+/* la reception sa subito di ogni ingresso venduto, come con Fidra (la proprieta', 5 settembre 2026) */
+const EMAIL_RECEPTION = Deno.env.get('EMAIL_RECEPTION') || 'reception@termeleonardo.com';
+const PAGINA_BACKEND = Deno.env.get('PAGINA_BACKEND') || 'https://www.hoteltermeleonardo.com/backend';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -149,6 +152,8 @@ async function confermaPagata(numero: string, pagamento: string | null) {
     .eq('numero', numero);
   const e = emailConferma(p, linkQr(p.codice));
   await inviaEmail(p.email, e.oggetto, e.html, e.testo);
+  const r = emailAvvisoReception(p, `${PAGINA_BACKEND}?scheda=dayspaPrenotazioni`);
+  await inviaEmail(EMAIL_RECEPTION, r.oggetto, r.html, r.testo);
   return p;
 }
 

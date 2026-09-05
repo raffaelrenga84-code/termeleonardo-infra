@@ -5,7 +5,7 @@
    (letti con extractor.js, sola lettura) vanno alla funzione privacy, in
    attesa della firma al totem o sull'iPad. Su Fidra non si clicca niente.
    ============================================================ */
-import { assert } from 'jsr:@std/assert';
+import { assert, assertEquals } from 'jsr:@std/assert';
 
 const S = Deno.readTextFileSync(new URL('./fidra-privacy.js', import.meta.url));
 const M = JSON.parse(Deno.readTextFileSync(new URL('./manifest.json', import.meta.url))) as {
@@ -24,7 +24,7 @@ Deno.test('gira sulla prenotazione di Fidra, dopo l estrattore, e manda a privac
 Deno.test('sola lettura su Fidra: nessun clic, nessun submit, e si parla solo con la nostra funzione', () => {
   assert(!/\.click\(\)|\.submit\(\)|fidra\.cloud\/api/.test(S));
   const post = S.match(/fetch\((\w+),/g) ?? [];
-  assert(post.length >= 1 && post.every((p) => /fetch\((MANDA|ANNULLA),/.test(p)), post.join(' '));
+  assert(post.length >= 1 && post.every((p) => /fetch\((MANDA|ANNULLA|STATO),/.test(p)), post.join(' '));
   assert(S.includes('const FUNZIONE = \'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/privacy\''));
 });
 
@@ -50,4 +50,23 @@ Deno.test('manda camera, cognome, nome, email, lingua e prenotazione; la lingua 
 Deno.test('il manifest e almeno alla 2.28.0, quella che ha portato la privacy', () => {
   const [a, b] = M.version.split('.').map(Number);
   assert(a > 2 || (a === 2 && b >= 28), M.version);
+});
+
+Deno.test('la lingua dal telefono solo se internazionale: «3316252791» e un cellulare italiano, non un francese (la proprieta, 5 settembre 2026)', () => {
+  const blocco = S.match(/const LINGUA_DEL_PAESE[\s\S]*?function linguaDi\(d\) \{[\s\S]*?\n  \}/);
+  assert(blocco, 'il blocco di linguaDi si ritaglia dal sorgente');
+  const linguaDi = new Function('MESI', blocco[0] + '; return linguaDi;')({}) as (d: Record<string, unknown>) => string;
+  assertEquals(linguaDi({ paese: '', telefono: '3316252791' }), 'it', 'un cellulare italiano senza prefisso');
+  assertEquals(linguaDi({ paese: 'IT', telefono: '3316252791' }), 'it');
+  assertEquals(linguaDi({ paese: '', telefono: '+33 6 12 34 56 78' }), 'fr', 'col + e francese');
+  assertEquals(linguaDi({ paese: '', telefono: '0049 171 1234567' }), 'de', 'anche con 00');
+  assertEquals(linguaDi({ paese: 'IT', telefono: '+49 171 1234567' }), 'de', 'il numero tedesco batte la residenza italiana');
+  assertEquals(linguaDi({ paese: 'DE', telefono: '' }), 'de');
+  assertEquals(linguaDi({ paese: '', telefono: '' }), 'it');
+});
+
+Deno.test('nella barra si vede chi ha gia firmato, e «Copia per la nota» mette negli appunti la riga da incollare in Fidra', () => {
+  assert(S.includes("const STATO = FUNZIONE + '?a=stato';") && S.includes('async function mostraStato(barra, esito)'), 'lo stato dalla nostra funzione');
+  assert(S.includes("copia.textContent = 'Copia per la nota';") && S.includes('navigator.clipboard.writeText(firmati.map(rigaNota)'), 'la riga negli appunti');
+  assert(S.includes('Privacy firmata il ${QUANDO(c.firmato_il)}'), 'la riga dice quando, dove, chi e le scelte');
 });
