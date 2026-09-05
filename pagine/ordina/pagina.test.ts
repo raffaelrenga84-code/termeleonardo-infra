@@ -25,3 +25,13 @@ Deno.test('senza QR il tavolo si sceglie a mano, da una griglia di numeri', () =
   assert(m.includes('location.replace(`${location.pathname}?t=${encodeURIComponent(b.dataset.tav)}&k=${encodeURIComponent(b.dataset.k)}'), 'scelto il tavolo si riparte con l indirizzo firmato');
   for (const l of ['it', 'en', 'de', 'fr']) assert(m.includes(`  ${l}: { qualeTavolo:`), `la domanda in ${l}`);
 });
+
+Deno.test('le note pronte anche per l ospite: bottoncini tradotti, parole italiane per la cucina', () => {
+  /* «anche per i clienti che ordinano dai la possibilita di aggiungere le
+     note su ogni articolo» (la proprieta', 5 settembre 2026) */
+  assert(m.includes('const NOTE = {') && m.includes("'Con ghiaccio': ['With ice', 'Mit Eis', 'Avec glaçons']"), 'le traduzioni');
+  assert(m.includes('const etichettaNota = (n) =>') && m.includes('const noteDi = (a) =>'), 'l etichetta nella lingua dell ospite, le note dalla categoria');
+  assert(m.includes('data-chip-art=') && m.includes("if (el.dataset.chip) {"), 'i bottoncini si accendono e si spegnono');
+  assert(m.includes("join(', ').slice(0, 120)"), 'e nella nota vanno le parole italiane, con la virgola');
+  assert(m.includes('data-apri-nota=') && m.includes('data-nota='), 'la nota libera resta');
+});

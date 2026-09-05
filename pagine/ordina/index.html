@@ -60,6 +60,10 @@ button{font:inherit;cursor:pointer;color:inherit;}
 .qta button{width:42px;height:42px;border-radius:50%;border:1.5px solid var(--verde);background:#fff;color:var(--verde);font-size:24px;line-height:1;display:flex;align-items:center;justify-content:center;}
 .qta button:disabled{opacity:.25;}
 .qta output{min-width:32px;text-align:center;font-weight:600;font-size:19px;}
+/* le note pronte, come sul palmare: si toccano, e in cucina arrivano in italiano */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.chip{border:1px solid var(--pietra);background:#fff;border-radius:999px;padding:7px 12px;font-size:14px;color:var(--verde);}
+.chip.attiva{background:var(--verde);color:#fff;border-color:var(--verde);}
 .notaRiga{margin-top:8px;width:100%;}
 .notaRiga input{width:100%;padding:10px 12px;font:inherit;font-size:15px;border:1px solid var(--pietra);border-radius:10px;background:#FCFBF8;}
 .aggiungiNota{border:0;background:none;color:var(--verde-medio);font-size:14px;padding:6px 0 0;text-decoration:underline;}
@@ -132,6 +136,31 @@ const ICONE = [
 ];
 const icona = (nome) => (ICONE.find(([re]) => re.test(nome)) || [null, '🍽️'])[1];
 
+/* le note pronte della categoria (le stesse del palmare), tradotte per
+   l'ospite; alla cucina arriva sempre la parola italiana */
+const NOTE = {
+  'Fresca': ['Cold', 'Kalt', 'Fraîche'], 'Fresco': ['Chilled', 'Gekühlt', 'Frais'], 'Temperatura ambiente': ['Room temperature', 'Zimmertemperatur', 'Température ambiante'],
+  'Con ghiaccio': ['With ice', 'Mit Eis', 'Avec glaçons'], 'Senza ghiaccio': ['No ice', 'Ohne Eis', 'Sans glaçons'], 'Con limone': ['With lemon', 'Mit Zitrone', 'Avec citron'], 'Senza limone': ['No lemon', 'Ohne Zitrone', 'Sans citron'],
+  'In caraffa': ['In a carafe', 'In der Karaffe', 'En carafe'], 'Bicchieri in piu': ['Extra glasses', 'Zusätzliche Gläser', 'Verres en plus'], 'Da aprire dopo': ['Open later', 'Später öffnen', 'À ouvrir plus tard'],
+  'Non fredda': ['Not too cold', 'Nicht zu kalt', 'Pas trop froide'], 'Con cannuccia': ['With a straw', 'Mit Strohhalm', 'Avec une paille'], 'In bicchiere': ['In a glass', 'Im Glas', 'Dans un verre'],
+  'Non ghiacciata': ['Not ice-cold', 'Nicht eiskalt', 'Pas glacée'], 'Poca schiuma': ['Little foam', 'Wenig Schaum', 'Peu de mousse'], 'Con arancia': ['With orange', 'Mit Orange', 'Avec orange'], 'Con oliva': ['With an olive', 'Mit Olive', 'Avec une olive'],
+  'Leggero': ['Light', 'Leicht', 'Léger'], 'Poco amaro': ['Less bitter', 'Weniger bitter', 'Peu amer'], 'In coppa': ['In a coupe', 'In der Schale', 'En coupe'], 'Liscio': ['Neat', 'Pur', 'Sec'],
+  'In bicchiere grande': ['In a large glass', 'Im großen Glas', 'Dans un grand verre'], 'Freddo di frigo': ['Chilled', 'Gekühlt', 'Bien frais'],
+  'Senza glutine': ['Gluten-free', 'Glutenfrei', 'Sans gluten'], 'Senza lattosio': ['Lactose-free', 'Laktosefrei', 'Sans lactose'], 'Senza formaggio': ['No cheese', 'Ohne Käse', 'Sans fromage'], 'Senza cipolla': ['No onion', 'Ohne Zwiebel', 'Sans oignon'],
+  'Al pomodoro': ['With tomato sauce', 'Mit Tomatensauce', 'À la tomate'], 'In bianco': ['Plain', 'Ohne Sauce', 'Nature'], 'Senza sale': ['No salt', 'Ohne Salz', 'Sans sel'], 'Senza olio': ['No oil', 'Ohne Öl', 'Sans huile'],
+  'Ben cotto': ['Well done', 'Durchgebraten', 'Bien cuit'], 'Media cottura': ['Medium', 'Medium', 'À point'], 'Al sangue': ['Rare', 'Blutig', 'Saignant'], 'Allergia': ['Allergy: tell the waiter', 'Allergie: dem Kellner sagen', 'Allergie : dites-le au serveur'],
+  'Porzione bambino': ['Child portion', 'Kinderportion', 'Portion enfant'], 'Da dividere': ['To share', 'Zum Teilen', 'À partager'], 'Condimento a parte': ['Dressing on the side', 'Dressing extra', 'Sauce à part'],
+  'Pane senza glutine': ['Gluten-free bun', 'Glutenfreies Brot', 'Pain sans gluten'], 'Senza pane': ['No bun', 'Ohne Brot', 'Sans pain'], 'Senza salsa': ['No sauce', 'Ohne Sauce', 'Sans sauce'], 'Patatine a parte': ['Fries on the side', 'Pommes extra', 'Frites à part'], 'Senza tonno': ['No tuna', 'Ohne Thunfisch', 'Sans thon'],
+  'Con panna': ['With cream', 'Mit Sahne', 'Avec crème'], 'Senza panna': ['No cream', 'Ohne Sahne', 'Sans crème'], 'Con candelina': ['With a candle', 'Mit Kerze', 'Avec une bougie'],
+  'Deca': ['Decaf', 'Entkoffeiniert', 'Déca'], 'Tazza grande': ['Large cup', 'Große Tasse', 'Grande tasse'], 'Macchiato caldo': ['Dash of hot milk', 'Mit heißer Milch', 'Noisette chaud'], 'Macchiato freddo': ['Dash of cold milk', 'Mit kalter Milch', 'Noisette froid'],
+  'Latte di soia': ['Soy milk', 'Sojamilch', 'Lait de soja'], 'Orzo': ['Barley coffee', 'Gerstenkaffee', 'Café d’orge'], 'Ginseng': ['Ginseng', 'Ginseng', 'Ginseng'], 'Senza schiuma': ['No foam', 'Ohne Schaum', 'Sans mousse'],
+  'Corretto': ['With a shot', 'Mit Schuss', 'Arrosé'], 'In vetro': ['In a glass', 'Im Glas', 'Dans un verre'], 'Ristretto': ['Ristretto', 'Ristretto', 'Serré'], 'Lungo': ['Long', 'Verlängert', 'Allongé'], 'Freddo': ['Cold', 'Kalt', 'Froid'],
+  'Da portare via': ['To take away', 'Zum Mitnehmen', 'À emporter'], 'Da scaldare': ['Heated', 'Erwärmt', 'Réchauffé'], 'Incartato': ['Wrapped', 'Eingepackt', 'Emballé'],
+};
+const etichettaNota = (n) => { const t = NOTE[n]; const i = { en: 0, de: 1, fr: 2 }[LINGUA]; return t && i !== undefined ? t[i] : n; };
+const noteDi = (a) => { const c = MENU.categorie.find((x) => x.id === a.categoria); return c && Array.isArray(c.note_rapide) ? c.note_rapide : []; };
+const partiNota = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
+
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const euro = (c) => (Number(c || 0) / 100).toFixed(2).replace('.', ',') + ' €';
@@ -196,8 +225,11 @@ const schermataCategorie = () => {
 };
 const rigaArticolo = (a) => {
   const q = quantita(a.id), c = CARRELLO.get(a.id);
+  const parti = q ? partiNota(c && c.nota) : [];
+  const pronte = q ? noteDi(a) : [];
   return `<div class="riga ${q ? 'scelta' : ''}" data-art="${esc(a.id)}"><div class="nome"><b>${esc(a.nome)}</b><span class="prezzo">${euro(a.prezzo_cent)}${a.in_fascia ? ' ★' : ''}</span>
-    ${q ? (c && c.nota !== undefined && (c.aperta || c.nota) ? `<div class="notaRiga"><input data-nota="${esc(a.id)}" placeholder="${esc(T().nota)}" value="${esc(c.nota || '')}" maxlength="120" /></div>` : `<button class="aggiungiNota" data-apri-nota="${esc(a.id)}">${esc(T().aggiungiNota)}</button>`) : ''}</div>
+    ${pronte.length ? `<div class="chips">${pronte.map((n) => `<button type="button" class="chip ${parti.includes(n) ? 'attiva' : ''}" data-chip-art="${esc(a.id)}" data-chip="${esc(n)}">${esc(etichettaNota(n))}</button>`).join('')}</div>` : ''}
+    ${q ? (c && (c.aperta || c.nota) ? `<div class="notaRiga"><input data-nota="${esc(a.id)}" placeholder="${esc(T().nota)}" value="${esc(c.nota || '')}" maxlength="120" /></div>` : `<button class="aggiungiNota" data-apri-nota="${esc(a.id)}">${esc(T().aggiungiNota)}</button>`) : ''}</div>
     <div class="qta"><button data-meno="${esc(a.id)}" ${q ? '' : 'disabled'} aria-label="−">−</button><output>${q || ''}</output><button data-piu="${esc(a.id)}" aria-label="+">+</button></div></div>`;
 };
 const schermataArticoli = (cat) => {
@@ -316,8 +348,16 @@ const disegna = () => {
 
 /* un solo ascoltatore per tutti i tocchi: quadratoni, piu' e meno, note */
 document.addEventListener('click', (ev) => {
-  const el = ev.target.closest ? ev.target.closest('[data-cat],[data-piu],[data-meno],[data-apri-nota]') : null;
+  const el = ev.target.closest ? ev.target.closest('[data-cat],[data-piu],[data-meno],[data-apri-nota],[data-chip]') : null;
   if (!el) return;
+  if (el.dataset.chip) {
+    /* una nota pronta si accende e si spegne; nella nota vanno le parole
+       italiane, separate da virgola, come le scrive il cameriere */
+    const c = CARRELLO.get(el.dataset.chipArt); if (!c) return;
+    const parti = partiNota(c.nota);
+    c.nota = (parti.includes(el.dataset.chip) ? parti.filter((p) => p !== el.dataset.chip) : [...parti, el.dataset.chip]).join(', ').slice(0, 120);
+    aggiornaRiga(el.dataset.chipArt); return;
+  }
   if (el.dataset.cat) { VISTA = { nome: 'articoli', categoria: el.dataset.cat }; disegna(); return; }
   if (el.dataset.piu) { metti(el.dataset.piu, quantita(el.dataset.piu) + 1); aggiornaRiga(el.dataset.piu); return; }
   if (el.dataset.meno) { metti(el.dataset.meno, quantita(el.dataset.meno) - 1); aggiornaRiga(el.dataset.meno); return; }
