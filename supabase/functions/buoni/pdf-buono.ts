@@ -29,7 +29,7 @@
 import {
   clip, degrees, endPath, PDFDocument, PDFFont, PDFImage, PDFPage, popGraphicsState,
   pushGraphicsState, rectangle, rgb, StandardFonts,
-} from 'pdf-lib';
+} from 'npm:pdf-lib@1.17.1';
 import { cartaIntestata } from './carta-intestata.ts';
 import { comprende, CONDIZIONI, dataLingua, ETI, percorsoPrenota, PRENOTA } from './email-buono.ts';
 import { QrCode } from './qr.js';

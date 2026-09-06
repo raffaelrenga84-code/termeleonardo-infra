@@ -1,5 +1,5 @@
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { PDFDocument, StandardFonts } from 'pdf-lib';
+import { PDFDocument, StandardFonts } from 'npm:pdf-lib@1.17.1';
 import {
   type BuonoPerPdf, codificabile, ETI_BOZZA, ETI_PDF, misuraCopertura, nomeFilePdf,
   pdfBuono, provaLayout, spezza,
