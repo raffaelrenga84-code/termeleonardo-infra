@@ -35,7 +35,13 @@ export async function su(db: Db, cloud: Cloud): Promise<number> {
     const righe = db.prepare(`select * from ${tabella} where allineato = 0 order by rowid limit 500`).all() as Riga[];
     pacchetto[chiave] = righe.map((r) => {
       const { allineato: _a, ...resto } = r;
-      for (const c of JSON_DI[tabella] ?? []) if (typeof resto[c] === 'string') resto[c] = JSON.parse(resto[c] as string);
+      /* un JSON rotto (solo per mano sul database) non deve fermare per
+         sempre la salita di conti, righe e pagamenti: il campo si svuota e
+         si va avanti (revisione finale del monitor cucina, 6 settembre 2026) */
+      for (const c of JSON_DI[tabella] ?? []) {
+        if (typeof resto[c] !== 'string') continue;
+        try { resto[c] = JSON.parse(resto[c] as string); } catch { resto[c] = c === 'biglietto' ? null : []; }
+      }
       return resto;
     });
     for (const r of righe) mandate.push({ tabella, id: String(r.id), aggiornato_il: String(r.aggiornato_il) });
