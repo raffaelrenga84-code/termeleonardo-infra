@@ -86,11 +86,16 @@ const chiaveCron = (req: Request) => { const k = Deno.env.get('CRON_KEY'); retur
 /* ---------- lo schermo di una postazione (monitor cucina) ---------- */
 async function postazioneDelloSchermo(req: Request, url: URL): Promise<Riga | null> {
   const chiave = req.headers.get('x-schermo-chiave') || '';
+  if (!chiave) return null;
+  /* la postazione e' quella che ha questa chiave: sulla TV basta il
+     codice (hoteltermeleonardo.com/tv/CODICE, la proprieta', 6 settembre
+     2026). Con locale e stampante nell'indirizzo si pretende anche che
+     combacino, come prima. */
   const locale = url.searchParams.get('locale') || '', stampante = url.searchParams.get('stampante') || '';
-  if (!chiave || !locale || !stampante) return null;
-  const { data: p } = await db.from('pos_postazione').select('*').eq('locale', locale).eq('stampante', stampante).maybeSingle();
-  if (!p || !p.chiave_hash || p.chiave_hash !== await impronta(chiave)) return null;
-  return p;
+  let q = db.from('pos_postazione').select('*').eq('chiave_hash', await impronta(chiave));
+  if (locale && stampante) q = q.eq('locale', locale).eq('stampante', stampante);
+  const { data: p } = await q.limit(1).maybeSingle();
+  return p ?? null;
 }
 const oraRoma = () => new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
 const ePortata = (p: unknown): p is Portata => typeof p === 'string' && (PORTATE as readonly string[]).includes(p);
@@ -1155,7 +1160,7 @@ Deno.serve(async (req) => {
     const nonViste = biglietti.filter((s) => !s.vista_il).map((s) => s.id as string);
     const adessoIso = ora.toISOString();
     if (nonViste.length) await db.from('pos_stampa').update({ vista_il: adessoIso, aggiornato_il: adessoIso }).in('id', nonViste).is('vista_il', null);
-    return risposta({ postazione: { nome: p.nome }, biglietti: biglietti.map((s) => ({ ...s, vista_il: s.vista_il ?? adessoIso })), adesso: adessoIso });
+    return risposta({ postazione: { nome: p.nome, locale: p.locale, stampante: p.stampante }, biglietti: biglietti.map((s) => ({ ...s, vista_il: s.vista_il ?? adessoIso })), adesso: adessoIso });
   }
 
   if (azione === 'schermo-stato') {

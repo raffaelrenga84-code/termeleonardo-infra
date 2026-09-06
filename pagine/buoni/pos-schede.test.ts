@@ -86,7 +86,7 @@ Deno.test('le postazioni dal back office: schermo, carta di ripiego, e il link d
   assert(tav.includes("chiama('?a=postazioni-salva'"), 'le salva nel cloud');
   assert(tav.includes('data-p="nuova_chiave"'), 'la chiave nuova si chiede con una spunta');
   assert(P.includes("const PC_BISTROT = 'http://192.168.0.18:8080';"), 'il PC del Bistrot');
-  assert(tav.includes('/cucina?l=') && tav.includes('PC_BISTROT'), 'i due link dello schermo: dal cloud e dal PC');
+  assert(tav.includes('const coda = `/tv/${encodeURIComponent(c.chiave)}`;') && tav.includes('PC_BISTROT'), 'i due link dello schermo, corti (/tv/CODICE): dal cloud e dal PC');
   assert(tav.includes('Si vede una volta sola'), 'la chiave non si rilegge');
   assert(tav.includes('postazioni: j.postazione') || P.includes('postazioni: j.postazione'), 'le postazioni scendono con allinea-giu');
 });

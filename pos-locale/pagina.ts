@@ -29,7 +29,9 @@ export function fileDellaPagina(pathname: string): { file: string; tipo: string 
   const p = String(pathname ?? '').replace(/\/+$/, '');
   if (p === '' && String(pathname) === '/') return { file: 'index.html', tipo: 'text/html; charset=utf-8' };
   if (p === '/pos') return { file: 'index.html', tipo: 'text/html; charset=utf-8' };
-  if (p === '/cucina') return { file: 'cucina/index.html', tipo: 'text/html; charset=utf-8' };
+  /* la pagina dello schermo, anche come /tv/CODICE: sulla TV si batte
+     solo il codice (la proprieta', 6 settembre 2026) */
+  if (p === '/cucina' || /^\/tv\/[A-Za-z0-9]{4,32}$/.test(p)) return { file: 'cucina/index.html', tipo: 'text/html; charset=utf-8' };
   const file = FILE[p];
   return file ? { file, tipo: tipoDi(file) } : null;
 }

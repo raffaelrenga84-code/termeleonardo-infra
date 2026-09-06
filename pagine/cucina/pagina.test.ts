@@ -55,7 +55,7 @@ Deno.test('il giro ogni tre secondi, uno alla volta, ma un tocco non aspetta il 
 
 Deno.test('la chiave dall indirizzo si salva e l indirizzo si pulisce, anche se il link e monco', () => {
   assert(m.includes("localStorage.setItem('cucinaPostazione'"), 'la postazione resta sullo schermo');
-  assert(m.includes("if (k) history.replaceState(null, '', location.pathname);"), 'basta la chiave: un link a meta non la lascia in mostra sulla barra');
+  assert(m.includes("if (k) history.replaceState(null, '', dalPercorso ? '/cucina' : location.pathname);"), 'basta la chiave: un link a meta non la lascia in mostra sulla barra');
   assert(m.includes('Manca la chiave: aprire il link dato dal back office'));
 });
 
@@ -158,4 +158,12 @@ Deno.test('niente Fidra: lo schermo parla solo col nostro server', () => {
   assert(!/fidra/i.test(P));
   /* le stampanti fiscali non compaiono mai nel codice (vincolo del piano) */
   assert(!/192\.168\.0\.5[12]/.test(P) && !/898[89]|8990/.test(P));
+});
+
+Deno.test('sulla TV basta il codice: /tv/CODICE o ?k=, locale e stampante facoltativi, e il codice sparisce dalla barra', () => {
+  /* «siccome devo digitarla sul browser di una TV» (la proprieta', 6 settembre 2026) */
+  assert(m.includes("location.pathname.match(/^\\/tv\\/([A-Za-z0-9]{4,32})/)"), 'il codice si legge dal percorso');
+  assert(m.includes("(Q.get('k') || dalPercorso).trim().toUpperCase()"), 'o dalla query, e le minuscole della TV vanno bene');
+  assert(m.includes("history.replaceState(null, '', dalPercorso ? '/cucina' : location.pathname)"), 'e la barra torna pulita');
+  assert(m.includes("const qs = P.l && P.s ?"), 'locale e stampante si mandano solo se ci sono');
 });

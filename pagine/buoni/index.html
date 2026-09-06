@@ -2941,11 +2941,13 @@ function vistaPosTavoli() {
   let chiaviHtml = '';
   const STAMPANTI_POS = [['cucina', 'Cucina'], ['bar', 'Bar']];
   const riquadriChiavi = (lista) => (lista || []).map((c) => {
-    const coda = `/cucina?l=${encodeURIComponent(c.locale)}&s=${encodeURIComponent(c.stampante)}&k=${encodeURIComponent(c.chiave)}`;
+    /* corto, da battere sulla TV col telecomando: basta il codice, il
+       server riconosce la postazione (la proprieta', 6 settembre 2026) */
+    const coda = `/tv/${encodeURIComponent(c.chiave)}`;
     const link = (titolo, indirizzo) => `<div class="mini" style="margin-top:8px;">${titolo}</div><div class="cod" style="word-break:break-all;">${esc(indirizzo)}</div>
       <button type="button" class="azione sec mini" data-copia="${esc(indirizzo)}" style="width:auto;margin-top:4px;">copia</button>`;
     return `<div class="riquadro"><b>${esc(c.nome)}</b>
-      ${link('Dal cloud (serve internet)', 'https://www.hoteltermeleonardo.com' + coda)}
+      ${link('Sulla TV o sul tablet, dalla rete dell’hotel (serve internet)', 'https://www.hoteltermeleonardo.com' + coda)}
       ${link('Dal PC del Bistrot (va anche senza internet)', PC_BISTROT + coda)}
       <div class="mini" style="margin-top:8px;">Si vede una volta sola: chi la perde ne chiede una nuova.</div></div>`;
   }).join('');

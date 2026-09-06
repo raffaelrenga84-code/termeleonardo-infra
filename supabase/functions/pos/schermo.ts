@@ -84,8 +84,11 @@ export async function impronta(chiave: string): Promise<string> {
   return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
 }
 
-/** Una chiave da scrivere a mano senza sbagliare: niente O/0 e I/1. */
+/** Una chiave da scrivere a mano senza sbagliare: niente O/0 e I/1, e
+    otto caratteri come i codici dei palmari, perche' sulla TV si batte
+    con il telecomando («un codice piu' breve», la proprieta', 6
+    settembre 2026). Trentadue lettere alla ottava: non si indovina. */
 export function chiaveCasuale(): string {
   const alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  return [...crypto.getRandomValues(new Uint8Array(16))].map((b) => alfabeto[b % alfabeto.length]).join('');
+  return [...crypto.getRandomValues(new Uint8Array(8))].map((b) => alfabeto[b % alfabeto.length]).join('');
 }

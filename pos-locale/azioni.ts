@@ -65,11 +65,15 @@ const contoDi = (db: Db, id: string): Riga | undefined => db.prepare('select * f
 /* ---------- lo schermo di una postazione (monitor cucina): stessa regola del cloud, in SQL ---------- */
 async function postazioneDelloSchermo(db: Db, req: Richiesta): Promise<Riga | null> {
   const chiave = testa(req, 'x-schermo-chiave');
+  if (!chiave) return null;
+  /* la postazione e' quella che ha questa chiave (sulla TV basta il
+     codice); con locale e stampante si pretende che combacino */
   const locale = req.query.locale || '', stampante = req.query.stampante || '';
-  if (!chiave || !locale || !stampante) return null;
-  const p = db.prepare('select * from pos_postazione where locale = ? and stampante = ?').get(locale, stampante) as Riga | undefined;
-  if (!p || !p.chiave_hash || p.chiave_hash !== await impronta(chiave)) return null;
-  return p;
+  const h = await impronta(chiave);
+  const p = (locale && stampante
+    ? db.prepare('select * from pos_postazione where chiave_hash = ? and locale = ? and stampante = ?').get(h, locale, stampante)
+    : db.prepare('select * from pos_postazione where chiave_hash = ? limit 1').get(h)) as Riga | undefined;
+  return p ?? null;
 }
 
 /* Come si chiama un conto in sala: il nome che il cameriere gli ha
@@ -552,7 +556,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
       db.prepare(`update pos_stampa set vista_il = ?, aggiornato_il = ?, allineato = 0 where id in (${segnaposto(nonViste.length)}) and vista_il is null`)
         .run(adessoIso, adessoIso, ...nonViste);
     }
-    return ok({ postazione: { nome: p.nome }, biglietti: biglietti.map(conJson(['biglietto'])).map((s) => ({ ...s, vista_il: s.vista_il ?? adessoIso })), adesso: adessoIso });
+    return ok({ postazione: { nome: p.nome, locale: p.locale, stampante: p.stampante }, biglietti: biglietti.map(conJson(['biglietto'])).map((s) => ({ ...s, vista_il: s.vista_il ?? adessoIso })), adesso: adessoIso });
   }
 
   if (azione === 'schermo-stato') {

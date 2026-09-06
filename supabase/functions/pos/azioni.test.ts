@@ -339,6 +339,8 @@ Deno.test('il monitor cucina: due azioni con la chiave dello schermo, il ripiego
   for (const a of ['schermo', 'schermo-stato', 'postazioni-salva']) assert(new RegExp(`azione === '${a}'`).test(S), `manca ?a=${a}`);
   const sc = S.slice(S.indexOf("azione === 'schermo'"), S.indexOf("azione === 'schermo-stato'"));
   assert(sc.includes('schermo non riconosciuto') && sc.includes('vista_il') && sc.includes('inizioGiornata('), 'lo schermo legge solo la sua postazione, di oggi, e segna cosa ha mostrato');
+  const pds = S.slice(S.indexOf('async function postazioneDelloSchermo'), S.indexOf('const oraRoma'));
+  assert(pds.includes("eq('chiave_hash', await impronta(chiave))") && pds.includes('if (locale && stampante) q = q'), 'sulla TV basta il codice: la postazione si riconosce dalla chiave (6 settembre 2026)');
   const st = S.slice(S.indexOf("azione === 'schermo-stato'"), S.indexOf("azione === 'postazioni-salva'"));
   assert(st.includes("di un'altra postazione") && st.includes('passo('), 'i passi passano dal modulo puro');
   const cloud = S.slice(S.indexOf("azione === 'stampa-cloud'"), S.indexOf("azione === 'allinea-su'"));

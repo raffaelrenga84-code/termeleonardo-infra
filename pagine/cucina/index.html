@@ -127,23 +127,26 @@ const $ = (id) => document.getElementById(id);
 /* niente di quello che arriva dalla rete entra come HTML */
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-/* La postazione: una volta dall'indirizzo (?l=&s=&k=), poi resta sullo
-   schermo. L'indirizzo si ripulisce subito: la chiave non deve restare
-   scritta sulla barra di una TV appesa in cucina. */
+/* La postazione: una volta dall'indirizzo, poi resta sullo schermo. Basta
+   il codice: /tv/CODICE (da battere sulla TV, la proprieta', 6 settembre
+   2026) oppure ?k=; il server riconosce la postazione dal codice. Locale e
+   stampante (?l=&s=) sono facoltativi. L'indirizzo si ripulisce subito: la
+   chiave non deve restare scritta sulla barra di una TV appesa in cucina. */
 const Q = new URLSearchParams(location.search);
 function postazione() {
-  const l = Q.get('l'), s = Q.get('s'), k = Q.get('k');
+  const dalPercorso = (location.pathname.match(/^\/tv\/([A-Za-z0-9]{4,32})/) || [])[1] || '';
+  const l = Q.get('l') || '', s = Q.get('s') || '', k = (Q.get('k') || dalPercorso).trim().toUpperCase();
   /* la chiave sparisce dalla barra appena la si e' letta, anche se il link
      e' monco: un link sbagliato la lascerebbe li' in mostra tutto il giorno */
-  if (k) history.replaceState(null, '', location.pathname);
-  if (l && s && k) {
+  if (k) history.replaceState(null, '', dalPercorso ? '/cucina' : location.pathname);
+  if (k) {
     const p = { l, s, k };
     localStorage.setItem('cucinaPostazione', JSON.stringify(p));
     return p;
   }
   try {
     const p = JSON.parse(localStorage.getItem('cucinaPostazione') || 'null');
-    return p && p.l && p.s && p.k ? p : null;
+    return p && p.k ? { l: p.l || '', s: p.s || '', k: p.k } : null;
   } catch { return null; }
 }
 const P = postazione();
@@ -172,7 +175,7 @@ function spia() {
 
 async function chiama(azione, opz = {}) {
   const base = await server.base();
-  const qs = `&locale=${encodeURIComponent(P.l)}&stampante=${encodeURIComponent(P.s)}`;
+  const qs = P.l && P.s ? `&locale=${encodeURIComponent(P.l)}&stampante=${encodeURIComponent(P.s)}` : '';
   let r;
   try {
     r = await fetch(`${base}?a=${azione}${qs}`, {

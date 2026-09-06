@@ -60,7 +60,7 @@ Deno.test('pronto in cucina per venti minuti, con l ora dell ultima', () => {
 
 Deno.test('la chiave dello schermo: casuale, leggibile, e si conserva solo l impronta', async () => {
   const k = chiaveCasuale();
-  assert(/^[A-HJ-NP-Z2-9]{16}$/.test(k), k);
+  assert(/^[A-HJ-NP-Z2-9]{8}$/.test(k), k);
   assert(chiaveCasuale() !== k);
   const h = await impronta('ABCDEFGHJKLMNPQR');
   assertEquals(h.length, 64);
