@@ -29,6 +29,9 @@ const RUOLI = new Map<string, Ruolo>([
   ['spa@termeleonardo.com', 'spa'],
   ['amministrazione@termeleonardo.com', 'amministrazione'],
   ['bistrot@termeleonardo.com', 'bistrot'],
+  /* l'utente in Supabase e' stato creato «bistro@», senza la t (la proprieta',
+     6 settembre 2026): vale uguale, stesso ruolo */
+  ['bistro@termeleonardo.com', 'bistrot'],
 ]);
 
 /* Dominio ESATTO, non «contiene». */

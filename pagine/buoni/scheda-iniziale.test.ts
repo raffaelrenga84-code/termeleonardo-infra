@@ -143,11 +143,11 @@ Deno.test('riordinare non perde e non raddoppia nessuna scheda', () => {
      ne' disegnarla due volte, per nessuno */
   for (const email of [
     'reception@termeleonardo.com', 'spa@termeleonardo.com',
-    'amministrazione@termeleonardo.com', 'bistrot@termeleonardo.com', 'sconosciuto@termeleonardo.com', '',
+    'amministrazione@termeleonardo.com', 'bistrot@termeleonardo.com', 'bistro@termeleonardo.com', 'sconosciuto@termeleonardo.com', '',
   ]) {
     const viste = schedeDi(email).map(([v]) => v);
     const fuori = email === 'spa@termeleonardo.com' ? ['emetti']
-      : email === 'bistrot@termeleonardo.com' ? schedeDellaPagina().filter((v) => !SCHEDE_BISTROT.includes(v))
+      : (email === 'bistrot@termeleonardo.com' || email === 'bistro@termeleonardo.com') ? schedeDellaPagina().filter((v) => !SCHEDE_BISTROT.includes(v))
       : [];
     const attese = schedeDellaPagina().filter((v) => !fuori.includes(v));
     assertEquals([...viste].sort(), [...attese].sort(), `${email || '(vuoto)'}: le schede non sono le stesse`);
@@ -332,4 +332,7 @@ Deno.test('il bistrot si apre sul menu del POS e vede solo le sue quattro schede
      richieste, Day Spa, personale, incassi e addebiti in camera. */
   assertEquals(schedaIniziale('bistrot@termeleonardo.com'), 'posMenu');
   assertEquals(schedeDi('bistrot@termeleonardo.com').map(([v]) => v), SCHEDE_BISTROT);
+  /* l'utente in Supabase e' «bistro@», senza la t: stesse schede */
+  assertEquals(schedaIniziale('bistro@termeleonardo.com'), 'posMenu');
+  assertEquals(schedeDi('bistro@termeleonardo.com').map(([v]) => v), SCHEDE_BISTROT);
 });

@@ -15,6 +15,7 @@ Deno.test('i quattro indirizzi hanno il loro ruolo, gli altri no', () => {
   assertEquals(ruoloDi('spa@termeleonardo.com'), 'spa');
   assertEquals(ruoloDi('amministrazione@termeleonardo.com'), 'amministrazione');
   assertEquals(ruoloDi(' Bistrot@TermeLeonardo.com '), 'bistrot');
+  assertEquals(ruoloDi('bistro@termeleonardo.com'), 'bistrot', 'senza la t, come l utente creato in Supabase');
   assertEquals(ruoloDi('bistrot@termeleonardo.com.evil.net'), null);
   assertEquals(ruoloDi('cucina@termeleonardo.com'), null, 'un indirizzo dell hotel non previsto non ha ruolo');
 });
