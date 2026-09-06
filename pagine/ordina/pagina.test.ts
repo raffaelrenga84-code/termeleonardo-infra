@@ -83,3 +83,14 @@ Deno.test('senza QR e fuori dalla rete dell hotel la pagina spiega il QR e la Pr
   assertEquals(soloHotel.length, 4, 'quattro lingue');
   for (const s of soloHotel) assert(/QR/.test(s), s);
 });
+
+Deno.test('la schermata «serve il QR» e una schermata vera: disegno, due passi, e la nota sulla Protezione IP solo a chi ce l ha', () => {
+  assert(m.includes('function schermataQr(messaggio)'), 'una schermata, non un titolo nudo');
+  assert(m.includes('DISEGNO_QR') && m.includes('<svg class="disegno"'), 'il disegno del QR, senza immagini da caricare');
+  assert(m.includes('<ol><li>${esc(q.passo1)}</li><li>${esc(q.passo2)}</li></ol>'), 'i due passi');
+  assert(m.includes("${/Protezione IP/i.test(s) ? `<div class=\"nota\">${esc(q.notaIp)}</div>` : ''}"), 'la nota solo quando il server ha riconosciuto il relay');
+  assert(m.includes("if (!/rete Wi-Fi|QR/i.test(s)) { $('app').innerHTML = `<h1>${esc(traduci(s))}</h1>`; return; }"), 'gli altri errori restano come prima');
+  const lingue = ['it', 'en', 'de', 'fr'];
+  for (const l of lingue) assert(new RegExp('\\n  ' + l + ': \\{ titolo:').test(m), 'i testi in ' + l);
+  for (const b of ['schermataQr(e.message)', 'schermataQr(e2.message)']) assert(m.includes(b), b);
+});

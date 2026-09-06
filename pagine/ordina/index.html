@@ -29,6 +29,16 @@ header .tavolo{font-weight:600;font-size:15px;background:rgba(255,255,255,.14);p
 .lingue button.attiva{background:#fff;color:var(--verde);border-color:#fff;}
 main{padding:14px 14px 110px;max-width:640px;margin:0 auto;}
 h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:30px;line-height:1.15;color:var(--verde);margin:6px 0 4px;text-wrap:balance;}
+/* La schermata di chi apre la pagina senza QR e da fuori dalla rete: un
+   muro di parole in serif non si legge sul telefono e non dice cosa fare
+   (la proprieta', 6 settembre 2026). Un disegno, due passi, e in fondo la
+   spiegazione per chi ha la Protezione IP accesa. */
+.serveQr{padding:6px 2px 24px;}
+.serveQr .disegno{display:block;width:96px;height:96px;margin:10px auto 14px;}
+.serveQr p{font-size:16px;line-height:1.5;color:var(--verde-medio);margin:0 0 10px;}
+.serveQr ol{margin:6px 0 14px;padding-left:22px;font-size:16px;line-height:1.55;}
+.serveQr li{margin:4px 0;}
+.serveQr .nota{font-size:14px;line-height:1.5;color:var(--grigio);background:#F3F1EC;border-radius:10px;padding:12px 14px;margin-top:14px;}
 .sotto{color:var(--grigio);margin:0 0 14px;font-size:15px;}
 .fascia{display:inline-block;background:var(--oro);color:var(--verde);font-weight:600;font-size:13px;padding:5px 10px;border-radius:999px;margin-bottom:12px;}
 button{font:inherit;cursor:pointer;color:inherit;}
@@ -282,6 +292,22 @@ const ORARI_TESTI = {
   fr: { giorni: ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'], chiuso: 'Pas disponible en ce moment', soloHotel: 'Scannez le QR code sur la table pour commander. Pour choisir la table à la main, il faut le Wi-Fi de l’hôtel.', protezioneIp: 'Votre téléphone semble masquer son adresse : sur iPhone, désactivez «Protection IP» (iCloud+) pour ce site.', fuoriOrario: 'Un article n’est pas disponible à cette heure : retirez-le de la commande.' },
 };
 const OT = () => ORARI_TESTI[LINGUA] || ORARI_TESTI.it;
+/* La schermata «serve il QR»: titolo, i due passi, e la nota per chi ha la
+   Protezione IP accesa (la si mostra solo se il server l'ha riconosciuta). */
+const QR_TESTI = {
+  it: { titolo: 'Il menu si apre col QR', passo1: 'Inquadri con la fotocamera il QR incollato sul tavolo.', passo2: 'Si apre il menu del suo tavolo: ordina e paga da qui.', senzaQr: 'Il QR non si legge? Chieda al bancone, oppure si colleghi al Wi-Fi dell’hotel e riapra questa pagina.', notaIp: 'Il suo telefono nasconde l’indirizzo (iCloud+), quindi non possiamo riconoscere il Wi-Fi dell’hotel. Col QR non serve: funziona comunque. Se preferisce scegliere il tavolo a mano, apra «aA» nella barra di Safari e tolga «Protezione IP» per questo sito.' },
+  en: { titolo: 'The menu opens with the QR code', passo1: 'Point your camera at the QR code on your table.', passo2: 'Your table’s menu opens: order and pay from there.', senzaQr: 'QR code not working? Ask at the counter, or join the hotel Wi-Fi and reload this page.', notaIp: 'Your phone hides its address (iCloud+), so we cannot recognise the hotel Wi-Fi. With the QR code you do not need it: it works anyway. To pick a table by hand, tap «aA» in the Safari bar and turn off IP address protection for this site.' },
+  de: { titolo: 'Die Karte offnet sich mit dem QR-Code', passo1: 'Richten Sie die Kamera auf den QR-Code auf dem Tisch.', passo2: 'Die Karte Ihres Tisches offnet sich: bestellen und zahlen Sie dort.', senzaQr: 'QR-Code geht nicht? Fragen Sie am Tresen, oder verbinden Sie sich mit dem Hotel-WLAN und laden Sie diese Seite neu.', notaIp: 'Ihr Telefon verbirgt seine Adresse (iCloud+), daher erkennen wir das Hotel-WLAN nicht. Mit dem QR-Code brauchen Sie es nicht: es funktioniert trotzdem. Fur die Tischwahl von Hand tippen Sie in Safari auf «aA» und schalten den IP-Schutz fur diese Seite aus.' },
+  fr: { titolo: 'Le menu s’ouvre avec le QR code', passo1: 'Visez avec l’appareil photo le QR code colle sur la table.', passo2: 'Le menu de votre table s’ouvre : commandez et payez depuis la.', senzaQr: 'Le QR code ne marche pas ? Demandez au comptoir, ou connectez-vous au Wi-Fi de l’hotel et rechargez cette page.', notaIp: 'Votre telephone masque son adresse (iCloud+), nous ne pouvons donc pas reconnaitre le Wi-Fi de l’hotel. Avec le QR code ce n’est pas necessaire : cela marche quand meme. Pour choisir la table a la main, touchez «aA» dans la barre de Safari et desactivez la protection IP pour ce site.' },
+};
+const QT = () => QR_TESTI[LINGUA] || QR_TESTI.it;
+/* il disegno: un QR stilizzato, non un'immagine da caricare */
+const DISEGNO_QR = `<svg class="disegno" viewBox="0 0 48 48" aria-hidden="true" fill="#1F3A2E">
+  <path d="M4 4h14v14H4V4Zm3 3v8h8V7H7Z"/><path d="M30 4h14v14H30V4Zm3 3v8h8V7h-8Z"/><path d="M4 30h14v14H4V30Zm3 3v8h8v-8H7Z"/>
+  <path d="M9 9h4v4H9zM35 9h4v4h-4zM9 35h4v4H9z"/>
+  <path d="M22 4h3v6h-3zM22 13h3v5h-3zM27 21h6v3h-6zM22 21h3v3h-3zM4 21h6v3H4zM13 21h6v3h-6zM38 21h6v3h-6z"/>
+  <path d="M22 27h3v6h-3zM27 30h3v3h-3zM33 27h3v3h-3zM38 30h6v3h-6zM22 36h3v3h-3zM27 38h3v6h-3zM33 36h3v8h-3zM38 38h6v3h-6zM41 43h3v1h-3z"/>
+</svg>`;
 const orarioTesto = (finestre) => (finestre || []).map((f) => (f.giorni && f.giorni.length ? f.giorni.map((g) => OT().giorni[g]).join(', ') + ' ' : '') + f.dalle + '–' + f.alle).join(' · ');
 const nomeDi = (x) => (x.nomi && (x.nomi[LINGUA] || x.nomi.it)) || x.nome;
 const descDi = (x) => (x.descrizioni && (x.descrizioni[LINGUA] || x.descrizioni.it)) || '';
@@ -499,13 +525,27 @@ function scansiona() {
 }
 
 /* ---------- avvio ---------- */
+/* Senza QR e fuori dalla rete: si dice come si fa, non solo che non si
+   puo'. La nota sulla Protezione IP compare solo quando il server l'ha
+   riconosciuta nel messaggio: a chi non ce l'ha non serve saperlo. */
+function schermataQr(messaggio) {
+  const s = String(messaggio || '');
+  const q = QT();
+  if (!/rete Wi-Fi|QR/i.test(s)) { $('app').innerHTML = `<h1>${esc(traduci(s))}</h1>`; return; }
+  $('app').innerHTML = `<div class="serveQr">${DISEGNO_QR}
+    <h1>${esc(q.titolo)}</h1>
+    <ol><li>${esc(q.passo1)}</li><li>${esc(q.passo2)}</li></ol>
+    <p class="mini">${esc(q.senzaQr)}</p>
+    ${/Protezione IP/i.test(s) ? `<div class="nota">${esc(q.notaIp)}</div>` : ''}</div>`;
+}
+
 (async () => {
   if (!T_ID || !K) {
     /* nessun QR inquadrato: si sceglie il tavolo a mano */
     try {
       const d = await chiama('ospite-tavoli');
       VISTA = { nome: 'tavolo', dati: d, locale: null }; disegna();
-    } catch (e) { $('app').innerHTML = `<h1>${esc(traduci(e.message))}</h1>`; }
+    } catch (e) { schermataQr(e.message); }
     return;
   }
   try {
@@ -513,7 +553,7 @@ function scansiona() {
   } catch (e) {
     /* firma sbagliata o tavolo sparito: si torna alla scelta a mano */
     try { const d = await chiama('ospite-tavoli'); VISTA = { nome: 'tavolo', dati: d, locale: null }; disegna(); }
-    catch (e2) { $('app').innerHTML = `<h1>${esc(traduci(e.message))}</h1>`; }
+    catch (e2) { schermataQr(e2.message); }
     return;
   }
   const ordine = P.get('ordine');
