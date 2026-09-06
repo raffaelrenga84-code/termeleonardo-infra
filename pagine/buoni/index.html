@@ -2570,7 +2570,7 @@ function vistaPosMenu() {
         const a = D.articoli.find((x) => x.id === r.dataset.art); if (!a) return;
         r.querySelectorAll('[data-a]').forEach((el) => {
           const k = el.dataset.a, v = valoreCampo(el);
-          a[k] = k === 'prezzo_cent' ? centPos(v) : (k === 'stampante' || k === 'portata' || k === 'locale_stampa') ? (v || null) : v;
+          a[k] = k === 'prezzo_cent' ? centPos(v) : (k === 'stampante' || k === 'portata' || k === 'locale_stampa' || k === 'bacheca_testo') ? (v || null) : v;
         });
       });
     });
@@ -2623,7 +2623,7 @@ function vistaPosMenu() {
           <div><label>Posizione</label><input data-c="posizione" type="number" value="${Number(c.posizione || 0)}" style="width:80px;" />
             <label style="display:inline;margin-left:12px;"><input type="checkbox" data-c="attiva" ${c.attiva !== false ? 'checked' : ''}/> attiva</label>
             <label style="display:inline;margin-left:12px;" title="La vedono gli ospiti che ordinano dal QR sul tavolo"><input type="checkbox" data-c="per_ospiti" ${c.per_ospiti !== false ? 'checked' : ''}/> ospiti (QR)</label></div></div>
-        ${arts.length ? `<table><tr><th>Articolo</th><th>Prezzo €</th><th>IVA</th><th>Stampante</th><th>Portata</th><th>Si prepara a</th><th>Libero</th><th>Esaurito</th><th>Attivo</th><th title="Lo vedono gli ospiti che ordinano dal QR">QR</th><th title="Scelta rapida del menu dal QR: senza glutine (una sigla GL scritta negli allergeni vince sulla spunta)">🌾</th><th title="Scelta rapida: vegetariano (un vegano e anche vegetariano)">🥗</th><th title="Scelta rapida: vegano">🌱</th><th title="Scelta rapida: senza lattosio (una sigla LA scritta negli allergeni vince sulla spunta)">🥛</th><th title="Per gli ospiti dal QR">🌐</th></tr>
+        ${arts.length ? `<table><tr><th>Articolo</th><th>Prezzo €</th><th>IVA</th><th>Stampante</th><th>Portata</th><th>Si prepara a</th><th>Libero</th><th>Esaurito</th><th>Attivo</th><th title="Lo vedono gli ospiti che ordinano dal QR">QR</th><th title="Scelta rapida del menu dal QR: senza glutine (una sigla GL scritta negli allergeni vince sulla spunta)">🌾</th><th title="Scelta rapida: vegetariano (un vegano e anche vegetariano)">🥗</th><th title="Scelta rapida: vegano">🌱</th><th title="Scelta rapida: senza lattosio (una sigla LA scritta negli allergeni vince sulla spunta)">🥛</th><th title="Per gli ospiti dal QR">🌐</th><th title="In bacheca: sulla TV all’ingresso, fra i piatti del giorno">📺</th><th title="Il testo sotto il nome, sulla TV (es. «Tagliatelle al ragù»)">Testo bacheca</th></tr>
         ${arts.map((a) => `<tr data-art="${esc(a.id)}"><td><input data-a="nome" value="${esc(a.nome)}" /></td>
           <td><input data-a="prezzo_cent" value="${euroPos(a.prezzo_cent)}" style="width:72px;" /></td>
           <td><input data-a="iva" type="number" value="${Number(a.iva ?? 10)}" style="width:52px;" /></td>
@@ -2638,8 +2638,10 @@ function vistaPosMenu() {
           <td><input type="checkbox" data-a="vegetariano" ${a.vegetariano === true ? 'checked' : ''} title="Vegetariano: compare nella scelta rapida del menu dal QR"/></td>
           <td><input type="checkbox" data-a="vegano" ${a.vegano === true ? 'checked' : ''} title="Vegano: compare nella scelta rapida del menu dal QR (e anche fra i vegetariani)"/></td>
           <td><input type="checkbox" data-a="senza_lattosio" ${a.senza_lattosio === true ? 'checked' : ''} title="Senza lattosio: compare nella scelta rapida del menu dal QR"/></td>
+          <td><input type="checkbox" data-a="in_bacheca" ${a.in_bacheca === true ? 'checked' : ''} title="In bacheca: sulla TV all’ingresso, fra i piatti del giorno"/></td>
+          <td><input data-a="bacheca_testo" value="${esc(a.bacheca_testo || '')}" placeholder="testo sulla TV" style="width:150px;" title="Sotto il nome, sulla TV (es. «Tagliatelle al ragù»)"/></td>
           <td><button type="button" class="azione sec mini" data-tradu="${esc(a.id)}" style="width:auto;padding:2px 8px;" title="Nomi, ingredienti e allergeni per gli ospiti dal QR">🌐${a.nomi ? '' : ' ·'}</button></td></tr>
-          <tr data-tradu-di="${esc(a.id)}" hidden><td colspan="15"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:2px 0 6px;">${LINGUE.map((l) => `<input data-an="${l}" placeholder="nome ${l}" value="${esc((a.nomi || {})[l] || '')}" />`).join('')}${LINGUE.map((l) => `<input data-ad="${l}" placeholder="ingredienti ${l}" value="${esc((a.descrizioni || {})[l] || '')}" />`).join('')}<input data-allergeni placeholder="allergeni, es. GL-LA-U" value="${esc(a.allergeni || '')}" /><input data-orari placeholder="orari, es. 12:15-17:30; ven,sab 12:15-20:30 (vuoto = come la categoria, «sempre» = tutto il giorno)" value="${esc(a.orari || '')}" /></div></td></tr>`).join('')}</table>` : '<div class="mini">Nessun articolo.</div>'}
+          <tr data-tradu-di="${esc(a.id)}" hidden><td colspan="17"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:2px 0 6px;">${LINGUE.map((l) => `<input data-an="${l}" placeholder="nome ${l}" value="${esc((a.nomi || {})[l] || '')}" />`).join('')}${LINGUE.map((l) => `<input data-ad="${l}" placeholder="ingredienti ${l}" value="${esc((a.descrizioni || {})[l] || '')}" />`).join('')}<input data-allergeni placeholder="allergeni, es. GL-LA-U" value="${esc(a.allergeni || '')}" /><input data-orari placeholder="orari, es. 12:15-17:30; ven,sab 12:15-20:30 (vuoto = come la categoria, «sempre» = tutto il giorno)" value="${esc(a.orari || '')}" /></div></td></tr>`).join('')}</table>` : '<div class="mini">Nessun articolo.</div>'}
         <button type="button" class="azione sec mini" data-nuovo-art="${esc(c.id)}" style="width:auto;margin-top:6px;">+ articolo</button></div>`;
     };
     const varianti = `<div class="riquadro"><b>Varianti</b><div class="mini">Una variante vale per un articolo o per una categoria intera; il supplemento si somma al prezzo.</div>

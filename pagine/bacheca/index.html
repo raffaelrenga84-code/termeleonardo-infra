@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Bacheca — Hotel Terme Leonardo</title>
+<!-- ============================================================
+     La bacheca all'ingresso del Bistrot: i piatti del giorno su una TV.
+
+     «un monitor da posizionare all'ingresso del Bistro per far leggere i
+     piatti del giorno» (la proprieta', 6 settembre 2026). Mostra gli
+     articoli con la spunta «bacheca» nel back office (POS · Menù): nome,
+     testo del giorno, prezzo. Si aggiorna da sola ogni minuto.
+
+     Scritta apposta SENZA moduli, frecce, const/let, fetch: le TV hanno
+     browser vecchi (quella della cucina non apriva la pagina moderna) e
+     questa deve aprirsi ovunque, senza traduzioni. Dal sito parla col
+     cloud; aperta dal PC del Bistrot (http://IP:8080/bacheca) parla col
+     PC, cosi' resta accesa anche senza internet.
+     ============================================================ -->
+<style>
+html,body{height:100%;}
+body{margin:0;background:#FBF7EF;color:#1E2A24;font-family:Georgia,'Times New Roman',serif;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;overflow:hidden;}
+header{padding:3vh 5vw 1.5vh;border-bottom:2px solid #C9A961;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;}
+header h1{margin:0;font-size:4.2vw;font-weight:normal;letter-spacing:.02em;}
+header h1 small{display:block;font-size:2.2vw;color:#7A6A3C;letter-spacing:.14em;text-transform:uppercase;margin-bottom:.6vh;}
+header .data{text-align:right;font-size:2.1vw;color:#5B5347;}
+header .data b{display:block;font-size:3vw;color:#1E2A24;font-weight:normal;}
+main{-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:2vh 5vw;overflow:hidden;}
+.piatto{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;padding:2.4vh 0;border-bottom:1px solid #E6DCC6;}
+.piatto:last-child{border-bottom:0;}
+.piatto .testo{-webkit-box-flex:1;-webkit-flex:1;flex:1;min-width:0;}
+.piatto .cat{font-size:1.9vw;color:#7A6A3C;letter-spacing:.12em;text-transform:uppercase;}
+.piatto .nome{font-size:4.4vw;line-height:1.15;}
+.piatto .oggi{font-size:3vw;color:#3E4A43;margin-top:.6vh;line-height:1.25;}
+.piatto .prezzo{font-size:3.8vw;white-space:nowrap;margin-left:4vw;padding-top:1vh;}
+.vuoto{font-size:3vw;color:#7A6A3C;padding:8vh 0;text-align:center;}
+footer{padding:1.2vh 5vw 2vh;font-size:1.6vw;color:#8A8274;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;}
+footer .rosso{color:#B0413E;}
+/* piu' di quattro piatti: si stringe, cosi' entrano tutti senza scorrere */
+body.tanti .piatto{padding:1.4vh 0;}
+body.tanti .piatto .nome{font-size:3.4vw;}
+body.tanti .piatto .oggi{font-size:2.3vw;}
+body.tanti .piatto .prezzo{font-size:3vw;}
+</style>
+</head>
+<body>
+<header><h1><small>Hotel Terme Leonardo</small><span id="titolo">Bistrot</span></h1><div class="data"><b id="ora">--:--</b><span id="giorno"></span></div></header>
+<main id="lista"><div class="vuoto">Un momento…</div></main>
+<footer><span>Piatti del giorno</span><span id="stato"></span></footer>
+<script>
+(function () {
+  var CLOUD = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos';
+  var trovato = location.search.match(/[?&]locale=([^&]+)/);
+  var LOCALE = trovato ? decodeURIComponent(trovato[1]) : 'bistrot';
+  /* aperta dal PC del Bistrot (http://192.168.0.18:8080/bacheca) parla col PC: senza internet resta accesa */
+  var SERVER = (location.protocol === 'http:' && /^\d+\.\d+\.\d+\.\d+$/.test(location.hostname)) ? location.protocol + '//' + location.host : CLOUD;
+  var GIORNI = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
+  var MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+  var ultimo = null;
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s === null || s === undefined ? '' : s).replace(/[&<>"]/g, function (c) { return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;'; }); }
+  function due(n) { return (n < 10 ? '0' : '') + n; }
+  function euro(cent) { return (Number(cent) / 100).toFixed(2).replace('.', ',') + ' €'; }
+  function orologio() {
+    var d = new Date();
+    $('ora').textContent = due(d.getHours()) + ':' + due(d.getMinutes());
+    $('giorno').textContent = GIORNI[d.getDay()] + ' ' + d.getDate() + ' ' + MESI[d.getMonth()] + ' ' + d.getFullYear();
+    /* alle quattro del mattino la pagina si ricarica: prende anche le modifiche alla pagina stessa */
+    if (d.getHours() === 4 && d.getMinutes() === 0 && ultimo !== null) location.reload();
+  }
+  function disegna(j) {
+    var piatti = j.piatti || [];
+    $('titolo').textContent = (j.locale && j.locale.nome) ? j.locale.nome : 'Bistrot';
+    document.body.className = piatti.length > 4 ? 'tanti' : '';
+    if (!piatti.length) { $('lista').innerHTML = '<div class="vuoto">Oggi niente in bacheca</div>'; return; }
+    var h = '';
+    for (var i = 0; i < piatti.length; i++) {
+      var p = piatti[i];
+      h += '<div class="piatto"><div class="testo">' +
+        (p.categoria ? '<div class="cat">' + esc(p.categoria) + '</div>' : '') +
+        '<div class="nome">' + esc(p.nome) + '</div>' +
+        (p.testo ? '<div class="oggi">' + esc(p.testo) + '</div>' : '') +
+        '</div><div class="prezzo">' + euro(p.prezzo_cent) + '</div></div>';
+    }
+    $('lista').innerHTML = h;
+  }
+  function carica() {
+    var x = new XMLHttpRequest();
+    x.open('GET', SERVER + '?a=bacheca&locale=' + encodeURIComponent(LOCALE) + '&_=' + new Date().getTime(), true);
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4) return;
+      var d = new Date();
+      if (x.status === 200) {
+        try { disegna(JSON.parse(x.responseText)); ultimo = d; $('stato').textContent = 'aggiornata alle ' + due(d.getHours()) + ':' + due(d.getMinutes()); $('stato').className = ''; return; } catch (e) { /* risposta strana: come un errore */ }
+      }
+      $('stato').textContent = ultimo ? 'non risponde: mostro le ' + due(ultimo.getHours()) + ':' + due(ultimo.getMinutes()) : 'non risponde';
+      $('stato').className = 'rosso';
+      if (!ultimo) $('lista').innerHTML = '<div class="vuoto">La bacheca non risponde</div>';
+    };
+    x.send();
+  }
+  orologio(); setInterval(orologio, 15000);
+  carica(); setInterval(carica, 60000);
+})();
+</script>
+</body>
+</html>

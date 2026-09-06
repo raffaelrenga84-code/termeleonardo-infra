@@ -84,3 +84,14 @@ Deno.test('un PC gia installato riceve le portate semplici e il segue con un alt
   for (const c of ['portate_semplici', 'segue_minuti']) assert(colonneDi(db, 'pos_locale').includes(c), c);
   for (const c of ['segue_min', 'segue_alle']) assert(colonneDi(db, 'pos_riga').includes(c), c);
 });
+
+Deno.test('un PC installato coi primi articoli riceve con un alter tutte le colonne venute dopo, bacheca compresa', () => {
+  const db = apri(':memory:');
+  db.exec(`create table pos_articolo (id text primary key, categoria text not null, nome text not null, prezzo_cent integer not null default 0,
+    iva integer not null default 10, portata text, stampante text, prezzo_libero integer not null default 0, incluso_trattamento integer not null default 0,
+    conto_ricavo text, esaurito integer not null default 0, posizione integer not null default 0, fidra_id text, attivo integer not null default 1,
+    aggiornato_il text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))`);
+  creaSchema(db);
+  const cols = colonneDi(db, 'pos_articolo');
+  for (const c of ['locale_stampa', 'nomi', 'descrizioni', 'per_ospiti', 'vegano', 'in_bacheca', 'bacheca_testo']) assert(cols.includes(c), c);
+});

@@ -610,3 +610,14 @@ Deno.test('portate semplici (il Bistrot): tutto parte insieme, il «segue» aspe
   assertEquals(vai2.stato, 409, 'niente piu in attesa');
   /* il ristorante (senza la spunta) va ancora a portate: la prova sopra lo dice gia' */
 });
+
+Deno.test('la bacheca dal PC: senza sessione, solo gli articoli con la spunta, non esauriti', async () => {
+  const db = base();
+  db.exec(`insert into pos_articolo (id, categoria, nome, prezzo_cent, in_bacheca, bacheca_testo, aggiornato_il) values ('A3', 'C1', 'Primo del giorno', 1200, 1, 'Tagliatelle al ragù', '2026-09-06T10:00:00Z');
+    update pos_articolo set in_bacheca = 1, esaurito = 1 where id = 'A2'`);
+  const r = await esegui(db, 'bacheca', { metodo: 'GET', query: {}, corpo: null, intestazioni: {} }, cfg);
+  assertEquals(r.stato, 200);
+  const j = r.corpo as { locale: { id: string; nome: string }; piatti: { id: string; nome: string; testo: string | null; prezzo_cent: number; categoria: string | null }[] };
+  assertEquals(j.locale, { id: 'L1', nome: 'Bistrot' });
+  assertEquals(j.piatti, [{ id: 'A3', nome: 'Primo del giorno', testo: 'Tagliatelle al ragù', prezzo_cent: 1200, categoria: 'Primi' }]);
+});

@@ -32,6 +32,8 @@ export function fileDellaPagina(pathname: string): { file: string; tipo: string 
   /* la pagina dello schermo, anche come /tv/CODICE: sulla TV si batte
      solo il codice (la proprieta', 6 settembre 2026) */
   if (p === '/cucina') return { file: 'cucina/index.html', tipo: 'text/html; charset=utf-8' };
+  /* la bacheca all'ingresso (piatti del giorno), anche senza internet */
+  if (p === '/bacheca') return { file: 'bacheca/index.html', tipo: 'text/html; charset=utf-8' };
   /* a /tv/CODICE la versione tradotta per i browser vecchi delle TV
      (strumenti/cucina-tv.js): sulle TV era una pagina vuota */
   if (/^\/tv\/[A-Za-z0-9]{4,32}$/.test(p)) return { file: 'cucina/tv.html', tipo: 'text/html; charset=utf-8' };

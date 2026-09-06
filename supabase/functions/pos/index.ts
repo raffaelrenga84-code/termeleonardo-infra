@@ -403,6 +403,26 @@ Deno.serve(async (req) => {
      2026). L'elenco e' pubblico e porta la firma di ogni tavolo: la firma
      da sola non proteggeva niente di piu' — chi ordina paga prima, e la
      camera vuole tessera e numero. Il QR sul tavolo resta la scorciatoia. */
+  /* ================= la bacheca all'ingresso (TV) =================
+     «un monitor all'ingresso del Bistrot per far leggere i piatti del
+     giorno» (la proprieta', 6 settembre 2026). Pubblica come il menu' dal
+     QR: nome, testo del giorno e prezzo degli articoli con la spunta
+     «bacheca», attivi e non esauriti. La pagina e' pagine/bacheca/. */
+  if (azione === 'bacheca') {
+    const locale = url.searchParams.get('locale') || 'bistrot';
+    const [{ data: loc }, { data: cat }, { data: art }] = await Promise.all([
+      db.from('pos_locale').select('id, nome').eq('id', locale).maybeSingle(),
+      db.from('pos_categoria').select('id, nome, posizione').eq('attiva', true),
+      db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, bacheca_testo, esaurito, posizione').eq('attivo', true).eq('in_bacheca', true),
+    ]);
+    const posCat = new Map((cat ?? []).map((c) => [c.id as string, Number(c.posizione ?? 0)]));
+    const nomeCat = new Map((cat ?? []).map((c) => [c.id as string, String(c.nome)]));
+    const piatti = (art ?? []).filter((a) => !a.esaurito)
+      .sort((a, b) => (posCat.get(a.categoria as string) ?? 0) - (posCat.get(b.categoria as string) ?? 0) || Number(a.posizione ?? 0) - Number(b.posizione ?? 0))
+      .map((a) => ({ id: a.id, nome: a.nome, testo: a.bacheca_testo ?? null, prezzo_cent: Number(a.prezzo_cent), categoria: nomeCat.get(a.categoria as string) ?? null }));
+    return risposta({ locale: loc ? { id: loc.id, nome: loc.nome } : { id: locale, nome: locale }, piatti, adesso: adesso() });
+  }
+
   if (azione === 'ospite-tavoli') {
     /* «Puoi fare entrambe? Con QR e senza?» (la proprieta', 6 settembre
        2026): si sceglie il tavolo a mano da qualunque connessione. La

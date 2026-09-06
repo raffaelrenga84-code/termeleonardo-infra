@@ -173,6 +173,16 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
 
   /* il palmare lo chiama per sapere se il PC risponde: senza sessione */
   if (azione === 'stato-locale') return ok({ esito: 'ok', locale: cfg.locale, adesso: adesso(), versione: cfg.versione ?? null });
+  /* la bacheca all'ingresso (vedi il cloud): pubblica, senza sessione;
+     aperta dal PC resta accesa anche senza internet */
+  if (azione === 'bacheca') {
+    const locale = req.query.locale || cfg.locale;
+    const loc = db.prepare('select id, nome from pos_locale where id = ?').get(locale) as Riga | undefined;
+    const piatti = (db.prepare(`select a.id, a.nome, a.prezzo_cent, a.bacheca_testo, c.nome as categoria from pos_articolo a left join pos_categoria c on c.id = a.categoria
+      where a.attivo = 1 and a.in_bacheca = 1 and a.esaurito = 0 order by c.posizione, a.posizione`).all() as Riga[])
+      .map((a) => ({ id: a.id, nome: a.nome, testo: a.bacheca_testo ?? null, prezzo_cent: Number(a.prezzo_cent), categoria: a.categoria ?? null }));
+    return ok({ locale: loc ? { id: loc.id, nome: loc.nome } : { id: locale, nome: locale }, piatti, adesso: adesso() });
+  }
 
   if (azione === 'accesso') {
     const no = soloPost(); if (no) return no;

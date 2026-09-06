@@ -77,6 +77,9 @@ for (const f of ['index.html', 'schermo.js']) {
 }
 /* e la versione per le TV vecchie, che il PC serve a /tv/CODICE */
 fs.copyFileSync('pagine/cucina/tv.html', path.join(pagina, 'cucina', 'tv.html'));
+/* la bacheca all'ingresso (piatti del giorno): il PC la serve a /bacheca, anche senza internet */
+fs.mkdirSync(path.join(pagina, 'bacheca'), { recursive: true });
+fs.copyFileSync('pagine/bacheca/index.html', path.join(pagina, 'bacheca', 'index.html'));
 
 console.log('[4/4] installa.cmd e il modello della configurazione...');
 fs.copyFileSync('pos-locale/installa.cmd', path.join(DEST, 'installa.cmd'));

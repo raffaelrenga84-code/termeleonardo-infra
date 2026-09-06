@@ -19,6 +19,9 @@ Deno.test('la pagina del POS si serve da qui: solo i suoi file, niente altro', (
   assertEquals(fileDellaPagina('/cucina'), { file: 'cucina/index.html', tipo: 'text/html; charset=utf-8' });
   assertEquals(fileDellaPagina('/cucina/'), { file: 'cucina/index.html', tipo: 'text/html; charset=utf-8' });
   assertEquals(fileDellaPagina('/cucina/schermo.js')?.file, 'cucina/schermo.js');
+  /* la bacheca all'ingresso (6 settembre 2026) */
+  assertEquals(fileDellaPagina('/bacheca'), { file: 'bacheca/index.html', tipo: 'text/html; charset=utf-8' });
+  assertEquals(fileDellaPagina('/bacheca/'), { file: 'bacheca/index.html', tipo: 'text/html; charset=utf-8' });
   /* niente giri per le cartelle, niente config.json */
   assertEquals(fileDellaPagina('/pos/../config.json'), null);
   assertEquals(fileDellaPagina('/config.json'), null);

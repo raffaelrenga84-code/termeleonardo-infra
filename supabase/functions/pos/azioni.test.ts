@@ -397,3 +397,13 @@ Deno.test('portate semplici al Bistrot: tutto insieme, il segue a tempo o a chia
   assert(m.includes('vivi.has(loc.id as string)) continue') && m.includes("'segue', 'vai', 'a tempo'"), 'solo per i locali col PC muto, firmato «a tempo»');
   assert(S.includes("select('id, nome, portate_semplici, segue_minuti')"), 'il palmare sa se il suo locale e semplice e quali minuti offrire');
 });
+
+Deno.test('la bacheca all ingresso: pubblica, prima di ogni porta; solo gli articoli con la spunta, attivi e non esauriti', () => {
+  /* «un monitor all'ingresso del Bistro per far leggere i piatti del giorno» (la proprieta', 6 settembre 2026) */
+  const i = S.indexOf("azione === 'bacheca'");
+  assert(i > 0 && i < S.indexOf("azione === 'ospite-tavoli'"), 'sta prima del blocco ospite e di ogni sessione o chiave');
+  const b = S.slice(i, S.indexOf("azione === 'ospite-tavoli'"));
+  assert(b.includes(".eq('attivo', true).eq('in_bacheca', true)") && b.includes('.filter((a) => !a.esaurito)'), 'la spunta, attivi, non esauriti');
+  assert(b.includes('testo: a.bacheca_testo ?? null') && b.includes('prezzo_cent: Number(a.prezzo_cent)'), 'nome, testo del giorno, prezzo');
+  assert(!b.includes('cameriere') && !b.includes('autorizzato('), 'nessuna porta: e come il menu dal QR');
+});
