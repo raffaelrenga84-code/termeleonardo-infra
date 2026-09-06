@@ -74,21 +74,20 @@ Deno.test('prima «da mangiare» o «da bere», poi la categoria («per semplifi
   for (const l of ['it', 'en', 'de', 'fr']) assert(m.includes(`  ${l}: { cibo: '`), `gruppo ${l}`);
 });
 
-Deno.test('senza QR e fuori dalla rete dell hotel la pagina spiega il QR e la Protezione IP, in quattro lingue', () => {
+Deno.test('quando l elenco dei tavoli non si apre, la pagina manda al QR, in quattro lingue', () => {
   /* «Si ordina dalla rete Wi-Fi dell hotel (IP 104.28.96.42)» su un iPhone
-     che ERA sul Wi-Fi dell'hotel: iCloud Privato nasconde l'indirizzo (la
-     proprieta', 6 settembre 2026). Il QR sul tavolo funziona comunque. */
-  for (const parola of ['QR', 'Protezione IP']) assert(P.includes(parola), parola);
+     che ERA sul Wi-Fi dell hotel: iCloud Privato nasconde l indirizzo (la
+     proprieta, 6 settembre 2026). Dal 6 settembre il tavolo si sceglie a mano
+     da ovunque; questa schermata resta per il freno e per la rete che tace. */
   const soloHotel = [...P.matchAll(/soloHotel: '([^']*(?:’[^']*)*)'/g)].map((m) => m[1]);
   assertEquals(soloHotel.length, 4, 'quattro lingue');
   for (const s of soloHotel) assert(/QR/.test(s), s);
 });
 
-Deno.test('la schermata «serve il QR» e una schermata vera: disegno, due passi, e la nota sulla Protezione IP solo a chi ce l ha', () => {
+Deno.test('la schermata «serve il QR» e una schermata vera: disegno e due passi', () => {
   assert(m.includes('function schermataQr(messaggio)'), 'una schermata, non un titolo nudo');
   assert(m.includes('DISEGNO_QR') && m.includes('<svg class="disegno"'), 'il disegno del QR, senza immagini da caricare');
   assert(m.includes('<ol><li>${esc(q.passo1)}</li><li>${esc(q.passo2)}</li></ol>'), 'i due passi');
-  assert(m.includes("${/Protezione IP/i.test(s) ? `<div class=\"nota\">${esc(q.notaIp)}</div>` : ''}"), 'la nota solo quando il server ha riconosciuto il relay');
   assert(m.includes("if (!/rete Wi-Fi|QR/i.test(s)) { $('app').innerHTML = `<h1>${esc(traduci(s))}</h1>`; return; }"), 'gli altri errori restano come prima');
   const lingue = ['it', 'en', 'de', 'fr'];
   for (const l of lingue) assert(new RegExp('\\n  ' + l + ': \\{ titolo:').test(m), 'i testi in ' + l);
