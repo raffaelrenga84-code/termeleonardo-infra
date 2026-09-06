@@ -205,6 +205,9 @@ const FUNZIONE_RICHIESTE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v
 const FUNZIONE_DAYSPA = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/dayspa';
 /* il POS di Bistrot e ristorante (4 settembre 2026): menu', tavoli, personale */
 const FUNZIONE_POS = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos';
+/* il PC del Bistrot (6 settembre 2026): serve anche lui la pagina dello
+   schermo della cucina, cosi' le comande si vedono pure senza internet */
+const PC_BISTROT = 'http://192.168.0.18:8080';
 /* i consensi privacy firmati al totem e sugli iPad (4 settembre 2026) */
 const FUNZIONE_PRIVACY = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/privacy';
 
@@ -2541,6 +2544,7 @@ async function caricaPos() {
     categorie: (j.categoria || []).sort(ord), articoli: (j.articolo || []).sort(ord),
     varianti: (j.variante || []).sort(ord), preferiti: (j.preferito || []).sort(ord),
     camerieri: (j.cameriere || []).sort(ord), dispositivi: (j.dispositivo || []).sort(ord),
+    postazioni: j.postazione || [],
   };
 }
 const valoreCampo = (el) => el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
@@ -2928,6 +2932,10 @@ function vistaPosFasce() {
 function vistaPosTavoli() {
   $('vista').innerHTML = `<div class="riquadro"><div class="esito" id="ptEsito">Carico…</div></div>`;
   let D = null;
+  /* i link delle chiavi restano sotto gli occhi anche quando la pagina si
+     ridisegna: la chiave si vede una volta sola (6 settembre 2026) */
+  let chiaviHtml = '';
+  const STAMPANTI_POS = [['cucina', 'Cucina'], ['bar', 'Bar']];
   const raccogli = () => {
     document.querySelectorAll('[data-loc]').forEach((r) => { const l = D.locali.find((x) => x.id === r.dataset.loc); if (l) r.querySelectorAll('[data-l]').forEach((el) => { l[el.dataset.l] = valoreCampo(el) || null; }); });
     document.querySelectorAll('[data-zona]').forEach((r) => { const z = D.zone.find((x) => x.id === r.dataset.zona); if (z) r.querySelectorAll('[data-z]').forEach((el) => { z[el.dataset.z] = valoreCampo(el); }); });
@@ -2939,6 +2947,20 @@ function vistaPosTavoli() {
       ${D.locali.map((l) => `<tr data-loc="${esc(l.id)}"><td><input data-l="nome" value="${esc(l.nome)}" /></td><td><input data-l="reparto" value="${esc(l.reparto || 'F&B')}" /></td>
         <td><input data-l="stampante_cucina" value="${esc(l.stampante_cucina || '')}" placeholder="192.168.0.x:9100" /></td><td><input data-l="stampante_bar" value="${esc(l.stampante_bar || '')}" placeholder="192.168.0.x:9100" /></td>
         <td><input data-l="orari_cucina" value="${esc(l.orari_cucina || '')}" placeholder="12:15-14:30" title="Vuoto = cucina sempre aperta. Fuori orario il biglietto della cucina esce al bancone." /></td></tr>`).join('')}</table></div>`;
+    /* Le postazioni (6 settembre 2026): una riga per locale e per stampante,
+       anche quando in banca dati non c'e' ancora — nasce al salvataggio. */
+    const postazioni = `<div class="riquadro"><b>Postazioni</b><div class="mini">Come ogni postazione riceve le comande: solo carta, carta e schermo, o solo schermo (la carta esce di ripiego se nessuno schermo mostra la comanda entro i secondi indicati; 0 = mai). «Nuova chiave» dà il link da aprire sullo schermo, una volta sola.</div>
+      <table><tr><th>Locale</th><th>Stampante</th><th>Nome</th><th>Schermo</th><th>Stampa sempre</th><th>Ripiego (s)</th><th>Nuova chiave</th></tr>
+      ${D.locali.map((l) => STAMPANTI_POS.map(([s, ts]) => {
+        const p = (D.postazioni || []).find((x) => x.locale === l.id && x.stampante === s) || { nome: `${ts} ${l.nome}`, schermo: false, stampa_sempre: true, ripiego_s: 30 };
+        return `<tr data-post="${esc(l.id)}|${s}"><td>${esc(l.nome)}</td><td>${ts}</td>
+          <td><input data-p="nome" value="${esc(p.nome || '')}" /></td>
+          <td><input type="checkbox" data-p="schermo" ${p.schermo ? 'checked' : ''}/></td>
+          <td><input type="checkbox" data-p="stampa_sempre" ${p.stampa_sempre !== false ? 'checked' : ''}/></td>
+          <td><input type="number" data-p="ripiego_s" min="0" value="${Number(p.ripiego_s ?? 30)}" style="width:70px;" /></td>
+          <td><label class="mini"><input type="checkbox" data-p="nuova_chiave" /> nuova</label></td></tr>`;
+      }).join('')).join('')}</table>
+      <button type="button" class="azione" id="ptSalvaPost" style="width:auto;">Salva le postazioni</button><div class="esito" id="ptEsitoPost"></div><div id="ptChiavi">${chiaviHtml}</div></div>`;
     const zone = D.locali.map((l) => `<div class="riquadro"><b>Zone · ${esc(l.nome)}</b>
       ${D.zone.filter((z) => z.locale === l.id).map((z) => { const tt = D.tavoli.filter((t) => t.zona === z.id);
         return `<div style="margin-top:10px;"><div class="due" data-zona="${esc(z.id)}"><div><label>Zona</label><input data-z="nome" value="${esc(z.nome)}" /></div><div><label>Posizione</label><input data-z="posizione" type="number" value="${Number(z.posizione || 0)}" style="width:80px;" /></div></div>
@@ -2951,7 +2973,7 @@ function vistaPosTavoli() {
     $('vista').innerHTML = `<div class="riquadro"><button type="button" class="azione" id="ptSalva" style="width:auto;">Salva locali, zone e tavoli</button>
       <button type="button" class="azione sec" id="ptNuovoLoc" style="width:auto;">+ locale</button>
       <button type="button" class="azione sec" id="ptQr" style="width:auto;" title="Un foglio per tavolo: l’ospite inquadra il codice e ordina da solo">Stampa i QR dei tavoli</button>
-      <div class="mini">x e y sono la posizione del tavolo sulla piantina del palmare, in percentuale da sinistra e dall'alto.</div><div class="esito" id="ptEsito"></div></div>` + locali + zone;
+      <div class="mini">x e y sono la posizione del tavolo sulla piantina del palmare, in percentuale da sinistra e dall'alto.</div><div class="esito" id="ptEsito"></div></div>` + locali + postazioni + zone;
     $('ptNuovoLoc').onclick = () => { raccogli(); const id = crypto.randomUUID(); D.locali.push({ id, nome: 'Nuovo locale', reparto: 'F&B', stampante_cucina: null, stampante_bar: null, orari_cucina: null }); disegna(); };
     /* I QR dei tavoli (la proprieta', 5 settembre 2026): un foglio per
        tavolo con il codice che porta alla pagina dell'ordine, firmato dal
@@ -2996,6 +3018,35 @@ function vistaPosTavoli() {
         $('ptEsito').textContent = 'Salvato.';
       } catch (e) { $('ptEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
     };
+    $('ptSalvaPost').onclick = async () => {
+      const righe = [...document.querySelectorAll('[data-post]')].map((r) => {
+        const [locale, stampante] = r.dataset.post.split('|');
+        const out = { locale, stampante };
+        r.querySelectorAll('[data-p]').forEach((el) => { out[el.dataset.p] = valoreCampo(el); });
+        return out;
+      });
+      $('ptEsitoPost').textContent = 'Salvo…';
+      try {
+        const j = await chiama('?a=postazioni-salva', { method: 'POST', body: JSON.stringify({ postazioni: righe }) }, FUNZIONE_POS);
+        /* i link nuovi si tengono da parte: subito sotto si ricarica tutto e
+           la pagina si ridisegna, ma la chiave non torna mai piu' */
+        chiaviHtml = (j.chiavi || []).map((c) => {
+          const coda = `/cucina?l=${encodeURIComponent(c.locale)}&s=${encodeURIComponent(c.stampante)}&k=${encodeURIComponent(c.chiave)}`;
+          const link = (t, u) => `<div class="mini" style="margin-top:8px;">${t}</div><div class="cod" style="word-break:break-all;">${esc(u)}</div>
+            <button type="button" class="azione sec mini" data-copia="${esc(u)}" style="width:auto;margin-top:4px;">copia</button>`;
+          return `<div class="riquadro"><b>${esc(c.nome)}</b>
+            ${link('Dal cloud (serve internet)', 'https://www.hoteltermeleonardo.com' + coda)}
+            ${link('Dal PC del Bistrot (va anche senza internet)', PC_BISTROT + coda)}
+            <div class="mini" style="margin-top:8px;">Si vede una volta sola: chi la perde ne chiede una nuova.</div></div>`;
+        }).join('');
+        D = await caricaPos(); disegna();
+        $('ptEsitoPost').textContent = 'Postazioni salvate.';
+      } catch (e) { $('ptEsitoPost').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+    };
+    document.querySelectorAll('[data-copia]').forEach((b) => b.onclick = async () => {
+      try { await navigator.clipboard.writeText(b.dataset.copia); b.textContent = 'copiato'; }
+      catch { b.textContent = 'copia a mano'; }
+    });
   };
   caricaPos().then((d) => { D = d; disegna(); }).catch((e) => { $('ptEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; });
 }

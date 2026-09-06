@@ -78,6 +78,19 @@ Deno.test('la scheda «POS · Ordini dal QR»: un giorno alla volta, rimborsa, a
   assert(P.includes("cifra('Rimborsi dal QR', num(g.rimborsi_qr_cent))"), 'la giornata mostra i rimborsi');
 });
 
+Deno.test('le postazioni dal back office: schermo, carta di ripiego, e il link della chiave', () => {
+  /* Task 7 del piano «Monitor cucina» (6 settembre 2026) */
+  const tav = P.slice(P.indexOf('function vistaPosTavoli('), P.indexOf('function vistaPosPersonale('));
+  assert(tav.includes('<b>Postazioni</b>') && tav.includes('schermo'), 'il riquadro «Postazioni», con lo schermo');
+  assert(tav.includes('data-post=') && tav.includes('data-p="ripiego_s"') && tav.includes('data-p="stampa_sempre"'), 'una riga per postazione');
+  assert(tav.includes("chiama('?a=postazioni-salva'"), 'le salva nel cloud');
+  assert(tav.includes('data-p="nuova_chiave"'), 'la chiave nuova si chiede con una spunta');
+  assert(P.includes("const PC_BISTROT = 'http://192.168.0.18:8080';"), 'il PC del Bistrot');
+  assert(tav.includes('/cucina?l=') && tav.includes('PC_BISTROT'), 'i due link dello schermo: dal cloud e dal PC');
+  assert(tav.includes('Si vede una volta sola'), 'la chiave non si rilegge');
+  assert(tav.includes('postazioni: j.postazione') || P.includes('postazioni: j.postazione'), 'le postazioni scendono con allinea-giu');
+});
+
 Deno.test('le schede stanno in quattro famiglie: Buoni, Ospiti, Day Spa, POS', () => {
   assert(P.includes('const FAMIGLIE = [') && P.includes("['pos', 'POS', ['posOrdiniQr', 'posAddebiti', 'posGiornata', 'posMenu', 'posTavoli', 'posPersonale', 'posFasce']]"), 'la famiglia del POS');
   assert(P.includes('class="famiglie"') && P.includes('const famigliaDi = (scheda) =>'), 'la barra delle famiglie');

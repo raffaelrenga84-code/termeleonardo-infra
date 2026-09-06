@@ -6,9 +6,10 @@
    pc che su palmari» (la proprieta', 5 settembre 2026). Il PC del
    Bistrot non deve installare Deno, Git o certificati: qui si mette in
    una cartella deno.exe (firmato da Deno Land), i sorgenti del server,
-   la pagina del POS e l'installa.cmd; la cartella va su OneDrive, dove
-   la reception la vede. Sul PC del Bistrot: tasto destro su installa.cmd,
-   «Esegui come amministratore». Fine.
+   la pagina del POS, quella dello schermo della cucina e l'installa.cmd;
+   la cartella va su OneDrive, dove la reception la vede. Sul PC del
+   Bistrot: tasto destro su installa.cmd, «Esegui come amministratore».
+   Fine.
 
    PERCHE' NON UN ESEGUIBILE COMPILATO. `deno compile` fa un .exe nuovo e
    non firmato, e Windows Defender (Exploit Guard, evento 1121) lo blocca
@@ -18,8 +19,12 @@
    Il server non ha dipendenze da scaricare (deno info: solo file
    locali), quindi funziona anche senza internet al primo avvio.
 
+   La pagina dello schermo della cucina viaggia con lui (6 settembre 2026):
+   sul PC del Bistrot si apre a /cucina, e le comande si vedono anche
+   quando internet non c'e'.
+
    Da rifare (e rieseguire installa.cmd sul PC) ogni volta che cambia
-   qualcosa in pos-locale/, in supabase/functions/pos/ o nella pagina.
+   qualcosa in pos-locale/, in supabase/functions/pos/ o nelle pagine.
 
    Uso:  node strumenti/pacchetto-bistrot.js [cartella di destinazione]
    ============================================================ */
@@ -55,7 +60,7 @@ copiaTs('pos-locale', path.join(src, 'pos-locale'));
 copiaTs('supabase/functions/pos', path.join(src, 'supabase/functions/pos'));
 if (fs.existsSync('deno.json')) fs.copyFileSync('deno.json', path.join(src, 'deno.json'));
 
-console.log('[3/4] la pagina del POS...');
+console.log('[3/4] le pagine del POS e dello schermo della cucina...');
 const pagina = path.join(DEST, 'pagina');
 fs.mkdirSync(path.join(pagina, 'ingresso'), { recursive: true });
 for (const f of ['index.html', 'stato.js', 'server.js', 'pianta.js', 'manifest.webmanifest', 'sw.js']) {
@@ -63,6 +68,12 @@ for (const f of ['index.html', 'stato.js', 'server.js', 'pianta.js', 'manifest.w
 }
 for (const f of ['icona-192.png', 'icona-512.png']) {
   fs.copyFileSync(path.join('pagine/ingresso', f), path.join(pagina, 'ingresso', f));
+}
+/* lo schermo della cucina: il PC la serve a /cucina, e il monitor appeso in
+   cucina la apre col link della postazione */
+fs.mkdirSync(path.join(pagina, 'cucina'), { recursive: true });
+for (const f of ['index.html', 'schermo.js']) {
+  fs.copyFileSync(path.join('pagine/cucina', f), path.join(pagina, 'cucina', f));
 }
 
 console.log('[4/4] installa.cmd e il modello della configurazione...');
