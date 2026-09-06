@@ -205,8 +205,14 @@ export function linkQr(codice: string | null | undefined): string {
    verde acqua col marchio e una fotografia, a destra il buono. Con il PDF
    in allegato quella colonna non ha più niente da dire — la fotografia sta
    sul foglio — e su un telefono le due colonne si stringevano fino a
-   spezzare le parole. In cima resta il marchio nero di intestazione(), lo
-   stesso delle altre email.
+   spezzare le parole.
+
+   IL MARCHIO NON STA PIÙ QUI: lo mette avvolgi() in cima alla lettera (vedi
+   il commento là). Difetto trovato dalla revisione finale (5-6 settembre
+   2026): questa funzione apriva con intestazione(), ma avvolgi() incolla il
+   buono DOPO «Gentile …» e il corpo della lettera — così la carta intestata
+   compariva a metà email, e l'email cominciava nuda. Una sola delle due
+   funzioni lo emette, ed è quella che scrive l'inizio del messaggio.
 
    I RECAPITI NON SONO PIÙ QUI. Stavano nella terza casella accanto al
    codice; adesso stanno nel saluto (avvolgi, più sotto), che è dove uno
@@ -236,8 +242,7 @@ export function buonoEmailHTML(b: any) {
   return `<table cellpadding="0" cellspacing="0" border="0" width="620" style="width:620px;max-width:100%;border-collapse:collapse;font-family:Georgia,'Times New Roman',serif;background:#FFFFFF;">
 <tr>
   <td valign="top" style="padding:0;">
-    ${intestazione()}
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9.5px;letter-spacing:3px;color:#C9A961;padding-top:22px;">${e.titolo.toUpperCase()}</div>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9.5px;letter-spacing:3px;color:#C9A961;">${e.titolo.toUpperCase()}</div>
     <div style="font-size:25px;line-height:1.3;color:#1B4D4A;margin:12px 0 0;">${dest ? e.haRicevuto(dest) : e.senzaNome}</div>
     ${b.acquirente ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:#9AA9A6;margin-top:20px;">${e.da}</div>
     <div style="font-size:15px;font-style:italic;color:#1B4D4A;margin-top:4px;">${esc(b.acquirente)}</div>` : ''}
@@ -438,8 +443,19 @@ function bottoneStampa(b: { codice?: string | null; lingua?: string }, e: typeof
   <div style="font-family:Arial,Helvetica,sans-serif;font-size:12.5px;color:#7B756A;margin:-10px 0 22px;">${esc(e.stampaNota)}</div>`;
 }
 
+/* La lettera che accompagna il buono: carta intestata, «Gentile …», il
+   corpo, il buono, il pulsante, il saluto.
+
+   L'INTESTAZIONE STA QUI, IN CIMA, e non dentro buonoEmailHTML: e' il
+   marchio che apre il messaggio, come in ricevutaEmailHTML e
+   nell'avviso all'amministrazione. Emetterlo di la' — com'era fino alla
+   revisione finale del 5-6 settembre 2026 — voleva dire un'email che
+   cominciava nuda con «Gentile …» e la carta intestata piantata a meta',
+   fra il corpo della lettera e il buono. Una sola delle due funzioni lo
+   emette: se un giorno torna anche di la', il marchio esce due volte. */
 function avvolgi(caro: string, corpo: string, saluto: string, buono: string, bottone: string) {
-  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#2A2E2B;max-width:700px;">
+  return `${intestazione()}
+  <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#2A2E2B;max-width:700px;">
   <p>${caro}</p><p>${corpo}</p></div>
   <div style="margin:22px 0;">${buono}</div>
   ${bottone}

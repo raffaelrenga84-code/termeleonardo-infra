@@ -77,13 +77,25 @@ Deno.test('la bozza è un POST pubblico: si disegna quello che arriva, ripulito,
   assert(iBozza > 0, 'il ramo POST ?a=pdf');
   assert(iBozza < iCancello, 'prima del cancello: il modulo del sito non ha la chiave');
   const r = S.slice(iBozza, S.indexOf("if (azione === 'qr')"));
-  assert(r.includes('entroIlLimiteStampa(ipRichiesta(req))'), 'il freno anche qui: disegnare un PDF costa');
+  /* Un freno SUO, non quello della stampa: l'anteprima la chiede anche il
+     back office una volta per pausa di battitura, dall'indirizzo di uscita
+     dell'hotel, e finche' il contatore era condiviso comporre due buoni al
+     banco poteva togliere all'ospite dietro lo stesso wifi la stampa del
+     proprio buono pagato (revisione finale, 5-6 settembre 2026). */
+  assert(r.includes('entroIlLimiteBozza(ipRichiesta(req))'), 'il freno anche qui: disegnare un PDF costa');
+  assert(!r.includes('entroIlLimiteStampa('),
+    'la bozza non deve piu consumare il budget con cui l ospite stampa il suo buono');
   for (const campo of ['descrizione', 'sottotitolo', 'destinatario', 'acquirente', 'dedica', 'voce_id']) {
     assert(r.includes(`${campo}:`) && r.includes(`testo(g.${campo}`), `${campo} ripulito con testo()`);
   }
   assert(r.includes('codice: null') && r.includes('numero: null') && r.includes("stato: 'attesa'"),
     'una bozza non porta mai un codice spendibile');
-  assert(r.includes('true)'), 'si disegna con la filigrana della bozza');
+  /* la chiamata per intero, non un `true)` qualunque: quel controllo lo
+     passava quasi ogni espressione del ramo (`nomeFilePdf(campi, true)`, un
+     `includes(...)`), e sarebbe restato verde anche togliendo la filigrana
+     al foglio pubblico — cioe' con una BOZZA che esce con l'aria di un buono
+     pagato. */
+  assert(r.includes('pdfDelBuono(campi, true)'), 'si disegna con la filigrana della bozza');
 });
 
 Deno.test('il PDF per numero sta dietro il cancello, prima del muro dei POST, e rispetta la vista del ruolo', () => {
@@ -108,8 +120,35 @@ Deno.test('?a=manda spedisce a uno solo, e solo un buono pagato, e registra la c
   assert(r.includes("'si manda solo un buono pagato'") && r.includes('}, 409)'), 'niente email di un buono in attesa');
   assert(r.includes("'nessun indirizzo per '"), 'senza indirizzo si dice quello, non «non è partita»');
   assert(r.includes('inviaBuonoA('), 'l’invio a uno solo, da email-buono.ts');
-  assert(r.includes("consegna: 'inviato'") && r.includes('consegna_il:') && r.includes('consegna_esiti:'),
+  assert(r.includes('consegna: statoConsegna(nuoviEsiti)') && r.includes('consegna_il:')
+    && r.includes('consegna_esiti: nuoviEsiti'),
     'la consegna si registra: senza, la reception non sa che è ripartita');
+  /* Il difetto (revisione finale, 5-6 settembre 2026): qui c'era
+     `consegna: 'inviato'` scritto a mano, mentre negli esiti si aggiornava
+     la sola chiave mandata. Rimandare all'acquirente un buono la cui email
+     al destinatario era fallita spegneva l'avviso «Il cliente non ha
+     ricevuto questo buono» per una consegna ancora fallita. Lo stato lo
+     decide la somma degli esiti, come in consegnaERegistra. */
+  assert(!r.includes("consegna: 'inviato'"),
+    'lo stato non si scrive a mano: lo calcola statoConsegna sugli esiti messi insieme');
+  assert(r.includes("const nuoviEsiti = { ...(riga.consegna_esiti ?? {}), [a]: true }"),
+    'gli esiti si fondono con quelli già registrati, non si sostituiscono');
+});
+
+/* La pagina legge `errore` da ogni risposta storta (`chiama` in
+   pagine/buoni/index.html): senza quella chiave, l'operatore che vede
+   fallire l'invio legge «errore 500» e non sa ne' cosa e' successo ne' cosa
+   fare. E `allegato` esiste apposta perche' la reception sappia se al
+   cliente e' arrivata la lettera SENZA il foglio. */
+Deno.test('?a=manda dice perché non è partita, e se il buono è partito senza il PDF', () => {
+  const i = S.indexOf("if (azione === 'manda')");
+  const r = S.slice(i, S.indexOf("if (azione === 'pagato')"));
+  assert(r.includes('allegato: !!pdf'), 'la reception deve sapere se il PDF era attaccato');
+  const cinquecento = r.slice(r.indexOf('if (!r.ok) return risposta('));
+  assert(r.includes('if (!r.ok) return risposta('), 'il ramo del 500 è scritto a parte');
+  assert(cinquecento.includes('errore:'), 'il 500 porta un `errore`, come ogni altra risposta storta');
+  assert(/non è partita/.test(cinquecento), 'e dice che l’email non è partita');
+  assert(cinquecento.includes('allegato: !!pdf'), 'anche quando fallisce si dice del foglio');
 });
 
 /* Il foglio non deve mai fermare un'emissione: se pdfBuono lancia (la

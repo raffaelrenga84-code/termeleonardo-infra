@@ -140,15 +140,55 @@ Deno.test('se il destinatario ha la stessa email dell’acquirente, una copia so
    Outlook uscivano schiacciate appena il file cambiava forma. Questa prova
    conta le immagini: se qualcuno ne rimette una, si vede qui.
    ============================================================ */
-Deno.test('l’email non porta nessuna fotografia: le sole immagini sono il marchio e il QR', () => {
-  const html = buonoEmailHTML(BUONO);
-  const src = [...html.matchAll(/<img[^>]*\ssrc="([^"]*)"/g)].map((m) => m[1]);
-  assertEquals(src.length, 2, `immagini nel buono: ${JSON.stringify(src)}`);
-  assertEquals(src[0], `${IMG}/logo-nero.png`);
-  assertStringIncludes(src[1], 'a=qr');
-  for (const vecchia of ['dayspa.jpg', 'valore.jpg', 'trattamenti.jpg']) {
-    assertEquals(html.includes(vecchia), false, `l’email nomina ancora ${vecchia}`);
-  }
+Deno.test('l’email non porta nessuna fotografia: le sole immagini sono il marchio e il QR', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    await inviaBuonoEmesso(BUONO);
+    const html = spedite[0].html;
+    const src = [...html.matchAll(/<img[^>]*\ssrc="([^"]*)"/g)].map((m) => m[1]);
+    assertEquals(src.length, 2, `immagini nell’email: ${JSON.stringify(src)}`);
+    assertEquals(src[0], `${IMG}/logo-nero.png`);
+    assertStringIncludes(src[1], 'a=qr');
+    for (const vecchia of ['dayspa.jpg', 'valore.jpg', 'trattamenti.jpg']) {
+      assertEquals(html.includes(vecchia), false, `l’email nomina ancora ${vecchia}`);
+    }
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
+});
+
+/* ============================================================
+   LA CARTA INTESTATA APRE LA LETTERA, non ci sta in mezzo.
+
+   Il difetto (revisione finale, 5-6 settembre 2026): intestazione() la
+   emetteva buonoEmailHTML, ma avvolgi() incolla il buono DOPO «Gentile …»
+   e il corpo — così l'email cominciava nuda e il marchio con la sua riga
+   nera compariva a metà messaggio, dove nessuna altra email dell'hotel lo
+   mette. Adesso lo emette avvolgi(), una volta sola e per prima cosa.
+
+   Si guardano le email VERE (quelle che escono da inviaBuonoEmesso e da
+   inviaBuonoA), non il pezzo di HTML del buono: è l'ordine dentro il
+   messaggio spedito che era sbagliato, e solo lì si vede.
+   ============================================================ */
+Deno.test('ogni email che porta il buono comincia con la carta intestata', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    await inviaBuonoEmesso(BUONO);                       // acquirente e destinatario
+    await inviaBuonoA(BUONO, 'destinatario', null);      // il pulsante «manda» del back office
+    assertEquals(spedite.length, 3);
+    for (const s of spedite) {
+      const marchio = s.html.indexOf(`${IMG}/logo-nero.png`);
+      assert(marchio >= 0, 'l’email esce senza marchio');
+      assertEquals((s.html.match(/logo-nero\.png/g) || []).length, 1,
+        'il marchio esce due volte: lo emettono sia avvolgi sia buonoEmailHTML');
+      /* prima del saluto di apertura, cioè prima di qualunque altra cosa */
+      const gentile = s.html.indexOf('<p>');
+      assert(marchio < gentile, 'la carta intestata sta in mezzo alla lettera, non in cima');
+      assert(s.html.trimStart().startsWith('<table'), 'la lettera non apre con l’intestazione');
+    }
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
 });
 
 /* Gmail e Outlook scartano l'SVG: nel buono spedito il marchio dev'essere
@@ -156,10 +196,15 @@ Deno.test('l’email non porta nessuna fotografia: le sole immagini sono il marc
    E' logo-nero.png (intestazione(), la stessa delle altre email) e non
    logo.png: quello ha il fondo verde acqua incorporato perche' stava sulla
    colonna colorata di prima — su bianco si vedrebbe il rettangolo. */
-Deno.test('nell’email il logo è un PNG, mai un SVG', () => {
-  const html = buonoEmailHTML(BUONO);
-  assertStringIncludes(html, `${IMG}/logo-nero.png`);
-  assertEquals(html.includes('logo.svg'), false);
+Deno.test('nell’email il logo è un PNG, mai un SVG', async () => {
+  Deno.env.set('RESEND_API_KEY', 'test');
+  Deno.env.delete('EMAIL_AMMINISTRAZIONE');
+  const { spedite, ripristina } = conFetchFinto();
+  try {
+    await inviaBuonoEmesso(BUONO);
+    assertStringIncludes(spedite[0].html, `${IMG}/logo-nero.png`);
+    assertEquals(spedite[0].html.includes('logo.svg'), false);
+  } finally { ripristina(); Deno.env.delete('RESEND_API_KEY'); }
 });
 
 /* Il buono spedito e il foglio stampato devono dire le stesse cose:

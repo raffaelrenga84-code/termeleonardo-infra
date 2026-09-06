@@ -10,9 +10,12 @@
    indovina uno valido) — con un'unica risorsa: chi stampa il proprio
    buono più volte, o lo stampa da una rete condivisa insieme ad altri
    clienti (il wifi dell'hotel, un business center), può erodere il
-   budget di chi sta per comprare, e viceversa. Due contatori separati,
-   uno per azione, ciascuno con il proprio tetto — vedi le due costanti
-   sotto per lo scenario pensato per ciascuna.
+   budget di chi sta per comprare, e viceversa. Contatori separati, uno per
+   azione, ciascuno con il proprio tetto — vedi le costanti sotto per lo
+   scenario pensato per ciascuna. La stessa regola vale per ogni azione
+   pubblica che si aggiunge: l'anteprima in PDF (bozza) ha preso il suo il
+   6 settembre 2026, per non far pagare all'ospite le anteprime del back
+   office.
 
    Due freni per l'acquisto (in memoria + sul database), perché quello in
    memoria da solo non basta: provato in produzione, quattordici
@@ -84,6 +87,38 @@ export const entroIlLimiteStampa = frenoStampa.entroIlLimite;
 
 /** solo per i test: azzera lo stato del freno di stampa fra un caso e l'altro */
 export const azzeraLimiteStampa = frenoStampa.azzera;
+
+/* BOZZA (il POST ?a=pdf, l'anteprima di un buono che non esiste ancora).
+   Terzo contatore, e non ancora quello della stampa: lo scenario e' un
+   TERZO ancora, e sommarlo agli altri due faceva danno a chi non c'entra.
+
+   Il difetto, trovato dalla revisione finale del 5-6 settembre 2026: la
+   stessa anteprima la chiedono il modulo pubblico di /buoni/regala E il
+   modulo del back office, che la ridisegna a ogni pausa di 900 ms mentre
+   l'operatore scrive. Un operatore che compone due buoni con calma spende
+   decine di richieste — tutte dall'indirizzo di uscita dell'hotel, lo
+   stesso da cui escono gli ospiti attaccati al wifi: finito il budget, e'
+   l'OSPITE a vedersi rifiutare la stampa del proprio buono pagato, per
+   colpa di chi sta al banco. Sono due rischi diversi anche qui:
+   l'enumerazione dei codici (la stampa, che legge il database per codice) e
+   il costo di calcolo di un disegno (la bozza, che non legge niente e non
+   dice niente a chi la chiama).
+
+   IL TETTO. Una richiesta per pausa di battitura: un buono compilato con
+   calma — nome, dedica, descrizione, un ripensamento sulla lingua — sta
+   sotto la ventina di anteprime, quindi 120 ogni dieci minuti sono sei
+   buoni composti di fila senza mai incontrare il freno. Resta comunque un
+   tetto: disegnare un PDF costa (font, carta intestata, fotografia) e
+   questa e' l'unica porta pubblica che lo fa senza nemmeno un codice da
+   conoscere, quindi un ciclo automatico si ferma qui. */
+const MAX_PER_IP_BOZZA = 120;
+const frenoBozza = creaFreno(MAX_PER_IP_BOZZA);
+
+/** true se una richiesta di anteprima (bozza) può passare; registra il tentativo. */
+export const entroIlLimiteBozza = frenoBozza.entroIlLimite;
+
+/** solo per i test: azzera lo stato del freno della bozza fra un caso e l'altro */
+export const azzeraLimiteBozza = frenoBozza.azzera;
 
 /* QR (?a=qr in index.ts). Un tetto COMPLESSIVO, non per indirizzo — a
    differenza dei due freni qui sopra. Il motivo è specifico di questa

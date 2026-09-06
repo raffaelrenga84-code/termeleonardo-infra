@@ -408,7 +408,13 @@ function disegnaBuono(a: Attrezzi, b: BuonoPerPdf, opz: OpzioniPdf, compatto: bo
     a.page.drawImage(foto, { x: SX + cop.dx, y: y - m.foto + cop.dy, width: cop.w, height: cop.h });
     a.page.pushOperators(popGraphicsState());
   } else {
-    a.page.drawRectangle({ x: SX, y: y - m.foto, width: FOTO_LARGHEZZA, height: m.foto, color: FOTO_ASSENTE, borderWidth: 0 });
+    /* LARGH, non FOTO_LARGHEZZA: il rettangolo prende la larghezza della
+       COLONNA del buono, come ogni altro elemento del foglio.
+       FOTO_LARGHEZZA e' la misura con cui e' stato ritagliato il FILE (vedi
+       il commento sopra la costante) e oggi vale lo stesso numero: il giorno
+       che il file cambia ritaglio, il posto della fotografia mancante non
+       deve cambiare larghezza con lui. */
+    a.page.drawRectangle({ x: SX, y: y - m.foto, width: LARGH, height: m.foto, color: FOTO_ASSENTE, borderWidth: 0 });
   }
   y -= m.foto + m.dopoFoto;
 

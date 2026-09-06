@@ -53,7 +53,7 @@ import { validaAcquisto, colonnaVoci, scadenzaCrea } from './acquista.ts';
 import { type Stagione } from './scadenza.ts';
 import { nasceGiaPagato } from './pagamenti.ts';
 import { idoneitaRimborso, eseguiRimborsoStripe, messaggioScritturaFallita } from './rimborso.ts';
-import { entroIlLimiteAcquista, entroIlLimiteQr, entroIlLimiteStampa, troppiDalSito } from './limite.ts';
+import { entroIlLimiteAcquista, entroIlLimiteBozza, entroIlLimiteQr, entroIlLimiteStampa, troppiDalSito } from './limite.ts';
 import { avvisaAmministrazione, inviaBuonoA, inviaBuonoEmesso, statoConsegna } from './email-buono.ts';
 import { type BuonoPerPdf, fotoBanner, nomeFilePdf, pdfBuono } from './pdf-buono.ts';
 import { inviaEmailPromemoria } from './email-promemoria.ts';
@@ -552,11 +552,18 @@ Deno.serve(async (req) => {
      un'anteprima non puo' mai uscire con l'aria di un buono pagato. La
      filigrana BOZZA gliela mette pdf-buono.ts, che riceve `bozza: true`.
 
-     Il freno e' quello di ?a=stampa: disegnare un PDF costa (font, carta
-     intestata, fotografia), e questa e' l'unica porta pubblica che lo fa
-     senza nemmeno un codice da conoscere. */
+     IL FRENO E' TUTTO SUO (entroIlLimiteBozza, limite.ts), non piu' quello
+     di ?a=stampa. Era condiviso, ed era un difetto trovato dalla revisione
+     finale (5-6 settembre 2026): questa stessa anteprima la chiede anche il
+     modulo del back office, una volta ogni pausa di 900 ms mentre
+     l'operatore scrive, dall'indirizzo di uscita dell'hotel — lo stesso da
+     cui escono gli ospiti attaccati al wifi. Comporre due buoni al banco
+     poteva cosi' consumare il budget con cui un ospite stampa il proprio
+     buono pagato. Un tetto serve comunque: disegnare un PDF costa (font,
+     carta intestata, fotografia), e questa e' l'unica porta pubblica che lo
+     fa senza nemmeno un codice da conoscere. */
   if (azione === 'pdf' && req.method === 'POST') {
-    if (!entroIlLimiteStampa(ipRichiesta(req))) {
+    if (!entroIlLimiteBozza(ipRichiesta(req))) {
       console.warn('bozza pdf respinta per troppe richieste, ip', ipRichiesta(req));
       return risposta({ errore: 'troppe richieste, riprovi tra qualche minuto' }, 429);
     }
@@ -1051,14 +1058,33 @@ Deno.serve(async (req) => {
     const r = await inviaBuonoA(riga, a, pdf);
     if (!r.a) return risposta({ errore: 'nessun indirizzo per ' + a }, 400);
     if (r.ok) {
+      /* Lo stato complessivo si RICALCOLA sugli esiti messi insieme
+         (statoConsegna, la stessa di consegnaERegistra), non si scrive
+         'inviato' a mano. Difetto trovato dalla revisione finale (5-6
+         settembre 2026): mandare all'acquirente un buono la cui email al
+         destinatario era fallita scriveva consegna='inviato' con esiti
+         {acquirente:true, destinatario:false}, e l'avviso del back office
+         «Il cliente non ha ricevuto questo buono» — che guarda `consegna` —
+         spariva per una consegna ancora fallita. Si aggiorna l'esito di
+         CHI si e' mandato, gli altri restano come stavano, e lo stato lo
+         decide la somma. */
+      const nuoviEsiti = { ...(riga.consegna_esiti ?? {}), [a]: true };
       const { error } = await db.from('buono_regalo').update({
-        consegna: 'inviato',
+        consegna: statoConsegna(nuoviEsiti),
         consegna_il: new Date().toISOString(),
-        consegna_esiti: { ...(riga.consegna_esiti ?? {}), [a]: true }
+        consegna_esiti: nuoviEsiti
       }).eq('numero', numero);
       if (error) console.error('consegna non registrata dopo ?a=manda -', numero, error.message);
     }
-    return risposta({ ok: r.ok, a: r.a, allegato: !!pdf }, r.ok ? 200 : 500);
+    /* `errore` anche qui, come ogni altra risposta storta di questa
+       funzione: la pagina legge quella chiave (vedi `chiama` in
+       pagine/buoni/index.html) e senza mostrerebbe un «errore 500» che non
+       dice a chi sta al banco ne' cosa e' successo ne' cosa fare. */
+    if (!r.ok) return risposta({
+      ok: false, a: r.a, allegato: !!pdf,
+      errore: `L’email a ${r.a} non è partita. Riprovi tra poco, oppure consegni il buono stampandolo.`
+    }, 500);
+    return risposta({ ok: true, a: r.a, allegato: !!pdf }, 200);
   }
 
   /* ---------- l'incasso è arrivato: si emette il codice ---------- */

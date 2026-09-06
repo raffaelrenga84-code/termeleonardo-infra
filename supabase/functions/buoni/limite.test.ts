@@ -1,7 +1,7 @@
 import { assertEquals } from 'jsr:@std/assert';
 import {
-  azzeraLimiteAcquista, azzeraLimiteQr, azzeraLimiteStampa,
-  entroIlLimiteAcquista, entroIlLimiteQr, entroIlLimiteStampa,
+  azzeraLimiteAcquista, azzeraLimiteBozza, azzeraLimiteQr, azzeraLimiteStampa,
+  entroIlLimiteAcquista, entroIlLimiteBozza, entroIlLimiteQr, entroIlLimiteStampa,
   troppiDalSito,
 } from './limite.ts';
 
@@ -66,6 +66,59 @@ Deno.test('stampa: il tetto è più largo di quello dell’acquisto', () => {
   azzeraLimiteStampa();
   for (let i = 0; i < 10; i++) assertEquals(entroIlLimiteStampa('9.9.9.9', ORA + i * 1000), true,
     'dieci ristampe dello stesso buono, in dieci minuti, restano un uso plausibile');
+});
+
+/* ---------- freno della bozza (il POST ?a=pdf, l'anteprima) ----------
+   Il difetto che presidia (revisione finale, 5-6 settembre 2026):
+   l'anteprima la chiede anche il back office, una volta ogni pausa di
+   battitura, dall'indirizzo di uscita dell'hotel — lo stesso da cui escono
+   gli ospiti attaccati al wifi. Finche' era il contatore della stampa,
+   comporre due buoni al banco poteva togliere all'OSPITE la possibilita' di
+   stampare il proprio buono pagato. */
+
+Deno.test('bozza: i primi passano, poi si chiude', () => {
+  azzeraLimiteBozza();
+  for (let i = 0; i < 120; i++) assertEquals(entroIlLimiteBozza('1.2.3.4', ORA), true, 'tentativo ' + i);
+  assertEquals(entroIlLimiteBozza('1.2.3.4', ORA), false);
+});
+
+Deno.test('bozza: un altro indirizzo non paga per il primo', () => {
+  azzeraLimiteBozza();
+  for (let i = 0; i < 120; i++) entroIlLimiteBozza('1.2.3.4', ORA);
+  assertEquals(entroIlLimiteBozza('5.6.7.8', ORA), true);
+});
+
+Deno.test('bozza: passata la finestra si ricomincia', () => {
+  azzeraLimiteBozza();
+  for (let i = 0; i < 120; i++) entroIlLimiteBozza('1.2.3.4', ORA);
+  assertEquals(entroIlLimiteBozza('1.2.3.4', ORA + 9 * 60 * 1000), false, 'dentro la finestra');
+  assertEquals(entroIlLimiteBozza('1.2.3.4', ORA + 11 * 60 * 1000), true, 'fuori dalla finestra');
+});
+
+/* IL PUNTO DEL RILIEVO. Una sessione di back office che compone due buoni —
+   una quarantina di anteprime, una per pausa di battitura — non deve
+   lasciare l'ospite dietro lo stesso indirizzo senza la sua stampa. */
+Deno.test('comporre buoni al banco non intacca il budget di chi stampa il proprio buono', () => {
+  azzeraLimiteBozza();
+  azzeraLimiteStampa();
+  const ipHotel = '10.0.0.3';
+  for (let i = 0; i < 40; i++) {
+    assertEquals(entroIlLimiteBozza(ipHotel, ORA + i * 100), true,
+      'anteprima ' + i + ': due buoni composti con calma restano un uso plausibile');
+  }
+  for (let i = 0; i < 30; i++) {
+    assertEquals(entroIlLimiteStampa(ipHotel, ORA + i * 100), true,
+      'stampa ' + i + ': l’ospite dietro lo stesso indirizzo ha il suo budget intatto');
+  }
+});
+
+Deno.test('e viceversa: le stampe dell’ospite non spengono l’anteprima del back office', () => {
+  azzeraLimiteBozza();
+  azzeraLimiteStampa();
+  const ipHotel = '10.0.0.4';
+  for (let i = 0; i < 30; i++) entroIlLimiteStampa(ipHotel, ORA + i * 100);
+  assertEquals(entroIlLimiteStampa(ipHotel, ORA + 3100), false, 'la stampa per questo indirizzo è esaurita');
+  assertEquals(entroIlLimiteBozza(ipHotel, ORA + 3100), true, 'la bozza ha un contatore tutto suo');
 });
 
 /* ---------- freno del QR: complessivo, non per indirizzo ----------
