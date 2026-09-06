@@ -2,7 +2,7 @@
    ospite.test.ts — l'ordine dal tavolo col QR: firma, righe, camera.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { cameraCombacia, codiceTessera, dallHotel, firmaTavolo, ipDi, numeroOrdine, reteNascosta, righeOrdine, tavoloFirmato } from './ospite.ts';
+import { cameraCombacia, candidatiTessera, codiceTessera, dallHotel, firmaTavolo, ipDi, numeroOrdine, reteNascosta, righeOrdine, tavoloFirmato } from './ospite.ts';
 
 Deno.test('il QR porta una firma: senza quella giusta non si ordina su un tavolo', async () => {
   const f = await firmaTavolo('bistrot-t7', 'chiave-hotel');
@@ -77,6 +77,20 @@ Deno.test('la tessera si scrive con le cifre stampate: il codice a barre lo rico
   assertEquals(codiceTessera('14662'), '1000000014662', 'anche le ultime cinque cifre del codice a barre');
   assertEquals(codiceTessera(''), null);
   assertEquals(codiceTessera('12'), null, 'meno di tre cifre non e una tessera');
+});
+
+Deno.test('con cinque cifre si provano tutte le letture: numero piu controllo, numero intero, e la prima che Fidra riconosce vince', () => {
+  /* «non riconosce il numero di tessera, e dovrebbe essere di 5 cifre non
+     4» (la proprieta', 6 settembre 2026): da qui non si sa se 14662 e' la
+     tessera 1466 col controllo o una tessera 14662 */
+  /* 14662: prima la tessera 1466 col controllo (come oggi), poi la tessera 14662 */
+  assertEquals(candidatiTessera('14662'), ['1000000014662', '1000000146622']);
+  /* 12345: il controllo di 1234 e' 7, non 5: prima il numero intero, poi la coda */
+  assertEquals(candidatiTessera('12345'), ['1000000123456', '1000000012347']);
+  assertEquals(candidatiTessera('1466'), ['1000000014662'], 'quattro cifre: una lettura sola');
+  assertEquals(candidatiTessera('1000000014662'), ['1000000014662'], 'il codice intero e uno solo');
+  assertEquals(candidatiTessera('12'), []);
+  assertEquals(new Set(candidatiTessera('99999')).size, candidatiTessera('99999').length, 'senza doppioni');
 });
 
 Deno.test('l indirizzo di chi chiama: il primo della catena, e solo l hotel passa', () => {

@@ -45,7 +45,7 @@ import { riepilogo } from './giornata.ts';
 import { chiusoCome, importoValido, residuo, resto } from './pagamenti.ts';
 import { applicaFascia, fasciaAttiva, minutiDi, oraLocale, prezzoInFascia } from './fasce.ts';
 import type { Fascia, PrezzoFascia } from './fasce.ts';
-import { cameraCombacia, codiceTessera, dallHotel, ipDi, numeroOrdine, reteNascosta, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';
+import { cameraCombacia, candidatiTessera, dallHotel, ipDi, numeroOrdine, reteNascosta, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';
 import { creaFreno } from './freno.ts';
 /* Il freno dell'elenco dei tavoli: dodici richieste ogni dieci minuti per
    indirizzo. Un ospite ne fa una, due se sbaglia locale e torna indietro;
@@ -485,10 +485,15 @@ Deno.serve(async (req) => {
     if (modo === 'camera') {
       /* tessera E numero di camera, che devono combaciare: chi trova una
          tessera per terra non sa la camera */
-      const tessera = codiceTessera(b.tessera);
+      /* le cifre sulla tessera sono 4 o 5, e con 5 non si sa se l'ultima e'
+         la cifra di controllo: si provano tutte le letture (ospite.ts) e la
+         prima che Fidra riconosce vince (la proprieta', 6 settembre 2026) */
+      const candidati = candidatiTessera(b.tessera);
       const camera = String(b.camera ?? '').trim();
-      if (!tessera || !camera) return risposta({ errore: 'servono la tessera della camera e il numero della camera' }, 400);
-      const f = await cameraDallaTessera(tessera);
+      if (!candidati.length || !camera) return risposta({ errore: 'servono la tessera della camera e il numero della camera' }, 400);
+      let tessera = candidati[0];
+      let f = await cameraDallaTessera(tessera);
+      for (const c of candidati.slice(1)) { if (f.stato !== 404) break; tessera = c; f = await cameraDallaTessera(c); }
       if (f.stato === 503) return risposta({ errore: 'addebito in camera non disponibile: paghi con la carta o chiami il cameriere' }, 503);
       if (f.stato !== 200) return risposta({ errore: 'tessera non riconosciuta' }, 404);
       if (!cameraCombacia(camera, f.camera)) return risposta({ errore: 'il numero di camera non corrisponde alla tessera' }, 403);

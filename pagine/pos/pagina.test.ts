@@ -195,7 +195,7 @@ Deno.test('scorrendo in giu fra gli articoli, portata e ricerca si nascondono; l
   /* «menu sopra fallo scomparire se scrollo in giu per lasciare piu spazio
      per vedere le categorie» (la proprieta', 4 settembre 2026) */
   assert(P.includes('.ordine.compatta .portate,.ordine.compatta .cercaRiga,.ordine.compatta .conti{display:none;}'), 'in CSS spariscono');
-  assert(m.includes('let compatta = false;') && m.includes('<div class="ordine ${compatta ? \'compatta\' : \'\'}">'), 'e lo stato sopravvive al ridisegno');
+  assert(m.includes('let compatta = false;') && m.includes('<div class="ordine ${compatta ? \'compatta\' : \'\'}${cercaFocus ? \' ricerca\' : \'\'}">'), 'e lo stato sopravvive al ridisegno');
   assert(m.includes('g.onscroll = () => {') && m.includes('window.innerWidth >= 900 || cerca'), 'solo sul palmare, e non mentre si cerca');
   assert(m.includes('const scorso = g0 ? g0.scrollTop : 0;') && m.includes('g.scrollTop = scorso;'), 'a ogni tocco la griglia non torna in cima');
   assert(m.includes('<span class="eti">Portata</span>'), 'la riga in cima dice cosa e: la portata, non un filtro');
@@ -366,4 +366,13 @@ Deno.test('la sala smette di aggiornarsi quando si esce: il tastierino del PIN n
   const sala = m.slice(m.indexOf('async function schermataSala()'), m.indexOf('timerSala = setInterval(disegna, 10000);'));
   assert(sala.includes("catch (e) { if (!SESSIONE) return;"), 'senza sessione l errore non si scrive: c e gia il tastierino');
   assert(sala.includes('id="salaRiprova"') && sala.includes('Riprova'), 'un errore vero ha un pulsante per riprovare, senza chiudere l app');
+});
+
+Deno.test('con la tastiera aperta la ricerca ha tutto lo schermo, e una ✕ la chiude', () => {
+  /* «campo ricerca non funziona e la schermata non e' ben visibile» (la
+     proprieta', 6 settembre 2026): sul palmare da 5 pollici, con la tastiera
+     su, ai risultati non restava una riga */
+  assert(P.includes('@media (max-width: 899px){.ordine.ricerca .portate,.ordine.ricerca .conti,.ordine.ricerca .comanda,.ordine.ricerca .totale,.ordine.ricerca .azioni{display:none;}}'), 'col fuoco sulla casella resta solo lei coi risultati, solo sul palmare');
+  assert(P.includes('let cercaFocus = false;') && P.includes("c.onfocus = () => { cercaFocus = true;") && P.includes('setTimeout(() => { if (cercaFocus) return;'), 'il fuoco accende il modo, il fuoco perso lo spegne con un attimo di ritardo');
+  assert(P.includes('id="cercaVia"') && P.includes("cercaVia.onclick = () => { cerca = ''; cercaFocus = false; disegna(); }"), 'la ✕ svuota e chiude');
 });

@@ -100,6 +100,13 @@ button{font:inherit;cursor:pointer;color:inherit;}
 /* sul palmare, scorrendo in giu' fra gli articoli, le due righe in cima
    spariscono per lasciare spazio; tornano scorrendo in su (4 set 2026) */
 .ordine.compatta .portate,.ordine.compatta .cercaRiga,.ordine.compatta .conti{display:none;}
+/* Con la tastiera aperta, sul palmare da 5 pollici, alle voci trovate non
+   restava nemmeno una riga: portate, conti, riepilogo e pulsanti si
+   prendevano tutto lo spazio rimasto («campo ricerca non funziona e la
+   schermata non e' ben visibile», la proprieta', 6 settembre 2026). Finche'
+   la casella ha il fuoco resta solo lei coi risultati; la ✕ chiude. */
+@media (max-width: 899px){.ordine.ricerca .portate,.ordine.ricerca .conti,.ordine.ricerca .comanda,.ordine.ricerca .totale,.ordine.ricerca .azioni{display:none;}}
+.cercaRiga .via{width:44px;height:44px;flex:none;border-radius:10px;border:1px solid var(--pietra);background:#fff;font-size:18px;color:var(--verde);padding:0;}
 /* i conti del tavolo, a portata di dito: si passa dall'uno all'altro
    senza tornare in sala, e «+ Conto» ne apre uno nuovo da qui (la
    proprieta', 5 settembre 2026). Il pallino: righe non ancora inviate. */
@@ -769,6 +776,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
   let quantitaPronta = 1;
   let categoria = '';              // '' = preferiti e ultimi
   let cerca = '';
+  let cercaFocus = false;          // la casella ha il fuoco: sul palmare la tastiera e' aperta
   let dalServer = righeServer || [];
 
   const ultimi = () => {
@@ -805,10 +813,10 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     /* si ridisegna tutto a ogni tocco: la griglia deve restare dov'era */
     const g0 = $('app').querySelector('.griglia');
     const scorso = g0 ? g0.scrollTop : 0;
-    $('app').innerHTML = `<div class="ordine ${compatta ? 'compatta' : ''}">
+    $('app').innerHTML = `<div class="ordine ${compatta ? 'compatta' : ''}${cercaFocus ? ' ricerca' : ''}">
       <div class="portate"><span class="eti">Portata</span><button data-p="" class="${portataForzata ? '' : 'attiva'}">Auto</button>${PORTATE.map((p) => `<button data-p="${p}" class="${portataForzata === p ? 'attiva' : ''}">${NOMI_PORTATE[p]}</button>`).join('')}</div>
       <div class="conti"><span class="eti">Conti</span>${contiDelTavolo().map((c, i) => `<button data-conto="${esc(c.id)}" class="${c.id === conto.id ? 'attiva' : ''}"><b>${i + 1}</b>${esc(titoloConto(c))}${c.id !== conto.id && BOZZE.has(c.id) ? ' •' : ''}</button>`).join('')}<button data-conto="nuovo">+ Esterno</button><button data-conto="nuovo-camera">+ Camera</button></div>
-      <div class="cercaRiga"><input id="cerca" placeholder="cerca (3 lettere)" value="${esc(cerca)}" autocomplete="off" />
+      <div class="cercaRiga"><input id="cerca" placeholder="cerca (3 lettere)" value="${esc(cerca)}" autocomplete="off" />${cerca ? '<button type="button" class="via" id="cercaVia" title="Chiudi la ricerca">✕</button>' : ''}
         <div class="quantita" title="Quanti: si sceglie qui, poi si tocca l’articolo">${[1,2,3,4].map((n) => `<button data-q="${n}" class="${n === quantitaPronta ? 'attivo' : ''}">${n}×</button>`).join('')}<button id="quantitaAltra" class="${quantitaPronta > 4 ? 'attivo' : ''}">${quantitaPronta > 4 ? `${quantitaPronta}×` : '…'}</button></div></div>
       <div class="griglia">
         ${MENU.fascia ? `<div class="sezione" style="color:var(--oro);">${esc(MENU.fascia.nome)} · fino alle ${esc(MENU.fascia.alle)}</div>` : ''}
@@ -841,6 +849,13 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     app.querySelectorAll('[data-cat]').forEach((b) => b.onclick = () => { categoria = b.dataset.cat; cerca = ''; disegna(); });
     const c = $('cerca');
     c.oninput = () => { cerca = c.value; const pos = c.selectionStart; disegna(); const n = $('cerca'); n.focus(); n.setSelectionRange(pos, pos); };
+    /* col fuoco sulla casella sparisce tutto tranne lei e i risultati; al
+       fuoco perso si aspetta un attimo, cosi' il tocco su un articolo
+       arriva prima che la pagina si riassesti sotto il dito */
+    c.onfocus = () => { cercaFocus = true; const o = app.querySelector('.ordine'); if (o) o.classList.add('ricerca'); };
+    c.onblur = () => { cercaFocus = false; setTimeout(() => { if (cercaFocus) return; const o = app.querySelector('.ordine'); if (o) o.classList.remove('ricerca'); }, 300); };
+    const cercaVia = $('cercaVia');
+    if (cercaVia) cercaVia.onclick = () => { cerca = ''; cercaFocus = false; disegna(); };
     /* tocco: l'articolo va sulla comanda. Tocco lungo: prezzo e
        disponibilita', per chi puo' (capo sala e amministrazione). Dopo un
        tocco lungo il dito che si alza non deve anche ordinare. */
