@@ -10,7 +10,9 @@
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 
-const P = Deno.readTextFileSync(new URL('./index.html', import.meta.url));
+/* a capo normalizzati: git su Windows scrive CRLF, e una prova su due
+   righe non deve dipendere da come e' stato fatto il checkout */
+const P = Deno.readTextFileSync(new URL('./index.html', import.meta.url)).replace(/\r\n/g, '\n');
 const m = (P.match(/<script type="module">([\s\S]*?)<\/script>/) ?? ['', ''])[1];
 
 Deno.test('riservata, in italiano, e i moduli con percorso assoluto', () => {
