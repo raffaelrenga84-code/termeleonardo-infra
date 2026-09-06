@@ -94,15 +94,18 @@ Deno.test('la schermata «serve il QR» e una schermata vera: disegno e due pass
   for (const b of ['schermataQr(e.message)', 'schermataQr(e2.message)']) assert(m.includes(b), b);
 });
 
-Deno.test('niente conteggi sotto i quadratoni, e la scelta rapida e una lista gia aperta sopra le categorie del cibo (la proprieta, 6 settembre 2026)', () => {
+Deno.test('niente conteggi sotto i quadratoni; la scelta rapida e a pulsanti sopra le categorie del cibo, e i pulsanti si toccano davvero', () => {
   assert(!m.includes("const conta = (g) =>"), 'via i conteggi dei due quadratoni grandi');
   assert(!/quantiIn\(c\)\}<\/span>/.test(m), 'via i conteggi dai quadratoni delle categorie');
   assert(m.includes("from '/ordina/filtri.js'"), 'le regole in un modulo puro, provato a parte');
-  assert(m.includes("${VISTA.gruppo === 'cibo' ? listaRapida() : ''}"), 'la lista solo sul cibo, sopra le categorie');
-  assert(m.includes('const arts = sceltaRapida(articoliCibo());') && m.includes("if (!arts.length) return '';"), 'solo i piatti marcati; senza, niente');
-  assert(m.includes('arts.map(rigaArticolo)'), 'con i + di sempre: si ordina da li');
-  assert(m.includes('${etichetteHtml(a)}'), 'le etichette sulla riga del piatto, ovunque compaia');
-  /* niente piu pulsanti: «ho provato i pulsanti, non funzionano» — e comunque
-     una lista aperta si vede senza toccare niente */
-  assert(!m.includes('data-filtro') && !m.includes('schermataFiltro') && !m.includes("VISTA.nome === 'filtro'"), 'niente pastiglie, niente schermata a parte');
+  assert(m.includes("${VISTA.gruppo === 'cibo' ? pastiglieFiltri(null) : ''}"), 'i pulsanti solo sul cibo');
+  assert(m.includes('const quali = filtriDisponibili(articoliCibo());'), 'solo i pulsanti con almeno un piatto');
+  assert(m.includes("else if (VISTA.nome === 'filtro') schermataFiltro();"), 'la schermata del filtro');
+  assert(m.includes("VISTA.nome === 'filtro' && VISTA.filtro === el.dataset.filtro ? { nome: 'categorie', gruppo: 'cibo' }"), 'il pulsante acceso si spegne tornando alle categorie');
+  assert(m.includes('lista.map(rigaArticolo)'), 'nella schermata del filtro si ordina con i + di sempre');
+  assert(m.includes('${etichetteHtml(a)}'), 'le etichette sulla riga del piatto');
+  /* «ho provato i pulsanti, non funzionano»: il gestore dei tocchi cerca
+     l elemento toccato con closest(): senza [data-filtro] nell elenco, il
+     tocco sul pulsante non arrivava a nessuno */
+  assert(m.includes("closest('[data-gruppo],[data-filtro],[data-cat]"), 'il pulsante e fra quelli che il gestore cerca');
 });

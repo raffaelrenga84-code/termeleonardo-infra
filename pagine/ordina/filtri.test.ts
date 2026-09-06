@@ -8,7 +8,7 @@
    sbagliata.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { etichetteDi, FILTRI, passaFiltro, sceltaRapida, TESTI_FILTRI } from './filtri.js';
+import { etichetteDi, FILTRI, filtriDisponibili, passaFiltro, sceltaRapida, TESTI_FILTRI } from './filtri.js';
 
 const penne = { id: 'p', nome: 'Penne Glutenfree', allergeni: '', senza_glutine: true };
 const pinsa = { id: 'i', nome: 'Pinsa vegetariana', allergeni: 'GL-LA', vegetariano: true };
@@ -60,6 +60,13 @@ Deno.test('la scelta rapida sono i piatti con almeno un etichetta, nell ordine d
   assertEquals(sceltaRapida([bistecca, vino]), []);
   assertEquals(sceltaRapida([]), []);
   assertEquals(sceltaRapida(null), []);
+});
+
+Deno.test('si offrono solo i pulsanti che hanno almeno un piatto, nell ordine fisso', () => {
+  assertEquals(filtriDisponibili([bistecca, penne, vino]), ['glutine']);
+  assertEquals(filtriDisponibili([burger, { ...bistecca, senza_lattosio: true }]), ['vegetariano', 'vegano', 'lattosio']);
+  assertEquals(filtriDisponibili([bistecca, vino]), []);
+  assertEquals(filtriDisponibili(null), []);
 });
 
 Deno.test('i testi ci sono nelle quattro lingue, per le quattro etichette e il titolo', () => {

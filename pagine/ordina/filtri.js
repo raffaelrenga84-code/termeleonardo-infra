@@ -6,8 +6,10 @@
    lattosio, cosi' fanno prima a scegliere; sono due o tre prodotti» e poi
    «conviene mettere una lista di quei prodotti fuori dai pulsanti: siccome
    sono pochi uno li vede subito senza andare in cerca» (la proprieta', 6
-   settembre 2026). Quindi niente pulsanti: i piatti marcati stanno in una
-   lista gia' aperta sopra le categorie del cibo, ognuno con le sue etichette.
+   settembre 2026) — poi, letto il menu stampato: «i prodotti sono piu' di
+   tre, conviene fare dei pulsanti, sarebbe un elenco troppo lungo». Quindi
+   pulsanti sopra le categorie del cibo, uno per etichetta che ha almeno un
+   piatto; un tocco apre l'elenco dei piatti che passano.
 
    QUATTRO SPUNTE DELLA RECEPTION, NON DEDUZIONI. Le proprieta' vivono in
    pos_articolo (senza_glutine, vegetariano, vegano, senza_lattosio) e le
@@ -44,6 +46,12 @@ export function passaFiltro(a, filtro) {
 /** Le etichette di un articolo, nell'ordine fisso: vuoto per i piatti normali. */
 export function etichetteDi(a) {
   return FILTRI.filter((f) => passaFiltro(a, f));
+}
+
+/** I filtri che hanno almeno un piatto: i pulsanti degli altri non si mostrano. */
+export function filtriDisponibili(articoli) {
+  const lista = Array.isArray(articoli) ? articoli : [];
+  return FILTRI.filter((f) => lista.some((a) => passaFiltro(a, f)));
 }
 
 /** I piatti della scelta rapida: quelli con almeno un'etichetta, nell'ordine del menu. */
