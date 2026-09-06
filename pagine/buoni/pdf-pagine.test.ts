@@ -166,3 +166,87 @@ Deno.test('se il PDF non arriva, la pagina di acquisto lo dice nelle quattro lin
   ]) assertStringIncludes(REGALA, testo);
   assert(REGALA.includes('t.anteprimaNonDisponibile'), 'e il messaggio finisce nel telaio dell anteprima');
 });
+
+/* ============================================================
+   IL DIFETTO. «importo libero» col campo vuoto (ha solo un placeholder,
+   quindi e' esattamente lo stato nell'istante in cui l'ospite passa a
+   questa scelta) o fuori dai 25-1.000 € produce stato().descrizione === ''.
+   La pagina chiedeva comunque il PDF al server, che disegnava un buono con
+   la casella del servizio vuota, un separatore che non separa niente e
+   "Valido fino al —": un foglio che sembra difettoso, non uno semplicemente
+   non ancora scelto (la proprieta', 6 settembre 2026). ============================================================ */
+
+Deno.test('quando non c e niente da disegnare lo dice nelle quattro lingue, invece di un buono vuoto', () => {
+  const blocchi = lingueDiT(REGALA);
+  for (const l of ['it', 'de', 'en', 'fr']) {
+    assert(blocchi[l].includes('anteprimaVuota:'), `manca in ${l}`);
+  }
+  for (const testo of [
+    'Scelga il regalo o scriva',
+    'Wählen Sie das Geschenk oder geben Sie den Betrag ein',
+    'Choose the gift or enter the amount: the voucher you will receive appears here.',
+    /* il testo francese in regala/index.html scrive l'apostrofo come ’
+       (stessa scelta gia' fatta per altre frasi francesi della pagina):
+       il sorgente non contiene il carattere tipografico, quindi qui si
+       controlla solo la parte senza apostrofo, come gia' fa il test qui
+       sopra per il tedesco (verfügbar) */
+    'Choisissez le cadeau ou saisissez le montant',
+  ]) assertStringIncludes(REGALA, testo);
+  assert(REGALA.includes('t.anteprimaVuota'), 'e il messaggio finisce nel telaio dell anteprima');
+});
+
+Deno.test('quando non c e niente da disegnare la pagina di acquisto non chiede il PDF al server', () => {
+  const chiesta = fra(REGALA, 'const chiediAnteprima', '\n  };');
+  const controllo = chiesta.indexOf('if (!b.descrizione)');
+  assert(controllo >= 0, 'chiediAnteprima deve controllare se c e qualcosa da disegnare');
+  const chiamataServer = chiesta.indexOf('fetch(FUNZIONE');
+  assert(chiamataServer >= 0 && controllo < chiamataServer,
+    'il controllo della descrizione vuota viene prima della fetch, non dopo');
+  const usoAvviso = chiesta.indexOf('t.anteprimaVuota', controllo);
+  assert(usoAvviso >= 0 && usoAvviso < chiamataServer, 'il caso vuoto scrive l avviso, non chiama il server');
+  const revoca = chiesta.indexOf('URL.revokeObjectURL(urlPdf)', controllo);
+  assert(revoca >= 0 && revoca < chiamataServer,
+    'anche nel caso vuoto si revoca l anteprima precedente, non resta un PDF vecchio in memoria');
+});
+
+/* ============================================================
+   IL DIFETTO. chiediAnteprima() annullava il timer in attesa ma non la
+   richiesta gia' partita: due POST possono rispondere in un ordine
+   qualunque, e se quella per lo stato piu' vecchio arriva DOPO quella per
+   lo stato piu' nuovo, il cliente vede un'anteprima che non corrisponde
+   piu' a quello che ha scelto. Stesso difetto e stessa cura di giroBuono
+   nel back office (test qui sopra, "due buoni aperti di fila non si
+   rubano l anteprima"): un contatore di modulo, non un booleano. ============================================================ */
+
+Deno.test('una risposta lenta dell anteprima non ne sovrascrive una piu nuova: chiediAnteprima ha un numero di giro', () => {
+  assert(REGALA.includes('let giroAnteprima = 0;'), 'un contatore di modulo, non per chiamata');
+  assert(REGALA.includes('const mio = ++giroAnteprima;'), 'ogni chiamata a chiediAnteprima prende il proprio numero');
+  const chiesta = fra(REGALA, 'const chiediAnteprima', '\n  };');
+  assertEquals((chiesta.match(/mio !== giroAnteprima/g) || []).length, 2,
+    'il controllo c e sia nel ramo buono sia nel ramo di errore (.catch)');
+  const primoControllo = chiesta.indexOf('mio !== giroAnteprima');
+  assert(primoControllo >= 0);
+  const revocaPropria = chiesta.indexOf('URL.revokeObjectURL(url)', primoControllo);
+  assert(revocaPropria > primoControllo, 'chi ha perso il giro revoca il blob appena ricevuto: non e di nessuno');
+  const revocaPrecedente = chiesta.indexOf('if (urlPdf) URL.revokeObjectURL(urlPdf);', primoControllo);
+  assert(revocaPrecedente > revocaPropria, 'il controllo del giro viene prima della revoca del foglio gia mostrato');
+  const repaint = chiesta.indexOf('<iframe class="pdfFrame"', revocaPrecedente);
+  assert(repaint > revocaPrecedente, 'e prima di riscrivere il telaio con il nuovo PDF');
+});
+
+/* ============================================================
+   IL DIFETTO. stato() non produce mai il campo `sottotitolo` (questa
+   pagina non ha un campo per scriverlo, a differenza del back office): era
+   rimasto nell'elenco CAMPI_PDF di un giro di modifiche precedente, morto,
+   perche' `if (b[k] !== undefined)` lo scarta sempre. ============================================================ */
+
+Deno.test('CAMPI_PDF non manda piu sottotitolo: stato() non lo produce mai in questa pagina', () => {
+  const m = REGALA.match(/const CAMPI_PDF = \[([\s\S]*?)\];/);
+  assert(m, "CAMPI_PDF non trovato in regala/index.html: la pagina e' cambiata, aggiornare questo test");
+  const campi = m![1];
+  assert(!campi.includes("'sottotitolo'"), 'sottotitolo e rimasto nell elenco ma stato() non lo produce mai');
+  for (const atteso of ['tipo', 'voce_id', 'descrizione', 'valore', 'lingua',
+    'destinatario', 'acquirente', 'dedica', 'scade_il']) {
+    assert(campi.includes(`'${atteso}'`), `manca '${atteso}' in CAMPI_PDF`);
+  }
+});

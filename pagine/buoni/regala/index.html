@@ -252,6 +252,7 @@ const T = {
     paga:(v)=>`Paga con carta \u2014 ${v} \u20ac`, pagoIn:'Pagamento sicuro con carta. Dopo il pagamento il buono \u00e8 emesso automaticamente e inviato per email.',
     anteprima:'Anteprima del buono',
     anteprimaNonDisponibile:'L’anteprima non è disponibile in questo momento: il buono che riceverà è identico a quello che vede qui appena torna.',
+    anteprimaVuota:'Scelga il regalo o scriva l’importo: qui vedrà il buono che riceverà.',
     mancaChe:(x)=>`Manca ancora: ${x}.`, mancaVoce:'Cosa regali', mancaImporto:'Importo',
     attesa:'Un momento, prepariamo il pagamento\u2026',
     erroreGen:'Non \u00e8 stato possibile avviare il pagamento. Riprova tra poco, oppure scrivici a info@termeleonardo.com o chiamaci al +39 049 9939200.',
@@ -285,6 +286,7 @@ const T = {
     paga:(v)=>`Mit Karte zahlen \u2014 ${v} \u20ac`, pagoIn:'Sichere Kartenzahlung. Nach der Zahlung wird der Gutschein automatisch ausgestellt und per E-Mail versandt.',
     anteprima:'Vorschau des Gutscheins',
     anteprimaNonDisponibile:'Die Vorschau ist im Moment nicht verfügbar: der Gutschein, den Sie erhalten, sieht genauso aus wie hier, sobald sie wieder da ist.',
+    anteprimaVuota:'Wählen Sie das Geschenk oder geben Sie den Betrag ein: hier sehen Sie den Gutschein, den Sie erhalten.',
     mancaChe:(x)=>`Es fehlt noch: ${x}.`, mancaVoce:'Was Sie verschenken', mancaImporto:'Betrag',
     attesa:'Einen Moment, wir bereiten die Zahlung vor\u2026',
     erroreGen:'Die Zahlung konnte nicht gestartet werden. Bitte versuchen Sie es sp\u00e4ter erneut oder schreiben Sie an info@termeleonardo.com / rufen Sie +39 049 9939200 an.',
@@ -318,6 +320,7 @@ const T = {
     paga:(v)=>`Pay by card \u2014 ${v} \u20ac`, pagoIn:'Secure card payment. After payment the voucher is issued automatically and sent by email.',
     anteprima:'Voucher preview',
     anteprimaNonDisponibile:'The preview is not available right now: the voucher you receive looks exactly like the one shown here once it is back.',
+    anteprimaVuota:'Choose the gift or enter the amount: the voucher you will receive appears here.',
     mancaChe:(x)=>`Still missing: ${x}.`, mancaVoce:'What you are gifting', mancaImporto:'Amount',
     attesa:'One moment, preparing the payment\u2026',
     erroreGen:'We could not start the payment. Please try again shortly, or write to info@termeleonardo.com or call +39 049 9939200.',
@@ -351,6 +354,7 @@ const T = {
     paga:(v)=>`Payer par carte \u2014 ${v} \u20ac`, pagoIn:'Paiement s\u00e9curis\u00e9 par carte. Apr\u00e8s le paiement, le bon est \u00e9mis automatiquement et envoy\u00e9 par e-mail.',
     anteprima:'Aper\u00e7u du bon',
     anteprimaNonDisponibile:'L\u2019aper\u00e7u n\u2019est pas disponible pour le moment : le bon que vous recevrez est identique \u00e0 celui affich\u00e9 ici d\u00e8s qu\u2019il revient.',
+    anteprimaVuota:'Choisissez le cadeau ou saisissez le montant : le bon que vous recevrez s\u2019affiche ici.',
     mancaChe:(x)=>`Il manque encore : ${x}.`, mancaVoce:'Ce que vous offrez', mancaImporto:'Montant',
     attesa:'Un instant, nous pr\u00e9parons le paiement\u2026',
     erroreGen:'Le paiement n\u2019a pas pu d\u00e9marrer. R\u00e9essayez dans un instant, ou \u00e9crivez \u00e0 info@termeleonardo.com ou appelez le +39 049 9939200.',
@@ -418,6 +422,19 @@ let TIPO = 'servizio';
    Elenco chiuso, non un valore preso a caso da un menu: le uniche due
    scelte possibili sono i due pulsanti che l'ospite può premere. */
 let FATT_TIPO = 'privato';
+
+/* Il numero di giro dell'anteprima: due chiamate a chiediAnteprima() per
+   due stati diversi del modulo (l'ospite cambia ancora mentre la prima
+   richiesta e' in viaggio) possono rispondere in un ordine qualunque — se
+   quella per lo stato PIU' VECCHIO arriva DOPO quella per lo stato piu'
+   nuovo, senza un modo per riconoscerlo sovrascriverebbe l'anteprima giusta
+   con una che non corrisponde piu' a quello che l'ospite ha scelto. Stessa
+   idea di giroBuono nel back office (pagine/buoni/index.html, vedi il
+   commento li'): un contatore di modulo, non un booleano — ogni chiamata
+   prende il numero corrente incrementato (`mio`), e quando la sua risposta
+   arriva la confronta con quello ATTUALE; se sono diversi la risposta non
+   e' piu' di nessuno, e si limita a revocare il blob appena ricevuto. */
+let giroAnteprima = 0;
 
 /* Il titolo della scheda del browser, per lingua.
 
@@ -738,7 +755,7 @@ function modulo() {
      fattura, che sul buono non compaiono e al server per disegnarlo non
      servono. */
   const CAMPI_PDF = ['tipo', 'voce_id', 'descrizione', 'valore', 'lingua',
-    'destinatario', 'acquirente', 'dedica', 'sottotitolo', 'scade_il'];
+    'destinatario', 'acquirente', 'dedica', 'scade_il'];
   /* L'anteprima e' il PDF vero, chiesto al server: quello che l'ospite
      vede mentre compila e' esattamente il buono che ricevera' per email.
      Chiederlo a ogni tasto premuto sarebbe una richiesta per ogni lettera
@@ -748,8 +765,28 @@ function modulo() {
   let urlPdf = '';
   const chiediAnteprima = () => {
     clearTimeout(attesaPdf);
+    /* ogni chiamata invalida quella precedente, anche quando poi non parte
+       nessuna richiesta: vedi il commento su giroAnteprima piu' sopra —
+       senza incrementare anche qui, una risposta ancora in viaggio per lo
+       stato di PRIMA potrebbe arrivare DOPO che l'ospite e' passato a uno
+       stato senza niente da disegnare, e riscrivere l'avviso qui sotto con
+       un PDF che non descrive piu' quello che ha scelto. */
+    const mio = ++giroAnteprima;
+    const b = stato();
+    if (!b.descrizione) {
+      /* «importo libero» col campo vuoto o fuori dai 25-1.000 € — il campo
+         ha solo un placeholder, quindi e' proprio questo lo stato
+         nell'istante in cui l'ospite passa a questa scelta. Chiedere
+         comunque il PDF al server disegnava un buono con la casella del
+         servizio vuota, un separatore che non separa niente e "Valido fino
+         al —": un foglio che sembra difettoso, non uno semplicemente non
+         ancora scelto. Meglio dirlo qui, senza nemmeno bussare al server
+         (la proprieta', 6 settembre 2026). */
+      if (urlPdf) { URL.revokeObjectURL(urlPdf); urlPdf = ''; }
+      $('telaio').innerHTML = `<div class="mini">${esc(t.anteprimaVuota)}</div>`;
+      return;
+    }
     attesaPdf = setTimeout(async () => {
-      const b = stato();
       const corpo = {};
       CAMPI_PDF.forEach((k) => { if (b[k] !== undefined) corpo[k] = b[k]; });
       try {
@@ -759,12 +796,18 @@ function modulo() {
           headers: { 'content-type': 'application/json' }, body: JSON.stringify(corpo) });
         if (!r.ok) throw new Error('errore ' + r.status);
         const url = URL.createObjectURL(await r.blob());
+        /* il controllo del giro PRIMA di tutto: se nel frattempo l'ospite
+           ha scelto altro, questa risposta e' in ritardo e non ha piu'
+           nessuno a cui servire — solo un blob da revocare, perche' e' suo
+           e di nessun altro (vedi il commento su giroAnteprima). */
+        if (mio !== giroAnteprima) { URL.revokeObjectURL(url); return; }
         /* senza revoca ogni modifica lascerebbe un PDF in memoria fino a
            che la scheda resta aperta */
         if (urlPdf) URL.revokeObjectURL(urlPdf);
         urlPdf = url;
         $('telaio').innerHTML = `<iframe class="pdfFrame" src="${url}" title="${esc(t.anteprima)}"></iframe>`;
       } catch (e) {
+        if (mio !== giroAnteprima) return;
         /* il freno del server (429) o la rete giu': l'anteprima non c'e',
            ma il buono si compra lo stesso — dirlo e' meglio che lasciare
            un riquadro vuoto che sembra un guasto */
