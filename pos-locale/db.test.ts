@@ -33,6 +33,12 @@ Deno.test('gli array (note_rapide, righe della comanda) vanno e tornano come JSO
   assertEquals(JSON.parse(r.note_rapide), ['senza glutine']);
 });
 
+Deno.test('il monitor cucina: pos_stampa porta le colonne nuove', () => {
+  const db = apri(':memory:'); creaSchema(db);
+  const cols = colonneDi(db, 'pos_stampa');
+  for (const c of ['biglietto', 'conto', 'vista_il', 'presa_il', 'pronta_il', 'pronta_da']) assert(cols.includes(c), c);
+});
+
 Deno.test('un PC gia installato prima del monitor cucina non si reinstalla da zero: le colonne arrivano con un alter', () => {
   const db = apri(':memory:');
   /* la pos_stampa di prima del 6 settembre 2026, senza le colonne del monitor */
@@ -42,12 +48,6 @@ Deno.test('un PC gia installato prima del monitor cucina non si reinstalla da ze
     stampata_il text, stampata_da text, errore text, aggiornato_il text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     allineato integer not null default 0)`);
   creaSchema(db);
-  const cols = colonneDi(db, 'pos_stampa');
-  for (const c of ['biglietto', 'conto', 'vista_il', 'presa_il', 'pronta_il', 'pronta_da']) assert(cols.includes(c), c);
-});
-
-Deno.test('il monitor cucina: pos_stampa porta le colonne nuove', () => {
-  const db = apri(':memory:'); creaSchema(db);
   const cols = colonneDi(db, 'pos_stampa');
   for (const c of ['biglietto', 'conto', 'vista_il', 'presa_il', 'pronta_il', 'pronta_da']) assert(cols.includes(c), c);
 });

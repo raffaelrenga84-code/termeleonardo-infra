@@ -123,7 +123,12 @@ create index if not exists pos_riga_conto on pos_riga(conto);
 create index if not exists pos_stampa_stato on pos_stampa(stato);
 `);
   /* un PC gia' installato prima del monitor cucina non si reinstalla da
-     zero: le colonne nuove di pos_stampa arrivano con un alter table */
+     zero: le colonne nuove di pos_stampa arrivano con un alter table.
+     La cache delle colonne e' per nome tabella, condivisa da tutti i
+     database dello stesso processo (i test ne aprono piu' di uno): si
+     svuota anche PRIMA di leggerla, non solo dopo l'alter, cosi' il
+     controllo vede sempre lo stato vero di QUESTO database. */
+  colonne.delete('pos_stampa'); colonne.delete('pos_postazione');
   const colonneNuove = ['biglietto', 'conto', 'vista_il', 'presa_il', 'pronta_il', 'pronta_da'];
   const presenti = colonneDi(db, 'pos_stampa');
   for (const c of colonneNuove) if (!presenti.includes(c)) db.exec(`alter table pos_stampa add column ${c} text`);
