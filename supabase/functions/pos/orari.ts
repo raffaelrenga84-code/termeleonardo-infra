@@ -6,8 +6,11 @@
    alle ore 20:30». Nel back office si scrive in una riga di testo, per
    categoria o per articolo: «12:15-14:30; ven,sab 12:15-20:30».
    Parti separate da «;», davanti alle ore i giorni (nomi italiani,
-   «ven,sab» o «lun-ven»); vuoto o «sempre» = nessun vincolo. Una parte
-   scritta male si salta. La fine e' esclusa e la finestra puo' passare
+   «ven,sab» o «lun-ven»). Vuoto = nessun vincolo proprio: l'articolo
+   eredita gli orari della categoria. «sempre» = nessun vincolo E BASTA,
+   anche se la categoria ne ha: e' per la focaccia del banco Bistrot messa
+   fra le specialita' da condividere, che si ordina tutto il giorno (la
+   proprieta', 6 settembre 2026). Una parte scritta male si salta. La fine e' esclusa e la finestra puo' passare
    la mezzanotte, come le fasce di prezzo (fasce.ts).
 
    Il palmare non guarda gli orari: il cameriere ordina quel che vuole.
@@ -36,10 +39,12 @@ function giorniDi(s: string): number[] | null | false {
   return out;
 }
 
-/** La riga di testo → le finestre; null = sempre. */
+/** La riga di testo → le finestre. null = niente di proprio (si eredita);
+ *  [] = «sempre», nessuna finestra, aperto e basta. */
 export function leggiOrari(testo: unknown): Finestra[] | null {
   const s = String(testo ?? '').trim();
-  if (!s || /^sempre$/i.test(s)) return null;
+  if (!s) return null;
+  if (/^sempre$/i.test(s)) return [];
   const out: Finestra[] = [];
   for (const parte of s.split(';')) {
     const m = parte.trim().match(/^(.*?)\s*(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
@@ -55,7 +60,9 @@ export function leggiOrari(testo: unknown): Finestra[] | null {
 
 /** Si puo' ordinare adesso? Senza finestre, sempre. */
 export function apertoOra(finestre: Finestra[] | null | undefined, adesso: Adesso): boolean {
-  return !finestre || finestre.some((f) => dentroFinestra(f.dalle, f.alle, f.giorni, adesso));
+  /* null (niente di proprio) e [] («sempre») aprono tutti e due: e la lista vuota
+     di «sempre» che deve vincere sugli orari della categoria */
+  return !finestre || !finestre.length || finestre.some((f) => dentroFinestra(f.dalle, f.alle, f.giorni, adesso));
 }
 
 /** Le stesse finestre con la fine anticipata di `minuti`: chi ordina dal

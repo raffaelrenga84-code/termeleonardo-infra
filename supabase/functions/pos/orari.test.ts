@@ -22,10 +22,18 @@ Deno.test('una riga di testo diventa finestre: ore, e giorni se scritti', () => 
   assertEquals(leggiOrari('Sabato, Domenica 08:00-11:00'), [{ dalle: '08:00', alle: '11:00', giorni: [6, 0] }], 'i nomi interi e le maiuscole vanno bene');
 });
 
-Deno.test('vuoto o «sempre» = nessun vincolo; una parte scritta male si salta', () => {
+Deno.test('vuoto = come la categoria (null); «sempre» = nessun vincolo, anche se la categoria ne ha ([]); una parte scritta male si salta', () => {
+  /* La focaccia del banco Bistrot spostata fra le «specialita' da
+     condividere» (12:15-14:30) deve restare ordinabile tutto il giorno:
+     «sempre» sull'articolo vince sugli orari della categoria (la
+     proprieta', 6 settembre 2026). Vuoto invece eredita, come prima. */
   assertEquals(leggiOrari(''), null);
   assertEquals(leggiOrari(null), null);
-  assertEquals(leggiOrari('sempre'), null);
+  assertEquals(leggiOrari('sempre'), []);
+  assertEquals(leggiOrari(' Sempre '), []);
+  assertEquals(apertoOra([], { giorno: 2, minuti: 10 * 60 }), true, 'senza finestre si ordina sempre');
+  assertEquals(restringi([], 10), [], 'niente da restringere');
+  assertEquals(leggiOrari('sempre') ?? leggiOrari('12:15-14:30'), [], 'l articolo con «sempre» vince sulla categoria');
   assertEquals(leggiOrari('12:15-14:30; boh'), [{ dalle: '12:15', alle: '14:30', giorni: null }]);
   assertEquals(leggiOrari('boh'), null, 'solo parti sbagliate: come se non ci fosse');
 });
