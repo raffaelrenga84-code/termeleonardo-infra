@@ -702,6 +702,33 @@ const limitiSoggiorno = () => `min="${esc(DAL)}"` + (AL ? ` max="${esc(AL)}"` : 
    che il server rifiuterebbe comunque. */
 const ultimoGiornoDayspa = () => giorniInFila(oggiISO())[ORIZZONTE_GIORNI - 1];
 
+/* Il tetto del campo giorno del Day Spa — e il motivo per cui non e' solo
+   `ultimoGiornoDayspa()`.
+
+   IL DIFETTO (revisione finale, 5-6 settembre 2026). `min` resta la data di
+   arrivo quando l'arrivo e' nel futuro (DAL, qui sopra), ma il tetto era
+   diventato sempre l'orizzonte dei quattordici giorni. L'email pre-arrivo
+   della reception porta ?arrivo=/?partenza= anche per un soggiorno fra tre
+   settimane: per quell'ospite il campo nasceva con min OLTRE max, cioe' un
+   calendario in cui non si puo' scegliere NIENTE — peggio del difetto che
+   l'orizzonte doveva risolvere. Prima il tetto era la partenza e funzionava.
+
+   LA REGOLA. L'orizzonte vale finche' l'ospite ci arriva dentro; se il suo
+   soggiorno comincia dopo, il tetto lo da' il SOGGIORNO (l'ospite prenota
+   per i giorni in cui c'e', ed e' la reception a portarlo qui con quelle
+   date). Una partenza piu' vicina dell'orizzonte resta comunque il limite
+   vero: non ha senso proporre un giorno in cui l'ospite e' gia' ripartito.
+   E se quello che ne esce e' ancora impossibile — un link vecchio, con una
+   partenza gia' passata — meglio nessun tetto che un tetto che chiude il
+   campo: senza `max` il calendario si compila, e la reception legge una
+   data sbagliata invece di ricevere il silenzio di un ospite che ha
+   rinunciato. */
+function tettoGiornoDayspa() {
+  const orizzonte = ultimoGiornoDayspa();
+  const tetto = DAL > orizzonte ? AL : (AL && AL < orizzonte ? AL : orizzonte);
+  return tetto && tetto >= DAL ? tetto : '';
+}
+
 /* Un parametro dentro un indirizzo che puo' gia' avere una query o no, senza
    doppioni: serve al cambio di lingua qui sotto. Valore vuoto, niente da
    aggiungere. */
@@ -815,11 +842,14 @@ function campiTipo(t) {
      nel riquadro dei dati, come per tutti gli altri tipi.
 
      Il campo giorno NON prende i limiti del soggiorno (limitiSoggiorno()):
-     prende ultimoGiornoDayspa(), lo stesso orizzonte della prenotazione
+     prende tettoGiornoDayspa(), che parte dall'orizzonte della prenotazione
      Day Spa — oltre non si prenota comunque (la proprieta', 5 settembre
-     2026). Un soggiorno che finisse prima resta comunque il limite vero
-     (AL, se piu' vicino): non avrebbe senso proporre un giorno dopo la
-     partenza dell'ospite.
+     2026) — ma cede al soggiorno quando l'ospite arriva piu' in la' di
+     cosi', o il campo nascerebbe con min oltre max e non si potrebbe
+     compilare affatto. Il perche' per esteso sta sopra quella funzione.
+     Senza un tetto utile il `max` non si scrive proprio, invece di uscire
+     vuoto: un `max=""` il browser lo ignora comunque, ma nel sorgente
+     sembrerebbe un limite, e il calendario (innestaGiorno) lo legge di li'.
 
      Sotto i due campi c'e' la riga della disponibilita': nasce VUOTA e
      nascosta, perche' finche' l'ospite non sceglie un giorno non c'e'
@@ -838,7 +868,7 @@ function campiTipo(t) {
   if (TIPO === 'dayspa') return `
     <div class="due">
       <div><label for="fGiorno">${esc(t.giorno)}</label>
-        <input type="date" id="fGiorno" min="${esc(DAL)}" max="${esc(AL && AL < ultimoGiornoDayspa() ? AL : ultimoGiornoDayspa())}" /></div>
+        <input type="date" id="fGiorno" min="${esc(DAL)}"${tettoGiornoDayspa() ? ` max="${esc(tettoGiornoDayspa())}"` : ''} /></div>
       <div><label for="fPersone">${esc(t.persone)}</label>
         <input type="number" id="fPersone" min="1" max="8" value="1" /></div>
     </div>

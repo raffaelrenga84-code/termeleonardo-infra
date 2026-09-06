@@ -63,6 +63,15 @@ button.azione,a.azione{background:var(--arancio);color:#fff;border:0;border-radi
 padding:13px 20px;font:600 15px Arial;cursor:pointer;margin-top:14px;
 display:inline-block;text-decoration:none;box-sizing:border-box;}
 button.azione:disabled{background:#CFCABF;}
+/* Un <a> non ha :disabled, e uno senza href non e' un pulsante spento: e'
+   un elemento con l'aria di essere cliccabile che non fa assolutamente
+   niente. «Scarica il PDF» (#bScarica) nasce proprio cosi' — il foglio
+   arriva dopo, con una fetch — e ci resta per sempre se quella richiesta
+   fallisce: la reception cliccherebbe convinta e non succederebbe nulla.
+   Finche' l'indirizzo non c'e' si vede spento, e i clic non arrivano
+   nemmeno (pointer-events). Vedi mostraFatto. */
+a.azione[aria-disabled="true"]{background:#F2F0EB;color:#9A958B;
+border:1px solid #DED9CE;cursor:default;pointer-events:none;}
 button.sec,a.sec{background:#fff;color:var(--acqua-scura);border:1px solid var(--acqua);}
 button.mini-azione{background:#fff;color:var(--acqua-scura);border:1px solid var(--acqua);
 border-radius:6px;padding:5px 11px;font:11px/1 Arial;letter-spacing:.6px;
@@ -973,6 +982,18 @@ let urlBuonoMostrato = '';
    mai) e non tocca altro. Solo la chiamata vincente (l'ultima aperta)
    revoca il foglio mostrato prima di lei. */
 let giroBuono = 0;
+/* Il giro a cui appartiene il foglio che sta in urlBuonoMostrato. Senza,
+   il controllo del giro copriva meta' del difetto: la risposta in ritardo
+   non ruba piu' il pannello, ma i pulsanti si', perche' guardavano solo se
+   urlBuonoMostrato fosse pieno — e quella variabile e' di modulo, non la
+   azzera nessuno quando mostraFatto ridisegna. Aperto il buono A e poi il
+   buono B dall'elenco, per tutto il volo della richiesta di B (e PER SEMPRE
+   se quella richiesta fallisce) urlBuonoMostrato tiene ancora il foglio di
+   A: «Stampa subito» apriva il buono di un altro cliente — nome, dedica e
+   codice spendibile compresi. Trovato dalla revisione finale (5-6 settembre
+   2026). Adesso l'URL e il suo giro si scrivono insieme, e chi apre un PDF
+   deve trovarci il PROPRIO giro. */
+let giroDelFoglio = 0;
 
 /* Il pannello del buono: numero, dati, anteprima e modi per consegnarlo.
    Lo usa sia l'emissione sia l'elenco, dove serve a rimandare un buono
@@ -1010,7 +1031,7 @@ function mostraFatto(b, contenitore = 'fFatto') {
         <div class="mini" style="padding-top:12px;">Come lo consegna?</div>
         <div class="azioni-buono">
           <button class="azione" id="bStampa">&#128424; Stampa subito</button>
-          <a class="azione sec" id="bScarica" download="Buono-Regalo-${esc(b.codice)}.pdf">&#11015; Scarica il PDF</a>
+          <a class="azione sec" id="bScarica" aria-disabled="true" download="Buono-Regalo-${esc(b.codice)}.pdf">&#11015; Scarica il PDF</a>
           ${b.destinatario_email
             ? `<button class="azione sec" id="bMailDest">&#9993; Email a ${esc(b.destinatario || 'chi lo riceve')}</button>` : ''}
           ${b.acquirente_email
@@ -1033,8 +1054,17 @@ function mostraFatto(b, contenitore = 'fFatto') {
      una finestra aperta al ritorno di una promessa il browser la tratta
      come aperta da sola, e la blocca. Il foglio ce l'abbiamo gia', perche'
      l'anteprima qui sotto lo scarica appena il pannello compare. */
+  /* `giroDelFoglio !== mio` e non solo `!urlBuonoMostrato`: il foglio in
+     memoria puo' benissimo esserci ed essere di UN ALTRO BUONO (vedi il
+     commento sopra giroDelFoglio). Aprirlo qui vorrebbe dire stampare il
+     nome, la dedica e il codice spendibile di un altro cliente. Meglio non
+     aprire niente e dirlo: il foglio giusto arriva fra un istante, o non
+     arriva affatto e allora l'anteprima qui sotto mostra il suo errore. */
   const apriPdf = () => {
-    if (!urlBuonoMostrato) { $('bEsito').textContent = 'L’anteprima si sta ancora caricando: un momento.'; return; }
+    if (!urlBuonoMostrato || giroDelFoglio !== mio) {
+      $('bEsito').textContent = 'L’anteprima di questo buono si sta ancora caricando: un momento.';
+      return;
+    }
     apriPdfGuardato(urlBuonoMostrato, $('bEsito'));
   };
   /* il pannello puo' essere sparito mentre il PDF arrivava (l'operatore ha
@@ -1053,9 +1083,13 @@ function mostraFatto(b, contenitore = 'fFatto') {
     if (mio !== giroBuono) { URL.revokeObjectURL(url); return; }
     if (urlBuonoMostrato) URL.revokeObjectURL(urlBuonoMostrato);
     urlBuonoMostrato = url;
+    /* l'URL e il suo giro si scrivono INSIEME, sempre: sono una cosa sola,
+       e un foglio senza il suo giro e' esattamente il difetto di prima */
+    giroDelFoglio = mio;
     if (!$('bAnteprima')) return;
     iframePdf($('bAnteprima'), url);
-    if ($('bScarica')) $('bScarica').href = url;
+    /* il link si accende solo adesso che ha un indirizzo da aprire */
+    if ($('bScarica')) { $('bScarica').href = url; $('bScarica').removeAttribute('aria-disabled'); }
   }).catch((e) => {
     if (mio !== giroBuono) return;
     if ($('bAnteprima')) $('bAnteprima').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
@@ -1117,8 +1151,23 @@ function mostraFatto(b, contenitore = 'fFatto') {
       bottone.disabled = true;
       $('bEsito').textContent = 'Mando l\u2019email\u2026';
       try {
-        await chiama('?a=manda', { method: 'POST', body: JSON.stringify({ numero: b.numero, a: chi }) });
-        $('bEsito').innerHTML = `\u2713 Email inviata a ${esc(dest)} con il buono in PDF allegato.`;
+        const j = await chiama('?a=manda', { method: 'POST', body: JSON.stringify({ numero: b.numero, a: chi }) });
+        /* `allegato` il server lo manda APPOSTA: l'email parte comunque
+           anche quando il foglio non esce (vedi ?a=manda in index.ts), e
+           chi sta al banco deve saperlo, perche' al cliente e' arrivata una
+           lettera senza il suo buono e va rimediato a mano. Fino alla
+           revisione finale (5-6 settembre 2026) la pagina buttava via
+           questo valore e scriveva "con il buono in PDF allegato" in tutti
+           e due i casi: diceva alla reception il contrario della verita'.
+           Il messaggio storto si vede anche da lontano (classe `errore`),
+           o passerebbe per quello di sempre appena letto di sfuggita. */
+        if (j.allegato) {
+          $('bEsito').innerHTML = `\u2713 Email inviata a ${esc(dest)} con il buono in PDF allegato.`;
+        } else {
+          $('bEsito').innerHTML = `<span class="errore">\u26a0 Email inviata a ${esc(dest)}, ma SENZA il buono in PDF:
+            il foglio non \u00e8 stato generato.</span> Gli faccia avere il buono stampandolo, oppure
+            scaricandolo qui sopra e allegandolo a mano.`;
+        }
       } catch (e) {
         $('bEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
       } finally {

@@ -40,14 +40,63 @@ Deno.test('esiste ultimoGiornoDayspa, calcolato dai giorni in fila di oggi', () 
   );
 });
 
-Deno.test('il campo data del Day Spa usa ultimoGiornoDayspa, non i soli limiti del soggiorno', () => {
+Deno.test('il campo data del Day Spa usa tettoGiornoDayspa, non i soli limiti del soggiorno', () => {
   const i = SORGENTE.indexOf("if (TIPO === 'dayspa') return");
   assert(i > 0, 'non trovo il ramo Day Spa di campiTipo');
   const corpo = SORGENTE.slice(i, SORGENTE.indexOf('</div>', SORGENTE.indexOf('fPersone', i)));
   assert(
-    /id="fGiorno" min="\$\{esc\(DAL\)\}" max="\$\{esc\(AL && AL < ultimoGiornoDayspa\(\) \? AL : ultimoGiornoDayspa\(\)\)\}"/.test(corpo),
-    'il campo fGiorno del Day Spa non usa ultimoGiornoDayspa per il max',
+    /id="fGiorno" min="\$\{esc\(DAL\)\}"\$\{tettoGiornoDayspa\(\) \? ` max="\$\{esc\(tettoGiornoDayspa\(\)\)\}"` : ''\}/.test(corpo),
+    'il campo fGiorno del Day Spa non prende il max da tettoGiornoDayspa',
   );
+});
+
+/* ============================================================
+   IL CAMPO DEVE SEMPRE POTERSI COMPILARE.
+
+   Il difetto (revisione finale, 5-6 settembre 2026): `min` resta la data di
+   arrivo quando l'arrivo e' nel futuro, ma il tetto era diventato SEMPRE
+   l'orizzonte dei quattordici giorni. L'email pre-arrivo della reception
+   porta ?arrivo=/?partenza= anche per un soggiorno fra tre settimane: per
+   quell'ospite il campo nasceva con min OLTRE max — un calendario in cui
+   non si puo' scegliere niente. Prima il tetto era la partenza, e funzionava.
+
+   La funzione si estrae dalla pagina e si esegue davvero (new Function, la
+   stessa tecnica di chiusura-arrivo.test.ts nel back office): il difetto
+   sta in QUALE data esce, non in come e' scritta la riga, e su una prova di
+   sole regex sarebbe passato di nuovo.
+   ============================================================ */
+function tettoCon(DAL: string, AL: string, orizzonte: string): string {
+  const i = SORGENTE.indexOf('function tettoGiornoDayspa()');
+  assert(i > 0, 'non trovo tettoGiornoDayspa nella pagina');
+  const fonte = SORGENTE.slice(i, SORGENTE.indexOf('\n}', i) + 2);
+  const fabbrica = new Function('DAL', 'AL', 'ultimoGiornoDayspa',
+    `${fonte}\nreturn tettoGiornoDayspa();`);
+  return fabbrica(DAL, AL, () => orizzonte) as string;
+}
+
+Deno.test('Day Spa senza date di soggiorno: il tetto e l orizzonte dei 14 giorni', () => {
+  assertEquals(tettoCon('2026-09-06', '', '2026-09-19'), '2026-09-19');
+});
+
+Deno.test('Day Spa con una partenza dentro l orizzonte: comanda la partenza', () => {
+  assertEquals(tettoCon('2026-09-06', '2026-09-10', '2026-09-19'), '2026-09-10',
+    'non ha senso proporre un giorno in cui l ospite e gia ripartito');
+});
+
+Deno.test('Day Spa con un arrivo OLTRE l orizzonte: il tetto e la partenza, non l orizzonte', () => {
+  /* l email pre-arrivo per un soggiorno fra tre settimane: min = 2026-09-28 */
+  const tetto = tettoCon('2026-09-28', '2026-10-02', '2026-09-19');
+  assertEquals(tetto, '2026-10-02');
+  assert(tetto >= '2026-09-28', 'con min oltre max il campo non si potrebbe compilare affatto');
+});
+
+Deno.test('Day Spa con un arrivo oltre l orizzonte e nessuna partenza: nessun tetto, mai un campo chiuso', () => {
+  assertEquals(tettoCon('2026-09-28', '', '2026-09-19'), '',
+    'senza un tetto possibile il max non si scrive proprio');
+});
+
+Deno.test('Day Spa con una partenza gia passata (link vecchio): nessun tetto invece di uno impossibile', () => {
+  assertEquals(tettoCon('2026-09-06', '2026-08-30', '2026-09-19'), '');
 });
 
 Deno.test('la pagina sceglie fra AL e ultimoGiornoDayspa perche oltre non si prenota comunque', () => {

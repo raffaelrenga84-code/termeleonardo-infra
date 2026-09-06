@@ -167,8 +167,32 @@ async function carica() {
     `<a class="azione" href="${FUNZIONE}?a=pdf&codice=${encodeURIComponent(CODICE)}"
       target="_blank" rel="noopener">${esc(t.bottone)}</a>
     <div class="istruzioni">${esc(t.istruzioni)}</div>
-    <iframe class="pdfFrame" src="${FUNZIONE}?a=pdf&codice=${encodeURIComponent(CODICE)}"
-      title="${esc(t.titolo)}"></iframe>`;
+    <div id="telaio"><div class="messaggio">${esc(t.carico)}</div></div>`;
+
+  /* IL TELAIO SI RIEMPIE SOLO SE IL PDF E' DAVVERO ARRIVATO.
+
+     Prima l'iframe puntava dritto all'indirizzo del PDF e la pagina non
+     guardava mai come fosse andata: un 429 (il freno per IP, che sul wifi
+     dell'hotel scatta anche per colpa di qualcun altro) o un 404 finivano
+     dentro la cornice come il JSON crudo del server — `{"errore":"troppe
+     richieste..."}` — sotto un pulsante che dice «Stampa il tuo buono», a
+     un ospite che quel buono l'ha pagato. Difetto trovato dalla revisione
+     finale (5-6 settembre 2026).
+
+     Si scarica il foglio con una fetch e si mostra il blob: se non arriva,
+     al suo posto va t.erroreRete, nella lingua del buono, che dice anche
+     come raggiungerci. Il PULSANTE SOPRA NON CAMBIA: resta il link diretto
+     all'indirizzo del PDF, che e' anche il modo con cui dal telefono lo si
+     salva o lo si condivide, e funziona pure se questa fetch e' fallita
+     per un inciampo momentaneo. */
+  try {
+    const r = await fetch(FUNZIONE + '?a=pdf&codice=' + encodeURIComponent(CODICE));
+    if (!r.ok) throw new Error('errore ' + r.status);
+    const url = URL.createObjectURL(await r.blob());
+    $('telaio').innerHTML = `<iframe class="pdfFrame" src="${url}" title="${esc(t.titolo)}"></iframe>`;
+  } catch (e) {
+    $('telaio').innerHTML = `<div class="messaggio errore">${esc(t.erroreRete)}</div>`;
+  }
 }
 
 carica();

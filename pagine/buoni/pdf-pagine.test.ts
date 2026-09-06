@@ -104,6 +104,52 @@ Deno.test('due buoni aperti di fila non si rubano l anteprima: mostraFatto ha un
     'il controllo c e anche nel ramo di errore (.catch), non solo in quello buono');
 });
 
+/* ============================================================
+   E I PULSANTI? L'altra meta' dello stesso difetto, trovata dalla revisione
+   finale (5-6 settembre 2026).
+
+   Il numero di giro qui sopra difendeva il PANNELLO, ma «Stampa subito» e
+   «Stampa l'anteprima» guardavano solo se urlBuonoMostrato fosse pieno — e
+   quella variabile e' di modulo, non la azzera nessuno quando mostraFatto
+   ridisegna. Aperto il buono A e poi il buono B dall'elenco, per tutto il
+   volo della richiesta di B (e PER SEMPRE, se quella richiesta fallisce)
+   urlBuonoMostrato tiene ancora il foglio di A: si stampava il buono di un
+   altro cliente, col suo nome, la sua dedica e il suo codice spendibile.
+
+   Il rimedio: l'URL e il giro a cui appartiene si scrivono INSIEME, e chi
+   apre un PDF pretende di trovarci il proprio giro.
+   ============================================================ */
+Deno.test('stampare non apre il foglio di un altro buono: apriPdf pretende il proprio giro', () => {
+  assert(BACKOFFICE.includes('let giroDelFoglio = 0;'), 'il giro del foglio che sta in urlBuonoMostrato');
+  const apri = fra(BACKOFFICE, 'const apriPdf = () => {', 'pdfUrl(');
+  assert(apri.includes('giroDelFoglio !== mio'),
+    'apriPdf non confronta il giro del foglio con quello del proprio pannello');
+  const guardia = apri.indexOf('giroDelFoglio !== mio');
+  const apertura = apri.indexOf('apriPdfGuardato(');
+  assert(guardia >= 0 && apertura > guardia, 'il controllo viene PRIMA di aprire qualunque cosa');
+  assert(/return;/.test(apri.slice(guardia, apertura)), 'e chi non ha il proprio foglio esce senza aprire niente');
+  /* i tre pulsanti che aprono un PDF gia' scaricato passano tutti di li' */
+  assert(BACKOFFICE.includes("$('bStampa').onclick = apriPdf;")
+    && BACKOFFICE.includes("$('bStampaBozza').onclick = apriPdf;"),
+    'stampa e stampa-bozza passano per apriPdf, non per urlBuonoMostrato a mano');
+  const scrittura = fra(BACKOFFICE, 'urlBuonoMostrato = url;', 'iframePdf(');
+  assert(scrittura.includes('giroDelFoglio = mio;'),
+    'il giro si scrive INSIEME all URL: un foglio senza il suo giro e il difetto di prima');
+});
+
+/* Un <a> senza href e' un elemento con l'aria di un pulsante che non fa
+   niente: #bScarica nasce cosi' (il PDF arriva dopo) e ci resta per sempre
+   se la richiesta fallisce. Finche' l'indirizzo non c'e' si vede spento, e
+   i clic non ci arrivano nemmeno. */
+Deno.test('Scarica il PDF nasce spento e si accende solo quando il foglio e arrivato', () => {
+  assert(BACKOFFICE.includes('id="bScarica" aria-disabled="true"'), 'il link nasce spento');
+  assert(/a\.azione\[aria-disabled="true"\]\{/.test(BACKOFFICE), 'e ha la sua regola di stile');
+  assert(BACKOFFICE.includes('pointer-events:none'), 'spento vuol dire che il clic non fa nemmeno il giro');
+  const acceso = fra(BACKOFFICE, 'urlBuonoMostrato = url;', '}).catch(');
+  assert(acceso.includes("$('bScarica').href = url") && acceso.includes("removeAttribute('aria-disabled')"),
+    'si accende insieme all indirizzo, non prima');
+});
+
 Deno.test('le email del buono le manda il server con il PDF allegato, non Outlook a mano', () => {
   assert(BACKOFFICE.includes("chiama('?a=manda'"), 'l invio e una chiamata al server');
   assert(BACKOFFICE.includes('JSON.stringify({ numero: b.numero, a: chi })'), 'il buono e a chi mandarlo');
@@ -113,6 +159,22 @@ Deno.test('le email del buono le manda il server con il PDF allegato, non Outloo
   assert(BACKOFFICE.includes('con il buono in PDF allegato.'), 'e l esito lo dice');
   assert(!BACKOFFICE.includes('outlook.office.com'),
     'niente piu copia-e-incolla in Outlook: era da li che arrivava il buono in miniatura');
+});
+
+/* Il server risponde `allegato: !!pdf` APPOSTA: l'email parte anche quando
+   il foglio non esce, e la reception deve sapere che al cliente e' arrivata
+   una lettera senza il suo buono. Fino alla revisione finale (5-6 settembre
+   2026) la pagina buttava via quel valore e scriveva «con il buono in PDF
+   allegato» sempre: diceva a chi sta al banco il contrario della verita'. */
+Deno.test('se l email e partita senza il PDF, il back office lo dice invece di mentire', () => {
+  const per = fra(BACKOFFICE, 'const perEmail = async (bottone, dest, chi)', 'if ($(\'bMailDest\'))');
+  assert(per.includes("const j = await chiama('?a=manda'"), 'la risposta si legge, non si butta via');
+  assert(per.includes('if (j.allegato)'), 'e si guarda `allegato`');
+  const senza = per.slice(per.indexOf('} else {'));
+  assert(senza.includes('SENZA il buono in PDF'), 'il caso senza foglio ha il suo messaggio');
+  assert(senza.includes('class="errore"'), 'e si vede che e diverso: non passa per l esito di sempre');
+  assertEquals((per.match(/con il buono in PDF allegato\./g) || []).length, 1,
+    'il messaggio con l allegato vale solo per il ramo in cui l allegato c e davvero');
 });
 
 Deno.test('Copia copia il testo del buono col link al PDF, non un immagine', () => {
@@ -125,11 +187,41 @@ Deno.test('Copia copia il testo del buono col link al PDF, non un immagine', () 
 });
 
 Deno.test('la pagina pubblica di stampa apre il PDF: il pulsante e l anteprima sotto', () => {
-  assertEquals(STAMPA.split('a=pdf&codice=').length - 1, 2, 'due volte: il link e l iframe');
+  assertEquals(STAMPA.split('a=pdf&codice=').length - 1, 2, 'due volte: il link del pulsante e la fetch');
   assert(STAMPA.includes('class="azione"') && STAMPA.includes('rel="noopener"'), 'il pulsante e un link');
   assert(STAMPA.includes('class="pdfFrame"') && STAMPA.includes('.pdfFrame{'), 'e sotto l anteprima');
   assert(!STAMPA.includes('window.print'), 'a stampare ci pensa il lettore di PDF del telefono o del computer');
   assert(!STAMPA.includes('adattaScala'), 'niente piu foglio da rimpicciolire a mano');
+});
+
+/* ============================================================
+   IL 429 NON DEVE FINIRE DENTRO LA CORNICE DEL BUONO.
+
+   Il difetto (revisione finale, 5-6 settembre 2026): l'iframe puntava
+   dritto a ?a=pdf&codice= e nessuno guardava com'era andata. Un 429 (il
+   freno per IP, che sul wifi dell'hotel scatta anche per colpa di
+   qualcun altro) o un 404 si vedevano come il JSON crudo del server dentro
+   il telaio del buono, sotto un pulsante che dice «Stampa il tuo buono», a
+   un ospite che quel buono l'ha pagato. Adesso il foglio si scarica con una
+   fetch: se non arriva, al suo posto va t.erroreRete, che esiste gia' nelle
+   quattro lingue e dice anche come raggiungerci.
+   ============================================================ */
+Deno.test('se il PDF non arriva, la pagina di stampa mostra il suo errore e non il JSON del server', () => {
+  const c = fra(STAMPA, 'async function carica()', '\ncarica();');
+  assert(c.includes("await fetch(FUNZIONE + '?a=pdf&codice='"), 'il PDF si chiede con una fetch');
+  assert(/if \(!r\.ok\) throw new Error/.test(c.slice(c.indexOf("'?a=pdf&codice='"))),
+    'e una risposta storta non diventa il contenuto della cornice');
+  assert(c.includes('URL.createObjectURL('), 'quello buono si mostra come blob');
+  assert(c.includes('t.erroreRete'), 'e quello storto lascia il posto al messaggio nella lingua dell ospite');
+  const telaio = c.slice(c.indexOf("$('telaio')"));
+  assert(telaio.indexOf('t.erroreRete') > 0, 'il messaggio finisce proprio nel telaio, non altrove');
+  assert(!/<iframe class="pdfFrame" src="\$\{FUNZIONE\}/.test(STAMPA),
+    'l iframe non punta piu dritto alla funzione: quella era la strada del JSON in cornice');
+  /* il pulsante sopra resta il link diretto: e' anche il modo con cui dal
+     telefono si salva o si condivide il PDF, e vale pure se la fetch qui
+     dentro e' fallita per un inciampo momentaneo */
+  assert(/<a class="azione" href="\$\{FUNZIONE\}\?a=pdf&codice=/.test(STAMPA),
+    'il pulsante resta il link diretto al PDF');
 });
 
 Deno.test('le istruzioni della pagina di stampa dicono che si apre un PDF, nelle quattro lingue', () => {
