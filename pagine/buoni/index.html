@@ -25,29 +25,6 @@ header .chi{font-size:13px;color:var(--grigio);}
 main{max-width:1340px;margin:0 auto;padding:20px 16px 60px;}
 .due-col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,660px);gap:22px;align-items:start;}
 @media (max-width:1100px){ .due-col{grid-template-columns:1fr;} .anteprima{position:static !important;} }
-/* SUL TELEFONO (la proprieta', 7 settembre 2026: e' li' che soffre). Le
-   tabelle con intestazione diventano schede impilate, una per riga, con
-   l'etichetta accanto a ogni valore (data-eti la copia tabelleInSchede
-   dalle intestazioni, per tutte le viste); i tasti d'azione principali
-   restano in fondo a portata di pollice; i campi a 16 px non fanno
-   ingrandire iOS; la barra della pagina resta in alto. */
-@media (max-width:700px){
-  header{padding:10px 12px;} header .marchio img{width:96px;} header .marchio span{display:none;}
-  main{padding:10px 10px 90px;} .riquadro{padding:12px;margin-bottom:12px;}
-  input,select,textarea{font-size:16px;}
-  .due>div{min-width:100%;}
-  .barra{position:sticky;top:0;background:var(--carta);z-index:4;padding:8px 0;margin:0 0 10px;}
-  .barra .sorelle{display:none;}
-  .mattonelle{grid-template-columns:1fr 1fr;}
-  button.azione:not(.sec):not(.mini):not(.mini-azione){position:sticky;bottom:10px;z-index:3;box-shadow:0 6px 18px rgba(0,0,0,.18);}
-  table.aSchede,table.aSchede tbody,table.aSchede tr,table.aSchede td{display:block;width:100%;}
-  table.aSchede tr:first-child{display:none;}
-  table.aSchede tr[hidden]{display:none;}
-  table.aSchede tr{border:1px solid var(--pietra);border-radius:8px;padding:8px 10px;margin-bottom:10px;background:#fff;}
-  table.aSchede td{border:0;padding:5px 0;display:flex;justify-content:space-between;align-items:center;gap:10px;}
-  table.aSchede td[data-eti]::before{content:attr(data-eti);color:var(--grigio);font-size:11px;letter-spacing:.6px;text-transform:uppercase;flex:0 0 38%;}
-  table.aSchede td>input,table.aSchede td>select,table.aSchede td>textarea{flex:1;min-width:0;width:auto;}
-}
 .anteprima{position:sticky;top:16px;}
 .anteprima .etichetta{font-size:11px;letter-spacing:1.4px;text-transform:uppercase;
 color:var(--grigio);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
@@ -69,10 +46,10 @@ padding:14px;overflow:auto;}
 .casa h2{margin:16px 0 8px;}
 .mattonelle{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
 .mattonella{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-height:104px;padding:14px;background:#fff;
-  border:1px solid var(--pietra);border-radius:12px;font:inherit;text-align:left;cursor:pointer;position:relative;color:var(--acqua-scura);}
+  border:1px solid var(--pietra);border-radius:12px;font:inherit;text-align:left;cursor:pointer;position:relative;color:var(--acqua-scura);min-width:0;}
 .mattonella:hover{border-color:var(--acqua);}
 .mattonella .icona{font-size:28px;line-height:1;}
-.mattonella .nome{font-weight:600;font-size:15px;line-height:1.25;}
+.mattonella .nome{font-weight:600;font-size:15px;line-height:1.25;overflow-wrap:anywhere;}
 .mattonella.principale{grid-column:span 2;background:var(--acqua-chiara);border-color:var(--acqua);}
 .mattonella .conta{position:absolute;top:12px;right:12px;}
 .barra{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
@@ -186,6 +163,31 @@ border-radius:0 8px 8px 0;padding:14px 16px;margin-top:14px;}
 .esitoGrande small{display:block;font-size:14px;margin-top:4px;opacity:.8;}
 body.sportello .chi a{display:none;}
 body.sportello #dOggiCod{font-size:22px;padding:14px;}
+/* SUL TELEFONO (la proprieta', 7 settembre 2026: e' li' che soffre). Le
+   tabelle con intestazione diventano schede impilate, una per riga, con
+   l'etichetta accanto a ogni valore (data-eti la copia tabelleInSchede
+   dalle intestazioni, per tutte le viste); i tasti d'azione principali
+   restano in fondo a portata di pollice; i campi a 16 px non fanno
+   ingrandire iOS; la barra della pagina resta in alto. */
+@media (max-width:700px){
+  header{padding:10px 12px;} header .marchio img{width:96px;} header .marchio span{display:none;}
+  main{padding:10px 10px 90px;} .riquadro{padding:12px;margin-bottom:12px;}
+  input,select,textarea{font-size:16px;}
+  .due>div{min-width:100%;}
+  .barra{position:sticky;top:0;background:var(--carta);z-index:4;padding:8px 0;margin:0 0 10px;}
+  .barra .sorelle{display:none;}
+  .mattonelle{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+  button.azione:not(.sec):not(.mini):not(.mini-azione){position:sticky;bottom:10px;z-index:3;box-shadow:0 6px 18px rgba(0,0,0,.18);}
+  table.aSchede,table.aSchede tbody,table.aSchede tr,table.aSchede td{display:block;width:100%;}
+  table.aSchede tr:first-child{display:none;}
+  table.aSchede tr[hidden]{display:none;}
+  table.aSchede tr{border:1px solid var(--pietra);border-radius:8px;padding:8px 10px;margin-bottom:10px;background:#fff;}
+  table.aSchede td{border:0;padding:6px 0;display:block;}
+  table.aSchede td[data-eti]::before{content:attr(data-eti);display:block;color:var(--grigio);font-size:11px;letter-spacing:.6px;text-transform:uppercase;margin-bottom:3px;}
+  table.aSchede td>input,table.aSchede td>select,table.aSchede td>textarea{display:block;width:100% !important;min-width:0 !important;margin:0 0 4px;}
+  table.aSchede td>input[type=checkbox]{display:inline-block;width:auto !important;transform:scale(1.4);margin:6px 4px;}
+  table.aSchede td>textarea{min-height:44px;}
+}
 </style>
 </head>
 <body>
