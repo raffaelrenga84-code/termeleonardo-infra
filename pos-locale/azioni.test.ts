@@ -146,6 +146,10 @@ Deno.test('accesso col PIN: hash SHA-256 di codice:pin, sessione nuova; sbagliat
   assertEquals(r.stato, 401);
   const vivo = await esegui(db, 'stato-locale', { metodo: 'GET', query: {}, corpo: null, intestazioni: {} }, cfg);
   assertEquals(vivo.stato, 200);
+  assertEquals((vivo.corpo as { versione: unknown }).versione, null, 'senza VERSIONE.txt non dice niente');
+  /* la data del pacchetto, per vedere da fuori se il PC e' aggiornato (6 settembre 2026: era una copia vecchia) */
+  const datato = await esegui(db, 'stato-locale', { metodo: 'GET', query: {}, corpo: null, intestazioni: {} }, { locale: 'L1', versione: '2026-09-06T18:00:00.000Z' });
+  assertEquals((datato.corpo as { versione: unknown }).versione, '2026-09-06T18:00:00.000Z');
 });
 
 Deno.test('al tavolo i conti si chiamano col nome di chi paga, e quello vuoto si toglie', async () => {

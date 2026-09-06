@@ -23,7 +23,7 @@ import { daMostrare, impronta, inizioGiornata, passo, prontoInCucina, statoInizi
 
 export type Richiesta = { metodo: string; query: Record<string, string>; corpo: unknown; intestazioni: Record<string, string> };
 export type Risposta = { stato: number; corpo: unknown };
-export type Config = { locale: string };
+export type Config = { locale: string; versione?: string | null };
 type Cameriere = { id: string; nome: string; ruolo: Ruolo; storni: boolean; bloccato: boolean; storno_con_motivo: boolean };
 type RigaStampabile = Riga & { id: string; stampante: 'cucina' | 'bar'; locale_stampa: string | null; portata: Portata; stato: string };
 
@@ -172,7 +172,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
   const b = (req.corpo && typeof req.corpo === 'object' ? req.corpo : {}) as Riga;
 
   /* il palmare lo chiama per sapere se il PC risponde: senza sessione */
-  if (azione === 'stato-locale') return ok({ esito: 'ok', locale: cfg.locale, adesso: adesso() });
+  if (azione === 'stato-locale') return ok({ esito: 'ok', locale: cfg.locale, adesso: adesso(), versione: cfg.versione ?? null });
 
   if (azione === 'accesso') {
     const no = soloPost(); if (no) return no;

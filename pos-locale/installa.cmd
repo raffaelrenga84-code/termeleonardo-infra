@@ -36,6 +36,11 @@ robocopy "%~dp0src" "%DEST%\src" /MIR /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 ( echo   copia del server fallita & pause & exit /b 1 )
 robocopy "%~dp0pagina" "%DEST%\pagina" /MIR /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 ( echo   copia della pagina fallita & pause & exit /b 1 )
+rem la data del pacchetto: la stampa qui e la dice il server (?a=stato-locale), cosi da fuori si vede se il PC e aggiornato
+copy /y "%~dp0VERSIONE.txt" "%DEST%\VERSIONE.txt" >nul 2>&1
+set VERS=
+if exist "%~dp0VERSIONE.txt" set /p VERS=<"%~dp0VERSIONE.txt"
+if defined VERS echo   pacchetto del !VERS!
 
 echo [2/5] configurazione...
 if not exist "%DEST%\config.json" (
@@ -53,7 +58,12 @@ if not exist "%DEST%\config.json" (
     echo   "stampanti": { "cucina": "192.168.0.192:9100", "bar": "192.168.0.191:9100" }
     echo }
   ) > "%DEST%\config.json"
-  echo   scritto %DEST%\config.json
+  rem la chiave appena incollata non deve restare sullo schermo (foto, occhi): si pulisce e si riparte
+  cls
+  echo [1/5] copio deno.exe, server e pagina in %DEST%... fatto
+  if defined VERS echo   pacchetto del !VERS!
+  echo [2/5] configurazione...
+  echo   chiave hotel salvata in %DEST%\config.json ^(non la mostro: e' una chiave^)
 ) else (
   echo   %DEST%\config.json c'e' gia': lo lascio com'e'.
 )

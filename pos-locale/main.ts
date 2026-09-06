@@ -28,6 +28,10 @@ type Config = {
 const percorsoCfg = Deno.args[0] || 'config.json';
 const cfg = JSON.parse(await Deno.readTextFile(percorsoCfg)) as Config;
 if (!cfg.locale || !cfg.cloud || !cfg.hotelKey) throw new Error('config.json: servono locale, cloud e hotelKey');
+/* la data del pacchetto (VERSIONE.txt accanto al config, ce lo mette installa.cmd):
+   la dice ?a=stato-locale, cosi' da fuori si vede se il PC e' aggiornato */
+let versione: string | null = null;
+try { versione = (await Deno.readTextFile(percorsoCfg.replace(/[^\\/]*$/, '') + 'VERSIONE.txt')).split(/\r?\n/)[0].trim() || null; } catch { /* pacchetto senza VERSIONE.txt */ }
 
 const db = apri(cfg.db || 'pos.sqlite');
 creaSchema(db);
@@ -59,7 +63,7 @@ async function gestisci(req: Request): Promise<Response> {
   req.headers.forEach((v, k) => { intestazioni[k.toLowerCase()] = v; });
   const corpo = req.method === 'POST' ? await req.json().catch(() => ({})) : null;
   try {
-    const r = await esegui(db, query.a || '', { metodo: req.method, query, corpo, intestazioni }, { locale: cfg.locale });
+    const r = await esegui(db, query.a || '', { metodo: req.method, query, corpo, intestazioni }, { locale: cfg.locale, versione });
     return new Response(JSON.stringify(r.corpo), { status: r.stato, headers: { ...CORS, 'content-type': 'application/json' } });
   } catch (e) {
     log(`errore in ${query.a}: ${(e as Error).message}`);
