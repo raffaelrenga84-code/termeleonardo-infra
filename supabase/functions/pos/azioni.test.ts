@@ -142,6 +142,10 @@ Deno.test('un biglietto per ogni coppia locale-stampante, e il cloud stampa dove
   const giu = S.slice(S.indexOf("azione === 'allinea-giu'"), S.indexOf("azione === 'importa-menu'"));
   assert(/const tabelle = \[[^\]]*'pos_postazione'[^\]]*\]/.test(giu), 'le postazioni scendono al PC, nell elenco tabelle di allinea-giu');
   assert(giu.includes(".in('stato', ['da_stampare', 'a_schermo'])"));
+  /* le sessioni viaggiano fra PC e cloud (6 settembre 2026, sera): su, giu' solo al PC */
+  const suSlice = S.slice(S.indexOf("azione === 'allinea-su'"), S.indexOf("azione === 'allinea-giu'"));
+  assert(suSlice.includes("sessioni: await upsertSeNuovi('pos_sessione'"), 'le sessioni aperte sul PC salgono');
+  assert(/const tabelle = \[[^\]]*'pos_sessione'[^\]]*\]/.test(giu) && giu.includes("if (!dalPc) nascoste.push('pos_sessione');"), 'e scendono, ma solo al PC');
 });
 
 Deno.test('dove non c e stampante non nasce nessun biglietto', () => {

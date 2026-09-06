@@ -18,7 +18,7 @@ Deno.test('lo schema si crea, si puo ricreare, e le tabelle pos_* ci sono tutte'
 
 Deno.test('quello che sale al cloud porta allineato, e parte da 0', () => {
   const db = apri(':memory:'); creaSchema(db);
-  for (const t of ['pos_conto', 'pos_riga', 'pos_comanda', 'pos_stampa']) {
+  for (const t of ['pos_conto', 'pos_riga', 'pos_comanda', 'pos_stampa', 'pos_sessione']) {
     const cols = (db.prepare(`pragma table_info(${t})`).all() as { name: string; dflt_value: string | null }[]);
     const c = cols.find((x) => x.name === 'allineato');
     assert(c, `${t}.allineato`);
@@ -50,4 +50,14 @@ Deno.test('un PC gia installato prima del monitor cucina non si reinstalla da ze
   creaSchema(db);
   const cols = colonneDi(db, 'pos_stampa');
   for (const c of ['biglietto', 'conto', 'vista_il', 'presa_il', 'pronta_il', 'pronta_da']) assert(cols.includes(c), c);
+});
+
+Deno.test('le sessioni dei palmari salgono al cloud: un PC gia installato riceve la colonna allineato', () => {
+  /* chi passa dal PC al cloud (o viceversa) non deve rientrare col codice
+     (la proprieta', 6 settembre 2026, sera) */
+  const db = apri(':memory:');
+  db.exec(`create table pos_sessione (id text primary key, cameriere text not null, dispositivo text not null, scade_il text not null,
+    aggiornato_il text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))`);
+  creaSchema(db);
+  assert(colonneDi(db, 'pos_sessione').includes('allineato'));
 });

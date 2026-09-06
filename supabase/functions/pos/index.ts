@@ -1269,6 +1269,9 @@ Deno.serve(async (req) => {
         addebiti: await upsertSeNuovi('pos_addebito', Array.isArray(b.addebiti) ? b.addebiti as Riga[] : []),
         stampe: await upsertSeNuovi('pos_stampa', Array.isArray(b.stampe) ? b.stampe as Riga[] : []),
         pagamenti: await upsertSeNuovi('pos_pagamento', Array.isArray(b.pagamenti) ? b.pagamenti as Riga[] : []),
+        /* le sessioni aperte sul PC valgono anche qui: il palmare che passa
+           al cloud non viene buttato fuori (6 settembre 2026, sera) */
+        sessioni: await upsertSeNuovi('pos_sessione', Array.isArray(b.sessioni) ? b.sessioni as Riga[] : []),
       };
       /* i conti che il PC del Bistrot ha tolto perche' vuoti: la
          cancellazione non viaggia con le scritture, arriva a parte */
@@ -1291,7 +1294,9 @@ Deno.serve(async (req) => {
     }
     const da = url.searchParams.get('da') || '1970-01-01T00:00:00Z';
     const locale = url.searchParams.get('locale') || '';
-    const tabelle = ['pos_locale', 'pos_zona', 'pos_tavolo', 'pos_categoria', 'pos_articolo', 'pos_variante', 'pos_preferito', 'pos_cameriere', 'pos_dispositivo', 'pos_fascia', 'pos_prezzo_fascia', 'pos_postazione'];
+    const tabelle = ['pos_locale', 'pos_zona', 'pos_tavolo', 'pos_categoria', 'pos_articolo', 'pos_variante', 'pos_preferito', 'pos_cameriere', 'pos_dispositivo', 'pos_fascia', 'pos_prezzo_fascia', 'pos_postazione', 'pos_sessione'];
+    /* le sessioni sono chiavi d'accesso: scendono al PC e basta, mai al browser */
+    if (!dalPc) nascoste.push('pos_sessione');
     const fuori: Record<string, unknown> = { adesso: adesso() };
     for (const t of tabelle) {
       if (nascoste.includes(t)) { fuori[t.slice(4)] = []; continue; }

@@ -162,7 +162,9 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     if (!senzaPin && c.pin_hash !== await hashPin(codice, pin)) return errore('PIN sbagliato', 401);
     const sessione = crypto.randomUUID();
     const scade = new Date(Date.now() + 14 * 60 * 60 * 1000).toISOString();
-    salva(db, 'pos_sessione', { id: sessione, cameriere: c.id, dispositivo: disp.id, scade_il: scade, aggiornato_il: adesso() });
+    /* allineato = 0: la sessione sale al cloud (allinea.ts), cosi' se il
+       palmare passa al cloud non viene buttato fuori (6 settembre 2026) */
+    salva(db, 'pos_sessione', { id: sessione, cameriere: c.id, dispositivo: disp.id, scade_il: scade, aggiornato_il: adesso(), allineato: 0 });
     db.prepare('update pos_dispositivo set ultimo_accesso = ? where id = ?').run(adesso(), String(disp.id));
     return ok({ sessione, scade_il: scade, cameriere: { id: c.id, nome: c.nome, ruolo: c.ruolo, storni: !!Number(c.storni), senza_pin: senzaPin } });
   }

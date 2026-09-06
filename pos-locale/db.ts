@@ -66,7 +66,7 @@ create table if not exists pos_dispositivo (
   bloccato integer not null default 0, aggiornato_il text not null default ${ORA});
 create table if not exists pos_sessione (
   id text primary key, cameriere text not null, dispositivo text not null, scade_il text not null,
-  aggiornato_il text not null default ${ORA});
+  aggiornato_il text not null default ${ORA}, allineato integer not null default 0);
 create table if not exists pos_conto (
   id text primary key, tavolo text not null, tipo text not null, camera text, ospite text, tessera text, nome text, lingua text,
   coperti integer not null default 1, stato text not null default 'aperto', chiuso_come text,
@@ -133,6 +133,11 @@ create index if not exists pos_stampa_stato on pos_stampa(stato);
   const presenti = colonneDi(db, 'pos_stampa');
   for (const c of colonneNuove) if (!presenti.includes(c)) db.exec(`alter table pos_stampa add column ${c} text`);
   colonne.delete('pos_stampa');
+  /* le sessioni dei palmari viaggiano fra PC e cloud dal 6 settembre 2026
+     (sera): chi passa da un server all'altro non viene piu' buttato fuori */
+  colonne.delete('pos_sessione');
+  if (!colonneDi(db, 'pos_sessione').includes('allineato')) db.exec('alter table pos_sessione add column allineato integer not null default 0');
+  colonne.delete('pos_sessione');
 }
 
 /* ---------- da e verso SQLite ---------- */

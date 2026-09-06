@@ -136,6 +136,7 @@ Deno.test('accesso col PIN: hash SHA-256 di codice:pin, sessione nuova; sbagliat
   const ok = await esegui(db, 'accesso', senza, cfg);
   assertEquals(ok.stato, 200);
   assert(typeof (ok.corpo as { sessione: string }).sessione === 'string');
+  assertEquals((db.prepare('select allineato from pos_sessione').get() as { allineato: number }).allineato, 0, 'la sessione sale al cloud');
   const no = await esegui(db, 'accesso', { ...senza, corpo: { codice: '11', pin: '0000' } }, cfg);
   assertEquals(no.stato, 401);
   /* un codice che non esiste si dice subito, senza far scrivere un PIN a vuoto */

@@ -11,14 +11,17 @@
    allineate: le stampa il PC, e l'esito risale con SU.
    BATTITO (ogni 5 s): pos?a=locale-vivo; finche' arriva, il cloud non
    stampa da se'.
+   SESSIONI (6 settembre 2026, sera): le sessioni dei palmari salgono e
+   scendono come il resto, cosi' chi passa dal PC al cloud (o torna) non
+   viene buttato fuori. Quelle scese dal cloud entrano gia' allineate.
    ============================================================ */
 import { type Db, type Riga, salva } from './db.ts';
 
 export type Cloud = { base: string; hotelKey: string; locale: string; fetch?: typeof globalThis.fetch };
 
-const TABELLE_SU = [['pos_conto', 'conti'], ['pos_riga', 'righe'], ['pos_comanda', 'comande'], ['pos_addebito', 'addebiti'], ['pos_stampa', 'stampe'], ['pos_pagamento', 'pagamenti']] as const;
+const TABELLE_SU = [['pos_conto', 'conti'], ['pos_riga', 'righe'], ['pos_comanda', 'comande'], ['pos_addebito', 'addebiti'], ['pos_stampa', 'stampe'], ['pos_pagamento', 'pagamenti'], ['pos_sessione', 'sessioni']] as const;
 const JSON_DI: Record<string, string[]> = { pos_comanda: ['righe'], pos_addebito: ['righe'], pos_categoria: ['note_rapide', 'nomi'], pos_articolo: ['nomi', 'descrizioni'], pos_stampa: ['biglietto'] };
-const TABELLE_GIU = ['locale', 'zona', 'tavolo', 'categoria', 'articolo', 'variante', 'preferito', 'cameriere', 'dispositivo', 'fascia', 'prezzo_fascia', 'postazione'];
+const TABELLE_GIU = ['locale', 'zona', 'tavolo', 'categoria', 'articolo', 'variante', 'preferito', 'cameriere', 'dispositivo', 'fascia', 'prezzo_fascia', 'postazione', 'sessione'];
 
 async function chiama(cloud: Cloud, qs: string, init: RequestInit = {}): Promise<Riga> {
   const f = cloud.fetch ?? globalThis.fetch;
@@ -74,7 +77,8 @@ export async function giu(db: Db, cloud: Cloud): Promise<void> {
     }
     /* fasce e prezzi di fascia arrivano per intero: si riscrivono da capo */
     if ((t === 'fascia' || t === 'prezzo_fascia') && Array.isArray(j[t])) db.prepare('delete from pos_' + t).run();
-    for (const r of righe) salva(db, 'pos_' + t, r);
+    /* una sessione scesa dal cloud e' gia' sua: non deve risalire */
+    for (const r of righe) salva(db, 'pos_' + t, t === 'sessione' ? { ...r, allineato: 1 } : r);
   }
   for (const s of (Array.isArray(j.stampe) ? j.stampe as Riga[] : [])) {
     const c = db.prepare('select id from pos_stampa where id = ?').get(String(s.id));
