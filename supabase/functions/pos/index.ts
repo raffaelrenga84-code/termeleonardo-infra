@@ -1212,7 +1212,8 @@ Deno.serve(async (req) => {
        («mai») e uno schermo spento le righe non escono mai da questo
        insieme e la finestra di 50 resta occupata per sempre — gli altri
        locali smettono di essere esaminati */
-    const inizioOggi = inizioGiornata(new Date(), oraLocale(new Date()).minuti);
+    const oraRipiego = new Date();
+    const inizioOggi = inizioGiornata(oraRipiego, oraLocale(oraRipiego).minuti);
     const { data: aSchermo } = await db.from('pos_stampa').select('id, locale, stampante, stato, vista_il, creato_il').eq('stato', 'a_schermo').is('vista_il', null).gte('creato_il', inizioOggi.toISOString()).order('creato_il').limit(50);
     let ripiegate = 0;
     for (const s of aSchermo ?? []) {
@@ -1699,10 +1700,12 @@ Deno.serve(async (req) => {
     try {
       for (const p of righe) {
         const locale = String(p.locale ?? ''), stampante = String(p.stampante ?? '');
-        /* un valore non numerico ("" o "trenta") torna al default, non a
-           zero: zero significa «mai la carta», che non e' quello che si
-           voleva scrivendo un valore sbagliato */
-        const n = Number(p.ripiego_s);
+        /* un campo vuoto o non numerico ("", "  ", null, "trenta") torna al
+           default, non a zero: `Number('')` vale 0 in JavaScript, e zero
+           significa «mai la carta», che non e' quello che si voleva
+           lasciando il campo vuoto o scrivendoci qualcosa di sbagliato */
+        const grezzo = String(p.ripiego_s ?? '').trim();
+        const n = grezzo === '' ? NaN : Number(grezzo);
         const ripiego_s = Number.isFinite(n) ? Math.max(0, Math.round(n)) : RIPIEGO_S;
         const riga: Riga = { locale, stampante, nome: String(p.nome ?? '').trim() || `${locale} ${stampante}`, schermo: !!p.schermo, stampa_sempre: p.stampa_sempre !== false, ripiego_s, aggiornato_il: ora };
         /* la chiave si vede una volta sola: qui resta l'impronta */
