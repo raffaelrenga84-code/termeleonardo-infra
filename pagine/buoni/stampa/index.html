@@ -20,11 +20,11 @@ main{max-width:900px;margin:0 auto;padding:26px 16px 10px;text-align:center;}
 .azione{display:inline-block;background:var(--arancio);color:#fff;border:0;border-radius:8px;
 padding:16px 30px;font:600 17px Arial;cursor:pointer;margin:10px 0 6px;text-decoration:none;}
 .istruzioni{font-size:13px;color:var(--verde-medio);margin-bottom:10px;}
-/* #stampa e' figlio diretto di <body>, non di <main>: lo vuole stampa.css,
-   che in stampa nasconde "tutto tranne #stampa" — annidarlo dentro main lo
-   nasconderebbe insieme al resto. Vedi il commento in cima a stampa.css. */
-#stampa{margin:20px auto 40px;overflow:auto;max-width:100%;}
-#stampa .foglio{transform-origin:top left;margin:0 auto;box-shadow:0 3px 16px rgba(0,0,0,.12);}
+/* il buono e' il PDF che disegna il server: qui si guarda dentro la
+   pagina, e il pulsante sopra lo apre per intero. 80vh perche' un A4 su
+   uno schermo alto si legge tutto, il min-height perche' su un telefono
+   in orizzontale 80vh sarebbero quattro dita di foglio. */
+.pdfFrame{width:100%;height:80vh;min-height:520px;border:1px solid #E5E0D8;background:#fff;}
 .piede{border-top:1px solid var(--sabbia);padding:22px 16px 30px;text-align:center;
 font-size:12.5px;color:var(--verde-medio);}
 @media (max-width:640px){
@@ -32,16 +32,12 @@ font-size:12.5px;color:var(--verde-medio);}
   .azione{width:100%;padding:16px 18px;}
 }
 </style>
-<!-- il foglio A4 vero e proprio (dentro #stampa) prende il suo aspetto da
-     qui: la stessa pagina di stile che usa il back office, vedi stampa.css -->
-<link rel="stylesheet" href="/buoni/stampa.css" />
 </head>
 <body>
 
 <header><img src="/buoni/img/logo.svg" alt="Hotel Terme Leonardo" /></header>
 
 <main id="pagina"></main>
-<div id="stampa"></div>
 
 <div class="piede">
   Hotel Terme Leonardo &middot; +39 049 9939200 &middot; info@termeleonardo.com
@@ -49,16 +45,17 @@ font-size:12.5px;color:var(--verde-medio);}
 
 <script type="module">
 'use strict';
-/* il buono lo disegna il modulo condiviso col back office: la stessa
-   funzione che "Stampa subito" usa in reception. Due rese dello stesso
-   foglio, una delle due prima o poi rimasta indietro, e' esattamente il
-   difetto che questo progetto ha gia' pagato piu' volte (vedi il commento
-   sopra buonoStampaHTML in buono.js) — qui non se ne fa un secondo. */
-/* percorso assoluto e non relativo: questa pagina vive sotto /buoni/stampa/,
-   ma un link nell'email potrebbe anche arrivarci con parametri o barre
-   diverse — /buoni/buono.js vale uguale comunque sia scritto l'indirizzo.
-   Vedi pagine/README.md e percorsi-web.test.ts. */
-import { buonoStampaHTML, esc } from '/buoni/buono.js';
+/* Il buono lo disegna il server, in PDF sulla carta intestata: questa
+   pagina non ne fa una seconda resa, lo apre e basta. Due disegni dello
+   stesso foglio, uno dei due prima o poi rimasto indietro, e' esattamente
+   il difetto che questo progetto ha gia' pagato piu' volte — la strada
+   presa il 5 settembre 2026 e' che di disegno ce ne sia uno solo, e stia
+   dalla parte del server. */
+/* buono.js non serve piu': serviva per buonoStampaHTML, e restava solo
+   `esc` — un modulo intero (col generatore di QR dentro) tirato giu' da un
+   telefono per due righe di sostituzioni. Riscritte qui sotto. */
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g,
+  c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
 const $ = (id) => document.getElementById(id);
@@ -80,7 +77,7 @@ document.documentElement.lang = LNG;
 const T = {
   it:{ titolo:'Il tuo Buono Regalo', carico:'Carichiamo il tuo buono…',
     bottone:'Stampa il tuo buono',
-    istruzioni:'Un clic ed è pronto per la stampante. Da telefono puoi anche salvarlo come PDF.',
+    istruzioni:'Si apre il PDF del buono: da lì lo stampa o lo salva. Da telefono può anche condividerlo.',
     erroreRete:'Non siamo riusciti a caricare il buono. Riprova tra poco, oppure scrivici a info@termeleonardo.com o chiamaci al +39 049 9939200.',
     nonTrovato:'Non troviamo un buono con questo codice. Controlla di averlo copiato per intero.',
     attesa:'Questo buono risulta ancora in attesa di pagamento: non è ancora stato emesso.',
@@ -90,7 +87,7 @@ const T = {
     genericoNonValido:'Questo buono non è valido.' },
   de:{ titolo:'Ihr Geschenkgutschein', carico:'Ihr Gutschein wird geladen…',
     bottone:'Gutschein ausdrucken',
-    istruzioni:'Ein Klick, und er ist druckfertig. Vom Smartphone aus können Sie ihn auch als PDF speichern.',
+    istruzioni:'Es öffnet sich der Gutschein als PDF: von dort drucken oder speichern. Vom Smartphone aus können Sie ihn auch teilen.',
     erroreRete:'Der Gutschein konnte nicht geladen werden. Bitte versuchen Sie es später erneut, oder schreiben Sie an info@termeleonardo.com bzw. rufen Sie +39 049 9939200 an.',
     nonTrovato:'Wir finden keinen Gutschein mit diesem Code. Bitte prüfen Sie, ob Sie ihn vollständig kopiert haben.',
     attesa:'Dieser Gutschein wartet noch auf die Zahlung und wurde noch nicht ausgestellt.',
@@ -100,7 +97,7 @@ const T = {
     genericoNonValido:'Dieser Gutschein ist nicht gültig.' },
   en:{ titolo:'Your Gift Voucher', carico:'Loading your voucher…',
     bottone:'Print your voucher',
-    istruzioni:'One click and it is ready for the printer. On a phone, you can also save it as a PDF.',
+    istruzioni:'The voucher opens as a PDF: print or save it from there. On a phone you can also share it.',
     erroreRete:'We could not load the voucher. Please try again shortly, or write to info@termeleonardo.com or call +39 049 9939200.',
     nonTrovato:'We cannot find a voucher with this code. Please check that you copied it in full.',
     attesa:'This voucher is still awaiting payment and has not been issued yet.',
@@ -110,7 +107,7 @@ const T = {
     genericoNonValido:'This voucher is not valid.' },
   fr:{ titolo:'Votre Bon Cadeau', carico:'Chargement de votre bon…',
     bottone:'Imprimer votre bon',
-    istruzioni:'Un clic et il est prêt pour l’impression. Depuis un téléphone, vous pouvez aussi l’enregistrer en PDF.',
+    istruzioni:'Le bon s’ouvre en PDF : imprimez-le ou enregistrez-le depuis là. Depuis un téléphone, vous pouvez aussi le partager.',
     erroreRete:'Nous n’avons pas pu charger le bon. Réessayez dans un instant, ou écrivez à info@termeleonardo.com ou appelez le +39 049 9939200.',
     nonTrovato:'Nous ne trouvons aucun bon avec ce code. Vérifiez que vous l’avez copié en entier.',
     attesa:'Ce bon est encore en attente de paiement et n’a pas encore été émis.',
@@ -125,22 +122,6 @@ document.title = t.titolo + ' — Hotel Terme Leonardo';
 function messaggio(testo, errore) {
   $('pagina').innerHTML = `<div class="messaggio${errore ? ' errore' : ''}">${esc(testo)}</div>`;
 }
-
-/* riscala il foglio (210mm sono troppi per uno schermo, tantopiu' un
-   telefono) per farlo stare nel contenitore, mantenendo le proporzioni:
-   stessa tecnica gia' usata per le anteprime nel back office e in
-   regala/index.html. In stampa la scala si toglie (vedi stampa.css), cosi'
-   il foglio esce a piena pagina A4 comunque sia stato ridotto a schermo. */
-function adattaScala() {
-  const foglio = document.querySelector('#stampa .foglio');
-  const cont = $('stampa');
-  if (!foglio || !cont) return;
-  const largh = cont.clientWidth || window.innerWidth;
-  const scala = Math.min(1, (largh - 8) / foglio.offsetWidth);
-  foglio.style.transform = `scale(${scala})`;
-  cont.style.height = (foglio.offsetHeight * scala) + 'px';
-}
-window.addEventListener('resize', adattaScala);
 
 async function carica() {
   if (!CODICE) { messaggio(t.nonTrovato, true); return; }
@@ -174,11 +155,20 @@ async function carica() {
     messaggio(testo, true);
     return;
   }
-  $('stampa').innerHTML = buonoStampaHTML(j.buono, false);
-  $('pagina').innerHTML = `<button type="button" class="azione" id="bStampa">${esc(t.bottone)}</button>
-    <div class="istruzioni">${esc(t.istruzioni)}</div>`;
-  $('bStampa').onclick = () => window.print();
-  adattaScala();
+  /* Il buono e' il PDF: un link che lo apre (dal telefono e' anche il modo
+     per condividerlo o salvarlo) e, sotto, lo stesso PDF gia' aperto nella
+     pagina. La pagina non manda piu' niente in stampa da se': a stampare
+     ci pensa il lettore di PDF del telefono o del computer, che l'ospite
+     conosce gia'.
+     L'indirizzo del PDF e' scritto per esteso tutte e due le volte invece
+     che tenuto in una variabile: e' il solo che questa pagina compone, e
+     cosi' si legge tale e quale nell'HTML che l'ospite riceve. */
+  $('pagina').innerHTML =
+    `<a class="azione" href="${FUNZIONE}?a=pdf&codice=${encodeURIComponent(CODICE)}"
+      target="_blank" rel="noopener">${esc(t.bottone)}</a>
+    <div class="istruzioni">${esc(t.istruzioni)}</div>
+    <iframe class="pdfFrame" src="${FUNZIONE}?a=pdf&codice=${encodeURIComponent(CODICE)}"
+      title="${esc(t.titolo)}"></iframe>`;
 }
 
 carica();
