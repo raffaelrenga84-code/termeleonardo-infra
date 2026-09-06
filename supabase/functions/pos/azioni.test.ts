@@ -210,7 +210,7 @@ Deno.test('conto-cambia accetta la camera: un conto esterno diventa in camera al
 
 Deno.test('l ordine dal tavolo col QR: menu pubblico firmato, carta via Stripe, camera con tessera che combacia', () => {
   /* la proprieta', 5 settembre 2026 */
-  assert(S.includes("import { cameraCombacia, codiceTessera, dallHotel, ipDi, numeroOrdine, reteNascosta, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';"), 'le regole nel modulo puro');
+  assert(S.includes("import { cameraCombacia, candidatiTessera, dallHotel, ipDi, numeroOrdine, reteNascosta, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';"), 'le regole nel modulo puro');
   assert(S.includes("const azioniOspite = ['ospite-menu', 'ospite-ordine', 'ospite-stato'];"), 'tre azioni pubbliche');
   const o = S.slice(S.indexOf('const azioniOspite'), S.indexOf('/* ================= dal palmare'));
   assert(o.includes("if (!(await tavoloFirmato(t, k, Deno.env.get('HOTEL_KEY'))))"), 'senza la firma del QR niente');
@@ -245,7 +245,7 @@ Deno.test('l ordine dal tavolo solo dalla rete dell hotel, tessera dalle cifre s
   const ospite = S.slice(S.indexOf("const azioniOspite = "), S.indexOf("if (azione === 'ospite-menu')"));
   assert(!ospite.includes('dallHotel('), 'col QR si ordina da qualunque connessione');
   assert(ospite.includes('tavoloFirmato('), 'la firma del tavolo resta la porta');
-  assert(S.includes('const tessera = codiceTessera(b.tessera);'), 'il codice a barre lo rifa il server');
+  assert(S.includes('const candidati = candidatiTessera(b.tessera);') && S.includes('for (const c of candidati.slice(1)) { if (f.stato !== 404) break;'), 'il codice a barre lo rifa il server, provando ogni lettura delle cifre');
   assert(S.includes("const consegna = String(b.consegna ?? '').trim().slice(0, 10) || null;"), 'la camera di consegna');
   assert(S.includes("`QR · PAGATO ONLINE${o.camera ? ` · CAMERA ${String(o.camera)}` : ''}`"), 'e sul biglietto si legge');
 });

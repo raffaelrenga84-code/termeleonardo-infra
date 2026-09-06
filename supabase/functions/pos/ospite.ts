@@ -102,6 +102,28 @@ export function codiceTessera(scritto: unknown): string | null {
   return ean(cifre);
 }
 
+/** Tutte le letture possibili delle cifre scritte dall'ospite, dalla piu'
+    probabile: con cinque cifre possono essere il numero intero o il
+    numero piu' la cifra di controllo, e da qui non si puo' sapere quale.
+    Le prova il server una per una contro Fidra e la prima riconosciuta
+    vince («non riconosce il numero di tessera, e dovrebbe essere di 5
+    cifre non 4», la proprieta', 6 settembre 2026). Senza doppioni. */
+export function candidatiTessera(scritto: unknown): string[] {
+  const cifre = String(scritto ?? '').replace(/\D/g, '');
+  const primo = codiceTessera(cifre);
+  if (!primo) return [];
+  if (cifre.length === 13) return [primo];
+  const ean = (numero: string) => {
+    const corpo = ('1' + numero.padStart(11, '0')).slice(-12);
+    let somma = 0;
+    for (let i = 0; i < 12; i++) somma += Number(corpo[i]) * (i % 2 === 0 ? 1 : 3);
+    return corpo + String((10 - (somma % 10)) % 10);
+  };
+  const fuori = [primo];
+  for (const c of [ean(cifre), cifre.length >= 5 ? ean(cifre.slice(0, -1)) : '']) if (c && !fuori.includes(c)) fuori.push(c);
+  return fuori;
+}
+
 /** L'indirizzo di chi chiama: il primo della catena x-forwarded-for. */
 export function ipDi(intestazioni: Headers): string {
   return (intestazioni.get('x-forwarded-for') || '').split(',')[0].trim();

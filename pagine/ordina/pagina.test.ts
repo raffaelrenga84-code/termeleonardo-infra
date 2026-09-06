@@ -44,7 +44,7 @@ Deno.test('«Dove e seduto?»: interno, esterno (con la terrazza), la Hall come 
   assert(m.includes("if (b.dataset.posto === 'hall') return vai(hall);"), 'la Hall e un posto solo');
   assert(m.includes("vai(camera, `&camera=${encodeURIComponent(c)}`)"), 'in camera col numero');
   assert(m.includes("const CAMERA = (P.get('camera') || '')") && m.includes("consegna: CAMERA || null"), 'e la camera viaggia con l ordine');
-  assert(m.includes("${esc(T().tesseraSpiega)}") && m.includes('placeholder="1466"'), 'la tessera: le cifre stampate');
+  assert(m.includes("${esc(T().tesseraSpiega)}") && m.includes('placeholder="14662"'), 'la tessera: le cifre stampate');
 });
 
 Deno.test('i nomi per l ospite: nella sua lingua, con gli ingredienti e le sigle degli allergeni del menu stampato', () => {
