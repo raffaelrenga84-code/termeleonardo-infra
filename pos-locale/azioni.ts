@@ -19,6 +19,7 @@ import { applicaFascia, fasciaAttiva, oraLocale, prezzoInFascia } from '../supab
 import type { Fascia, PrezzoFascia } from '../supabase/functions/pos/fasce.ts';
 import { localeChePrepara, portareA, siStampa } from '../supabase/functions/pos/dove.ts';
 import { stampanteAdesso } from '../supabase/functions/pos/orari.ts';
+import { statoIniziale } from '../supabase/functions/pos/schermo.ts';
 
 export type Richiesta = { metodo: string; query: Record<string, string>; corpo: unknown; intestazioni: Record<string, string> };
 export type Risposta = { stato: number; corpo: unknown };
@@ -81,6 +82,8 @@ function creaStampe(db: Db, conto: Riga, righe: RigaStampabile[], portata: Porta
      regola si prepara dove si mangia, ma il ristorante puo' mandare le
      bevande al Bistrot e allora il biglietto esce di la'. */
   const nomi = db.prepare('select id, nome, stampante_cucina, stampante_bar, orari_cucina from pos_locale').all() as Riga[];
+  const postazioni = db.prepare('select * from pos_postazione').all() as Riga[];
+  const postazioneDi = (locale: string, stampante: string) => postazioni.find((p) => p.locale === locale && p.stampante === stampante) ?? null;
   const adessoOra = oraLocale(new Date());
   const nomeDelLocale = (id: string) => (nomi.find((l) => l.id === id)?.nome as string) ?? null;
   const gruppi = new Map<string, RigaStampabile[]>();
@@ -96,7 +99,8 @@ function creaStampe(db: Db, conto: Riga, righe: RigaStampabile[], portata: Porta
     /* dove non c'e' stampante non si stampa: la cucina del ristorante non
        ne ha, e il biglietto resterebbe in coda per sempre */
     const suo = nomi.find((l) => l.id === dove) as { stampante_cucina?: string | null; stampante_bar?: string | null } | undefined;
-    if (!siStampa({ stampante: stampante as 'cucina' | 'bar', locale: suo })) continue;
+    const postazione = postazioneDi(dove, stampante);
+    if (!siStampa({ stampante: stampante as 'cucina' | 'bar', locale: suo, postazione })) continue;
     const b: Biglietto = {
       tipo: tipo.toUpperCase() as Biglietto['tipo'], locale: String(t.locale_nome), tavolo: String(t.tavolo),
       conto: conto.tipo === 'camera' ? `Camera ${conto.camera ?? ''}`.trim() : 'Esterno',
@@ -106,7 +110,11 @@ function creaStampe(db: Db, conto: Riga, righe: RigaStampabile[], portata: Porta
       portareA: portareA({ preparaIn: dove, tavoloIn: String(t.locale_id), nomeDelLocale }),
       avviso: stampante !== originale ? 'cucina chiusa: al bancone' : null,
     };
-    salva(db, 'pos_stampa', { id: crypto.randomUUID(), locale: dove, stampante, testo: testoBiglietto(b), stato: 'da_stampare', creato_il: ora, stampata_il: null, stampata_da: null, errore: null, aggiornato_il: ora, allineato: 0 });
+    salva(db, 'pos_stampa', {
+      id: crypto.randomUUID(), locale: dove, stampante, testo: testoBiglietto(b), biglietto: b, conto: String(conto.id),
+      stato: statoIniziale(postazione), creato_il: ora, stampata_il: null, stampata_da: null, errore: null, aggiornato_il: ora, allineato: 0,
+      vista_il: null, presa_il: null, pronta_il: null, pronta_da: null,
+    });
   }
   salva(db, 'pos_comanda', { id: crypto.randomUUID(), conto: conto.id, portata, tipo, righe: righe.map((r) => r.id), aggiornato_il: ora, allineato: 0 });
 }

@@ -45,6 +45,20 @@ Deno.test('conto, righe, invia: parte la prima portata e le bevande, la stampa e
   assertEquals((letto.corpo as { righe: { stato: string }[] }).righe.map((x) => x.stato), ['partita', 'partita', 'partita']);
 });
 
+Deno.test('con una postazione a schermo il biglietto nasce a_schermo e porta i dati', async () => {
+  const db = base();
+  db.exec(`insert into pos_postazione (locale, stampante, nome, schermo, stampa_sempre, ripiego_s) values ('L1', 'bar', 'Banco', 1, 0, 30)`);
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 2 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  await esegui(db, 'righe', req('POST', { conto, righe: [{ id: 'r1', articolo: 'A2', quantita: 2, portata: 'bevande' }] }), cfg);
+  await esegui(db, 'invia', req('POST', { conto }), cfg);
+  const stampa = db.prepare('select stampante, stato, biglietto, conto from pos_stampa where stampante = ?').get('bar') as { stampante: string; stato: string; biglietto: string; conto: string };
+  assertEquals(stampa.stato, 'a_schermo');
+  assertEquals(stampa.conto, conto);
+  const biglietto = JSON.parse(stampa.biglietto) as { righe: unknown[] };
+  assert(Array.isArray(biglietto.righe), 'il biglietto porta le righe');
+});
+
 Deno.test('la sala mostra il conto aperto col totale; chiudi lo toglie', async () => {
   const db = base();
   const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 2 }), cfg);

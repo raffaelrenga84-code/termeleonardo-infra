@@ -78,10 +78,12 @@ Deno.test('giu: una stampa nata nel cloud entra in coda locale gia allineata (no
   db.exec("insert into pos_locale (id, nome, aggiornato_il) values ('L1', 'Bistrot', '2026-09-04T10:00:00Z')");
   const { chiamate, cloud } = cloudFinto((c) => c.url.includes('allinea-giu')
     ? { adesso: 'x', locale: [], zona: [], tavolo: [], categoria: [], articolo: [], variante: [], preferito: [], cameriere: [], dispositivo: [],
+      postazione: [{ locale: 'L1', stampante: 'bar', nome: 'Banco', schermo: true, stampa_sempre: false, ripiego_s: 30, chiave_hash: null, aggiornato_il: '2026-09-06T00:00:00Z' }],
       stampe: [{ id: 'P9', locale: 'L1', stampante: 'cucina', testo: 'T', stato: 'da_stampare', creato_il: '2026-09-04T10:00:00Z', stampata_il: null, stampata_da: null, errore: null, aggiornato_il: '2026-09-04T10:00:00Z' }] }
     : { esito: 'ok' });
   await giu(db, cloud);
   assertEquals(db.prepare('select id, stato, allineato from pos_stampa').all(), [{ id: 'P9', stato: 'da_stampare', allineato: 1 }]);
+  assertEquals((db.prepare('select locale, stampante, nome, schermo from pos_postazione').get() as { schermo: number }).schermo, 1, 'la postazione scende col suo schermo');
   await battito(cloud);
   const b = chiamate.find((c) => c.url.includes('locale-vivo'))!;
   assertEquals(b.corpo, { locale: 'L1' });

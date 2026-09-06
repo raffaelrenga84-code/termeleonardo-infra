@@ -62,6 +62,7 @@ const MARGINE_OSPITI = 10;
 import { chiaveStripe, dividiParametri, firmaValida, parametriLink, segretoWebhook, STRIPE } from './stripe.ts';
 import { motivoDelPrezzo, motivoPulito, prezzoCambiato } from './motivi.ts';
 import { localeChePrepara, portareA, siStampa } from './dove.ts';
+import { statoIniziale } from './schermo.ts';
 import { categoriaVino } from './vini.ts';
 import { chiaveNome, leggiSala } from './sala.ts';
 import { puo, type Ruolo as RuoloPos } from './permessi.ts';
@@ -203,6 +204,8 @@ async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata
      regola si prepara dove si mangia, ma il ristorante puo' mandare le
      bevande al Bistrot e allora il biglietto esce di la'. */
   const { data: locali } = await db.from('pos_locale').select('id, nome, stampante_cucina, stampante_bar, orari_cucina');
+  const { data: postazioni } = await db.from('pos_postazione').select('*');
+  const postazioneDi = (locale: string, stampante: string) => (postazioni ?? []).find((p) => p.locale === locale && p.stampante === stampante) ?? null;
   const adessoOra = oraLocale(new Date());
   const nomeDelLocale = (id: string) => (locali ?? []).find((l) => l.id === id)?.nome as string ?? null;
   const gruppi = new Map<string, RigaStampabile[]>();
@@ -218,7 +221,7 @@ async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata
     /* dove non c'e' stampante non si stampa: il biglietto resterebbe in
        coda per sempre. La riga resta sul conto, e il giorno che una
        stampante arriva comincia a uscire da sola. */
-    if (!siStampa({ stampante: stampante as 'cucina' | 'bar', locale: (locali ?? []).find((l) => l.id === dove) })) return [];
+    if (!siStampa({ stampante: stampante as 'cucina' | 'bar', locale: (locali ?? []).find((l) => l.id === dove), postazione: postazioneDi(dove, stampante) })) return [];
     const b: Biglietto = {
       tipo: tipo.toUpperCase() as Biglietto['tipo'], locale: locale.nome, tavolo: String(tavolo!.nome),
       conto: conto.tipo === 'camera' ? `Camera ${conto.camera ?? ''}`.trim() : 'Esterno',
@@ -228,7 +231,7 @@ async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata
       portareA: portareA({ preparaIn: dove, tavoloIn: locale.id, nomeDelLocale }),
       avviso: [avviso, stampante !== originale ? 'cucina chiusa: al bancone' : null].filter(Boolean).join(' · ') || null,
     };
-    return [{ id: crypto.randomUUID(), locale: dove, stampante, testo: testoBiglietto(b) }];
+    return [{ id: crypto.randomUUID(), locale: dove, stampante, testo: testoBiglietto(b), biglietto: b, conto: conto.id, stato: statoIniziale(postazioneDi(dove, stampante)) }];
   });
   if (stampe.length) await db.from('pos_stampa').insert(stampe);
   await db.from('pos_comanda').insert({ id: crypto.randomUUID(), conto: conto.id, portata, tipo, righe: righe.map((r) => r.id) });
@@ -1212,7 +1215,7 @@ Deno.serve(async (req) => {
     }
     const da = url.searchParams.get('da') || '1970-01-01T00:00:00Z';
     const locale = url.searchParams.get('locale') || '';
-    const tabelle = ['pos_locale', 'pos_zona', 'pos_tavolo', 'pos_categoria', 'pos_articolo', 'pos_variante', 'pos_preferito', 'pos_cameriere', 'pos_dispositivo', 'pos_fascia', 'pos_prezzo_fascia'];
+    const tabelle = ['pos_locale', 'pos_zona', 'pos_tavolo', 'pos_categoria', 'pos_articolo', 'pos_variante', 'pos_preferito', 'pos_cameriere', 'pos_dispositivo', 'pos_fascia', 'pos_prezzo_fascia', 'pos_postazione'];
     const fuori: Record<string, unknown> = { adesso: adesso() };
     for (const t of tabelle) {
       if (nascoste.includes(t)) { fuori[t.slice(4)] = []; continue; }
@@ -1223,8 +1226,9 @@ Deno.serve(async (req) => {
         : await db.from(t).select('*').gt('aggiornato_il', da).limit(5000);
       fuori[t.slice(4)] = data ?? [];
     }
-    /* le stampe nate nel cloud (palmare in modalita' cloud) le stampa il locale, se c'e' */
-    let q = db.from('pos_stampa').select('*').eq('stato', 'da_stampare').gt('aggiornato_il', da).limit(200);
+    /* le stampe nate nel cloud (palmare in modalita' cloud) le stampa il
+       locale, se c'e': anche quelle solo a schermo: le mostra e le ripiega il PC */
+    let q = db.from('pos_stampa').select('*').in('stato', ['da_stampare', 'a_schermo']).gt('aggiornato_il', da).limit(200);
     if (locale) q = q.eq('locale', locale);
     fuori.stampe = (await q).data ?? [];
     return risposta(fuori);

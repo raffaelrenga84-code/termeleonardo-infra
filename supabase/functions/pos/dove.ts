@@ -36,10 +36,16 @@ export function localeChePrepara(
     proprieta', 4 settembre 2026): un biglietto per il ristorante non
     uscirebbe mai e resterebbe in coda per sempre. Meglio non farlo: la
     riga sta sul conto lo stesso, e il giorno che una stampante arriva
-    comincia a stampare da sola, senza toccare niente. */
+    comincia a stampare da sola, senza toccare niente.
+    O la postazione ha uno schermo, 6 settembre 2026: il biglietto nasce lo stesso. */
 export function siStampa(
-  { stampante, locale }: { stampante: 'cucina' | 'bar'; locale: { stampante_cucina?: string | null; stampante_bar?: string | null } | null | undefined },
+  { stampante, locale, postazione }: {
+    stampante: 'cucina' | 'bar';
+    locale: { stampante_cucina?: string | null; stampante_bar?: string | null } | null | undefined;
+    postazione?: { schermo?: unknown } | null;
+  },
 ): boolean {
+  if (postazione && (postazione.schermo === true || Number(postazione.schermo) === 1)) return true;
   if (!locale) return false;
   const dove = stampante === 'bar' ? locale.stampante_bar : locale.stampante_cucina;
   return !!String(dove ?? '').trim();

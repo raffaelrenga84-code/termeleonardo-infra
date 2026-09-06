@@ -39,3 +39,14 @@ Deno.test('dove non c e stampante non si stampa', () => {
   assertEquals(siStampa({ stampante: 'bar', locale: null }), false);
   assertEquals(siStampa({ stampante: 'bar', locale: undefined }), false);
 });
+
+Deno.test('con uno schermo si stampa anche dove non c e la stampante', () => {
+  /* il ristorante non ha stampanti, ma un giorno puo' avere un monitor
+     (la proprieta', 6 settembre 2026): il biglietto nasce lo stesso */
+  const ristorante = { stampante_cucina: null, stampante_bar: '' };
+  assertEquals(siStampa({ stampante: 'cucina', locale: ristorante, postazione: { schermo: true } }), true);
+  assertEquals(siStampa({ stampante: 'cucina', locale: ristorante, postazione: { schermo: 1 } }), true, 'da SQLite');
+  assertEquals(siStampa({ stampante: 'cucina', locale: ristorante, postazione: { schermo: false } }), false);
+  assertEquals(siStampa({ stampante: 'cucina', locale: ristorante, postazione: null }), false);
+  assertEquals(siStampa({ stampante: 'cucina', locale: null, postazione: { schermo: true } }), true, 'lo schermo basta anche senza locale');
+});
