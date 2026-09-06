@@ -91,6 +91,19 @@ Deno.test('le postazioni dal back office: schermo, carta di ripiego, e il link d
   assert(tav.includes('postazioni: j.postazione') || P.includes('postazioni: j.postazione'), 'le postazioni scendono con allinea-giu');
 });
 
+Deno.test('le postazioni, dopo la rilettura: ripiego in bianco, locali gia salvati, link che non si perdono', () => {
+  /* fix round 1 del piano «Monitor cucina» (6 settembre 2026) */
+  const tav = P.slice(P.indexOf('function vistaPosTavoli('), P.indexOf('function vistaPosPersonale('));
+  assert(tav.includes("el.dataset.p === 'ripiego_s' ? el.value : valoreCampo(el)"), 'il ripiego va su com e scritto: in bianco non e zero');
+  assert(P.includes('localiSalvati: new Set((j.locale || []).map((l) => l.id))') && tav.includes('salvati.has(l.id)'), 'righe solo per i locali che il cloud conosce gia');
+  assert(tav.includes('Un locale nuovo compare qui dopo'), 'e lo dice, invece di far sparire il locale nuovo senza spiegazioni');
+  assert(tav.includes('chiaviHtml += riquadriChiavi(j.chiavi);'), 'i link nuovi si sommano ai vecchi invece di cancellarli');
+  assert(tav.indexOf('chiaviHtml += riquadriChiavi(j.chiavi);') < tav.indexOf('const fresco = await caricaPos();'), 'e vanno in pagina PRIMA del ricarico');
+  assert(tav.includes('Ricarico non riuscito'), 'un ricarico storto lo dice e basta: non porta via le chiavi');
+  assert(tav.includes('ptNascondiChiavi'), 'i link se ne vanno solo quando lo si chiede');
+  assert(tav.includes('raccogliPost();'), 'e le postazioni toccate sopravvivono a «+ locale», «+ zona» e «+ tavolo»');
+});
+
 Deno.test('le schede stanno in quattro famiglie: Buoni, Ospiti, Day Spa, POS', () => {
   assert(P.includes('const FAMIGLIE = [') && P.includes("['pos', 'POS', ['posOrdiniQr', 'posAddebiti', 'posGiornata', 'posMenu', 'posTavoli', 'posPersonale', 'posFasce']]"), 'la famiglia del POS');
   assert(P.includes('class="famiglie"') && P.includes('const famigliaDi = (scheda) =>'), 'la barra delle famiglie');

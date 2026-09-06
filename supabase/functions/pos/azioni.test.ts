@@ -342,4 +342,11 @@ Deno.test('il monitor cucina: due azioni con la chiave dello schermo, il ripiego
   const sala = S.slice(S.indexOf("azione === 'sala'"), S.indexOf("azione === 'conto'"));
   assert(sala.includes('prontoInCucina(') && sala.includes('pronto_in_cucina'), 'la sala dice cosa e pronto');
   assert(S.includes("'postazioni-salva'") && S.includes('chiaveCasuale()') && S.includes('impronta('), 'le postazioni si salvano dal back office con la chiave nuova');
+  /* fix round 1 (6 settembre 2026) */
+  const ps = S.slice(S.indexOf("azione === 'postazioni-salva'"), S.indexOf("azione === 'personale-salva'"));
+  assert(ps.includes('locale sconosciuto'), 'un locale che non esiste si ferma sulla porta');
+  assert(ps.indexOf('locale sconosciuto') < ps.indexOf('.upsert('), 'e si ferma PRIMA di scrivere: a meta giro una chiave gia data sarebbe persa');
+  const daGiu = S.indexOf("azione === 'allinea-giu'");
+  const ag = S.slice(daGiu, S.indexOf("azione === 'in-casa'", daGiu));
+  assert(ag.includes('chiave_hash: _nonServe'), 'l impronta della chiave dello schermo scende solo al PC, non al back office');
 });

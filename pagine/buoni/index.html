@@ -2545,6 +2545,9 @@ async function caricaPos() {
     varianti: (j.variante || []).sort(ord), preferiti: (j.preferito || []).sort(ord),
     camerieri: (j.cameriere || []).sort(ord), dispositivi: (j.dispositivo || []).sort(ord),
     postazioni: j.postazione || [],
+    /* i locali che il cloud conosce gia': una postazione si puo' attaccare
+       solo a questi, non a uno appena aggiunto e ancora solo nel browser */
+    localiSalvati: new Set((j.locale || []).map((l) => l.id)),
   };
 }
 const valoreCampo = (el) => el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
@@ -2932,14 +2935,52 @@ function vistaPosFasce() {
 function vistaPosTavoli() {
   $('vista').innerHTML = `<div class="riquadro"><div class="esito" id="ptEsito">Carico…</div></div>`;
   let D = null;
-  /* i link delle chiavi restano sotto gli occhi anche quando la pagina si
-     ridisegna: la chiave si vede una volta sola (6 settembre 2026) */
+  /* I link delle chiavi restano sotto gli occhi anche quando la pagina si
+     ridisegna, e si sommano invece di sostituirsi: la chiave si vede una
+     volta sola, e chi non l'ha ancora copiata non deve perderla. */
   let chiaviHtml = '';
   const STAMPANTI_POS = [['cucina', 'Cucina'], ['bar', 'Bar']];
+  const riquadriChiavi = (lista) => (lista || []).map((c) => {
+    const coda = `/cucina?l=${encodeURIComponent(c.locale)}&s=${encodeURIComponent(c.stampante)}&k=${encodeURIComponent(c.chiave)}`;
+    const link = (titolo, indirizzo) => `<div class="mini" style="margin-top:8px;">${titolo}</div><div class="cod" style="word-break:break-all;">${esc(indirizzo)}</div>
+      <button type="button" class="azione sec mini" data-copia="${esc(indirizzo)}" style="width:auto;margin-top:4px;">copia</button>`;
+    return `<div class="riquadro"><b>${esc(c.nome)}</b>
+      ${link('Dal cloud (serve internet)', 'https://www.hoteltermeleonardo.com' + coda)}
+      ${link('Dal PC del Bistrot (va anche senza internet)', PC_BISTROT + coda)}
+      <div class="mini" style="margin-top:8px;">Si vede una volta sola: chi la perde ne chiede una nuova.</div></div>`;
+  }).join('');
+  const mostraChiavi = () => {
+    if (!$('ptChiavi')) return;
+    $('ptChiavi').innerHTML = chiaviHtml ? `${chiaviHtml}<button type="button" class="azione sec mini" id="ptNascondiChiavi" style="width:auto;">Nascondi i link</button>` : '';
+    document.querySelectorAll('[data-copia]').forEach((b) => b.onclick = async () => {
+      try { await navigator.clipboard.writeText(b.dataset.copia); b.textContent = 'copiato'; }
+      catch { b.textContent = 'copia a mano'; }
+    });
+    /* i link se ne vanno solo quando lo si chiede: nessun salvataggio li spazza via */
+    if ($('ptNascondiChiavi')) $('ptNascondiChiavi').onclick = () => { chiaviHtml = ''; mostraChiavi(); };
+  };
+  /* Le postazioni disegnate tornano dentro D: «+ locale», «+ zona» e
+     «+ tavolo» ridisegnano tutto, e le spunte non ancora salvate resterebbero
+     per strada. Torna anche l'elenco da mandare al cloud. */
+  const raccogliPost = () => {
+    D.postazioni = D.postazioni || [];
+    return [...document.querySelectorAll('[data-post]')].map((r) => {
+      const [locale, stampante] = r.dataset.post.split('|');
+      const out = { locale, stampante };
+      /* il ripiego va su com'e' scritto, stringa e non numero: «vuoto» non e'
+         zero, e zero vuol dire «mai la carta». Il campo lasciato in bianco lo
+         rimette il server al valore di partenza. */
+      r.querySelectorAll('[data-p]').forEach((el) => { out[el.dataset.p] = el.dataset.p === 'ripiego_s' ? el.value : valoreCampo(el); });
+      const p = D.postazioni.find((x) => x.locale === locale && x.stampante === stampante);
+      if (p) Object.assign(p, out); else D.postazioni.push({ ...out });
+      return out;
+    });
+  };
   const raccogli = () => {
     document.querySelectorAll('[data-loc]').forEach((r) => { const l = D.locali.find((x) => x.id === r.dataset.loc); if (l) r.querySelectorAll('[data-l]').forEach((el) => { l[el.dataset.l] = valoreCampo(el) || null; }); });
     document.querySelectorAll('[data-zona]').forEach((r) => { const z = D.zone.find((x) => x.id === r.dataset.zona); if (z) r.querySelectorAll('[data-z]').forEach((el) => { z[el.dataset.z] = valoreCampo(el); }); });
     document.querySelectorAll('[data-tav]').forEach((r) => { const t = D.tavoli.find((x) => x.id === r.dataset.tav); if (t) r.querySelectorAll('[data-t]').forEach((el) => { t[el.dataset.t] = valoreCampo(el); }); });
+    raccogliPost();
   };
   const disegna = () => {
     const locali = `<div class="riquadro"><b>Locali</b><div class="mini">Le stampanti qui sono gli indirizzi sulla rete dell'hotel (host:porta) che usa il PC del Bistrot; il cloud ha i suoi.</div>
@@ -2948,19 +2989,22 @@ function vistaPosTavoli() {
         <td><input data-l="stampante_cucina" value="${esc(l.stampante_cucina || '')}" placeholder="192.168.0.x:9100" /></td><td><input data-l="stampante_bar" value="${esc(l.stampante_bar || '')}" placeholder="192.168.0.x:9100" /></td>
         <td><input data-l="orari_cucina" value="${esc(l.orari_cucina || '')}" placeholder="12:15-14:30" title="Vuoto = cucina sempre aperta. Fuori orario il biglietto della cucina esce al bancone." /></td></tr>`).join('')}</table></div>`;
     /* Le postazioni (6 settembre 2026): una riga per locale e per stampante,
-       anche quando in banca dati non c'e' ancora — nasce al salvataggio. */
-    const postazioni = `<div class="riquadro"><b>Postazioni</b><div class="mini">Come ogni postazione riceve le comande: solo carta, carta e schermo, o solo schermo (la carta esce di ripiego se nessuno schermo mostra la comanda entro i secondi indicati; 0 = mai). «Nuova chiave» dà il link da aprire sullo schermo, una volta sola.</div>
+       ma solo per i locali che il cloud conosce gia'. Su uno appena aggiunto
+       col «+ locale» la chiave esterna direbbe di no e il salvataggio si
+       fermerebbe a meta', bruciando le chiavi delle righe prima. */
+    const salvati = D.localiSalvati || new Set(D.locali.map((l) => l.id));
+    const postazioni = `<div class="riquadro"><b>Postazioni</b><div class="mini">Come ogni postazione riceve le comande: solo carta, carta e schermo, o solo schermo (la carta esce di ripiego se nessuno schermo mostra la comanda entro i secondi indicati; in bianco = 30, 0 = mai). «Nuova chiave» dà il link da aprire sullo schermo, una volta sola. Un locale nuovo compare qui dopo «Salva locali, zone e tavoli».</div>
       <table><tr><th>Locale</th><th>Stampante</th><th>Nome</th><th>Schermo</th><th>Stampa sempre</th><th>Ripiego (s)</th><th>Nuova chiave</th></tr>
-      ${D.locali.map((l) => STAMPANTI_POS.map(([s, ts]) => {
+      ${D.locali.filter((l) => salvati.has(l.id)).map((l) => STAMPANTI_POS.map(([s, ts]) => {
         const p = (D.postazioni || []).find((x) => x.locale === l.id && x.stampante === s) || { nome: `${ts} ${l.nome}`, schermo: false, stampa_sempre: true, ripiego_s: 30 };
         return `<tr data-post="${esc(l.id)}|${s}"><td>${esc(l.nome)}</td><td>${ts}</td>
           <td><input data-p="nome" value="${esc(p.nome || '')}" /></td>
           <td><input type="checkbox" data-p="schermo" ${p.schermo ? 'checked' : ''}/></td>
           <td><input type="checkbox" data-p="stampa_sempre" ${p.stampa_sempre !== false ? 'checked' : ''}/></td>
-          <td><input type="number" data-p="ripiego_s" min="0" value="${Number(p.ripiego_s ?? 30)}" style="width:70px;" /></td>
-          <td><label class="mini"><input type="checkbox" data-p="nuova_chiave" /> nuova</label></td></tr>`;
+          <td><input type="number" data-p="ripiego_s" min="0" value="${p.ripiego_s === '' ? '' : Number(p.ripiego_s ?? 30)}" style="width:70px;" /></td>
+          <td><label class="mini"><input type="checkbox" data-p="nuova_chiave" ${p.nuova_chiave ? 'checked' : ''}/> nuova</label></td></tr>`;
       }).join('')).join('')}</table>
-      <button type="button" class="azione" id="ptSalvaPost" style="width:auto;">Salva le postazioni</button><div class="esito" id="ptEsitoPost"></div><div id="ptChiavi">${chiaviHtml}</div></div>`;
+      <button type="button" class="azione" id="ptSalvaPost" style="width:auto;">Salva le postazioni</button><div class="esito" id="ptEsitoPost"></div><div id="ptChiavi"></div></div>`;
     const zone = D.locali.map((l) => `<div class="riquadro"><b>Zone · ${esc(l.nome)}</b>
       ${D.zone.filter((z) => z.locale === l.id).map((z) => { const tt = D.tavoli.filter((t) => t.zona === z.id);
         return `<div style="margin-top:10px;"><div class="due" data-zona="${esc(z.id)}"><div><label>Zona</label><input data-z="nome" value="${esc(z.nome)}" /></div><div><label>Posizione</label><input data-z="posizione" type="number" value="${Number(z.posizione || 0)}" style="width:80px;" /></div></div>
@@ -3015,38 +3059,36 @@ function vistaPosTavoli() {
       try {
         const pulisci = (r) => { const { aggiornato_il, ...resto } = r; return resto; };
         await chiama('?a=tavoli-salva', { method: 'POST', body: JSON.stringify({ locali: D.locali.map(pulisci), zone: D.zone.map(pulisci), tavoli: D.tavoli.map(pulisci) }) }, FUNZIONE_POS);
+        /* i locali nuovi ora ci sono davvero: le loro postazioni compaiono */
+        D.localiSalvati = new Set(D.locali.map((l) => l.id));
+        disegna();
         $('ptEsito').textContent = 'Salvato.';
       } catch (e) { $('ptEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
     };
     $('ptSalvaPost').onclick = async () => {
-      const righe = [...document.querySelectorAll('[data-post]')].map((r) => {
-        const [locale, stampante] = r.dataset.post.split('|');
-        const out = { locale, stampante };
-        r.querySelectorAll('[data-p]').forEach((el) => { out[el.dataset.p] = valoreCampo(el); });
-        return out;
-      });
+      const righe = raccogliPost();
+      /* anche il resto della pagina si mette al sicuro: qui sotto si ricarica */
+      raccogli();
       $('ptEsitoPost').textContent = 'Salvo…';
+      let j;
+      try { j = await chiama('?a=postazioni-salva', { method: 'POST', body: JSON.stringify({ postazioni: righe }) }, FUNZIONE_POS); }
+      catch (e) { $('ptEsitoPost').innerHTML = `<span class="errore">${esc(e.message)}</span>`; return; }
+      /* i link vanno in pagina SUBITO, prima di ricaricare: la chiave non
+         torna mai piu', e un ricarico andato storto non deve portarsela via */
+      chiaviHtml += riquadriChiavi(j.chiavi);
+      mostraChiavi();
+      $('ptEsitoPost').textContent = 'Postazioni salvate.';
+      /* del ricarico si prende solo quello che il cloud ha appena scritto: i
+         locali, le zone e i tavoli toccati e non ancora salvati restano */
       try {
-        const j = await chiama('?a=postazioni-salva', { method: 'POST', body: JSON.stringify({ postazioni: righe }) }, FUNZIONE_POS);
-        /* i link nuovi si tengono da parte: subito sotto si ricarica tutto e
-           la pagina si ridisegna, ma la chiave non torna mai piu' */
-        chiaviHtml = (j.chiavi || []).map((c) => {
-          const coda = `/cucina?l=${encodeURIComponent(c.locale)}&s=${encodeURIComponent(c.stampante)}&k=${encodeURIComponent(c.chiave)}`;
-          const link = (t, u) => `<div class="mini" style="margin-top:8px;">${t}</div><div class="cod" style="word-break:break-all;">${esc(u)}</div>
-            <button type="button" class="azione sec mini" data-copia="${esc(u)}" style="width:auto;margin-top:4px;">copia</button>`;
-          return `<div class="riquadro"><b>${esc(c.nome)}</b>
-            ${link('Dal cloud (serve internet)', 'https://www.hoteltermeleonardo.com' + coda)}
-            ${link('Dal PC del Bistrot (va anche senza internet)', PC_BISTROT + coda)}
-            <div class="mini" style="margin-top:8px;">Si vede una volta sola: chi la perde ne chiede una nuova.</div></div>`;
-        }).join('');
-        D = await caricaPos(); disegna();
+        const fresco = await caricaPos();
+        D.postazioni = fresco.postazioni;
+        D.localiSalvati = fresco.localiSalvati;
+        disegna();
         $('ptEsitoPost').textContent = 'Postazioni salvate.';
-      } catch (e) { $('ptEsitoPost').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+      } catch { $('ptEsitoPost').innerHTML = 'Postazioni salvate. <span class="errore">Ricarico non riuscito: ricaricare la pagina.</span>'; }
     };
-    document.querySelectorAll('[data-copia]').forEach((b) => b.onclick = async () => {
-      try { await navigator.clipboard.writeText(b.dataset.copia); b.textContent = 'copiato'; }
-      catch { b.textContent = 'copia a mano'; }
-    });
+    mostraChiavi();
   };
   caricaPos().then((d) => { D = d; disegna(); }).catch((e) => { $('ptEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; });
 }

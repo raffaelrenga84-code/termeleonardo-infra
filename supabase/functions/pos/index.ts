@@ -1282,7 +1282,8 @@ Deno.serve(async (req) => {
     /* lo legge il server locale (chiave hotel) e il back office (reception,
        amministrazione e bistrot; al bistrot non scendono camerieri e palmari) */
     let nascoste: string[] = [];
-    if (!chiaveHotel(req)) {
+    const dalPc = chiaveHotel(req);
+    if (!dalPc) {
       const acc = await autorizzato(req);
       if (!acc.ok) return risposta({ errore: 'non autorizzato' }, 401);
       if (!puoDalBackOffice(acc.ruolo, 'allinea-giu')) return risposta({ errore: 'non permesso a questo account' }, 403);
@@ -1303,6 +1304,9 @@ Deno.serve(async (req) => {
     }
     /* le stampe nate nel cloud (palmare in modalita' cloud) le stampa il
        locale, se c'e': anche quelle solo a schermo: le mostra e le ripiega il PC */
+    /* l'impronta della chiave dello schermo serve solo al PC, che riconosce
+       gli schermi da solo: al back office non scende (6 settembre 2026) */
+    if (!dalPc) fuori.postazione = (fuori.postazione as Riga[]).map((p) => { const { chiave_hash: _nonServe, ...resto } = p; return resto; });
     let q = db.from('pos_stampa').select('*').in('stato', ['da_stampare', 'a_schermo']).gt('aggiornato_il', da).limit(200);
     if (locale) q = q.eq('locale', locale);
     fuori.stampe = (await q).data ?? [];
@@ -1698,9 +1702,17 @@ Deno.serve(async (req) => {
     const chiavi: { locale: string; stampante: string; nome: string; chiave: string }[] = [];
     /* si valida tutto PRIMA di scrivere: con [valida, invalida] la prima
        non deve gia' essere in banca dati quando la seconda respinge */
+    /* i locali si guardano una volta sola, prima di scrivere: un locale
+       aggiunto nel back office e non ancora salvato non esiste per la chiave
+       esterna, l'upsert fallirebbe a meta' giro e una chiave gia' generata
+       per una riga precedente sarebbe persa per sempre */
+    const { data: localiVeri, error: erroreLocali } = await db.from('pos_locale').select('id');
+    if (erroreLocali) return risposta({ errore: erroreLocali.message }, 500);
+    const idLocali = new Set((localiVeri ?? []).map((l) => String(l.id)));
     for (const p of righe) {
       const locale = String(p.locale ?? ''), stampante = String(p.stampante ?? '');
       if (!locale || !['cucina', 'bar'].includes(stampante)) return risposta({ errore: 'ogni postazione ha locale e stampante (cucina o bar)' }, 400);
+      if (!idLocali.has(locale)) return risposta({ errore: `locale sconosciuto: ${locale}` }, 400);
     }
     try {
       for (const p of righe) {
