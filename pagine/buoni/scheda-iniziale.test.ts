@@ -24,6 +24,9 @@
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { ruoloDi } from '../../supabase/functions/buoni/ruoli.ts';
+/* il bistrot (6 settembre 2026) e' un ruolo del solo POS: buoni/ruoli.ts
+   non lo conosce apposta, cosi' non vede nessun buono */
+import { ruoloDi as ruoloPos } from '../../supabase/functions/pos/ruoli.ts';
 
 const SORGENTE = Deno.readTextFileSync(new URL('index.html', import.meta.url));
 
@@ -91,6 +94,11 @@ function schedeDellaPagina(): string[] {
   return [...ELENCO![0].matchAll(/\['([a-zA-Z]+)',/g)].map((m) => m[1]);
 }
 
+/* Le sole schede del PC del Bistrot: prezzi e prodotti, tavoli e QR, fasce,
+   ordini dal QR. Le stesse azioni che il server gli concede
+   (supabase/functions/pos/ruoli.ts, puoDalBackOffice). */
+const SCHEDE_BISTROT = ['posMenu', 'posTavoli', 'posFasce', 'posOrdiniQr'];
+
 Deno.test('la spa si apre sulle richieste, non sui buoni che non puo emettere', () => {
   assertEquals(schedaIniziale('spa@termeleonardo.com'), 'richieste');
 });
@@ -135,10 +143,13 @@ Deno.test('riordinare non perde e non raddoppia nessuna scheda', () => {
      ne' disegnarla due volte, per nessuno */
   for (const email of [
     'reception@termeleonardo.com', 'spa@termeleonardo.com',
-    'amministrazione@termeleonardo.com', 'sconosciuto@termeleonardo.com', '',
+    'amministrazione@termeleonardo.com', 'bistrot@termeleonardo.com', 'sconosciuto@termeleonardo.com', '',
   ]) {
     const viste = schedeDi(email).map(([v]) => v);
-    const attese = schedeDellaPagina().filter((v) => !(email === 'spa@termeleonardo.com' && v === 'emetti'));
+    const fuori = email === 'spa@termeleonardo.com' ? ['emetti']
+      : email === 'bistrot@termeleonardo.com' ? schedeDellaPagina().filter((v) => !SCHEDE_BISTROT.includes(v))
+      : [];
+    const attese = schedeDellaPagina().filter((v) => !fuori.includes(v));
     assertEquals([...viste].sort(), [...attese].sort(), `${email || '(vuoto)'}: le schede non sono le stesse`);
     assertEquals(new Set(viste).size, viste.length, `${email || '(vuoto)'}: una scheda compare due volte`);
   }
@@ -147,7 +158,7 @@ Deno.test('riordinare non perde e non raddoppia nessuna scheda', () => {
 Deno.test('si entra sempre sulla prima scheda che si vede', () => {
   /* una tabella sola: se un domani l'ordine cambiasse, la scheda
      d'apertura lo seguirebbe da sola */
-  for (const email of ['reception@termeleonardo.com', 'spa@termeleonardo.com', 'amministrazione@termeleonardo.com', '']) {
+  for (const email of ['reception@termeleonardo.com', 'spa@termeleonardo.com', 'amministrazione@termeleonardo.com', 'bistrot@termeleonardo.com', '']) {
     assertEquals(schedaIniziale(email), schedeDi(email)[0][0], email || '(vuoto)');
   }
 });
@@ -203,9 +214,9 @@ Deno.test('ogni ruolo che il server conosce ha una scheda decisa qui', () => {
   );
   for (const email of dichiarati) {
     assert(
-      ruoloDi(email) !== null,
-      `la pagina decide una scheda per «${email}», ma ruoli.ts non lo conosce: ` +
-        'una delle due copie e rimasta indietro',
+      ruoloDi(email) !== null || ruoloPos(email) !== null,
+      `la pagina decide una scheda per «${email}», ma ne' buoni/ruoli.ts ne' pos/ruoli.ts lo conoscono: ` +
+        'una delle copie e rimasta indietro',
     );
   }
 });
@@ -313,4 +324,12 @@ Deno.test('la sessione gia aperta imposta indirizzo e scheda come l accesso', ()
     'con la sessione gia aperta la scheda d apertura non si decide dall indirizzo');
   assert(ripristino![1].search(/VISTA = schedaDaUrl\(\) \|\| schedaIniziale\(EMAIL\)/) < ripristino![1].indexOf('disegna()'),
     'la scheda si decide dopo aver gia disegnato');
+});
+
+Deno.test('il bistrot si apre sul menu del POS e vede solo le sue quattro schede', () => {
+  /* «Si puo' creare un account bistrot@termeleonardo.com» (la proprieta',
+     6 settembre 2026): prezzi e prodotti dal PC del Bistrot, senza buoni,
+     richieste, Day Spa, personale, incassi e addebiti in camera. */
+  assertEquals(schedaIniziale('bistrot@termeleonardo.com'), 'posMenu');
+  assertEquals(schedeDi('bistrot@termeleonardo.com').map(([v]) => v), SCHEDE_BISTROT);
 });

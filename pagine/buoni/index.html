@@ -304,7 +304,8 @@ const SCHEDE = [
   ['dayspaOggi', 'Day Spa oggi'],
   ['dayspaDisponibilita', 'Disponibilit\u00e0 Day Spa'],
   ['dayspaPrenotazioni', 'Prenotazioni Day Spa'],
-  /* il POS di Bistrot e ristorante, dal 4 settembre 2026: solo amministrazione */
+  /* il POS di Bistrot e ristorante, dal 4 settembre 2026; dal 6 settembre anche
+     l'account del Bistrot, che vede solo menu', tavoli, fasce e ordini dal QR */
   ['posMenu', 'POS · Menù'],
   ['posTavoli', 'POS · Tavoli'],
   ['posPersonale', 'POS · Personale'],
@@ -338,6 +339,9 @@ const famigliaDi = (scheda) => (FAMIGLIE.find(([, , schede]) => schede.includes(
    mezzo una strada che porta solo a un errore. */
 const SCHEDE_NASCOSTE = new Map([
   ['spa@termeleonardo.com', ['emetti']],
+  /* il PC del Bistrot: prezzi e prodotti, e basta (la proprieta', 6 settembre
+     2026). Le stesse azioni che il server gli concede: pos/ruoli.ts */
+  ['bistrot@termeleonardo.com', ['emetti', 'elenco', 'verifica', 'richieste', 'arrivi', 'dayspaOggi', 'dayspaDisponibilita', 'dayspaPrenotazioni', 'posPersonale', 'posAddebiti', 'posGiornata', 'privacy']],
 ]);
 
 /** Le schede che questo indirizzo NON vede. */
@@ -364,6 +368,7 @@ function schedeNascoste(email) {
 const ORDINE_SCHEDE = new Map([
   ['reception@termeleonardo.com', ['richieste', 'arrivi', 'dayspaOggi', 'emetti', 'elenco', 'verifica', 'dayspaDisponibilita', 'dayspaPrenotazioni']],
   ['spa@termeleonardo.com', ['richieste', 'arrivi', 'dayspaOggi', 'elenco', 'verifica', 'dayspaDisponibilita', 'dayspaPrenotazioni']],
+  ['bistrot@termeleonardo.com', ['posMenu', 'posTavoli', 'posFasce', 'posOrdiniQr']],
 ]);
 
 /** L'ordine delle schede per questo indirizzo; chi non e' in tabella tiene

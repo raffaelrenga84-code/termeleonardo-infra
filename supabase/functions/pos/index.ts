@@ -25,7 +25,8 @@
    Dall'estensione (x-hotel-key):
      POST ?a=importa-menu      → gli articoli letti dalla pagina di Fidra
      POST ?a=importa-sala      → zone e tavoli letti dalla piantina di Fidra
-   Dal back office (accesso dell'hotel, ruolo amministrazione):
+   Dal back office (accesso dell'hotel: reception e amministrazione tutto,
+   il bistrot solo menu', tavoli, fasce e ordini dal QR — ruoli.ts):
      POST ?a=menu-salva, ?a=tavoli-salva, ?a=personale-salva
    Dal cron (x-cron-key):
      POST ?a=stampa-cloud      → stampa lui solo se il locale tace da 90 s
@@ -64,7 +65,7 @@ import { localeChePrepara, portareA, siStampa } from './dove.ts';
 import { categoriaVino } from './vini.ts';
 import { chiaveNome, leggiSala } from './sala.ts';
 import { puo, type Ruolo as RuoloPos } from './permessi.ts';
-import { ruoloDi } from './ruoli.ts';
+import { puoDalBackOffice, type Ruolo, ruoloDi, tabelleNascoste } from './ruoli.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -138,7 +139,7 @@ function tokenCasuale(lunghezza = 8): string {
 }
 
 /* ---------- chi entra dal back office (menu', tavoli, personale) ---------- */
-type Accesso = { ok: true; ruolo: string | null; chiave: boolean } | { ok: false };
+type Accesso = { ok: true; ruolo: Ruolo | null; chiave: boolean } | { ok: false };
 async function autorizzato(req: Request): Promise<Accesso> {
   const attesa = Deno.env.get('HOTEL_KEY');
   if (attesa && req.headers.get('x-hotel-key') === attesa) return { ok: true, ruolo: null, chiave: true };
@@ -1200,17 +1201,21 @@ Deno.serve(async (req) => {
   }
 
   if (azione === 'allinea-giu') {
-    /* lo legge il server locale (chiave hotel) e il back office (amministrazione) */
+    /* lo legge il server locale (chiave hotel) e il back office (reception,
+       amministrazione e bistrot; al bistrot non scendono camerieri e palmari) */
+    let nascoste: string[] = [];
     if (!chiaveHotel(req)) {
       const acc = await autorizzato(req);
       if (!acc.ok) return risposta({ errore: 'non autorizzato' }, 401);
-      if (!['reception', 'amministrazione'].includes(acc.ruolo ?? '')) return risposta({ errore: 'solo reception e amministrazione' }, 403);
+      if (!puoDalBackOffice(acc.ruolo, 'allinea-giu')) return risposta({ errore: 'non permesso a questo account' }, 403);
+      nascoste = tabelleNascoste(acc.ruolo);
     }
     const da = url.searchParams.get('da') || '1970-01-01T00:00:00Z';
     const locale = url.searchParams.get('locale') || '';
     const tabelle = ['pos_locale', 'pos_zona', 'pos_tavolo', 'pos_categoria', 'pos_articolo', 'pos_variante', 'pos_preferito', 'pos_cameriere', 'pos_dispositivo', 'pos_fascia', 'pos_prezzo_fascia'];
     const fuori: Record<string, unknown> = { adesso: adesso() };
     for (const t of tabelle) {
+      if (nascoste.includes(t)) { fuori[t.slice(4)] = []; continue; }
       /* le fasce e i loro prezzi scendono per intero: una fascia tolta o un
          prezzo cancellato non hanno un aggiornato_il che li racconti */
       const { data } = ['pos_fascia', 'pos_prezzo_fascia'].includes(t)
@@ -1368,7 +1373,7 @@ Deno.serve(async (req) => {
     return risposta({ esito: 'ok', zona: zona.nome, zona_id: idZona, tavoli: s.tavoli.length, nuovi, spostati, in_piu: inPiu });
   }
 
-  /* ================= dal back office (accesso dell'hotel, amministrazione) ================= */
+  /* ================= dal back office (accesso dell'hotel: reception, amministrazione, bistrot) ================= */
 
   const azioniBackOffice = ['menu-salva', 'tavoli-salva', 'personale-salva', 'addebiti', 'addebito-segna', 'giornata', 'fasce-salva', 'tavoli-qr', 'ospite-ordini', 'ospite-rimborsa', 'ospite-annulla-addebito', 'ospite-ristampa', 'ospite-nota'];
   if (azioniBackOffice.includes(azione)) {
@@ -1377,8 +1382,9 @@ Deno.serve(async (req) => {
     const acc = await autorizzato(req);
     if (!acc.ok) return risposta({ errore: 'non autorizzato' }, 401);
     /* la proprieta' lavora con l'account della reception (visto il 4
-       settembre 2026): reception e amministrazione scrivono, la spa no */
-    if (!acc.chiave && !['reception', 'amministrazione'].includes(acc.ruolo ?? '')) return risposta({ errore: 'solo reception e amministrazione' }, 403);
+       settembre 2026): reception e amministrazione scrivono tutto, il
+       bistrot solo menu', tavoli, fasce e ordini dal QR (ruoli.ts), la spa no */
+    if (!acc.chiave && !puoDalBackOffice(acc.ruolo, azione)) return risposta({ errore: 'non permesso a questo account' }, 403);
   }
 
   /* I listini a fasce dal back office: le fasce si riscrivono, i prezzi

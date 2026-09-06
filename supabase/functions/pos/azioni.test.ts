@@ -31,7 +31,7 @@ Deno.test('sessione del cameriere su ogni azione del palmare; chiave hotel per l
   assert(!/8989|8990|192\.168\.0\.5[12]/.test(senzaCommenti(S)), 'le stampanti fiscali non compaiono mai');
 });
 
-Deno.test('i PIN non si salvano in chiaro; il back office salva menu, tavoli e personale solo con accesso da amministrazione', () => {
+Deno.test('i PIN non si salvano in chiaro; il back office salva menu, tavoli e personale solo con un accesso che il ruolo ammette', () => {
   assert(S.includes("crypto.subtle.digest('SHA-256'"));
   const bo = S.slice(S.indexOf('const azioniBackOffice'));
   /* un upsert e' un insert prima di essere un update: le colonne
@@ -40,7 +40,10 @@ Deno.test('i PIN non si salvano in chiaro; il back office salva menu, tavoli e p
   assert(bo.includes('riga.pin_hash = e.pin_hash'), 'il PIN vuoto lascia l impronta vecchia');
   assert(bo.includes('riga.token = e.token'), 'un palmare gia registrato tiene il suo codice');
   assert(bo.includes('d.nuovo_token'), 'e il back office puo chiederne uno nuovo');
-  assert(bo.includes('await autorizzato(req)') && bo.includes("'amministrazione'"), 'menu-salva e le altre passano da autorizzato');
+  /* dal 6 settembre 2026 il cancello per ruolo sta in ruoli.ts
+     (puoDalBackOffice): reception e amministrazione tutto, il bistrot
+     solo menu', tavoli, fasce e ordini dal QR, la spa niente */
+  assert(bo.includes('await autorizzato(req)') && bo.includes('puoDalBackOffice(acc.ruolo, azione)'), 'menu-salva e le altre passano da autorizzato e dal cancello per ruolo');
 });
 
 Deno.test('la sala si importa dalla piantina di Fidra: una zona per volta, senza sdoppiare ne cancellare tavoli', () => {
