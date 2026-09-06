@@ -31,10 +31,13 @@ export const numeroTavolo = (nome: string): number => {
 /** La chiave con cui si riconosce lo stesso tavolo gia' nostro. */
 export const chiaveNome = (nome: unknown): string => nomeTavolo(nome).toLowerCase().replace(/\s+/g, '');
 
+/* intero: la colonna x/y di pos_tavolo e' `integer`, e «73.1» la faceva
+   rifiutare («invalid input syntax for type integer», la proprieta', 6
+   settembre 2026). Un decimo di punto sulla piantina non si vede. */
 const dentro = (v: unknown): number => {
   const n = Number(v);
   if (!Number.isFinite(n)) return 50;
-  return Math.round(Math.min(100, Math.max(0, n)) * 10) / 10;
+  return Math.round(Math.min(100, Math.max(0, n)));
 };
 
 export function leggiSala(corpo: unknown): Esito<Sala> {

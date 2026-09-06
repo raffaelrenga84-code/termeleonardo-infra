@@ -42,8 +42,12 @@ Deno.test('leggiSala: locale e zona obbligatori, coordinate tenute dentro 0-100,
   assertEquals(r.valore.zona_fidra, '16');
   assertEquals(r.valore.tavoli, [
     { nome: 'Tavolo 9', posti: 4, x: 0, y: 100 },
-    { nome: 'Tavolo 21', posti: 4, x: 12.3, y: 80.9 },
+    /* interi: la colonna e' integer e «73.1» la faceva rifiutare (6 set 2026) */
+    { nome: 'Tavolo 21', posti: 4, x: 12, y: 81 },
   ]);
+  const r2 = leggiSala({ locale: 'bistrot', zona: 'Esterno', tavoli: [{ nome: 'Tavolo 22', posti: 4, x: 73.1, y: 21.5 }] });
+  if (!r2.ok) throw new Error(r2.errore);
+  assertEquals([r2.valore.tavoli[0].x, r2.valore.tavoli[0].y], [73, 22]);
   assertEquals(leggiSala({ zona: 'Interno', tavoli: [] }).ok, false);
   assertEquals(leggiSala({ locale: 'bistrot', tavoli: [{ nome: 'Tavolo 1', x: 1, y: 1 }] }).ok, false);
   assertEquals(leggiSala({ locale: 'bistrot', zona: 'Interno', tavoli: [] }).ok, false);
