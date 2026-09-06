@@ -26,7 +26,7 @@ import { daMostrare, impronta, inizioGiornata, passo, prontoInCucina, statoInizi
 export type Richiesta = { metodo: string; query: Record<string, string>; corpo: unknown; intestazioni: Record<string, string> };
 export type Risposta = { stato: number; corpo: unknown };
 export type Config = { locale: string; versione?: string | null; aggiornamento?: unknown };
-type Cameriere = { id: string; nome: string; ruolo: Ruolo; storni: boolean; bloccato: boolean; storno_con_motivo: boolean };
+type Cameriere = { id: string; nome: string; ruolo: Ruolo; storni: boolean; bloccato: boolean; storno_con_motivo: boolean; cancella_tavolo: boolean };
 type RigaStampabile = Riga & { id: string; stampante: 'cucina' | 'bar'; locale_stampa: string | null; portata: Portata; stato: string };
 
 const ok = (corpo: unknown, stato = 200): Risposta => ({ stato, corpo });
@@ -50,11 +50,11 @@ async function hashPin(codice: string, pin: string): Promise<string> {
 function cameriereDi(db: Db, req: Richiesta): Cameriere | null {
   const disp = testa(req, 'x-pos-dispositivo'), sess = testa(req, 'x-pos-sessione');
   if (!disp || !sess) return null;
-  const s = db.prepare(`select s.scade_il, c.id, c.nome, c.ruolo, c.storni, c.storno_con_motivo, c.bloccato as c_bloccato, d.token, d.bloccato as d_bloccato
+  const s = db.prepare(`select s.scade_il, c.id, c.nome, c.ruolo, c.storni, c.storno_con_motivo, c.cancella_tavolo, c.bloccato as c_bloccato, d.token, d.bloccato as d_bloccato
     from pos_sessione s join pos_cameriere c on c.id = s.cameriere join pos_dispositivo d on d.id = s.dispositivo where s.id = ?`).get(sess) as Riga | undefined;
   if (!s || new Date(String(s.scade_il)) < new Date()) return null;
   if (s.token !== disp || Number(s.d_bloccato) || Number(s.c_bloccato)) return null;
-  return { id: String(s.id), nome: String(s.nome), ruolo: String(s.ruolo) as Ruolo, storni: !!Number(s.storni), bloccato: false, storno_con_motivo: !!Number(s.storno_con_motivo) };
+  return { id: String(s.id), nome: String(s.nome), ruolo: String(s.ruolo) as Ruolo, storni: !!Number(s.storni), bloccato: false, storno_con_motivo: !!Number(s.storno_con_motivo), cancella_tavolo: s.cancella_tavolo === null || s.cancella_tavolo === undefined ? true : !!Number(s.cancella_tavolo) };
 }
 
 /* ---------- le righe di un conto, con la stampante gia' decisa ---------- */
@@ -228,7 +228,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
        palmare passa al cloud non viene buttato fuori (6 settembre 2026) */
     salva(db, 'pos_sessione', { id: sessione, cameriere: c.id, dispositivo: disp.id, scade_il: scade, aggiornato_il: adesso(), allineato: 0 });
     db.prepare('update pos_dispositivo set ultimo_accesso = ? where id = ?').run(adesso(), String(disp.id));
-    return ok({ sessione, scade_il: scade, cameriere: { id: c.id, nome: c.nome, ruolo: c.ruolo, storni: !!Number(c.storni), storno_con_motivo: !!Number(c.storno_con_motivo), senza_pin: senzaPin } });
+    return ok({ sessione, scade_il: scade, cameriere: { id: c.id, nome: c.nome, ruolo: c.ruolo, storni: !!Number(c.storni), storno_con_motivo: !!Number(c.storno_con_motivo), cancella_tavolo: c.cancella_tavolo === null || c.cancella_tavolo === undefined ? true : !!Number(c.cancella_tavolo), senza_pin: senzaPin } });
   }
 
   const cameriere = cameriereDi(db, req);
@@ -534,7 +534,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
      righe vive, STORNO in coda per quelle partite, conti chiusi a zero */
   if (azione === 'tavolo-svuota') {
     const no = soloPost(); if (no) return no;
-    if (!puo(cameriere!, 'comanda')) return errore('non permesso', 403);
+    if (!puo(cameriere!, 'tavolo')) return errore('cancellare il tavolo non e permesso a questa persona', 403);
     const tavolo = String(b.tavolo ?? '');
     const scritto = motivoPulito(b.motivo);
     if (!scritto && cameriere!.storno_con_motivo) return errore('scriva il motivo', 400);

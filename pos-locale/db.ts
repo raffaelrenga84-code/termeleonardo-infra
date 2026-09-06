@@ -62,6 +62,7 @@ create table if not exists pos_cameriere (
   ruolo text not null, storni integer not null default 0, bloccato integer not null default 0,
   senza_pin integer not null default 0,
   storno_con_motivo integer not null default 0,
+  cancella_tavolo integer not null default 1,
   aggiornato_il text not null default ${ORA});
 create table if not exists pos_dispositivo (
   id text primary key, nome text not null, token text not null, locale text, ultimo_accesso text,
@@ -146,6 +147,7 @@ create index if not exists pos_stampa_stato on pos_stampa(stato);
   /* il motivo dello storno lo pretende solo chi ha la spunta (6 settembre 2026) */
   colonne.delete('pos_cameriere');
   if (!colonneDi(db, 'pos_cameriere').includes('storno_con_motivo')) db.exec('alter table pos_cameriere add column storno_con_motivo integer not null default 0');
+  if (!colonneDi(db, 'pos_cameriere').includes('cancella_tavolo')) db.exec('alter table pos_cameriere add column cancella_tavolo integer not null default 1');
   colonne.delete('pos_cameriere');
   /* portate semplici e «segue» a tempo (6 settembre 2026) */
   colonne.delete('pos_locale'); colonne.delete('pos_riga');

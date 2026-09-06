@@ -371,13 +371,14 @@ Deno.test('cancellare tutto il tavolo: uno storno di tutto, col biglietto per qu
   /* «un pulsante per cancellare tutto un tavolo … bisogna chiedere sei sicuro?» e «decidere che cameriere
      deve darmi motivazione e quale non serve» (la proprieta', 6 settembre 2026) */
   const s = S.slice(S.indexOf("azione === 'tavolo-svuota'"), S.indexOf("azione === 'tavolo-sposta'"));
-  assert(s.includes("puo(cameriere!, 'comanda')"), 'lo fa ogni cameriere: l hanno chiesto loro (revisione del 6 settembre 2026)');
+  assert(s.includes("puo(cameriere!, 'tavolo')"), 'lo fa chi ha la spunta «cancella tavolo», accesa di base (la proprieta, 7 settembre 2026)');
+  assert(S.includes('cancella_tavolo: c.cancella_tavolo !== false'), 'la spunta si salva e arriva al palmare');
   assert(s.includes('cameriere!.storno_con_motivo') && s.includes("'tavolo cancellato'"), 'il motivo solo a chi lo deve dare; la traccia dice che era tutto il tavolo');
   assert(s.includes("'storno', cameriere!.nome") && s.includes("r.stato === 'partita'"), 'in cucina esce lo STORNO di quello che era partito');
   assert(s.includes("stato: 'chiuso', chiuso_come: null") && s.includes(".delete().eq('id', c.id)"), 'i conti si chiudono a zero, quelli vuoti spariscono');
   const st = S.slice(S.indexOf("azione === 'storna'"), S.indexOf("azione === 'sposta'"));
   assert(st.includes('!motivo && cameriere!.storno_con_motivo'), 'lo storno di una riga: idem');
-  assert(S.includes('storni, bloccato, storno_con_motivo)'), 'la sessione porta la spunta');
+  assert(S.includes('storni, bloccato, storno_con_motivo, cancella_tavolo)'), 'la sessione porta le spunte');
   assert(S.includes('storno_con_motivo: !!c.storno_con_motivo'), 'il back office la salva, l accesso la manda al palmare');
   assert(/const azioniPalmare = \[[^\n]*'tavolo-svuota'/.test(S), 'e un gesto del cameriere: serve la sessione');
 });

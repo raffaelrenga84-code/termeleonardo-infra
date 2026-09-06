@@ -180,7 +180,7 @@ async function autorizzato(req: Request): Promise<Accesso> {
 }
 
 /* ---------- la sessione del cameriere: dispositivo + sessione validi ---------- */
-type Cameriere = { id: string; nome: string; ruolo: RuoloPos; storni: boolean; bloccato: boolean; storno_con_motivo?: boolean };
+type Cameriere = { id: string; nome: string; ruolo: RuoloPos; storni: boolean; bloccato: boolean; storno_con_motivo?: boolean; cancella_tavolo?: boolean };
 async function dispositivoDi(req: Request): Promise<Riga | null> {
   const token = req.headers.get('x-pos-dispositivo') || '';
   if (!token) return null;
@@ -191,7 +191,7 @@ async function cameriereDi(req: Request): Promise<Cameriere | null> {
   const disp = req.headers.get('x-pos-dispositivo') || '', sess = req.headers.get('x-pos-sessione') || '';
   if (!disp || !sess) return null;
   const { data: s } = await db.from('pos_sessione')
-    .select('id, scade_il, cam:pos_cameriere(id, nome, ruolo, storni, bloccato, storno_con_motivo), dis:pos_dispositivo(token, bloccato)')
+    .select('id, scade_il, cam:pos_cameriere(id, nome, ruolo, storni, bloccato, storno_con_motivo, cancella_tavolo), dis:pos_dispositivo(token, bloccato)')
     .eq('id', sess).maybeSingle();
   if (!s || new Date(s.scade_il as string) < new Date()) return null;
   const d = s.dis as unknown as { token: string; bloccato: boolean } | null;
@@ -688,7 +688,7 @@ Deno.serve(async (req) => {
     const scade = new Date(Date.now() + 14 * 60 * 60 * 1000).toISOString();
     await db.from('pos_sessione').insert({ id: sessione, cameriere: c.id, dispositivo: disp.id, scade_il: scade });
     await db.from('pos_dispositivo').update({ ultimo_accesso: adesso() }).eq('id', disp.id);
-    return risposta({ sessione, scade_il: scade, cameriere: { id: c.id, nome: c.nome, ruolo: c.ruolo, storni: c.storni, storno_con_motivo: !!c.storno_con_motivo, senza_pin: senzaPin } });
+    return risposta({ sessione, scade_il: scade, cameriere: { id: c.id, nome: c.nome, ruolo: c.ruolo, storni: c.storni, storno_con_motivo: !!c.storno_con_motivo, cancella_tavolo: c.cancella_tavolo !== false, senza_pin: senzaPin } });
   }
 
   const cameriere = await cameriereDi(req);
@@ -1192,7 +1192,7 @@ Deno.serve(async (req) => {
     if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
     /* lo fa ogni cameriere, non solo chi ha «storni»: «i camerieri mi chiedono un
        pulsante» (revisione del 6 settembre 2026). La traccia resta: chi, quando, «tavolo cancellato» */
-    if (!puo(cameriere!, 'comanda')) return risposta({ errore: 'non permesso' }, 403);
+    if (!puo(cameriere!, 'tavolo')) return risposta({ errore: 'cancellare il tavolo non e permesso a questa persona' }, 403);
     const b = await corpo();
     const tavolo = String(b.tavolo ?? '');
     const scritto = motivoPulito(b.motivo);
@@ -1987,7 +1987,7 @@ Deno.serve(async (req) => {
         const id = String(c.id ?? crypto.randomUUID());
         const codice = String(c.codice ?? '').trim();
         if (!codice || !c.nome) return risposta({ errore: 'ogni cameriere ha nome e codice' }, 400);
-        const riga: Riga = { id, nome: c.nome, codice, ruolo: c.ruolo ?? 'cameriere', storni: !!c.storni, storno_con_motivo: !!c.storno_con_motivo, bloccato: !!c.bloccato, senza_pin: false, aggiornato_il: ora };
+        const riga: Riga = { id, nome: c.nome, codice, ruolo: c.ruolo ?? 'cameriere', storni: !!c.storni, storno_con_motivo: !!c.storno_con_motivo, cancella_tavolo: c.cancella_tavolo !== false, bloccato: !!c.bloccato, senza_pin: false, aggiornato_il: ora };
         const pin = String(c.pin ?? '').trim();
         /* PIN vuoto = lascia com'era. L'impronta vecchia va RIMESSA nella
            riga: un upsert e' un insert che poi diventa update, e Postgres

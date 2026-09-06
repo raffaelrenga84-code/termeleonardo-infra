@@ -556,6 +556,11 @@ Deno.test('cancella tutto il tavolo: righe stornate con lo STORNO in coda per qu
   const conto2 = (c2.corpo as { conto: { id: string } }).conto.id;
   /* lo fa ogni cameriere, anche senza «storni»: l'hanno chiesto loro (revisione del 6 settembre 2026) */
   db.exec("update pos_cameriere set storno_con_motivo = 1 where id = 'K1'");
+  /* …salvo chi ha la spunta «cancella tavolo» spenta (la proprieta', 7 settembre 2026) */
+  db.exec("update pos_cameriere set cancella_tavolo = 0 where id = 'K1'");
+  const spento = await esegui(db, 'tavolo-svuota', req('POST', { tavolo: 'T7' }), cfg);
+  assertEquals(spento.stato, 403, 'con la spunta spenta no');
+  db.exec("update pos_cameriere set cancella_tavolo = 1 where id = 'K1'");
   const muto = await esegui(db, 'tavolo-svuota', req('POST', { tavolo: 'T7' }), cfg);
   assertEquals(muto.stato, 400, 'con la spunta, senza motivo non si cancella');
   db.exec("update pos_cameriere set storno_con_motivo = 0 where id = 'K1'");

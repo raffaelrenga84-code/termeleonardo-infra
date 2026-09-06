@@ -10,6 +10,9 @@ Deno.test('cameriere: comande si, storno solo se ammesso, prezzo e menu no', () 
   assertEquals(puo(cam, 'prezzo'), false);
   assertEquals(puo(cam, 'menu'), false);
   assertEquals(puo(cam, 'chiusura'), false);
+  assertEquals(puo(cam, 'tavolo'), true, 'cancellare il tavolo: acceso di base');
+  assertEquals(puo({ ...cam, cancella_tavolo: false }, 'tavolo'), false, 'e si spegne per persona');
+  assertEquals(puo({ ...cam, ruolo: 'capo_sala', cancella_tavolo: false }, 'tavolo'), true, 'il capo sala sempre');
 });
 
 Deno.test('capo sala storna e mette prezzi, non tocca il menu; amministrazione tutto; bloccato niente', () => {

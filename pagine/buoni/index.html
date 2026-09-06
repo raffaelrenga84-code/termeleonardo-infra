@@ -3158,12 +3158,12 @@ function vistaPosPersonale() {
     const ruoli = [['cameriere', 'Cameriere'], ['capo_sala', 'Capo sala'], ['amministrazione', 'Amministrazione']];
     $('vista').innerHTML = `<div class="riquadro"><button type="button" class="azione" id="ppSalva" style="width:auto;">Salva personale e palmari</button><div class="esito" id="ppEsito"></div></div>
       <div class="riquadro"><b>Camerieri</b><div class="mini">Si entra sul palmare con il PIN di quattro cifre: il PIN è la persona, e non può essere uguale a quello di un altro. Il codice serve solo a distinguere le persone: se lo si cambia va rimesso anche il PIN.</div>
-        <table><tr><th>Nome</th><th>Codice</th><th>PIN</th><th>Ruolo</th><th>Storni</th><th title="Se spuntato, allo storno il palmare pretende il motivo">Motivo storno</th><th>Bloccato</th></tr>
+        <table><tr><th>Nome</th><th>Codice</th><th>PIN</th><th>Ruolo</th><th>Storni</th><th title="Se spuntato, allo storno il palmare pretende il motivo">Motivo storno</th><th title="Se spuntato, sul palmare c’è «Cancella tutto il tavolo…»">Cancella tavolo</th><th>Bloccato</th></tr>
         ${D.camerieri.map((c) => `<tr data-cam="${esc(c.id)}"><td><input data-k="nome" value="${esc(c.nome)}" /></td><td><input data-k="codice" value="${esc(c.codice)}" style="width:60px;" inputmode="numeric" /></td>
           <td><input data-k="pin" type="password" placeholder="nuovo PIN" style="width:96px;" inputmode="numeric" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-bwignore /></td>
           <td><select data-k="ruolo">${opzPos(ruoli, c.ruolo)}</select></td>
-          <td><input type="checkbox" data-k="storni" ${c.storni ? 'checked' : ''}/></td><td><input type="checkbox" data-k="storno_con_motivo" ${c.storno_con_motivo ? 'checked' : ''}/></td><td><input type="checkbox" data-k="bloccato" ${c.bloccato ? 'checked' : ''}/></td></tr>`).join('')}</table>
-        <p class="mini">«Motivo storno»: se spuntato, allo storno di una riga o di tutto il tavolo il palmare pretende il motivo. All’inizio è spento per tutti, per fare pratica.</p>
+          <td><input type="checkbox" data-k="storni" ${c.storni ? 'checked' : ''}/></td><td><input type="checkbox" data-k="storno_con_motivo" ${c.storno_con_motivo ? 'checked' : ''}/></td><td><input type="checkbox" data-k="cancella_tavolo" ${c.cancella_tavolo !== false ? 'checked' : ''}/></td><td><input type="checkbox" data-k="bloccato" ${c.bloccato ? 'checked' : ''}/></td></tr>`).join('')}</table>
+        <p class="mini">«Motivo storno»: se spuntato, allo storno di una riga o di tutto il tavolo il palmare pretende il motivo. All’inizio è spento per tutti, per fare pratica. «Cancella tavolo»: chi ce l’ha vede sul palmare «Cancella tutto il tavolo…»; acceso per tutti all’inizio, si spegne a chi non deve averlo.</p>
         <button type="button" class="azione sec mini" id="ppNuovoCam" style="width:auto;margin-top:6px;">+ cameriere</button></div>
       <div class="riquadro"><b>Palmari</b><div class="mini">Ogni palmare ha il suo codice di otto caratteri: sul palmare si apre <b>hoteltermeleonardo.com/pos</b> e lo si scrive una volta sola. Un palmare bloccato non entra più, anche con il PIN giusto. «Nuovo codice» serve se un palmare si perde: il vecchio smette di funzionare al salvataggio.</div>
         <table><tr><th>Palmare</th><th>Locale</th><th>Bloccato</th><th>Ultimo accesso</th><th>Codice</th><th></th></tr>
@@ -3179,7 +3179,7 @@ function vistaPosPersonale() {
       const dispositivi = [...document.querySelectorAll('[data-disp]')].map((r) => { const out = { id: r.dataset.disp }; r.querySelectorAll('[data-d]').forEach((el) => { out[el.dataset.d] = el.dataset.d === 'locale' ? (el.value || null) : valoreCampo(el); }); return out; });
       return { camerieri, dispositivi };
     };
-    $('ppNuovoCam').onclick = () => { const s = raccogli(); D.camerieri = D.camerieri.map((c) => ({ ...c, ...(s.camerieri.find((x) => x.id === c.id) || {}) })); D.camerieri.push({ id: crypto.randomUUID(), nome: '', codice: '', ruolo: 'cameriere', storni: false, storno_con_motivo: false, bloccato: false, nuovo: true }); disegna(); };
+    $('ppNuovoCam').onclick = () => { const s = raccogli(); D.camerieri = D.camerieri.map((c) => ({ ...c, ...(s.camerieri.find((x) => x.id === c.id) || {}) })); D.camerieri.push({ id: crypto.randomUUID(), nome: '', codice: '', ruolo: 'cameriere', storni: false, storno_con_motivo: false, cancella_tavolo: true, bloccato: false, nuovo: true }); disegna(); };
     $('ppNuovoDisp').onclick = () => { D.dispositivi.push({ id: crypto.randomUUID(), nome: 'Palmare', locale: D.locali[0] ? D.locali[0].id : null, bloccato: false, token: null }); disegna(); };
     $('ppSalva').onclick = async () => {
       const s = raccogli();

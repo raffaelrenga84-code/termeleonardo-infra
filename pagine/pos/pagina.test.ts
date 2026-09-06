@@ -404,7 +404,7 @@ Deno.test('il palmare vede «pronto in cucina»: bollino verde sul tavolo, riga 
 Deno.test('cancella tutto il tavolo con «Sei sicuro?»; il motivo dello storno solo a chi ha la spunta', () => {
   /* (la proprieta', 6 settembre 2026) */
   assert(m.includes('id="cancellaTavolo"') && m.includes('Cancella tutto il tavolo…'), 'il pulsante, sotto «Sposta tutto il tavolo»');
-  assert(m.includes('${CAMERIERE ? \'<button type="button" class="bottone sec" id="cancellaTavolo"') && m.includes("const puoStorno = puoStornare();"), 'lo vedono tutti i camerieri (l hanno chiesto loro, revisione del 6 settembre 2026); lo storno della riga resta a chi puo');
+  assert(m.includes('${CAMERIERE && CAMERIERE.cancella_tavolo !== false ? \'<button type="button" class="bottone sec" id="cancellaTavolo"') && m.includes("const puoStorno = puoStornare();"), 'lo vede chi ha la spunta «cancella tavolo», accesa di base (la proprieta, 7 settembre 2026); lo storno della riga resta a chi puo');
   assert(m.includes('confirm(`Sei sicuro?'), 'e chiede prima');
   assert(m.includes("chiama('tavolo-svuota', { method: 'POST'") && !m.includes("scrivi('tavolo-svuota'"), 'mai in coda offline: o passa subito o si riprova');
   assert(m.includes('if (CAMERIERE && CAMERIERE.storno_con_motivo) {') && m.includes('Senza il motivo non si cancella.'), 'il motivo di tutto il tavolo solo con la spunta');
