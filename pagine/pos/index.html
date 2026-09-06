@@ -382,40 +382,33 @@ function accesso() {
     };
     return;
   }
-  let codice = '', pin = '', campo = 'codice';
+  let pin = '';
   const disegna = () => {
     $('app').innerHTML = `<div class="accesso">
       <h1>Buon servizio</h1>
-      <p class="mini">${campo === 'pin' ? 'Ora il suo PIN, poi ↵' : 'Il suo codice, poi ↵'}</p>
-      <label class="mini">Codice</label><div class="campo ${campo === 'codice' ? 'attivo' : ''}" id="vCodice">${esc(codice) || '·'}</div>
-      <label class="mini">PIN</label><div class="campo ${campo === 'pin' ? 'attivo' : ''}" id="vPin">${'•'.repeat(pin.length) || '·'}</div>
+      <p class="mini">Il suo PIN di quattro cifre</p>
+      <label class="mini">PIN</label><div class="campo attivo" id="vPin">${'•'.repeat(pin.length) || '·'}</div>
       <div class="tastierino">${[1,2,3,4,5,6,7,8,9].map((n) => `<button data-n="${n}">${n}</button>`).join('')}
         <button data-n="c">C</button><button data-n="0">0</button><button data-n="ok">↵</button></div>
       <div class="errore" id="accErrore"></div>
       <p class="mini" id="impostazioni">Server locale: ${SERVER_LOCALE ? esc(SERVER_LOCALE) : 'nessuno, si usa il cloud'}</p></div>`;
     $('app').querySelectorAll('.tastierino button').forEach((b) => b.onclick = () => tasto(b.dataset.n));
-    /* toccando un campo si scrive li': chi ha il PIN lo mette subito,
-       senza aspettare che il server lo chieda */
-    $('vCodice').onclick = () => { campo = 'codice'; disegna(); };
-    $('vPin').onclick = () => { campo = 'pin'; disegna(); };
     /* le impostazioni del palmare: tocco lungo sulla riga del server */
     toccoLungo($('impostazioni'), impostazioni);
   };
-  /* Si prova sempre col solo codice: a chi e' segnato «senza PIN» basta
-     quello, e il server risponde «serve il PIN» solo agli altri. Cosi' il
-     cameriere fa un gesto invece di due, e nessuno deve sapere in anticipo
-     com'e' fatto il suo profilo. */
+  /* «Falli identificare solo con un PIN di 4 cifre» (la proprieta', 6
+     settembre 2026): il PIN e' la persona, e alla quarta cifra si entra da
+     soli, senza ↵. Il codice resta nel back office come nome interno. */
   const entra = async () => {
     try {
-      const j = await chiama('accesso', { method: 'POST', body: JSON.stringify({ codice, pin }) });
+      const j = await chiama('accesso', { method: 'POST', body: JSON.stringify({ pin }) });
       SESSIONE = j.sessione; CAMERIERE = j.cameriere;
       sessionStorage.setItem('posSessione', SESSIONE); sessionStorage.setItem('posCameriere', JSON.stringify(CAMERIERE));
       tocco();
       await caricaMenu();
       schermataSala();
     } catch (e) {
-      if (/serve il PIN/i.test(e.message)) { campo = 'pin'; disegna(); return; }
-      pin = ''; campo = 'codice'; disegna();
+      pin = ''; disegna();
       $('accErrore').textContent = e.message;
       /* il codice del palmare non e' piu' buono (cambiato dal back office,
          o sbagliato quando lo si e' scritto): da qui si rimedia, se no si
@@ -430,18 +423,27 @@ function accesso() {
     }
   };
   const tasto = async (n) => {
-    if (n === 'c') { if (campo === 'pin' && !pin) campo = 'codice'; if (campo === 'codice') codice = codice.slice(0, -1); else pin = pin.slice(0, -1); return disegna(); }
-    if (n === 'ok') { if (!codice) return; return entra(); }
-    if (campo === 'codice') codice += n; else pin += n;
+    if (n === 'c') { pin = pin.slice(0, -1); return disegna(); }
+    if (n === 'ok') { if (pin.length === 4) return entra(); return; }
+    if (pin.length >= 4) return;
+    pin += n;
     disegna();
+    if (pin.length === 4) entra();
   };
   disegna();
 }
 
 function impostazioni() {
-  const s = prompt('Indirizzo del server locale (PC del Bistrot), vuoto per usare solo il cloud:', SERVER_LOCALE);
+  let s = prompt('Indirizzo del server locale (PC del Bistrot), vuoto per usare solo il cloud:', SERVER_LOCALE);
   if (s === null) return;
-  localStorage.setItem('posServerLocale', s.trim());
+  s = s.trim().replace(/\/+$/, '');
+  /* scritto senza http:// diventava un indirizzo relativo al sito e ogni
+     chiamata sbagliava strada (la proprieta', 6 settembre 2026) */
+  if (s && !/^https?:\/\//i.test(s)) s = 'http://' + s;
+  /* da una pagina in https il browser blocca le chiamate in http al PC
+     (contenuto misto): il PC si usa aprendo la pagina dal PC stesso */
+  if (s && location.protocol === 'https:' && /^http:\/\//i.test(s)) { alert('Da questa pagina (https) il palmare non puo\u2019 parlare col PC in http: per usare il PC apra ' + s + '/pos. Da qui si usa il cloud.'); s = ''; }
+  localStorage.setItem('posServerLocale', s);
   const l = prompt('Locale di questo palmare (bistrot o ristorante):', LOCALE_ID);
   if (l) localStorage.setItem('posLocaleId', l.trim());
   /* il codice del palmare si puo' rimettere da qui: lo si legge nel back

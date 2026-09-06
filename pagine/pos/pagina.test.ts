@@ -49,10 +49,20 @@ Deno.test('le tre schermate e i gesti della spec', () => {
   assert(m.includes("localStorage.removeItem('posDispositivo')"), 'e si puo cambiare se non va piu bene');
 });
 
-Deno.test('si entra col solo codice: il PIN lo chiede il server, e solo a chi ce l ha', () => {
-  assert(m.includes('const entra = async'), 'un solo gesto: codice e invio');
-  assert(m.includes("/serve il PIN/i.test(e.message)"), 'il PIN si chiede solo se il server lo dice');
-  assert(!m.includes("if (campo === 'codice') { if (codice) campo = 'pin'; return disegna(); }"), 'il passaggio al PIN non e piu automatico');
+Deno.test('si entra col solo PIN di quattro cifre, e alla quarta cifra si parte da soli', () => {
+  /* «falli identificare solo con un PIN di 4 cifre» (la proprieta', 6 settembre 2026) */
+  assert(m.includes('const entra = async'));
+  assert(m.includes("body: JSON.stringify({ pin })"), 'al server va il PIN e basta');
+  assert(m.includes('if (pin.length === 4) entra();'), 'alla quarta cifra si entra senza premere invio');
+  assert(m.includes('if (pin.length >= 4) return;'), 'una quinta cifra non entra');
+  assert(!m.includes('vCodice') && !m.includes('Il suo codice'), 'il codice non si chiede piu sul palmare');
+});
+
+Deno.test('l indirizzo del PC nelle impostazioni si sistema da solo, e da https non si tiene', () => {
+  /* scritto senza http:// ogni chiamata sbagliava strada; da una pagina
+     https il browser blocca l http verso il PC (6 settembre 2026) */
+  assert(m.includes("if (s && !/^https?:\\/\\//i.test(s)) s = 'http://' + s;"));
+  assert(m.includes("location.protocol === 'https:' && /^http:\\/\\//i.test(s)") && m.includes("s = ''; }"), 'da https si resta sul cloud e lo si dice');
 });
 
 Deno.test('il palmare non decide prezzi: manda articolo, quantita, variante, nota, portata e al massimo un prezzo manuale', () => {
@@ -249,13 +259,12 @@ Deno.test('sul palmare: categorie sempre a portata, riepilogo chiuso, in camera 
   assert(m.includes("campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))"), 'e il codice letto entra come dal lettore');
 });
 
-Deno.test('all accesso si vede dove si scrive, e il PIN si tocca per scriverci', () => {
-  /* «non riesco a selezionare il PIN per inserirlo, la schermata e un po
-     scomoda» (la proprieta', dall iPhone, 5 settembre 2026) */
+Deno.test('all accesso c e un campo solo, il PIN, sempre attivo', () => {
+  /* «non riesco a selezionare il PIN per inserirlo» (5 settembre 2026): ora
+     il campo e' uno e si scrive subito li' */
   assert(P.includes('.accesso .campo.attivo{'), 'il campo attivo si vede');
-  assert(m.includes("class=\"campo ${campo === 'pin' ? 'attivo' : ''}\" id=\"vPin\""), 'e il PIN lo e quando tocca a lui');
-  assert(m.includes("$('vPin').onclick = () => { campo = 'pin'; disegna(); };"), 'toccando il PIN ci si scrive');
-  assert(m.includes("campo === 'pin' ? 'Ora il suo PIN, poi ↵' : 'Il suo codice, poi ↵'"), 'e la riga in alto dice cosa fare adesso');
+  assert(m.includes('<div class="campo attivo" id="vPin">'), 'il PIN e sempre il campo attivo');
+  assert(m.includes('Il suo PIN di quattro cifre'), 'e la riga in alto lo dice');
 });
 
 Deno.test('le quantita si chiamano 1× 2× 3× 4×, e Safari non colora i bottoni di blu', () => {

@@ -516,3 +516,18 @@ Deno.test('la sala dice pronto_in_cucina per il conto con un biglietto pronto da
   assertEquals(contoRiga.pronto_in_cucina, true);
   assertEquals(contoRiga.pronto_alle, cinqueMinFa);
 });
+
+Deno.test('si entra col solo PIN di quattro cifre; uno sbagliato 401; due persone con lo stesso PIN 409', async () => {
+  /* «falli identificare solo con un PIN di 4 cifre» (la proprieta', 6 settembre 2026) */
+  const db = base();
+  const hash = async (s: string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map((x) => x.toString(16).padStart(2, '0')).join('');
+  db.prepare('update pos_cameriere set pin_hash = ? where id = ?').run(await hash('11:1234'), 'K1');
+  const con = (corpo: unknown): Richiesta => ({ metodo: 'POST', query: {}, corpo, intestazioni: { 'x-pos-dispositivo': 'tok' } });
+  const ok = await esegui(db, 'accesso', con({ pin: '1234' }), cfg);
+  assertEquals(ok.stato, 200);
+  assertEquals((ok.corpo as { cameriere: { id: string } }).cameriere.id, 'K1');
+  assertEquals([(await esegui(db, 'accesso', con({ pin: '0000' }), cfg)).stato, (await esegui(db, 'accesso', con({ pin: '12' }), cfg)).stato], [401, 400]);
+  db.prepare("insert into pos_cameriere (id, nome, codice, pin_hash, ruolo, aggiornato_il) values ('K2', 'Bruno', '12', ?, 'cameriere', '2026-09-04T10:00:00Z')").run(await hash('12:1234'));
+  const due = await esegui(db, 'accesso', con({ pin: '1234' }), cfg);
+  assertEquals([due.stato, (due.corpo as { errore: string }).errore], [409, 'PIN uguale per due persone: cambiarlo nel back office']);
+});

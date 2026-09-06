@@ -561,18 +561,30 @@ Deno.serve(async (req) => {
     if (!disp) return risposta({ errore: 'dispositivo non registrato' }, 401);
     const b = await corpo();
     const codice = String(b.codice ?? '').trim(), pin = String(b.pin ?? '').trim();
-    if (!codice) return risposta({ errore: 'serve il codice' }, 400);
-    const { data: c } = await db.from('pos_cameriere').select('*').eq('codice', codice).eq('bloccato', false).maybeSingle();
-    /* un codice che non esiste lo si dice subito: chiedere un PIN per un
-       cameriere che non c'e' fa perdere tempo e non protegge niente (chi
-       ha il palmare e' gia' dentro l'hotel) */
-    if (!c) return risposta({ errore: 'codice non riconosciuto' }, 401);
-    /* «basta il codice» per chi e' segnato senza PIN: la pagina risponde
-       solo dall'IP dell'hotel e il palmare ha gia' il suo codice. Agli
-       altri il PIN si chiede, e la pagina lo capisce da questa risposta. */
+    let c: Riga;
+    if (codice) {
+      /* la strada di prima, col codice: la usano i palmari con la pagina
+         vecchia. Un codice che non esiste lo si dice subito. */
+      const { data } = await db.from('pos_cameriere').select('*').eq('codice', codice).eq('bloccato', false).maybeSingle();
+      if (!data) return risposta({ errore: 'codice non riconosciuto' }, 401);
+      const senza = !!data.senza_pin;
+      if (!pin && !senza) return risposta({ errore: 'serve il PIN' }, 400);
+      if (!senza && data.pin_hash !== await hashPin(codice, pin)) return risposta({ errore: 'PIN sbagliato' }, 401);
+      c = data;
+    } else {
+      /* «Falli identificare solo con un PIN di 4 cifre» (la proprieta', 6
+         settembre 2026): il PIN e' la persona. L'impronta e' di codice:pin,
+         quindi si prova ogni cameriere; con due uguali non si entra, e lo
+         si dice. Chi ha il palmare e' gia' dentro l'hotel. */
+      if (!/^\d{4}$/.test(pin)) return risposta({ errore: 'serve il PIN di quattro cifre' }, 400);
+      const { data: tutti } = await db.from('pos_cameriere').select('*').eq('bloccato', false);
+      const trovati: Riga[] = [];
+      for (const x of tutti ?? []) if (x.pin_hash && x.pin_hash === await hashPin(String(x.codice), pin)) trovati.push(x);
+      if (!trovati.length) return risposta({ errore: 'PIN non riconosciuto' }, 401);
+      if (trovati.length > 1) return risposta({ errore: 'PIN uguale per due persone: cambiarlo nel back office' }, 409);
+      c = trovati[0];
+    }
     const senzaPin = !!c.senza_pin;
-    if (!pin && !senzaPin) return risposta({ errore: 'serve il PIN' }, 400);
-    if (!senzaPin && c.pin_hash !== await hashPin(codice, pin)) return risposta({ errore: 'PIN sbagliato' }, 401);
     const sessione = crypto.randomUUID();
     const scade = new Date(Date.now() + 14 * 60 * 60 * 1000).toISOString();
     await db.from('pos_sessione').insert({ id: sessione, cameriere: c.id, dispositivo: disp.id, scade_il: scade });
@@ -1764,7 +1776,14 @@ Deno.serve(async (req) => {
            accorgersi che quell'id esiste gia' (difetto visto in reception
            il 4 settembre 2026: «null value in column pin_hash»). */
         const { data: e } = await db.from('pos_cameriere').select('pin_hash').eq('id', id).maybeSingle();
-        if (pin) riga.pin_hash = await hashPin(codice, pin);
+        if (pin) {
+          /* il PIN e' la persona (accesso col solo PIN, 6 settembre 2026):
+             quattro cifre, e non puo' essere uguale a quello di un altro */
+          if (!/^\d{4}$/.test(pin)) return risposta({ errore: `${c.nome}: il PIN e' di quattro cifre` }, 400);
+          const { data: altri } = await db.from('pos_cameriere').select('id, nome, codice, pin_hash').neq('id', id);
+          for (const o of altri ?? []) if (o.pin_hash && o.pin_hash === await hashPin(String(o.codice), pin)) return risposta({ errore: `${c.nome}: PIN gia' usato da ${o.nome}` }, 400);
+          riga.pin_hash = await hashPin(codice, pin);
+        }
         else if (e) riga.pin_hash = e.pin_hash;
         /* un cameriere nuovo senza PIN: l'impronta resta, ma di una parola
            che nessuno conosce, cosi' se un domani gli si toglie «senza

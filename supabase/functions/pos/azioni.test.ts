@@ -356,3 +356,13 @@ Deno.test('il monitor cucina: due azioni con la chiave dello schermo, il ripiego
   const ag = S.slice(daGiu, S.indexOf("azione === 'in-casa'", daGiu));
   assert(ag.includes('chiave_hash: _nonServe'), 'l impronta della chiave dello schermo scende solo al PC, non al back office');
 });
+
+Deno.test('si entra col solo PIN di quattro cifre: il PIN e la persona, e non puo essere di due', () => {
+  /* «falli identificare solo con un PIN di 4 cifre» (la proprieta', 6 settembre 2026) */
+  const a = S.slice(S.indexOf("azione === 'accesso'"), S.indexOf('const cameriere = await cameriereDi(req);'));
+  assert(a.includes("if (!/^\\d{4}$/.test(pin)) return risposta({ errore: 'serve il PIN di quattro cifre' }, 400);"), 'quattro cifre');
+  assert(a.includes('PIN non riconosciuto') && a.includes('PIN uguale per due persone'), 'si prova ogni cameriere, uno solo deve combaciare');
+  assert(a.includes("errore: 'codice non riconosciuto'"), 'la strada col codice resta per la pagina vecchia');
+  const p = S.slice(S.indexOf("azione === 'personale-salva'"), S.indexOf("for (const d of dispositivi)"));
+  assert(p.includes("PIN gia' usato da") && p.includes("il PIN e' di quattro cifre"), 'il back office non lascia dare due volte lo stesso PIN');
+});

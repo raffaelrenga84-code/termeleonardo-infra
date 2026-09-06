@@ -155,15 +155,27 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     const disp = token ? db.prepare('select * from pos_dispositivo where token = ? and bloccato = 0').get(token) as Riga | undefined : undefined;
     if (!disp) return errore('dispositivo non registrato', 401);
     const codice = String(b.codice ?? '').trim(), pin = String(b.pin ?? '').trim();
-    if (!codice) return errore('serve il codice', 400);
-    const c = db.prepare('select * from pos_cameriere where codice = ? and bloccato = 0').get(codice) as Riga | undefined;
-    if (!c) return errore('codice non riconosciuto', 401);
-    /* «basta il codice» per chi e' segnato senza PIN: la pagina e' gia'
-       chiusa dall'IP dell'hotel e dal codice del palmare. Agli altri il PIN
-       si chiede, e la pagina lo capisce da questa risposta. */
+    let c: Riga;
+    if (codice) {
+      /* la strada di prima, col codice (pagina vecchia) */
+      const trovato = db.prepare('select * from pos_cameriere where codice = ? and bloccato = 0').get(codice) as Riga | undefined;
+      if (!trovato) return errore('codice non riconosciuto', 401);
+      const senza = !!Number(trovato.senza_pin);
+      if (!pin && !senza) return errore('serve il PIN', 400);
+      if (!senza && trovato.pin_hash !== await hashPin(codice, pin)) return errore('PIN sbagliato', 401);
+      c = trovato;
+    } else {
+      /* il PIN e' la persona (la proprieta', 6 settembre 2026): stessa
+         regola del cloud, si prova ogni cameriere */
+      if (!/^\d{4}$/.test(pin)) return errore('serve il PIN di quattro cifre', 400);
+      const tutti = db.prepare('select * from pos_cameriere where bloccato = 0').all() as Riga[];
+      const trovati: Riga[] = [];
+      for (const x of tutti) if (x.pin_hash && x.pin_hash === await hashPin(String(x.codice), pin)) trovati.push(x);
+      if (!trovati.length) return errore('PIN non riconosciuto', 401);
+      if (trovati.length > 1) return errore('PIN uguale per due persone: cambiarlo nel back office', 409);
+      c = trovati[0];
+    }
     const senzaPin = !!Number(c.senza_pin);
-    if (!pin && !senzaPin) return errore('serve il PIN', 400);
-    if (!senzaPin && c.pin_hash !== await hashPin(codice, pin)) return errore('PIN sbagliato', 401);
     const sessione = crypto.randomUUID();
     const scade = new Date(Date.now() + 14 * 60 * 60 * 1000).toISOString();
     /* allineato = 0: la sessione sale al cloud (allinea.ts), cosi' se il
