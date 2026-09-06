@@ -117,6 +117,29 @@ export function dallHotel(intestazioni: Headers, ipHotel: string | undefined): b
 return ipHotel.split(',').map((s) => s.trim()).filter(Boolean).includes(ipDi(intestazioni));
 }
 
+/* Le reti che nascondono l'indirizzo di chi naviga. Le prime due sono le
+   uscite di iCloud Privato («Protezione IP» su iPhone, acceso da solo con
+   iCloud+): Safari esce da Cloudflare o da Akamai, e l'indirizzo dell'hotel
+   non si vede piu'. Sono blocchi grandi e condivisi da mezzo mondo: non si
+   possono ammettere, ma riconoscerli serve a dire all'ospite PERCHE' non
+   lo riconosciamo, invece di lasciarlo davanti a un numero che non capisce
+   (la proprieta', 6 settembre 2026, con l'iPhone sul Wi-Fi dell'hotel).
+   L'elenco non e' completo per costruzione: e' un aiuto al messaggio, non
+   una difesa, e chi non c'e' dentro legge comunque la strada del QR. */
+const RETI_NASCOSTE = [
+  '104.16.', '104.17.', '104.18.', '104.19.', '104.20.', '104.21.', '104.22.', '104.23.',
+  '104.24.', '104.25.', '104.26.', '104.27.', '104.28.', '104.29.', '104.30.', '104.31.',
+  '172.224.', '172.225.', '172.226.', '172.227.', '172.228.', '172.229.', '172.230.', '172.231.',
+  '146.75.', '151.101.',
+];
+
+/** Vero se l'indirizzo e' di una rete che nasconde chi c'e' dietro
+ *  (iCloud Privato e simili): serve solo a spiegarlo nel messaggio. */
+export function reteNascosta(ip: string): boolean {
+  const s = String(ip || '').trim();
+  return !!s && RETI_NASCOSTE.some((p) => s.startsWith(p));
+}
+
 /** Il numero dell'ordine, corto e leggibile: Q piu' sei segni senza 0/O/1/I. */
 export function numeroOrdine(casuale: () => number = Math.random): string {
   const alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

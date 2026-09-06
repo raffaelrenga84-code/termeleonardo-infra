@@ -2,7 +2,7 @@
    ospite.test.ts — l'ordine dal tavolo col QR: firma, righe, camera.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { cameraCombacia, codiceTessera, dallHotel, firmaTavolo, ipDi, numeroOrdine, righeOrdine, tavoloFirmato } from './ospite.ts';
+import { cameraCombacia, codiceTessera, dallHotel, firmaTavolo, ipDi, numeroOrdine, reteNascosta, righeOrdine, tavoloFirmato } from './ospite.ts';
 
 Deno.test('il QR porta una firma: senza quella giusta non si ordina su un tavolo', async () => {
   const f = await firmaTavolo('bistrot-t7', 'chiave-hotel');
@@ -102,4 +102,16 @@ Deno.test('fuori orario non si ordina: l articolo chiuso adesso ferma l ordine c
   assertEquals(r.ok, false);
   assertEquals((r as { errore: string }).errore, 'Cotoletta: non a quest ora');
   assertEquals(righeOrdine([{ articolo: 'A2', quantita: 1 }], listino).ok, true);
+});
+
+Deno.test('reteNascosta: gli indirizzi di chi passa da un relay (Protezione IP di iPhone) si riconoscono', () => {
+  /* «Si ordina dalla rete Wi-Fi dell hotel (IP 104.28.96.42)»: l'iPhone
+     della proprieta' era sul Wi-Fi dell'hotel, ma iCloud Privato lo faceva
+     uscire da Cloudflare (6 settembre 2026). */
+  assert(reteNascosta('104.28.96.42'), 'Cloudflare, dove esce iCloud Privato');
+  assert(reteNascosta('172.225.1.9'), 'Akamai, l altra uscita di iCloud Privato');
+  assert(reteNascosta('146.75.30.7'), 'Fastly');
+  assert(!reteNascosta('46.234.202.29'), 'la linea dell hotel no');
+  assert(!reteNascosta('5.6.7.8'), 'un indirizzo qualunque no');
+  assert(!reteNascosta(''), 'senza indirizzo non si indovina');
 });

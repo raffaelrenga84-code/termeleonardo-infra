@@ -1,7 +1,7 @@
 /* ============================================================
    pagina.test.ts — l'ordine dal tavolo col QR, letto dal sorgente.
    ============================================================ */
-import { assert } from 'jsr:@std/assert';
+import { assert, assertEquals } from 'jsr:@std/assert';
 
 const P = Deno.readTextFileSync(new URL('./index.html', import.meta.url));
 const m = (P.match(/<script type="module">([\s\S]*?)<\/script>/) ?? ['', ''])[1];
@@ -72,4 +72,14 @@ Deno.test('prima «da mangiare» o «da bere», poi la categoria («per semplifi
   assert(m.includes("if (el.dataset.gruppo) { VISTA = { nome: 'categorie', gruppo: el.dataset.gruppo }; disegna(); return; }"), 'il tocco apre il gruppo');
   assert(m.includes("VISTA = cat.sotto ? { nome: 'articoli', categoria: cat.sotto } : { nome: 'categorie', gruppo: gruppoDi(cat) }; disegna();"), 'indietro torna al gruppo, non ai due quadratoni');
   for (const l of ['it', 'en', 'de', 'fr']) assert(m.includes(`  ${l}: { cibo: '`), `gruppo ${l}`);
+});
+
+Deno.test('senza QR e fuori dalla rete dell hotel la pagina spiega il QR e la Protezione IP, in quattro lingue', () => {
+  /* «Si ordina dalla rete Wi-Fi dell hotel (IP 104.28.96.42)» su un iPhone
+     che ERA sul Wi-Fi dell'hotel: iCloud Privato nasconde l'indirizzo (la
+     proprieta', 6 settembre 2026). Il QR sul tavolo funziona comunque. */
+  for (const parola of ['QR', 'Protezione IP']) assert(P.includes(parola), parola);
+  const soloHotel = [...P.matchAll(/soloHotel: '([^']*(?:’[^']*)*)'/g)].map((m) => m[1]);
+  assertEquals(soloHotel.length, 4, 'quattro lingue');
+  for (const s of soloHotel) assert(/QR/.test(s), s);
 });

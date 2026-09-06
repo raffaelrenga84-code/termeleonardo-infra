@@ -207,7 +207,7 @@ Deno.test('conto-cambia accetta la camera: un conto esterno diventa in camera al
 
 Deno.test('l ordine dal tavolo col QR: menu pubblico firmato, carta via Stripe, camera con tessera che combacia', () => {
   /* la proprieta', 5 settembre 2026 */
-  assert(S.includes("import { cameraCombacia, codiceTessera, dallHotel, ipDi, numeroOrdine, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';"), 'le regole nel modulo puro');
+  assert(S.includes("import { cameraCombacia, codiceTessera, dallHotel, ipDi, numeroOrdine, reteNascosta, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';"), 'le regole nel modulo puro');
   assert(S.includes("const azioniOspite = ['ospite-menu', 'ospite-ordine', 'ospite-stato'];"), 'tre azioni pubbliche');
   const o = S.slice(S.indexOf('const azioniOspite'), S.indexOf('/* ================= dal palmare'));
   assert(o.includes("if (!(await tavoloFirmato(t, k, Deno.env.get('HOTEL_KEY'))))"), 'senza la firma del QR niente');
@@ -235,7 +235,13 @@ Deno.test('ospite-tavoli: l elenco pubblico dei tavoli con la firma, per chi scr
 });
 
 Deno.test('l ordine dal tavolo solo dalla rete dell hotel, tessera dalle cifre stampate, consegna in camera', () => {
-  assert(S.includes("if (!dallHotel(req.headers, Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP'))) return risposta({ errore: `si ordina dalla rete Wi-Fi dell hotel (il suo indirizzo: ${ipDi(req.headers)})` }, 403);"), 'fuori dall hotel niente');
+  /* Col QR l'IP non si guarda piu': la firma del tavolo e' la prova di
+     esserci stati, e ogni ordine si paga prima di stampare. La Protezione
+     IP di iPhone (iCloud Privato) nasconde l'indirizzo dell'hotel e teneva
+     fuori gli ospiti veri (la proprieta', 6 settembre 2026). */
+  const ospite = S.slice(S.indexOf("const azioniOspite = "), S.indexOf("if (azione === 'ospite-menu')"));
+  assert(!ospite.includes('dallHotel('), 'col QR si ordina da qualunque connessione');
+  assert(ospite.includes('tavoloFirmato('), 'la firma del tavolo resta la porta');
   assert(S.includes('const tessera = codiceTessera(b.tessera);'), 'il codice a barre lo rifa il server');
   assert(S.includes("const consegna = String(b.consegna ?? '').trim().slice(0, 10) || null;"), 'la camera di consegna');
   assert(S.includes("`QR · PAGATO ONLINE${o.camera ? ` · CAMERA ${String(o.camera)}` : ''}`"), 'e sul biglietto si legge');
@@ -256,7 +262,7 @@ Deno.test('gli orari del menu: il menu per l ospite dice cosa e ordinabile adess
   assert(o.includes('disponibile: apertoOra(') && o.includes('finestre'), 'ogni categoria e ogni articolo dice se e aperto adesso, con le sue finestre');
   const ord = S.slice(S.indexOf('/* ospite-ordine */'), S.indexOf("azione === 'ospite-stato'") > 0 ? S.indexOf('/* ================= dal palmare') : S.length);
   assert(ord.includes('fuori_orario:'), 'l ordine porta il segno «fuori orario» a righeOrdine');
-  assert(S.includes("(il suo indirizzo: ${ipDi(req.headers)})") && S.includes("Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP')"), 'chi e fuori dalla rete legge il suo IP, e gli IP ammessi possono essere piu di uno');
+  assert(S.includes("(il suo indirizzo: ${ip})") && S.includes("Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP')"), 'chi sceglie il tavolo a mano da fuori legge il suo IP, e gli IP ammessi possono essere piu di uno');
 });
 
 Deno.test('a cucina chiusa (pos_locale.orari_cucina) il biglietto della cucina esce al bancone, con l avviso', () => {
@@ -302,4 +308,11 @@ Deno.test('il palmare: gli ordini dal QR di oggi sul tavolo, la coda di stampa, 
   const st = S.slice(S.indexOf("azione === 'riga-storna-rimborsa'"), S.indexOf("azione === 'conto-sposta'"));
   assert(st.includes("if (!puo(cameriere!, 'storno')) return risposta({ errore: 'storno non permesso' }, 403);"), 'solo chi puo stornare');
   assert(st.includes('const cent = importoRiga({ quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent) });'), 'torna l importo della riga');
+});
+
+Deno.test('senza QR l elenco dei tavoli resta della sola rete dell hotel, e il messaggio dice cosa fare', () => {
+  const t = S.slice(S.indexOf("if (azione === 'ospite-tavoli')"), S.indexOf("const azioniOspite = "));
+  assert(t.includes("dallHotel(req.headers, Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP'))"), 'l elenco delle firme no');
+  assert(t.includes('inquadri il QR'), 'si dice la strada che funziona sempre');
+  assert(t.includes('reteNascosta(') && t.includes('Protezione IP'), 'e a chi passa da un relay si dice perche');
 });
