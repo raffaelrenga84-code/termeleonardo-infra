@@ -34,6 +34,7 @@ padding:14px;overflow:auto;}
    dentro un iframe (vedi pdfUrl e iframePdf piu' sotto). Niente scala da
    applicare a mano al foglio: ci pensa il lettore di PDF del browser. */
 .pdfFrame{width:100%;height:780px;border:1px solid #E5E0D8;border-radius:6px;background:#fff;}
+.pdfFrame.pdfTela{height:auto;display:block;}
 .anteprimaPdf .mini{padding:8px 0;}
 .azioni-buono{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
 /* anche gli <a>: "Scarica il PDF" e' un link con download, non un pulsante */
@@ -172,6 +173,7 @@ body.sportello #dOggiCod{font-size:22px;padding:14px;}
    di vercel.json copre; sarebbe bastato aprirlo su /buoni (senza barra
    finale) per cercare /buono.js e trovare la SPA. '/buoni/buono.js' vale
    uguale sui due domini. Vedi percorsi-web.test.ts. */
+import { anteprimaPdf } from '/comune/anteprima-pdf.js';
 import { esc, ETI, CONDIZIONI, COMPRENDE, dataLingua, categoriaBuono, righeDescrizione } from '/buoni/buono.js';
 
 /* stessa regola di sopra: percorso assoluto, non relativo — `/comune/date.js`,
@@ -443,8 +445,12 @@ async function pdfUrl(qs, corpo) {
 
 /* il PDF si guarda dentro la pagina, senza aprire una finestra: e' quello
    che la reception fa cento volte al giorno mentre compila */
-function iframePdf(contenitore, url) {
-  contenitore.innerHTML = `<iframe class="pdfFrame" src="${url}" title="Anteprima del buono"></iframe>`;
+/* Il PDF si disegna sulla pagina (pdf.js, /comune/anteprima-pdf.js): su un
+   telefono Android l'iframe non mostrava niente. L'iframe resta il ripiego
+   dentro al modulo. */
+function mostraPdf(contenitore, url) {
+  contenitore.innerHTML = '<div class="mini">Disegno l’anteprima…</div>';
+  anteprimaPdf(contenitore, url, 'Anteprima del buono');
 }
 
 /* Apre in una scheda nuova un PDF gia' pronto. DEVE stare dentro il giro
@@ -841,7 +847,7 @@ function vistaEmetti() {
            che la scheda resta aperta: una mattina di lavoro sono decine */
         if (urlAnteprima) URL.revokeObjectURL(urlAnteprima);
         urlAnteprima = url;
-        iframePdf(telaio, url);
+        mostraPdf(telaio, url);
       } catch (e) {
         telaio.innerHTML = `<span class="errore">${esc(e.message)}</span>`;
       }
@@ -863,7 +869,7 @@ function vistaEmetti() {
     pdfUrl('?a=pdf', buonoProvvisorio()).then((url) => {
       if (urlAnteprima) URL.revokeObjectURL(urlAnteprima);
       urlAnteprima = url;
-      iframePdf($('antTelaio'), url);
+      mostraPdf($('antTelaio'), url);
     }).catch((e) => {
       $('fEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
     });
@@ -1087,7 +1093,7 @@ function mostraFatto(b, contenitore = 'fFatto') {
        e un foglio senza il suo giro e' esattamente il difetto di prima */
     giroDelFoglio = mio;
     if (!$('bAnteprima')) return;
-    iframePdf($('bAnteprima'), url);
+    mostraPdf($('bAnteprima'), url);
     /* il link si accende solo adesso che ha un indirizzo da aprire */
     if ($('bScarica')) { $('bScarica').href = url; $('bScarica').removeAttribute('aria-disabled'); }
   }).catch((e) => {

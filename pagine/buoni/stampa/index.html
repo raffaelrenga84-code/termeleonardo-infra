@@ -25,6 +25,7 @@ padding:16px 30px;font:600 17px Arial;cursor:pointer;margin:10px 0 6px;text-deco
    uno schermo alto si legge tutto, il min-height perche' su un telefono
    in orizzontale 80vh sarebbero quattro dita di foglio. */
 .pdfFrame{width:100%;height:80vh;min-height:520px;border:1px solid #E5E0D8;background:#fff;}
+.pdfFrame.pdfTela{height:auto;min-height:0;display:block;}
 .piede{border-top:1px solid var(--sabbia);padding:22px 16px 30px;text-align:center;
 font-size:12.5px;color:var(--verde-medio);}
 @media (max-width:640px){
@@ -57,6 +58,8 @@ font-size:12.5px;color:var(--verde-medio);}
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g,
   c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
+/* il PDF si disegna sulla pagina: su Android l'iframe non mostrava niente */
+import { anteprimaPdf } from '/comune/anteprima-pdf.js';
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/buoni';
 const $ = (id) => document.getElementById(id);
 
@@ -189,7 +192,8 @@ async function carica() {
     const r = await fetch(FUNZIONE + '?a=pdf&codice=' + encodeURIComponent(CODICE));
     if (!r.ok) throw new Error('errore ' + r.status);
     const url = URL.createObjectURL(await r.blob());
-    $('telaio').innerHTML = `<iframe class="pdfFrame" src="${url}" title="${esc(t.titolo)}"></iframe>`;
+    $('telaio').innerHTML = `<div class="mini">${esc(t.carico)}</div>`;
+    anteprimaPdf($('telaio'), url, t.titolo);
   } catch (e) {
     $('telaio').innerHTML = `<div class="messaggio errore">${esc(t.erroreRete)}</div>`;
   }

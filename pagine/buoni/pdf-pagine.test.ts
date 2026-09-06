@@ -69,8 +69,8 @@ Deno.test('il back office chiede il PDF al server: per numero il buono, in bozza
   assert(BACKOFFICE.includes('async function pdfUrl(qs, corpo)'), 'il solo posto da cui esce un PDF');
   assert(BACKOFFICE.includes('?a=pdf&numero='), 'il buono gia emesso si chiede per numero');
   assert(BACKOFFICE.includes("pdfUrl('?a=pdf', buonoProvvisorio())"), 'il modulo in compilazione chiede la bozza');
-  assert(BACKOFFICE.includes('function iframePdf(contenitore, url)'), 'e lo mostra in un iframe');
-  assert(BACKOFFICE.includes('class="pdfFrame"') && BACKOFFICE.includes('.pdfFrame{'), 'con la sua regola di stile');
+  assert(BACKOFFICE.includes('function mostraPdf(contenitore, url)') && BACKOFFICE.includes("anteprimaPdf(contenitore, url, 'Anteprima del buono')"), 'e lo disegna col canvas (pdf.js), iframe solo di ripiego');
+  assert(BACKOFFICE.includes("from '/comune/anteprima-pdf.js'") && BACKOFFICE.includes('.pdfFrame{') && BACKOFFICE.includes('.pdfFrame.pdfTela{'), 'con le sue regole di stile');
   assert(BACKOFFICE.includes('id="bAnteprima"'), 'il pannello del buono ha il posto per l anteprima');
   assert(BACKOFFICE.includes('download="Buono-Regalo-'), 'e il PDF si scarica col nome del buono');
 });
@@ -98,7 +98,7 @@ Deno.test('due buoni aperti di fila non si rubano l anteprima: mostraFatto ha un
   assert(revocaPropria > controllo, 'chi ha perso il giro revoca il blob appena ricevuto: non e di nessuno');
   const revocaPrecedente = risposta.indexOf('URL.revokeObjectURL(urlBuonoMostrato)');
   assert(revocaPrecedente > controllo, 'il controllo del giro viene prima della revoca del foglio gia mostrato');
-  const repaint = risposta.indexOf("iframePdf($('bAnteprima')");
+  const repaint = risposta.indexOf("mostraPdf($('bAnteprima')");
   assert(repaint > controllo, 'e prima di riscrivere il pannello con #bAnteprima/#bScarica');
   assertEquals((risposta.match(/mio !== giroBuono/g) || []).length, 2,
     'il controllo c e anche nel ramo di errore (.catch), non solo in quello buono');
@@ -132,7 +132,7 @@ Deno.test('stampare non apre il foglio di un altro buono: apriPdf pretende il pr
   assert(BACKOFFICE.includes("$('bStampa').onclick = apriPdf;")
     && BACKOFFICE.includes("$('bStampaBozza').onclick = apriPdf;"),
     'stampa e stampa-bozza passano per apriPdf, non per urlBuonoMostrato a mano');
-  const scrittura = fra(BACKOFFICE, 'urlBuonoMostrato = url;', 'iframePdf(');
+  const scrittura = fra(BACKOFFICE, 'urlBuonoMostrato = url;', 'mostraPdf(');
   assert(scrittura.includes('giroDelFoglio = mio;'),
     'il giro si scrive INSIEME all URL: un foglio senza il suo giro e il difetto di prima');
 });
@@ -189,7 +189,7 @@ Deno.test('Copia copia il testo del buono col link al PDF, non un immagine', () 
 Deno.test('la pagina pubblica di stampa apre il PDF: il pulsante e l anteprima sotto', () => {
   assertEquals(STAMPA.split('a=pdf&codice=').length - 1, 2, 'due volte: il link del pulsante e la fetch');
   assert(STAMPA.includes('class="azione"') && STAMPA.includes('rel="noopener"'), 'il pulsante e un link');
-  assert(STAMPA.includes('class="pdfFrame"') && STAMPA.includes('.pdfFrame{'), 'e sotto l anteprima');
+  assert(STAMPA.includes("anteprimaPdf($('telaio'), url, t.titolo)") && STAMPA.includes('.pdfFrame{'), 'e sotto l anteprima, disegnata col canvas');
   assert(!STAMPA.includes('window.print'), 'a stampare ci pensa il lettore di PDF del telefono o del computer');
   assert(!STAMPA.includes('adattaScala'), 'niente piu foglio da rimpicciolire a mano');
 });
@@ -240,7 +240,7 @@ Deno.test('la pagina di acquisto chiede la bozza in PDF al server, senza credenz
   assert(!chiesta.includes('authorization'), 'e la pagina di acquisto e pubblica: nessun token da spendere');
   assert(chiesta.includes('}, 900);'), 'anche qui il PDF si chiede quando l ospite ha smesso di scrivere');
   assert(chiesta.includes('URL.revokeObjectURL('), 'il PDF di prima non resta in memoria');
-  assert(REGALA.includes('class="pdfFrame"'), "l'anteprima e' l'iframe col PDF");
+  assert(REGALA.includes("anteprimaPdf($('telaio'), url, t.anteprima)"), "l'anteprima e' il PDF disegnato col canvas (su Android l'iframe non mostrava niente)");
   assert(!REGALA.includes('transform: scale') && !REGALA.includes('scale(${'),
     'niente piu buono da 700px da rimpicciolire');
 });
@@ -322,7 +322,7 @@ Deno.test('una risposta lenta dell anteprima non ne sovrascrive una piu nuova: c
   assert(revocaPropria > primoControllo, 'chi ha perso il giro revoca il blob appena ricevuto: non e di nessuno');
   const revocaPrecedente = chiesta.indexOf('if (urlPdf) URL.revokeObjectURL(urlPdf);', primoControllo);
   assert(revocaPrecedente > revocaPropria, 'il controllo del giro viene prima della revoca del foglio gia mostrato');
-  const repaint = chiesta.indexOf('<iframe class="pdfFrame"', revocaPrecedente);
+  const repaint = chiesta.indexOf('anteprimaPdf(', revocaPrecedente);
   assert(repaint > revocaPrecedente, 'e prima di riscrivere il telaio con il nuovo PDF');
 });
 

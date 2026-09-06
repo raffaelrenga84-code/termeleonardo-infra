@@ -82,6 +82,7 @@ input.vuoto:focus,select.vuoto:focus,textarea.vuoto:focus{outline:2px solid #C03
    piu' buono da 700px da rimpicciolire con una scala, il lettore di PDF
    del browser adatta il foglio da se' */
 .pdfFrame{width:100%;height:720px;border:1px solid #E5E0D8;background:#fff;}
+.pdfFrame.pdfTela{height:auto;display:block;}
 .grazie{max-width:640px;margin:40px auto;text-align:center;}
 .grazie .segno{font-size:44px;color:var(--verde);}
 .grazie h2{font-family:Georgia,serif;font-size:26px;letter-spacing:0;text-transform:none;
@@ -145,6 +146,9 @@ font-size:13px;color:var(--verde-medio);}
    buoni regalo resta bianca. '/buoni/buono.js' vale uguale sui due domini
    e comunque sia scritto l'indirizzo. Vedi percorsi-web.test.ts. */
 import { CONDIZIONI, esc, riepilogoVoci } from '/buoni/buono.js';
+/* il PDF dell'anteprima si disegna sulla pagina (pdf.js): su Android
+   l'iframe non mostrava niente, e il cliente che compra deve vederlo */
+import { anteprimaPdf } from '/comune/anteprima-pdf.js';
 /* IDEM PERCORSO ASSOLUTO: i parametri che i pulsanti delle email della
    reception scrivono nell'indirizzo — vedi il commento in cima a
    ospite-url.js per il perche' e il contratto (ripulisce, non fa
@@ -805,7 +809,7 @@ function modulo() {
            che la scheda resta aperta */
         if (urlPdf) URL.revokeObjectURL(urlPdf);
         urlPdf = url;
-        $('telaio').innerHTML = `<iframe class="pdfFrame" src="${url}" title="${esc(t.anteprima)}"></iframe>`;
+        anteprimaPdf($('telaio'), url, t.anteprima);
       } catch (e) {
         if (mio !== giroAnteprima) return;
         /* il freno del server (429) o la rete giu': l'anteprima non c'e',
