@@ -438,6 +438,21 @@ function iframePdf(contenitore, url) {
   contenitore.innerHTML = `<iframe class="pdfFrame" src="${url}" title="Anteprima del buono"></iframe>`;
 }
 
+/* Apre in una scheda nuova un PDF gia' pronto. DEVE stare dentro il giro
+   di evento del clic: un window.open() dopo un await il browser lo tratta
+   come aperto da solo (non dall'operatore) e lo blocca — spesso senza
+   nemmeno un avviso visibile, quindi il clic sembrerebbe non fare niente.
+   Se blocca comunque lo dice nell'elemento di esito passato, invece di
+   restare muto. Un solo percorso per i tre pulsanti che aprono un PDF gia'
+   scaricato: bStampa e bStampaBozza (mostraFatto) e antStampa (il modulo
+   di emissione). Vedi pdf-pagine.test.ts: antStampa non deve piu' chiamare
+   window.open() per conto suo. */
+function apriPdfGuardato(url, elementoEsito) {
+  if (!window.open(url, '_blank')) {
+    elementoEsito.textContent = 'Il browser ha bloccato la finestra: stampi dall’anteprima qui sotto.';
+  }
+}
+
 async function esci() {
   try { if (SB) await SB.auth.signOut(); } catch (e) {}
   TOKEN = ''; OPERATORE = '';
@@ -824,17 +839,25 @@ function vistaEmetti() {
     }, 900);
   }
   /* stampa di quello che si sta componendo: serve a farlo vedere al cliente
-     prima che paghi, quindi il server lo marca BOZZA e senza codice */
-  $('antStampa').onclick = async () => {
-    try {
-      if (!urlAnteprima) {
-        urlAnteprima = await pdfUrl('?a=pdf', buonoProvvisorio());
-        iframePdf($('antTelaio'), urlAnteprima);
-      }
-      window.open(urlAnteprima, '_blank');
-    } catch (e) {
+     prima che paghi, quindi il server lo marca BOZZA e senza codice.
+     Passa per apriPdfGuardato — MAI un window.open() dopo un await, vedi
+     il commento sopra la sua definizione. Se il foglio non c'e' ancora
+     (l'operatore ha premuto prima dei 900 ms, o il primo giro non e' ancora
+     arrivato) lo si chiede e lo si carica nel telaio qui sotto, come fa gia'
+     aggiornaAnteprima: la finestra pero' non si apre da questo giro, perche'
+     arriverebbe dopo un await e il browser la bloccherebbe; si chiede
+     all'operatore di premere di nuovo, e il secondo clic trovera' il foglio
+     gia' pronto. */
+  $('antStampa').onclick = () => {
+    if (urlAnteprima) { apriPdfGuardato(urlAnteprima, $('fEsito')); return; }
+    $('fEsito').textContent = 'Sto preparando l’anteprima: prema di nuovo tra un momento.';
+    pdfUrl('?a=pdf', buonoProvvisorio()).then((url) => {
+      if (urlAnteprima) URL.revokeObjectURL(urlAnteprima);
+      urlAnteprima = url;
+      iframePdf($('antTelaio'), url);
+    }).catch((e) => {
       $('fEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
-    }
+    });
   };
   const conAnteprima = (f) => () => { f(); aggiornaAnteprima(); };
   $('fTipo').onchange = conAnteprima(agg);
@@ -927,6 +950,15 @@ function dettagliBuono(b) {
     <table style="font-size:13px;border-collapse:collapse;">${corpo}</table></div>`;
 }
 
+/* il PDF dell'ultimo buono mostrato da mostraFatto: una variabile per
+   pagina e non per chiamata, altrimenti la revoca qui sotto non troverebbe
+   mai l'URL del buono precedente (ogni chiamata a mostraFatto ha la sua
+   chiusura, che finita la chiamata non e' piu' raggiungibile). Stessa idea
+   di urlAnteprima nel modulo di emissione: senza revoca, un buono aperto
+   dall'elenco dopo l'altro lascerebbe ogni foglio in memoria per tutta la
+   giornata di back office. */
+let urlBuonoMostrato = '';
+
 /* Il pannello del buono: numero, dati, anteprima e modi per consegnarlo.
    Lo usa sia l'emissione sia l'elenco, dove serve a rimandare un buono
    che il cliente non ha ricevuto o si e' trovato nella posta indesiderata. */
@@ -980,22 +1012,24 @@ function mostraFatto(b, contenitore = 'fFatto') {
      all'anteprima qui sotto, a "Stampa subito" e a "Scarica il PDF". Un
      buono ancora in attesa il server lo marca BOZZA da se': la pagina non
      deve dirglielo, e non puo' sbagliarsi. */
-  let urlPdf = '';
   /* window.open resta DENTRO il clic dell'operatore e non dopo un await:
      una finestra aperta al ritorno di una promessa il browser la tratta
      come aperta da sola, e la blocca. Il foglio ce l'abbiamo gia', perche'
      l'anteprima qui sotto lo scarica appena il pannello compare. */
   const apriPdf = () => {
-    if (!urlPdf) { $('bEsito').textContent = 'L’anteprima si sta ancora caricando: un momento.'; return; }
-    if (!window.open(urlPdf, '_blank')) {
-      $('bEsito').textContent = 'Il browser ha bloccato la finestra: stampi dall’anteprima qui sotto.';
-    }
+    if (!urlBuonoMostrato) { $('bEsito').textContent = 'L’anteprima si sta ancora caricando: un momento.'; return; }
+    apriPdfGuardato(urlBuonoMostrato, $('bEsito'));
   };
   /* il pannello puo' essere sparito mentre il PDF arrivava (l'operatore ha
      cambiato scheda, o ha aperto un altro buono dall'elenco): allora non
-     c'e' piu' niente da riempire */
+     c'e' piu' niente da riempire. La revoca del foglio precedente va qui,
+     al momento in cui il nuovo e' davvero arrivato: se questa richiesta
+     fallisse, il vecchio foglio (magari ancora aperto in un'altra scheda
+     del browser) resterebbe valido invece di sparire per un errore che non
+     lo riguarda. */
   pdfUrl('?a=pdf&numero=' + encodeURIComponent(b.numero)).then((url) => {
-    urlPdf = url;
+    if (urlBuonoMostrato) URL.revokeObjectURL(urlBuonoMostrato);
+    urlBuonoMostrato = url;
     if (!$('bAnteprima')) return;
     iframePdf($('bAnteprima'), url);
     if ($('bScarica')) $('bScarica').href = url;
@@ -1063,8 +1097,9 @@ function mostraFatto(b, contenitore = 'fFatto') {
         $('bEsito').innerHTML = `\u2713 Email inviata a ${esc(dest)} con il buono in PDF allegato.`;
       } catch (e) {
         $('bEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
+      } finally {
+        bottone.disabled = false;
       }
-      bottone.disabled = false;
     };
     if ($('bMailDest')) $('bMailDest').onclick = () => perEmail($('bMailDest'), b.destinatario_email, 'destinatario');
     if ($('bMailAcq')) $('bMailAcq').onclick = () => perEmail($('bMailAcq'), b.acquirente_email, 'acquirente');

@@ -82,6 +82,12 @@ Deno.test('l anteprima del modulo non si ridisegna a ogni tasto: 900 ms dopo l u
   assert(ant.includes('URL.revokeObjectURL('), 'il PDF di prima non resta in memoria');
 });
 
+Deno.test('antStampa non apre la finestra senza controllare se il browser l ha bloccata', () => {
+  const ant = fra(BACKOFFICE, "$('antStampa').onclick", 'const conAnteprima');
+  assert(!ant.includes('window.open('), 'deve passare per apriPdfGuardato, non aprire la finestra per conto suo');
+  assert(ant.includes('apriPdfGuardato('), 'lo stesso percorso guardato di apriPdf (bStampa, bStampaBozza)');
+});
+
 Deno.test('le email del buono le manda il server con il PDF allegato, non Outlook a mano', () => {
   assert(BACKOFFICE.includes("chiama('?a=manda'"), 'l invio e una chiamata al server');
   assert(BACKOFFICE.includes('JSON.stringify({ numero: b.numero, a: chi })'), 'il buono e a chi mandarlo');
