@@ -39,15 +39,27 @@ padding:14px;overflow:auto;}
 .azioni-buono{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
 /* anche gli <a>: "Scarica il PDF" e' un link con download, non un pulsante */
 .azioni-buono button,.azioni-buono a{flex:1;min-width:150px;margin-top:0;text-align:center;}
-.famiglie{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
-.famiglie button{border:1px solid var(--pietra);background:#fff;border-radius:999px;padding:6px 14px;font:inherit;font-weight:600;cursor:pointer;color:var(--acqua-scura);}
-.famiglie button.attiva{background:var(--acqua-scura);color:#fff;border-color:var(--acqua-scura);}
-.schede{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--pietra);margin-bottom:18px;}
-.schede button{background:none;border:0;border-bottom:3px solid transparent;
-padding:10px 14px;font:600 14px Arial;color:var(--grigio);cursor:pointer;}
-.schede button.attiva{color:var(--acqua-scura);border-bottom-color:var(--acqua);}
-/* il numero delle richieste da guardare, sul pulsante della scheda */
-.schede button .conta{display:inline-block;min-width:18px;padding:0 6px;margin-left:4px;
+/* LA HOME A MATTONELLE E LA BARRA DELLA PAGINA (la proprieta', 7 settembre
+   2026: «ordinarlo, semplice, intuitivo, mobile friendly»). Le famiglie e le
+   schede in fila non ci sono piu': si entra su una schermata di mattonelle,
+   e ogni funzione e' una pagina intera con «Home» in alto. */
+.casa h2{margin:16px 0 8px;}
+.mattonelle{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
+.mattonella{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-height:104px;padding:14px;background:#fff;
+  border:1px solid var(--pietra);border-radius:12px;font:inherit;text-align:left;cursor:pointer;position:relative;color:var(--acqua-scura);min-width:0;}
+.mattonella:hover{border-color:var(--acqua);}
+.mattonella .icona{font-size:28px;line-height:1;}
+.mattonella .nome{font-weight:600;font-size:15px;line-height:1.25;overflow-wrap:anywhere;}
+.mattonella.principale{grid-column:span 2;background:var(--acqua-chiara);border-color:var(--acqua);}
+.mattonella .conta{position:absolute;top:12px;right:12px;}
+.barra{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.barra h1{font-size:18px;margin:0;flex:1;color:var(--acqua-scura);}
+.barra .indietro{background:#fff;border:1px solid var(--pietra);border-radius:999px;padding:8px 14px;font:600 14px Arial;color:var(--acqua-scura);cursor:pointer;}
+.barra .sorelle{display:flex;gap:6px;flex-wrap:wrap;}
+.barra .sorelle button{background:none;border:1px solid var(--pietra);border-radius:999px;padding:6px 12px;font:13px Arial;color:var(--grigio);cursor:pointer;}
+.barra .sorelle button:hover{color:var(--acqua-scura);border-color:var(--acqua);}
+/* il numero delle richieste da guardare, sulla mattonella e sulla pillola */
+.conta{display:inline-block;min-width:18px;padding:0 6px;margin-left:4px;
   border-radius:9px;background:#C97B2C;color:#fff;font-size:11px;font-weight:700;
   line-height:18px;text-align:center;vertical-align:1px;}
 .riquadro{background:#fff;border:1px solid var(--pietra);border-radius:8px;padding:18px;margin-bottom:16px;}
@@ -151,6 +163,31 @@ border-radius:0 8px 8px 0;padding:14px 16px;margin-top:14px;}
 .esitoGrande small{display:block;font-size:14px;margin-top:4px;opacity:.8;}
 body.sportello .chi a{display:none;}
 body.sportello #dOggiCod{font-size:22px;padding:14px;}
+/* SUL TELEFONO (la proprieta', 7 settembre 2026: e' li' che soffre). Le
+   tabelle con intestazione diventano schede impilate, una per riga, con
+   l'etichetta accanto a ogni valore (data-eti la copia tabelleInSchede
+   dalle intestazioni, per tutte le viste); i tasti d'azione principali
+   restano in fondo a portata di pollice; i campi a 16 px non fanno
+   ingrandire iOS; la barra della pagina resta in alto. */
+@media (max-width:700px){
+  header{padding:10px 12px;} header .marchio img{width:96px;} header .marchio span{display:none;}
+  main{padding:10px 10px 90px;} .riquadro{padding:12px;margin-bottom:12px;}
+  input,select,textarea{font-size:16px;}
+  .due>div{min-width:100%;}
+  .barra{position:sticky;top:0;background:var(--carta);z-index:4;padding:8px 0;margin:0 0 10px;}
+  .barra .sorelle{display:none;}
+  .mattonelle{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+  button.azione:not(.sec):not(.mini):not(.mini-azione){position:sticky;bottom:10px;z-index:3;box-shadow:0 6px 18px rgba(0,0,0,.18);}
+  table.aSchede,table.aSchede tbody,table.aSchede tr,table.aSchede td{display:block;width:100%;}
+  table.aSchede tr:first-child{display:none;}
+  table.aSchede tr[hidden]{display:none;}
+  table.aSchede tr{border:1px solid var(--pietra);border-radius:8px;padding:8px 10px;margin-bottom:10px;background:#fff;}
+  table.aSchede td{border:0;padding:6px 0;display:block;}
+  table.aSchede td[data-eti]::before{content:attr(data-eti);display:block;color:var(--grigio);font-size:11px;letter-spacing:.6px;text-transform:uppercase;margin-bottom:3px;}
+  table.aSchede td>input,table.aSchede td>select,table.aSchede td>textarea{display:block;width:100% !important;min-width:0 !important;margin:0 0 4px;}
+  table.aSchede td>input[type=checkbox]{display:inline-block;width:auto !important;transform:scale(1.4);margin:6px 4px;}
+  table.aSchede td>textarea{min-height:44px;}
+}
 </style>
 </head>
 <body>
@@ -510,7 +547,7 @@ function chiediAccesso(messaggio) {
       TOKEN = data.session.access_token;
       OPERATORE = data.user.user_metadata?.nome || email.split('@')[0];
       EMAIL = email;
-      VISTA = schedaIniziale(email);
+      VISTA = schedaDaUrl() || 'home';
       await chiama('?a=elenco'); // prova: verifica anche dominio e IP
       disegna();
     } catch (e) {
@@ -523,7 +560,63 @@ function chiediAccesso(messaggio) {
   $('kPwd').onkeydown = (ev) => { if (ev.key === 'Enter') entra(); };
 }
 
+/* SUL TELEFONO LE TABELLE DIVENTANO SCHEDE. Ogni tabella con una riga di
+   intestazione riceve la classe aSchede e, su ogni cella, l'etichetta della
+   sua colonna (data-eti): il CSS a 700 px le impila e mette l'etichetta
+   accanto al valore. Lo fa un osservatore su #app, cosi' vale per tutte le
+   viste, quelle di oggi e quelle di domani, senza toccarle una per una
+   (la proprieta', 7 settembre 2026). Sul PC non cambia niente. */
+function tabelleInSchede(radice) {
+  radice.querySelectorAll('table').forEach((t) => {
+    const testa = t.querySelector('tr');
+    if (!testa || testa.querySelector('td') || testa.children.length < 2) return;
+    const eti = [...testa.children].map((c) => c.textContent.trim());
+    t.classList.add('aSchede');
+    t.querySelectorAll('tr').forEach((r) => {
+      if (r === testa) return;
+      [...r.children].forEach((c, i) => { if (eti[i] && !c.hasAttribute('data-eti')) c.setAttribute('data-eti', eti[i]); });
+    });
+  });
+}
+new MutationObserver(() => tabelleInSchede($('app'))).observe($('app'), { childList: true, subtree: true });
+
 /* ---------- struttura ---------- */
+/* LE ICONE DELLE MATTONELLE: una per scheda (la prova lo controlla). */
+const ICONE = {
+  emetti: '\u{1F381}', elenco: '\u{1F4CB}', verifica: '\u2705', richieste: '\u2709\uFE0F', arrivi: '\u{1F6CE}\uFE0F', privacy: '\u{1F50F}',
+  dayspaOggi: '\u{1F486}', dayspaDisponibilita: '\u{1F4C5}', dayspaPrenotazioni: '\u{1F5D3}\uFE0F',
+  posMenu: '\u{1F37D}\uFE0F', posBacheca: '\u{1F4FA}', posTavoli: '\u{1FA91}', posPersonale: '\u{1F464}', posOrdiniQr: '\u{1F4F1}',
+  posAddebiti: '\u{1F3E8}', posGiornata: '\u{1F4CA}', posFasce: '\u23F0',
+};
+/** Il titolo sulla mattonella: senza il «POS · » davanti, la famiglia e' gia' scritta sopra. */
+const titoloBreve = (t) => String(t).replace(/^POS \u00b7 /, '');
+
+/* LA PAGINA APERTA STA NELL'INDIRIZZO (#posMenu): il tasto indietro del
+   telefono torna alla home o alla pagina di prima, e ricaricando si resta
+   dove si era. Lo sportello (?scheda=…&sportello=1) fa per conto suo. */
+function vistaDallHash() {
+  const v = location.hash.replace(/^#/, '');
+  return SCHEDE.some(([x]) => x === v) ? v : '';
+}
+function apri(vista, spingi = true) {
+  VISTA = vista;
+  if (spingi && !sportello()) history.pushState({ vista }, '', vista === 'home' ? location.pathname + location.search : '#' + vista);
+  disegna();
+}
+window.addEventListener('popstate', () => { if (!TOKEN || sportello()) return; VISTA = vistaDallHash() || 'home'; disegna(); });
+
+/* LA HOME: le mattonelle di chi e' entrato, famiglia per famiglia, nell'ordine
+   in cui quel ruolo le vede; la prima del ruolo (schedaIniziale) e' la
+   principale, piu' grande. */
+function mattonelle(visibili) {
+  const posto = (schede) => visibili.findIndex(([v]) => schede.includes(v));
+  const famiglie = FAMIGLIE.filter(([, , schede]) => posto(schede) >= 0).sort((a, b) => posto(a[2]) - posto(b[2]));
+  const principale = schedaIniziale(EMAIL);
+  return `<div class="casa">${famiglie.map(([, nome, schede]) => `<section><h2>${esc(nome)}</h2><div class="mattonelle">${
+    visibili.filter(([v]) => schede.includes(v)).map(([v, t]) => `<button type="button" class="mattonella ${v === principale ? 'principale' : ''}" data-scheda="${v}"><span class="icona">${ICONE[v] || '\u25AA'}</span><span class="nome">${esc(titoloBreve(t))}</span></button>`).join('')
+  }</div></section>`).join('')}</div>`;
+}
+
 function disegna() {
   $('chiSono').textContent = OPERATORE ? OPERATORE + ' \u00b7' : '';
   if (sportello()) {
@@ -534,24 +627,25 @@ function disegna() {
     return;
   }
   const visibili = schedeDi(EMAIL);
-  /* se la scheda corrente non e' fra quelle visibili si torna alla prima:
-     senza, la pagina disegnerebbe una vista senza il pulsante per uscirne */
-  if (!visibili.some(([v]) => v === VISTA)) VISTA = visibili[0][0];
-  /* due righe: le famiglie sopra, sotto le schede della famiglia aperta
-     (5 settembre 2026). Il pulsante di una famiglia apre la sua prima
-     scheda visibile, nell'ordine di chi e' entrato. */
+  /* una scheda che questo account non vede riporta alla home: senza, la
+     pagina disegnerebbe una vista senza il pulsante per uscirne */
+  if (VISTA !== 'home' && !visibili.some(([v]) => v === VISTA)) VISTA = 'home';
+  if (VISTA === 'home') {
+    $('app').innerHTML = mattonelle(visibili);
+    document.querySelectorAll('.mattonella').forEach((b) => b.onclick = () => apri(b.dataset.scheda));
+    aggiornaContatore();
+    return;
+  }
+  /* la pagina: in alto «Home», l'icona e il titolo; sul PC anche le schede
+     sorelle della stessa famiglia, per passare senza tornare alla home */
   const fam = famigliaDi(VISTA);
-  const famiglie = FAMIGLIE.filter(([, , schede]) => schede.some((v) => visibili.some(([x]) => x === v)));
-  const diQuesta = visibili.filter(([v]) => famigliaDi(v) === fam);
-  $('app').innerHTML = `<div class="famiglie">${famiglie.map(([f, nome]) =>
-    `<button data-famiglia="${f}" class="${f === fam ? 'attiva' : ''}">${esc(nome)}</button>`
-  ).join('')}</div><div class="schede">${diQuesta.map(([v, t]) =>
-    `<button data-scheda="${v}" class="${VISTA === v ? 'attiva' : ''}">${esc(t)}</button>`
-  ).join('')}</div><div id="vista"></div>`;
-  document.querySelectorAll('.famiglie button').forEach((b) =>
-    b.onclick = () => { const prima = visibili.find(([v]) => famigliaDi(v) === b.dataset.famiglia); if (prima) { VISTA = prima[0]; disegna(); } });
-  document.querySelectorAll('.schede button').forEach(b =>
-    b.onclick = () => { VISTA = b.dataset.scheda; disegna(); });
+  const [, titolo] = visibili.find(([v]) => v === VISTA);
+  const sorelle = visibili.filter(([v]) => famigliaDi(v) === fam && v !== VISTA);
+  $('app').innerHTML = `<div class="barra"><button type="button" class="indietro" id="tornaHome" title="Torna alla schermata iniziale">\u2039 Home</button><h1>${ICONE[VISTA] || ''} ${esc(titoloBreve(titolo))}</h1><nav class="sorelle">${
+    sorelle.map(([v, t]) => `<button type="button" data-scheda="${v}">${ICONE[v] || ''} ${esc(titoloBreve(t))}</button>`).join('')
+  }</nav></div><div id="vista"></div>`;
+  $('tornaHome').onclick = () => apri('home');
+  document.querySelectorAll('.sorelle button').forEach((b) => b.onclick = () => apri(b.dataset.scheda));
   ({ emetti: vistaEmetti, elenco: vistaElenco, verifica: vistaVerifica,
      richieste: vistaRichieste, arrivi: vistaArrivi, dayspaOggi: vistaDayspaOggi,
      dayspaDisponibilita: vistaDayspaDisponibilita, dayspaPrenotazioni: vistaDayspaPrenotazioni,
@@ -568,14 +662,16 @@ function disegna() {
    vista. Il numero e' un aiuto, non un dato: se la chiamata fallisce il
    pulsante resta com'e', senza errori a video. */
 async function aggiornaContatore() {
-  const b = document.querySelector('.schede button[data-scheda="richieste"]') || document.querySelector('.famiglie button[data-famiglia="ospiti"]');
-  if (!b) return;
+  const dove = [...document.querySelectorAll('[data-scheda="richieste"]')];
+  if (!dove.length) return;
   try {
     const j = await chiama('?a=elenco&stato=nuova&cerca=', {}, FUNZIONE_RICHIESTE);
     const n = (j.richieste || []).length;
-    const vecchio = b.querySelector('.conta');
-    if (vecchio) vecchio.remove();
-    if (n > 0) b.insertAdjacentHTML('beforeend', ` <span class="conta">${n}</span>`);
+    for (const b of dove) {
+      const vecchio = b.querySelector('.conta');
+      if (vecchio) vecchio.remove();
+      if (n > 0) b.insertAdjacentHTML('beforeend', ` <span class="conta">${n}</span>`);
+    }
   } catch (e) { /* senza numero la scheda resta com'e' */ }
 }
 
@@ -3530,7 +3626,7 @@ function vistaDayspaPrenotazioni() {
        sessione gia' aperta — cioe' per la reception, sempre. Visto in
        reception il 3 settembre 2026: intestazione nuova, ordine vecchio. */
     EMAIL = data.session.user.email || '';
-    VISTA = schedaDaUrl() || schedaIniziale(EMAIL);
+    VISTA = schedaDaUrl() || vistaDallHash() || 'home';
     try { await chiama('?a=elenco'); disegna(); return; }
     catch (e) { await esci(); chiediAccesso(e.message); return; }
   }
