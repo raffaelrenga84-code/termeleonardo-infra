@@ -27,8 +27,9 @@ Deno.test('la pagina del POS si serve da qui: solo i suoi file, niente altro', (
 });
 
 Deno.test('sulla TV basta /tv/CODICE: serve la pagina dello schermo, e niente altro passa da li', () => {
-  assertEquals(fileDellaPagina('/tv/AB12CD34'), { file: 'cucina/index.html', tipo: 'text/html; charset=utf-8' });
-  assertEquals(fileDellaPagina('/tv/ab12cd34/'), { file: 'cucina/index.html', tipo: 'text/html; charset=utf-8' });
+  /* la versione tradotta per le TV vecchie (6 settembre 2026, sera) */
+  assertEquals(fileDellaPagina('/tv/AB12CD34'), { file: 'cucina/tv.html', tipo: 'text/html; charset=utf-8' });
+  assertEquals(fileDellaPagina('/tv/ab12cd34/'), { file: 'cucina/tv.html', tipo: 'text/html; charset=utf-8' });
   assertEquals(fileDellaPagina('/tv/../config.json'), null);
   assertEquals(fileDellaPagina('/tv/'), null);
 });

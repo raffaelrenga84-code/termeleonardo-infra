@@ -37,13 +37,13 @@ main{flex:1 1 auto;overflow:auto;padding:14px;}
 /* due colonne, come i monitor dei fast food: a sinistra quello che arriva,
    a destra quello che si sta facendo («buoni nuovi tutti a sinistra, in
    preparazione tutti a destra», la proprieta', 6 settembre 2026) */
-main.griglia{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-content:start;}
+main.griglia{display:grid;grid-template-columns:1fr 1fr;grid-gap:18px;gap:18px;align-content:start;}
 .colonna{display:flex;flex-direction:column;gap:12px;min-width:0;}
 .colonna h2{margin:0;font-size:22px;letter-spacing:.08em;text-transform:uppercase;color:#9DB3A6;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #24332B;padding-bottom:6px;}
 .colonna h2 .conta{background:#24332B;color:#fff;border-radius:999px;padding:2px 12px;font-size:20px;}
 .colonna.lavoro h2{color:#8FD3A6;border-bottom-color:#2E6B45;}
 .colonna.lavoro h2 .conta{background:#2E6B45;}
-.cartelle{display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:14px;align-content:start;}
+.cartelle{display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));grid-gap:14px;gap:14px;align-content:start;}
 .colonna .niente{color:#5A6E62;font-size:24px;padding:20px 0;}
 main.vuoto{display:flex;align-items:center;justify-content:center;font-size:40px;color:#5A6E62;text-align:center;}
 .scheda{background:#fff;color:#12201A;border-radius:14px;border-top:12px solid #9E9E9E;padding:10px 14px 14px;display:flex;flex-direction:column;gap:8px;}
@@ -126,6 +126,16 @@ import { colorePerAttesa, minutiDa, nuovi, ordina, resa, tastoPer, TESTI, perCol
 import { creaServer } from '/pos/server.js';
 
 const CLOUD = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos';
+/* Un timeout per fetch che regge anche i browser vecchi delle TV:
+   AbortSignal.timeout e' del 2022; senza, un AbortController con un
+   orologio; senza nemmeno quello, nessun timeout (la corsa da un secondo
+   del ping la fa gia' creaServer). Senza questa guardia la pagina si
+   fermava alla prima chiamata (la proprieta', 6 settembre 2026). */
+function segnale(ms) {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms);
+  if (typeof AbortController !== 'undefined') { const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; }
+  return undefined;
+}
 const GIRO_MS = 3000;              // ogni tre secondi: una comanda non deve aspettare
 const QUANTE_PRONTE = 5;           // le ultime pronte tenute in fondo, in memoria
 const RIAPRI_MS = 120000;          // il server non riapre oltre i due minuti (schermo.ts)
@@ -166,7 +176,7 @@ const P = postazione();
 
 const server = creaServer({
   locale: SERVER_LOCALE, cloud: CLOUD,
-  ping: (u) => fetch(u + '?a=stato-locale', { signal: AbortSignal.timeout(900) }).then((r) => r.ok),
+  ping: (u) => fetch(u + '?a=stato-locale', { signal: segnale(900) }).then((r) => r.ok),
 });
 
 let LISTA = [];          // i biglietti dell'ultimo giro, gia' ordinati
@@ -195,7 +205,7 @@ async function chiama(azione, opz = {}) {
       method: opz.method || 'GET',
       headers: { 'content-type': 'application/json', 'x-schermo-chiave': P.k },
       body: opz.body,
-      signal: AbortSignal.timeout(8000),
+      signal: segnale(8000),
     });
   } catch (e) {
     /* il PC ha smesso di rispondere a meta' strada: si passa al cloud e si

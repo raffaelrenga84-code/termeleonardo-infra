@@ -75,6 +75,8 @@ fs.mkdirSync(path.join(pagina, 'cucina'), { recursive: true });
 for (const f of ['index.html', 'schermo.js']) {
   fs.copyFileSync(path.join('pagine/cucina', f), path.join(pagina, 'cucina', f));
 }
+/* e la versione per le TV vecchie, che il PC serve a /tv/CODICE */
+fs.copyFileSync('pagine/cucina/tv.html', path.join(pagina, 'cucina', 'tv.html'));
 
 console.log('[4/4] installa.cmd e il modello della configurazione...');
 fs.copyFileSync('pos-locale/installa.cmd', path.join(DEST, 'installa.cmd'));

@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<!-- si deve poter ingrandire: su un tablet una nota scritta piccola si
+     legge avvicinando due dita, non avvicinando la faccia -->
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#101814" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Monitor cucina — Hotel Terme Leonardo</title>
+<link rel="icon" href="/ingresso/icona-192.png" type="image/png" />
+<style>
+/* LO SCHERMO DI CUCINA E DI BAR. «Come riusciamo a fare un monitor per
+   ordini al posto dei biglietti stampati?» (la proprieta', 6 settembre
+   2026). Sta appeso: si legge da due metri e si tocca con le mani
+   occupate. Sfondo scuro perche' una TV accesa tutto il giorno in cucina
+   non deve abbagliare; le schede chiare sopra, che il biglietto di carta
+   era bianco e l'occhio lo cerca cosi'. Verde, giallo e rosso dicono da
+   quanto aspetta una comanda: e' l'unica cosa da capire di corsa. */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{margin:0;display:flex;flex-direction:column;background:#101814;color:#E8F0EA;
+  font:18px/1.35 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none;}
+/* il carattere dei tasti si prende cosi', come nel palmare: dentro
+   l'abbreviazione «font:» la parola inherit invalida tutta la riga, e i
+   tasti tornerebbero piccoli (13px) proprio dove si toccano con le mani
+   occupate. Sotto si cambiano solo peso e misura, mai l'abbreviazione. */
+button{font:inherit;color:inherit;cursor:pointer;}
+header{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:14px;padding:0 18px;background:#16221C;border-bottom:1px solid #24352C;}
+header .nome{flex:1;font-size:22px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+header .spia{font-size:16px;color:#9FB3A7;white-space:nowrap;}
+header .spia.locale{color:#7FD69B;}
+header .spia.cloud{color:#E3C57A;}
+header .spia.giu{color:#F08A7E;}
+main{flex:1 1 auto;overflow:auto;padding:14px;}
+/* le schede: tante quante ne stanno, larghe almeno 300px */
+/* due colonne, come i monitor dei fast food: a sinistra quello che arriva,
+   a destra quello che si sta facendo («buoni nuovi tutti a sinistra, in
+   preparazione tutti a destra», la proprieta', 6 settembre 2026) */
+main.griglia{display:grid;grid-template-columns:1fr 1fr;grid-gap:18px;gap:18px;align-content:start;}
+.colonna{display:flex;flex-direction:column;gap:12px;min-width:0;}
+.colonna h2{margin:0;font-size:22px;letter-spacing:.08em;text-transform:uppercase;color:#9DB3A6;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #24332B;padding-bottom:6px;}
+.colonna h2 .conta{background:#24332B;color:#fff;border-radius:999px;padding:2px 12px;font-size:20px;}
+.colonna.lavoro h2{color:#8FD3A6;border-bottom-color:#2E6B45;}
+.colonna.lavoro h2 .conta{background:#2E6B45;}
+.cartelle{display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));grid-gap:14px;gap:14px;align-content:start;}
+.colonna .niente{color:#5A6E62;font-size:24px;padding:20px 0;}
+main.vuoto{display:flex;align-items:center;justify-content:center;font-size:40px;color:#5A6E62;text-align:center;}
+.scheda{background:#fff;color:#12201A;border-radius:14px;border-top:12px solid #9E9E9E;padding:10px 14px 14px;display:flex;flex-direction:column;gap:8px;}
+.scheda.verde{background:#EAF6EC;border-top-color:#2E9E52;}
+.scheda.giallo{background:#FBF3DC;border-top-color:#D9A517;}
+.scheda.rosso{background:#FBE3DE;border-top-color:#C0392B;}
+/* in preparazione: verde, col bordo, e da quanti minuti ci si lavora */
+.scheda.presa{background:#E3F0EA;border-top-color:#2E6B45;box-shadow:inset 0 0 0 3px #2E6B45;}
+.lavoro-da{align-self:flex-start;background:#2E6B45;color:#fff;font-size:20px;font-weight:700;padding:4px 10px;border-radius:8px;}
+.scheda.scelta{outline:5px solid #8FC4BC;outline-offset:2px;}
+.alto{display:flex;align-items:baseline;gap:10px;}
+.numero{background:#12201A;color:#fff;border-radius:8px;font-size:16px;font-weight:700;padding:2px 9px;}
+.tavolo{flex:1;font-size:34px;font-weight:700;line-height:1.1;}
+.attesa{font-size:30px;font-weight:700;}
+.attesa.verde{color:#22803F;}
+.attesa.giallo{color:#8A6600;}
+.attesa.rosso{color:#B02A1C;}
+.tipo{align-self:flex-start;background:#12201A;color:#fff;font-size:22px;font-weight:700;letter-spacing:.06em;padding:2px 12px;border-radius:8px;}
+/* «portare al ristorante» e «cucina chiusa: al bancone» stanno in cima e
+   in giallo: sono le due cose che, se sfuggono, fanno telefonare */
+.avviso{background:#FFE68A;color:#4A3A00;font-size:22px;font-weight:700;padding:6px 10px;border-radius:8px;}
+.meta{font-size:20px;color:#3C5346;text-transform:capitalize;}
+.vitto{font-size:22px;font-weight:700;color:#B02A1C;}
+.righe{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.righe li{font-size:26px;line-height:1.25;padding-top:6px;border-top:1px solid rgba(0,0,0,.12);}
+.righe .q{font-weight:800;}
+.righe .var,.righe .nota{display:block;font-size:22px;margin-left:16px;font-weight:600;}
+.righe .var{color:#1F6B4F;}
+.righe .nota{color:#B02A1C;}
+.testo{margin:0;font:22px/1.3 ui-monospace,Consolas,monospace;white-space:pre-wrap;}
+.fallita{font-size:18px;font-weight:600;color:#B02A1C;}
+.tasti{display:flex;gap:10px;margin-top:auto;padding-top:6px;}
+/* tasti alti almeno 48px: si toccano di sfuggita, con le mani sporche */
+.tasto{flex:1;min-height:56px;border:0;border-radius:10px;padding:16px 8px;font-weight:700;font-size:22px;font-family:inherit;background:#1A3626;color:#fff;}
+.tasto.sec{background:#fff;color:#1A3626;border:3px solid #1A3626;}
+/* il tocco si deve vedere: se no si tocca due volte e si manda due passi */
+.tasto:active{background:#2E6B45;color:#fff;transform:scale(.97);}
+.tasto.sec:active{background:#CFE4D8;color:#1A3626;}
+footer{flex:0 0 auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 18px;background:#16221C;border-top:1px solid #24352C;}
+footer[hidden]{display:none;}
+footer .etichetta{font-size:16px;letter-spacing:.08em;text-transform:uppercase;color:#9FB3A7;}
+.ultime{display:flex;gap:10px;flex-wrap:wrap;}
+.pronta{display:flex;align-items:center;gap:10px;background:#22332B;border-radius:10px;padding:6px 10px;font-size:20px;}
+.riapri{min-height:48px;border:0;border-radius:8px;background:#3C5346;color:#fff;font-weight:600;font-size:18px;font-family:inherit;padding:12px 18px;}
+.riapri:active{background:#547A66;}
+/* passati due minuti il server non riapre piu': il tasto lo dice prima */
+.riapri:disabled{opacity:.4;cursor:default;}
+.velo{position:fixed;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;padding:30px;text-align:center;background:#101814;}
+.velo[hidden]{display:none;}
+.grande{margin:0;max-width:16em;font-size:44px;font-weight:700;line-height:1.25;}
+.messaggio{position:fixed;left:50%;bottom:26px;z-index:6;transform:translateX(-50%);margin:0;padding:12px 22px;border-radius:12px;
+  background:#C0392B;color:#fff;font-size:22px;font-weight:600;}
+.messaggio[hidden]{display:none;}
+/* un tablet in verticale: una colonna sola, ma i caratteri restano grandi */
+@media (max-width: 700px){
+  main.griglia{grid-template-columns:1fr;}
+  .cartelle{grid-template-columns:1fr;}
+  main.vuoto{font-size:30px;}
+  .grande{font-size:34px;}
+}
+</style>
+</head>
+<body>
+<header>
+  <span class="nome" id="nome">Monitor cucina</span>
+  <span class="spia" id="spia"></span>
+</header>
+<main id="schede" class="griglia"></main>
+<footer id="striscia" hidden>
+  <span class="etichetta" id="etichettaUltime"></span>
+  <div class="ultime" id="ultime"></div>
+</footer>
+<div class="velo" id="inizia"><p class="grande" id="testoInizia"></p></div>
+<div class="velo" id="blocco" hidden><p class="grande" id="testoBlocco"></p></div>
+<p class="messaggio" id="messaggio" hidden></p>
+
+<!-- GENERATO da strumenti/cucina-tv.js: non modificare a mano, modificare index.html e rigenerare. impronta:c21d2c306b195263 -->
+<script>
+"use strict";
+(() => {
+  var __async = (__this, __arguments, generator) => {
+    return new Promise((resolve, reject) => {
+      var fulfilled = (value) => {
+        try {
+          step(generator.next(value));
+        } catch (e) {
+          reject(e);
+        }
+      };
+      var rejected = (value) => {
+        try {
+          step(generator.throw(value));
+        } catch (e) {
+          reject(e);
+        }
+      };
+      var step = (x) => x.done ? resolve(x.value) : Promise.resolve(x.value).then(fulfilled, rejected);
+      step((generator = generator.apply(__this, __arguments)).next());
+    });
+  };
+
+  // pagine/cucina/schermo.js
+  var SOGLIE_MIN = { verde: 5, giallo: 12 };
+  function colorePerAttesa(minuti) {
+    const m = Number(minuti);
+    if (!Number.isFinite(m) || m < SOGLIE_MIN.verde) return "verde";
+    return m < SOGLIE_MIN.giallo ? "giallo" : "rosso";
+  }
+  function minutiDa(iso, adesso) {
+    const nato = new Date(iso != null ? iso : "").getTime();
+    const dato = adesso === void 0 ? Date.now() : adesso;
+    const ora = dato instanceof Date ? dato.getTime() : Number(dato);
+    if (!Number.isFinite(nato) || !Number.isFinite(ora)) return 0;
+    return Math.max(0, Math.floor((ora - nato) / 6e4));
+  }
+  function ordina(biglietti) {
+    const q = (s) => {
+      var _a;
+      return new Date((_a = s && s.creato_il) != null ? _a : "").getTime();
+    };
+    return (Array.isArray(biglietti) ? biglietti.slice() : []).sort((a, b) => {
+      var _a, _b;
+      const da = q(a), db = q(b);
+      const na = Number.isFinite(da) ? da : 0, nb = Number.isFinite(db) ? db : 0;
+      if (na !== nb) return na - nb;
+      return String((_a = a && a.id) != null ? _a : "").localeCompare(String((_b = b && b.id) != null ? _b : ""));
+    });
+  }
+  var soloTesto = (x) => typeof x === "string" ? x : "";
+  function resa(s) {
+    var _a, _b, _c, _d, _e;
+    const riga = s || {};
+    let b = riga.biglietto;
+    if (typeof b === "string") {
+      try {
+        b = JSON.parse(b);
+      } catch (e) {
+        b = null;
+      }
+    }
+    if (!b || typeof b !== "object") {
+      return { tipo: "", tavolo: "", portata: "", ora: "", cameriere: "", righe: [], avviso: null, portareA: null, noteVitto: null, testo: soloTesto(riga.testo) };
+    }
+    const righe = (Array.isArray(b.righe) ? b.righe : []).map((r) => {
+      var _a2;
+      const q = Number((r || {}).quantita);
+      return {
+        quantita: Number.isFinite(q) ? q : 1,
+        nome: String((_a2 = (r || {}).nome) != null ? _a2 : ""),
+        variante: (r || {}).variante || null,
+        nota: (r || {}).nota || null
+      };
+    });
+    return {
+      tipo: String((_a = b.tipo) != null ? _a : ""),
+      tavolo: String((_b = b.tavolo) != null ? _b : ""),
+      portata: String((_c = b.portata) != null ? _c : ""),
+      ora: String((_d = b.ora) != null ? _d : ""),
+      cameriere: String((_e = b.cameriere) != null ? _e : ""),
+      righe,
+      avviso: b.avviso || null,
+      portareA: b.portareA || null,
+      noteVitto: b.noteVitto || null,
+      testo: soloTesto(riga.testo)
+    };
+  }
+  var idDi = (x) => {
+    var _a;
+    return x && typeof x === "object" ? String((_a = x.id) != null ? _a : "") : String(x != null ? x : "");
+  };
+  function nuovi(prima, dopo) {
+    const c_era = new Set((Array.isArray(prima) ? prima : []).map(idDi));
+    return (Array.isArray(dopo) ? dopo : []).map(idDi).filter((id) => id && !c_era.has(id));
+  }
+  function tastoPer(key, quante) {
+    const k = String(key != null ? key : "");
+    if (/^[1-9]$/.test(k)) {
+      const indice = Number(k) - 1;
+      return indice < Number(quante || 0) ? { azione: "scegli", indice } : null;
+    }
+    if (k === "p" || k === "P") return { azione: "presa" };
+    if (k === "Enter") return { azione: "pronta" };
+    if (k === "Backspace") return { azione: "riapri" };
+    return null;
+  }
+  function perColonne(biglietti) {
+    const lista = Array.isArray(biglietti) ? biglietti : [];
+    return { nuove: lista.filter((s) => !s.presa_il), inPrep: lista.filter((s) => !!s.presa_il) };
+  }
+  var TESTI = {
+    daFare: "Da fare",
+    inLavoro: "In preparazione",
+    inizia: "Tocca per iniziare",
+    vuoto: "Nessuna comanda in attesa",
+    presa: "In preparazione",
+    pronta: "Pronto",
+    riapri: "Riapri",
+    pc: "PC del Bistrot",
+    cloud: "cloud",
+    senzaRete: "senza rete",
+    ultime: "Ultime pronte"
+  };
+
+  // pagine/pos/server.js
+  function creaServer({ locale, cloud, ping, timeoutMs = 1e3, ogniMs = 3e4, adesso = Date.now }) {
+    let corrente = "cloud", ultimoTentativo = -Infinity;
+    const provaLocale = () => __async(this, null, function* () {
+      try {
+        const ok = yield Promise.race([ping(locale), new Promise((r) => setTimeout(() => r(false), timeoutMs))]);
+        return ok === true;
+      } catch (e) {
+        return false;
+      }
+    });
+    return {
+      base() {
+        return __async(this, null, function* () {
+          if (!locale) {
+            corrente = "cloud";
+            return cloud;
+          }
+          if (corrente === "locale" || adesso() - ultimoTentativo >= ogniMs) {
+            ultimoTentativo = adesso();
+            corrente = (yield provaLocale()) ? "locale" : "cloud";
+          }
+          return corrente === "locale" ? locale : cloud;
+        });
+      },
+      stato() {
+        return corrente;
+      },
+      /* il locale ha smesso di rispondere a meta' strada: si passa subito al cloud */
+      localeCaduto() {
+        corrente = "cloud";
+        ultimoTentativo = adesso();
+      }
+    };
+  }
+
+  // ../AppData/Local/Temp/cucina-tv-68TSOb/entrata.js
+  var CLOUD = "https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos";
+  function segnale(ms) {
+    if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") return AbortSignal.timeout(ms);
+    if (typeof AbortController !== "undefined") {
+      const c = new AbortController();
+      setTimeout(() => c.abort(), ms);
+      return c.signal;
+    }
+    return void 0;
+  }
+  var GIRO_MS = 3e3;
+  var QUANTE_PRONTE = 5;
+  var RIAPRI_MS = 12e4;
+  var PRONTE_MS = 6e5;
+  var DAL_PC = location.protocol === "http:" && /^\d+\.\d+\.\d+\.\d+$/.test(location.hostname);
+  var SERVER_LOCALE = DAL_PC ? location.origin : localStorage.getItem("posServerLocale") || "";
+  var $ = (id) => document.getElementById(id);
+  var esc = (s) => String(s != null ? s : "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  var Q = new URLSearchParams(location.search);
+  function postazione() {
+    const dalPercorso = (location.pathname.match(/^\/tv\/([A-Za-z0-9]{4,32})/) || [])[1] || "";
+    const l = Q.get("l") || "", s = Q.get("s") || "", k = (Q.get("k") || dalPercorso).trim().toUpperCase();
+    if (k) history.replaceState(null, "", dalPercorso ? "/cucina" : location.pathname);
+    if (k) {
+      const p = { l, s, k };
+      localStorage.setItem("cucinaPostazione", JSON.stringify(p));
+      return p;
+    }
+    try {
+      const p = JSON.parse(localStorage.getItem("cucinaPostazione") || "null");
+      return p && p.k ? { l: p.l || "", s: p.s || "", k: p.k } : null;
+    } catch (e) {
+      return null;
+    }
+  }
+  var P = postazione();
+  var server = creaServer({
+    locale: SERVER_LOCALE,
+    cloud: CLOUD,
+    ping: (u) => fetch(u + "?a=stato-locale", { signal: segnale(900) }).then((r) => r.ok)
+  });
+  var LISTA = [];
+  var VISTI = [];
+  var PRIMO = true;
+  var SCELTA = null;
+  var ULTIME = [];
+  var SCARTO = 0;
+  var RETE = false;
+  var ULTIMO_GIRO = null;
+  var INGIRO = false;
+  var RIFAI = false;
+  var TIMER = null;
+  var TIMER_MESSAGGIO = null;
+  var AUDIO = null;
+  var WAKE = null;
+  function spia() {
+    const dove = !RETE ? TESTI.senzaRete : server.stato() === "locale" ? TESTI.pc : TESTI.cloud;
+    const ora = ULTIMO_GIRO ? ULTIMO_GIRO.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : "";
+    const s = $("spia");
+    s.className = "spia " + (RETE ? server.stato() : "giu");
+    s.textContent = ora ? `${dove} · ${ora}` : dove;
+  }
+  function chiama(_0) {
+    return __async(this, arguments, function* (azione, opz = {}) {
+      const base = yield server.base();
+      const qs = P.l && P.s ? `&locale=${encodeURIComponent(P.l)}&stampante=${encodeURIComponent(P.s)}` : "";
+      let r;
+      try {
+        r = yield fetch(`${base}?a=${azione}${qs}`, {
+          method: opz.method || "GET",
+          headers: { "content-type": "application/json", "x-schermo-chiave": P.k },
+          body: opz.body,
+          signal: segnale(8e3)
+        });
+      } catch (e) {
+        if (server.stato() === "locale") {
+          server.localeCaduto();
+          return chiama(azione, opz);
+        }
+        RETE = false;
+        spia();
+        throw new TypeError("rete: " + e.message);
+      }
+      const j = yield r.json().catch(() => ({}));
+      if (!r.ok) {
+        const err = new Error(j.errore || `errore ${r.status}`);
+        err.stato = r.status;
+        throw err;
+      }
+      return j;
+    });
+  }
+  function suona() {
+    if (!AUDIO) return;
+    try {
+      const o = AUDIO.createOscillator(), g = AUDIO.createGain();
+      o.type = "sine";
+      o.frequency.value = 880;
+      g.gain.value = 0.2;
+      o.connect(g);
+      g.connect(AUDIO.destination);
+      o.start();
+      o.stop(AUDIO.currentTime + 0.15);
+    } catch (e) {
+    }
+  }
+  function tieniAcceso() {
+    return __async(this, null, function* () {
+      var _a;
+      try {
+        WAKE = (yield (_a = navigator.wakeLock) == null ? void 0 : _a.request("screen")) || null;
+      } catch (e) {
+        WAKE = null;
+      }
+    });
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    tieniAcceso();
+    if (AUDIO && AUDIO.state === "suspended") AUDIO.resume();
+    if (TIMER) giro();
+  });
+  function scheda(s, i) {
+    const b = resa(s);
+    const minuti = minutiDa(s.creato_il, Date.now() + SCARTO);
+    const colore = colorePerAttesa(minuti);
+    const presa = !!s.presa_il;
+    const righe = b.righe.map((r) => `<li><span class="q">${esc(r.quantita)} ×</span> ${esc(r.nome)}` + (r.variante ? `<span class="var">+ ${esc(r.variante)}</span>` : "") + (r.nota ? `<span class="nota">&gt; ${esc(r.nota)}</span>` : "") + "</li>").join("");
+    const corpo = b.righe.length ? `<ul class="righe">${righe}</ul>` : b.testo ? `<pre class="testo">${esc(b.testo)}</pre>` : "";
+    const meta = [b.portata, b.ora, b.cameriere].filter(Boolean).map(esc).join(" · ");
+    return `<article class="scheda ${colore}${presa ? " presa" : ""}${s.id === SCELTA ? " scelta" : ""}" data-id="${esc(s.id)}">
+    <div class="alto">${i < 9 ? `<span class="numero">${i + 1}</span>` : ""}<span class="tavolo">${esc(b.tavolo || "Comanda")}</span><span class="attesa ${colore}">${minuti}′</span></div>
+    ${presa ? `<div class="lavoro-da">${TESTI.inLavoro} · ${minutiDa(s.presa_il, Date.now() + SCARTO)}′</div>` : ""}
+    ${b.tipo && b.tipo !== "COMANDA" ? `<div class="tipo">${esc(b.tipo)}</div>` : ""}
+    ${b.portareA ? `<div class="avviso">Portare al ${esc(b.portareA)}</div>` : ""}
+    ${b.avviso ? `<div class="avviso">${esc(b.avviso)}</div>` : ""}
+    ${meta ? `<div class="meta">${meta}</div>` : ""}
+    ${b.noteVitto ? `<div class="vitto">${esc(b.noteVitto)}</div>` : ""}
+    ${corpo}
+    ${s.stato === "errore" ? '<div class="fallita">stampa fallita</div>' : ""}
+    <div class="tasti">
+      ${presa ? "" : `<button class="tasto sec" data-p="presa">${TESTI.presa}</button>`}
+      <button class="tasto" data-p="pronta">${TESTI.pronta}</button>
+    </div>
+  </article>`;
+  }
+  function disegna() {
+    const g = $("schede");
+    if (LISTA.length) {
+      g.className = "griglia";
+      const c = perColonne(LISTA);
+      LISTA = [...c.nuove, ...c.inPrep];
+      let i = 0;
+      const colonna = (classe, titolo, lista) => `<section class="colonna ${classe}"><h2><span>${esc(titolo)}</span><span class="conta">${lista.length}</span></h2>
+      <div class="cartelle">${lista.length ? lista.map((s) => scheda(s, i++)).join("") : '<div class="niente">—</div>'}</div></section>`;
+      g.innerHTML = colonna("nuove", TESTI.daFare, c.nuove) + colonna("lavoro", TESTI.inLavoro, c.inPrep);
+    } else {
+      g.className = "vuoto";
+      g.textContent = TESTI.vuoto;
+    }
+    const ora = Date.now();
+    ULTIME = ULTIME.filter((u) => ora - u.alle < PRONTE_MS);
+    $("striscia").hidden = ULTIME.length === 0;
+    $("ultime").innerHTML = ULTIME.map((u) => `<span class="pronta"><b>${esc(u.tavolo)}</b><button class="riapri" data-r="${esc(u.id)}"${ora - u.alle > RIAPRI_MS ? " disabled" : ""}>${TESTI.riapri}</button></span>`).join("");
+  }
+  function messaggio(t) {
+    const m = $("messaggio");
+    m.textContent = t;
+    m.hidden = false;
+    clearTimeout(TIMER_MESSAGGIO);
+    TIMER_MESSAGGIO = setTimeout(() => {
+      m.hidden = true;
+    }, 3e3);
+  }
+  function blocca(t) {
+    if (TIMER) {
+      clearInterval(TIMER);
+      TIMER = null;
+    }
+    RIFAI = false;
+    $("inizia").hidden = true;
+    $("testoBlocco").textContent = t;
+    $("blocco").hidden = false;
+  }
+  var NON_RICONOSCIUTO = "Schermo non riconosciuto: chiedere un link nuovo dal back office";
+  function giro() {
+    return __async(this, null, function* () {
+      if (INGIRO || !P) return;
+      INGIRO = true;
+      try {
+        const d = yield chiama("schermo");
+        SCARTO = d.adesso ? new Date(d.adesso).getTime() - Date.now() : 0;
+        if (d.postazione && d.postazione.nome) $("nome").textContent = d.postazione.nome;
+        LISTA = ordina(d.biglietti);
+        const ids = LISTA.map((s) => s.id);
+        if (!PRIMO && nuovi(VISTI, ids).length) suona();
+        PRIMO = false;
+        VISTI = ids;
+        if (SCELTA && !ids.includes(SCELTA)) SCELTA = null;
+        RETE = true;
+        ULTIMO_GIRO = /* @__PURE__ */ new Date();
+        disegna();
+      } catch (e) {
+        if (e.stato === 401) blocca(NON_RICONOSCIUTO);
+        else if (e instanceof TypeError) RETE = false;
+        else {
+          RETE = false;
+          messaggio(e.message);
+        }
+      } finally {
+        INGIRO = false;
+        spia();
+        if (RIFAI) {
+          RIFAI = false;
+          giro();
+        }
+      }
+    });
+  }
+  function rigira() {
+    if (INGIRO) RIFAI = true;
+    else giro();
+  }
+  function passo(id, quale) {
+    return __async(this, null, function* () {
+      if (!id) return;
+      const prima = LISTA.find((s) => s.id === id);
+      try {
+        yield chiama("schermo-stato", { method: "POST", body: JSON.stringify({ id, passo: quale }) });
+      } catch (e) {
+        if (e.stato === 401) blocca(NON_RICONOSCIUTO);
+        else messaggio(e instanceof TypeError ? TESTI.senzaRete : e.message);
+        return;
+      }
+      if (quale === "pronta" && prima) {
+        const b = resa(prima);
+        ULTIME = [{ id, tavolo: b.tavolo || "Comanda", alle: Date.now() }, ...ULTIME.filter((u) => u.id !== id)].slice(0, QUANTE_PRONTE);
+      }
+      if (quale === "riapri") ULTIME = ULTIME.filter((u) => u.id !== id);
+      if (SCELTA === id) SCELTA = null;
+      if (quale === "pronta") LISTA = LISTA.filter((s) => s.id !== id);
+      if (quale === "presa" && prima) prima.presa_il = (/* @__PURE__ */ new Date()).toISOString();
+      disegna();
+      rigira();
+    });
+  }
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-p]");
+    if (t) {
+      const dove = t.closest(".scheda");
+      if (dove) passo(dove.dataset.id, t.dataset.p);
+      return;
+    }
+    const r = e.target.closest("[data-r]");
+    if (r) passo(r.dataset.r, "riapri");
+  });
+  document.addEventListener("keydown", (e) => {
+    if (!$("inizia").hidden || !$("blocco").hidden) return;
+    const a = tastoPer(e.key, LISTA.length);
+    if (!a) return;
+    e.preventDefault();
+    if (a.azione === "scegli") {
+      SCELTA = LISTA[a.indice].id;
+      disegna();
+      return;
+    }
+    if (a.azione === "riapri") {
+      if (ULTIME.length) passo(ULTIME[0].id, "riapri");
+      return;
+    }
+    const s = LISTA.find((x) => x.id === SCELTA) || LISTA[0];
+    if (s) passo(s.id, a.azione);
+  });
+  function avvia() {
+    $("inizia").hidden = true;
+    try {
+      AUDIO = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) {
+      AUDIO = null;
+    }
+    tieniAcceso();
+    giro();
+    TIMER = setInterval(giro, GIRO_MS);
+  }
+  $("testoInizia").textContent = TESTI.inizia;
+  $("etichettaUltime").textContent = TESTI.ultime;
+  disegna();
+  spia();
+  if (P) $("inizia").addEventListener("click", avvia);
+  else blocca("Manca la chiave: aprire il link dato dal back office");
+})();
+</script>
+</body>
+</html>

@@ -176,3 +176,9 @@ Deno.test('due colonne: da fare a sinistra, in preparazione a destra, verde e co
   assert(P.includes('main.griglia{display:grid;grid-template-columns:1fr 1fr;') && P.includes('.colonna.lavoro h2{'), 'due colonne vere, quella di destra verde');
   assert(P.includes('.scheda.presa{background:#E3F0EA;border-top-color:#2E6B45;') && m.includes('class="lavoro-da"'), 'la scheda in preparazione cambia colore e dice da quanto');
 });
+
+Deno.test('i timeout delle chiamate reggono anche i browser vecchi delle TV', () => {
+  /* «non appare nulla» sulla TV (la proprieta', 6 settembre 2026): AbortSignal.timeout non c'era */
+  assert(m.includes('function segnale(ms)') && m.includes("typeof AbortSignal.timeout === 'function'") && m.includes('new AbortController()'), 'con ripiego');
+  assert(!m.includes('AbortSignal.timeout(900)') && !m.includes('AbortSignal.timeout(8000)'), 'e nessuna chiamata diretta');
+});
