@@ -61,7 +61,7 @@ export function puoRimborsare(ruolo: Ruolo | null): boolean {
    catalogo, che serve per disegnare quelle schede. */
 const AZIONI_BISTROT = new Set([
   'allinea-giu', 'menu-salva', 'tavoli-salva', 'fasce-salva', 'tavoli-qr',
-  'ospite-ordini', 'ospite-ristampa', 'ospite-nota',
+  'ospite-ordini', 'ospite-ristampa', 'ospite-nota', 'postazioni-salva',
 ]);
 
 /** Vero se questo ruolo puo' chiamare quell'azione dal back office. */

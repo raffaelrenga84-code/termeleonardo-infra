@@ -31,7 +31,7 @@ Deno.test('reception e amministrazione fanno tutto dal back office, la spa nient
 });
 
 Deno.test('il bistrot tocca menu, tavoli, fasce e ordini dal QR; non personale, incassi, addebiti e rimborsi', () => {
-  for (const a of ['allinea-giu', 'menu-salva', 'tavoli-salva', 'fasce-salva', 'tavoli-qr', 'ospite-ordini', 'ospite-ristampa', 'ospite-nota']) {
+  for (const a of ['allinea-giu', 'menu-salva', 'tavoli-salva', 'fasce-salva', 'tavoli-qr', 'ospite-ordini', 'ospite-ristampa', 'ospite-nota', 'postazioni-salva']) {
     assert(puoDalBackOffice('bistrot', a), 'bistrot ' + a);
   }
   for (const a of ['personale-salva', 'addebiti', 'addebito-segna', 'giornata', 'ospite-rimborsa', 'ospite-annulla-addebito', 'sconosciuta']) {

@@ -329,3 +329,17 @@ Deno.test('l elenco dei tavoli si apre da ovunque, ma chi non e sulla rete dell 
   assert(!/return risposta\(\{ errore: `per scegliere il tavolo a mano/.test(t), 'niente piu porta chiusa per l elenco');
   assert(S.includes("import { creaFreno } from './freno.ts';"), 'il freno vive nel suo modulo, provato a parte');
 });
+
+Deno.test('il monitor cucina: due azioni con la chiave dello schermo, il ripiego nel cron, pronto in sala', () => {
+  assert(S.includes("'x-schermo-chiave'"), 'l intestazione dello schermo e in CORS');
+  for (const a of ['schermo', 'schermo-stato', 'postazioni-salva']) assert(new RegExp(`azione === '${a}'`).test(S), `manca ?a=${a}`);
+  const sc = S.slice(S.indexOf("azione === 'schermo'"), S.indexOf("azione === 'schermo-stato'"));
+  assert(sc.includes('schermo non riconosciuto') && sc.includes('vista_il') && sc.includes('inizioGiornata('), 'lo schermo legge solo la sua postazione, di oggi, e segna cosa ha mostrato');
+  const st = S.slice(S.indexOf("azione === 'schermo-stato'"), S.indexOf("azione === 'postazioni-salva'"));
+  assert(st.includes("di un'altra postazione") && st.includes('passo('), 'i passi passano dal modulo puro');
+  const cloud = S.slice(S.indexOf("azione === 'stampa-cloud'"), S.indexOf("azione === 'allinea-su'"));
+  assert(cloud.includes('daRipiegare('), 'il cloud ripiega sulla carta per i locali che tacciono');
+  const sala = S.slice(S.indexOf("azione === 'sala'"), S.indexOf("azione === 'conto'"));
+  assert(sala.includes('prontoInCucina(') && sala.includes('pronto_in_cucina'), 'la sala dice cosa e pronto');
+  assert(S.includes("'postazioni-salva'") && S.includes('chiaveCasuale()') && S.includes('impronta('), 'le postazioni si salvano dal back office con la chiave nuova');
+});

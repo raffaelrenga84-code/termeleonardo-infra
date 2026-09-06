@@ -62,7 +62,7 @@ const MARGINE_OSPITI = 10;
 import { chiaveStripe, dividiParametri, firmaValida, parametriLink, segretoWebhook, STRIPE } from './stripe.ts';
 import { motivoDelPrezzo, motivoPulito, prezzoCambiato } from './motivi.ts';
 import { localeChePrepara, portareA, siStampa } from './dove.ts';
-import { statoIniziale } from './schermo.ts';
+import { chiaveCasuale, daMostrare, daRipiegare, impronta, inizioGiornata, passo, prontoInCucina, statoIniziale } from './schermo.ts';
 import { categoriaVino } from './vini.ts';
 import { chiaveNome, leggiSala } from './sala.ts';
 import { puo, type Ruolo as RuoloPos } from './permessi.ts';
@@ -70,7 +70,7 @@ import { puoDalBackOffice, type Ruolo, ruoloDi, tabelleNascoste } from './ruoli.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type, authorization, x-hotel-key, x-cron-key, x-pos-dispositivo, x-pos-sessione',
+  'Access-Control-Allow-Headers': 'content-type, authorization, x-hotel-key, x-cron-key, x-pos-dispositivo, x-pos-sessione, x-schermo-chiave',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
@@ -82,6 +82,16 @@ const risposta = (corpo: unknown, stato = 200) =>
 const adesso = () => new Date().toISOString();
 const chiaveHotel = (req: Request) => { const k = Deno.env.get('HOTEL_KEY'); return !!k && req.headers.get('x-hotel-key') === k; };
 const chiaveCron = (req: Request) => { const k = Deno.env.get('CRON_KEY'); return !!k && req.headers.get('x-cron-key') === k; };
+
+/* ---------- lo schermo di una postazione (monitor cucina) ---------- */
+async function postazioneDelloSchermo(req: Request, url: URL): Promise<Riga | null> {
+  const chiave = req.headers.get('x-schermo-chiave') || '';
+  const locale = url.searchParams.get('locale') || '', stampante = url.searchParams.get('stampante') || '';
+  if (!chiave || !locale || !stampante) return null;
+  const { data: p } = await db.from('pos_postazione').select('*').eq('locale', locale).eq('stampante', stampante).maybeSingle();
+  if (!p || !p.chiave_hash || p.chiave_hash !== await impronta(chiave)) return null;
+  return p;
+}
 const oraRoma = () => new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
 const ePortata = (p: unknown): p is Portata => typeof p === 'string' && (PORTATE as readonly string[]).includes(p);
 /* una firma col dito sta in pochi kilobyte: oltre, qualcosa non torna */
@@ -600,6 +610,11 @@ Deno.serve(async (req) => {
     const { data: conti } = idTavoli.length ? await db.from('pos_conto').select('*').in('tavolo', idTavoli).neq('stato', 'chiuso') : { data: [] };
     const idConti = (conti ?? []).map((c) => c.id as string);
     const { data: righe } = idConti.length ? await db.from('pos_riga').select('conto, quantita, prezzo_cent, stato, creata_il').in('conto', idConti) : { data: [] };
+    /* i biglietti pronti in cucina negli ultimi venti minuti: il palmare
+       segnala al cameriere che puo' andare a ritirare (prontoInCucina, schermo.ts) */
+    const { data: pronte } = idConti.length
+      ? await db.from('pos_stampa').select('conto, pronta_il').in('conto', idConti).not('pronta_il', 'is', null).gte('pronta_il', new Date(Date.now() - 20 * 60 * 1000).toISOString())
+      : { data: [] };
     const perConto = (id: string) => (righe ?? []).filter((r) => r.conto === id);
     const contiPronti = (conti ?? []).map((c) => {
       const rr = perConto(c.id as string);
@@ -610,6 +625,7 @@ Deno.serve(async (req) => {
         attesa: rr.some((r) => r.stato === 'inviata'),
         da_inviare: rr.some((r) => r.stato === 'da_inviare'),
         ultima: rr.map((r) => String(r.creata_il)).sort().pop() ?? c.aperto_il,
+        ...(() => { const p = prontoInCucina((pronte ?? []).filter((s) => s.conto === c.id), new Date()); return { pronto_in_cucina: p.pronto, pronto_alle: p.alle }; })(),
       };
     });
     /* gli ordini arrivati dal QR sul tavolo negli ultimi venti minuti: il
@@ -1119,6 +1135,39 @@ Deno.serve(async (req) => {
     return risposta({ conto: agg, totale_cent: totale });
   }
 
+  /* ================= il monitor cucina (chiave dello schermo) ================= */
+
+  if (azione === 'schermo') {
+    const p = await postazioneDelloSchermo(req, url);
+    if (!p) return risposta({ errore: 'schermo non riconosciuto' }, 401);
+    const ora = new Date();
+    const inizio = inizioGiornata(ora, oraLocale(ora).minuti);
+    const { data: stampe } = await db.from('pos_stampa').select('id, stato, creato_il, vista_il, presa_il, pronta_il, biglietto, testo, stampante, conto')
+      .eq('locale', p.locale as string).eq('stampante', p.stampante as string).is('pronta_il', null).gte('creato_il', inizio.toISOString()).order('creato_il').limit(200);
+    const biglietti = (stampe ?? []).filter((s) => daMostrare(s, inizio));
+    /* da qui in poi il ripiego non scatta: uno schermo l'ha mostrato */
+    const nonViste = biglietti.filter((s) => !s.vista_il).map((s) => s.id as string);
+    const adessoIso = ora.toISOString();
+    if (nonViste.length) await db.from('pos_stampa').update({ vista_il: adessoIso, aggiornato_il: adessoIso }).in('id', nonViste).is('vista_il', null);
+    return risposta({ postazione: { nome: p.nome }, biglietti: biglietti.map((s) => ({ ...s, vista_il: s.vista_il ?? adessoIso })), adesso: adessoIso });
+  }
+
+  if (azione === 'schermo-stato') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const p = await postazioneDelloSchermo(req, url);
+    if (!p) return risposta({ errore: 'schermo non riconosciuto' }, 401);
+    const b = await corpo();
+    const { data: s } = await db.from('pos_stampa').select('id, locale, stampante, presa_il, pronta_il').eq('id', String(b.id ?? '')).maybeSingle();
+    if (!s) return risposta({ errore: 'biglietto non trovato' }, 404);
+    if (s.locale !== p.locale || s.stampante !== p.stampante) return risposta({ errore: "di un'altra postazione" }, 403);
+    const esito = passo(s, String(b.passo ?? ''), new Date(), String(p.nome));
+    if ('errore' in esito) return risposta({ errore: esito.errore }, esito.stato);
+    const ora = adesso();
+    const { error } = await db.from('pos_stampa').update({ ...esito.campi, aggiornato_il: ora }).eq('id', s.id as string);
+    if (error) return risposta({ errore: error.message }, 500);
+    return risposta({ esito: 'ok', ...esito.campi });
+  }
+
   /* ================= dal server locale e dall'estensione (chiave hotel) ================= */
 
   if (azione === 'stampe') {
@@ -1154,6 +1203,19 @@ Deno.serve(async (req) => {
     /* il cloud stampa da se' solo se il PC del Bistrot tace da piu' di 90 s */
     const { data: battiti } = await db.from('pos_battito').select('locale, visto_il');
     const vivi = new Set((battiti ?? []).filter((b) => Date.now() - new Date(b.visto_il as string).getTime() < 90 * 1000).map((b) => b.locale as string));
+    /* uno schermo spento non fa perdere niente: la carta esce dopo
+       ripiego_s secondi; per i locali col PC vivo lo fa il PC (stampa.ts) */
+    const { data: postazioni } = await db.from('pos_postazione').select('*');
+    const postazioneDi = (dove: string, stampante: string) => (postazioni ?? []).find((p) => p.locale === dove && p.stampante === stampante) ?? null;
+    const { data: aSchermo } = await db.from('pos_stampa').select('id, locale, stampante, stato, vista_il, creato_il').eq('stato', 'a_schermo').is('vista_il', null).order('creato_il').limit(50);
+    let ripiegate = 0;
+    for (const s of aSchermo ?? []) {
+      if (vivi.has(s.locale as string)) continue;
+      if (daRipiegare(s, postazioneDi(s.locale as string, s.stampante as string), new Date())) {
+        await db.from('pos_stampa').update({ stato: 'da_stampare', aggiornato_il: adesso() }).eq('id', s.id);
+        ripiegate++;
+      }
+    }
     const { data: stampe } = await db.from('pos_stampa').select('*').eq('stato', 'da_stampare').order('creato_il').limit(50);
     let fatte = 0, saltate = 0;
     for (const s of stampe ?? []) {
@@ -1181,7 +1243,7 @@ Deno.serve(async (req) => {
         await db.from('pos_stampa').update({ stato: 'errore', errore: String(e).slice(0, 300), aggiornato_il: ora }).eq('id', s.id);
       }
     }
-    return risposta({ esito: 'ok', fatte, saltate });
+    return risposta({ esito: 'ok', fatte, saltate, ripiegate });
   }
 
   if (azione === 'allinea-su') {
@@ -1380,7 +1442,7 @@ Deno.serve(async (req) => {
 
   /* ================= dal back office (accesso dell'hotel: reception, amministrazione, bistrot) ================= */
 
-  const azioniBackOffice = ['menu-salva', 'tavoli-salva', 'personale-salva', 'addebiti', 'addebito-segna', 'giornata', 'fasce-salva', 'tavoli-qr', 'ospite-ordini', 'ospite-rimborsa', 'ospite-annulla-addebito', 'ospite-ristampa', 'ospite-nota'];
+  const azioniBackOffice = ['menu-salva', 'tavoli-salva', 'personale-salva', 'postazioni-salva', 'addebiti', 'addebito-segna', 'giornata', 'fasce-salva', 'tavoli-qr', 'ospite-ordini', 'ospite-rimborsa', 'ospite-annulla-addebito', 'ospite-ristampa', 'ospite-nota'];
   if (azioniBackOffice.includes(azione)) {
     /* «addebiti» e «giornata» si leggono, le altre si scrivono */
     if (req.method !== 'POST' && !(['addebiti', 'giornata', 'tavoli-qr', 'ospite-ordini'].includes(azione) && req.method === 'GET')) return risposta({ errore: 'metodo non ammesso' }, 405);
@@ -1614,6 +1676,26 @@ Deno.serve(async (req) => {
         if (righe.length) { const { error } = await db.from(tabella).upsert(righe, { onConflict: 'id' }); if (error) throw new Error(`${tabella}: ${error.message}`); }
       }
       return risposta({ esito: 'ok' });
+    } catch (e) { return risposta({ errore: (e as Error).message }, 500); }
+  }
+
+  if (azione === 'postazioni-salva') {
+    const b = await corpo();
+    const ora = adesso();
+    const righe = Array.isArray(b.postazioni) ? b.postazioni as Riga[] : [];
+    const chiavi: { locale: string; stampante: string; nome: string; chiave: string }[] = [];
+    try {
+      for (const p of righe) {
+        const locale = String(p.locale ?? ''), stampante = String(p.stampante ?? '');
+        if (!locale || !['cucina', 'bar'].includes(stampante)) return risposta({ errore: 'ogni postazione ha locale e stampante (cucina o bar)' }, 400);
+        const riga: Riga = { locale, stampante, nome: String(p.nome ?? '').trim() || `${locale} ${stampante}`, schermo: !!p.schermo, stampa_sempre: p.stampa_sempre !== false, ripiego_s: Math.max(0, Number(p.ripiego_s ?? 30) || 0), aggiornato_il: ora };
+        /* la chiave si vede una volta sola: qui resta l'impronta */
+        if (p.nuova_chiave) { const chiave = chiaveCasuale(); riga.chiave_hash = await impronta(chiave); chiavi.push({ locale, stampante, nome: String(riga.nome), chiave }); }
+        else { const { data: e } = await db.from('pos_postazione').select('chiave_hash').eq('locale', locale).eq('stampante', stampante).maybeSingle(); riga.chiave_hash = e?.chiave_hash ?? null; }
+        const { error } = await db.from('pos_postazione').upsert(riga, { onConflict: 'locale,stampante' });
+        if (error) throw new Error(error.message);
+      }
+      return risposta({ esito: 'ok', chiavi });
     } catch (e) { return risposta({ errore: (e as Error).message }, 500); }
   }
 
