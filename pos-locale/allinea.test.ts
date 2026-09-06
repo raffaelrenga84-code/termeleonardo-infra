@@ -31,7 +31,7 @@ function base() {
     insert into pos_conto (id, tavolo, tipo, coperti, stato, aperto_il, aggiornato_il) values ('C1', 'T7', 'esterno', 2, 'aperto', '2026-09-04T10:00:00Z', '2026-09-04T10:00:00Z');
     insert into pos_riga (id, conto, nome, quantita, prezzo_listino_cent, prezzo_cent, portata, stato, creata_il, aggiornato_il) values ('r1', 'C1', 'Birra', 1, 500, 500, 'bevande', 'partita', '2026-09-04T10:00:00Z', '2026-09-04T10:00:00Z');
     insert into pos_comanda (id, conto, portata, tipo, righe, aggiornato_il) values ('K1', 'C1', 'bevande', 'comanda', '["r1"]', '2026-09-04T10:00:00Z');
-    insert into pos_sessione (id, cameriere, dispositivo, scade_il, aggiornato_il) values ('S1', 'K1', 'D1', '2026-09-05T00:00:00Z', '2026-09-04T10:00:00Z');`);
+    insert into pos_sessione (id, cameriere, dispositivo, scade_il, aggiornato_il) values ('S1', 'K1', 'D1', '2099-01-01T00:00:00Z', '2026-09-04T10:00:00Z'), ('S0', 'K1', 'D1', '2026-09-05T00:00:00Z', '2026-09-04T10:00:00Z');`);
   return db;
 }
 
@@ -43,7 +43,7 @@ Deno.test('su: manda al cloud conti, righe, comande e stampe con allineato = 0, 
   assertEquals(chiamate[0].testa['x-hotel-key'], 'k');
   const corpo = chiamate[0].corpo as { conti: unknown[]; righe: unknown[]; comande: { righe: unknown }[]; sessioni: { id: string }[] };
   assertEquals([corpo.conti.length, corpo.righe.length, corpo.comande.length], [1, 1, 1]);
-  assertEquals(corpo.sessioni.map((s) => s.id), ['S1'], 'anche la sessione del palmare sale: al cloud vale uguale');
+  assertEquals(corpo.sessioni.map((s) => s.id), ['S1'], 'anche la sessione del palmare sale: al cloud vale uguale; quella scaduta (S0) no');
   assertEquals(corpo.comande[0].righe, ['r1'], 'gli array tornano array, non testo');
   assert(!('allineato' in (corpo.conti[0] as Record<string, unknown>)), 'allineato e cosa nostra, il cloud non lo conosce');
   assertEquals(await su(db, cloud), 0, 'la seconda volta niente');

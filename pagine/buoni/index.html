@@ -3155,11 +3155,11 @@ function vistaPosPersonale() {
   const disegna = () => {
     const ruoli = [['cameriere', 'Cameriere'], ['capo_sala', 'Capo sala'], ['amministrazione', 'Amministrazione']];
     $('vista').innerHTML = `<div class="riquadro"><button type="button" class="azione" id="ppSalva" style="width:auto;">Salva personale e palmari</button><div class="esito" id="ppEsito"></div></div>
-      <div class="riquadro"><b>Camerieri</b><div class="mini">Il codice è quello che si digita sul palmare. Con la spunta «senza PIN» basta quello: la pagina risponde solo dall’IP dell’hotel e il palmare ha già il suo codice. Il PIN si scrive qui e non si rilegge: lasciarlo vuoto lo lascia com'è. Storni: il cameriere può stornare da solo una riga già partita. Capo sala e amministrazione possono anche cambiare i prezzi.</div>
-        <table><tr><th>Nome</th><th>Codice</th><th>PIN</th><th>Senza PIN</th><th>Ruolo</th><th>Storni</th><th title="Se spuntato, allo storno il palmare pretende il motivo">Motivo storno</th><th>Bloccato</th></tr>
+      <div class="riquadro"><b>Camerieri</b><div class="mini">Si entra sul palmare con il PIN di quattro cifre: il PIN è la persona, e non può essere uguale a quello di un altro. Il codice serve solo a distinguere le persone: se lo si cambia va rimesso anche il PIN.</div>
+        <table><tr><th>Nome</th><th>Codice</th><th>PIN</th><th>Ruolo</th><th>Storni</th><th title="Se spuntato, allo storno il palmare pretende il motivo">Motivo storno</th><th>Bloccato</th></tr>
         ${D.camerieri.map((c) => `<tr data-cam="${esc(c.id)}"><td><input data-k="nome" value="${esc(c.nome)}" /></td><td><input data-k="codice" value="${esc(c.codice)}" style="width:60px;" inputmode="numeric" /></td>
           <td><input data-k="pin" type="password" placeholder="nuovo PIN" style="width:96px;" inputmode="numeric" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-bwignore /></td>
-          <td style="text-align:center;"><input type="checkbox" data-k="senza_pin" ${c.senza_pin ? 'checked' : ''}/></td><td><select data-k="ruolo">${opzPos(ruoli, c.ruolo)}</select></td>
+          <td><select data-k="ruolo">${opzPos(ruoli, c.ruolo)}</select></td>
           <td><input type="checkbox" data-k="storni" ${c.storni ? 'checked' : ''}/></td><td><input type="checkbox" data-k="storno_con_motivo" ${c.storno_con_motivo ? 'checked' : ''}/></td><td><input type="checkbox" data-k="bloccato" ${c.bloccato ? 'checked' : ''}/></td></tr>`).join('')}</table>
         <p class="mini">«Motivo storno»: se spuntato, allo storno di una riga o di tutto il tavolo il palmare pretende il motivo. All’inizio è spento per tutti, per fare pratica.</p>
         <button type="button" class="azione sec mini" id="ppNuovoCam" style="width:auto;margin-top:6px;">+ cameriere</button></div>

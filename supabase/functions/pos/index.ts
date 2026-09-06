@@ -54,6 +54,16 @@ import { creaFreno } from './freno.ts';
    servono a chi vuole le firme (una richiesta gliele da' tutte: vedi il
    commento in cima a freno.ts per cosa questo freno e' e cosa non e'). */
 const frenoTavoli = creaFreno(12, 10 * 60 * 1000);
+/* I freni dell'ordine dall'ospite e dell'accesso (revisione del 6 settembre
+   2026). Senza il cancello per indirizzo, tessera e camera si potevano
+   indovinare da fuori e ogni tentativo interrogava Fidra; e un PIN di
+   quattro cifre senza freno si prova tutto. Si contano gli ERRORI, non i
+   tentativi (pieno/segna in freno.ts). */
+const frenoCameraIp = creaFreno(10, 10 * 60 * 1000);   // tessera/camera sbagliate per indirizzo (fuori dall'hotel)
+const frenoTessera = creaFreno(6, 10 * 60 * 1000);     // tessera/camera sbagliate per tessera, da ovunque
+const frenoFidra = creaFreno(120, 60 * 1000);          // letture di Fidra al minuto, tutte insieme
+const frenoCarta = creaFreno(10, 10 * 60 * 1000);      // ordini con carta per indirizzo (fuori dall'hotel)
+const frenoAccesso = creaFreno(5, 60 * 1000);          // PIN sbagliati per palmare
 import { apertoOra, leggiOrari, restringi, stampanteAdesso } from './orari.ts';
 import { corpoRimborsoStripe, importoRiga, importoRimborso, type OrdineRimborsabile, residuoRimborso, statoDopoRimborso } from './rimborsi.ts';
 /* chi ordina dal QR si ferma dieci minuti prima della fine di ogni orario:
@@ -393,6 +403,8 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const azione = url.searchParams.get('a') || '';
   const corpo = async () => (req.method === 'POST' ? await req.json().catch(() => ({})) : {}) as Record<string, unknown>;
+  /* il ruolo di chi entra dal back office, per le azioni che rispondono meno a chi vede meno */
+  let ruoloBackOffice: Ruolo | null = null;
 
   /* ================= dall'ospite al tavolo (QR) =================
      Nessuna sessione: il QR porta l'id del tavolo e la sua firma
@@ -438,7 +450,11 @@ Deno.serve(async (req) => {
        prendere a raffica (freno.ts dice cosa questo freno e' e cosa non
        e'). Dalla rete dell'hotel niente freno: la' gli ospiti escono tutti
        dallo stesso indirizzo e si fermerebbero a vicenda. */
-    if (!dallHotel(req.headers, Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP')) && !frenoTavoli.entroIlLimite(ipDi(req.headers))) {
+    /* si conta SEMPRE, e solo dalla rete dell'hotel il verdetto non vale:
+       prima, senza l'IP dell'hotel configurato, il freno non contava
+       nemmeno (revisione del 6 settembre 2026) */
+    const passaTavoli = frenoTavoli.entroIlLimite(ipDi(req.headers));
+    if (!passaTavoli && !dallHotel(req.headers, Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP'))) {
       return risposta({ errore: 'troppe richieste da questo indirizzo: riprovi fra qualche minuto, o inquadri il QR sul tavolo' }, 429);
     }
     const segreto = Deno.env.get('HOTEL_KEY') ?? '';
@@ -548,12 +564,31 @@ Deno.serve(async (req) => {
       const candidati = candidatiTessera(b.tessera);
       const camera = String(b.camera ?? '').trim();
       if (!candidati.length || !camera) return risposta({ errore: 'servono la tessera della camera e il numero della camera' }, 400);
+      /* I freni (revisione del 6 settembre 2026): senza il cancello per
+         indirizzo, tessera e camera si potevano indovinare da fuori e ogni
+         tentativo interrogava Fidra. Si contano gli ERRORI: per indirizzo
+         (non dall'hotel, dove l'indirizzo e' uno per tutti) e per tessera;
+         le letture di Fidra hanno un tetto al minuto, tutte insieme. */
+      const ip = ipDi(req.headers);
+      const dentro = dallHotel(req.headers, Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP'));
+      if ((!dentro && frenoCameraIp.pieno(ip)) || frenoTessera.pieno(candidati[0])) return risposta({ errore: 'troppi tentativi: riprovi fra qualche minuto, o chiami il cameriere' }, 429);
+      const FIDRA_PIENO = 'addebito in camera non disponibile in questo momento: paghi con la carta o chiami il cameriere';
       let tessera = candidati[0];
+      if (!frenoFidra.entroIlLimite('fidra')) return risposta({ errore: FIDRA_PIENO }, 503);
       let f = await cameraDallaTessera(tessera);
-      for (const c of candidati.slice(1)) { if (f.stato !== 404) break; tessera = c; f = await cameraDallaTessera(c); }
+      for (const c of candidati.slice(1)) {
+        if (f.stato !== 404) break;
+        if (!frenoFidra.entroIlLimite('fidra')) return risposta({ errore: FIDRA_PIENO }, 503);
+        tessera = c; f = await cameraDallaTessera(c);
+      }
       if (f.stato === 503) return risposta({ errore: 'addebito in camera non disponibile: paghi con la carta o chiami il cameriere' }, 503);
-      if (f.stato !== 200) return risposta({ errore: 'tessera non riconosciuta' }, 404);
-      if (!cameraCombacia(camera, f.camera)) return risposta({ errore: 'il numero di camera non corrisponde alla tessera' }, 403);
+      /* tessera sconosciuta e camera che non combacia rispondono la STESSA
+         cosa: cosi' da fuori non si distingue una tessera vera da una inventata */
+      if (f.stato !== 200 || !cameraCombacia(camera, f.camera)) {
+        if (!dentro) frenoCameraIp.segna(ip);
+        frenoTessera.segna(candidati[0]);
+        return risposta({ errore: 'tessera o numero di camera non corretti: li controlli tutti e due, o chiami il cameriere' }, 403);
+      }
       const ordine = { id: numero, tavolo: t, lingua, righe: esito.righe, totale_cent: esito.totale_cent, modo, camera: f.camera, tessera, ospite: String(b.ospite ?? '').trim().slice(0, 40) || null, stato: 'pagato', prova: POS_PROVA, creato_il: ora, aggiornato_il: ora };
       const { error } = await db.from('pos_ordine_ospite').insert(ordine);
       if (error) return risposta({ errore: error.message }, 500);
@@ -561,6 +596,10 @@ Deno.serve(async (req) => {
       return risposta({ numero, stato: 'in_cucina' });
     }
     /* carta: l'ordine aspetta la conferma di Stripe (webhook) */
+    /* anche qui un freno per indirizzo, fuori dall'hotel: ogni ordine crea
+       una riga e due oggetti su Stripe (revisione del 6 settembre 2026) */
+    const dentroCarta = dallHotel(req.headers, Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP'));
+    if (!dentroCarta && !frenoCarta.entroIlLimite(ipDi(req.headers))) return risposta({ errore: 'troppi ordini da questo telefono: riprovi fra qualche minuto, o chiami il cameriere' }, 429);
     const chiave = chiaveStripe(POS_PROVA);
     if (!chiave) return risposta({ errore: 'pagamento con carta non disponibile: chiami il cameriere' }, 503);
     const consegna = String(b.consegna ?? '').trim().slice(0, 10) || null;
@@ -611,6 +650,11 @@ Deno.serve(async (req) => {
     if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
     const disp = await dispositivoDi(req);
     if (!disp) return risposta({ errore: 'dispositivo non registrato' }, 401);
+    /* cinque PIN sbagliati in un minuto e il palmare aspetta: con quattro
+       cifre e senza freno si proverebbero tutti (revisione del 6 settembre 2026) */
+    const chiaveDisp = String(disp.id);
+    if (frenoAccesso.pieno(chiaveDisp)) return risposta({ errore: 'troppi tentativi: aspetti un minuto' }, 429);
+    const sbagliato = (msg: string, stato = 401) => { frenoAccesso.segna(chiaveDisp); return risposta({ errore: msg }, stato); };
     const b = await corpo();
     const codice = String(b.codice ?? '').trim(), pin = String(b.pin ?? '').trim();
     let c: Riga;
@@ -618,10 +662,10 @@ Deno.serve(async (req) => {
       /* la strada di prima, col codice: la usano i palmari con la pagina
          vecchia. Un codice che non esiste lo si dice subito. */
       const { data } = await db.from('pos_cameriere').select('*').eq('codice', codice).eq('bloccato', false).maybeSingle();
-      if (!data) return risposta({ errore: 'codice non riconosciuto' }, 401);
+      if (!data) return sbagliato('codice non riconosciuto');
       const senza = !!data.senza_pin;
       if (!pin && !senza) return risposta({ errore: 'serve il PIN' }, 400);
-      if (!senza && data.pin_hash !== await hashPin(codice, pin)) return risposta({ errore: 'PIN sbagliato' }, 401);
+      if (!senza && data.pin_hash !== await hashPin(codice, pin)) return sbagliato('PIN sbagliato');
       c = data;
     } else {
       /* «Falli identificare solo con un PIN di 4 cifre» (la proprieta', 6
@@ -632,7 +676,7 @@ Deno.serve(async (req) => {
       const { data: tutti } = await db.from('pos_cameriere').select('*').eq('bloccato', false);
       const trovati: Riga[] = [];
       for (const x of tutti ?? []) if (x.pin_hash && x.pin_hash === await hashPin(String(x.codice), pin)) trovati.push(x);
-      if (!trovati.length) return risposta({ errore: 'PIN non riconosciuto' }, 401);
+      if (!trovati.length) return sbagliato('PIN non riconosciuto');
       if (trovati.length > 1) return risposta({ errore: 'PIN uguale per due persone: cambiarlo nel back office' }, 409);
       c = trovati[0];
     }
@@ -1481,7 +1525,10 @@ Deno.serve(async (req) => {
          prezzo cancellato non hanno un aggiornato_il che li racconti */
       const { data } = ['pos_fascia', 'pos_prezzo_fascia'].includes(t)
         ? await db.from(t).select('*').limit(5000)
-        : await db.from(t).select('*').gt('aggiornato_il', da).limit(5000);
+        : t === 'pos_sessione'
+          /* solo le sessioni vive: le scadute non servono a nessuno e intaserebbero il giro */
+          ? await db.from(t).select('*').gt('aggiornato_il', da).gt('scade_il', adesso()).limit(5000)
+          : await db.from(t).select('*').gt('aggiornato_il', da).limit(5000);
       fuori[t.slice(4)] = data ?? [];
     }
     /* le stampe nate nel cloud (palmare in modalita' cloud) le stampa il
@@ -1489,6 +1536,9 @@ Deno.serve(async (req) => {
     /* l'impronta della chiave dello schermo serve solo al PC, che riconosce
        gli schermi da solo: al back office non scende (6 settembre 2026) */
     if (!dalPc) fuori.postazione = (fuori.postazione as Riga[]).map((p) => { const { chiave_hash: _nonServe, ...resto } = p; return resto; });
+    /* le impronte dei PIN non tornano MAI a un browser: con quattro cifre e
+       il codice accanto si forzano in un attimo (revisione del 6 settembre 2026) */
+    if (!dalPc) fuori.cameriere = (fuori.cameriere as Riga[]).map((c) => { const { pin_hash: _mai, ...resto } = c; return resto; });
     let q = db.from('pos_stampa').select('*').in('stato', ['da_stampare', 'a_schermo']).gt('aggiornato_il', da).limit(200);
     if (locale) q = q.eq('locale', locale);
     fuori.stampe = (await q).data ?? [];
@@ -1650,6 +1700,7 @@ Deno.serve(async (req) => {
        settembre 2026): reception e amministrazione scrivono tutto, il
        bistrot solo menu', tavoli, fasce e ordini dal QR (ruoli.ts), la spa no */
     if (!acc.chiave && !puoDalBackOffice(acc.ruolo, azione)) return risposta({ errore: 'non permesso a questo account' }, 403);
+    ruoloBackOffice = acc.ruolo;
   }
 
   /* I listini a fasce dal back office: le fasce si riscrivono, i prezzi
@@ -1664,7 +1715,7 @@ Deno.serve(async (req) => {
     const idConti = (ordini ?? []).map((o) => o.conto as string | null).filter((x): x is string => !!x);
     const { data: addebiti } = idConti.length ? await db.from('pos_addebito').select('id, conto, stato, totale_cent').in('conto', idConti) : { data: [] };
     const { data: righe } = idConti.length ? await db.from('pos_riga').select('id, conto, nome, quantita, prezzo_cent, nota, stato').in('conto', idConti) : { data: [] };
-    return risposta({ ordini: (ordini ?? []).map((o) => { const { tav, ...resto } = o as Riga & { tav: { nome: string } | null }; return { ...resto, tavolo_nome: tav?.nome ?? o.tavolo, addebito: (addebiti ?? []).find((x) => x.conto === o.conto) ?? null, righe_conto: (righe ?? []).filter((r) => r.conto === o.conto) }; }) });
+    return risposta({ ordini: (ordini ?? []).map((o) => { const { tav, tessera, ...resto } = o as Riga & { tav: { nome: string } | null; tessera: string | null }; return { ...resto, da_tessera: !!tessera, tessera: ruoloBackOffice === 'bistrot' ? null : tessera, tavolo_nome: tav?.nome ?? o.tavolo, addebito: (addebiti ?? []).find((x) => x.conto === o.conto) ?? null, righe_conto: (righe ?? []).filter((r) => r.conto === o.conto) }; }) });
   }
 
   if (azione === 'ospite-rimborsa') {
@@ -1928,14 +1979,14 @@ Deno.serve(async (req) => {
         const id = String(c.id ?? crypto.randomUUID());
         const codice = String(c.codice ?? '').trim();
         if (!codice || !c.nome) return risposta({ errore: 'ogni cameriere ha nome e codice' }, 400);
-        const riga: Riga = { id, nome: c.nome, codice, ruolo: c.ruolo ?? 'cameriere', storni: !!c.storni, storno_con_motivo: !!c.storno_con_motivo, bloccato: !!c.bloccato, senza_pin: !!c.senza_pin, aggiornato_il: ora };
+        const riga: Riga = { id, nome: c.nome, codice, ruolo: c.ruolo ?? 'cameriere', storni: !!c.storni, storno_con_motivo: !!c.storno_con_motivo, bloccato: !!c.bloccato, senza_pin: false, aggiornato_il: ora };
         const pin = String(c.pin ?? '').trim();
         /* PIN vuoto = lascia com'era. L'impronta vecchia va RIMESSA nella
            riga: un upsert e' un insert che poi diventa update, e Postgres
            controlla «pin_hash not null» sulla riga da inserire, prima di
            accorgersi che quell'id esiste gia' (difetto visto in reception
            il 4 settembre 2026: «null value in column pin_hash»). */
-        const { data: e } = await db.from('pos_cameriere').select('pin_hash').eq('id', id).maybeSingle();
+        const { data: e } = await db.from('pos_cameriere').select('pin_hash, codice').eq('id', id).maybeSingle();
         if (pin) {
           /* il PIN e' la persona (accesso col solo PIN, 6 settembre 2026):
              quattro cifre, e non puo' essere uguale a quello di un altro */
@@ -1944,12 +1995,11 @@ Deno.serve(async (req) => {
           for (const o of altri ?? []) if (o.pin_hash && o.pin_hash === await hashPin(String(o.codice), pin)) return risposta({ errore: `${c.nome}: PIN gia' usato da ${o.nome}` }, 400);
           riga.pin_hash = await hashPin(codice, pin);
         }
+        /* l'impronta e' di codice:pin — un codice nuovo con l'impronta vecchia
+           spegnerebbe il PIN senza dirlo (revisione del 6 settembre 2026) */
+        else if (e && String(e.codice) !== codice) return risposta({ errore: `${c.nome}: cambiando il codice va rimesso anche il PIN` }, 400);
         else if (e) riga.pin_hash = e.pin_hash;
-        /* un cameriere nuovo senza PIN: l'impronta resta, ma di una parola
-           che nessuno conosce, cosi' se un domani gli si toglie «senza
-           PIN» non entra piu' finche' non gliene si da' uno vero */
-        else if (c.senza_pin) riga.pin_hash = await hashPin(codice, tokenCasuale(24));
-        else return risposta({ errore: `${c.nome}: serve un PIN, oppure la spunta «senza PIN»` }, 400);
+        else return risposta({ errore: `${c.nome}: serve un PIN di quattro cifre` }, 400);
         const { error } = await db.from('pos_cameriere').upsert(riga, { onConflict: 'id' });
         if (error) throw new Error(error.message);
       }

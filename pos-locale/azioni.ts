@@ -11,6 +11,7 @@
 import { conJson, type Db, type Riga, salva } from './db.ts';
 import { dividi, dividiSemplice, gruppoSegue, minutiSegueValido, PORTATE, type PortataBiglietto, prossima, quandoSegue, segueScaduti, type Portata } from '../supabase/functions/pos/portate.ts';
 import { candidatiCalice, giornoRoma, nomeCalice, scegliCalice } from '../supabase/functions/pos/bacheca.ts';
+import { creaFreno } from '../supabase/functions/pos/freno.ts';
 import { prezzoRiga, totaleCent } from '../supabase/functions/pos/conto.ts';
 import { testoBiglietto, type Biglietto } from '../supabase/functions/pos/comanda.ts';
 import { puo, type Ruolo } from '../supabase/functions/pos/permessi.ts';
@@ -31,6 +32,8 @@ type RigaStampabile = Riga & { id: string; stampante: 'cucina' | 'bar'; locale_s
 const ok = (corpo: unknown, stato = 200): Risposta => ({ stato, corpo });
 const errore = (msg: string, stato: number): Risposta => ({ stato, corpo: { errore: msg } });
 const adesso = () => new Date().toISOString();
+/* cinque PIN sbagliati in un minuto e il palmare aspetta (stessa regola del cloud) */
+const frenoAccesso = creaFreno(5, 60 * 1000);
 const oraRoma = () => new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
 const ePortata = (p: unknown): p is Portata => typeof p === 'string' && (PORTATE as readonly string[]).includes(p);
 const testa = (req: Richiesta, nome: string) => String(req.intestazioni[nome] ?? req.intestazioni[nome.toLowerCase()] ?? '');
@@ -194,15 +197,18 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     const token = testa(req, 'x-pos-dispositivo');
     const disp = token ? db.prepare('select * from pos_dispositivo where token = ? and bloccato = 0').get(token) as Riga | undefined : undefined;
     if (!disp) return errore('dispositivo non registrato', 401);
+    const chiaveDisp = String(disp.id);
+    if (frenoAccesso.pieno(chiaveDisp)) return errore('troppi tentativi: aspetti un minuto', 429);
+    const sbagliato = (msg: string, stato = 401) => { frenoAccesso.segna(chiaveDisp); return errore(msg, stato); };
     const codice = String(b.codice ?? '').trim(), pin = String(b.pin ?? '').trim();
     let c: Riga;
     if (codice) {
       /* la strada di prima, col codice (pagina vecchia) */
       const trovato = db.prepare('select * from pos_cameriere where codice = ? and bloccato = 0').get(codice) as Riga | undefined;
-      if (!trovato) return errore('codice non riconosciuto', 401);
+      if (!trovato) return sbagliato('codice non riconosciuto');
       const senza = !!Number(trovato.senza_pin);
       if (!pin && !senza) return errore('serve il PIN', 400);
-      if (!senza && trovato.pin_hash !== await hashPin(codice, pin)) return errore('PIN sbagliato', 401);
+      if (!senza && trovato.pin_hash !== await hashPin(codice, pin)) return sbagliato('PIN sbagliato');
       c = trovato;
     } else {
       /* il PIN e' la persona (la proprieta', 6 settembre 2026): stessa
@@ -211,7 +217,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
       const tutti = db.prepare('select * from pos_cameriere where bloccato = 0').all() as Riga[];
       const trovati: Riga[] = [];
       for (const x of tutti) if (x.pin_hash && x.pin_hash === await hashPin(String(x.codice), pin)) trovati.push(x);
-      if (!trovati.length) return errore('PIN non riconosciuto', 401);
+      if (!trovati.length) return sbagliato('PIN non riconosciuto');
       if (trovati.length > 1) return errore('PIN uguale per due persone: cambiarlo nel back office', 409);
       c = trovati[0];
     }

@@ -35,7 +35,9 @@ export async function su(db: Db, cloud: Cloud): Promise<number> {
   const pacchetto: Record<string, Riga[]> = {};
   const mandate: { tabella: string; id: string; aggiornato_il: string }[] = [];
   for (const [tabella, chiave] of TABELLE_SU) {
-    const righe = db.prepare(`select * from ${tabella} where allineato = 0 order by rowid limit 500`).all() as Riga[];
+    /* le sessioni scadute non salgono: non servono a nessuno (revisione del 6 settembre 2026) */
+    const vive = tabella === 'pos_sessione' ? ` and scade_il > '${new Date().toISOString()}'` : '';
+    const righe = db.prepare(`select * from ${tabella} where allineato = 0${vive} order by rowid limit 500`).all() as Riga[];
     pacchetto[chiave] = righe.map((r) => {
       const { allineato: _a, ...resto } = r;
       /* un JSON rotto (solo per mano sul database) non deve fermare per

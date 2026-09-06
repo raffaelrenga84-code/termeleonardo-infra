@@ -223,7 +223,7 @@ Deno.test('l ordine dal tavolo col QR: menu pubblico firmato, carta via Stripe, 
   const o = S.slice(S.indexOf('const azioniOspite'), S.indexOf('/* ================= dal palmare'));
   assert(o.includes("if (!(await tavoloFirmato(t, k, Deno.env.get('HOTEL_KEY'))))"), 'senza la firma del QR niente');
   assert(o.includes('const esito = righeOrdine(b.righe, vendibili);'), 'le righe si ricostruiscono dal listino');
-  assert(o.includes('if (!cameraCombacia(camera, f.camera)) return risposta'), 'la camera scritta deve combaciare con la tessera');
+  assert(o.includes('|| !cameraCombacia(camera, f.camera)) {'), 'la camera scritta deve combaciare con la tessera');
   assert(o.includes('dividiParametri(parametriLink({ numero, descrizione:'), 'il link Stripe nasce da parametriLink: a uso singolo, col numero nei metadati');
   assert(o.includes("if (evento.type !== 'checkout.session.completed')") && o.includes("if (o.stato !== 'in_attesa') return risposta({ esito: 'ok', gia: o.stato });"), 'il webhook manda in cucina una volta sola');
   assert(S.includes('async function mandaInCucina(o: Riga)') && S.includes('QR · IN CAMERA') && S.includes('QR · PAGATO ONLINE'), 'il biglietto dice che e un ordine dal QR e come ha pagato');
@@ -251,9 +251,9 @@ Deno.test('l ordine dal tavolo solo dalla rete dell hotel, tessera dalle cifre s
      IP di iPhone (iCloud Privato) nasconde l'indirizzo dell'hotel e teneva
      fuori gli ospiti veri (la proprieta', 6 settembre 2026). */
   const ospite = S.slice(S.indexOf("const azioniOspite = "), S.indexOf("if (azione === 'ospite-menu')"));
-  assert(!ospite.includes('dallHotel('), 'col QR si ordina da qualunque connessione');
+  assert(!ospite.includes('if (!dallHotel(') && !ospite.includes('if (dallHotel('), 'col QR si ordina da qualunque connessione: la rete dell hotel serve solo a esentare dai freni');
   assert(ospite.includes('tavoloFirmato('), 'la firma del tavolo resta la porta');
-  assert(S.includes('const candidati = candidatiTessera(b.tessera);') && S.includes('for (const c of candidati.slice(1)) { if (f.stato !== 404) break;'), 'il codice a barre lo rifa il server, provando ogni lettura delle cifre');
+  assert(S.includes('const candidati = candidatiTessera(b.tessera);') && S.includes('for (const c of candidati.slice(1)) {') && S.includes('if (f.stato !== 404) break;'), 'il codice a barre lo rifa il server, provando ogni lettura delle cifre');
   assert(S.includes("const consegna = String(b.consegna ?? '').trim().slice(0, 10) || null;"), 'la camera di consegna');
   assert(S.includes("`QR · PAGATO ONLINE${o.camera ? ` · CAMERA ${String(o.camera)}` : ''}`"), 'e sul biglietto si legge');
 });
@@ -362,7 +362,7 @@ Deno.test('si entra col solo PIN di quattro cifre: il PIN e la persona, e non pu
   const a = S.slice(S.indexOf("azione === 'accesso'"), S.indexOf('const cameriere = await cameriereDi(req);'));
   assert(a.includes("if (!/^\\d{4}$/.test(pin)) return risposta({ errore: 'serve il PIN di quattro cifre' }, 400);"), 'quattro cifre');
   assert(a.includes('PIN non riconosciuto') && a.includes('PIN uguale per due persone'), 'si prova ogni cameriere, uno solo deve combaciare');
-  assert(a.includes("errore: 'codice non riconosciuto'"), 'la strada col codice resta per la pagina vecchia');
+  assert(a.includes("sbagliato('codice non riconosciuto')"), 'la strada col codice resta per la pagina vecchia');
   const p = S.slice(S.indexOf("azione === 'personale-salva'"), S.indexOf("for (const d of dispositivi)"));
   assert(p.includes("PIN gia' usato da") && p.includes("il PIN e' di quattro cifre"), 'il back office non lascia dare due volte lo stesso PIN');
 });
@@ -419,4 +419,23 @@ Deno.test('il pacchetto per il PC del Bistrot: con la chiave hotel, una versione
   assert(p.includes('if (versioni.size !== 1) return risposta({ versione: null, file: [] });'), 'a meta pubblicazione il PC aspetta');
   assert(p.includes("azione === 'pacchetto-file'") && p.includes(".eq('percorso', percorso).maybeSingle()"), 'un file per chiamata');
   assert(!p.includes('contenuto') || p.indexOf('contenuto') > p.indexOf("azione === 'pacchetto-file'"), 'il manifesto non porta i contenuti');
+});
+
+Deno.test('revisione del 6 settembre 2026: tessera e camera non si indovinano da fuori, Fidra ha un tetto, i PIN non escono, le sessioni scadute non scendono', () => {
+  const ord = S.slice(S.indexOf('/* ospite-ordine */'), S.indexOf('/* ================= dal palmare'));
+  assert(ord.includes('frenoTessera.pieno(candidati[0])') && ord.includes('frenoCameraIp.pieno(ip)'), 'gli errori si contano per tessera e per indirizzo');
+  assert(!ord.includes("'tessera non riconosciuta'") && !ord.includes("'il numero di camera non corrisponde alla tessera'"), 'niente oracolo');
+  assert(ord.includes("'tessera o numero di camera non corretti: li controlli tutti e due, o chiami il cameriere'"), 'una risposta sola per tutti e due gli errori');
+  assert((ord.match(/frenoFidra\.entroIlLimite\('fidra'\)/g) ?? []).length === 2, 'ogni lettura di Fidra passa dal tetto');
+  assert(ord.includes('frenoCarta.entroIlLimite('), 'e la carta ha il suo freno');
+  const giu = S.slice(S.indexOf("azione === 'allinea-giu'"), S.indexOf("azione === 'allinea-giu'") + 8000);
+  assert(giu.includes('pin_hash: _mai') && giu.includes(".gt('scade_il', adesso())"), 'niente impronte al browser, niente sessioni morte');
+  const acc = S.slice(S.indexOf("azione === 'accesso'"), S.indexOf("azione === 'accesso'") + 4000);
+  assert(acc.includes('frenoAccesso.pieno(chiaveDisp)') && (acc.match(/sbagliato\(/g) ?? []).length >= 3, 'cinque PIN sbagliati e si aspetta');
+  const ps = S.slice(S.indexOf("azione === 'personale-salva'"));
+  assert(ps.includes('cambiando il codice va rimesso anche il PIN') && !ps.includes('senza_pin: !!c.senza_pin'), 'il codice nuovo vuole il PIN nuovo; niente piu «senza PIN»');
+  assert(S.includes("tessera: ruoloBackOffice === 'bistrot' ? null : tessera"), 'il bistrot non legge le tessere');
+  assert(!S.includes("azione === 'eco-ip'"), 'la sonda e stata tolta');
+  const tav = S.slice(S.indexOf("azione === 'ospite-tavoli'"), S.indexOf("const azioniOspite = "));
+  assert(tav.includes('const passaTavoli = frenoTavoli.entroIlLimite('), 'il freno dei tavoli conta sempre');
 });

@@ -124,8 +124,14 @@ export function candidatiTessera(scritto: unknown): string[] {
   return fuori;
 }
 
-/** L'indirizzo di chi chiama: il primo della catena x-forwarded-for. */
+/** L'indirizzo di chi chiama. Davanti alla funzione c'e' Cloudflare, che
+    scrive il chiamante vero in cf-connecting-ip e RISCRIVE x-forwarded-for
+    (provato il 6 settembre 2026: un X-Forwarded-For falso mandato dal
+    client non arriva). Prima cf-connecting-ip; se manca, il primo della
+    catena x-forwarded-for. */
 export function ipDi(intestazioni: Headers): string {
+  const cf = (intestazioni.get('cf-connecting-ip') || '').trim();
+  if (cf) return cf;
   return (intestazioni.get('x-forwarded-for') || '').split(',')[0].trim();
 }
 

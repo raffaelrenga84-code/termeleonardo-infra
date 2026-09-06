@@ -629,3 +629,12 @@ Deno.test('la bacheca dal PC: senza sessione, il giorno di Roma, primo e secondo
   const r2 = await esegui(db, 'bacheca', { metodo: 'GET', query: {}, corpo: null, intestazioni: {} }, cfg);
   assertEquals((r2.corpo as { calice: unknown }).calice, { nome: 'Prosecco di casa', prezzo_cent: null, a_mano: true }, 'quello scritto a mano vince');
 });
+
+Deno.test('cinque PIN sbagliati e il palmare aspetta un minuto (revisione del 6 settembre 2026)', async () => {
+  const db = base();
+  db.exec("insert into pos_dispositivo (id, nome, token, aggiornato_il) values ('D9', 'Sunmi 9', 'tok9', '2026-09-04T10:00:00Z')");
+  const tenta = (pin: string) => esegui(db, 'accesso', { metodo: 'POST', query: {}, corpo: { pin }, intestazioni: { 'x-pos-dispositivo': 'tok9' } }, cfg);
+  for (let i = 0; i < 5; i++) assertEquals((await tenta('0000')).stato, 401);
+  assertEquals((await tenta('0000')).stato, 429, 'il sesto aspetta');
+  assertEquals((await tenta('1234')).stato, 429, 'qualunque PIN, finche non passa il minuto');
+});

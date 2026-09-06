@@ -98,6 +98,7 @@ Deno.test('l indirizzo di chi chiama: il primo della catena, e solo l hotel pass
   assertEquals(ipDi(testa('46.234.202.29, 10.0.0.1')), '46.234.202.29');
   assertEquals(ipDi(testa(' 46.234.202.29 ')), '46.234.202.29');
   assertEquals(ipDi(testa(null)), '');
+  assertEquals(ipDi(new Headers({ 'cf-connecting-ip': '9.9.9.9', 'x-forwarded-for': '1.2.3.4, 5.5.5.5' })), '9.9.9.9', 'cf-connecting-ip vince: e l unico che il client non puo scrivere');
   assertEquals(dallHotel(testa('46.234.202.29'), '46.234.202.29'), true);
   assertEquals(dallHotel(testa('5.6.7.8'), '46.234.202.29'), false);
   assertEquals(dallHotel(testa('5.6.7.8'), undefined), true, 'senza IP dell hotel configurato non si blocca nessuno');

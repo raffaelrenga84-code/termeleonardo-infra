@@ -49,6 +49,16 @@ export function creaFreno(maxPerIp: number, finestraMs: number) {
     return true;
   };
 
+  /** Vero se quella chiave ha gia' raggiunto il tetto; NON registra niente.
+      Con `segna` si conta solo cio' che si vuole contare — gli errori, non
+      i tentativi: chi sbaglia una volta il numero non paga niente. */
+  const pieno = (chiave: string, ora: number = Date.now()): boolean => {
+    if (!chiave) return false;
+    const soglia = ora - finestraMs;
+    return (visti.get(chiave) || []).filter((t) => t > soglia).length >= maxPerIp;
+  };
+  const segna = (chiave: string, ora: number = Date.now()): void => { if (chiave) entroIlLimite(chiave, ora); };
+
   /** Quanti indirizzi il freno ricorda ancora a quell'istante: per le prove. */
   const quanti = (ora: number = Date.now()): number => {
     const soglia = ora - finestraMs;
@@ -59,5 +69,5 @@ export function creaFreno(maxPerIp: number, finestraMs: number) {
 
   const azzera = (): void => { visti.clear(); };
 
-  return { entroIlLimite, quanti, azzera };
+  return { entroIlLimite, pieno, segna, quanti, azzera };
 }
