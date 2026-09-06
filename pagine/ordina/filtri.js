@@ -9,9 +9,10 @@
    DUE FONTI DIVERSE, APPOSTA. Senza glutine e senza lattosio si leggono
    dagli allergeni del menu stampato (le sigle GL e LA, in pos_articolo
    .allergeni): sono l'informazione che l'hotel dichiara gia' per legge.
-   Vegano NO: la carne non e' un allergene, e da «nessun allergene» non si
-   deduce niente — serve la spunta `vegano` che la reception mette nel back
-   office (POS · Menu). Un vegano dedotto sbagliato e' peggio di nessuno.
+   Vegetariano e vegano NO: la carne non e' un allergene, e da «nessun
+   allergene» non si deduce niente — servono le spunte `vegetariano` e
+   `vegano` che la reception mette nel back office (POS · Menu). Un vegano
+   dedotto sbagliato e' peggio di nessuno. Un vegano e' anche vegetariano.
 
    CHI NON HA GLI ALLERGENI SCRITTI NON PASSA. `allergeni` a null vuol dire
    «non ancora compilato», non «nessun allergene»: un piatto senza sigle
@@ -24,7 +25,7 @@
 'use strict';
 
 /** I tre filtri, nell'ordine in cui compaiono. */
-export const FILTRI = ['glutine', 'vegano', 'lattosio'];
+export const FILTRI = ['glutine', 'vegetariano', 'vegano', 'lattosio'];
 
 const SIGLA = { glutine: 'GL', lattosio: 'LA' };
 
@@ -34,6 +35,8 @@ const sigle = (a) => (typeof a.allergeni === 'string' ? a.allergeni : null);
 export function passaFiltro(a, filtro) {
   if (!a) return false;
   if (filtro === 'vegano') return a.vegano === true;
+  /* un piatto vegano e' anche vegetariano: chi cerca «vegetariano» lo vede */
+  if (filtro === 'vegetariano') return a.vegetariano === true || a.vegano === true;
   const s = SIGLA[filtro];
   if (!s) return false;
   const scritti = sigle(a);
@@ -48,10 +51,10 @@ export function filtriDisponibili(articoli) {
 }
 
 export const TESTI_FILTRI = {
-  it: { titolo: 'Scelta rapida', glutine: 'Senza glutine', vegano: 'Vegano', lattosio: 'Senza lattosio', nessuno: 'Nessun piatto in questa scelta.' },
-  en: { titolo: 'Quick picks', glutine: 'Gluten-free', vegano: 'Vegan', lattosio: 'Lactose-free', nessuno: 'No dishes match this choice.' },
-  de: { titolo: 'Schnellauswahl', glutine: 'Glutenfrei', vegano: 'Vegan', lattosio: 'Laktosefrei', nessuno: 'Keine Gerichte in dieser Auswahl.' },
-  fr: { titolo: 'Choix rapide', glutine: 'Sans gluten', vegano: 'Végan', lattosio: 'Sans lactose', nessuno: 'Aucun plat pour ce choix.' },
+  it: { titolo: 'Scelta rapida', glutine: 'Senza glutine', vegetariano: 'Vegetariano', vegano: 'Vegano', lattosio: 'Senza lattosio', nessuno: 'Nessun piatto in questa scelta.' },
+  en: { titolo: 'Quick picks', glutine: 'Gluten-free', vegetariano: 'Vegetarian', vegano: 'Vegan', lattosio: 'Lactose-free', nessuno: 'No dishes match this choice.' },
+  de: { titolo: 'Schnellauswahl', glutine: 'Glutenfrei', vegetariano: 'Vegetarisch', vegano: 'Vegan', lattosio: 'Laktosefrei', nessuno: 'Keine Gerichte in dieser Auswahl.' },
+  fr: { titolo: 'Choix rapide', glutine: 'Sans gluten', vegetariano: 'Végétarien', vegano: 'Végan', lattosio: 'Sans lactose', nessuno: 'Aucun plat pour ce choix.' },
 };
 
-export const ICONE_FILTRI = { glutine: '🌾', vegano: '🌱', lattosio: '🥛' };
+export const ICONE_FILTRI = { glutine: '🌾', vegetariano: '🥗', vegano: '🌱', lattosio: '🥛' };

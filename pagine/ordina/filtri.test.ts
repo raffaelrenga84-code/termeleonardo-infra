@@ -12,6 +12,7 @@ import { FILTRI, filtriDisponibili, passaFiltro, TESTI_FILTRI } from './filtri.j
 const penne = { id: 'p', nome: 'Penne Glutenfree', allergeni: '' };
 const pinsa = { id: 'i', nome: 'Pinsa', allergeni: 'GL-LA' };
 const burger = { id: 'b', nome: 'Veggie', allergeni: 'GL', vegano: true };
+const frittata = { id: 'f', nome: 'Frittata', allergeni: 'U', vegetariano: true };
 const vino = { id: 'v', nome: 'Vino', allergeni: null };
 
 Deno.test('senza glutine: solo chi ha gli allergeni SCRITTI e senza GL — chi non li ha scritti non si promette', () => {
@@ -35,14 +36,22 @@ Deno.test('vegano: solo la spunta, mai dedotto dagli allergeni', () => {
   assert(!passaFiltro({ ...burger, vegano: 'si' }, 'vegano'), 'solo il vero booleano');
 });
 
+Deno.test('vegetariano: la spunta, e anche chi e vegano (un vegano e anche vegetariano)', () => {
+  assert(passaFiltro(frittata, 'vegetariano'));
+  assert(passaFiltro(burger, 'vegetariano'), 'vegano, quindi anche vegetariano');
+  assert(!passaFiltro(frittata, 'vegano'), 'vegetariano non vuol dire vegano');
+  assert(!passaFiltro(penne, 'vegetariano'), 'senza spunta no, anche senza allergeni');
+});
+
 Deno.test('un filtro sconosciuto non passa niente', () => {
   assert(!passaFiltro(penne, 'altro'));
-  assertEquals(FILTRI, ['glutine', 'vegano', 'lattosio']);
+  assertEquals(FILTRI, ['glutine', 'vegetariano', 'vegano', 'lattosio']);
 });
 
 Deno.test('si offrono solo i filtri che hanno almeno un piatto, nell ordine fisso', () => {
   assertEquals(filtriDisponibili([penne, pinsa, vino]), ['glutine', 'lattosio']);
-  assertEquals(filtriDisponibili([burger]), ['vegano', 'lattosio']);
+  assertEquals(filtriDisponibili([burger]), ['vegetariano', 'vegano', 'lattosio']);
+  assertEquals(filtriDisponibili([frittata]), ['glutine', 'vegetariano', 'lattosio'], 'la frittata ha le uova scritte e niente GL: e anche senza glutine');
   assertEquals(filtriDisponibili([vino]), []);
   assertEquals(filtriDisponibili([]), []);
 });
@@ -54,6 +63,7 @@ Deno.test('i testi ci sono nelle quattro lingue, per i tre filtri e il titolo', 
     for (const k of [...FILTRI, 'titolo', 'nessuno']) assert(typeof t[k] === 'string' && t[k].length > 2, l + ' ' + k);
   }
   assertEquals(TESTI_FILTRI.it.glutine, 'Senza glutine');
+  assertEquals(TESTI_FILTRI.it.vegetariano, 'Vegetariano');
   assertEquals(TESTI_FILTRI.it.vegano, 'Vegano');
   assertEquals(TESTI_FILTRI.it.lattosio, 'Senza lattosio');
 });
