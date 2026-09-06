@@ -271,6 +271,8 @@ const coda = creaCoda({
 });
 let SESSIONE = sessionStorage.getItem('posSessione') || '';
 let CAMERIERE = JSON.parse(sessionStorage.getItem('posCameriere') || 'null');
+/* chi puo' stornare: il capo sala e l'amministrazione sempre, il cameriere con la spunta «storni» */
+const puoStornare = () => !!(CAMERIERE && (CAMERIERE.ruolo !== 'cameriere' || CAMERIERE.storni));
 let MENU = JSON.parse(localStorage.getItem('posMenu') || 'null');
 let MENU_LETTO_IL = 0;           // quando si e' letto dal server l'ultima volta
 /* le righe non ancora inviate di ogni conto: restano qui quando si passa
@@ -649,7 +651,7 @@ function schermataTavolo(t) {
      cloud: e' li' che vivono Stripe e l'archivio degli ordini. */
   const pannelloQr = (o) => {
     if (!o) return;
-    const puoStorno = CAMERIERE && (CAMERIERE.ruolo !== 'cameriere' || CAMERIERE.storni);
+    const puoStorno = puoStornare();
     const velo = document.createElement('div'); velo.className = 'velo';
     const via = () => velo.remove();
     velo.innerHTML = `<div class="pannello">
@@ -699,7 +701,7 @@ function schermataTavolo(t) {
   const disegna = () => {
     $('app').innerHTML = `<div class="riquadro">${aperti.length ? aperti.map((c) => `<div class="contoRiga"><button type="button" class="apri" data-c="${esc(c.id)}"><span><b>${esc(c.titolo || titoloConto(c))}</b><br><span class="mini">${c.coperti} coperti${c.attesa ? ' · portata in attesa' : ''}</span></span><b>${euro(c.totale_cent)}</b></button><button type="button" class="altro" data-altro="${esc(c.id)}" title="Nome, coperti, elimina">⋯</button></div>`).join('') : '<p class="mini">Tavolo libero.</p>'}</div>
       ${(t.qr || []).length ? `<div class="riquadro qrBlocco"><span class="eti">Ordini dal QR di oggi</span>${t.qr.map((o) => `<div class="contoRiga"><button type="button" class="apri" data-qr="${esc(o.numero)}"><span><b>📱 ${o.modo === 'camera' ? `in camera ${esc(o.camera || '')}` : 'pagato'}${o.stato === 'rimborsato' ? ' · rimborsato' : ''}</b><br><span class="mini">${esc(o.numero)} · ${minuti(o.creato_il)}′ · ${o.righe.filter((r) => r.stato !== 'stornata').length} righe</span></span><span>${euro(Number(o.totale_cent) - Number(o.rimborsato_cent || 0))}</span></button></div>`).join('')}</div>` : ''}
-      ${aperti.length ? '<div class="riquadro"><button type="button" class="bottone sec" id="spostaTavolo">Sposta tutto il tavolo…</button></div>' : ''}
+      ${aperti.length ? `<div class="riquadro"><button type="button" class="bottone sec" id="spostaTavolo">Sposta tutto il tavolo…</button>${puoStornare() ? '<button type="button" class="bottone sec" id="cancellaTavolo" style="margin-top:8px;color:var(--allarme);">Cancella tutto il tavolo…</button>' : ''}</div>` : ''}
       <div class="riquadro"><b>Nuovo conto</b><p class="mini">Quanti coperti?</p>
         <div class="coperti">${[1,2,3,4,5,6,7,8,9,10,11,12].map((n) => `<button data-n="${n}" class="${n === coperti ? 'attivo' : ''}">${n}</button>`).join('')}</div>
         <div class="due"><button class="bottone" id="nuovoEsterno">Apri conto</button>
@@ -719,6 +721,25 @@ function schermataTavolo(t) {
     $('nuovoCamera').onclick = () => pannelloCamera();
     const st = $('spostaTavolo');
     if (st) st.onclick = pannelloSpostaTavolo;
+    /* «un pulsante per cancellare tutto un tavolo … bisogna chiedere sei
+       sicuro?» (la proprieta', 6 settembre 2026). Via tutti i conti aperti:
+       quello che era partito viene stornato e in cucina esce lo storno. Non
+       passa dalla coda offline: o va subito, o si riprova. */
+    const ct = $('cancellaTavolo');
+    if (ct) ct.onclick = async () => {
+      const n = aperti.length;
+      if (!confirm(`Sei sicuro? ${n === 1 ? 'Il conto' : `Tutti i ${n} conti`} di ${t.nome} ${n === 1 ? 'viene cancellato' : 'vengono cancellati'}: quello che è già partito viene stornato e in cucina esce lo storno.`)) return;
+      let motivo = '';
+      if (CAMERIERE && CAMERIERE.storno_con_motivo) {
+        motivo = (prompt('Il motivo?') || '').trim();
+        if (motivo.length < 3) return alert('Senza il motivo non si cancella.');
+      }
+      try {
+        const j = await chiama('tavolo-svuota', { method: 'POST', body: JSON.stringify({ tavolo: t.id, motivo }) });
+        alert(`Fatto: ${j.conti === 1 ? 'un conto' : `${j.conti} conti`}, ${j.righe === 1 ? 'una riga stornata' : `${j.righe} righe stornate`}.`);
+        schermataSala();
+      } catch (e) { alert(e instanceof TypeError ? 'Nessun server risponde: riprovi tra un momento.' : e.message); }
+    };
   };
   /* Il conto in camera. La tessera si passa sul lettore del palmare — che
      la scrive come farebbe un dito, e poi manda invio — oppure si batte il
@@ -1003,7 +1024,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     const cat = categoriaDi(a.categoria) || {};
     const varianti = MENU.varianti.filter((v) => v.articolo === a.id || (v.categoria && v.categoria === a.categoria));
     const puoPrezzo = CAMERIERE && CAMERIERE.ruolo !== 'cameriere';
-    const puoStorno = CAMERIERE && (CAMERIERE.ruolo !== 'cameriere' || CAMERIERE.storni);
+    const puoStorno = puoStornare();
     const velo = document.createElement('div'); velo.className = 'velo';
     velo.innerHTML = `<div class="pannello">
       <h3>${esc(r.nome)}</h3>
@@ -1022,7 +1043,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       : `<p class="mini">Riga già inviata${r.stato === 'partita' ? ' e partita' : ', in attesa'}.</p>
       ${r.stato !== 'stornata' ? `<label>Sposta su un altro conto di questo tavolo</label>
       <div class="chips">${fratelli.map((f) => `<button data-sposta="${esc(f.id)}">${esc(nomeConto2(f))}</button>`).join('')}<button data-sposta="nuovo">+ Conto nuovo</button></div>` : ''}
-      ${puoStorno && r.stato !== 'stornata' ? `<label>Motivo dello storno</label><input id="pMotivo" placeholder="es. cambiato idea, errore" />
+      ${puoStorno && r.stato !== 'stornata' ? `${CAMERIERE.storno_con_motivo ? '<label>Motivo dello storno</label><input id="pMotivo" placeholder="es. cambiato idea, errore" />' : '<label>Motivo dello storno (facoltativo)</label><input id="pMotivo" placeholder="se vuole, due parole" />'}
       <div class="due"><button class="bottone sec" id="pChiudi">Annulla</button><button class="bottone" id="pStorna" style="background:var(--allarme)">Storna</button></div>`
       : `<div class="due"><button class="bottone sec" id="pChiudi">Chiudi</button></div>`}`}
     </div>`;
@@ -1093,9 +1114,10 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       const pc = velo.querySelector('#pChiudi'); if (pc) pc.onclick = chiudiPannello;
       const ps = velo.querySelector('#pStorna');
       if (ps) ps.onclick = async () => {
-        /* senza motivo non si storna: è merce che esce e non si paga */
+        /* il motivo lo pretende solo chi ha la spunta «motivo storno» nel back
+           office: all'inizio nessuno, per fare pratica (la proprietà, 6 settembre 2026) */
         const motivo = velo.querySelector('#pMotivo').value.trim();
-        if (motivo.length < 3) {
+        if (CAMERIERE.storno_con_motivo && motivo.length < 3) {
           const c = velo.querySelector('#pMotivo');
           c.style.borderColor = 'var(--allarme)'; c.focus();
           c.placeholder = 'Scriva il motivo dello storno';

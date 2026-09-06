@@ -170,7 +170,7 @@ Deno.test('senza motivo non si cambia un prezzo e non si storna', () => {
   assert(m.includes("const spiegato = campi.motivo_prezzo.length >= 3 || (campi.nota || '').trim().length >= 3;"), 'la nota gia scritta vale come motivo');
   assert(m.includes('if (cambiaPrezzo && !spiegato)'), 'e allora il motivo e obbligatorio');
   assert(m.includes('motivo_prezzo: r.motivo_prezzo'), 'e viaggia col la riga fino al server');
-  assert(m.includes("if (motivo.length < 3)") && m.includes('Scriva il motivo dello storno'), 'lo storno lo pretende');
+  assert(m.includes("if (CAMERIERE.storno_con_motivo && motivo.length < 3)") && m.includes('Scriva il motivo dello storno'), 'lo storno lo pretende, da chi ha la spunta');
   assert(m.includes('id="paMotivo"') && m.includes('Scriva perché cambia il prezzo'), 'e anche il prezzo di listino');
 });
 
@@ -399,4 +399,14 @@ Deno.test('il palmare vede «pronto in cucina»: bollino verde sul tavolo, riga 
   const pan = m.slice(m.indexOf('const pannelloConto = (c) =>'), m.indexOf('const pannelloSpostaTavolo'));
   assert(pan.includes('Pronto in cucina alle'), 'la riga in cima al pannello del conto');
   assert(pan.includes('c.pronto_in_cucina'), 'solo se il server lo dice');
+});
+
+Deno.test('cancella tutto il tavolo con «Sei sicuro?»; il motivo dello storno solo a chi ha la spunta', () => {
+  /* (la proprieta', 6 settembre 2026) */
+  assert(m.includes('id="cancellaTavolo"') && m.includes('Cancella tutto il tavolo…'), 'il pulsante, sotto «Sposta tutto il tavolo»');
+  assert(m.includes('puoStornare() ?') && m.includes("const puoStorno = puoStornare();"), 'lo vede chi puo stornare, la stessa regola della riga');
+  assert(m.includes('confirm(`Sei sicuro?'), 'e chiede prima');
+  assert(m.includes("chiama('tavolo-svuota', { method: 'POST'") && !m.includes("scrivi('tavolo-svuota'"), 'mai in coda offline: o passa subito o si riprova');
+  assert(m.includes('if (CAMERIERE && CAMERIERE.storno_con_motivo) {') && m.includes('Senza il motivo non si cancella.'), 'il motivo di tutto il tavolo solo con la spunta');
+  assert(m.includes('Motivo dello storno (facoltativo)'), 'senza spunta il campo resta, ma facoltativo');
 });

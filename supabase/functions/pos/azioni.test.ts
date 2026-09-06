@@ -187,7 +187,7 @@ Deno.test('tutto il tavolo su un altro: i conti aperti insieme, nello stesso loc
 });
 
 Deno.test('paga: un pezzo per volta, e il conto si chiude da solo quando i pezzi coprono il totale', () => {
-  assert(S.includes("'tavolo-sposta', 'paga']"), 'e un gesto del cameriere');
+  assert(S.includes("'tavolo-sposta', 'tavolo-svuota', 'paga']"), 'e un gesto del cameriere');
   const p = S.slice(S.indexOf("azione === 'paga'"), S.indexOf("azione === 'chiudi'"));
   assert(p.includes("['contanti', 'carta'].includes(String(b.modo))"), 'contanti o carta: la camera non e un pagamento');
   assert(p.includes("r.stato === 'da_inviare'"), 'con righe da inviare non si incassa');
@@ -365,4 +365,19 @@ Deno.test('si entra col solo PIN di quattro cifre: il PIN e la persona, e non pu
   assert(a.includes("errore: 'codice non riconosciuto'"), 'la strada col codice resta per la pagina vecchia');
   const p = S.slice(S.indexOf("azione === 'personale-salva'"), S.indexOf("for (const d of dispositivi)"));
   assert(p.includes("PIN gia' usato da") && p.includes("il PIN e' di quattro cifre"), 'il back office non lascia dare due volte lo stesso PIN');
+});
+
+Deno.test('cancellare tutto il tavolo: uno storno di tutto, col biglietto per quello gia partito; il motivo solo a chi ha la spunta', () => {
+  /* «un pulsante per cancellare tutto un tavolo … bisogna chiedere sei sicuro?» e «decidere che cameriere
+     deve darmi motivazione e quale non serve» (la proprieta', 6 settembre 2026) */
+  const s = S.slice(S.indexOf("azione === 'tavolo-svuota'"), S.indexOf("azione === 'tavolo-sposta'"));
+  assert(s.includes("puo(cameriere!, 'storno')"), 'lo fa chi puo stornare');
+  assert(s.includes('cameriere!.storno_con_motivo') && s.includes("'tavolo cancellato'"), 'il motivo solo a chi lo deve dare; la traccia dice che era tutto il tavolo');
+  assert(s.includes("'storno', cameriere!.nome") && s.includes("r.stato === 'partita'"), 'in cucina esce lo STORNO di quello che era partito');
+  assert(s.includes("stato: 'chiuso', chiuso_come: null") && s.includes(".delete().eq('id', c.id)"), 'i conti si chiudono a zero, quelli vuoti spariscono');
+  const st = S.slice(S.indexOf("azione === 'storna'"), S.indexOf("azione === 'sposta'"));
+  assert(st.includes('!motivo && cameriere!.storno_con_motivo'), 'lo storno di una riga: idem');
+  assert(S.includes('storni, bloccato, storno_con_motivo)'), 'la sessione porta la spunta');
+  assert(S.includes('storno_con_motivo: !!c.storno_con_motivo'), 'il back office la salva, l accesso la manda al palmare');
+  assert(/const azioniPalmare = \[[^\n]*'tavolo-svuota'/.test(S), 'e un gesto del cameriere: serve la sessione');
 });

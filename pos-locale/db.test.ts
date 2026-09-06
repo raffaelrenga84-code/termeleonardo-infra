@@ -61,3 +61,12 @@ Deno.test('le sessioni dei palmari salgono al cloud: un PC gia installato riceve
   creaSchema(db);
   assert(colonneDi(db, 'pos_sessione').includes('allineato'));
 });
+
+Deno.test('un PC gia installato riceve la spunta «motivo storno» dei camerieri con un alter', () => {
+  const db = apri(':memory:');
+  db.exec(`create table pos_cameriere (id text primary key, nome text not null, codice text not null, pin_hash text not null,
+    ruolo text not null, storni integer not null default 0, bloccato integer not null default 0, senza_pin integer not null default 0,
+    aggiornato_il text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))`);
+  creaSchema(db);
+  assert(colonneDi(db, 'pos_cameriere').includes('storno_con_motivo'));
+});

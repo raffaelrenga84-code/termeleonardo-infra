@@ -24,7 +24,7 @@ import { daMostrare, impronta, inizioGiornata, passo, prontoInCucina, statoInizi
 export type Richiesta = { metodo: string; query: Record<string, string>; corpo: unknown; intestazioni: Record<string, string> };
 export type Risposta = { stato: number; corpo: unknown };
 export type Config = { locale: string };
-type Cameriere = { id: string; nome: string; ruolo: Ruolo; storni: boolean; bloccato: boolean };
+type Cameriere = { id: string; nome: string; ruolo: Ruolo; storni: boolean; bloccato: boolean; storno_con_motivo: boolean };
 type RigaStampabile = Riga & { id: string; stampante: 'cucina' | 'bar'; locale_stampa: string | null; portata: Portata; stato: string };
 
 const ok = (corpo: unknown, stato = 200): Risposta => ({ stato, corpo });
@@ -46,11 +46,11 @@ async function hashPin(codice: string, pin: string): Promise<string> {
 function cameriereDi(db: Db, req: Richiesta): Cameriere | null {
   const disp = testa(req, 'x-pos-dispositivo'), sess = testa(req, 'x-pos-sessione');
   if (!disp || !sess) return null;
-  const s = db.prepare(`select s.scade_il, c.id, c.nome, c.ruolo, c.storni, c.bloccato as c_bloccato, d.token, d.bloccato as d_bloccato
+  const s = db.prepare(`select s.scade_il, c.id, c.nome, c.ruolo, c.storni, c.storno_con_motivo, c.bloccato as c_bloccato, d.token, d.bloccato as d_bloccato
     from pos_sessione s join pos_cameriere c on c.id = s.cameriere join pos_dispositivo d on d.id = s.dispositivo where s.id = ?`).get(sess) as Riga | undefined;
   if (!s || new Date(String(s.scade_il)) < new Date()) return null;
   if (s.token !== disp || Number(s.d_bloccato) || Number(s.c_bloccato)) return null;
-  return { id: String(s.id), nome: String(s.nome), ruolo: String(s.ruolo) as Ruolo, storni: !!Number(s.storni), bloccato: false };
+  return { id: String(s.id), nome: String(s.nome), ruolo: String(s.ruolo) as Ruolo, storni: !!Number(s.storni), bloccato: false, storno_con_motivo: !!Number(s.storno_con_motivo) };
 }
 
 /* ---------- le righe di un conto, con la stampante gia' decisa ---------- */
@@ -182,11 +182,11 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
        palmare passa al cloud non viene buttato fuori (6 settembre 2026) */
     salva(db, 'pos_sessione', { id: sessione, cameriere: c.id, dispositivo: disp.id, scade_il: scade, aggiornato_il: adesso(), allineato: 0 });
     db.prepare('update pos_dispositivo set ultimo_accesso = ? where id = ?').run(adesso(), String(disp.id));
-    return ok({ sessione, scade_il: scade, cameriere: { id: c.id, nome: c.nome, ruolo: c.ruolo, storni: !!Number(c.storni), senza_pin: senzaPin } });
+    return ok({ sessione, scade_il: scade, cameriere: { id: c.id, nome: c.nome, ruolo: c.ruolo, storni: !!Number(c.storni), storno_con_motivo: !!Number(c.storno_con_motivo), senza_pin: senzaPin } });
   }
 
   const cameriere = cameriereDi(db, req);
-  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'tessera', 'tavolo-sposta', 'paga'];
+  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'tessera', 'tavolo-sposta', 'tavolo-svuota', 'paga'];
   if (azioniPalmare.includes(azione) && !cameriere) return errore('sessione non valida', 401);
 
   if (azione === 'menu') {
@@ -420,9 +420,9 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     if (!puo(cameriere!, 'storno')) return errore('storno non permesso', 403);
     const r = db.prepare('select * from pos_riga where id = ?').get(String(b.riga ?? '')) as Riga | undefined;
     if (!r || r.stato === 'stornata') return errore('riga non trovata o gia stornata', 404);
-    /* senza motivo non si storna: e' merce che esce e non si paga */
+    /* il motivo lo pretende solo chi ha la spunta «motivo storno» (vedi il cloud) */
     const motivo = motivoPulito(b.motivo);
-    if (!motivo) return errore('scriva il motivo dello storno', 400);
+    if (!motivo && cameriere!.storno_con_motivo) return errore('scriva il motivo dello storno', 400);
     const ora = adesso();
     aggiornaRighe(db, [String(r.id)], { stato: 'stornata', stornata_da: cameriere!.id, stornata_il: ora, motivo_storno: motivo, aggiornato_il: ora });
     if (r.stato === 'partita') {
@@ -460,6 +460,37 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
 
   /* tutto il tavolo su un altro, nello stesso locale: i conti aperti
      cambiano tavolo insieme (vedi il cloud) */
+  /* tutto il tavolo via in un colpo (vedi il cloud): storno di tutte le
+     righe vive, STORNO in coda per quelle partite, conti chiusi a zero */
+  if (azione === 'tavolo-svuota') {
+    const no = soloPost(); if (no) return no;
+    if (!puo(cameriere!, 'storno')) return errore('storno non permesso', 403);
+    const tavolo = String(b.tavolo ?? '');
+    const scritto = motivoPulito(b.motivo);
+    if (!scritto && cameriere!.storno_con_motivo) return errore('scriva il motivo', 400);
+    const motivo = scritto ? `tavolo cancellato: ${scritto}` : 'tavolo cancellato';
+    const conti = db.prepare("select * from pos_conto where tavolo = ? and stato <> 'chiuso'").all(tavolo) as Riga[];
+    if (!conti.length) return errore('questo tavolo non ha conti aperti', 409);
+    const ora = adesso();
+    let stornate = 0;
+    for (const c of conti) {
+      const righe = righeDelConto(db, String(c.id));
+      const vive = righe.filter((r) => r.stato !== 'stornata');
+      if (vive.length) {
+        aggiornaRighe(db, vive.map((r) => String(r.id)), { stato: 'stornata', stornata_da: cameriere!.id, stornata_il: ora, motivo_storno: motivo, aggiornato_il: ora });
+        stornate += vive.length;
+        const partite = vive.filter((r) => r.stato === 'partita');
+        for (const p of new Set(partite.map((r) => r.portata))) creaStampe(db, c, partite.filter((r) => r.portata === p), p, 'storno', cameriere!.nome);
+      }
+      if (righe.length) db.prepare("update pos_conto set stato = 'chiuso', chiuso_come = null, chiuso_da = ?, chiuso_il = ?, aggiornato_il = ?, allineato = 0 where id = ?").run(cameriere!.id, ora, ora, String(c.id));
+      else {
+        db.prepare('delete from pos_conto where id = ?').run(String(c.id));
+        db.prepare("insert or replace into pos_eliminato (id, tabella, quando) values (?, 'pos_conto', ?)").run(String(c.id), ora);
+      }
+    }
+    return ok({ esito: 'ok', conti: conti.length, righe: stornate });
+  }
+
   if (azione === 'tavolo-sposta') {
     const no = soloPost(); if (no) return no;
     const daId = String(b.da ?? ''), aId = String(b.a ?? '');

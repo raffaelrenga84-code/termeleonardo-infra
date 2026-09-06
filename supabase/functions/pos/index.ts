@@ -169,7 +169,7 @@ async function autorizzato(req: Request): Promise<Accesso> {
 }
 
 /* ---------- la sessione del cameriere: dispositivo + sessione validi ---------- */
-type Cameriere = { id: string; nome: string; ruolo: RuoloPos; storni: boolean; bloccato: boolean };
+type Cameriere = { id: string; nome: string; ruolo: RuoloPos; storni: boolean; bloccato: boolean; storno_con_motivo?: boolean };
 async function dispositivoDi(req: Request): Promise<Riga | null> {
   const token = req.headers.get('x-pos-dispositivo') || '';
   if (!token) return null;
@@ -180,7 +180,7 @@ async function cameriereDi(req: Request): Promise<Cameriere | null> {
   const disp = req.headers.get('x-pos-dispositivo') || '', sess = req.headers.get('x-pos-sessione') || '';
   if (!disp || !sess) return null;
   const { data: s } = await db.from('pos_sessione')
-    .select('id, scade_il, cam:pos_cameriere(id, nome, ruolo, storni, bloccato), dis:pos_dispositivo(token, bloccato)')
+    .select('id, scade_il, cam:pos_cameriere(id, nome, ruolo, storni, bloccato, storno_con_motivo), dis:pos_dispositivo(token, bloccato)')
     .eq('id', sess).maybeSingle();
   if (!s || new Date(s.scade_il as string) < new Date()) return null;
   const d = s.dis as unknown as { token: string; bloccato: boolean } | null;
@@ -589,11 +589,11 @@ Deno.serve(async (req) => {
     const scade = new Date(Date.now() + 14 * 60 * 60 * 1000).toISOString();
     await db.from('pos_sessione').insert({ id: sessione, cameriere: c.id, dispositivo: disp.id, scade_il: scade });
     await db.from('pos_dispositivo').update({ ultimo_accesso: adesso() }).eq('id', disp.id);
-    return risposta({ sessione, scade_il: scade, cameriere: { id: c.id, nome: c.nome, ruolo: c.ruolo, storni: c.storni, senza_pin: senzaPin } });
+    return risposta({ sessione, scade_il: scade, cameriere: { id: c.id, nome: c.nome, ruolo: c.ruolo, storni: c.storni, storno_con_motivo: !!c.storno_con_motivo, senza_pin: senzaPin } });
   }
 
   const cameriere = await cameriereDi(req);
-  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'conto-ristampa', 'conto-sposta', 'riga-storna-rimborsa', 'tessera', 'tavolo-sposta', 'paga'];
+  const azioniPalmare = ['menu', 'sala', 'conto', 'conto-cambia', 'conto-elimina', 'righe', 'invia', 'vai', 'storna', 'sposta', 'chiudi', 'articolo-cambia', 'conto-ristampa', 'conto-sposta', 'riga-storna-rimborsa', 'tessera', 'tavolo-sposta', 'tavolo-svuota', 'paga'];
   if (azioniPalmare.includes(azione) && !cameriere) return risposta({ errore: 'sessione non valida' }, 401);
 
   if (azione === 'menu') {
@@ -937,9 +937,12 @@ Deno.serve(async (req) => {
     const b = await corpo();
     const { data: r } = await db.from('pos_riga').select('*').eq('id', String(b.riga ?? '')).maybeSingle();
     if (!r || r.stato === 'stornata') return risposta({ errore: 'riga non trovata o gia stornata' }, 404);
-    /* senza motivo non si storna: e' merce che esce e non si paga */
+    /* il motivo lo pretende solo chi ha la spunta «motivo storno» nel back
+       office: all'inizio nessuno, per fare pratica (la proprieta', 6
+       settembre 2026). E' merce che esce e non si paga: la spiegazione si
+       accende persona per persona. */
     const motivo = motivoPulito(b.motivo);
-    if (!motivo) return risposta({ errore: 'scriva il motivo dello storno' }, 400);
+    if (!motivo && cameriere!.storno_con_motivo) return risposta({ errore: 'scriva il motivo dello storno' }, 400);
     const ora = adesso();
     const { data: agg } = await db.from('pos_riga')
       .update({ stato: 'stornata', stornata_da: cameriere!.id, stornata_il: ora, motivo_storno: motivo, aggiornato_il: ora })
@@ -1053,6 +1056,45 @@ Deno.serve(async (req) => {
     await db.from('pos_conto').update({ tavolo: a.id, aggiornato_il: ora }).eq('id', c.id);
     await db.from('pos_ordine_ospite').update({ tavolo: a.id, aggiornato_il: ora }).eq('conto', c.id);
     return risposta({ esito: 'ok', tavolo: { id: a.id, nome: a.nome } });
+  }
+
+  /* Tutto il tavolo via in un colpo: «i camerieri mi chiedono un pulsante
+     per cancellare tutto un tavolo» (la proprieta', 6 settembre 2026). E'
+     uno storno di tutte le righe vive dei conti aperti — col biglietto
+     STORNO per quelle gia' partite, cosi' la cucina lo sa — e poi i conti
+     si chiudono a zero (spariscono se erano vuoti), come conto-elimina.
+     Lo fa chi puo' stornare; il «sei sicuro?» lo chiede il palmare. */
+  if (azione === 'tavolo-svuota') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    if (!puo(cameriere!, 'storno')) return risposta({ errore: 'storno non permesso' }, 403);
+    const b = await corpo();
+    const tavolo = String(b.tavolo ?? '');
+    const scritto = motivoPulito(b.motivo);
+    if (!scritto && cameriere!.storno_con_motivo) return risposta({ errore: 'scriva il motivo' }, 400);
+    const motivo = scritto ? `tavolo cancellato: ${scritto}` : 'tavolo cancellato';
+    const { data: conti } = await db.from('pos_conto').select('*').eq('tavolo', tavolo).neq('stato', 'chiuso');
+    if (!conti?.length) return risposta({ errore: 'questo tavolo non ha conti aperti' }, 409);
+    const ora = adesso();
+    let stornate = 0;
+    for (const c of conti) {
+      const righe = await righeDelConto(c.id as string);
+      const vive = righe.filter((r) => r.stato !== 'stornata');
+      if (vive.length) {
+        const { error } = await db.from('pos_riga')
+          .update({ stato: 'stornata', stornata_da: cameriere!.id, stornata_il: ora, motivo_storno: motivo, aggiornato_il: ora })
+          .in('id', vive.map((r) => r.id));
+        if (error) return risposta({ errore: error.message }, 500);
+        stornate += vive.length;
+        /* in cucina esce lo STORNO di quello che era gia' partito, portata per portata */
+        const partite = vive.filter((r) => r.stato === 'partita');
+        for (const p of new Set(partite.map((r) => r.portata))) await creaStampe(c, partite.filter((r) => r.portata === p), p, 'storno', cameriere!.nome);
+      }
+      const { error } = righe.length
+        ? await db.from('pos_conto').update({ stato: 'chiuso', chiuso_come: null, chiuso_da: cameriere!.id, chiuso_il: ora, aggiornato_il: ora }).eq('id', c.id)
+        : await db.from('pos_conto').delete().eq('id', c.id);
+      if (error) return risposta({ errore: error.message }, 500);
+    }
+    return risposta({ esito: 'ok', conti: conti.length, righe: stornate });
   }
 
   if (azione === 'tavolo-sposta') {
@@ -1768,7 +1810,7 @@ Deno.serve(async (req) => {
         const id = String(c.id ?? crypto.randomUUID());
         const codice = String(c.codice ?? '').trim();
         if (!codice || !c.nome) return risposta({ errore: 'ogni cameriere ha nome e codice' }, 400);
-        const riga: Riga = { id, nome: c.nome, codice, ruolo: c.ruolo ?? 'cameriere', storni: !!c.storni, bloccato: !!c.bloccato, senza_pin: !!c.senza_pin, aggiornato_il: ora };
+        const riga: Riga = { id, nome: c.nome, codice, ruolo: c.ruolo ?? 'cameriere', storni: !!c.storni, storno_con_motivo: !!c.storno_con_motivo, bloccato: !!c.bloccato, senza_pin: !!c.senza_pin, aggiornato_il: ora };
         const pin = String(c.pin ?? '').trim();
         /* PIN vuoto = lascia com'era. L'impronta vecchia va RIMESSA nella
            riga: un upsert e' un insert che poi diventa update, e Postgres
