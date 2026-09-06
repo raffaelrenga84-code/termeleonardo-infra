@@ -1394,6 +1394,28 @@ Deno.serve(async (req) => {
     return risposta({ esito: 'ok', fatte, saltate, ripiegate, segue });
   }
 
+  /* ---------- il pacchetto per il PC del Bistrot (aggiornamento automatico) ----------
+     «per non ricopiare la cartella a ogni modifica» (la proprieta', 6
+     settembre 2026): strumenti/pubblica-pacchetto.js mette src/ e pagina/
+     in pos_pacchetto; il PC (pos-locale/aggiorna.ts) chiede ogni minuto
+     la versione e, se e' nuova, i file uno a uno. Con la chiave hotel,
+     come allinea-giu: il pacchetto e' codice, non lo si da' a chiunque. */
+  if (azione === 'pacchetto') {
+    if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);
+    const { data: righe } = await db.from('pos_pacchetto').select('percorso, versione, sha256, byte').order('percorso');
+    const versioni = new Set((righe ?? []).map((r) => r.versione as string));
+    /* piu' versioni insieme = pubblicazione a meta': il PC aspetta il giro dopo */
+    if (versioni.size !== 1) return risposta({ versione: null, file: [] });
+    return risposta({ versione: [...versioni][0], file: (righe ?? []).map((r) => ({ percorso: r.percorso, sha256: r.sha256, byte: r.byte })) });
+  }
+  if (azione === 'pacchetto-file') {
+    if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);
+    const percorso = url.searchParams.get('percorso') || '';
+    const { data: r } = await db.from('pos_pacchetto').select('percorso, versione, sha256, contenuto').eq('percorso', percorso).maybeSingle();
+    if (!r) return risposta({ errore: 'file non nel pacchetto' }, 404);
+    return risposta({ percorso: r.percorso, versione: r.versione, sha256: r.sha256, contenuto: r.contenuto });
+  }
+
   if (azione === 'allinea-su') {
     if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);
     const b = await corpo();

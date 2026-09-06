@@ -407,3 +407,12 @@ Deno.test('la bacheca all ingresso: pubblica, prima di ogni porta; solo gli arti
   assert(b.includes('testo: a.bacheca_testo ?? null') && b.includes('prezzo_cent: Number(a.prezzo_cent)'), 'nome, testo del giorno, prezzo');
   assert(!b.includes('cameriere') && !b.includes('autorizzato('), 'nessuna porta: e come il menu dal QR');
 });
+
+Deno.test('il pacchetto per il PC del Bistrot: con la chiave hotel, una versione sola per volta, un file per chiamata', () => {
+  /* «aggiornamento automatico del PC per non ricopiare la cartella a ogni modifica» (la proprieta', 6 settembre 2026) */
+  const p = S.slice(S.indexOf("azione === 'pacchetto'"), S.indexOf("azione === 'allinea-su'"));
+  assert((p.match(/chiaveHotel\(req\)/g) ?? []).length === 2, 'tutte e due le azioni chiedono la chiave hotel');
+  assert(p.includes('if (versioni.size !== 1) return risposta({ versione: null, file: [] });'), 'a meta pubblicazione il PC aspetta');
+  assert(p.includes("azione === 'pacchetto-file'") && p.includes(".eq('percorso', percorso).maybeSingle()"), 'un file per chiamata');
+  assert(!p.includes('contenuto') || p.indexOf('contenuto') > p.indexOf("azione === 'pacchetto-file'"), 'il manifesto non porta i contenuti');
+});

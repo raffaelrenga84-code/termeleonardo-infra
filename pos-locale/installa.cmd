@@ -38,6 +38,9 @@ robocopy "%~dp0pagina" "%DEST%\pagina" /MIR /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 ( echo   copia della pagina fallita & pause & exit /b 1 )
 rem la data del pacchetto: la stampa qui e la dice il server (?a=stato-locale), cosi da fuori si vede se il PC e aggiornato
 copy /y "%~dp0VERSIONE.txt" "%DEST%\VERSIONE.txt" >nul 2>&1
+rem il supervisore (avvio.ts) sta fuori da src: gli aggiornamenti dal cloud non lo toccano
+copy /y "%~dp0avvio.ts" "%DEST%\avvio.ts" >nul
+if errorlevel 1 ( echo   copia di avvio.ts fallita: manca accanto a questo file? & pause & exit /b 1 )
 set VERS=
 if exist "%~dp0VERSIONE.txt" set /p VERS=<"%~dp0VERSIONE.txt"
 if defined VERS echo   pacchetto del !VERS!
@@ -72,9 +75,9 @@ echo [3/5] firewall: porta %PORTA% aperta dalla rete dell'hotel...
 netsh advfirewall firewall delete rule name="POS Bistrot" >nul 2>&1
 netsh advfirewall firewall add rule name="POS Bistrot" dir=in action=allow protocol=TCP localport=%PORTA% >nul
 
-echo [4/5] attivita' "POS Bistrot": parte da sola all'accensione...
+echo [4/5] attivita' "POS Bistrot": parte da sola all'accensione, si tiene su e si aggiorna dal cloud...
 schtasks /delete /tn "POS Bistrot" /f >nul 2>&1
-schtasks /create /tn "POS Bistrot" /tr "\"%DEST%\deno.exe\" run --node-modules-dir=none --no-prompt --allow-net --allow-read --allow-write --allow-env \"%DEST%\src\pos-locale\main.ts\" \"%DEST%\config.json\"" /sc onstart /ru SYSTEM /rl highest /f >nul
+schtasks /create /tn "POS Bistrot" /tr "\"%DEST%\deno.exe\" run --node-modules-dir=none --no-prompt --allow-run=%DEST%\deno.exe --allow-read --allow-write --allow-env \"%DEST%\avvio.ts\" \"%DEST%\config.json\"" /sc onstart /ru SYSTEM /rl highest /f >nul
 if errorlevel 1 ( echo   attivita' non creata & pause & exit /b 1 )
 schtasks /run /tn "POS Bistrot" >nul
 
@@ -95,6 +98,8 @@ echo  scheda «POS · Personale») e in Chrome «Aggiungi a schermata Home».
 echo.
 echo  Questo PC deve avere l'IP FISSO (si riserva nel router): se cambia,
 echo  i palmari non lo trovano piu'.
+echo  Si aggiorna da solo: quando in reception si rifa' il pacchetto, entro un minuto
+echo  lo prende dal cloud e riparte. La chiavetta serve solo per deno.exe o avvio.ts.
 echo ======================================================================
 pause
 endlocal

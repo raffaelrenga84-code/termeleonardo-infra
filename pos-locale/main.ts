@@ -19,6 +19,7 @@ import { esegui, mandaSegueScaduti } from './azioni.ts';
 import { giroStampe, type Stampanti, stampantiDi } from './stampa.ts';
 import { battito, giu, su } from './allinea.ts';
 import { fileDellaPagina } from './pagina.ts';
+import { AGGIORNATO, aggiorna, type Esito as EsitoAggiornamento, versioneLocale } from './aggiorna.ts';
 
 type Config = {
   locale: string; porta?: number; cert?: string; chiave?: string; db?: string; pagina?: string;
@@ -28,10 +29,12 @@ type Config = {
 const percorsoCfg = Deno.args[0] || 'config.json';
 const cfg = JSON.parse(await Deno.readTextFile(percorsoCfg)) as Config;
 if (!cfg.locale || !cfg.cloud || !cfg.hotelKey) throw new Error('config.json: servono locale, cloud e hotelKey');
-/* la data del pacchetto (VERSIONE.txt accanto al config, ce lo mette installa.cmd):
-   la dice ?a=stato-locale, cosi' da fuori si vede se il PC e' aggiornato */
-let versione: string | null = null;
-try { versione = (await Deno.readTextFile(percorsoCfg.replace(/[^\\/]*$/, '') + 'VERSIONE.txt')).split(/\r?\n/)[0].trim() || null; } catch { /* pacchetto senza VERSIONE.txt */ }
+/* la cartella del PC (C:\pos): accanto al config stanno VERSIONE.txt, src/ e
+   pagina/. La data del pacchetto la dice ?a=stato-locale, con l'ultimo
+   controllo del pacchetto nel cloud: da fuori si vede se il PC e' aggiornato */
+const DIR = percorsoCfg.replace(/[^\\/]*$/, '').replace(/[\\/]$/, '') || '.';
+let versione: string | null = versioneLocale(DIR);
+let aggiornamento: (EsitoAggiornamento & { controllato_il: string }) | null = null;
 
 const db = apri(cfg.db || 'pos.sqlite');
 creaSchema(db);
@@ -63,7 +66,7 @@ async function gestisci(req: Request): Promise<Response> {
   req.headers.forEach((v, k) => { intestazioni[k.toLowerCase()] = v; });
   const corpo = req.method === 'POST' ? await req.json().catch(() => ({})) : null;
   try {
-    const r = await esegui(db, query.a || '', { metodo: req.method, query, corpo, intestazioni }, { locale: cfg.locale, versione });
+    const r = await esegui(db, query.a || '', { metodo: req.method, query, corpo, intestazioni }, { locale: cfg.locale, versione, aggiornamento });
     return new Response(JSON.stringify(r.corpo), { status: r.stato, headers: { ...CORS, 'content-type': 'application/json' } });
   } catch (e) {
     log(`errore in ${query.a}: ${(e as Error).message}`);
@@ -95,7 +98,23 @@ if (cfg.cert && cfg.chiave) {
    resta il ripiego per il primo avvio, prima che scenda qualcosa */
 ogni(2000, 'stampe', () => giroStampe(db, stampantiDi(db, cfg.locale, cfg.stampanti || {})));
 ogni(5000, 'su', async () => { const n = await su(db, cloud); if (n) log(`salite ${n} righe`); await battito(cloud); });
-const scendi = ogni(60000, 'giu', () => giu(db, cloud));
+/* il server nuovo deve compilare col Deno di questo PC prima di prendere il
+   posto di questo (aggiorna.ts): serve --allow-run=deno.exe, lo da' avvio.ts */
+const compilaBene = async (dirNuovo: string) => {
+  const c = new Deno.Command(Deno.execPath(), { args: ['check', '--node-modules-dir=none', `${dirNuovo}/src/pos-locale/main.ts`], stdout: 'piped', stderr: 'piped' });
+  const o = await c.output();
+  if (o.code !== 0) log(`il server nuovo non compila: ${new TextDecoder().decode(o.stderr).slice(0, 400)}`);
+  return o.code === 0;
+};
+const scendi = ogni(60000, 'giu', async () => {
+  /* se la discesa fallisce si va avanti lo stesso: un aggiornamento potrebbe essere proprio la cura */
+  try { await giu(db, cloud); } catch (e) { log(`giu: ${(e as Error).message}`); }
+  /* e il pacchetto: se nel cloud ce n'e' uno piu' nuovo ci si aggiorna e si
+     riparte (aggiorna.ts); a farci ripartire e' il supervisore, avvio.ts */
+  const esito = await aggiorna({ dir: DIR, cloud, controlla: compilaBene, log });
+  aggiornamento = { ...esito, controllato_il: new Date().toISOString() };
+  if (esito.esito === 'aggiornato') { versione = esito.versione; log('riparto col codice nuovo'); setTimeout(() => Deno.exit(AGGIORNATO), 500); }
+});
 await scendi();
 /* «segue in 5 minuti»: allo scadere parte da se' (azioni.ts) */
 ogni(10000, 'segue', async () => { const n = mandaSegueScaduti(db); if (n) log(`segue a tempo: ${n} righe`); });

@@ -23,8 +23,11 @@
    sul PC del Bistrot si apre a /cucina, e le comande si vedono anche
    quando internet non c'e'.
 
-   Da rifare (e rieseguire installa.cmd sul PC) ogni volta che cambia
-   qualcosa in pos-locale/, in supabase/functions/pos/ o nelle pagine.
+   Da rifare ogni volta che cambia qualcosa in pos-locale/, in
+   supabase/functions/pos/ o nelle pagine: la cartella va su OneDrive E nel
+   cloud (pubblica-pacchetto.js), da dove il PC gia' installato si aggiorna
+   da solo entro un minuto (aggiorna.ts, supervisore avvio.ts). installa.cmd
+   serve la prima volta, e quando cambiano deno.exe o avvio.ts.
 
    Uso:  node strumenti/pacchetto-bistrot.js [cartella di destinazione]
    ============================================================ */
@@ -83,7 +86,15 @@ fs.copyFileSync('pagine/bacheca/index.html', path.join(pagina, 'bacheca', 'index
 
 console.log('[4/4] installa.cmd e il modello della configurazione...');
 fs.copyFileSync('pos-locale/installa.cmd', path.join(DEST, 'installa.cmd'));
+/* il supervisore: sta fuori da src/, gli aggiornamenti dal cloud non lo toccano */
+fs.copyFileSync('pos-locale/avvio.ts', path.join(DEST, 'avvio.ts'));
 fs.copyFileSync('pos-locale/config.esempio.json', path.join(DEST, 'config.modello.json'));
 fs.writeFileSync(path.join(DEST, 'VERSIONE.txt'), `${new Date().toISOString()}\n${versione}\n`);
 console.log(`fatto: ${DEST} (${versione})`);
 console.log('Sul PC del Bistrot: tasto destro su installa.cmd → «Esegui come amministratore».');
+/* e nel cloud, da dove il PC gia' installato si aggiorna da solo
+   (pubblica-pacchetto.js). Le cartelle di prova non si pubblicano. */
+if (!process.argv[2]) {
+  const p = spawnSync(process.execPath, [path.join(__dirname, 'pubblica-pacchetto.js'), DEST], { stdio: 'inherit' });
+  if (p.status !== 0) { console.error('pubblicazione nel cloud FALLITA: il PC non si aggiorna finche non si rilancia node strumenti/pubblica-pacchetto.js'); process.exit(1); }
+} else console.log('(cartella di prova: non pubblicata nel cloud)');
