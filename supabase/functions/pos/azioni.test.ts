@@ -262,7 +262,7 @@ Deno.test('gli orari del menu: il menu per l ospite dice cosa e ordinabile adess
   assert(o.includes('disponibile: apertoOra(') && o.includes('finestre'), 'ogni categoria e ogni articolo dice se e aperto adesso, con le sue finestre');
   const ord = S.slice(S.indexOf('/* ospite-ordine */'), S.indexOf("azione === 'ospite-stato'") > 0 ? S.indexOf('/* ================= dal palmare') : S.length);
   assert(ord.includes('fuori_orario:'), 'l ordine porta il segno «fuori orario» a righeOrdine');
-  assert(S.includes("(il suo indirizzo: ${ip})") && S.includes("Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP')"), 'chi sceglie il tavolo a mano da fuori legge il suo IP, e gli IP ammessi possono essere piu di uno');
+  assert(S.includes("Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP')"), 'gli IP ammessi per la rete dell hotel possono essere piu di uno');
 });
 
 Deno.test('a cucina chiusa (pos_locale.orari_cucina) il biglietto della cucina esce al bancone, con l avviso', () => {
@@ -310,9 +310,15 @@ Deno.test('il palmare: gli ordini dal QR di oggi sul tavolo, la coda di stampa, 
   assert(st.includes('const cent = importoRiga({ quantita: Number(r.quantita), prezzo_cent: Number(r.prezzo_cent) });'), 'torna l importo della riga');
 });
 
-Deno.test('senza QR l elenco dei tavoli resta della sola rete dell hotel, e il messaggio dice cosa fare', () => {
+Deno.test('l elenco dei tavoli si apre da ovunque, ma chi non e sulla rete dell hotel ha un tetto', () => {
+  /* «Puoi fare entrambe? Con qr e senza?» (la proprieta', 6 settembre
+     2026): la scelta a mano vale da qualunque connessione, perche' un
+     ordine si paga comunque prima di stampare. Resta un freno contro chi
+     si porta via le firme a raffica — e non tocca la rete dell'hotel, da
+     dove escono tutti gli ospiti insieme. */
   const t = S.slice(S.indexOf("if (azione === 'ospite-tavoli')"), S.indexOf("const azioniOspite = "));
-  assert(t.includes("dallHotel(req.headers, Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP'))"), 'l elenco delle firme no');
-  assert(t.includes('inquadri il QR'), 'si dice la strada che funziona sempre');
-  assert(t.includes('reteNascosta(') && t.includes('Protezione IP'), 'e a chi passa da un relay si dice perche');
+  assert(t.includes("dallHotel(req.headers, Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP'))") && t.includes('frenoTavoli.entroIlLimite('), 'il freno solo fuori dalla rete');
+  assert(t.includes('429'), 'chi supera il tetto legge un rifiuto chiaro, non un guasto');
+  assert(!/return risposta\(\{ errore: `per scegliere il tavolo a mano/.test(t), 'niente piu porta chiusa per l elenco');
+  assert(S.includes("import { creaFreno } from './freno.ts';"), 'il freno vive nel suo modulo, provato a parte');
 });

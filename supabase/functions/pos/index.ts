@@ -45,6 +45,13 @@ import { chiusoCome, importoValido, residuo, resto } from './pagamenti.ts';
 import { applicaFascia, fasciaAttiva, minutiDi, oraLocale, prezzoInFascia } from './fasce.ts';
 import type { Fascia, PrezzoFascia } from './fasce.ts';
 import { cameraCombacia, codiceTessera, dallHotel, ipDi, numeroOrdine, reteNascosta, righeOrdine, tavoloFirmato, firmaTavolo, type RigaOspite } from './ospite.ts';
+import { creaFreno } from './freno.ts';
+/* Il freno dell'elenco dei tavoli: dodici richieste ogni dieci minuti per
+   indirizzo. Un ospite ne fa una, due se sbaglia locale e torna indietro;
+   dodici lasciano margine a un telefono che ricarica la pagina e non
+   servono a chi vuole le firme (una richiesta gliele da' tutte: vedi il
+   commento in cima a freno.ts per cosa questo freno e' e cosa non e'). */
+const frenoTavoli = creaFreno(12, 10 * 60 * 1000);
 import { apertoOra, leggiOrari, restringi, stampanteAdesso } from './orari.ts';
 import { corpoRimborsoStripe, importoRiga, importoRimborso, type OrdineRimborsabile, residuoRimborso, statoDopoRimborso } from './rimborsi.ts';
 /* chi ordina dal QR si ferma dieci minuti prima della fine di ogni orario:
@@ -347,14 +354,20 @@ Deno.serve(async (req) => {
      da sola non proteggeva niente di piu' — chi ordina paga prima, e la
      camera vuole tessera e numero. Il QR sul tavolo resta la scorciatoia. */
   if (azione === 'ospite-tavoli') {
-    /* Questa azione consegna la firma di OGNI tavolo: e' la sola porta che
-       resta chiusa fuori dalla rete dell'hotel. Chi ha il QR non passa di
-       qui. Il messaggio dice la strada che funziona sempre (il QR sul
-       tavolo) e, a chi esce da un relay, perche' l'hotel non lo riconosce. */
-    if (!dallHotel(req.headers, Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP'))) {
-      const ip = ipDi(req.headers);
-      return risposta({ errore: `per scegliere il tavolo a mano serve la rete Wi-Fi dell hotel: inquadri il QR sul tavolo (il suo indirizzo: ${ip})` +
-        (reteNascosta(ip) ? ' — sembra una connessione che nasconde l indirizzo: su iPhone spenga «Protezione IP» per questo sito' : '') }, 403);
+    /* «Puoi fare entrambe? Con QR e senza?» (la proprieta', 6 settembre
+       2026): si sceglie il tavolo a mano da qualunque connessione. La
+       porta chiusa per indirizzo non reggeva piu' — la «Protezione IP»
+       degli iPhone (iCloud+) nasconde anche chi e' seduto al tavolo con il
+       Wi-Fi dell'hotel — e non era lei a proteggere davvero: un ordine si
+       paga con la carta prima che il biglietto esca in cucina, o si
+       addebita in camera solo con tessera e numero che combaciano.
+       Resta un freno per chi NON e' sulla rete dell'hotel: l'elenco
+       consegna la firma di ogni tavolo, e non c'e' motivo di lasciarla
+       prendere a raffica (freno.ts dice cosa questo freno e' e cosa non
+       e'). Dalla rete dell'hotel niente freno: la' gli ospiti escono tutti
+       dallo stesso indirizzo e si fermerebbero a vicenda. */
+    if (!dallHotel(req.headers, Deno.env.get('POS_IP_OSPITI') || Deno.env.get('TOTEM_IP')) && !frenoTavoli.entroIlLimite(ipDi(req.headers))) {
+      return risposta({ errore: 'troppe richieste da questo indirizzo: riprovi fra qualche minuto, o inquadri il QR sul tavolo' }, 429);
     }
     const segreto = Deno.env.get('HOTEL_KEY') ?? '';
     const [{ data: locali }, { data: zone }, { data: tavoli }] = await Promise.all([
