@@ -118,7 +118,7 @@ Deno.test('il pulsante delle richieste porta il numero di quelle da guardare', (
   assert(/data-scheda="richieste"/.test(m[1]), 'non scrive sul pulsante delle richieste');
   assert(/catch \(e\)/.test(m[1]), 'un errore di rete finirebbe a video invece di lasciare il pulsante com e');
   assert(/class="conta"/.test(m[1]), 'il numero non ha la sua classe: non si vedrebbe come un contatore');
-  assert(/\.schede button \.conta\{/.test(SORGENTE), 'manca lo stile del contatore');
+  assert(/\n\.conta\{/.test(SORGENTE), 'manca lo stile del contatore (sulla mattonella e sulla pillola, dal 7 settembre 2026)');
 });
 
 Deno.test('il numero si aggiorna a ogni cambio di scheda e a ogni ricarica dell elenco', () => {

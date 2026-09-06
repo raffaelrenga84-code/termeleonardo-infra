@@ -83,7 +83,7 @@ Deno.test('«Day Spa oggi» legge il QR anche con la fotocamera: un tablet basta
   /* il tablet allo sportello apre direttamente la scheda giusta: ?scheda=dayspaOggi */
   const url = fonteDi('schedaDaUrl');
   assert(/\.get\('scheda'\)/.test(url) && /SCHEDE\.some\(/.test(url), 'schedaDaUrl deve accettare solo una scheda che esiste');
-  assert((SORGENTE.match(/schedaDaUrl\(\) \|\| schedaIniziale\(EMAIL\)/g) ?? []).length >= 1, 'all apertura la scheda dall indirizzo vince su quella iniziale');
+  assert((SORGENTE.match(/schedaDaUrl\(\) \|\| vistaDallHash\(\) \|\| 'home'/g) ?? []).length >= 1, 'all apertura la scheda dall indirizzo vince sulla home (7 settembre 2026)');
 });
 
 Deno.test('modalita sportello: solo «Day Spa oggi», senza le altre schede ne esci, e la pagina si installa come app', () => {
@@ -97,7 +97,7 @@ Deno.test('modalita sportello: solo «Day Spa oggi», senza le altre schede ne e
   assert(/\.get\('sportello'\)/.test(s), 'la modalita sportello si accende dall indirizzo');
   const d = fonteDi('disegna');
   assert(/sportello\(\)/.test(d), 'disegna() deve sapere della modalita sportello');
-  assert(/class="schede"/.test(d), 'la barra delle schede resta per tutti gli altri');
+  assert(/class="barra"/.test(d), 'la barra della pagina (Home, titolo) resta per tutti gli altri');
   assert(/<link rel="manifest" href="\/buoni\/manifest\.webmanifest"/.test(SORGENTE), 'manca il manifest');
   const m = JSON.parse(Deno.readTextFileSync(new URL('manifest.webmanifest', import.meta.url))) as Record<string, unknown>;
   assertEquals(m.display, 'standalone');

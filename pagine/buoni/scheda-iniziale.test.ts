@@ -155,7 +155,7 @@ Deno.test('riordinare non perde e non raddoppia nessuna scheda', () => {
   }
 });
 
-Deno.test('si entra sempre sulla prima scheda che si vede', () => {
+Deno.test('la prima mattonella e la scheda del mestiere: la prima che si vede (dal 7 settembre 2026 si entra sulla home)', () => {
   /* una tabella sola: se un domani l'ordine cambiasse, la scheda
      d'apertura lo seguirebbe da sola */
   for (const email of ['reception@termeleonardo.com', 'spa@termeleonardo.com', 'amministrazione@termeleonardo.com', 'bistrot@termeleonardo.com', '']) {
@@ -229,8 +229,8 @@ Deno.test('l ingresso imposta la scheda dall indirizzo di chi entra', () => {
      guarda il cablaggio: che l'ingresso la chiami, e che VISTA non nasca
      già inchiodata a una scheda, perché la sovrascriverebbe. */
   assert(
-    /VISTA\s*=\s*schedaIniziale\(/.test(SORGENTE),
-    'nessuno chiama schedaIniziale(): la pagina si aprira sempre sulla stessa scheda',
+    /schedaIniziale\(EMAIL\)/.test(SORGENTE),
+    'nessuno chiama schedaIniziale(): la home non avrebbe la mattonella principale (dal 7 settembre 2026 si entra sulla home)',
   );
   const nascita = SORGENTE.match(/let VISTA\s*=\s*([^;]*);/);
   assert(nascita, 'la variabile VISTA non si trova piu');
@@ -319,10 +319,11 @@ Deno.test('la sessione gia aperta imposta indirizzo e scheda come l accesso', ()
   assert(/EMAIL = data\.session\.user\.email/.test(ripristino![1]),
     'con la sessione gia aperta EMAIL resta vuoto: ordine e scheda d apertura tornano ai default');
   /* dal 3 settembre 2026 la scheda chiesta nell'indirizzo (?scheda=, il
-     tablet allo sportello) vince su quella iniziale: schedaDaUrl() prima */
-  assert(/VISTA = schedaDaUrl\(\) \|\| schedaIniziale\(EMAIL\)/.test(ripristino![1]),
+     tablet allo sportello) vince su quella iniziale: schedaDaUrl() prima;
+     dal 7 settembre 2026 quella iniziale e la home, o l hash */
+  assert(/VISTA = schedaDaUrl\(\) \|\| vistaDallHash\(\) \|\| 'home'/.test(ripristino![1]),
     'con la sessione gia aperta la scheda d apertura non si decide dall indirizzo');
-  assert(ripristino![1].search(/VISTA = schedaDaUrl\(\) \|\| schedaIniziale\(EMAIL\)/) < ripristino![1].indexOf('disegna()'),
+  assert(ripristino![1].search(/VISTA = schedaDaUrl\(\) \|\| vistaDallHash\(\) \|\| 'home'/) < ripristino![1].indexOf('disegna()'),
     'la scheda si decide dopo aver gia disegnato');
 });
 
