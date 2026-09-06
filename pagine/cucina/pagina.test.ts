@@ -36,21 +36,31 @@ Deno.test('le due azioni del contratto, con la chiave dello schermo e la postazi
   assert(m.includes("passo(r.dataset.r, 'riapri')"), 'il tasto della striscia manda riapri');
 });
 
-Deno.test('il giro ogni tre secondi, uno alla volta', () => {
+Deno.test('il giro ogni tre secondi, uno alla volta, ma un tocco non aspetta il colpo dopo', () => {
   assert(m.includes('const GIRO_MS = 3000;'), 'tre secondi, come dice il piano');
   assert(m.includes('setInterval(giro, GIRO_MS)'));
   assert(m.includes('if (INGIRO || !P) return;'), 'un server lento non deve accavallare le richieste');
+  /* IL DIFETTO CHE PRESIDIA (rivisto il 6 settembre 2026): con il solo
+     giro() in fondo a passo(), un «Pronto» toccato mentre il giro dei tre
+     secondi era gia' in volo tornava indietro subito (INGIRO) e la scheda
+     restava a schermo fino al giro dopo — il cuoco la toccava due volte. */
+  assert(m.includes('function rigira()') && m.includes('if (INGIRO) RIFAI = true;'), 'il giro chiesto da un tocco si segna');
+  assert(m.includes('if (RIFAI) { RIFAI = false; giro(); }'), 'e riparte appena finisce quello in volo');
+  assert(/if \(quale === 'pronta'\) LISTA = LISTA\.filter/.test(m), 'la scheda pronta esce subito dall elenco');
+  assert(m.includes("if (quale === 'presa' && prima) prima.presa_il"), 'la scheda presa si segna subito');
+  assert(/disegna\(\);\n\s*rigira\(\);/.test(m), 'si ridisegna prima di rigirare: la scheda si muove sotto il dito');
 });
 
-Deno.test('la chiave dall indirizzo si salva e l indirizzo si pulisce', () => {
+Deno.test('la chiave dall indirizzo si salva e l indirizzo si pulisce, anche se il link e monco', () => {
   assert(m.includes("localStorage.setItem('cucinaPostazione'"), 'la postazione resta sullo schermo');
-  assert(m.includes("history.replaceState(null, '', location.pathname)"), 'la chiave non resta scritta sulla barra');
+  assert(m.includes("if (k) history.replaceState(null, '', location.pathname);"), 'basta la chiave: un link a meta non la lascia in mostra sulla barra');
   assert(m.includes('Manca la chiave: aprire il link dato dal back office'));
 });
 
 Deno.test('lo schermo resta acceso, e il suono nasce dal primo tocco', () => {
   assert(m.includes("navigator.wakeLock?.request('screen')"), 'una TV che si spegne a meta servizio perde biglietti');
   assert(m.includes("document.addEventListener('visibilitychange'"), 'il permesso decade: si richiede al ritorno');
+  assert(m.includes("AUDIO.state === 'suspended') AUDIO.resume()"), 'in secondo piano l audio si sospende: al ritorno si risveglia');
   assert(m.includes('window.AudioContext || window.webkitAudioContext'), 'senza un gesto il browser non lascia suonare');
   assert(m.includes('o.frequency.value = 880;') && m.includes('AUDIO.currentTime + 0.15'), 'un fischio corto: 880 Hz per 150 ms');
   assert(m.includes('TESTI.inizia'), 'la schermata iniziale prende il testo dal modulo');
@@ -74,11 +84,16 @@ Deno.test('la tastiera e i tasti della scheda', () => {
   assert(m.includes("${presa ? '' : `<button class=\"tasto sec\" data-p=\"presa\">"), 'presa gia fatta: il tasto sparisce');
 });
 
-Deno.test('le ultime pronte in fondo, cinque, e il ripensamento', () => {
+Deno.test('le ultime pronte in fondo, cinque, e il ripensamento che scade', () => {
   assert(m.includes('const QUANTE_PRONTE = 5;'));
   assert(m.includes('.slice(0, QUANTE_PRONTE)'));
   assert(m.includes('TESTI.ultime'));
   assert(m.includes("passo(ULTIME[0].id, 'riapri')"), 'Backspace riapre l ultima pronta');
+  /* il server rifiuta un riapri dopo due minuti (RIAPRI_MS di schermo.ts):
+     il tasto si spegne prima, invece di far scoprire il 409 al cuoco */
+  assert(m.includes('const RIAPRI_MS = 120000;') && m.includes("ora - u.alle > RIAPRI_MS ? ' disabled' : ''"));
+  assert(m.includes('const PRONTE_MS = 600000;') && m.includes('ULTIME.filter((u) => ora - u.alle < PRONTE_MS)'), 'dopo dieci minuti la voce sparisce');
+  assert(m.includes('alle: Date.now()'), 'ogni voce si porta dietro quando e stata mandata in tavola');
 });
 
 Deno.test('gli errori del server: 401 ferma tutto, gli altri passano e vanno via da soli', () => {
@@ -119,6 +134,22 @@ Deno.test('lo stile: sfondo scuro, caratteri grandi, una colonna sul tablet stre
   assert(misura('\\.tavolo\\{flex:1;font-size:(\\d+)px') >= 34, 'il tavolo si legge da due metri');
   assert(misura('\\.righe li\\{font-size:(\\d+)px') >= 22, 'le righe della comanda si leggono da due metri');
   for (const c of ['.scheda.verde', '.scheda.giallo', '.scheda.rosso']) assert(P.includes(c), `manca il colore ${c}`);
+  assert(!/user-scalable=no/.test(P), 'su un tablet una nota si deve poter ingrandire con due dita');
+});
+
+Deno.test('i tasti si toccano con le mani occupate: grandi, e il tocco si vede', () => {
+  /* IL DIFETTO CHE PRESIDIA, trovato in revisione il 6 settembre 2026:
+     «font:700 22px inherit» e' una dichiarazione INVALIDA — dentro
+     l'abbreviazione «font:» la parola inherit butta via tutta la riga, e
+     Chrome disegnava tasti da 13px alti 43px. Il carattere si eredita con
+     un «button{font:inherit}» a parte, e peso e misura si dicono sciolti. */
+  assert(P.includes('button{font:inherit;color:inherit;cursor:pointer;}'), 'il carattere dei tasti si eredita qui');
+  assert(!/font:\s*\d+\s+\d+px\s+inherit/.test(P), 'mai inherit dentro l abbreviazione font: invalida la riga');
+  const misura = (regola: string) => Number((P.match(new RegExp(regola)) ?? ['', '0'])[1]);
+  assert(misura('\\.tasto\\{flex:1;min-height:(\\d+)px') >= 48, 'i due tasti della scheda alti almeno 48px');
+  assert(misura('\\.riapri\\{min-height:(\\d+)px') >= 44, 'anche il riapri della striscia si deve poter toccare');
+  assert(P.includes('.tasto:active') && P.includes('.riapri:active'), 'il tocco si deve vedere, se no si tocca due volte');
+  assert(P.includes('.riapri:disabled'), 'un riapri scaduto si vede spento');
 });
 
 Deno.test('niente Fidra: lo schermo parla solo col nostro server', () => {

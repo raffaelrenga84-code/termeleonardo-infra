@@ -2,7 +2,9 @@
 <html lang="it">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<!-- si deve poter ingrandire: su un tablet una nota scritta piccola si
+     legge avvicinando due dita, non avvicinando la faccia -->
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#101814" />
 <meta name="robots" content="noindex, nofollow" />
 <title>Monitor cucina — Hotel Terme Leonardo</title>
@@ -19,6 +21,11 @@
 html,body{height:100%;}
 body{margin:0;display:flex;flex-direction:column;background:#101814;color:#E8F0EA;
   font:18px/1.35 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none;}
+/* il carattere dei tasti si prende cosi', come nel palmare: dentro
+   l'abbreviazione «font:» la parola inherit invalida tutta la riga, e i
+   tasti tornerebbero piccoli (13px) proprio dove si toccano con le mani
+   occupate. Sotto si cambiano solo peso e misura, mai l'abbreviazione. */
+button{font:inherit;color:inherit;cursor:pointer;}
 header{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:14px;padding:0 18px;background:#16221C;border-bottom:1px solid #24352C;}
 header .nome{flex:1;font-size:22px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 header .spia{font-size:16px;color:#9FB3A7;white-space:nowrap;}
@@ -57,14 +64,21 @@ main.vuoto{display:flex;align-items:center;justify-content:center;font-size:40px
 .testo{margin:0;font:22px/1.3 ui-monospace,Consolas,monospace;white-space:pre-wrap;}
 .fallita{font-size:18px;font-weight:600;color:#B02A1C;}
 .tasti{display:flex;gap:10px;margin-top:auto;padding-top:6px;}
-.tasto{flex:1;border:0;border-radius:10px;padding:14px 8px;font:700 22px inherit;background:#1A3626;color:#fff;cursor:pointer;}
+/* tasti alti almeno 48px: si toccano di sfuggita, con le mani sporche */
+.tasto{flex:1;min-height:56px;border:0;border-radius:10px;padding:16px 8px;font-weight:700;font-size:22px;font-family:inherit;background:#1A3626;color:#fff;}
 .tasto.sec{background:#fff;color:#1A3626;border:3px solid #1A3626;}
+/* il tocco si deve vedere: se no si tocca due volte e si manda due passi */
+.tasto:active{background:#2E6B45;color:#fff;transform:scale(.97);}
+.tasto.sec:active{background:#CFE4D8;color:#1A3626;}
 footer{flex:0 0 auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 18px;background:#16221C;border-top:1px solid #24352C;}
 footer[hidden]{display:none;}
 footer .etichetta{font-size:16px;letter-spacing:.08em;text-transform:uppercase;color:#9FB3A7;}
 .ultime{display:flex;gap:10px;flex-wrap:wrap;}
 .pronta{display:flex;align-items:center;gap:10px;background:#22332B;border-radius:10px;padding:6px 10px;font-size:20px;}
-.riapri{border:0;border-radius:8px;background:#3C5346;color:#fff;font:600 18px inherit;padding:6px 14px;cursor:pointer;}
+.riapri{min-height:48px;border:0;border-radius:8px;background:#3C5346;color:#fff;font-weight:600;font-size:18px;font-family:inherit;padding:12px 18px;}
+.riapri:active{background:#547A66;}
+/* passati due minuti il server non riapre piu': il tasto lo dice prima */
+.riapri:disabled{opacity:.4;cursor:default;}
 .velo{position:fixed;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;padding:30px;text-align:center;background:#101814;}
 .velo[hidden]{display:none;}
 .grande{margin:0;max-width:16em;font-size:44px;font-weight:700;line-height:1.25;}
@@ -101,6 +115,8 @@ import { creaServer } from '/pos/server.js';
 const CLOUD = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos';
 const GIRO_MS = 3000;              // ogni tre secondi: una comanda non deve aspettare
 const QUANTE_PRONTE = 5;           // le ultime pronte tenute in fondo, in memoria
+const RIAPRI_MS = 120000;          // il server non riapre oltre i due minuti (schermo.ts)
+const PRONTE_MS = 600000;          // dopo dieci minuti la voce esce dalla striscia
 /* Se la pagina arriva dal PC del Bistrot (http://IP:8080/cucina) il server
    locale e' quello: sullo schermo non c'e' niente da impostare. Stessa
    regola del palmare (pagine/pos/index.html, 5 settembre 2026). */
@@ -117,10 +133,12 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const Q = new URLSearchParams(location.search);
 function postazione() {
   const l = Q.get('l'), s = Q.get('s'), k = Q.get('k');
+  /* la chiave sparisce dalla barra appena la si e' letta, anche se il link
+     e' monco: un link sbagliato la lascerebbe li' in mostra tutto il giorno */
+  if (k) history.replaceState(null, '', location.pathname);
   if (l && s && k) {
     const p = { l, s, k };
     localStorage.setItem('cucinaPostazione', JSON.stringify(p));
-    history.replaceState(null, '', location.pathname);
     return p;
   }
   try {
@@ -141,7 +159,7 @@ let PRIMO = true;        // al primo giro non si suona: sarebbero tutte nuove
 let SCELTA = null;       // l'id della scheda scelta con la tastiera
 let ULTIME = [];         // le ultime pronte, per il ripensamento
 let SCARTO = 0;          // millisecondi fra l'orologio del server e quello della TV
-let RETE = false, ULTIMO_GIRO = null, INGIRO = false, TIMER = null, TIMER_MESSAGGIO = null;
+let RETE = false, ULTIMO_GIRO = null, INGIRO = false, RIFAI = false, TIMER = null, TIMER_MESSAGGIO = null;
 let AUDIO = null, WAKE = null;
 
 function spia() {
@@ -199,6 +217,9 @@ async function tieniAcceso() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   tieniAcceso();
+  /* in secondo piano il browser sospende l'audio: al ritorno si risveglia,
+     se no la prima comanda nuova arriva muta */
+  if (AUDIO && AUDIO.state === 'suspended') AUDIO.resume();
   if (TIMER) giro();
 });
 
@@ -237,9 +258,14 @@ function disegna() {
     g.className = 'vuoto';
     g.textContent = TESTI.vuoto;
   }
+  /* la striscia in fondo si sfoltisce da sola: dopo dieci minuti una
+     comanda pronta non interessa piu' a nessuno, e dopo due il server il
+     ripensamento non lo accetta comunque */
+  const ora = Date.now();
+  ULTIME = ULTIME.filter((u) => ora - u.alle < PRONTE_MS);
   $('striscia').hidden = ULTIME.length === 0;
   $('ultime').innerHTML = ULTIME.map((u) =>
-    `<span class="pronta"><b>${esc(u.tavolo)}</b><button class="riapri" data-r="${esc(u.id)}">${TESTI.riapri}</button></span>`).join('');
+    `<span class="pronta"><b>${esc(u.tavolo)}</b><button class="riapri" data-r="${esc(u.id)}"${ora - u.alle > RIAPRI_MS ? ' disabled' : ''}>${TESTI.riapri}</button></span>`).join('');
 }
 
 function messaggio(t) {
@@ -252,6 +278,7 @@ function messaggio(t) {
 
 function blocca(t) {
   if (TIMER) { clearInterval(TIMER); TIMER = null; }
+  RIFAI = false;
   $('inizia').hidden = true;
   $('testoBlocco').textContent = t;
   $('blocco').hidden = false;
@@ -283,7 +310,17 @@ async function giro() {
   } finally {
     INGIRO = false;
     spia();
+    /* un passo chiesto mentre questo giro era in volo non aspetta il
+       prossimo colpo di orologio: riparte adesso */
+    if (RIFAI) { RIFAI = false; giro(); }
   }
+}
+
+/* Il giro del battito salta un colpo se il server e' lento (niente
+   richieste accavallate); quello chiesto da un tocco invece non si perde. */
+function rigira() {
+  if (INGIRO) RIFAI = true;
+  else giro();
 }
 
 /* «In preparazione», «Pronto», «Riapri»: un passo solo, poi si rigira
@@ -300,11 +337,17 @@ async function passo(id, quale) {
   }
   if (quale === 'pronta' && prima) {
     const b = resa(prima);
-    ULTIME = [{ id, tavolo: b.tavolo || 'Comanda' }, ...ULTIME.filter((u) => u.id !== id)].slice(0, QUANTE_PRONTE);
+    ULTIME = [{ id, tavolo: b.tavolo || 'Comanda', alle: Date.now() }, ...ULTIME.filter((u) => u.id !== id)].slice(0, QUANTE_PRONTE);
   }
   if (quale === 'riapri') ULTIME = ULTIME.filter((u) => u.id !== id);
   if (SCELTA === id) SCELTA = null;
-  giro();
+  /* La scheda si muove SUBITO sotto il dito che l'ha toccata: il giro dei
+     tre secondi puo' essere gia' in volo, e aspettarne la risposta vuol
+     dire vedere il tavolo ancora li' per due secondi e toccare di nuovo. */
+  if (quale === 'pronta') LISTA = LISTA.filter((s) => s.id !== id);
+  if (quale === 'presa' && prima) prima.presa_il = new Date().toISOString();
+  disegna();
+  rigira();
 }
 
 document.addEventListener('click', (e) => {
