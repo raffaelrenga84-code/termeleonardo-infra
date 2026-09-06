@@ -183,13 +183,13 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     const locale = req.query.locale || cfg.locale;
     const oggi = giornoRoma(new Date());
     const loc = db.prepare('select id, nome from pos_locale where id = ?').get(locale) as Riga | undefined;
-    const riga = db.prepare('select primo, secondo, calice from pos_bacheca where locale = ? and giorno = ?').get(locale, oggi.giorno) as Riga | undefined;
+    const riga = db.prepare('select primo, secondo, calice, primo_estero, secondo_estero from pos_bacheca where locale = ? and giorno = ?').get(locale, oggi.giorno) as Riga | undefined;
     const cat = db.prepare('select id, nome from pos_categoria where attiva = 1').all() as { id: string; nome: string }[];
     const art = db.prepare('select id, categoria, nome, prezzo_cent, esaurito from pos_articolo where attivo = 1').all() as (Riga & { nome: string; categoria: string; prezzo_cent: number })[];
     const scelto = scegliCalice(candidatiCalice(art, cat), `${oggi.data}|${locale}`);
     const calice = riga?.calice ? { nome: String(riga.calice), prezzo_cent: null, a_mano: true }
       : scelto ? { nome: nomeCalice(scelto.nome), prezzo_cent: Number(scelto.prezzo_cent), a_mano: false } : null;
-    return ok({ locale: loc ? { id: loc.id, nome: loc.nome } : { id: locale, nome: locale }, oggi, primo: riga?.primo ?? null, secondo: riga?.secondo ?? null, calice, adesso: adesso() });
+    return ok({ locale: loc ? { id: loc.id, nome: loc.nome } : { id: locale, nome: locale }, oggi, primo: riga?.primo ?? null, secondo: riga?.secondo ?? null, primo_estero: riga?.primo_estero ?? null, secondo_estero: riga?.secondo_estero ?? null, calice, adesso: adesso() });
   }
 
   if (azione === 'accesso') {
@@ -534,7 +534,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
      righe vive, STORNO in coda per quelle partite, conti chiusi a zero */
   if (azione === 'tavolo-svuota') {
     const no = soloPost(); if (no) return no;
-    if (!puo(cameriere!, 'storno')) return errore('storno non permesso', 403);
+    if (!puo(cameriere!, 'comanda')) return errore('non permesso', 403);
     const tavolo = String(b.tavolo ?? '');
     const scritto = motivoPulito(b.motivo);
     if (!scritto && cameriere!.storno_con_motivo) return errore('scriva il motivo', 400);

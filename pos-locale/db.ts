@@ -122,7 +122,7 @@ create table if not exists pos_meta (chiave text primary key, valore text);
 create table if not exists pos_eliminato (
   id text primary key, tabella text not null, quando text not null default ${ORA});
 create table if not exists pos_bacheca (
-  locale text not null, giorno integer not null, primo text, secondo text, calice text,
+  locale text not null, giorno integer not null, primo text, secondo text, calice text, primo_estero text, secondo_estero text,
   aggiornato_il text not null default ${ORA}, primary key (locale, giorno));
 create index if not exists pos_riga_conto on pos_riga(conto);
 create index if not exists pos_stampa_stato on pos_stampa(stato);
@@ -165,6 +165,11 @@ create index if not exists pos_stampa_stato on pos_stampa(stato);
     ['vegano', 'integer not null default 0'], ['senza_lattosio', 'integer not null default 0']];
   for (const [c, tipo] of nuoveArt) if (!art.includes(c)) db.exec(`alter table pos_articolo add column ${c} ${tipo}`);
   colonne.delete('pos_articolo');
+  /* la bacheca: la riga per gli ospiti stranieri (7 settembre 2026) */
+  colonne.delete('pos_bacheca');
+  const bac = colonneDi(db, 'pos_bacheca');
+  for (const c of ['primo_estero', 'secondo_estero']) if (!bac.includes(c)) db.exec(`alter table pos_bacheca add column ${c} text`);
+  colonne.delete('pos_bacheca');
 }
 
 /* ---------- da e verso SQLite ---------- */

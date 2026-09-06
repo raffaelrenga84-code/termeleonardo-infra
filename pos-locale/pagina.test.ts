@@ -34,5 +34,9 @@ Deno.test('sulla TV basta /tv/CODICE: serve la pagina dello schermo, e niente al
   assertEquals(fileDellaPagina('/tv/AB12CD34'), { file: 'cucina/tv.html', tipo: 'text/html; charset=utf-8' });
   assertEquals(fileDellaPagina('/tv/ab12cd34/'), { file: 'cucina/tv.html', tipo: 'text/html; charset=utf-8' });
   assertEquals(fileDellaPagina('/tv/../config.json'), null);
-  assertEquals(fileDellaPagina('/tv/'), null);
+  /* senza codice: la chiave e in memoria, la barra torna a /tv (revisione del 6 settembre 2026) */
+  assertEquals(fileDellaPagina('/tv/')?.file, 'cucina/tv.html');
+  assertEquals(fileDellaPagina('/tv')?.file, 'cucina/tv.html');
+  assertEquals(fileDellaPagina('/TV/PA6FAXH4')?.file, 'cucina/tv.html', 'maiuscolo, come lo batte il telecomando');
+  assertEquals(fileDellaPagina('/tv/troppo-lungo-e-con-trattini'), null);
 });

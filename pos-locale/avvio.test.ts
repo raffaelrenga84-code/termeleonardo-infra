@@ -6,7 +6,7 @@ import { assert, assertEquals } from 'jsr:@std/assert';
 import { AGGIORNATO, ATTESA_MS, CADUTE_MASSIME, decisione, POCO_MS, ripristina } from './avvio.ts';
 
 Deno.test('dopo un aggiornamento si riparte subito; dopo una caduta si aspetta; alla terza di fila si ripristina', () => {
-  assertEquals(decisione({ codice: AGGIORNATO, durataMs: 100, cadute: 2 }), { cosa: 'riparti', cadute: 0, attesaMs: 0 });
+  assertEquals(decisione({ codice: AGGIORNATO, durataMs: 100, cadute: 2 }), { cosa: 'riparti', cadute: 0, attesaMs: 500 }, 'subito, ma mai un ciclo stretto');
   assertEquals(decisione({ codice: 1, durataMs: POCO_MS * 10, cadute: 2 }), { cosa: 'riparti', cadute: 0, attesaMs: ATTESA_MS }, 'una caduta dopo tanto tempo non conta');
   assertEquals(decisione({ codice: 1, durataMs: 500, cadute: 0 }), { cosa: 'riparti', cadute: 1, attesaMs: ATTESA_MS });
   assertEquals(decisione({ codice: 1, durataMs: 500, cadute: 1 }), { cosa: 'riparti', cadute: 2, attesaMs: ATTESA_MS });
@@ -30,6 +30,7 @@ Deno.test('ripristina: rimette src.vecchio e pagina.vecchio, torna alla versione
   const traccia = leggi('RIPRISTINO.txt') ?? '';
   assert(traccia.includes('2026-09-06T18:00:00.000Z') && traccia.includes('rimessa la 2026-09-06T17:00:00.000Z'), traccia);
   assertEquals(leggi('src.vecchio/pos-locale/main.ts'), null);
+  assertEquals(leggi('VERSIONE.rotta.txt'), '2026-09-06T18:00:00.000Z\n', 'la versione caduta e in quarantena');
   assertEquals(ripristina(dir), false, 'una volta sola: il vecchio non c e piu');
   Deno.removeSync(dir, { recursive: true });
 });

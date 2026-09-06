@@ -253,7 +253,19 @@ const LOCALE_ID = localStorage.getItem('posLocaleId') || 'bistrot';
 /* Se la pagina arriva dal PC del Bistrot (http://IP:8080/pos), il server
    locale e' quello: niente da impostare sul palmare (5 settembre 2026) */
 const DAL_PC = location.protocol === 'http:' && /^\d+\.\d+\.\d+\.\d+$/.test(location.hostname);
-const SERVER_LOCALE = DAL_PC ? location.origin : (localStorage.getItem('posServerLocale') || '');
+/* l'indirizzo del PC come lo scrive una persona: senza http:// diventava un
+   indirizzo relativo al sito e ogni chiamata dava 405 (la proprieta', 6
+   settembre 2026); da una pagina https un PC in http non si puo' chiamare
+   (contenuto misto). Si ripulisce anche quello gia' in memoria, non solo
+   quello appena scritto (revisione del 6 settembre 2026). */
+const normalizzaServer = (s) => {
+  s = String(s || '').trim().replace(/\/+$/, '');
+  if (s && !/^https?:\/\//i.test(s)) s = 'http://' + s;
+  if (s && location.protocol === 'https:' && /^http:\/\//i.test(s)) return '';
+  return s;
+};
+const SERVER_LOCALE = DAL_PC ? location.origin : normalizzaServer(localStorage.getItem('posServerLocale') || '');
+if (!DAL_PC && SERVER_LOCALE !== (localStorage.getItem('posServerLocale') || '')) localStorage.setItem('posServerLocale', SERVER_LOCALE);
 const NOMI_PORTATE = { bevande: 'Bevande', antipasti: 'Antipasti', primi: 'Primi', secondi: 'Secondi', dolci: 'Dolci' };
 /* Portate semplici (il Bistrot, 6 settembre 2026): niente antipasti/primi/
    secondi, la comanda parte tutta insieme; resta solo «Segue», a tempo
@@ -280,6 +292,11 @@ let SESSIONE = sessionStorage.getItem('posSessione') || '';
 let CAMERIERE = JSON.parse(sessionStorage.getItem('posCameriere') || 'null');
 /* chi puo' stornare: il capo sala e l'amministrazione sempre, il cameriere con la spunta «storni» */
 const puoStornare = () => !!(CAMERIERE && (CAMERIERE.ruolo !== 'cameriere' || CAMERIERE.storni));
+/* la schermata aperta adesso: un disegno della sala arrivato in ritardo (la
+   risposta di un giro partito prima del tocco) non deve coprire il tavolo
+   appena aperto («la schermata si chiude dopo 5 secondi», la proprieta',
+   6 settembre 2026) */
+let SCHERMATA = 'accesso';
 let MENU = JSON.parse(localStorage.getItem('posMenu') || 'null');
 let MENU_LETTO_IL = 0;           // quando si e' letto dal server l'ultima volta
 /* le righe non ancora inviate di ogni conto: restano qui quando si passa
@@ -504,16 +521,19 @@ const numeroTavolo = (nome) => { const m = String(nome).match(/(\d+)/); return m
 
 async function schermataSala() {
   clearInterval(timerSala);
+  SCHERMATA = 'sala';
   testa(LOCALE_ID === 'ristorante' ? 'Ristorante' : 'Bistrot', null);
   const disegna = async () => {
     let s;
     try { s = await chiama('sala', { qs: `&locale=${encodeURIComponent(LOCALE_ID)}` }); }
-    catch (e) { if (!SESSIONE) return;
+    catch (e) { if (!SESSIONE || SCHERMATA !== 'sala') return;
       /* senza sessione c'e' gia' il tastierino: non lo si copre. Con la
          sessione e' la rete: si riprova da qui, senza chiudere l'app */
       $('app').innerHTML = `<div class="errore">${esc(e.message)}</div><div style="padding:0 14px;"><button type="button" class="bottone sec" id="salaRiprova">Riprova</button></div>`;
       $('salaRiprova').onclick = () => disegna();
       return; }
+    /* nel frattempo il cameriere ha aperto un tavolo: questo disegno non lo copre */
+    if (SCHERMATA !== 'sala') return;
     if (!s.zone.some((z) => z.id === ZONA)) ZONA = (s.zone[0] || {}).id || '';
     const tavoli = s.tavoli.filter((t) => t.zona === ZONA).sort((a, b) => numeroTavolo(a.nome) - numeroTavolo(b.nome) || String(a.nome).localeCompare(b.nome));
     /* lo stato di un tavolo: quello che il cameriere deve vedere da lontano */
@@ -570,6 +590,7 @@ async function schermataSala() {
 
 /* ---------- il tavolo: i suoi conti ---------- */
 function schermataTavolo(t) {
+  SCHERMATA = 'tavolo';
   testa(t.nome, schermataSala);
   let aperti = t.conti.filter((c) => c.stato !== 'chiuso');
   let coperti = 2;
@@ -708,7 +729,7 @@ function schermataTavolo(t) {
   const disegna = () => {
     $('app').innerHTML = `<div class="riquadro">${aperti.length ? aperti.map((c) => `<div class="contoRiga"><button type="button" class="apri" data-c="${esc(c.id)}"><span><b>${esc(c.titolo || titoloConto(c))}</b><br><span class="mini">${c.coperti} coperti${c.attesa ? ' · portata in attesa' : ''}</span></span><b>${euro(c.totale_cent)}</b></button><button type="button" class="altro" data-altro="${esc(c.id)}" title="Nome, coperti, elimina">⋯</button></div>`).join('') : '<p class="mini">Tavolo libero.</p>'}</div>
       ${(t.qr || []).length ? `<div class="riquadro qrBlocco"><span class="eti">Ordini dal QR di oggi</span>${t.qr.map((o) => `<div class="contoRiga"><button type="button" class="apri" data-qr="${esc(o.numero)}"><span><b>📱 ${o.modo === 'camera' ? `in camera ${esc(o.camera || '')}` : 'pagato'}${o.stato === 'rimborsato' ? ' · rimborsato' : ''}</b><br><span class="mini">${esc(o.numero)} · ${minuti(o.creato_il)}′ · ${o.righe.filter((r) => r.stato !== 'stornata').length} righe</span></span><span>${euro(Number(o.totale_cent) - Number(o.rimborsato_cent || 0))}</span></button></div>`).join('')}</div>` : ''}
-      ${aperti.length ? `<div class="riquadro"><button type="button" class="bottone sec" id="spostaTavolo">Sposta tutto il tavolo…</button>${puoStornare() ? '<button type="button" class="bottone sec" id="cancellaTavolo" style="margin-top:8px;color:var(--allarme);">Cancella tutto il tavolo…</button>' : ''}</div>` : ''}
+      ${aperti.length ? `<div class="riquadro"><button type="button" class="bottone sec" id="spostaTavolo">Sposta tutto il tavolo…</button>${CAMERIERE ? '<button type="button" class="bottone sec" id="cancellaTavolo" style="margin-top:8px;color:var(--allarme);">Cancella tutto il tavolo…</button>' : ''}</div>` : ''}
       <div class="riquadro"><b>Nuovo conto</b><p class="mini">Quanti coperti?</p>
         <div class="coperti">${[1,2,3,4,5,6,7,8,9,10,11,12].map((n) => `<button data-n="${n}" class="${n === coperti ? 'attivo' : ''}">${n}</button>`).join('')}</div>
         <div class="due"><button class="bottone" id="nuovoEsterno">Apri conto</button>
@@ -803,6 +824,7 @@ async function apriConto(id) {
 
 /* ---------- l'ordine: dove si vive ---------- */
 function schermataOrdine(conto, righeServer, fratelli = []) {
+  SCHERMATA = 'ordine';
   /* la bozza lasciata su questo conto, se c'e', torna in mano */
   let ordine = BOZZE.get(conto.id) || creaOrdine();
   BOZZE.delete(conto.id);
@@ -848,7 +870,8 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     if (SEMPLICI()) {
       const chiave = (r) => r.segue_min == null ? 'Subito'
         : r.stato === 'inviata' && r.segue_alle ? `Segue alle ${oraBreve(r.segue_alle)}`
-        : r.segue_min === 0 || r.stato !== 'da_inviare' ? 'Segue a chiamata' : `Segue ${r.segue_min}′`;
+        : r.stato === 'partita' ? 'Segue, partito'
+        : r.segue_min === 0 || r.stato === 'inviata' ? 'Segue a chiamata' : `Segue ${r.segue_min}′`;
       const m = new Map();
       for (const r of tutte) { const k = chiave(r); if (!m.has(k)) m.set(k, []); m.get(k).push(r); }
       for (const [titolo, rr] of m) gruppi.push({ titolo, righe: rr, attesa: rr.some((r) => r.stato === 'inviata') });
@@ -1019,6 +1042,8 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
   const aggiungiArticolo = async (a) => {
     if (!a) return;
     const opz = { quantita: quantitaPronta, portata: portataForzata || portataArticolo(a), segueMin: SEMPLICI() ? segueScelto : null };
+    /* la scelta «Segue» vale per un tocco: dopo si torna a «Subito», se no mezzo tavolo finisce in attesa (revisione del 6 settembre 2026) */
+    segueScelto = null;
     if (a.prezzo_libero) {
       /* col cancelletto, come sul POS di prima: prezzo battuto sul tastierino */
       const p = await chiediNumero(`${a.nome}: prezzo in euro`, { decimale: true });

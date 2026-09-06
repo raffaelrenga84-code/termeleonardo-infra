@@ -554,9 +554,8 @@ Deno.test('cancella tutto il tavolo: righe stornate con lo STORNO in coda per qu
   await esegui(db, 'invia', req('POST', { conto: conto1 }), cfg);   /* r1 parte, r2 aspetta */
   const c2 = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 1 }), cfg);
   const conto2 = (c2.corpo as { conto: { id: string } }).conto.id;
-  const no = await esegui(db, 'tavolo-svuota', req('POST', { tavolo: 'T7' }), cfg);
-  assertEquals(no.stato, 403, 'chi non puo stornare non cancella');
-  db.exec("update pos_cameriere set storni = 1, storno_con_motivo = 1 where id = 'K1'");
+  /* lo fa ogni cameriere, anche senza «storni»: l'hanno chiesto loro (revisione del 6 settembre 2026) */
+  db.exec("update pos_cameriere set storno_con_motivo = 1 where id = 'K1'");
   const muto = await esegui(db, 'tavolo-svuota', req('POST', { tavolo: 'T7' }), cfg);
   assertEquals(muto.stato, 400, 'con la spunta, senza motivo non si cancella');
   db.exec("update pos_cameriere set storno_con_motivo = 0 where id = 'K1'");

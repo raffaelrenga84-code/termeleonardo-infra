@@ -37,8 +37,12 @@ main{flex:1 1 auto;overflow:auto;padding:14px;}
 /* due colonne, come i monitor dei fast food: a sinistra quello che arriva,
    a destra quello che si sta facendo («buoni nuovi tutti a sinistra, in
    preparazione tutti a destra», la proprieta', 6 settembre 2026) */
-main.griglia{display:grid;grid-template-columns:1fr 1fr;grid-gap:18px;gap:18px;align-content:start;}
+/* flex e non grid: il grid e' del Chrome 57, le TV vecchie sono sotto (revisione del 6 settembre 2026) */
+main.griglia{display:flex;align-items:flex-start;}
+main.griglia>.colonna{flex:1 1 0;}
+main.griglia>.colonna+.colonna{margin-left:18px;}
 .colonna{display:flex;flex-direction:column;gap:12px;min-width:0;}
+.colonna>*+*{margin-top:12px;}   /* «gap» in flex e' del Chrome 84: per le TV vecchie */
 .colonna h2{margin:0;font-size:22px;letter-spacing:.08em;text-transform:uppercase;color:#9DB3A6;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #24332B;padding-bottom:6px;}
 .colonna h2 .conta{background:#24332B;color:#fff;border-radius:999px;padding:2px 12px;font-size:20px;}
 .colonna.lavoro h2{color:#8FD3A6;border-bottom-color:#2E6B45;}
@@ -157,11 +161,12 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
    chiave non deve restare scritta sulla barra di una TV appesa in cucina. */
 const Q = new URLSearchParams(location.search);
 function postazione() {
-  const dalPercorso = (location.pathname.match(/^\/tv\/([A-Za-z0-9]{4,32})/) || [])[1] || '';
+  const dalPercorso = (location.pathname.match(/^\/tv\/([A-Za-z0-9]{4,32})/i) || [])[1] || '';
   const l = Q.get('l') || '', s = Q.get('s') || '', k = (Q.get('k') || dalPercorso).trim().toUpperCase();
   /* la chiave sparisce dalla barra appena la si e' letta, anche se il link
      e' monco: un link sbagliato la lascerebbe li' in mostra tutto il giorno */
-  if (k) history.replaceState(null, '', dalPercorso ? '/cucina' : location.pathname);
+  /* la barra torna a /tv, non a /cucina: /cucina e' la pagina a moduli che la TV non sa eseguire, e al primo F5 tornava nera (revisione del 6 settembre 2026) */
+  if (k) history.replaceState(null, '', dalPercorso ? '/tv' : location.pathname);
   if (k) {
     const p = { l, s, k };
     localStorage.setItem('cucinaPostazione', JSON.stringify(p));

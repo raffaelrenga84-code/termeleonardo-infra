@@ -5,7 +5,7 @@
    disco, non solo cosa torna la funzione.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { aggiorna, AGGIORNATO, impronta, percorsoAmmesso, piuNuova, versioneLocale } from './aggiorna.ts';
+import { aggiorna, AGGIORNATO, daPrendere, impronta, percorsoAmmesso, piuNuova, versioneLocale, versioneRotta } from './aggiorna.ts';
 
 const enc = new TextEncoder();
 const b64 = (s: string) => btoa(String.fromCharCode(...enc.encode(s)));
@@ -132,4 +132,25 @@ Deno.test('il codice di uscita «aggiornato» e 75, lo stesso che aspetta il sup
   assertEquals(AGGIORNATO, 75);
   const supervisore = await import('./avvio.ts');
   assertEquals(supervisore.AGGIORNATO, 75);
+});
+
+Deno.test('si prende la versione diversa (anche indietro), mai quella rotta; senza cloud niente', () => {
+  assert(daPrendere('2026-09-06T18:00:00.000Z', '2026-09-06T17:00:00.000Z', null));
+  assert(daPrendere('2026-09-05T18:00:00.000Z', '2026-09-06T17:00:00.000Z', null), 'anche piu vecchia: ripubblicare ieri e tornare indietro');
+  assert(!daPrendere('2026-09-06T17:00:00.000Z', '2026-09-06T17:00:00.000Z', null), 'uguale: niente');
+  assert(!daPrendere('2026-09-06T18:00:00.000Z', '2026-09-06T17:00:00.000Z', '2026-09-06T18:00:00.000Z'), 'quella rotta: mai');
+  assert(daPrendere('2026-09-06T18:00:00.000Z', null, null));
+  assert(!daPrendere(null, '2026-09-06T17:00:00.000Z', null));
+});
+
+Deno.test('la versione rotta resta in quarantena: il cloud la offre, il PC non la riprende', async () => {
+  const dir = cartella('2026-09-06T17:00:00.000Z');
+  Deno.writeTextFileSync(`${dir}/VERSIONE.rotta.txt`, '2026-09-06T18:00:00.000Z\n');
+  assertEquals(versioneRotta(dir), '2026-09-06T18:00:00.000Z');
+  const p = await pacchettoFinto('2026-09-06T18:00:00.000Z', { 'src/pos-locale/main.ts': 'rotto', 'pagina/index.html': 'x' });
+  assertEquals(await aggiorna({ dir, cloud: cloud(p.fetch), controlla: compilaSempre }), { esito: 'niente', versione_cloud: '2026-09-06T18:00:00.000Z' });
+  assertEquals(p.chiamate.length, 1, 'il manifesto e basta');
+  const dopo = await pacchettoFinto('2026-09-06T19:00:00.000Z', { 'src/pos-locale/main.ts': 'buono', 'pagina/index.html': 'x' });
+  assertEquals((await aggiorna({ dir, cloud: cloud(dopo.fetch), controlla: compilaSempre })).esito, 'aggiornato', 'la pubblicazione successiva si prende');
+  Deno.removeSync(dir, { recursive: true });
 });

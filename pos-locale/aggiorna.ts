@@ -53,6 +53,21 @@ export async function impronta(byte: Uint8Array<ArrayBuffer>): Promise<string> {
 export function versioneLocale(dir: string): string | null {
   try { return Deno.readTextFileSync(`${dir}/VERSIONE.txt`).split(/\r?\n/)[0].trim() || null; } catch { return null; }
 }
+/** La versione che e' caduta all'avvio e che il supervisore ha rimesso
+    indietro (VERSIONE.rotta.txt): non la si riprende, se no PC in giostra
+    (revisione del 6 settembre 2026). Alla pubblicazione successiva, che
+    ha un'altra data, si riprova da soli. */
+export function versioneRotta(dir: string): string | null {
+  try { return Deno.readTextFileSync(`${dir}/VERSIONE.rotta.txt`).split(/\r?\n/)[0].trim() || null; } catch { return null; }
+}
+
+/** Si prende la versione del cloud se e' DIVERSA da quella locale (anche
+    piu' vecchia: ripubblicare quella di ieri e' il modo di tornare indietro
+    da lontano) e non e' quella rotta. */
+export function daPrendere(cloud: string | null | undefined, locale: string | null | undefined, rotta: string | null | undefined): boolean {
+  if (!cloud) return false;
+  return cloud !== (locale ?? null) && cloud !== (rotta ?? null);
+}
 
 function decodificaBase64(s: string): Uint8Array<ArrayBuffer> {
   const bin = atob(s);
@@ -80,7 +95,7 @@ export async function aggiorna(opz: { dir: string; cloud: Cloud; controlla: (dir
   let m: Manifesto;
   try { m = await chiedi(cloud, 'pacchetto') as unknown as Manifesto; } catch (e) { return { esito: 'scartato', motivo: (e as Error).message, versione: null }; }
   const versione = typeof m.versione === 'string' ? m.versione : null;
-  if (!versione || !piuNuova(versione, locale)) return { esito: 'niente', versione_cloud: versione };
+  if (!versione || !daPrendere(versione, locale, versioneRotta(dir))) return { esito: 'niente', versione_cloud: versione };
   const file = Array.isArray(m.file) ? m.file : [];
   const scarta = (motivo: string): Esito => { via(`${dir}/nuovo`); log(`aggiornamento ${versione} scartato: ${motivo}`); return { esito: 'scartato', motivo, versione }; };
   if (!file.length) return scarta('pacchetto vuoto');

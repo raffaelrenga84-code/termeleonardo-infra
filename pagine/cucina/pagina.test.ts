@@ -55,7 +55,7 @@ Deno.test('il giro ogni tre secondi, uno alla volta, ma un tocco non aspetta il 
 
 Deno.test('la chiave dall indirizzo si salva e l indirizzo si pulisce, anche se il link e monco', () => {
   assert(m.includes("localStorage.setItem('cucinaPostazione'"), 'la postazione resta sullo schermo');
-  assert(m.includes("if (k) history.replaceState(null, '', dalPercorso ? '/cucina' : location.pathname);"), 'basta la chiave: un link a meta non la lascia in mostra sulla barra');
+  assert(m.includes("if (k) history.replaceState(null, '', dalPercorso ? '/tv' : location.pathname);"), 'basta la chiave: un link a meta non la lascia in mostra sulla barra');
   assert(m.includes('Manca la chiave: aprire il link dato dal back office'));
 });
 
@@ -162,9 +162,9 @@ Deno.test('niente Fidra: lo schermo parla solo col nostro server', () => {
 
 Deno.test('sulla TV basta il codice: /tv/CODICE o ?k=, locale e stampante facoltativi, e il codice sparisce dalla barra', () => {
   /* «siccome devo digitarla sul browser di una TV» (la proprieta', 6 settembre 2026) */
-  assert(m.includes("location.pathname.match(/^\\/tv\\/([A-Za-z0-9]{4,32})/)"), 'il codice si legge dal percorso');
+  assert(m.includes("location.pathname.match(/^\\/tv\\/([A-Za-z0-9]{4,32})/i)"), 'il codice si legge dal percorso');
   assert(m.includes("(Q.get('k') || dalPercorso).trim().toUpperCase()"), 'o dalla query, e le minuscole della TV vanno bene');
-  assert(m.includes("history.replaceState(null, '', dalPercorso ? '/cucina' : location.pathname)"), 'e la barra torna pulita');
+  assert(m.includes("history.replaceState(null, '', dalPercorso ? '/tv' : location.pathname)"), 'e la barra torna pulita');
   assert(m.includes("const qs = P.l && P.s ?"), 'locale e stampante si mandano solo se ci sono');
 });
 
@@ -173,7 +173,7 @@ Deno.test('due colonne: da fare a sinistra, in preparazione a destra, verde e co
      essere super funzionale» (la proprieta', 6 settembre 2026) */
   assert(m.includes('const c = perColonne(LISTA);') && m.includes('LISTA = [...c.nuove, ...c.inPrep];'), 'le colonne le decide il modulo puro, e i numeri da tastiera le seguono');
   assert(m.includes("colonna('nuove', TESTI.daFare, c.nuove) + colonna('lavoro', TESTI.inLavoro, c.inPrep)"), 'prima la sinistra, poi la destra');
-  assert(P.includes('main.griglia{display:grid;grid-template-columns:1fr 1fr;') && P.includes('.colonna.lavoro h2{'), 'due colonne vere, quella di destra verde');
+  assert(P.includes('main.griglia{display:flex;') && P.includes('.colonna.lavoro h2{'), 'due colonne vere, quella di destra verde');
   assert(P.includes('.scheda.presa{background:#E3F0EA;border-top-color:#2E6B45;') && m.includes('class="lavoro-da"'), 'la scheda in preparazione cambia colore e dice da quanto');
 });
 
@@ -181,4 +181,11 @@ Deno.test('i timeout delle chiamate reggono anche i browser vecchi delle TV', ()
   /* «non appare nulla» sulla TV (la proprieta', 6 settembre 2026): AbortSignal.timeout non c'era */
   assert(m.includes('function segnale(ms)') && m.includes("typeof AbortSignal.timeout === 'function'") && m.includes('new AbortController()'), 'con ripiego');
   assert(!m.includes('AbortSignal.timeout(900)') && !m.includes('AbortSignal.timeout(8000)'), 'e nessuna chiamata diretta');
+});
+
+Deno.test('le due colonne reggono le TV vecchie: flex, non grid; e la barra torna a /tv', () => {
+  /* revisione del 6 settembre 2026: il grid e del Chrome 57, /cucina e la pagina a moduli */
+  assert(P.includes('main.griglia{display:flex;') && !P.includes('main.griglia{display:grid'), 'flex');
+  assert(P.includes('main.griglia>.colonna+.colonna{margin-left:18px;}'), 'lo spazio fra le colonne senza gap');
+  assert(m.includes('/^\\/tv\\/([A-Za-z0-9]{4,32})/i'), '/TV/CODICE in maiuscolo vale');
 });

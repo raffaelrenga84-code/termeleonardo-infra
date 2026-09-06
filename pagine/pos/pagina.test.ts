@@ -373,7 +373,7 @@ Deno.test('la sala smette di aggiornarsi quando si esce: il tastierino del PIN n
   const esci = m.slice(m.indexOf('function esci()'), m.indexOf('/* ---------- testa ---------- */'));
   assert(esci.includes('clearInterval(timerSala)'), 'uscendo si ferma la sala');
   const sala = m.slice(m.indexOf('async function schermataSala()'), m.indexOf('timerSala = setInterval(disegna, 10000);'));
-  assert(sala.includes("catch (e) { if (!SESSIONE) return;"), 'senza sessione l errore non si scrive: c e gia il tastierino');
+  assert(sala.includes("catch (e) { if (!SESSIONE || SCHERMATA !== 'sala') return;"), 'senza sessione l errore non si scrive: c e gia il tastierino');
   assert(sala.includes('id="salaRiprova"') && sala.includes('Riprova'), 'un errore vero ha un pulsante per riprovare, senza chiudere l app');
 });
 
@@ -404,7 +404,7 @@ Deno.test('il palmare vede «pronto in cucina»: bollino verde sul tavolo, riga 
 Deno.test('cancella tutto il tavolo con «Sei sicuro?»; il motivo dello storno solo a chi ha la spunta', () => {
   /* (la proprieta', 6 settembre 2026) */
   assert(m.includes('id="cancellaTavolo"') && m.includes('Cancella tutto il tavolo…'), 'il pulsante, sotto «Sposta tutto il tavolo»');
-  assert(m.includes('puoStornare() ?') && m.includes("const puoStorno = puoStornare();"), 'lo vede chi puo stornare, la stessa regola della riga');
+  assert(m.includes('${CAMERIERE ? \'<button type="button" class="bottone sec" id="cancellaTavolo"') && m.includes("const puoStorno = puoStornare();"), 'lo vedono tutti i camerieri (l hanno chiesto loro, revisione del 6 settembre 2026); lo storno della riga resta a chi puo');
   assert(m.includes('confirm(`Sei sicuro?'), 'e chiede prima');
   assert(m.includes("chiama('tavolo-svuota', { method: 'POST'") && !m.includes("scrivi('tavolo-svuota'"), 'mai in coda offline: o passa subito o si riprova');
   assert(m.includes('if (CAMERIERE && CAMERIERE.storno_con_motivo) {') && m.includes('Senza il motivo non si cancella.'), 'il motivo di tutto il tavolo solo con la spunta');
@@ -420,4 +420,12 @@ Deno.test('portate semplici al Bistrot: «Subito», «Segue 5′/10′/15′», 
   assert(m.includes('segueMin: SEMPLICI() ? segueScelto : null') && m.includes('segue_min: r.segue_min == null ? null : r.segue_min'), 'la scelta viaggia con la riga');
   assert(m.includes('Segue alle ${oraBreve(r.segue_alle)}'), 'e dopo l invio si legge a che ora parte');
   assert(m.includes("<span class=\"eti\">Portata</span>") && m.includes('Vai coi ${NOMI_PORTATE[prossima].toLowerCase()}'), 'il ristorante come prima');
+});
+
+Deno.test('un disegno della sala arrivato in ritardo non copre il tavolo aperto; il Segue vale un tocco; l indirizzo del PC si ripulisce anche in memoria', () => {
+  /* «se apro un tavolo la schermata si chiude dopo 5 secondi» (la proprieta', 6 settembre 2026) */
+  assert(m.includes("let SCHERMATA = 'accesso';") && m.includes("SCHERMATA = 'sala';") && m.includes("SCHERMATA = 'tavolo';") && m.includes("SCHERMATA = 'ordine';"), 'ogni schermata si firma');
+  assert(m.includes("if (SCHERMATA !== 'sala') return;") && m.includes("if (!SESSIONE || SCHERMATA !== 'sala') return;"), 'e la sala disegna solo se e ancora lei');
+  assert(m.includes('segueScelto = null;') && m.lastIndexOf('segueScelto = null;') > m.indexOf('segueMin: SEMPLICI() ? segueScelto : null'), 'dopo il tocco si torna a Subito');
+  assert(m.includes('const normalizzaServer = (s) =>') && m.includes('normalizzaServer(localStorage.getItem(\'posServerLocale\')'), 'l indirizzo in memoria passa dalla stessa pulizia');
 });

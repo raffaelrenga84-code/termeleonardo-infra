@@ -371,7 +371,7 @@ Deno.test('cancellare tutto il tavolo: uno storno di tutto, col biglietto per qu
   /* «un pulsante per cancellare tutto un tavolo … bisogna chiedere sei sicuro?» e «decidere che cameriere
      deve darmi motivazione e quale non serve» (la proprieta', 6 settembre 2026) */
   const s = S.slice(S.indexOf("azione === 'tavolo-svuota'"), S.indexOf("azione === 'tavolo-sposta'"));
-  assert(s.includes("puo(cameriere!, 'storno')"), 'lo fa chi puo stornare');
+  assert(s.includes("puo(cameriere!, 'comanda')"), 'lo fa ogni cameriere: l hanno chiesto loro (revisione del 6 settembre 2026)');
   assert(s.includes('cameriere!.storno_con_motivo') && s.includes("'tavolo cancellato'"), 'il motivo solo a chi lo deve dare; la traccia dice che era tutto il tavolo');
   assert(s.includes("'storno', cameriere!.nome") && s.includes("r.stato === 'partita'"), 'in cucina esce lo STORNO di quello che era partito');
   assert(s.includes("stato: 'chiuso', chiuso_come: null") && s.includes(".delete().eq('id', c.id)"), 'i conti si chiudono a zero, quelli vuoti spariscono');
@@ -392,9 +392,9 @@ Deno.test('portate semplici al Bistrot: tutto insieme, il segue a tempo o a chia
   const righe = S.slice(S.indexOf("azione === 'righe'"), S.indexOf("azione === 'invia'"));
   assert(righe.includes('segue_min: minutiSegueValido(r.segue_min), segue_alle: null'), 'la riga porta il segue');
   const cloud = S.slice(S.indexOf("azione === 'stampa-cloud'"), S.indexOf("azione === 'allinea-su'"));
-  assert(cloud.includes('await mandaSegueScaduti(vivi)'), 'ogni minuto, dal cron della carta');
+  assert(cloud.includes('await mandaSegueScaduti(conPc)') && cloud.includes("from('pos_sessione').delete().lt('scade_il'"), 'ogni minuto, dal cron della carta; e le sessioni morte se ne vanno');
   const m = S.slice(S.indexOf('async function mandaSegueScaduti'), S.indexOf('/* La comanda di nuovo'));
-  assert(m.includes('vivi.has(loc.id as string)) continue') && m.includes("'segue', 'vai', 'a tempo'"), 'solo per i locali col PC muto, firmato «a tempo»');
+  assert(m.includes('conPc.has(loc.id as string)) continue') && m.includes("'segue', 'vai', 'a tempo'"), 'solo per i locali senza PC, firmato «a tempo»');
   assert(S.includes("select('id, nome, portate_semplici, segue_minuti')"), 'il palmare sa se il suo locale e semplice e quali minuti offrire');
 });
 

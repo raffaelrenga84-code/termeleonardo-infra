@@ -36,7 +36,8 @@ export function fileDellaPagina(pathname: string): { file: string; tipo: string 
   if (p === '/bacheca') return { file: 'bacheca/index.html', tipo: 'text/html; charset=utf-8' };
   /* a /tv/CODICE la versione tradotta per i browser vecchi delle TV
      (strumenti/cucina-tv.js): sulle TV era una pagina vuota */
-  if (/^\/tv\/[A-Za-z0-9]{4,32}$/.test(p)) return { file: 'cucina/tv.html', tipo: 'text/html; charset=utf-8' };
+  /* anche /tv senza codice (la chiave e' in memoria, la barra torna li') e /TV/CODICE in maiuscolo */
+  if (/^\/tv(\/[A-Za-z0-9]{4,32})?$/i.test(p)) return { file: 'cucina/tv.html', tipo: 'text/html; charset=utf-8' };
   const file = FILE[p];
   return file ? { file, tipo: tipoDi(file) } : null;
 }

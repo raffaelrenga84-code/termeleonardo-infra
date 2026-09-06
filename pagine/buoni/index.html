@@ -2953,12 +2953,14 @@ function vistaPosBacheca() {
   const disegna = () => {
     const righe = GIORNI.map((nome, i) => {
       const r = rigaDi(D.locale, i + 1) || {};
-      return `<tr data-bg="${i + 1}"><td><b>${nome}</b></td><td><textarea data-b="primo" rows="2" style="width:100%;min-width:220px;">${esc(r.primo || '')}</textarea></td>
-        <td><textarea data-b="secondo" rows="2" style="width:100%;min-width:220px;">${esc(r.secondo || '')}</textarea></td>
+      return `<tr data-bg="${i + 1}"><td><b>${nome}</b></td><td><textarea data-b="primo" rows="2" maxlength="300" style="width:100%;min-width:220px;">${esc(r.primo || '')}</textarea>
+          <input data-b="primo_estero" maxlength="300" value="${esc(r.primo_estero || '')}" placeholder="in inglese o tedesco (facoltativo)" style="margin-top:4px;" /></td>
+        <td><textarea data-b="secondo" rows="2" maxlength="300" style="width:100%;min-width:220px;">${esc(r.secondo || '')}</textarea>
+          <input data-b="secondo_estero" maxlength="300" value="${esc(r.secondo_estero || '')}" placeholder="in inglese o tedesco (facoltativo)" style="margin-top:4px;" /></td>
         <td><input data-b="calice" value="${esc(r.calice || '')}" placeholder="a caso dai vini al calice" style="width:200px;" /></td></tr>`;
     }).join('');
     $('vista').innerHTML = `<div class="riquadro"><b>Bacheca all’ingresso</b>
-      <div class="mini">Quello che la TV all’ingresso mostra, giorno per giorno: il primo e il secondo del giorno scritti a mano (un a capo = un rigo nuovo sulla TV, il primo rigo grande), e il calice consigliato: lasciato vuoto, ne esce uno a caso fra i «Vini al calice» del menù, lo stesso per tutta la giornata. La TV la prende entro un minuto: www.hoteltermeleonardo.com/bacheca (dal PC del Bistrot: http://192.168.0.18:8080/bacheca).</div>
+      <div class="mini">Quello che la TV all’ingresso mostra, giorno per giorno: il primo e il secondo del giorno scritti a mano (un a capo = un rigo nuovo sulla TV, il primo rigo grande; sotto, se si vuole, una riga in inglese o tedesco per gli ospiti stranieri: le intestazioni sulla TV sono già in tre lingue), e il calice consigliato: lasciato vuoto, ne esce uno a caso fra i «Vini al calice» del menù, lo stesso per tutta la giornata. La TV la prende entro un minuto: www.hoteltermeleonardo.com/bacheca (dal PC del Bistrot: http://192.168.0.18:8080/bacheca).</div>
       ${D.locali.length > 1 ? `<label>Locale</label><select id="pbLocale" style="width:auto;">${opzPos(D.locali.map((l) => [l.id, l.nome]), D.locale)}</select>` : ''}
       <table><tr><th>Giorno</th><th>Primo del giorno</th><th>Secondo del giorno</th><th>Calice consigliato (facoltativo)</th></tr>${righe}</table>
       <div class="esito" id="pbEsito"></div>
@@ -2969,7 +2971,7 @@ function vistaPosBacheca() {
       raccogli();
       $('pbEsito').textContent = 'Salvo…';
       try {
-        await chiama('?a=bacheca-salva', { method: 'POST', body: JSON.stringify({ righe: D.righe.filter((r) => r.locale === D.locale) }) }, FUNZIONE_POS);
+        await chiama('?a=bacheca-salva', { method: 'POST', body: JSON.stringify({ righe: D.righe }) }, FUNZIONE_POS);
         $('pbEsito').textContent = 'Salvata: la TV la prende entro un minuto.';
       } catch (e) { $('pbEsito').textContent = e.message; }
     };

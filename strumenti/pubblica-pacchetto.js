@@ -51,7 +51,7 @@ function elenca(radice, sotto) {
 
 async function pubblica() {
   const versione = fs.readFileSync(path.join(DEST, 'VERSIONE.txt'), 'utf8').split(/\r?\n/)[0].trim();
-  if (!/^\d{4}-\d\d-\d\dT/.test(versione)) throw new Error(`VERSIONE.txt strana: «${versione}»`);
+  if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$/.test(versione)) throw new Error(`VERSIONE.txt strana: «${versione}»`);
   const token = fs.readFileSync(FILE_TOKEN, 'utf8').trim();
   const file = [...elenca(DEST, 'src'), ...elenca(DEST, 'pagina')];
   if (!file.includes('src/pos-locale/main.ts') || !file.includes('pagina/index.html')) throw new Error('nel pacchetto mancano main.ts o la pagina');

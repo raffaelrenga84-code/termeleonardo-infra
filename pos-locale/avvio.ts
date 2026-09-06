@@ -9,7 +9,9 @@
    - se cade, riparte dopo tre secondi;
    - se cade tre volte di fila entro trenta secondi dall'avvio e c'e'
      src.vecchio/, rimette src.vecchio/ e pagina.vecchio/ al loro posto,
-     torna alla VERSIONE.vecchio.txt e lo scrive in RIPRISTINO.txt.
+     torna alla VERSIONE.vecchio.txt, mette la versione caduta in
+     quarantena (VERSIONE.rotta.txt: aggiorna.ts non la riprende) e lo
+     scrive in RIPRISTINO.txt.
    Quello che succede finisce in supervisore.log, accanto a questo file.
 
    Uso: deno run --node-modules-dir=none --no-prompt --allow-run=<deno.exe>
@@ -25,7 +27,8 @@ export type Decisione = { cosa: 'riparti' | 'ripristina'; cadute: number; attesa
 
 /** Cosa fare quando il server esce: e' un aggiornamento, una caduta, o la terza caduta di fila. */
 export function decisione(s: { codice: number; durataMs: number; cadute: number }): Decisione {
-  if (s.codice === AGGIORNATO) return { cosa: 'riparti', cadute: 0, attesaMs: 0 };
+  /* mezzo secondo anche dopo un aggiornamento: se qualcosa andasse storto nel cambio, mai un ciclo stretto */
+  if (s.codice === AGGIORNATO) return { cosa: 'riparti', cadute: 0, attesaMs: 500 };
   if (s.durataMs >= POCO_MS) return { cosa: 'riparti', cadute: 0, attesaMs: ATTESA_MS };
   const cadute = s.cadute + 1;
   if (cadute >= CADUTE_MASSIME) return { cosa: 'ripristina', cadute: 0, attesaMs: ATTESA_MS };
@@ -39,6 +42,8 @@ const via = (p: string): void => { if (esiste(p)) Deno.removeSync(p, { recursive
 export function ripristina(dir: string): boolean {
   if (!esiste(`${dir}/src.vecchio`)) return false;
   const rotto = versione(dir);
+  /* la versione rotta va in quarantena: aggiorna.ts non la riprende finche' non ne esce un'altra */
+  if (rotto) Deno.writeTextFileSync(`${dir}/VERSIONE.rotta.txt`, `${rotto}\n`);
   via(`${dir}/src.rotto`); via(`${dir}/pagina.rotto`);
   if (esiste(`${dir}/src`)) Deno.renameSync(`${dir}/src`, `${dir}/src.rotto`);
   if (esiste(`${dir}/pagina`)) Deno.renameSync(`${dir}/pagina`, `${dir}/pagina.rotto`);

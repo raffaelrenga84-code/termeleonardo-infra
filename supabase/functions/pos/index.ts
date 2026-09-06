@@ -273,8 +273,8 @@ async function localeDelTavolo(tavolo: string): Promise<Riga | null> {
 
 /* «Segue in 5 minuti»: allo scadere parte da se', col biglietto VAI SEGUE.
    Lo fa il PC per il suo locale (pos-locale, ogni 10 s); il cloud solo per
-   i locali col PC muto — la stessa regola della carta (stampa-cloud). */
-async function mandaSegueScaduti(vivi: Set<string>): Promise<number> {
+   i locali che un PC non l'hanno mai avuto (nessun battito, mai). */
+async function mandaSegueScaduti(conPc: Set<string>): Promise<number> {
   const { data: inAttesa } = await db.from('pos_riga').select('*').eq('stato', 'inviata').not('segue_alle', 'is', null).order('segue_alle').limit(200);
   const perConto = new Map<string, Riga[]>();
   for (const r of segueScaduti(inAttesa ?? [], new Date())) perConto.set(r.conto as string, [...(perConto.get(r.conto as string) ?? []), r]);
@@ -283,7 +283,10 @@ async function mandaSegueScaduti(vivi: Set<string>): Promise<number> {
     const { data: c } = await db.from('pos_conto').select('*').eq('id', contoId).maybeSingle();
     if (!c || c.stato === 'chiuso') continue;
     const loc = await localeDelTavolo(c.tavolo as string);
-    if (!loc || vivi.has(loc.id as string)) continue;
+    /* un locale che ha un PC lo lascia al PC anche quando il PC tace: se il
+       PC e' vivo ma senza internet lo farebbe partire lui, e uscirebbe due
+       volte; se e' spento, il cameriere preme «Manda il segue» (revisione del 6 settembre 2026) */
+    if (!loc || conPc.has(loc.id as string)) continue;
     const righe = (await righeDelConto(contoId)).filter((r) => rr.some((x) => x.id === r.id));
     if (!righe.length) continue;
     const ora = adesso();
@@ -428,14 +431,14 @@ Deno.serve(async (req) => {
     const oggi = giornoRoma(new Date());
     const [{ data: loc }, { data: riga }, { data: cat }, { data: art }] = await Promise.all([
       db.from('pos_locale').select('id, nome').eq('id', locale).maybeSingle(),
-      db.from('pos_bacheca').select('primo, secondo, calice').eq('locale', locale).eq('giorno', oggi.giorno).maybeSingle(),
+      db.from('pos_bacheca').select('primo, secondo, calice, primo_estero, secondo_estero').eq('locale', locale).eq('giorno', oggi.giorno).maybeSingle(),
       db.from('pos_categoria').select('id, nome').eq('attiva', true),
       db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, esaurito').eq('attivo', true),
     ]);
     const scelto = scegliCalice(candidatiCalice(art ?? [], cat ?? []), `${oggi.data}|${locale}`);
     const calice = riga?.calice ? { nome: String(riga.calice), prezzo_cent: null, a_mano: true }
       : scelto ? { nome: nomeCalice(scelto.nome), prezzo_cent: Number(scelto.prezzo_cent), a_mano: false } : null;
-    return risposta({ locale: loc ? { id: loc.id, nome: loc.nome } : { id: locale, nome: locale }, oggi, primo: riga?.primo ?? null, secondo: riga?.secondo ?? null, calice, adesso: adesso() });
+    return risposta({ locale: loc ? { id: loc.id, nome: loc.nome } : { id: locale, nome: locale }, oggi, primo: riga?.primo ?? null, secondo: riga?.secondo ?? null, primo_estero: riga?.primo_estero ?? null, secondo_estero: riga?.secondo_estero ?? null, calice, adesso: adesso() });
   }
   if (azione === 'ospite-tavoli') {
     /* «Puoi fare entrambe? Con QR e senza?» (la proprieta', 6 settembre
@@ -1187,7 +1190,9 @@ Deno.serve(async (req) => {
      Lo fa chi puo' stornare; il «sei sicuro?» lo chiede il palmare. */
   if (azione === 'tavolo-svuota') {
     if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
-    if (!puo(cameriere!, 'storno')) return risposta({ errore: 'storno non permesso' }, 403);
+    /* lo fa ogni cameriere, non solo chi ha «storni»: «i camerieri mi chiedono un
+       pulsante» (revisione del 6 settembre 2026). La traccia resta: chi, quando, «tavolo cancellato» */
+    if (!puo(cameriere!, 'comanda')) return risposta({ errore: 'non permesso' }, 403);
     const b = await corpo();
     const tavolo = String(b.tavolo ?? '');
     const scritto = motivoPulito(b.motivo);
@@ -1390,7 +1395,10 @@ Deno.serve(async (req) => {
     const { data: battiti } = await db.from('pos_battito').select('locale, visto_il');
     const vivi = new Set((battiti ?? []).filter((b) => Date.now() - new Date(b.visto_il as string).getTime() < 90 * 1000).map((b) => b.locale as string));
     /* il «segue» a tempo dei locali col PC muto parte da qui, ogni minuto */
-    const segue = await mandaSegueScaduti(vivi);
+    const conPc = new Set((battiti ?? []).map((b) => b.locale as string));
+    const segue = await mandaSegueScaduti(conPc);
+    /* le sessioni scadute da piu' di un giorno se ne vanno: non servono a nessuno e la tabella non deve crescere per sempre */
+    await db.from('pos_sessione').delete().lt('scade_il', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
     /* uno schermo spento non fa perdere niente: la carta esce dopo
        ripiego_s secondi; per i locali col PC vivo lo fa il PC (stampa.ts) */
     const { data: postazioni } = await db.from('pos_postazione').select('locale, stampante, ripiego_s');
@@ -1440,12 +1448,6 @@ Deno.serve(async (req) => {
     return risposta({ esito: 'ok', fatte, saltate, ripiegate, segue });
   }
 
-  /* ---------- il pacchetto per il PC del Bistrot (aggiornamento automatico) ----------
-     «per non ricopiare la cartella a ogni modifica» (la proprieta', 6
-     settembre 2026): strumenti/pubblica-pacchetto.js mette src/ e pagina/
-     in pos_pacchetto; il PC (pos-locale/aggiorna.ts) chiede ogni minuto
-     la versione e, se e' nuova, i file uno a uno. Con la chiave hotel,
-     come allinea-giu: il pacchetto e' codice, non lo si da' a chiunque. */
   /* la bacheca la scrive il back office, anche l'account del Bistrot (ruoli.ts):
      una riga per giorno, primo, secondo e il calice facoltativo */
   if (azione === 'bacheca-salva') {
@@ -1456,13 +1458,19 @@ Deno.serve(async (req) => {
     const b = await corpo();
     const ora = adesso();
     const righe = (Array.isArray(b.righe) ? b.righe as Riga[] : []).map((r) => ({
-      locale: String(r.locale ?? ''), giorno: Number(r.giorno), primo: testoBacheca(r.primo), secondo: testoBacheca(r.secondo), calice: testoBacheca(r.calice), aggiornato_il: ora,
+      locale: String(r.locale ?? ''), giorno: Number(r.giorno), primo: testoBacheca(r.primo), secondo: testoBacheca(r.secondo), primo_estero: testoBacheca(r.primo_estero), secondo_estero: testoBacheca(r.secondo_estero), calice: testoBacheca(r.calice), aggiornato_il: ora,
     }));
     if (righe.some((r) => !r.locale || !(r.giorno >= 1 && r.giorno <= 7))) return risposta({ errore: 'ogni riga vuole il locale e un giorno da 1 a 7' }, 400);
     if (righe.length) { const { error } = await db.from('pos_bacheca').upsert(righe, { onConflict: 'locale,giorno' }); if (error) return risposta({ errore: error.message }, 500); }
     return risposta({ esito: 'ok', righe: righe.length });
   }
 
+  /* ---------- il pacchetto per il PC del Bistrot (aggiornamento automatico) ----------
+     «per non ricopiare la cartella a ogni modifica» (la proprieta', 6
+     settembre 2026): strumenti/pubblica-pacchetto.js mette src/ e pagina/
+     in pos_pacchetto; il PC (pos-locale/aggiorna.ts) chiede ogni minuto
+     la versione e, se e' nuova, i file uno a uno. Con la chiave hotel,
+     come allinea-giu: il pacchetto e' codice, non lo si da' a chiunque. */
   if (azione === 'pacchetto') {
     if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);
     const { data: righe } = await db.from('pos_pacchetto').select('percorso, versione, sha256, byte').order('percorso');
