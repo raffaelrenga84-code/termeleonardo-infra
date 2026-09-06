@@ -7,13 +7,13 @@
    puo' chiamare a ogni avvio.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { apri, creaSchema } from './db.ts';
+import { apri, colonneDi, creaSchema } from './db.ts';
 
 Deno.test('lo schema si crea, si puo ricreare, e le tabelle pos_* ci sono tutte', () => {
   const db = apri(':memory:');
   creaSchema(db); creaSchema(db);
   const tab = (db.prepare("select name from sqlite_master where type = 'table' and name like 'pos_%' order by name").all() as { name: string }[]).map((r) => r.name);
-  for (const t of ['pos_locale', 'pos_zona', 'pos_tavolo', 'pos_categoria', 'pos_articolo', 'pos_variante', 'pos_preferito', 'pos_cameriere', 'pos_dispositivo', 'pos_sessione', 'pos_conto', 'pos_riga', 'pos_comanda', 'pos_stampa', 'pos_meta']) assert(tab.includes(t), t);
+  for (const t of ['pos_locale', 'pos_zona', 'pos_tavolo', 'pos_categoria', 'pos_articolo', 'pos_variante', 'pos_preferito', 'pos_cameriere', 'pos_dispositivo', 'pos_sessione', 'pos_conto', 'pos_riga', 'pos_comanda', 'pos_stampa', 'pos_postazione', 'pos_meta']) assert(tab.includes(t), t);
 });
 
 Deno.test('quello che sale al cloud porta allineato, e parte da 0', () => {
@@ -31,4 +31,23 @@ Deno.test('gli array (note_rapide, righe della comanda) vanno e tornano come JSO
   db.prepare("insert into pos_categoria (id, nome, stampante, portata, note_rapide, aggiornato_il) values ('C1', 'Primi', 'cucina', 'primi', ?, '2026-09-04T10:00:00Z')").run(JSON.stringify(['senza glutine']));
   const r = db.prepare('select note_rapide from pos_categoria').get() as { note_rapide: string };
   assertEquals(JSON.parse(r.note_rapide), ['senza glutine']);
+});
+
+Deno.test('un PC gia installato prima del monitor cucina non si reinstalla da zero: le colonne arrivano con un alter', () => {
+  const db = apri(':memory:');
+  /* la pos_stampa di prima del 6 settembre 2026, senza le colonne del monitor */
+  db.exec(`create table pos_stampa (
+    id text primary key, locale text not null, stampante text not null, testo text not null,
+    stato text not null default 'da_stampare', creato_il text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    stampata_il text, stampata_da text, errore text, aggiornato_il text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    allineato integer not null default 0)`);
+  creaSchema(db);
+  const cols = colonneDi(db, 'pos_stampa');
+  for (const c of ['biglietto', 'conto', 'vista_il', 'presa_il', 'pronta_il', 'pronta_da']) assert(cols.includes(c), c);
+});
+
+Deno.test('il monitor cucina: pos_stampa porta le colonne nuove', () => {
+  const db = apri(':memory:'); creaSchema(db);
+  const cols = colonneDi(db, 'pos_stampa');
+  for (const c of ['biglietto', 'conto', 'vista_il', 'presa_il', 'pronta_il', 'pronta_da']) assert(cols.includes(c), c);
 });

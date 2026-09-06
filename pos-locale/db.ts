@@ -105,7 +105,15 @@ create table if not exists pos_stampa (
   id text primary key, locale text not null, stampante text not null, testo text not null,
   stato text not null default 'da_stampare', creato_il text not null default ${ORA},
   stampata_il text, stampata_da text, errore text, aggiornato_il text not null default ${ORA},
-  allineato integer not null default 0);
+  allineato integer not null default 0,
+  biglietto text, conto text, vista_il text, presa_il text, pronta_il text, pronta_da text);
+/* il monitor cucina (6 settembre 2026): una postazione per ogni coppia
+   locale + stampante dice come riceve i biglietti */
+create table if not exists pos_postazione (
+  locale text not null, stampante text not null, nome text not null,
+  schermo integer not null default 0, stampa_sempre integer not null default 1, ripiego_s integer not null default 30,
+  chiave_hash text, aggiornato_il text not null default ${ORA},
+  primary key (locale, stampante));
 create table if not exists pos_meta (chiave text primary key, valore text);
 /* Cancellare non e' scrivere: una riga tolta qui non sale con le altre.
    Qui restano gli id tolti finche' il cloud non li ha tolti anche lui. */
@@ -114,6 +122,12 @@ create table if not exists pos_eliminato (
 create index if not exists pos_riga_conto on pos_riga(conto);
 create index if not exists pos_stampa_stato on pos_stampa(stato);
 `);
+  /* un PC gia' installato prima del monitor cucina non si reinstalla da
+     zero: le colonne nuove di pos_stampa arrivano con un alter table */
+  const colonneNuove = ['biglietto', 'conto', 'vista_il', 'presa_il', 'pronta_il', 'pronta_da'];
+  const presenti = colonneDi(db, 'pos_stampa');
+  for (const c of colonneNuove) if (!presenti.includes(c)) db.exec(`alter table pos_stampa add column ${c} text`);
+  colonne.delete('pos_stampa');
 }
 
 /* ---------- da e verso SQLite ---------- */
