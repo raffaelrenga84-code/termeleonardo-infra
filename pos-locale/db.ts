@@ -28,7 +28,8 @@ export function creaSchema(db: Db): void {
   db.exec(`
 create table if not exists pos_locale (
   id text primary key, nome text not null, reparto text not null default 'F&B',
-  stampante_cucina text, stampante_bar text, orari_cucina text, aggiornato_il text not null default ${ORA});
+  stampante_cucina text, stampante_bar text, orari_cucina text,
+  portate_semplici integer not null default 0, segue_minuti text not null default '5,10,15', aggiornato_il text not null default ${ORA});
 create table if not exists pos_zona (
   id text primary key, locale text not null, nome text not null, posizione integer not null default 0,
   aggiornato_il text not null default ${ORA});
@@ -78,7 +79,7 @@ create table if not exists pos_riga (
   quantita integer not null default 1, prezzo_listino_cent integer not null, prezzo_cent integer not null,
   variante text, nota text, motivo_prezzo text, locale_stampa text, portata text not null, stato text not null, creata_da text,
   creata_il text not null default ${ORA}, partita_il text, stornata_da text, stornata_il text,
-  motivo_storno text, aggiornato_il text not null default ${ORA}, allineato integer not null default 0);
+  motivo_storno text, segue_min integer, segue_alle text, aggiornato_il text not null default ${ORA}, allineato integer not null default 0);
 create table if not exists pos_comanda (
   id text primary key, conto text not null, portata text not null, tipo text not null,
   righe text not null default '[]', aggiornato_il text not null default ${ORA},
@@ -143,6 +144,15 @@ create index if not exists pos_stampa_stato on pos_stampa(stato);
   colonne.delete('pos_cameriere');
   if (!colonneDi(db, 'pos_cameriere').includes('storno_con_motivo')) db.exec('alter table pos_cameriere add column storno_con_motivo integer not null default 0');
   colonne.delete('pos_cameriere');
+  /* portate semplici e «segue» a tempo (6 settembre 2026) */
+  colonne.delete('pos_locale'); colonne.delete('pos_riga');
+  const loc = colonneDi(db, 'pos_locale');
+  if (!loc.includes('portate_semplici')) db.exec('alter table pos_locale add column portate_semplici integer not null default 0');
+  if (!loc.includes('segue_minuti')) db.exec("alter table pos_locale add column segue_minuti text not null default '5,10,15'");
+  const rig = colonneDi(db, 'pos_riga');
+  if (!rig.includes('segue_min')) db.exec('alter table pos_riga add column segue_min integer');
+  if (!rig.includes('segue_alle')) db.exec('alter table pos_riga add column segue_alle text');
+  colonne.delete('pos_locale'); colonne.delete('pos_riga');
 }
 
 /* ---------- da e verso SQLite ---------- */

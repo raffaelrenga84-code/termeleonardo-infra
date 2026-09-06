@@ -120,7 +120,7 @@ footer .etichetta{font-size:16px;letter-spacing:.08em;text-transform:uppercase;c
 <div class="velo" id="blocco" hidden><p class="grande" id="testoBlocco"></p></div>
 <p class="messaggio" id="messaggio" hidden></p>
 
-<!-- GENERATO da strumenti/cucina-tv.js: non modificare a mano, modificare index.html e rigenerare. impronta:c21d2c306b195263 -->
+<!-- GENERATO da strumenti/cucina-tv.js: non modificare a mano, modificare index.html e rigenerare. impronta:c70ce70143a02064 -->
 <script>
 "use strict";
 (() => {
@@ -174,7 +174,7 @@ footer .etichetta{font-size:16px;letter-spacing:.08em;text-transform:uppercase;c
   }
   var soloTesto = (x) => typeof x === "string" ? x : "";
   function resa(s) {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d;
     const riga = s || {};
     let b = riga.biglietto;
     if (typeof b === "string") {
@@ -200,9 +200,9 @@ footer .etichetta{font-size:16px;letter-spacing:.08em;text-transform:uppercase;c
     return {
       tipo: String((_a = b.tipo) != null ? _a : ""),
       tavolo: String((_b = b.tavolo) != null ? _b : ""),
-      portata: String((_c = b.portata) != null ? _c : ""),
-      ora: String((_d = b.ora) != null ? _d : ""),
-      cameriere: String((_e = b.cameriere) != null ? _e : ""),
+      portata: etichettaPortata(b.portata),
+      ora: String((_c = b.ora) != null ? _c : ""),
+      cameriere: String((_d = b.cameriere) != null ? _d : ""),
       righe,
       avviso: b.avviso || null,
       portareA: b.portareA || null,
@@ -246,6 +246,11 @@ footer .etichetta{font-size:16px;letter-spacing:.08em;text-transform:uppercase;c
     senzaRete: "senza rete",
     ultime: "Ultime pronte"
   };
+  function etichettaPortata(p) {
+    if (!p || p === "tutto") return "";
+    if (p === "segue") return "Segue";
+    return String(p);
+  }
 
   // pagine/pos/server.js
   function creaServer({ locale, cloud, ping, timeoutMs = 1e3, ogniMs = 3e4, adesso = Date.now }) {
@@ -283,7 +288,7 @@ footer .etichetta{font-size:16px;letter-spacing:.08em;text-transform:uppercase;c
     };
   }
 
-  // ../AppData/Local/Temp/cucina-tv-68TSOb/entrata.js
+  // ../AppData/Local/Temp/cucina-tv-jtBOci/entrata.js
   var CLOUD = "https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos";
   function segnale(ms) {
     if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") return AbortSignal.timeout(ms);

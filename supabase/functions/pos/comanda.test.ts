@@ -80,3 +80,15 @@ Deno.test('a cucina chiusa il biglietto esce al bancone con l avviso in cima, so
   assertEquals(righe[1], '>>> CUCINA CHIUSA: AL BANCONE');
   assert(!testo({ tipo: 'COMANDA', locale: 'Bistrot', tavolo: 'Tavolo 3', conto: 'Esterno', coperti: 2, portata: 'secondi', ora: '13:10', cameriere: 'Anna', righe: [{ quantita: 1, nome: 'Piadina' }] }).includes('>>>'), 'senza avviso niente');
 });
+
+Deno.test('portate semplici: il biglietto dice COMANDA e basta, o VAI SEGUE', () => {
+  /* al Bistrot niente antipasti/primi/secondi (la proprieta', 6 settembre 2026) */
+  const base = { locale: 'Bistrot', tavolo: 'Tavolo 4', conto: 'Esterno', coperti: 2, ora: '18:20', cameriere: 'Anna',
+    righe: [{ quantita: 1, nome: 'Spritz', variante: null, nota: null }], noteVitto: null, portareA: null, avviso: null };
+  const tutto = testoBiglietto({ ...base, tipo: 'COMANDA', portata: 'tutto' });
+  assert(tutto.includes('COMANDA') && !tutto.includes('TUTTO'), tutto);
+  const segue = testoBiglietto({ ...base, tipo: 'VAI', portata: 'segue' });
+  assert(segue.includes('VAI  SEGUE'), segue);
+  const classico = testoBiglietto({ ...base, tipo: 'COMANDA', portata: 'primi' });
+  assert(classico.includes('COMANDA  PRIMI'), classico);
+});

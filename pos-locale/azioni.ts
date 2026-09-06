@@ -9,7 +9,7 @@
    c'e' linea (allinea.ts).
    ============================================================ */
 import { conJson, type Db, type Riga, salva } from './db.ts';
-import { dividi, PORTATE, prossima, type Portata } from '../supabase/functions/pos/portate.ts';
+import { dividi, dividiSemplice, gruppoSegue, minutiSegueValido, PORTATE, type PortataBiglietto, prossima, quandoSegue, segueScaduti, type Portata } from '../supabase/functions/pos/portate.ts';
 import { prezzoRiga, totaleCent } from '../supabase/functions/pos/conto.ts';
 import { testoBiglietto, type Biglietto } from '../supabase/functions/pos/comanda.ts';
 import { puo, type Ruolo } from '../supabase/functions/pos/permessi.ts';
@@ -87,7 +87,7 @@ function titoloConto(c: Riga): string {
 }
 
 /* ---------- le stampe di una portata: un biglietto per stampante ---------- */
-function creaStampe(db: Db, conto: Riga, righe: RigaStampabile[], portata: Portata, tipo: 'comanda' | 'vai' | 'storno' | 'modifica', cameriere: string): void {
+function creaStampe(db: Db, conto: Riga, righe: RigaStampabile[], portata: PortataBiglietto, tipo: 'comanda' | 'vai' | 'storno' | 'modifica', cameriere: string): void {
   const t = db.prepare(`select t.nome as tavolo, l.id as locale_id, l.nome as locale_nome
     from pos_tavolo t join pos_zona z on z.id = t.zona join pos_locale l on l.id = z.locale where t.id = ?`).get(String(conto.tavolo)) as Riga | undefined;
   if (!t) return;
@@ -141,6 +141,31 @@ function aggiornaRighe(db: Db, ids: string[], campi: Record<string, unknown>): v
 }
 
 /* ================= le azioni ================= */
+
+/* il locale di un tavolo, riga intera: portate semplici e minuti del segue */
+function localeDelTavolo(db: Db, tavolo: string): Riga | null {
+  return (db.prepare('select l.* from pos_locale l join pos_zona z on z.locale = l.id join pos_tavolo t on t.zona = z.id where t.id = ?').get(tavolo) as Riga | undefined) ?? null;
+}
+
+/** «Segue in 5 minuti»: allo scadere parte da se', col biglietto VAI SEGUE
+    firmato «a tempo». Lo chiama main.ts ogni 10 secondi; torna quante righe. */
+export function mandaSegueScaduti(db: Db, quando: Date = new Date()): number {
+  const inAttesa = db.prepare("select * from pos_riga where stato = 'inviata' and segue_alle is not null").all() as (Riga & { stato: string })[];
+  const perConto = new Map<string, Riga[]>();
+  for (const r of segueScaduti(inAttesa, quando)) perConto.set(String(r.conto), [...(perConto.get(String(r.conto)) ?? []), r]);
+  let n = 0;
+  for (const [contoId, rr] of perConto) {
+    const c = contoDi(db, contoId);
+    if (!c || c.stato === 'chiuso') continue;
+    const righe = righeDelConto(db, contoId).filter((r) => rr.some((x) => x.id === r.id));
+    if (!righe.length) continue;
+    const ora = adesso();
+    aggiornaRighe(db, righe.map((r) => r.id), { stato: 'partita', partita_il: ora, aggiornato_il: ora });
+    creaStampe(db, c, righe, 'segue', 'vai', 'a tempo');
+    n += righe.length;
+  }
+  return n;
+}
 
 export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config): Promise<Risposta> {
   const soloPost = () => req.metodo !== 'POST' ? errore('metodo non ammesso', 405) : null;
@@ -199,7 +224,9 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     const varianti = db.prepare('select * from pos_variante order by posizione').all() as Riga[];
     const preferiti = db.prepare('select * from pos_preferito order by posizione').all() as Riga[];
     const tutte = [...categorie, ...articoli, ...varianti, ...preferiti].map((r) => String(r.aggiornato_il));
-    return ok({ categorie, articoli, varianti, preferiti, fascia: fascia ? { id: fascia.id, nome: fascia.nome, alle: fascia.alle } : null, aggiornato_il: tutte.sort().pop() ?? null });
+    /* i locali, come dal cloud: il palmare guarda se il suo ha le portate semplici e quali minuti offrire per il segue */
+    const locali = db.prepare('select id, nome, portate_semplici, segue_minuti from pos_locale order by nome').all() as Riga[];
+    return ok({ categorie, articoli, varianti, preferiti, locali, fascia: fascia ? { id: fascia.id, nome: fascia.nome, alle: fascia.alle } : null, aggiornato_il: tutte.sort().pop() ?? null });
   }
 
   if (azione === 'sala') {
@@ -372,6 +399,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
         /* «questa stasera la prepara il Bistrot»: la scelta del cameriere
            batte quella dell'articolo e della categoria */
         locale_stampa: r.locale_stampa ? String(r.locale_stampa) : null,
+        segue_min: minutiSegueValido(r.segue_min), segue_alle: null,
         portata, stato: 'da_inviare', creata_da: cameriere!.id, creata_il: ora,
         partita_il: null, stornata_da: null, stornata_il: null, motivo_storno: null, aggiornato_il: ora, allineato: 0,
       });
@@ -386,8 +414,19 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     const c = contoDi(db, String(b.conto ?? ''));
     if (!c || c.stato === 'chiuso') return errore('conto non aperto', 409);
     const righe = righeDelConto(db, String(c.id));
-    const { subito, attesa } = dividi(righe);
     const ora = adesso();
+    /* portate semplici (vedi il cloud): tutto insieme, aspetta solo il «segue» */
+    const loc = localeDelTavolo(db, String(c.tavolo));
+    if (loc && Number(loc.portate_semplici)) {
+      const { subito, attesa } = dividiSemplice(righe);
+      if (subito.length) {
+        aggiornaRighe(db, subito.map((r) => r.id), { stato: 'partita', partita_il: ora, aggiornato_il: ora });
+        creaStampe(db, c, subito, 'tutto', 'comanda', cameriere!.nome);
+      }
+      for (const r of attesa) aggiornaRighe(db, [r.id], { stato: 'inviata', segue_alle: quandoSegue(ora, minutiSegueValido(r.segue_min)), aggiornato_il: ora });
+      return ok({ partite: subito.length ? ['tutto'] : [], attesa: attesa.length ? ['segue'] : [] });
+    }
+    const { subito, attesa } = dividi(righe);
     for (const p of subito) {
       const rr = righe.filter((r) => r.portata === p && r.stato === 'da_inviare');
       aggiornaRighe(db, rr.map((r) => r.id), { stato: 'partita', partita_il: ora, aggiornato_il: ora });
@@ -405,6 +444,16 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     const c = contoDi(db, String(b.conto ?? ''));
     if (!c || c.stato === 'chiuso') return errore('conto non aperto', 409);
     const righe = righeDelConto(db, String(c.id));
+    const locVai = localeDelTavolo(db, String(c.tavolo));
+    if (locVai && Number(locVai.portate_semplici)) {
+      const rr = gruppoSegue(righe);
+      if (!rr.length) return errore('niente in attesa', 409);
+      const ora = adesso();
+      aggiornaRighe(db, rr.map((r) => r.id), { stato: 'partita', partita_il: ora, aggiornato_il: ora });
+      creaStampe(db, c, rr, 'segue', 'vai', cameriere!.nome);
+      const resto = righe.filter((r) => !rr.some((x) => x.id === r.id));
+      return ok({ partita: 'segue', prossima: gruppoSegue(resto).length ? 'segue' : null });
+    }
     const p = prossima(righe);
     if (!p) return errore('niente in attesa', 409);
     if (ePortata(b.portata) && b.portata !== p) return { stato: 409, corpo: { errore: `la prossima e ${p}`, prossima: p } };

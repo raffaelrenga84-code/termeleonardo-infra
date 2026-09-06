@@ -381,3 +381,19 @@ Deno.test('cancellare tutto il tavolo: uno storno di tutto, col biglietto per qu
   assert(S.includes('storno_con_motivo: !!c.storno_con_motivo'), 'il back office la salva, l accesso la manda al palmare');
   assert(/const azioniPalmare = \[[^\n]*'tavolo-svuota'/.test(S), 'e un gesto del cameriere: serve la sessione');
 });
+
+Deno.test('portate semplici al Bistrot: tutto insieme, il segue a tempo o a chiamata, e il cloud lo fa partire solo se il PC tace', () => {
+  /* «il bistro non e un vero ristorante … solo il pulsante SEGUE … segue in 5 min 10 min 15 min» (la proprieta', 6 settembre 2026) */
+  const inv = S.slice(S.indexOf("azione === 'invia'"), S.indexOf("azione === 'vai'"));
+  assert(inv.includes('loc?.portate_semplici') && inv.includes('dividiSemplice(righe)'), 'l invio guarda il locale del tavolo');
+  assert(inv.includes("creaStampe(c, subito, 'tutto', 'comanda'") && inv.includes('quandoSegue(ora, minutiSegueValido(r.segue_min))'), 'un biglietto solo, e il segue ha l ora');
+  const vai = S.slice(S.indexOf("azione === 'vai'"), S.indexOf("azione === 'storna'"));
+  assert(vai.includes('gruppoSegue(righe)') && vai.includes("creaStampe(c, rr, 'segue', 'vai'"), '«Manda il segue»');
+  const righe = S.slice(S.indexOf("azione === 'righe'"), S.indexOf("azione === 'invia'"));
+  assert(righe.includes('segue_min: minutiSegueValido(r.segue_min), segue_alle: null'), 'la riga porta il segue');
+  const cloud = S.slice(S.indexOf("azione === 'stampa-cloud'"), S.indexOf("azione === 'allinea-su'"));
+  assert(cloud.includes('await mandaSegueScaduti(vivi)'), 'ogni minuto, dal cron della carta');
+  const m = S.slice(S.indexOf('async function mandaSegueScaduti'), S.indexOf('/* La comanda di nuovo'));
+  assert(m.includes('vivi.has(loc.id as string)) continue') && m.includes("'segue', 'vai', 'a tempo'"), 'solo per i locali col PC muto, firmato «a tempo»');
+  assert(S.includes("select('id, nome, portate_semplici, segue_minuti')"), 'il palmare sa se il suo locale e semplice e quali minuti offrire');
+});

@@ -14,9 +14,11 @@ export function aggiungi(o, articolo, opz = {}) {
   const nota = opz.nota ?? null, variante = opz.variante ?? null, varianteId = opz.varianteId ?? null;
   const manuale = opz.prezzoManualeCent ?? null;
   const portata = opz.portata ?? articolo.portata;
+  /* portate semplici: null = subito, 0 = segue a chiamata, N = segue tra N minuti */
+  const segueMin = opz.segueMin ?? null;
   const quantita = opz.quantita ?? 1;
   const uguale = o.righe.find((r) => r.stato === 'da_inviare' && r.articolo === articolo.id && r.nota === nota &&
-    r.variante === variante && r.prezzo_manuale_cent === manuale && r.portata === portata);
+    r.variante === variante && r.prezzo_manuale_cent === manuale && r.portata === portata && (r.segue_min ?? null) === segueMin);
   if (uguale && !nota && !variante && manuale === null) {
     return { ...o, righe: o.righe.map((r) => r === uguale ? { ...r, quantita: r.quantita + quantita } : r) };
   }
@@ -24,7 +26,7 @@ export function aggiungi(o, articolo, opz = {}) {
     id: crypto.randomUUID(), articolo: articolo.id, nome: articolo.nome,
     quantita, variante, variante_id: varianteId, nota,
     prezzo_manuale_cent: manuale, prezzo_cent: manuale ?? articolo.prezzo_cent,
-    portata, stato: 'da_inviare',
+    portata, segue_min: segueMin, stato: 'da_inviare',
   };
   return { ...o, righe: [...o.righe, riga] };
 }
@@ -63,4 +65,11 @@ export function dividi(o, id, quante) {
     else righe.push(x);
   }
   return { ordine: { ...o, righe }, nuova: nuova.id };
+}
+
+/** I minuti del «segue» scelti nel back office («5,10,15»): interi fra 1 e
+    180, senza doppioni, in ordine (la stessa regola di portate.ts). */
+export function minutiSegue(testo) {
+  const n = String(testo ?? '').split(/[^0-9]+/).filter(Boolean).map(Number).filter((x) => Number.isInteger(x) && x >= 1 && x <= 180);
+  return [...new Set(n)].sort((a, b) => a - b);
 }

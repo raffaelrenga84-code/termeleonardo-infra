@@ -78,7 +78,7 @@ export function resa(s) {
   return {
     tipo: String(b.tipo ?? ''),
     tavolo: String(b.tavolo ?? ''),
-    portata: String(b.portata ?? ''),
+    portata: etichettaPortata(b.portata),
     ora: String(b.ora ?? ''),
     cameriere: String(b.cameriere ?? ''),
     righe,
@@ -136,3 +136,11 @@ export const TESTI = {
   senzaRete: 'senza rete',
   ultime: 'Ultime pronte',
 };
+
+/** La portata sulla scheda: niente per «tutto» (portate semplici: la
+    comanda e' una sola), «Segue» per il segue, il nome per le altre. */
+export function etichettaPortata(p) {
+  if (!p || p === 'tutto') return '';
+  if (p === 'segue') return 'Segue';
+  return String(p);
+}

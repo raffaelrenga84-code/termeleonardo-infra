@@ -228,7 +228,7 @@ button{font:inherit;cursor:pointer;color:inherit;}
 
 <script type="module">
 'use strict';
-import { aggiungi, cambia, creaOrdine, daInviare, dividi, euro, perPortata, PORTATE, togli, totaleCent } from '/pos/stato.js';
+import { aggiungi, cambia, creaOrdine, daInviare, dividi, euro, perPortata, PORTATE, togli, totaleCent, minutiSegue } from '/pos/stato.js';
 import { creaCoda, creaServer } from '/pos/server.js';
 import { misuraPianta } from '/pos/pianta.js';
 
@@ -255,10 +255,17 @@ const LOCALE_ID = localStorage.getItem('posLocaleId') || 'bistrot';
 const DAL_PC = location.protocol === 'http:' && /^\d+\.\d+\.\d+\.\d+$/.test(location.hostname);
 const SERVER_LOCALE = DAL_PC ? location.origin : (localStorage.getItem('posServerLocale') || '');
 const NOMI_PORTATE = { bevande: 'Bevande', antipasti: 'Antipasti', primi: 'Primi', secondi: 'Secondi', dolci: 'Dolci' };
+/* Portate semplici (il Bistrot, 6 settembre 2026): niente antipasti/primi/
+   secondi, la comanda parte tutta insieme; resta solo «Segue», a tempo
+   (i minuti li sceglie il back office) o a chiamata. Lo dice il locale. */
+const localeMio = () => ((MENU && MENU.locali) || []).find((l) => l.id === LOCALE_ID) || null;
+const SEMPLICI = () => { const l = localeMio(); return !!(l && l.portate_semplici); };
+const MINUTI_SEGUE = () => { const l = localeMio(); return minutiSegue(l && l.segue_minuti != null ? l.segue_minuti : '5,10,15'); };
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const minuti = (iso) => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+const oraBreve = (iso) => new Date(iso).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
 
 /* ---------- il server: prima il PC del Bistrot, poi il cloud; la coda se nessuno risponde ---------- */
 const server = creaServer({
@@ -802,6 +809,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
   const salvaBozza = () => { if (daInviare(ordine).length) BOZZE.set(conto.id, ordine); };
   testa(`${titoloConto(conto)} · ${conto.coperti} cop. ▾`, () => { salvaBozza(); schermataSala(); }, () => { salvaBozza(); apriTavoloPerId(conto.tavolo); });
   let portataForzata = '';         // '' = quella dell'articolo
+  let segueScelto = null;          // portate semplici: null = subito, 0 = segue a chiamata, N = segue tra N minuti
   let compatta = false;            // le righe in cima nascoste dallo scorrimento
   let comandaAperta = false;       // sul palmare il riepilogo parte chiuso
   let quantitaPronta = 1;
@@ -817,6 +825,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
   };
   const preferiti = () => MENU.preferiti.filter((p) => p.locale === LOCALE_ID).map((p) => MENU.articoli.find((a) => a.id === p.articolo)).filter(Boolean);
   const prossimaInAttesa = () => {
+    if (SEMPLICI()) return dalServer.some((r) => r.stato === 'inviata') ? 'segue' : null;
     const inAttesa = dalServer.filter((r) => r.stato === 'inviata').map((r) => r.portata).sort((a, b) => PORTATE.indexOf(a) - PORTATE.indexOf(b));
     return inAttesa[0] || null;
   };
@@ -833,8 +842,19 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     else lista = [['Preferiti', preferiti()], ['Ultimi di questo tavolo', ultimi()]].filter(([, a]) => a.length);
     const tutte = [...dalServer.filter((r) => r.stato !== 'stornata'), ...ordine.righe];
     const totale = tutte.reduce((t, r) => t + r.quantita * r.prezzo_cent, 0);
-    const gruppi = new Map();
-    for (const p of PORTATE) { const rr = tutte.filter((r) => r.portata === p); if (rr.length) gruppi.set(p, rr); }
+    /* i gruppi del riepilogo: per portata; con le portate semplici «Subito»
+       e i «Segue» (a tempo, con l'ora quando sono partiti; a chiamata) */
+    const gruppi = [];
+    if (SEMPLICI()) {
+      const chiave = (r) => r.segue_min == null ? 'Subito'
+        : r.stato === 'inviata' && r.segue_alle ? `Segue alle ${oraBreve(r.segue_alle)}`
+        : r.segue_min === 0 || r.stato !== 'da_inviare' ? 'Segue a chiamata' : `Segue ${r.segue_min}′`;
+      const m = new Map();
+      for (const r of tutte) { const k = chiave(r); if (!m.has(k)) m.set(k, []); m.get(k).push(r); }
+      for (const [titolo, rr] of m) gruppi.push({ titolo, righe: rr, attesa: rr.some((r) => r.stato === 'inviata') });
+    } else {
+      for (const p of PORTATE) { const rr = tutte.filter((r) => r.portata === p); if (rr.length) gruppi.push({ titolo: NOMI_PORTATE[p], righe: rr, attesa: prossima === p }); }
+    }
     /* conto ancora vuoto: il riepilogo in fondo e solo d intralcio, le categorie hanno tutto lo schermo (la proprieta, 5 settembre 2026) */
     const vuoto = !dalServer.length && !ordine.righe.length;
     /* quanto di ogni articolo e' gia' sul conto: il numero sul riquadro */
@@ -845,7 +865,8 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     const g0 = $('app').querySelector('.griglia');
     const scorso = g0 ? g0.scrollTop : 0;
     $('app').innerHTML = `<div class="ordine ${compatta ? 'compatta' : ''}${cercaFocus ? ' ricerca' : ''}">
-      <div class="portate"><span class="eti">Portata</span><button data-p="" class="${portataForzata ? '' : 'attiva'}">Auto</button>${PORTATE.map((p) => `<button data-p="${p}" class="${portataForzata === p ? 'attiva' : ''}">${NOMI_PORTATE[p]}</button>`).join('')}</div>
+      ${SEMPLICI() ? `<div class="portate"><span class="eti">Quando</span><button data-s="" class="${segueScelto === null ? 'attiva' : ''}">Subito</button>${MINUTI_SEGUE().map((n) => `<button data-s="${n}" class="${segueScelto === n ? 'attiva' : ''}">Segue ${n}′</button>`).join('')}<button data-s="0" class="${segueScelto === 0 ? 'attiva' : ''}">Segue a chiamata</button></div>`
+      : `<div class="portate"><span class="eti">Portata</span><button data-p="" class="${portataForzata ? '' : 'attiva'}">Auto</button>${PORTATE.map((p) => `<button data-p="${p}" class="${portataForzata === p ? 'attiva' : ''}">${NOMI_PORTATE[p]}</button>`).join('')}</div>`}
       <div class="conti"><span class="eti">Conti</span>${contiDelTavolo().map((c, i) => `<button data-conto="${esc(c.id)}" class="${c.id === conto.id ? 'attiva' : ''}"><b>${i + 1}</b>${esc(titoloConto(c))}${c.id !== conto.id && BOZZE.has(c.id) ? ' •' : ''}</button>`).join('')}<button data-conto="nuovo">+ Esterno</button><button data-conto="nuovo-camera">+ Camera</button></div>
       <div class="cercaRiga"><input id="cerca" placeholder="cerca (3 lettere)" value="${esc(cerca)}" autocomplete="off" />${cerca ? '<button type="button" class="via" id="cercaVia" title="Chiudi la ricerca">✕</button>' : ''}
         <div class="quantita" title="Quanti: si sceglie qui, poi si tocca l’articolo">${[1,2,3,4].map((n) => `<button data-q="${n}" class="${n === quantitaPronta ? 'attivo' : ''}">${n}×</button>`).join('')}<button id="quantitaAltra" class="${quantitaPronta > 4 ? 'attivo' : ''}">${quantitaPronta > 4 ? `${quantitaPronta}×` : '…'}</button></div></div>
@@ -862,15 +883,15 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
             return `<button class="catVoce ${n ? '' : 'vuota'}" data-cat="${esc(c.id)}" ${c.colore ? `style="border-left:7px solid ${esc(c.colore)}"` : ''}><span>${esc(c.nome)}</span><span class="mini">${n ? `${n} articol${n === 1 ? 'o' : 'i'}` : 'ancora vuota'}</span></button>`;
           }).join('')}</div>`}
       </div>
-      ${vuoto ? '' : `<div class="comanda ${window.innerWidth < 900 ? (comandaAperta ? 'aperta' : 'chiusa') : ''}" id="comanda">${[...gruppi].map(([p, rr]) => `<div class="portataTit"><span>${NOMI_PORTATE[p]}</span>${prossima === p ? '<span>in attesa</span>' : ''}</div>${rr.map((r) => `<div class="riga ${r.stato}" data-r="${esc(r.id)}"><span class="q">${r.quantita}×</span><span>${esc(r.nome)}${r.variante ? `<div class="dett">+ ${esc(r.variante)}</div>` : ''}${r.nota ? `<div class="dett">› ${esc(r.nota)}</div>` : ''}</span><span>${euro(r.quantita * r.prezzo_cent)}</span></div>`).join('')}`).join('') || `<p class="mini">Tocchi un articolo per aggiungerlo. Tocco lungo su una riga per nota, variante, quantità${puoDisponibilita ? '; tocco lungo su un articolo per prezzo e disponibilità' : ''}.</p>`}</div>
+      ${vuoto ? '' : `<div class="comanda ${window.innerWidth < 900 ? (comandaAperta ? 'aperta' : 'chiusa') : ''}" id="comanda">${gruppi.map(({ titolo, righe: rr, attesa }) => `<div class="portataTit"><span>${esc(titolo)}</span>${attesa ? '<span>in attesa</span>' : ''}</div>${rr.map((r) => `<div class="riga ${r.stato}" data-r="${esc(r.id)}"><span class="q">${r.quantita}×</span><span>${esc(r.nome)}${r.variante ? `<div class="dett">+ ${esc(r.variante)}</div>` : ''}${r.nota ? `<div class="dett">› ${esc(r.nota)}</div>` : ''}</span><span>${euro(r.quantita * r.prezzo_cent)}</span></div>`).join('')}`).join('') || `<p class="mini">Tocchi un articolo per aggiungerlo. Tocco lungo su una riga per nota, variante, quantità${puoDisponibilita ? '; tocco lungo su un articolo per prezzo e disponibilità' : ''}.</p>`}</div>
       <div class="totale" id="totaleRiga"><span>Totale${window.innerWidth < 900 && tutte.length ? ` · ${tutte.length} righe ${comandaAperta ? '▾' : '▴'}` : ''}</span><b>${euro(totale)}</b></div>`}
       <div class="azioni">
         <button class="bottone" id="invia" ${nuove ? '' : 'disabled'}>Invia${nuove ? ` (${nuove})` : ''}</button>
-        <button class="bottone oro" id="vai" ${prossima ? '' : 'disabled'}>${prossima ? `Vai coi ${NOMI_PORTATE[prossima].toLowerCase()}` : 'Vai'}</button>
+        <button class="bottone oro" id="vai" ${prossima ? '' : 'disabled'}>${SEMPLICI() ? 'Manda il segue' : prossima ? `Vai coi ${NOMI_PORTATE[prossima].toLowerCase()}` : 'Vai'}</button>
         <button class="bottone sec" id="chiudi" ${!dalServer.length && !ordine.righe.length ? '' : (tutte.length || dalServer.some((r) => r.stato === 'stornata')) && !nuove ? '' : 'disabled'}>${!dalServer.length && !ordine.righe.length ? 'Togli conto' : 'Conto'}</button>
       </div></div>`;
     const app = $('app');
-    app.querySelectorAll('.portate button').forEach((b) => b.onclick = () => { portataForzata = b.dataset.p; disegna(); });
+    app.querySelectorAll('.portate button').forEach((b) => b.onclick = () => { if (b.dataset.s !== undefined) segueScelto = b.dataset.s === '' ? null : Number(b.dataset.s); else portataForzata = b.dataset.p; disegna(); });
     app.querySelectorAll('.conti button[data-conto]').forEach((b) => b.onclick = () => { if (b.dataset.conto !== conto.id) cambiaConto(b.dataset.conto); });
     app.querySelectorAll('.quantita button[data-q]').forEach((b) => b.onclick = () => { quantitaPronta = Number(b.dataset.q); disegna(); });
     $('quantitaAltra').onclick = async () => {
@@ -997,7 +1018,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
 
   const aggiungiArticolo = async (a) => {
     if (!a) return;
-    const opz = { quantita: quantitaPronta, portata: portataForzata || portataArticolo(a) };
+    const opz = { quantita: quantitaPronta, portata: portataForzata || portataArticolo(a), segueMin: SEMPLICI() ? segueScelto : null };
     if (a.prezzo_libero) {
       /* col cancelletto, come sul POS di prima: prezzo battuto sul tastierino */
       const p = await chiediNumero(`${a.nome}: prezzo in euro`, { decimale: true });
@@ -1033,14 +1054,15 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       <label>Nota per la cucina</label><textarea id="pNota" rows="2">${esc(r.nota || '')}</textarea>
       <div class="chips">${(cat.note_rapide && cat.note_rapide.length ? cat.note_rapide : ['Senza glutine', 'Senza lattosio', 'Allergia', 'Caldo', 'Freddo', 'Con ghiaccio', 'Senza ghiaccio']).map((n) => `<button data-nota="${esc(n)}">${esc(n)}</button>`).join('')}</div>
       ${varianti.length ? `<label>Variante</label><div class="chips">${varianti.map((v) => `<button data-v="${esc(v.id)}" class="${r.variante_id === v.id ? 'attiva' : ''}">${esc(v.nome)}${v.supplemento_cent ? ` +${euro(v.supplemento_cent)}` : ''}</button>`).join('')}</div>` : ''}
-      <label>Portata</label><div class="chips">${PORTATE.map((p) => `<button data-p="${p}" class="${r.portata === p ? 'attiva' : ''}">${NOMI_PORTATE[p]}</button>`).join('')}</div>
+      ${SEMPLICI() ? `<label>Quando</label><div class="chips"><button data-s="" class="${r.segue_min == null ? 'attiva' : ''}">Subito</button>${MINUTI_SEGUE().map((n) => `<button data-s="${n}" class="${r.segue_min === n ? 'attiva' : ''}">Segue ${n}′</button>`).join('')}<button data-s="0" class="${r.segue_min === 0 ? 'attiva' : ''}">Segue a chiamata</button></div>`
+      : `<label>Portata</label><div class="chips">${PORTATE.map((p) => `<button data-p="${p}" class="${r.portata === p ? 'attiva' : ''}">${NOMI_PORTATE[p]}</button>`).join('')}</div>`}
       ${nuova && (MENU.locali || []).length > 1 ? `<label>Dove si prepara</label>
       <div class="chips">${[{ id: '', nome: 'Qui' }, ...MENU.locali].map((l) => `<button data-dove="${esc(l.id)}" class="${(r.locale_stampa || '') === l.id ? 'attiva' : ''}">${esc(l.nome)}</button>`).join('')}</div>
       <p class="mini">Scegliendo un altro locale il biglietto esce là, e ci scrive dove portarlo.</p>` : ''}
       ${puoPrezzo ? `<label>Prezzo a mano (euro, vuoto = listino)</label><input id="pPrezzo" inputmode="decimal" value="${r.prezzo_manuale_cent != null ? (r.prezzo_manuale_cent / 100).toFixed(2).replace('.', ',') : ''}" />
       <label>Perché cambia il prezzo (se non lo dice già la nota)</label><input id="pMotivoPrezzo" maxlength="200" placeholder="es. omaggio direzione, piatto rifatto" value="${esc(r.motivo_prezzo || '')}" />` : ''}
       <div class="due"><button class="bottone sec" id="pTogli">Togli</button><button class="bottone" id="pOk">Fatto</button></div>`
-      : `<p class="mini">Riga già inviata${r.stato === 'partita' ? ' e partita' : ', in attesa'}.</p>
+      : `<p class="mini">Riga già inviata${r.stato === 'partita' ? ' e partita' : r.segue_alle ? `, segue alle ${oraBreve(r.segue_alle)}` : ', in attesa'}.</p>
       ${r.stato !== 'stornata' ? `<label>Sposta su un altro conto di questo tavolo</label>
       <div class="chips">${fratelli.map((f) => `<button data-sposta="${esc(f.id)}">${esc(nomeConto2(f))}</button>`).join('')}<button data-sposta="nuovo">+ Conto nuovo</button></div>` : ''}
       ${puoStorno && r.stato !== 'stornata' ? `${CAMERIERE.storno_con_motivo ? '<label>Motivo dello storno</label><input id="pMotivo" placeholder="es. cambiato idea, errore" />' : '<label>Motivo dello storno (facoltativo)</label><input id="pMotivo" placeholder="se vuole, due parole" />'}
@@ -1052,6 +1074,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     velo.onclick = (ev) => { if (ev.target === velo) chiudiPannello(); };
     if (nuova) {
       let q = r.quantita, varianteId = r.variante_id, portata = r.portata, dove = r.locale_stampa || '';
+      let segueMin = r.segue_min == null ? null : r.segue_min;
       velo.querySelectorAll('[data-dove]').forEach((b) => b.onclick = () => {
         dove = b.dataset.dove;
         velo.querySelectorAll('[data-dove]').forEach((x) => x.classList.toggle('attiva', x.dataset.dove === dove));
@@ -1072,10 +1095,11 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
       velo.querySelectorAll('[data-nota]').forEach((b) => b.onclick = () => { const t = velo.querySelector('#pNota'); t.value = (t.value ? t.value + ', ' : '') + b.dataset.nota; });
       velo.querySelectorAll('[data-v]').forEach((b) => b.onclick = () => { varianteId = varianteId === b.dataset.v ? null : b.dataset.v; velo.querySelectorAll('[data-v]').forEach((x) => x.classList.toggle('attiva', x.dataset.v === varianteId)); });
       velo.querySelectorAll('[data-p]').forEach((b) => b.onclick = () => { portata = b.dataset.p; velo.querySelectorAll('[data-p]').forEach((x) => x.classList.toggle('attiva', x.dataset.p === portata)); });
+      velo.querySelectorAll('[data-s]').forEach((b) => b.onclick = () => { segueMin = b.dataset.s === '' ? null : Number(b.dataset.s); velo.querySelectorAll('[data-s]').forEach((x) => x.classList.toggle('attiva', x.dataset.s === b.dataset.s)); });
       velo.querySelector('#pTogli').onclick = () => { ordine = togli(ordine, id); chiudiPannello(); disegna(); };
       velo.querySelector('#pOk').onclick = () => {
         const v = varianti.find((x) => x.id === varianteId);
-        const campi = { quantita: q, nota: velo.querySelector('#pNota').value.trim() || null, variante_id: varianteId, variante: v ? v.nome : null, portata, locale_stampa: dove || null };
+        const campi = { quantita: q, nota: velo.querySelector('#pNota').value.trim() || null, variante_id: varianteId, variante: v ? v.nome : null, portata, locale_stampa: dove || null, segue_min: SEMPLICI() ? segueMin : null };
         const pz = puoPrezzo ? velo.querySelector('#pPrezzo').value.trim() : '';
         campi.prezzo_manuale_cent = pz ? Math.round(Number(pz.replace(',', '.')) * 100) : (a.prezzo_libero ? r.prezzo_manuale_cent : null);
         campi.prezzo_cent = campi.prezzo_manuale_cent != null ? campi.prezzo_manuale_cent : (a.prezzo_cent || 0) + (v ? v.supplemento_cent : 0);
@@ -1198,7 +1222,7 @@ function schermataOrdine(conto, righeServer, fratelli = []) {
     if (!nuove.length) return;
     $('invia').disabled = true;
     try {
-      const corpo = nuove.map((r) => ({ id: r.id, articolo: r.articolo, quantita: r.quantita, variante_id: r.variante_id, variante: r.variante, nota: r.nota, portata: r.portata, prezzo_manuale_cent: r.prezzo_manuale_cent, motivo_prezzo: r.motivo_prezzo, locale_stampa: r.locale_stampa }));
+      const corpo = nuove.map((r) => ({ id: r.id, articolo: r.articolo, quantita: r.quantita, variante_id: r.variante_id, variante: r.variante, nota: r.nota, portata: r.portata, prezzo_manuale_cent: r.prezzo_manuale_cent, motivo_prezzo: r.motivo_prezzo, locale_stampa: r.locale_stampa, segue_min: r.segue_min == null ? null : r.segue_min }));
       const j = await scrivi('righe', { conto: conto.id, righe: corpo });
       if (j.offline) { coda.metti({ azione: 'invia', corpo: { conto: conto.id } }); dalServer = [...dalServer, ...nuove.map((r) => ({ ...r, stato: 'inviata' }))]; ordine = creaOrdine(); disegna(); return; }
       const inv = await scrivi('invia', { conto: conto.id });

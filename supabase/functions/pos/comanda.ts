@@ -42,7 +42,8 @@ const aCapo = (s: string, rientro = 4): string[] => {
 
 export function testoBiglietto(b: Biglietto): string {
   const righe: string[] = [];
-  righe.push(taglia(`${b.tipo}  ${b.portata.toUpperCase()}`));
+  /* portate semplici (6 settembre 2026): «COMANDA» e basta, o «VAI  SEGUE» */
+  righe.push(taglia(b.portata && b.portata !== 'tutto' ? `${b.tipo}  ${b.portata.toUpperCase()}` : b.tipo));
   /* subito sotto il titolo, prima ancora del tavolo: chi legge il
      biglietto deve capire in un colpo che questa roba se ne va altrove */
   if (b.portareA) righe.push(taglia(`>>> PORTARE AL ${b.portareA.toUpperCase()}`));

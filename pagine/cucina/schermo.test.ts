@@ -8,7 +8,7 @@
    i tasti della tastiera, per chi lo schermo lo tocca poco.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { colorePerAttesa, minutiDa, nuovi, ordina, resa, SOGLIE_MIN, tastoPer, TESTI, perColonne } from './schermo.js';
+import { colorePerAttesa, etichettaPortata, minutiDa, nuovi, ordina, resa, SOGLIE_MIN, tastoPer, TESTI, perColonne } from './schermo.js';
 
 const T = (s: string) => new Date(s).getTime();
 
@@ -150,4 +150,13 @@ Deno.test('due colonne: a sinistra le comande da fare, a destra quelle in prepar
   assertEquals(col.inPrep.map((s) => s.id), ['b', 'd']);
   assertEquals(perColonne(null), { nuove: [], inPrep: [] });
   assertEquals([TESTI.daFare, TESTI.inLavoro], ['Da fare', 'In preparazione']);
+});
+
+Deno.test('portate semplici sulla scheda: «tutto» non si scrive, «segue» diventa Segue', () => {
+  assertEquals(etichettaPortata('tutto'), '');
+  assertEquals(etichettaPortata('segue'), 'Segue');
+  assertEquals(etichettaPortata('primi'), 'primi');
+  assertEquals(etichettaPortata(null), '');
+  assertEquals(resa({ biglietto: { tipo: 'COMANDA', tavolo: 'Tavolo 4', portata: 'tutto', righe: [] } }).portata, '');
+  assertEquals(resa({ biglietto: { tipo: 'VAI', tavolo: 'Tavolo 4', portata: 'segue', righe: [] } }).portata, 'Segue');
 });

@@ -2,7 +2,7 @@
    stato.test.ts — l'ordine in mano al cameriere: puro, senza DOM.
    ============================================================ */
 import { assertEquals } from 'jsr:@std/assert';
-import { aggiungi, cambia, creaOrdine, daInviare, dividi, perPortata, togli, totaleCent } from './stato.js';
+import { aggiungi, cambia, creaOrdine, daInviare, dividi, minutiSegue, perPortata, togli, totaleCent } from './stato.js';
 
 const birra = { id: 'a1', nome: 'Birra', prezzo_cent: 500, portata: 'bevande', prezzo_libero: false };
 const pasta = { id: 'a2', nome: 'Tagliatelle', prezzo_cent: 1400, portata: 'primi', prezzo_libero: false };
@@ -63,4 +63,16 @@ Deno.test('tre piadine, una senza formaggio: la riga si divide, e la nota va sol
   assertEquals(dividi(o, id, 3).ordine, o);
   assertEquals(dividi(o, id, 0).ordine, o);
   assertEquals(dividi(o, 'x', 1).ordine, o);
+});
+
+Deno.test('portate semplici: lo stesso articolo «subito» e «segue» fa due righe; i minuti del back office', () => {
+  const caffe = { id: 'c', nome: 'Caffè', prezzo_cent: 150, portata: 'dolci' };
+  let o = aggiungi(creaOrdine(), caffe);
+  o = aggiungi(o, caffe, { segueMin: 5 });
+  o = aggiungi(o, caffe, { segueMin: 5 });
+  o = aggiungi(o, caffe, { segueMin: 0 });
+  assertEquals(o.righe.map((r: { quantita: number; segue_min: number | null }) => [r.quantita, r.segue_min]), [[1, null], [2, 5], [1, 0]]);
+  assertEquals(minutiSegue('5,10,15'), [5, 10, 15]);
+  assertEquals(minutiSegue('15 5 5 0 999'), [5, 15]);
+  assertEquals(minutiSegue(''), []);
 });

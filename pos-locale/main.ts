@@ -15,7 +15,7 @@
    aggiorna quando torna la linea.
    ============================================================ */
 import { apri, creaSchema } from './db.ts';
-import { esegui } from './azioni.ts';
+import { esegui, mandaSegueScaduti } from './azioni.ts';
 import { giroStampe, type Stampanti, stampantiDi } from './stampa.ts';
 import { battito, giu, su } from './allinea.ts';
 import { fileDellaPagina } from './pagina.ts';
@@ -93,3 +93,5 @@ ogni(2000, 'stampe', () => giroStampe(db, stampantiDi(db, cfg.locale, cfg.stampa
 ogni(5000, 'su', async () => { const n = await su(db, cloud); if (n) log(`salite ${n} righe`); await battito(cloud); });
 const scendi = ogni(60000, 'giu', () => giu(db, cloud));
 await scendi();
+/* «segue in 5 minuti»: allo scadere parte da se' (azioni.ts) */
+ogni(10000, 'segue', async () => { const n = mandaSegueScaduti(db); if (n) log(`segue a tempo: ${n} righe`); });

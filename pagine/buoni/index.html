@@ -2979,17 +2979,18 @@ function vistaPosTavoli() {
     });
   };
   const raccogli = () => {
-    document.querySelectorAll('[data-loc]').forEach((r) => { const l = D.locali.find((x) => x.id === r.dataset.loc); if (l) r.querySelectorAll('[data-l]').forEach((el) => { l[el.dataset.l] = valoreCampo(el) || null; }); });
+    document.querySelectorAll('[data-loc]').forEach((r) => { const l = D.locali.find((x) => x.id === r.dataset.loc); if (l) r.querySelectorAll('[data-l]').forEach((el) => { l[el.dataset.l] = el.type === 'checkbox' ? el.checked : el.dataset.l === 'segue_minuti' ? el.value.trim() : (valoreCampo(el) || null); }); });
     document.querySelectorAll('[data-zona]').forEach((r) => { const z = D.zone.find((x) => x.id === r.dataset.zona); if (z) r.querySelectorAll('[data-z]').forEach((el) => { z[el.dataset.z] = valoreCampo(el); }); });
     document.querySelectorAll('[data-tav]').forEach((r) => { const t = D.tavoli.find((x) => x.id === r.dataset.tav); if (t) r.querySelectorAll('[data-t]').forEach((el) => { t[el.dataset.t] = valoreCampo(el); }); });
     raccogliPost();
   };
   const disegna = () => {
-    const locali = `<div class="riquadro"><b>Locali</b><div class="mini">Le stampanti qui sono gli indirizzi sulla rete dell'hotel (host:porta) che usa il PC del Bistrot; il cloud ha i suoi.</div>
-      <table><tr><th>Locale</th><th>Reparto</th><th>Stampante cucina (LAN)</th><th>Stampante bar (LAN)</th><th title="Fuori da questi orari il biglietto della cucina esce al bancone: i cuochi non ci sono più">Orari cucina</th></tr>
+    const locali = `<div class="riquadro"><b>Locali</b><div class="mini">Le stampanti qui sono gli indirizzi sulla rete dell'hotel (host:porta) che usa il PC del Bistrot; il cloud ha i suoi. «Portate semplici» (il Bistrot): niente antipasti, primi e secondi, la comanda parte tutta insieme; sul palmare resta solo «Segue», a tempo (i minuti a scelta qui accanto, es. 5,10,15) o a chiamata.</div>
+      <table><tr><th>Locale</th><th>Reparto</th><th>Stampante cucina (LAN)</th><th>Stampante bar (LAN)</th><th title="Fuori da questi orari il biglietto della cucina esce al bancone: i cuochi non ci sono più">Orari cucina</th><th title="Niente portate: la comanda parte tutta insieme, resta solo «Segue»">Portate semplici</th><th title="Le scelte «Segue a tempo» sul palmare, in minuti; vuoto = solo a chiamata">Segue (minuti)</th></tr>
       ${D.locali.map((l) => `<tr data-loc="${esc(l.id)}"><td><input data-l="nome" value="${esc(l.nome)}" /></td><td><input data-l="reparto" value="${esc(l.reparto || 'F&B')}" /></td>
         <td><input data-l="stampante_cucina" value="${esc(l.stampante_cucina || '')}" placeholder="192.168.0.x:9100" /></td><td><input data-l="stampante_bar" value="${esc(l.stampante_bar || '')}" placeholder="192.168.0.x:9100" /></td>
-        <td><input data-l="orari_cucina" value="${esc(l.orari_cucina || '')}" placeholder="12:15-14:30" title="Vuoto = cucina sempre aperta. Fuori orario il biglietto della cucina esce al bancone." /></td></tr>`).join('')}</table></div>`;
+        <td><input data-l="orari_cucina" value="${esc(l.orari_cucina || '')}" placeholder="12:15-14:30" title="Vuoto = cucina sempre aperta. Fuori orario il biglietto della cucina esce al bancone." /></td>
+        <td style="text-align:center;"><input type="checkbox" data-l="portate_semplici" ${l.portate_semplici ? 'checked' : ''}/></td><td><input data-l="segue_minuti" value="${esc(l.segue_minuti == null ? '5,10,15' : l.segue_minuti)}" placeholder="5,10,15" style="width:80px;" /></td></tr>`).join('')}</table></div>`;
     /* Le postazioni (6 settembre 2026): una riga per locale e per stampante,
        ma solo per i locali che il cloud conosce gia'. Su uno appena aggiunto
        col «+ locale» la chiave esterna direbbe di no e il salvataggio si
@@ -3020,7 +3021,7 @@ function vistaPosTavoli() {
       <button type="button" class="azione sec" id="ptNuovoLoc" style="width:auto;">+ locale</button>
       <button type="button" class="azione sec" id="ptQr" style="width:auto;" title="Un foglio per tavolo: l’ospite inquadra il codice e ordina da solo">Stampa i QR dei tavoli</button>
       <div class="mini">x e y sono la posizione del tavolo sulla piantina del palmare, in percentuale da sinistra e dall'alto.</div><div class="esito" id="ptEsito"></div></div>` + locali + postazioni + zone;
-    $('ptNuovoLoc').onclick = () => { raccogli(); const id = crypto.randomUUID(); D.locali.push({ id, nome: 'Nuovo locale', reparto: 'F&B', stampante_cucina: null, stampante_bar: null, orari_cucina: null }); disegna(); };
+    $('ptNuovoLoc').onclick = () => { raccogli(); const id = crypto.randomUUID(); D.locali.push({ id, nome: 'Nuovo locale', reparto: 'F&B', stampante_cucina: null, stampante_bar: null, orari_cucina: null, portate_semplici: false, segue_minuti: '5,10,15' }); disegna(); };
     /* I QR dei tavoli (la proprieta', 5 settembre 2026): un foglio per
        tavolo con il codice che porta alla pagina dell'ordine, firmato dal
        server. Si stampano da una finestra a parte; il QR lo disegna una

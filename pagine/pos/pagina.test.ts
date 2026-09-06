@@ -182,7 +182,7 @@ Deno.test('il ristorante puo far preparare al Bistrot, e si sceglie sulla riga',
   assert(m.includes('(MENU.locali || []).length > 1'), 'compare solo se i locali sono piu d uno');
   assert(m.includes("{ id: '', nome: 'Qui' }"), 'e il solito e «qui»');
   assert(m.includes('locale_stampa: dove || null'), 'la scelta resta sulla riga');
-  assert(m.includes('locale_stampa: r.locale_stampa }));'), 'e arriva al server con la riga');
+  assert(m.includes('locale_stampa: r.locale_stampa, segue_min:'), 'e arriva al server con la riga');
 });
 
 Deno.test('sul palmare niente si schiaccia e la tastiera non copre il campo', () => {
@@ -409,4 +409,15 @@ Deno.test('cancella tutto il tavolo con «Sei sicuro?»; il motivo dello storno 
   assert(m.includes("chiama('tavolo-svuota', { method: 'POST'") && !m.includes("scrivi('tavolo-svuota'"), 'mai in coda offline: o passa subito o si riprova');
   assert(m.includes('if (CAMERIERE && CAMERIERE.storno_con_motivo) {') && m.includes('Senza il motivo non si cancella.'), 'il motivo di tutto il tavolo solo con la spunta');
   assert(m.includes('Motivo dello storno (facoltativo)'), 'senza spunta il campo resta, ma facoltativo');
+});
+
+Deno.test('portate semplici al Bistrot: «Subito», «Segue 5′/10′/15′», «Segue a chiamata» e «Manda il segue»; il ristorante tiene le portate', () => {
+  /* «si puo togliere [le portate] e aggiungere solo il pulsante SEGUE … tre scelte segue in 5 min 10 min 15 min» (la proprieta', 6 settembre 2026) */
+  assert(m.includes('const SEMPLICI = () =>') && m.includes('l.portate_semplici'), 'lo dice il locale, dal menu');
+  assert(m.includes("minutiSegue(l && l.segue_minuti != null ? l.segue_minuti : '5,10,15')"), 'i minuti dal back office, 5/10/15 se non detto');
+  assert(m.includes('<span class="eti">Quando</span>') && m.includes('>Subito</button>') && m.includes('>Segue ${n}′</button>') && m.includes('>Segue a chiamata</button>'), 'le scelte al posto delle portate');
+  assert(m.includes("SEMPLICI() ? 'Manda il segue' : prossima ?"), 'il pulsante');
+  assert(m.includes('segueMin: SEMPLICI() ? segueScelto : null') && m.includes('segue_min: r.segue_min == null ? null : r.segue_min'), 'la scelta viaggia con la riga');
+  assert(m.includes('Segue alle ${oraBreve(r.segue_alle)}'), 'e dopo l invio si legge a che ora parte');
+  assert(m.includes("<span class=\"eti\">Portata</span>") && m.includes('Vai coi ${NOMI_PORTATE[prossima].toLowerCase()}'), 'il ristorante come prima');
 });

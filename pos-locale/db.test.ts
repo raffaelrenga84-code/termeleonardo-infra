@@ -70,3 +70,17 @@ Deno.test('un PC gia installato riceve la spunta «motivo storno» dei camerieri
   creaSchema(db);
   assert(colonneDi(db, 'pos_cameriere').includes('storno_con_motivo'));
 });
+
+Deno.test('un PC gia installato riceve le portate semplici e il segue con un alter', () => {
+  const db = apri(':memory:');
+  db.exec(`create table pos_locale (id text primary key, nome text not null, reparto text not null default 'F&B',
+    stampante_cucina text, stampante_bar text, orari_cucina text, aggiornato_il text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));
+    create table pos_riga (id text primary key, conto text not null, articolo text, nome text not null, quantita integer not null default 1,
+    prezzo_listino_cent integer not null, prezzo_cent integer not null, variante text, nota text, motivo_prezzo text, locale_stampa text,
+    portata text not null, stato text not null, creata_da text, creata_il text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    partita_il text, stornata_da text, stornata_il text, motivo_storno text, aggiornato_il text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    allineato integer not null default 0)`);
+  creaSchema(db);
+  for (const c of ['portate_semplici', 'segue_minuti']) assert(colonneDi(db, 'pos_locale').includes(c), c);
+  for (const c of ['segue_min', 'segue_alle']) assert(colonneDi(db, 'pos_riga').includes(c), c);
+});

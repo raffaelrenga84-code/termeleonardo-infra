@@ -36,7 +36,7 @@
    Le stampanti fiscali non compaiono: non e' questa fase.
    ============================================================ */
 import { createClient } from 'supabase';
-import { dividi, PORTATE, prossima, type Portata } from './portate.ts';
+import { dividi, dividiSemplice, gruppoSegue, minutiSegueValido, PORTATE, type PortataBiglietto, prossima, quandoSegue, segueScaduti, type Portata } from './portate.ts';
 import { prezzoRiga, totaleCent } from './conto.ts';
 import { escpos, testoBiglietto, type Biglietto } from './comanda.ts';
 import { importa, prezziSensati } from './menu.ts';
@@ -211,7 +211,7 @@ async function righeDelConto(conto: string): Promise<RigaStampabile[]> {
 }
 
 /* ---------- le stampe di una portata: un biglietto per stampante ---------- */
-async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata, tipo: 'comanda' | 'vai' | 'storno' | 'modifica', cameriere: string, avviso: string | null = null) {
+async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: PortataBiglietto, tipo: 'comanda' | 'vai' | 'storno' | 'modifica', cameriere: string, avviso: string | null = null) {
   const { data: tavolo } = await db.from('pos_tavolo').select('nome, z:pos_zona(l:pos_locale(id, nome))').eq('id', conto.tavolo as string).single();
   const locale = (tavolo?.z as unknown as { l: { id: string; nome: string } } | null)?.l;
   if (!locale) return;
@@ -251,6 +251,36 @@ async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata
   });
   if (stampe.length) await db.from('pos_stampa').insert(stampe);
   await db.from('pos_comanda').insert({ id: crypto.randomUUID(), conto: conto.id, portata, tipo, righe: righe.map((r) => r.id) });
+}
+
+/* Il locale di un tavolo, riga intera: dice se ha le portate semplici e
+   i minuti del «segue» (6 settembre 2026). */
+async function localeDelTavolo(tavolo: string): Promise<Riga | null> {
+  const { data: t } = await db.from('pos_tavolo').select('z:pos_zona(l:pos_locale(*))').eq('id', tavolo).maybeSingle();
+  return (t?.z as unknown as { l: Riga | null } | null)?.l ?? null;
+}
+
+/* «Segue in 5 minuti»: allo scadere parte da se', col biglietto VAI SEGUE.
+   Lo fa il PC per il suo locale (pos-locale, ogni 10 s); il cloud solo per
+   i locali col PC muto — la stessa regola della carta (stampa-cloud). */
+async function mandaSegueScaduti(vivi: Set<string>): Promise<number> {
+  const { data: inAttesa } = await db.from('pos_riga').select('*').eq('stato', 'inviata').not('segue_alle', 'is', null).order('segue_alle').limit(200);
+  const perConto = new Map<string, Riga[]>();
+  for (const r of segueScaduti(inAttesa ?? [], new Date())) perConto.set(r.conto as string, [...(perConto.get(r.conto as string) ?? []), r]);
+  let n = 0;
+  for (const [contoId, rr] of perConto) {
+    const { data: c } = await db.from('pos_conto').select('*').eq('id', contoId).maybeSingle();
+    if (!c || c.stato === 'chiuso') continue;
+    const loc = await localeDelTavolo(c.tavolo as string);
+    if (!loc || vivi.has(loc.id as string)) continue;
+    const righe = (await righeDelConto(contoId)).filter((r) => rr.some((x) => x.id === r.id));
+    if (!righe.length) continue;
+    const ora = adesso();
+    await db.from('pos_riga').update({ stato: 'partita', partita_il: ora, aggiornato_il: ora }).in('id', righe.map((r) => r.id as string));
+    await creaStampe(c, righe, 'segue', 'vai', 'a tempo');
+    n += righe.length;
+  }
+  return n;
 }
 
 /* La comanda di nuovo, per portata, con «RISTAMPA» in cima: la stampante
@@ -612,7 +642,7 @@ Deno.serve(async (req) => {
     const tutte = [...(cat.data ?? []), ...(art.data ?? []), ...(vari.data ?? []), ...(pref.data ?? [])].map((r) => String(r.aggiornato_il));
     /* i locali servono al palmare per «dove si prepara»: il ristorante
        che manda le bevande al Bistrot deve poterlo scegliere */
-    const { data: locali } = await db.from('pos_locale').select('id, nome').order('nome');
+    const { data: locali } = await db.from('pos_locale').select('id, nome, portate_semplici, segue_minuti').order('nome');
     return risposta({
       categorie: cat.data ?? [],
       articoli: applicaFascia({ articoli: (art.data ?? []) as { id: string; categoria: string | null; prezzo_cent: number }[], fascia, prezzi: (pf.data ?? []) as PrezzoFascia[] }),
@@ -887,6 +917,8 @@ Deno.serve(async (req) => {
         /* «questa stasera la prepara il Bistrot»: la scelta del cameriere
            batte quella dell'articolo e della categoria */
         locale_stampa: r.locale_stampa ? String(r.locale_stampa) : null,
+        /* portate semplici: null = subito, 0 = segue a chiamata, N = segue tra N minuti */
+        segue_min: minutiSegueValido(r.segue_min), segue_alle: null,
         portata, stato: 'da_inviare', creata_da: cameriere!.id, aggiornato_il: adesso(),
       });
     }
@@ -901,8 +933,20 @@ Deno.serve(async (req) => {
     const { data: c } = await db.from('pos_conto').select('*').eq('id', String(b.conto ?? '')).maybeSingle();
     if (!c || c.stato === 'chiuso') return risposta({ errore: 'conto non aperto' }, 409);
     const righe = await righeDelConto(c.id as string);
-    const { subito, attesa } = dividi(righe);
     const ora = adesso();
+    /* portate semplici (il Bistrot, 6 settembre 2026): tutto parte insieme,
+       aspetta solo quello segnato «segue» — a tempo o a chiamata */
+    const loc = await localeDelTavolo(c.tavolo as string);
+    if (loc?.portate_semplici) {
+      const { subito, attesa } = dividiSemplice(righe);
+      if (subito.length) {
+        await db.from('pos_riga').update({ stato: 'partita', partita_il: ora, aggiornato_il: ora }).in('id', subito.map((r) => r.id as string));
+        await creaStampe(c, subito, 'tutto', 'comanda', cameriere!.nome);
+      }
+      for (const r of attesa) await db.from('pos_riga').update({ stato: 'inviata', segue_alle: quandoSegue(ora, minutiSegueValido(r.segue_min)), aggiornato_il: ora }).eq('id', r.id as string);
+      return risposta({ partite: subito.length ? ['tutto'] : [], attesa: attesa.length ? ['segue'] : [] });
+    }
+    const { subito, attesa } = dividi(righe);
     for (const p of subito) {
       const rr = righe.filter((r) => r.portata === p && r.stato === 'da_inviare');
       await db.from('pos_riga').update({ stato: 'partita', partita_il: ora, aggiornato_il: ora }).in('id', rr.map((r) => r.id as string));
@@ -921,6 +965,17 @@ Deno.serve(async (req) => {
     const { data: c } = await db.from('pos_conto').select('*').eq('id', String(b.conto ?? '')).maybeSingle();
     if (!c || c.stato === 'chiuso') return risposta({ errore: 'conto non aperto' }, 409);
     const righe = await righeDelConto(c.id as string);
+    const locVai = await localeDelTavolo(c.tavolo as string);
+    if (locVai?.portate_semplici) {
+      /* «Manda il segue»: prima quello a chiamata, poi il tempo piu' vicino */
+      const rr = gruppoSegue(righe);
+      if (!rr.length) return risposta({ errore: 'niente in attesa' }, 409);
+      const ora = adesso();
+      await db.from('pos_riga').update({ stato: 'partita', partita_il: ora, aggiornato_il: ora }).in('id', rr.map((r) => r.id as string));
+      await creaStampe(c, rr, 'segue', 'vai', cameriere!.nome);
+      const resto = righe.filter((r) => !rr.some((x) => x.id === r.id));
+      return risposta({ partita: 'segue', prossima: gruppoSegue(resto).length ? 'segue' : null });
+    }
     const p = prossima(righe);
     if (!p) return risposta({ errore: 'niente in attesa' }, 409);
     if (ePortata(b.portata) && b.portata !== p) return risposta({ errore: `la prossima e ${p}`, prossima: p }, 409);
@@ -1268,6 +1323,8 @@ Deno.serve(async (req) => {
     /* il cloud stampa da se' solo se il PC del Bistrot tace da piu' di 90 s */
     const { data: battiti } = await db.from('pos_battito').select('locale, visto_il');
     const vivi = new Set((battiti ?? []).filter((b) => Date.now() - new Date(b.visto_il as string).getTime() < 90 * 1000).map((b) => b.locale as string));
+    /* il «segue» a tempo dei locali col PC muto parte da qui, ogni minuto */
+    const segue = await mandaSegueScaduti(vivi);
     /* uno schermo spento non fa perdere niente: la carta esce dopo
        ripiego_s secondi; per i locali col PC vivo lo fa il PC (stampa.ts) */
     const { data: postazioni } = await db.from('pos_postazione').select('locale, stampante, ripiego_s');
@@ -1314,7 +1371,7 @@ Deno.serve(async (req) => {
         await db.from('pos_stampa').update({ stato: 'errore', errore: String(e).slice(0, 300), aggiornato_il: ora }).eq('id', s.id);
       }
     }
-    return risposta({ esito: 'ok', fatte, saltate, ripiegate });
+    return risposta({ esito: 'ok', fatte, saltate, ripiegate, segue });
   }
 
   if (azione === 'allinea-su') {

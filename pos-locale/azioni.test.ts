@@ -6,7 +6,7 @@
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { apri, creaSchema } from './db.ts';
-import { esegui, type Richiesta } from './azioni.ts';
+import { esegui, mandaSegueScaduti, type Richiesta } from './azioni.ts';
 import { impronta } from '../supabase/functions/pos/schermo.ts';
 
 const cfg = { locale: 'L1' };
@@ -568,4 +568,41 @@ Deno.test('cancella tutto il tavolo: righe stornate con lo STORNO in coda per qu
   assertEquals(db.prepare('select count(*) as n from pos_eliminato where id = ?').get(conto2), { n: 1 }, 'e il cloud lo verra a sapere');
   const vuoto = await esegui(db, 'tavolo-svuota', req('POST', { tavolo: 'T7' }), cfg);
   assertEquals(vuoto.stato, 409, 'tavolo gia libero');
+});
+
+Deno.test('portate semplici (il Bistrot): tutto parte insieme, il «segue» aspetta il tempo o la chiamata', async () => {
+  /* «il bistro non e un vero ristorante … solo il pulsante SEGUE … segue in 5 min 10 min 15 min» (la proprieta', 6 settembre 2026) */
+  const db = base();
+  db.exec("update pos_locale set portate_semplici = 1, segue_minuti = '5,10,15' where id = 'L1'");
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 2 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  const r = await esegui(db, 'righe', req('POST', { conto, righe: [
+    { id: 'r1', articolo: 'A1', quantita: 1, portata: 'primi' },
+    { id: 'r2', articolo: 'A1', quantita: 1, portata: 'secondi', segue_min: 5 },
+    { id: 'r3', articolo: 'A2', quantita: 2, portata: 'bevande', segue_min: 0 }] }), cfg);
+  assertEquals(r.stato, 200);
+  const inv = await esegui(db, 'invia', req('POST', { conto }), cfg);
+  assertEquals(inv.corpo, { partite: ['tutto'], attesa: ['segue'] });
+  const stati = () => db.prepare('select id, stato, segue_alle from pos_riga order by id').all() as { id: string; stato: string; segue_alle: string | null }[];
+  let s = stati();
+  assertEquals(s.map((x) => x.stato), ['partita', 'inviata', 'inviata'], 'primi e secondi non si dividono: parte r1, aspettano r2 (a tempo) e r3 (a chiamata)');
+  assert(s[1].segue_alle && !s[2].segue_alle, 'r2 ha l ora, r3 aspetta la chiamata');
+  const primo = db.prepare('select testo, biglietto from pos_stampa order by rowid').all() as { testo: string; biglietto: string }[];
+  assertEquals(primo.length, 1, 'un biglietto solo');
+  assert(primo[0].testo.includes('COMANDA') && !primo[0].testo.includes('PRIMI') && !primo[0].testo.includes('TUTTO'), primo[0].testo);
+  assertEquals(JSON.parse(primo[0].biglietto).portata, 'tutto');
+  /* «Manda il segue»: prima quello a chiamata */
+  const vai1 = await esegui(db, 'vai', req('POST', { conto }), cfg);
+  assertEquals(vai1.corpo, { partita: 'segue', prossima: 'segue' });
+  assertEquals(stati().map((x) => x.stato), ['partita', 'inviata', 'partita']);
+  /* a tempo: prima dei 5 minuti niente; dopo, parte da se' */
+  assertEquals(mandaSegueScaduti(db, new Date(Date.now() + 60 * 1000)), 0);
+  assertEquals(mandaSegueScaduti(db, new Date(Date.now() + 6 * 60 * 1000)), 1);
+  assertEquals(stati().map((x) => x.stato), ['partita', 'partita', 'partita']);
+  const testi = (db.prepare('select testo from pos_stampa order by rowid').all() as { testo: string }[]).map((x) => x.testo);
+  assertEquals(testi.length, 3);
+  assert(testi[1].includes('VAI  SEGUE') && testi[2].includes('VAI  SEGUE') && testi[2].includes('a tempo'), testi.join('|'));
+  const vai2 = await esegui(db, 'vai', req('POST', { conto }), cfg);
+  assertEquals(vai2.stato, 409, 'niente piu in attesa');
+  /* il ristorante (senza la spunta) va ancora a portate: la prova sopra lo dice gia' */
 });
