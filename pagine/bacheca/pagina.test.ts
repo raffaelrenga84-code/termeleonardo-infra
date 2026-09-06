@@ -21,4 +21,5 @@ Deno.test('riservata ai motori, dal PC parla col PC, si aggiorna ogni minuto', (
   assert(copione.includes("location.protocol === 'http:'") && copione.includes('location.host') && copione.includes('supabase.co/functions/v1/pos'), 'PC o cloud');
   assert(copione.includes('setInterval(carica, 60000)'), 'ogni minuto');
   assert(copione.includes('Oggi niente in bacheca') && copione.includes('La bacheca non risponde'), 'dice quando e vuota e quando non risponde');
+  assert(P.includes('Primo del giorno') && P.includes('Secondo del giorno') && P.includes('Il calice consigliato') && P.includes('<svg viewBox="0 0 64 64"'), 'primo, secondo e il calice con l icona');
 });

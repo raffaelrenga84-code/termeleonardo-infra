@@ -37,6 +37,7 @@
    ============================================================ */
 import { createClient } from 'supabase';
 import { dividi, dividiSemplice, gruppoSegue, minutiSegueValido, PORTATE, type PortataBiglietto, prossima, quandoSegue, segueScaduti, type Portata } from './portate.ts';
+import { candidatiCalice, giornoRoma, nomeCalice, scegliCalice, testoBacheca } from './bacheca.ts';
 import { prezzoRiga, totaleCent } from './conto.ts';
 import { escpos, testoBiglietto, type Biglietto } from './comanda.ts';
 import { importa, prezziSensati } from './menu.ts';
@@ -404,25 +405,26 @@ Deno.serve(async (req) => {
      da sola non proteggeva niente di piu' — chi ordina paga prima, e la
      camera vuole tessera e numero. Il QR sul tavolo resta la scorciatoia. */
   /* ================= la bacheca all'ingresso (TV) =================
-     «un monitor all'ingresso del Bistrot per far leggere i piatti del
-     giorno» (la proprieta', 6 settembre 2026). Pubblica come il menu' dal
-     QR: nome, testo del giorno e prezzo degli articoli con la spunta
-     «bacheca», attivi e non esauriti. La pagina e' pagine/bacheca/. */
+     «una sezione a parte dove uno puo' scrivere a mano, per tutti i giorni
+     della settimana, il primo e il secondo del giorno; e prendi random dai
+     vini a calice il consigliato» (la proprieta', 6 settembre 2026).
+     Pubblica come il menu' dal QR. Il giorno e' quello di Roma; il calice
+     scritto a mano vince, se no ne esce uno a caso fra i «Vini al calice»,
+     lo stesso per tutta la giornata (bacheca.ts). La pagina e' pagine/bacheca/. */
   if (azione === 'bacheca') {
     const locale = url.searchParams.get('locale') || 'bistrot';
-    const [{ data: loc }, { data: cat }, { data: art }] = await Promise.all([
+    const oggi = giornoRoma(new Date());
+    const [{ data: loc }, { data: riga }, { data: cat }, { data: art }] = await Promise.all([
       db.from('pos_locale').select('id, nome').eq('id', locale).maybeSingle(),
-      db.from('pos_categoria').select('id, nome, posizione').eq('attiva', true),
-      db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, bacheca_testo, esaurito, posizione').eq('attivo', true).eq('in_bacheca', true),
+      db.from('pos_bacheca').select('primo, secondo, calice').eq('locale', locale).eq('giorno', oggi.giorno).maybeSingle(),
+      db.from('pos_categoria').select('id, nome').eq('attiva', true),
+      db.from('pos_articolo').select('id, categoria, nome, prezzo_cent, esaurito').eq('attivo', true),
     ]);
-    const posCat = new Map((cat ?? []).map((c) => [c.id as string, Number(c.posizione ?? 0)]));
-    const nomeCat = new Map((cat ?? []).map((c) => [c.id as string, String(c.nome)]));
-    const piatti = (art ?? []).filter((a) => !a.esaurito)
-      .sort((a, b) => (posCat.get(a.categoria as string) ?? 0) - (posCat.get(b.categoria as string) ?? 0) || Number(a.posizione ?? 0) - Number(b.posizione ?? 0))
-      .map((a) => ({ id: a.id, nome: a.nome, testo: a.bacheca_testo ?? null, prezzo_cent: Number(a.prezzo_cent), categoria: nomeCat.get(a.categoria as string) ?? null }));
-    return risposta({ locale: loc ? { id: loc.id, nome: loc.nome } : { id: locale, nome: locale }, piatti, adesso: adesso() });
+    const scelto = scegliCalice(candidatiCalice(art ?? [], cat ?? []), `${oggi.data}|${locale}`);
+    const calice = riga?.calice ? { nome: String(riga.calice), prezzo_cent: null, a_mano: true }
+      : scelto ? { nome: nomeCalice(scelto.nome), prezzo_cent: Number(scelto.prezzo_cent), a_mano: false } : null;
+    return risposta({ locale: loc ? { id: loc.id, nome: loc.nome } : { id: locale, nome: locale }, oggi, primo: riga?.primo ?? null, secondo: riga?.secondo ?? null, calice, adesso: adesso() });
   }
-
   if (azione === 'ospite-tavoli') {
     /* «Puoi fare entrambe? Con QR e senza?» (la proprieta', 6 settembre
        2026): si sceglie il tavolo a mano da qualunque connessione. La
@@ -1400,6 +1402,23 @@ Deno.serve(async (req) => {
      in pos_pacchetto; il PC (pos-locale/aggiorna.ts) chiede ogni minuto
      la versione e, se e' nuova, i file uno a uno. Con la chiave hotel,
      come allinea-giu: il pacchetto e' codice, non lo si da' a chiunque. */
+  /* la bacheca la scrive il back office, anche l'account del Bistrot (ruoli.ts):
+     una riga per giorno, primo, secondo e il calice facoltativo */
+  if (azione === 'bacheca-salva') {
+    if (req.method !== 'POST') return risposta({ errore: 'metodo non ammesso' }, 405);
+    const acc = await autorizzato(req);
+    if (!acc.ok) return risposta({ errore: 'non autorizzato' }, 401);
+    if (!puoDalBackOffice(acc.ruolo, 'bacheca-salva')) return risposta({ errore: 'non permesso a questo account' }, 403);
+    const b = await corpo();
+    const ora = adesso();
+    const righe = (Array.isArray(b.righe) ? b.righe as Riga[] : []).map((r) => ({
+      locale: String(r.locale ?? ''), giorno: Number(r.giorno), primo: testoBacheca(r.primo), secondo: testoBacheca(r.secondo), calice: testoBacheca(r.calice), aggiornato_il: ora,
+    }));
+    if (righe.some((r) => !r.locale || !(r.giorno >= 1 && r.giorno <= 7))) return risposta({ errore: 'ogni riga vuole il locale e un giorno da 1 a 7' }, 400);
+    if (righe.length) { const { error } = await db.from('pos_bacheca').upsert(righe, { onConflict: 'locale,giorno' }); if (error) return risposta({ errore: error.message }, 500); }
+    return risposta({ esito: 'ok', righe: righe.length });
+  }
+
   if (azione === 'pacchetto') {
     if (!chiaveHotel(req)) return risposta({ errore: 'non autorizzato' }, 401);
     const { data: righe } = await db.from('pos_pacchetto').select('percorso, versione, sha256, byte').order('percorso');
@@ -1452,7 +1471,7 @@ Deno.serve(async (req) => {
     }
     const da = url.searchParams.get('da') || '1970-01-01T00:00:00Z';
     const locale = url.searchParams.get('locale') || '';
-    const tabelle = ['pos_locale', 'pos_zona', 'pos_tavolo', 'pos_categoria', 'pos_articolo', 'pos_variante', 'pos_preferito', 'pos_cameriere', 'pos_dispositivo', 'pos_fascia', 'pos_prezzo_fascia', 'pos_postazione', 'pos_sessione'];
+    const tabelle = ['pos_locale', 'pos_zona', 'pos_tavolo', 'pos_categoria', 'pos_articolo', 'pos_variante', 'pos_preferito', 'pos_cameriere', 'pos_dispositivo', 'pos_fascia', 'pos_prezzo_fascia', 'pos_postazione', 'pos_sessione', 'pos_bacheca'];
     /* le sessioni sono chiavi d'accesso: scendono al PC e basta, mai al browser */
     if (!dalPc) nascoste.push('pos_sessione');
     const fuori: Record<string, unknown> = { adesso: adesso() };

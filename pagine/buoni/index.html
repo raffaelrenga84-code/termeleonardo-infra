@@ -310,6 +310,7 @@ const SCHEDE = [
   /* il POS di Bistrot e ristorante, dal 4 settembre 2026; dal 6 settembre anche
      l'account del Bistrot, che vede solo menu', tavoli, fasce e ordini dal QR */
   ['posMenu', 'POS · Menù'],
+  ['posBacheca', 'POS · Bacheca'],
   ['posTavoli', 'POS · Tavoli'],
   ['posPersonale', 'POS · Personale'],
   ['posOrdiniQr', 'POS · Ordini dal QR'],  ['posAddebiti', 'POS · Addebiti in camera'],
@@ -328,7 +329,7 @@ const FAMIGLIE = [
   ['buoni', 'Buoni', ['emetti', 'elenco', 'verifica']],
   ['ospiti', 'Ospiti', ['richieste', 'arrivi', 'privacy']],
   ['dayspa', 'Day Spa', ['dayspaOggi', 'dayspaDisponibilita', 'dayspaPrenotazioni']],
-  ['pos', 'POS', ['posOrdiniQr', 'posAddebiti', 'posGiornata', 'posMenu', 'posTavoli', 'posPersonale', 'posFasce']],
+  ['pos', 'POS', ['posOrdiniQr', 'posAddebiti', 'posGiornata', 'posMenu', 'posBacheca', 'posTavoli', 'posPersonale', 'posFasce']],
 ];
 const famigliaDi = (scheda) => (FAMIGLIE.find(([, , schede]) => schede.includes(scheda)) || FAMIGLIE[0])[0];
 
@@ -372,8 +373,8 @@ function schedeNascoste(email) {
 const ORDINE_SCHEDE = new Map([
   ['reception@termeleonardo.com', ['richieste', 'arrivi', 'dayspaOggi', 'emetti', 'elenco', 'verifica', 'dayspaDisponibilita', 'dayspaPrenotazioni']],
   ['spa@termeleonardo.com', ['richieste', 'arrivi', 'dayspaOggi', 'elenco', 'verifica', 'dayspaDisponibilita', 'dayspaPrenotazioni']],
-  ['bistrot@termeleonardo.com', ['posMenu', 'posTavoli', 'posFasce', 'posOrdiniQr']],
-  ['bistro@termeleonardo.com', ['posMenu', 'posTavoli', 'posFasce', 'posOrdiniQr']],
+  ['bistrot@termeleonardo.com', ['posMenu', 'posBacheca', 'posTavoli', 'posFasce', 'posOrdiniQr']],
+  ['bistro@termeleonardo.com', ['posMenu', 'posBacheca', 'posTavoli', 'posFasce', 'posOrdiniQr']],
 ]);
 
 /** L'ordine delle schede per questo indirizzo; chi non e' in tabella tiene
@@ -554,7 +555,7 @@ function disegna() {
   ({ emetti: vistaEmetti, elenco: vistaElenco, verifica: vistaVerifica,
      richieste: vistaRichieste, arrivi: vistaArrivi, dayspaOggi: vistaDayspaOggi,
      dayspaDisponibilita: vistaDayspaDisponibilita, dayspaPrenotazioni: vistaDayspaPrenotazioni,
-     posMenu: vistaPosMenu, posTavoli: vistaPosTavoli, posPersonale: vistaPosPersonale,
+     posMenu: vistaPosMenu, posBacheca: vistaPosBacheca, posTavoli: vistaPosTavoli, posPersonale: vistaPosPersonale,
      posOrdiniQr: vistaPosOrdiniQr, posAddebiti: vistaPosAddebiti, posGiornata: vistaPosGiornata, posFasce: vistaPosFasce, privacy: vistaPrivacy })[VISTA]();
   aggiornaContatore();
 }
@@ -2570,7 +2571,7 @@ function vistaPosMenu() {
         const a = D.articoli.find((x) => x.id === r.dataset.art); if (!a) return;
         r.querySelectorAll('[data-a]').forEach((el) => {
           const k = el.dataset.a, v = valoreCampo(el);
-          a[k] = k === 'prezzo_cent' ? centPos(v) : (k === 'stampante' || k === 'portata' || k === 'locale_stampa' || k === 'bacheca_testo') ? (v || null) : v;
+          a[k] = k === 'prezzo_cent' ? centPos(v) : (k === 'stampante' || k === 'portata' || k === 'locale_stampa') ? (v || null) : v;
         });
       });
     });
@@ -2623,7 +2624,7 @@ function vistaPosMenu() {
           <div><label>Posizione</label><input data-c="posizione" type="number" value="${Number(c.posizione || 0)}" style="width:80px;" />
             <label style="display:inline;margin-left:12px;"><input type="checkbox" data-c="attiva" ${c.attiva !== false ? 'checked' : ''}/> attiva</label>
             <label style="display:inline;margin-left:12px;" title="La vedono gli ospiti che ordinano dal QR sul tavolo"><input type="checkbox" data-c="per_ospiti" ${c.per_ospiti !== false ? 'checked' : ''}/> ospiti (QR)</label></div></div>
-        ${arts.length ? `<table><tr><th>Articolo</th><th>Prezzo €</th><th>IVA</th><th>Stampante</th><th>Portata</th><th>Si prepara a</th><th>Libero</th><th>Esaurito</th><th>Attivo</th><th title="Lo vedono gli ospiti che ordinano dal QR">QR</th><th title="Scelta rapida del menu dal QR: senza glutine (una sigla GL scritta negli allergeni vince sulla spunta)">🌾</th><th title="Scelta rapida: vegetariano (un vegano e anche vegetariano)">🥗</th><th title="Scelta rapida: vegano">🌱</th><th title="Scelta rapida: senza lattosio (una sigla LA scritta negli allergeni vince sulla spunta)">🥛</th><th title="Per gli ospiti dal QR">🌐</th><th title="In bacheca: sulla TV all’ingresso, fra i piatti del giorno">📺</th><th title="Il testo sotto il nome, sulla TV (es. «Tagliatelle al ragù»)">Testo bacheca</th></tr>
+        ${arts.length ? `<table><tr><th>Articolo</th><th>Prezzo €</th><th>IVA</th><th>Stampante</th><th>Portata</th><th>Si prepara a</th><th>Libero</th><th>Esaurito</th><th>Attivo</th><th title="Lo vedono gli ospiti che ordinano dal QR">QR</th><th title="Scelta rapida del menu dal QR: senza glutine (una sigla GL scritta negli allergeni vince sulla spunta)">🌾</th><th title="Scelta rapida: vegetariano (un vegano e anche vegetariano)">🥗</th><th title="Scelta rapida: vegano">🌱</th><th title="Scelta rapida: senza lattosio (una sigla LA scritta negli allergeni vince sulla spunta)">🥛</th><th title="Per gli ospiti dal QR">🌐</th></tr>
         ${arts.map((a) => `<tr data-art="${esc(a.id)}"><td><input data-a="nome" value="${esc(a.nome)}" /></td>
           <td><input data-a="prezzo_cent" value="${euroPos(a.prezzo_cent)}" style="width:72px;" /></td>
           <td><input data-a="iva" type="number" value="${Number(a.iva ?? 10)}" style="width:52px;" /></td>
@@ -2638,10 +2639,8 @@ function vistaPosMenu() {
           <td><input type="checkbox" data-a="vegetariano" ${a.vegetariano === true ? 'checked' : ''} title="Vegetariano: compare nella scelta rapida del menu dal QR"/></td>
           <td><input type="checkbox" data-a="vegano" ${a.vegano === true ? 'checked' : ''} title="Vegano: compare nella scelta rapida del menu dal QR (e anche fra i vegetariani)"/></td>
           <td><input type="checkbox" data-a="senza_lattosio" ${a.senza_lattosio === true ? 'checked' : ''} title="Senza lattosio: compare nella scelta rapida del menu dal QR"/></td>
-          <td><input type="checkbox" data-a="in_bacheca" ${a.in_bacheca === true ? 'checked' : ''} title="In bacheca: sulla TV all’ingresso, fra i piatti del giorno"/></td>
-          <td><input data-a="bacheca_testo" value="${esc(a.bacheca_testo || '')}" placeholder="testo sulla TV" style="width:150px;" title="Sotto il nome, sulla TV (es. «Tagliatelle al ragù»)"/></td>
           <td><button type="button" class="azione sec mini" data-tradu="${esc(a.id)}" style="width:auto;padding:2px 8px;" title="Nomi, ingredienti e allergeni per gli ospiti dal QR">🌐${a.nomi ? '' : ' ·'}</button></td></tr>
-          <tr data-tradu-di="${esc(a.id)}" hidden><td colspan="17"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:2px 0 6px;">${LINGUE.map((l) => `<input data-an="${l}" placeholder="nome ${l}" value="${esc((a.nomi || {})[l] || '')}" />`).join('')}${LINGUE.map((l) => `<input data-ad="${l}" placeholder="ingredienti ${l}" value="${esc((a.descrizioni || {})[l] || '')}" />`).join('')}<input data-allergeni placeholder="allergeni, es. GL-LA-U" value="${esc(a.allergeni || '')}" /><input data-orari placeholder="orari, es. 12:15-17:30; ven,sab 12:15-20:30 (vuoto = come la categoria, «sempre» = tutto il giorno)" value="${esc(a.orari || '')}" /></div></td></tr>`).join('')}</table>` : '<div class="mini">Nessun articolo.</div>'}
+          <tr data-tradu-di="${esc(a.id)}" hidden><td colspan="15"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:2px 0 6px;">${LINGUE.map((l) => `<input data-an="${l}" placeholder="nome ${l}" value="${esc((a.nomi || {})[l] || '')}" />`).join('')}${LINGUE.map((l) => `<input data-ad="${l}" placeholder="ingredienti ${l}" value="${esc((a.descrizioni || {})[l] || '')}" />`).join('')}<input data-allergeni placeholder="allergeni, es. GL-LA-U" value="${esc(a.allergeni || '')}" /><input data-orari placeholder="orari, es. 12:15-17:30; ven,sab 12:15-20:30 (vuoto = come la categoria, «sempre» = tutto il giorno)" value="${esc(a.orari || '')}" /></div></td></tr>`).join('')}</table>` : '<div class="mini">Nessun articolo.</div>'}
         <button type="button" class="azione sec mini" data-nuovo-art="${esc(c.id)}" style="width:auto;margin-top:6px;">+ articolo</button></div>`;
     };
     const varianti = `<div class="riquadro"><b>Varianti</b><div class="mini">Una variante vale per un articolo o per una categoria intera; il supplemento si somma al prezzo.</div>
@@ -2931,6 +2930,58 @@ function vistaPosFasce() {
       D = { fasce: j.fascia || [], prezzi: j.prezzo_fascia || [], categorie: (j.categoria || []).filter((c) => c.attiva), articoli: (j.articolo || []).filter((a) => a.attivo), locali: j.locale || [], tolte: [] };
       disegna();
     } catch (e) { $('pfEsito').innerHTML = `<span class="errore">${esc(e.message)}</span>`; }
+  })();
+}
+
+/* La bacheca all'ingresso, giorno per giorno: «una sezione a parte dove uno
+   puo' scrivere a mano per tutti i giorni della settimana il primo del giorno
+   e il secondo del giorno» (la proprieta', 6 settembre 2026). Il calice e'
+   facoltativo: vuoto, lo sceglie il server fra i «Vini al calice». */
+function vistaPosBacheca() {
+  $('vista').innerHTML = `<div class="riquadro"><div class="esito" id="pbEsito">Carico…</div></div>`;
+  const GIORNI = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
+  let D = null;
+  const rigaDi = (loc, g) => D.righe.find((x) => x.locale === loc && Number(x.giorno) === g);
+  const raccogli = () => {
+    document.querySelectorAll('[data-bg]').forEach((tr) => {
+      const g = Number(tr.dataset.bg);
+      let r = rigaDi(D.locale, g);
+      if (!r) { r = { locale: D.locale, giorno: g }; D.righe.push(r); }
+      tr.querySelectorAll('[data-b]').forEach((el) => { r[el.dataset.b] = el.value.trim() || null; });
+    });
+  };
+  const disegna = () => {
+    const righe = GIORNI.map((nome, i) => {
+      const r = rigaDi(D.locale, i + 1) || {};
+      return `<tr data-bg="${i + 1}"><td><b>${nome}</b></td><td><textarea data-b="primo" rows="2" style="width:100%;min-width:220px;">${esc(r.primo || '')}</textarea></td>
+        <td><textarea data-b="secondo" rows="2" style="width:100%;min-width:220px;">${esc(r.secondo || '')}</textarea></td>
+        <td><input data-b="calice" value="${esc(r.calice || '')}" placeholder="a caso dai vini al calice" style="width:200px;" /></td></tr>`;
+    }).join('');
+    $('vista').innerHTML = `<div class="riquadro"><b>Bacheca all’ingresso</b>
+      <div class="mini">Quello che la TV all’ingresso mostra, giorno per giorno: il primo e il secondo del giorno scritti a mano (un a capo = un rigo nuovo sulla TV, il primo rigo grande), e il calice consigliato: lasciato vuoto, ne esce uno a caso fra i «Vini al calice» del menù, lo stesso per tutta la giornata. La TV la prende entro un minuto: www.hoteltermeleonardo.com/bacheca (dal PC del Bistrot: http://192.168.0.18:8080/bacheca).</div>
+      ${D.locali.length > 1 ? `<label>Locale</label><select id="pbLocale" style="width:auto;">${opzPos(D.locali.map((l) => [l.id, l.nome]), D.locale)}</select>` : ''}
+      <table><tr><th>Giorno</th><th>Primo del giorno</th><th>Secondo del giorno</th><th>Calice consigliato (facoltativo)</th></tr>${righe}</table>
+      <div class="esito" id="pbEsito"></div>
+      <button type="button" class="azione" id="pbSalva" style="width:auto;margin-top:8px;">Salva la bacheca</button></div>`;
+    const sel = $('pbLocale');
+    if (sel) sel.onchange = () => { raccogli(); D.locale = sel.value; disegna(); };
+    $('pbSalva').onclick = async () => {
+      raccogli();
+      $('pbEsito').textContent = 'Salvo…';
+      try {
+        await chiama('?a=bacheca-salva', { method: 'POST', body: JSON.stringify({ righe: D.righe.filter((r) => r.locale === D.locale) }) }, FUNZIONE_POS);
+        $('pbEsito').textContent = 'Salvata: la TV la prende entro un minuto.';
+      } catch (e) { $('pbEsito').textContent = e.message; }
+    };
+  };
+  (async () => {
+    try {
+      const j = await chiama('?a=allinea-giu', {}, FUNZIONE_POS);
+      const locali = j.locale || [];
+      D = { locali, righe: j.bacheca || [], locale: locali.some((l) => l.id === 'bistrot') ? 'bistrot' : (locali[0] || {}).id };
+      if (!D.locale) { $('pbEsito').textContent = 'Nessun locale: prima si salva un locale in POS · Tavoli.'; return; }
+      disegna();
+    } catch (e) { $('pbEsito').textContent = e.message; }
   })();
 }
 

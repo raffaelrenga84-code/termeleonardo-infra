@@ -85,7 +85,7 @@ Deno.test('un PC gia installato riceve le portate semplici e il segue con un alt
   for (const c of ['segue_min', 'segue_alle']) assert(colonneDi(db, 'pos_riga').includes(c), c);
 });
 
-Deno.test('un PC installato coi primi articoli riceve con un alter tutte le colonne venute dopo, bacheca compresa', () => {
+Deno.test('un PC installato coi primi articoli riceve con un alter tutte le colonne venute dopo', () => {
   const db = apri(':memory:');
   db.exec(`create table pos_articolo (id text primary key, categoria text not null, nome text not null, prezzo_cent integer not null default 0,
     iva integer not null default 10, portata text, stampante text, prezzo_libero integer not null default 0, incluso_trattamento integer not null default 0,
@@ -93,5 +93,12 @@ Deno.test('un PC installato coi primi articoli riceve con un alter tutte le colo
     aggiornato_il text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))`);
   creaSchema(db);
   const cols = colonneDi(db, 'pos_articolo');
-  for (const c of ['locale_stampa', 'nomi', 'descrizioni', 'per_ospiti', 'vegano', 'in_bacheca', 'bacheca_testo']) assert(cols.includes(c), c);
+  for (const c of ['locale_stampa', 'nomi', 'descrizioni', 'per_ospiti', 'vegano', 'senza_lattosio']) assert(cols.includes(c), c);
+});
+
+Deno.test('la bacheca scende dal cloud: la tabella c e, una riga per locale e giorno', () => {
+  const db = apri(':memory:'); creaSchema(db);
+  for (const c of ['locale', 'giorno', 'primo', 'secondo', 'calice', 'aggiornato_il']) assert(colonneDi(db, 'pos_bacheca').includes(c), c);
+  db.exec("insert or replace into pos_bacheca (locale, giorno, primo) values ('L1', 1, 'a'); insert or replace into pos_bacheca (locale, giorno, primo) values ('L1', 1, 'b')");
+  assertEquals(db.prepare('select primo from pos_bacheca').all(), [{ primo: 'b' }]);
 });

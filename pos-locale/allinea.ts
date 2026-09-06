@@ -21,7 +21,7 @@ export type Cloud = { base: string; hotelKey: string; locale: string; fetch?: ty
 
 const TABELLE_SU = [['pos_conto', 'conti'], ['pos_riga', 'righe'], ['pos_comanda', 'comande'], ['pos_addebito', 'addebiti'], ['pos_stampa', 'stampe'], ['pos_pagamento', 'pagamenti'], ['pos_sessione', 'sessioni']] as const;
 const JSON_DI: Record<string, string[]> = { pos_comanda: ['righe'], pos_addebito: ['righe'], pos_categoria: ['note_rapide', 'nomi'], pos_articolo: ['nomi', 'descrizioni'], pos_stampa: ['biglietto'] };
-const TABELLE_GIU = ['locale', 'zona', 'tavolo', 'categoria', 'articolo', 'variante', 'preferito', 'cameriere', 'dispositivo', 'fascia', 'prezzo_fascia', 'postazione', 'sessione'];
+const TABELLE_GIU = ['locale', 'zona', 'tavolo', 'categoria', 'articolo', 'variante', 'preferito', 'cameriere', 'dispositivo', 'fascia', 'prezzo_fascia', 'postazione', 'sessione', 'bacheca'];
 
 async function chiama(cloud: Cloud, qs: string, init: RequestInit = {}): Promise<Riga> {
   const f = cloud.fetch ?? globalThis.fetch;

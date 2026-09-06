@@ -10,6 +10,7 @@
    ============================================================ */
 import { conJson, type Db, type Riga, salva } from './db.ts';
 import { dividi, dividiSemplice, gruppoSegue, minutiSegueValido, PORTATE, type PortataBiglietto, prossima, quandoSegue, segueScaduti, type Portata } from '../supabase/functions/pos/portate.ts';
+import { candidatiCalice, giornoRoma, nomeCalice, scegliCalice } from '../supabase/functions/pos/bacheca.ts';
 import { prezzoRiga, totaleCent } from '../supabase/functions/pos/conto.ts';
 import { testoBiglietto, type Biglietto } from '../supabase/functions/pos/comanda.ts';
 import { puo, type Ruolo } from '../supabase/functions/pos/permessi.ts';
@@ -177,11 +178,15 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
      aperta dal PC resta accesa anche senza internet */
   if (azione === 'bacheca') {
     const locale = req.query.locale || cfg.locale;
+    const oggi = giornoRoma(new Date());
     const loc = db.prepare('select id, nome from pos_locale where id = ?').get(locale) as Riga | undefined;
-    const piatti = (db.prepare(`select a.id, a.nome, a.prezzo_cent, a.bacheca_testo, c.nome as categoria from pos_articolo a left join pos_categoria c on c.id = a.categoria
-      where a.attivo = 1 and a.in_bacheca = 1 and a.esaurito = 0 order by c.posizione, a.posizione`).all() as Riga[])
-      .map((a) => ({ id: a.id, nome: a.nome, testo: a.bacheca_testo ?? null, prezzo_cent: Number(a.prezzo_cent), categoria: a.categoria ?? null }));
-    return ok({ locale: loc ? { id: loc.id, nome: loc.nome } : { id: locale, nome: locale }, piatti, adesso: adesso() });
+    const riga = db.prepare('select primo, secondo, calice from pos_bacheca where locale = ? and giorno = ?').get(locale, oggi.giorno) as Riga | undefined;
+    const cat = db.prepare('select id, nome from pos_categoria where attiva = 1').all() as { id: string; nome: string }[];
+    const art = db.prepare('select id, categoria, nome, prezzo_cent, esaurito from pos_articolo where attivo = 1').all() as (Riga & { nome: string; categoria: string; prezzo_cent: number })[];
+    const scelto = scegliCalice(candidatiCalice(art, cat), `${oggi.data}|${locale}`);
+    const calice = riga?.calice ? { nome: String(riga.calice), prezzo_cent: null, a_mano: true }
+      : scelto ? { nome: nomeCalice(scelto.nome), prezzo_cent: Number(scelto.prezzo_cent), a_mano: false } : null;
+    return ok({ locale: loc ? { id: loc.id, nome: loc.nome } : { id: locale, nome: locale }, oggi, primo: riga?.primo ?? null, secondo: riga?.secondo ?? null, calice, adesso: adesso() });
   }
 
   if (azione === 'accesso') {

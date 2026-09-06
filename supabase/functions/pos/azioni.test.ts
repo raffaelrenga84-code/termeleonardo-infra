@@ -398,14 +398,18 @@ Deno.test('portate semplici al Bistrot: tutto insieme, il segue a tempo o a chia
   assert(S.includes("select('id, nome, portate_semplici, segue_minuti')"), 'il palmare sa se il suo locale e semplice e quali minuti offrire');
 });
 
-Deno.test('la bacheca all ingresso: pubblica, prima di ogni porta; solo gli articoli con la spunta, attivi e non esauriti', () => {
-  /* «un monitor all'ingresso del Bistro per far leggere i piatti del giorno» (la proprieta', 6 settembre 2026) */
+Deno.test('la bacheca all ingresso: pubblica, il giorno di Roma, i testi scritti a mano e il calice del giorno; il back office la salva', () => {
+  /* «una sezione a parte … per tutti i giorni della settimana … random dai vini a calice» (la proprieta', 6 settembre 2026) */
   const i = S.indexOf("azione === 'bacheca'");
-  assert(i > 0 && i < S.indexOf("azione === 'ospite-tavoli'"), 'sta prima del blocco ospite e di ogni sessione o chiave');
+  assert(i > 0 && i < S.indexOf("azione === 'ospite-tavoli'"), 'sta prima di ogni porta');
   const b = S.slice(i, S.indexOf("azione === 'ospite-tavoli'"));
-  assert(b.includes(".eq('attivo', true).eq('in_bacheca', true)") && b.includes('.filter((a) => !a.esaurito)'), 'la spunta, attivi, non esauriti');
-  assert(b.includes('testo: a.bacheca_testo ?? null') && b.includes('prezzo_cent: Number(a.prezzo_cent)'), 'nome, testo del giorno, prezzo');
-  assert(!b.includes('cameriere') && !b.includes('autorizzato('), 'nessuna porta: e come il menu dal QR');
+  assert(b.includes('giornoRoma(new Date())') && b.includes(".eq('giorno', oggi.giorno)"), 'il giorno e quello di Roma');
+  assert(b.includes('scegliCalice(candidatiCalice(') && b.includes('`${oggi.data}|${locale}`') && b.includes('nomeCalice('), 'il calice: a caso fra i vini al calice, lo stesso tutto il giorno');
+  assert(b.includes('a_mano: true'), 'quello scritto a mano vince');
+  assert(!b.includes('cameriere') && !b.includes('autorizzato('), 'nessuna porta');
+  const s = S.slice(S.indexOf("azione === 'bacheca-salva'"), S.indexOf("azione === 'pacchetto'"));
+  assert(s.includes("puoDalBackOffice(acc.ruolo, 'bacheca-salva')") && s.includes("onConflict: 'locale,giorno'") && s.includes('testoBacheca('), 'la salva il back office, anche il bistrot');
+  assert(S.includes("'pos_postazione', 'pos_sessione', 'pos_bacheca']"), 'e scende col resto, al PC e al back office');
 });
 
 Deno.test('il pacchetto per il PC del Bistrot: con la chiave hotel, una versione sola per volta, un file per chiamata', () => {

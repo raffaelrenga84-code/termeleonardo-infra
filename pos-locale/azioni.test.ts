@@ -612,13 +612,20 @@ Deno.test('portate semplici (il Bistrot): tutto parte insieme, il «segue» aspe
   /* il ristorante (senza la spunta) va ancora a portate: la prova sopra lo dice gia' */
 });
 
-Deno.test('la bacheca dal PC: senza sessione, solo gli articoli con la spunta, non esauriti', async () => {
+Deno.test('la bacheca dal PC: senza sessione, il giorno di Roma, primo e secondo scritti a mano, il calice a caso fra i vini al calice o quello scritto', async () => {
   const db = base();
-  db.exec(`insert into pos_articolo (id, categoria, nome, prezzo_cent, in_bacheca, bacheca_testo, aggiornato_il) values ('A3', 'C1', 'Primo del giorno', 1200, 1, 'Tagliatelle al ragù', '2026-09-06T10:00:00Z');
-    update pos_articolo set in_bacheca = 1, esaurito = 1 where id = 'A2'`);
+  db.exec(`insert into pos_categoria (id, nome, stampante, portata, aggiornato_il) values ('C3', 'Vini al calice', 'bar', 'bevande', '2026-09-06T10:00:00Z');
+    insert into pos_articolo (id, categoria, nome, prezzo_cent, aggiornato_il) values ('V1', 'C3', 'CALICE Soave DOC', 500, '2026-09-06T10:00:00Z'), ('V2', 'C3', 'Vino Cl. 0,375 Soave', 1300, '2026-09-06T10:00:00Z');
+    insert into pos_articolo (id, categoria, nome, prezzo_cent, esaurito, aggiornato_il) values ('V3', 'C3', 'CALICE Kerner', 550, 1, '2026-09-06T10:00:00Z');`);
+  for (let g = 1; g <= 7; g++) db.exec(`insert into pos_bacheca (locale, giorno, primo, secondo, aggiornato_il) values ('L1', ${g}, 'Tagliatelle al ragù', 'Brasato al Barolo', '2026-09-06T10:00:00Z')`);
   const r = await esegui(db, 'bacheca', { metodo: 'GET', query: {}, corpo: null, intestazioni: {} }, cfg);
   assertEquals(r.stato, 200);
-  const j = r.corpo as { locale: { id: string; nome: string }; piatti: { id: string; nome: string; testo: string | null; prezzo_cent: number; categoria: string | null }[] };
+  const j = r.corpo as { locale: { id: string; nome: string }; oggi: { giorno: number; nome: string; data: string }; primo: string | null; secondo: string | null; calice: unknown };
   assertEquals(j.locale, { id: 'L1', nome: 'Bistrot' });
-  assertEquals(j.piatti, [{ id: 'A3', nome: 'Primo del giorno', testo: 'Tagliatelle al ragù', prezzo_cent: 1200, categoria: 'Primi' }]);
+  assert(j.oggi.giorno >= 1 && j.oggi.giorno <= 7 && /^\d{4}-\d\d-\d\d$/.test(j.oggi.data), JSON.stringify(j.oggi));
+  assertEquals([j.primo, j.secondo], ['Tagliatelle al ragù', 'Brasato al Barolo']);
+  assertEquals(j.calice, { nome: 'Soave DOC', prezzo_cent: 500, a_mano: false }, 'l unico candidato: non la mezza bottiglia, non l esaurito');
+  db.exec(`update pos_bacheca set calice = 'Prosecco di casa' where locale = 'L1' and giorno = ${j.oggi.giorno}`);
+  const r2 = await esegui(db, 'bacheca', { metodo: 'GET', query: {}, corpo: null, intestazioni: {} }, cfg);
+  assertEquals((r2.corpo as { calice: unknown }).calice, { nome: 'Prosecco di casa', prezzo_cent: null, a_mano: true }, 'quello scritto a mano vince');
 });

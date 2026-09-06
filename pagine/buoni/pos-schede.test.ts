@@ -105,7 +105,7 @@ Deno.test('le postazioni, dopo la rilettura: ripiego in bianco, locali gia salva
 });
 
 Deno.test('le schede stanno in quattro famiglie: Buoni, Ospiti, Day Spa, POS', () => {
-  assert(P.includes('const FAMIGLIE = [') && P.includes("['pos', 'POS', ['posOrdiniQr', 'posAddebiti', 'posGiornata', 'posMenu', 'posTavoli', 'posPersonale', 'posFasce']]"), 'la famiglia del POS');
+  assert(P.includes('const FAMIGLIE = [') && P.includes("['pos', 'POS', ['posOrdiniQr', 'posAddebiti', 'posGiornata', 'posMenu', 'posBacheca', 'posTavoli', 'posPersonale', 'posFasce']]"), 'la famiglia del POS');
   assert(P.includes('class="famiglie"') && P.includes('const famigliaDi = (scheda) =>'), 'la barra delle famiglie');
   for (const f of ["['buoni', 'Buoni', ['emetti', 'elenco', 'verifica']]", "['ospiti', 'Ospiti', ['richieste', 'arrivi', 'privacy']]", "['dayspa', 'Day Spa', ['dayspaOggi', 'dayspaDisponibilita', 'dayspaPrenotazioni']]"]) assert(P.includes(f), f);
 });

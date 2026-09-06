@@ -45,7 +45,6 @@ create table if not exists pos_categoria (
   aggiornato_il text not null default ${ORA});
 create table if not exists pos_articolo (
   nomi text, descrizioni text, allergeni text, orari text, per_ospiti integer not null default 1, senza_glutine integer not null default 0, vegetariano integer not null default 0, vegano integer not null default 0, senza_lattosio integer not null default 0,
-  in_bacheca integer not null default 0, bacheca_testo text,
   id text primary key, categoria text not null, nome text not null, prezzo_cent integer not null default 0,
   iva integer not null default 10, portata text, stampante text, prezzo_libero integer not null default 0,
   incluso_trattamento integer not null default 0, conto_ricavo text, esaurito integer not null default 0,
@@ -122,6 +121,9 @@ create table if not exists pos_meta (chiave text primary key, valore text);
    Qui restano gli id tolti finche' il cloud non li ha tolti anche lui. */
 create table if not exists pos_eliminato (
   id text primary key, tabella text not null, quando text not null default ${ORA});
+create table if not exists pos_bacheca (
+  locale text not null, giorno integer not null, primo text, secondo text, calice text,
+  aggiornato_il text not null default ${ORA}, primary key (locale, giorno));
 create index if not exists pos_riga_conto on pos_riga(conto);
 create index if not exists pos_stampa_stato on pos_stampa(stato);
 `);
@@ -160,7 +162,7 @@ create index if not exists pos_stampa_stato on pos_stampa(stato);
   const art = colonneDi(db, 'pos_articolo');
   const nuoveArt: [string, string][] = [['locale_stampa', 'text'], ['nomi', 'text'], ['descrizioni', 'text'], ['allergeni', 'text'], ['orari', 'text'],
     ['per_ospiti', 'integer not null default 1'], ['senza_glutine', 'integer not null default 0'], ['vegetariano', 'integer not null default 0'],
-    ['vegano', 'integer not null default 0'], ['senza_lattosio', 'integer not null default 0'], ['in_bacheca', 'integer not null default 0'], ['bacheca_testo', 'text']];
+    ['vegano', 'integer not null default 0'], ['senza_lattosio', 'integer not null default 0']];
   for (const [c, tipo] of nuoveArt) if (!art.includes(c)) db.exec(`alter table pos_articolo add column ${c} ${tipo}`);
   colonne.delete('pos_articolo');
 }

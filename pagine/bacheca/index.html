@@ -6,49 +6,58 @@
 <meta name="robots" content="noindex, nofollow" />
 <title>Bacheca — Hotel Terme Leonardo</title>
 <!-- ============================================================
-     La bacheca all'ingresso del Bistrot: i piatti del giorno su una TV.
+     La bacheca all'ingresso del Bistrot, su una TV da 32 pollici.
 
-     «un monitor da posizionare all'ingresso del Bistro per far leggere i
-     piatti del giorno» (la proprieta', 6 settembre 2026). Mostra gli
-     articoli con la spunta «bacheca» nel back office (POS · Menù): nome,
-     testo del giorno, prezzo. Si aggiorna da sola ogni minuto.
+     «una sezione a parte dove uno puo' scrivere a mano, per tutti i giorni
+     della settimana, il primo del giorno e il secondo del giorno; e
+     prendi random dai vini a calice il consigliato, con un'icona di
+     calice, impaginato bene» (la proprieta', 6 settembre 2026). I testi
+     stanno in POS · Bacheca nel back office; il calice lo sceglie il
+     server fra i «Vini al calice», lo stesso per tutta la giornata, salvo
+     quello scritto a mano. Si aggiorna da sola ogni minuto.
 
      Scritta apposta SENZA moduli, frecce, const/let, fetch: le TV hanno
-     browser vecchi (quella della cucina non apriva la pagina moderna) e
-     questa deve aprirsi ovunque, senza traduzioni. Dal sito parla col
+     browser vecchi e questa deve aprirsi ovunque. Dal sito parla col
      cloud; aperta dal PC del Bistrot (http://IP:8080/bacheca) parla col
      PC, cosi' resta accesa anche senza internet.
      ============================================================ -->
 <style>
 html,body{height:100%;}
 body{margin:0;background:#FBF7EF;color:#1E2A24;font-family:Georgia,'Times New Roman',serif;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;overflow:hidden;}
-header{padding:3vh 5vw 1.5vh;border-bottom:2px solid #C9A961;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;}
-header h1{margin:0;font-size:4.2vw;font-weight:normal;letter-spacing:.02em;}
-header h1 small{display:block;font-size:2.2vw;color:#7A6A3C;letter-spacing:.14em;text-transform:uppercase;margin-bottom:.6vh;}
-header .data{text-align:right;font-size:2.1vw;color:#5B5347;}
-header .data b{display:block;font-size:3vw;color:#1E2A24;font-weight:normal;}
-main{-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:2vh 5vw;overflow:hidden;}
-.piatto{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;padding:2.4vh 0;border-bottom:1px solid #E6DCC6;}
-.piatto:last-child{border-bottom:0;}
-.piatto .testo{-webkit-box-flex:1;-webkit-flex:1;flex:1;min-width:0;}
-.piatto .cat{font-size:1.9vw;color:#7A6A3C;letter-spacing:.12em;text-transform:uppercase;}
-.piatto .nome{font-size:4.4vw;line-height:1.15;}
-.piatto .oggi{font-size:3vw;color:#3E4A43;margin-top:.6vh;line-height:1.25;}
-.piatto .prezzo{font-size:3.8vw;white-space:nowrap;margin-left:4vw;padding-top:1vh;}
-.vuoto{font-size:3vw;color:#7A6A3C;padding:8vh 0;text-align:center;}
-footer{padding:1.2vh 5vw 2vh;font-size:1.6vw;color:#8A8274;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;}
+header{padding:2.6vh 5vw 1.4vh;border-bottom:2px solid #C9A961;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;}
+header h1{margin:0;font-size:4vw;font-weight:normal;letter-spacing:.02em;}
+header h1 small{display:block;font-size:1.9vw;color:#7A6A3C;letter-spacing:.16em;text-transform:uppercase;margin-bottom:.4vh;}
+header .data{text-align:right;font-size:2vw;color:#5B5347;}
+header .data b{display:block;font-size:2.8vw;color:#1E2A24;font-weight:normal;}
+main{-webkit-box-flex:1;-webkit-flex:1;flex:1;padding:1vh 5vw;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:justify;-webkit-justify-content:space-around;justify-content:space-around;overflow:hidden;}
+.piatto{padding:1vh 0;}
+.eti{font-size:2vw;color:#7A6A3C;letter-spacing:.18em;text-transform:uppercase;}
+.piatto .testo{font-size:5vw;line-height:1.12;margin-top:.6vh;}
+.piatto .testo div+div{font-size:3.4vw;color:#3E4A43;margin-top:.4vh;}
+.calice{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;background:#F1E8D6;border:1px solid #E0D2B4;border-radius:1.2vw;padding:1.6vh 3vw;margin:1vh 0;}
+.calice svg{width:6.5vw;height:6.5vw;margin-right:3vw;-webkit-flex-shrink:0;flex-shrink:0;}
+.calice .dentro{-webkit-box-flex:1;-webkit-flex:1;flex:1;min-width:0;}
+.calice .nome{font-size:3.6vw;line-height:1.15;margin-top:.4vh;}
+.calice .prezzo{font-size:3.4vw;white-space:nowrap;margin-left:3vw;color:#1E2A24;}
+.vuoto{font-size:3vw;color:#7A6A3C;text-align:center;padding:6vh 0;}
+footer{padding:1vh 5vw 1.8vh;font-size:1.5vw;color:#8A8274;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;}
 footer .rosso{color:#B0413E;}
-/* piu' di quattro piatti: si stringe, cosi' entrano tutti senza scorrere */
-body.tanti .piatto{padding:1.4vh 0;}
-body.tanti .piatto .nome{font-size:3.4vw;}
-body.tanti .piatto .oggi{font-size:2.3vw;}
-body.tanti .piatto .prezzo{font-size:3vw;}
+[hidden]{display:none !important;}
 </style>
 </head>
 <body>
 <header><h1><small>Hotel Terme Leonardo</small><span id="titolo">Bistrot</span></h1><div class="data"><b id="ora">--:--</b><span id="giorno"></span></div></header>
-<main id="lista"><div class="vuoto">Un momento…</div></main>
-<footer><span>Piatti del giorno</span><span id="stato"></span></footer>
+<main id="lista">
+  <div class="vuoto" id="attesa">Un momento…</div>
+  <section class="piatto" id="bPrimo" hidden><div class="eti">Primo del giorno</div><div class="testo" id="primo"></div></section>
+  <section class="piatto" id="bSecondo" hidden><div class="eti">Secondo del giorno</div><div class="testo" id="secondo"></div></section>
+  <section class="calice" id="bCalice" hidden>
+    <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M18 4h28l-2 24c-1 8-6 13-12 13s-11-5-12-13L18 4z" fill="#8E2C3B"/><path d="M18 4h28l-1 12H19L18 4z" fill="#F3E6D8" opacity=".55"/><path d="M32 41v14M20 58h24" stroke="#7A6A3C" stroke-width="3.5" stroke-linecap="round" fill="none"/></svg>
+    <div class="dentro"><div class="eti">Il calice consigliato</div><div class="nome" id="caliceNome"></div></div>
+    <div class="prezzo" id="calicePrezzo"></div>
+  </section>
+</main>
+<footer><span id="pie">Bacheca del giorno</span><span id="stato"></span></footer>
 <script>
 (function () {
   var CLOUD = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos';
@@ -64,6 +73,13 @@ body.tanti .piatto .prezzo{font-size:3vw;}
   function esc(s) { return String(s === null || s === undefined ? '' : s).replace(/[&<>"]/g, function (c) { return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;'; }); }
   function due(n) { return (n < 10 ? '0' : '') + n; }
   function euro(cent) { return (Number(cent) / 100).toFixed(2).replace('.', ',') + ' €'; }
+  /* un testo scritto a capo nel back office: ogni riga un rigo, la prima grande */
+  function righe(t) {
+    var parti = String(t || '').split(/\r?\n/), h = '';
+    for (var i = 0; i < parti.length; i++) if (parti[i]) h += '<div>' + esc(parti[i]) + '</div>';
+    return h;
+  }
+  function mostra(id, si) { $(id).hidden = !si; if (si) $(id).removeAttribute('hidden'); else $(id).setAttribute('hidden', ''); }
   function orologio() {
     var d = new Date();
     $('ora').textContent = due(d.getHours()) + ':' + due(d.getMinutes());
@@ -72,20 +88,18 @@ body.tanti .piatto .prezzo{font-size:3vw;}
     if (d.getHours() === 4 && d.getMinutes() === 0 && ultimo !== null) location.reload();
   }
   function disegna(j) {
-    var piatti = j.piatti || [];
     $('titolo').textContent = (j.locale && j.locale.nome) ? j.locale.nome : 'Bistrot';
-    document.body.className = piatti.length > 4 ? 'tanti' : '';
-    if (!piatti.length) { $('lista').innerHTML = '<div class="vuoto">Oggi niente in bacheca</div>'; return; }
-    var h = '';
-    for (var i = 0; i < piatti.length; i++) {
-      var p = piatti[i];
-      h += '<div class="piatto"><div class="testo">' +
-        (p.categoria ? '<div class="cat">' + esc(p.categoria) + '</div>' : '') +
-        '<div class="nome">' + esc(p.nome) + '</div>' +
-        (p.testo ? '<div class="oggi">' + esc(p.testo) + '</div>' : '') +
-        '</div><div class="prezzo">' + euro(p.prezzo_cent) + '</div></div>';
+    var primo = j.primo || '', secondo = j.secondo || '', calice = j.calice || null;
+    mostra('attesa', !primo && !secondo && !calice);
+    $('attesa').textContent = 'Oggi niente in bacheca';
+    mostra('bPrimo', !!primo); $('primo').innerHTML = righe(primo);
+    mostra('bSecondo', !!secondo); $('secondo').innerHTML = righe(secondo);
+    mostra('bCalice', !!calice);
+    if (calice) {
+      $('caliceNome').textContent = calice.nome || '';
+      $('calicePrezzo').textContent = calice.prezzo_cent === null || calice.prezzo_cent === undefined ? '' : euro(calice.prezzo_cent);
     }
-    $('lista').innerHTML = h;
+    $('pie').textContent = j.oggi && j.oggi.nome ? 'Bacheca di ' + j.oggi.nome : 'Bacheca del giorno';
   }
   function carica() {
     var x = new XMLHttpRequest();
@@ -98,7 +112,7 @@ body.tanti .piatto .prezzo{font-size:3vw;}
       }
       $('stato').textContent = ultimo ? 'non risponde: mostro le ' + due(ultimo.getHours()) + ':' + due(ultimo.getMinutes()) : 'non risponde';
       $('stato').className = 'rosso';
-      if (!ultimo) $('lista').innerHTML = '<div class="vuoto">La bacheca non risponde</div>';
+      if (!ultimo) { mostra('attesa', true); $('attesa').textContent = 'La bacheca non risponde'; }
     };
     x.send();
   }
