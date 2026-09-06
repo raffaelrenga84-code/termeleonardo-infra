@@ -13,6 +13,22 @@
    ============================================================ */
 (() => {
   'use strict';
+
+  /* Le barre dell'estensione sulla pagina del POS di Fidra (questa e quella
+     dell'altro script: menu' e sala) stanno in UNA colonna in basso a
+     sinistra, una sotto l'altra. Messe ognuna per conto suo nello stesso
+     angolo si coprivano («vedo i pulsanti sormontati», la proprieta', 6
+     settembre 2026). La prima che arriva crea la colonna, l'altra ci entra. */
+  function colonnaBarre() {
+    let c = document.getElementById('leoBarre');
+    if (!c) {
+      c = document.createElement('div');
+      c.id = 'leoBarre';
+      c.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99999;display:flex;flex-direction:column;gap:8px;align-items:flex-start;';
+      document.body.appendChild(c);
+    }
+    return c;
+  }
   const ID = 'leoSalaBarra';
   if (document.getElementById(ID)) return;
   const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos?a=importa-sala';
@@ -122,8 +138,9 @@
     const { posLocaleImport } = await chrome.storage.local.get(['posLocaleImport']);
     const barra = document.createElement('div');
     barra.id = ID;
-    barra.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99999;background:#1A3626;color:#fff;padding:8px 12px;border-radius:8px;font:14px system-ui,sans-serif;display:flex;gap:8px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.25);max-width:640px;flex-wrap:wrap;';
-    const stileCampo = 'font:inherit;padding:5px 8px;border-radius:6px;border:0;width:110px;';
+    barra.style.cssText = 'background:#1A3626;color:#fff;padding:8px 12px;border-radius:8px;font:14px system-ui,sans-serif;display:flex;gap:8px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.25);max-width:640px;flex-wrap:wrap;';
+    /* colori propri: senza, i campi prendevano quelli di Fidra e il testo spariva */
+    const stileCampo = 'font:inherit;padding:5px 8px;border-radius:6px;border:0;width:110px;color:#1A3626;background:#fff;-webkit-text-fill-color:#1A3626;';
     const locale = document.createElement('input');
     locale.id = 'leoSalaLocale';
     locale.value = posLocaleImport || 'bistrot';
@@ -143,7 +160,7 @@
     stato.style.cssText = 'flex-basis:100%;';
     b.onclick = () => { b.disabled = true; manda(stato, locale, zona).catch((e) => { stato.textContent = 'Errore: ' + e.message; }).finally(() => { b.disabled = false; }); };
     barra.append(locale, zona, b, stato);
-    document.body.appendChild(barra);
+    colonnaBarre().appendChild(barra);
     const stile = document.createElement('style');
     stile.textContent = '@media print{#' + ID + '{display:none !important;}}';
     document.head.appendChild(stile);

@@ -19,6 +19,22 @@
    ============================================================ */
 (() => {
   'use strict';
+
+  /* Le barre dell'estensione sulla pagina del POS di Fidra (questa e quella
+     dell'altro script: menu' e sala) stanno in UNA colonna in basso a
+     sinistra, una sotto l'altra. Messe ognuna per conto suo nello stesso
+     angolo si coprivano («vedo i pulsanti sormontati», la proprieta', 6
+     settembre 2026). La prima che arriva crea la colonna, l'altra ci entra. */
+  function colonnaBarre() {
+    let c = document.getElementById('leoBarre');
+    if (!c) {
+      c = document.createElement('div');
+      c.id = 'leoBarre';
+      c.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99999;display:flex;flex-direction:column;gap:8px;align-items:flex-start;';
+      document.body.appendChild(c);
+    }
+    return c;
+  }
   const ID = 'leoPosMenuBarra';
   if (document.getElementById(ID)) return;
   const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos?a=importa-menu';
@@ -146,7 +162,7 @@
     raccolto = await leggi();
     const barra = document.createElement('div');
     barra.id = ID;
-    barra.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99999;background:#1A3626;color:#fff;padding:8px 12px;border-radius:8px;font:13px system-ui,sans-serif;display:flex;gap:8px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.25);max-width:520px;flex-wrap:wrap;';
+    barra.style.cssText = 'background:#1A3626;color:#fff;padding:8px 12px;border-radius:8px;font:13px system-ui,sans-serif;display:flex;gap:8px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.25);max-width:520px;flex-wrap:wrap;';
     const stato = document.createElement('span');
     stato.id = 'leoPosMenuStato';
     stato.style.cssText = 'flex-basis:100%;';
@@ -163,7 +179,7 @@
     svuota.style.cssText = 'font:inherit;padding:6px 10px;border-radius:6px;border:1px solid #fff;background:transparent;color:#fff;cursor:pointer;';
     svuota.onclick = async () => { raccolto = { categorie: {}, nomiCategorie: raccolto.nomiCategorie }; ultimo = ''; await scrivi(raccolto); aggiorna(); };
     barra.append(invia, svuota, stato);
-    document.body.appendChild(barra);
+    colonnaBarre().appendChild(barra);
     const stile = document.createElement('style');
     stile.textContent = '@media print{#' + ID + '{display:none !important;}}';
     document.head.appendChild(stile);

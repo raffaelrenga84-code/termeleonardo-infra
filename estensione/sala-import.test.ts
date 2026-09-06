@@ -42,3 +42,12 @@ Deno.test('il manifest e almeno alla 2.29.0, quella che ha portato la sala', () 
   const [x, y] = M.version.split('.').map(Number);
   assert(x > 2 || (x === 2 && y >= 29), M.version);
 });
+
+Deno.test('la barra entra nella colonna condivisa #leoBarre e i campi hanno colori propri', () => {
+  /* nello stesso angolo della barra del menu' si coprivano («vedo i pulsanti
+     sormontati», la proprieta', 6 settembre 2026); e i campi, senza colore
+     proprio, prendevano quello di Fidra e il testo spariva */
+  assert(S.includes("getElementById('leoBarre')") && S.includes('colonnaBarre().appendChild(barra)'), 'entra nella colonna');
+  assert(!/barra\.style\.cssText = 'position:fixed/.test(S), 'la barra non si posiziona piu da sola');
+  assert(S.includes('-webkit-text-fill-color:#1A3626') && S.includes('background:#fff'), 'campi scuri su bianco, sempre');
+});

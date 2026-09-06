@@ -50,8 +50,12 @@ Deno.test('manda al POS nome, categoria e prezzo, con la chiave hotel', () => {
   assert(S.includes("a=importa-menu"), 'la stessa porta di prima');
 });
 
-Deno.test('la barra sta in basso a sinistra e sparisce in stampa', () => {
-  /* in alto a destra copriva l utente di Fidra (la proprieta', 4 set 2026) */
-  assert(S.includes('left:14px;bottom:14px'), 'in basso a sinistra');
+Deno.test('la barra sta in basso a sinistra, nella colonna condivisa con quella della sala, e sparisce in stampa', () => {
+  /* in alto a destra copriva l utente di Fidra (la proprieta', 4 set 2026);
+     nello stesso angolo della barra della sala si coprivano a vicenda
+     («vedo i pulsanti sormontati», 6 set 2026): una colonna sola, #leoBarre */
+  assert(S.includes("getElementById('leoBarre')") && S.includes('colonnaBarre().appendChild(barra)'), 'entra nella colonna');
+  assert(S.includes('left:14px;bottom:14px') && S.includes('flex-direction:column'), 'la colonna sta in basso a sinistra, una barra sotto l altra');
+  assert(!/barra\.style\.cssText = 'position:fixed/.test(S), 'la barra non si posiziona piu da sola');
   assert(S.includes('@media print'), 'e non finisce sui fogli');
 });
