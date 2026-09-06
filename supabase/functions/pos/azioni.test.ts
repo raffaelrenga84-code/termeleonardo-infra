@@ -139,8 +139,9 @@ Deno.test('un biglietto per ogni coppia locale-stampante, e il cloud stampa dove
   assert(p.includes("from('pos_locale').select('stampante_cucina, stampante_bar')"), 'la stampante e quella del locale del biglietto');
   assert(p.includes("Deno.env.get(s.stampante === 'bar' ? 'POS_STAMPANTE_BAR'"), 'le variabili restano per il collaudo a un locale solo');
   assert(c.includes("from('pos_postazione')") && c.includes('stato: statoIniziale(') && c.includes('biglietto: b,'), 'il biglietto nasce con lo stato della postazione e porta i dati');
-  assert(S.includes("'pos_postazione'"), 'le postazioni scendono al PC');
-  assert(S.includes(".in('stato', ['da_stampare', 'a_schermo'])"));
+  const giu = S.slice(S.indexOf("azione === 'allinea-giu'"), S.indexOf("azione === 'importa-menu'"));
+  assert(/const tabelle = \[[^\]]*'pos_postazione'[^\]]*\]/.test(giu), 'le postazioni scendono al PC, nell elenco tabelle di allinea-giu');
+  assert(giu.includes(".in('stato', ['da_stampare', 'a_schermo'])"));
 });
 
 Deno.test('dove non c e stampante non nasce nessun biglietto', () => {

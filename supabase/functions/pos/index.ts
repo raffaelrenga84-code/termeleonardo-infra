@@ -205,7 +205,7 @@ async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata
      bevande al Bistrot e allora il biglietto esce di la'. */
   const { data: locali } = await db.from('pos_locale').select('id, nome, stampante_cucina, stampante_bar, orari_cucina');
   const { data: postazioni } = await db.from('pos_postazione').select('*');
-  const postazioneDi = (locale: string, stampante: string) => (postazioni ?? []).find((p) => p.locale === locale && p.stampante === stampante) ?? null;
+  const postazioneDi = (dove: string, stampante: string) => (postazioni ?? []).find((p) => p.locale === dove && p.stampante === stampante) ?? null;
   const adessoOra = oraLocale(new Date());
   const nomeDelLocale = (id: string) => (locali ?? []).find((l) => l.id === id)?.nome as string ?? null;
   const gruppi = new Map<string, RigaStampabile[]>();
@@ -221,7 +221,8 @@ async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata
     /* dove non c'e' stampante non si stampa: il biglietto resterebbe in
        coda per sempre. La riga resta sul conto, e il giorno che una
        stampante arriva comincia a uscire da sola. */
-    if (!siStampa({ stampante: stampante as 'cucina' | 'bar', locale: (locali ?? []).find((l) => l.id === dove), postazione: postazioneDi(dove, stampante) })) return [];
+    const postazione = postazioneDi(dove, stampante);
+    if (!siStampa({ stampante: stampante as 'cucina' | 'bar', locale: (locali ?? []).find((l) => l.id === dove), postazione })) return [];
     const b: Biglietto = {
       tipo: tipo.toUpperCase() as Biglietto['tipo'], locale: locale.nome, tavolo: String(tavolo!.nome),
       conto: conto.tipo === 'camera' ? `Camera ${conto.camera ?? ''}`.trim() : 'Esterno',
@@ -231,7 +232,7 @@ async function creaStampe(conto: Riga, righe: RigaStampabile[], portata: Portata
       portareA: portareA({ preparaIn: dove, tavoloIn: locale.id, nomeDelLocale }),
       avviso: [avviso, stampante !== originale ? 'cucina chiusa: al bancone' : null].filter(Boolean).join(' · ') || null,
     };
-    return [{ id: crypto.randomUUID(), locale: dove, stampante, testo: testoBiglietto(b), biglietto: b, conto: conto.id, stato: statoIniziale(postazioneDi(dove, stampante)) }];
+    return [{ id: crypto.randomUUID(), locale: dove, stampante, testo: testoBiglietto(b), biglietto: b, conto: conto.id, stato: statoIniziale(postazione) }];
   });
   if (stampe.length) await db.from('pos_stampa').insert(stampe);
   await db.from('pos_comanda').insert({ id: crypto.randomUUID(), conto: conto.id, portata, tipo, righe: righe.map((r) => r.id) });
