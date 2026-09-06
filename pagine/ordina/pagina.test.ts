@@ -93,3 +93,14 @@ Deno.test('la schermata «serve il QR» e una schermata vera: disegno e due pass
   for (const l of lingue) assert(new RegExp('\\n  ' + l + ': \\{ titolo:').test(m), 'i testi in ' + l);
   for (const b of ['schermataQr(e.message)', 'schermataQr(e2.message)']) assert(m.includes(b), b);
 });
+
+Deno.test('niente conteggi sotto i quadratoni, e la scelta rapida sopra le categorie del cibo (la proprieta, 6 settembre 2026)', () => {
+  assert(!m.includes("const conta = (g) =>"), 'via i conteggi dei due quadratoni grandi');
+  assert(!/quantiIn\(c\)\}<\/span>/.test(m), 'via i conteggi dai quadratoni delle categorie');
+  assert(m.includes("from '/ordina/filtri.js'"), 'le regole in un modulo puro, provato a parte');
+  assert(m.includes("${VISTA.gruppo === 'cibo' ? pastiglieFiltri(null) : ''}"), 'le pastiglie solo sul cibo');
+  assert(m.includes('const quali = filtriDisponibili(articoliCibo());'), 'solo i filtri che hanno almeno un piatto');
+  assert(m.includes("else if (VISTA.nome === 'filtro') schermataFiltro();"), 'la schermata del filtro');
+  assert(m.includes("VISTA.nome === 'filtro' && VISTA.filtro === el.dataset.filtro ? { nome: 'categorie', gruppo: 'cibo' }"), 'la pastiglia accesa si spegne tornando alle categorie');
+  assert(m.includes('lista.map(rigaArticolo)'), 'nella schermata del filtro si ordina con i + di sempre');
+});

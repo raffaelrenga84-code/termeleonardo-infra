@@ -80,6 +80,9 @@ button{font:inherit;cursor:pointer;color:inherit;}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
 .chip{border:1px solid var(--pietra);background:#fff;border-radius:999px;padding:7px 12px;font-size:14px;color:var(--verde);}
 .chip.attiva{background:var(--verde);color:#fff;border-color:var(--verde);}
+.filtri{margin:2px 0 14px;}
+.filtri .chips{margin-top:4px;}
+.filtri .chip{font-size:15px;padding:9px 14px;}
 .notaRiga{margin-top:8px;width:100%;}
 .notaRiga input{width:100%;padding:10px 12px;font:inherit;font-size:15px;border:1px solid var(--pietra);border-radius:10px;background:#FCFBF8;}
 .aggiungiNota{border:0;background:none;color:var(--verde-medio);font-size:14px;padding:6px 0 0;text-decoration:underline;}
@@ -125,6 +128,10 @@ input.campo{width:100%;padding:13px 14px;font:inherit;font-size:18px;border:1px 
 <div class="barra" id="barra" hidden></div>
 
 <script type="module">
+/* la scelta rapida (senza glutine, vegano, senza lattosio) vive in un
+   modulo puro, provato a parte; percorso assoluto come gli altri moduli
+   delle pagine */
+import { FILTRI, filtriDisponibili, passaFiltro, TESTI_FILTRI, ICONE_FILTRI } from '/ordina/filtri.js';
 const FUNZIONE = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos';
 const P = new URLSearchParams(location.search);
 const T_ID = P.get('t') || '', K = P.get('k') || '';
@@ -237,7 +244,7 @@ const categorieRadice = () => MENU.categorie.filter((c) => !c.sotto).sort((a, b)
 const sottoDi = (id) => MENU.categorie.filter((c) => c.sotto === id).sort((a, b) => (Number(a.posizione) || 0) - (Number(b.posizione) || 0) || String(a.nome).localeCompare(String(b.nome), 'it'));
 const articoliDi = (id) => MENU.articoli.filter((a) => a.categoria === id).sort((a, b) => (Number(a.posizione) || 0) - (Number(b.posizione) || 0) || String(a.nome).localeCompare(String(b.nome), 'it'));
 const quantiIn = (c) => articoliDi(c.id).length + sottoDi(c.id).reduce((t, s) => t + articoliDi(s.id).length, 0);
-const quadro = (c) => `<button class="quadro" data-cat="${esc(c.id)}"><span class="icona">${icona(c.nome)}</span><span><b>${esc(nomeDi(c))}</b><br><span class="mini">${c.disponibile === false ? '🕒 ' + esc(orarioTesto(c.finestre)) : quantiIn(c)}</span></span></button>`;
+const quadro = (c) => `<button class="quadro" data-cat="${esc(c.id)}"><span class="icona">${icona(c.nome)}</span><span><b>${esc(nomeDi(c))}</b>${c.disponibile === false ? `<br><span class="mini">🕒 ${esc(orarioTesto(c.finestre))}</span>` : ''}</span></button>`;
 
 /* Prima «da mangiare» o «da bere», poi la categoria: venticinque quadratoni
    in una volta erano troppi («conviene dividere meglio se cibo o bevande, per
@@ -260,18 +267,48 @@ const schermataCategorie = () => {
   const tutte = categorieRadice().filter((c) => quantiIn(c) > 0);
   const fascia = MENU.fascia ? `<div class="fascia">★ ${esc(T().fascia(MENU.fascia.nome, MENU.fascia.alle))}</div>` : '';
   if (!VISTA.gruppo) {
-    const conta = (g) => tutte.filter((c) => gruppoDi(c) === g).reduce((n, c) => n + quantiIn(c), 0);
+    /* niente conteggi sotto i quadratoni: «51» e «308» non dicono niente
+       all'ospite (la proprieta', 6 settembre 2026) */
     $('app').innerHTML = `<h1>${esc(T().benvenuto)}</h1><p class="sotto">${esc(T().scegli)}</p>${fascia}
       <div class="griglia">
-        <button class="quadro grande" data-gruppo="cibo"><span class="icona">🍽️</span><span><b>${esc(GT().cibo)}</b><br><span class="mini">${conta('cibo')}</span></span></button>
-        <button class="quadro grande" data-gruppo="bere"><span class="icona">🍹</span><span><b>${esc(GT().bere)}</b><br><span class="mini">${conta('bere')}</span></span></button></div>`;
+        <button class="quadro grande" data-gruppo="cibo"><span class="icona">🍽️</span><span><b>${esc(GT().cibo)}</b></span></button>
+        <button class="quadro grande" data-gruppo="bere"><span class="icona">🍹</span><span><b>${esc(GT().bere)}</b></span></button></div>`;
     return;
   }
   const cats = tutte.filter((c) => gruppoDi(c) === VISTA.gruppo);
   $('app').innerHTML = `<button class="indietro" id="indietro">‹ ${esc(T().indietro)}</button>
     <h1>${VISTA.gruppo === 'cibo' ? '🍽️' : '🍹'} ${esc(GT()[VISTA.gruppo])}</h1>${fascia}
+    ${VISTA.gruppo === 'cibo' ? pastiglieFiltri(null) : ''}
     <div class="griglia">${cats.map(quadro).join('')}</div>`;
   $('indietro').onclick = () => { VISTA = { nome: 'categorie' }; disegna(); };
+};
+/* ---------- la scelta rapida: senza glutine, vegano, senza lattosio ----------
+   «Un filtro fuori da tutto, cosi' fanno prima a scegliere» (la proprieta',
+   6 settembre 2026). Le pastiglie stanno sopra le categorie del cibo; si
+   mostrano solo quelle che hanno almeno un piatto. Un tocco apre l'elenco
+   piatto dei piatti che passano, con i + di sempre; lo stesso tocco sulla
+   pastiglia accesa torna alle categorie. Le regole stanno in filtri.js. */
+const FT = () => TESTI_FILTRI[LINGUA] || TESTI_FILTRI.it;
+const articoliCibo = () => MENU.articoli.filter((a) => { const c = MENU.categorie.find((x) => x.id === a.categoria); return c && gruppoDi(c) === 'cibo'; });
+const pastiglieFiltri = (attivo) => {
+  const quali = filtriDisponibili(articoliCibo());
+  if (!quali.length) return '';
+  return `<div class="filtri"><span class="mini">${esc(FT().titolo)}</span><div class="chips">${quali.map((k) => `<button type="button" class="chip ${k === attivo ? 'attiva' : ''}" data-filtro="${k}">${ICONE_FILTRI[k]} ${esc(FT()[k])}</button>`).join('')}</div></div>`;
+};
+const schermataFiltro = () => {
+  const k = FILTRI.includes(VISTA.filtro) ? VISTA.filtro : FILTRI[0];
+  const arts = articoliCibo().filter((a) => passaFiltro(a, k));
+  /* raggruppati per categoria, nell'ordine del menu, cosi' l'ospite capisce
+     dove sta ogni piatto */
+  const perCat = new Map();
+  for (const a of arts) { const c = MENU.categorie.find((x) => x.id === a.categoria); const nome = c ? nomeDi(c) : ''; if (!perCat.has(nome)) perCat.set(nome, []); perCat.get(nome).push(a); }
+  const fascia = MENU.fascia ? `<div class="fascia">★ ${esc(T().fascia(MENU.fascia.nome, MENU.fascia.alle))}</div>` : '';
+  $('app').innerHTML = `<button class="indietro" id="indietro">‹ ${esc(T().indietro)}</button>
+    <h1>${ICONE_FILTRI[k]} ${esc(FT()[k])}</h1>${fascia}
+    ${pastiglieFiltri(k)}
+    ${arts.length ? [...perCat.entries()].map(([nome, lista]) => `<p class="sotto" style="margin:14px 0 6px;">${esc(nome)}</p><div class="lista">${lista.map(rigaArticolo).join('')}</div>`).join('') : `<p class="sotto">${esc(FT().nessuno)}</p>`}
+    ${arts.some((a) => a.allergeni) ? `<p class="mini" style="margin-top:14px;">${esc(LEGENDA_ALLERGENI[LINGUA])}</p>` : ''}`;
+  $('indietro').onclick = () => { VISTA = { nome: 'categorie', gruppo: 'cibo' }; disegna(); };
 };
 /* Il nome per l'ospite: nella sua lingua, se manca in italiano, se manca quello del
    POS. Sotto gli ingredienti; gli allergeni come le sigle del menu stampato
@@ -456,6 +493,7 @@ const disegna = () => {
   if (VISTA.nome === 'tavolo') { schermataScegliTavolo(VISTA.dati); barra(); return; }
   if (VISTA.nome === 'categorie') schermataCategorie();
   else if (VISTA.nome === 'articoli') { const c = MENU.categorie.find((x) => x.id === VISTA.categoria); c ? schermataArticoli(c) : schermataCategorie(); }
+  else if (VISTA.nome === 'filtro') schermataFiltro();
   else if (VISTA.nome === 'carrello') schermataCarrello();
   else if (VISTA.nome === 'camera') schermataCamera();
   else if (VISTA.nome === 'grazie') schermataGrazie();
@@ -476,6 +514,7 @@ document.addEventListener('click', (ev) => {
     aggiornaRiga(el.dataset.chipArt); return;
   }
   if (el.dataset.gruppo) { VISTA = { nome: 'categorie', gruppo: el.dataset.gruppo }; disegna(); return; }
+  if (el.dataset.filtro) { VISTA = VISTA.nome === 'filtro' && VISTA.filtro === el.dataset.filtro ? { nome: 'categorie', gruppo: 'cibo' } : { nome: 'filtro', filtro: el.dataset.filtro }; disegna(); return; }
   if (el.dataset.cat) { VISTA = { nome: 'articoli', categoria: el.dataset.cat }; disegna(); return; }
   if (el.dataset.piu) { metti(el.dataset.piu, quantita(el.dataset.piu) + 1); aggiornaRiga(el.dataset.piu); return; }
   if (el.dataset.meno) { metti(el.dataset.meno, quantita(el.dataset.meno) - 1); aggiornaRiga(el.dataset.meno); return; }

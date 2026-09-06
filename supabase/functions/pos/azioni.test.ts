@@ -251,7 +251,7 @@ Deno.test('il menu per l ospite porta i nomi tradotti, le descrizioni e gli alle
   /* spec docs/superpowers/specs/2026-09-05-menu-ospiti-design.md */
   const o = S.slice(S.indexOf("azione === 'ospite-menu'"), S.indexOf("azione === 'ospite-stato'"));
   assert(o.includes("select('id, nome, posizione, colore, sotto, per_ospiti, note_rapide, nomi, orari, stampante').eq('attiva', true)"), 'categorie con nomi');
-  assert(o.includes("select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, nomi, descrizioni, allergeni, orari, per_ospiti').eq('attivo', true)"), 'articoli con nomi, descrizioni, allergeni');
+  assert(o.includes("select('id, categoria, nome, prezzo_cent, portata, esaurito, prezzo_libero, nomi, descrizioni, allergeni, orari, per_ospiti, vegano').eq('attivo', true)"), 'articoli con nomi, descrizioni, allergeni');
 });
 
 Deno.test('gli orari del menu: il menu per l ospite dice cosa e ordinabile adesso, e l ordine fuori orario si ferma', () => {
@@ -276,7 +276,7 @@ Deno.test('a cucina chiusa (pos_locale.orari_cucina) il biglietto della cucina e
 Deno.test('«ospiti (QR)» sul singolo articolo: il palmare vede tutto, l ospite solo cio che il Bistrot ha davvero', () => {
   /* la proprieta', 5 settembre 2026: l acqua del Bistrot e solo la Tavina da mezzo litro */
   const o = S.slice(S.indexOf("azione === 'ospite-menu'"), S.indexOf("azione === 'ospite-stato'"));
-  assert(o.includes("nomi, descrizioni, allergeni, orari, per_ospiti').eq('attivo', true)"), 'si legge la spunta');
+  assert(o.includes("nomi, descrizioni, allergeni, orari, per_ospiti, vegano').eq('attivo', true)"), 'si legge la spunta');
   assert(o.includes('&& !a.prezzo_libero && !a.esaurito && a.per_ospiti !== false)'), 'nel menu dell ospite non compare');
   const ord = S.slice(S.indexOf('/* ospite-ordine */'), S.indexOf('/* ================= dal palmare'));
   assert(ord.includes("prezzo_libero, attivo, per_ospiti, orari, cat:pos_categoria(") && ord.includes('c.per_ospiti !== false && a.per_ospiti !== false;'), 'e non si ordina nemmeno a mano');

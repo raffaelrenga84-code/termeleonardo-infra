@@ -43,7 +43,7 @@ create table if not exists pos_categoria (
   note_rapide text not null default '[]', fidra_id text, locale_stampa text, attiva integer not null default 1,
   aggiornato_il text not null default ${ORA});
 create table if not exists pos_articolo (
-  nomi text, descrizioni text, allergeni text, orari text, per_ospiti integer not null default 1,
+  nomi text, descrizioni text, allergeni text, orari text, per_ospiti integer not null default 1, vegano integer not null default 0,
   id text primary key, categoria text not null, nome text not null, prezzo_cent integer not null default 0,
   iva integer not null default 10, portata text, stampante text, prezzo_libero integer not null default 0,
   incluso_trattamento integer not null default 0, conto_ricavo text, esaurito integer not null default 0,
