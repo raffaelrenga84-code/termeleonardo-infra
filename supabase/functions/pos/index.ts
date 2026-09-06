@@ -62,7 +62,7 @@ const MARGINE_OSPITI = 10;
 import { chiaveStripe, dividiParametri, firmaValida, parametriLink, segretoWebhook, STRIPE } from './stripe.ts';
 import { motivoDelPrezzo, motivoPulito, prezzoCambiato } from './motivi.ts';
 import { localeChePrepara, portareA, siStampa } from './dove.ts';
-import { chiaveCasuale, daMostrare, daRipiegare, impronta, inizioGiornata, passo, prontoInCucina, statoIniziale } from './schermo.ts';
+import { chiaveCasuale, daMostrare, daRipiegare, impronta, inizioGiornata, passo, prontoInCucina, RIPIEGO_S, statoIniziale } from './schermo.ts';
 import { categoriaVino } from './vini.ts';
 import { chiaveNome, leggiSala } from './sala.ts';
 import { puo, type Ruolo as RuoloPos } from './permessi.ts';
@@ -1140,6 +1140,7 @@ Deno.serve(async (req) => {
   if (azione === 'schermo') {
     const p = await postazioneDelloSchermo(req, url);
     if (!p) return risposta({ errore: 'schermo non riconosciuto' }, 401);
+    if (req.method !== 'GET') return risposta({ errore: 'metodo non ammesso' }, 405);
     const ora = new Date();
     const inizio = inizioGiornata(ora, oraLocale(ora).minuti);
     const { data: stampe } = await db.from('pos_stampa').select('id, stato, creato_il, vista_il, presa_il, pronta_il, biglietto, testo, stampante, conto')
@@ -1205,9 +1206,14 @@ Deno.serve(async (req) => {
     const vivi = new Set((battiti ?? []).filter((b) => Date.now() - new Date(b.visto_il as string).getTime() < 90 * 1000).map((b) => b.locale as string));
     /* uno schermo spento non fa perdere niente: la carta esce dopo
        ripiego_s secondi; per i locali col PC vivo lo fa il PC (stampa.ts) */
-    const { data: postazioni } = await db.from('pos_postazione').select('*');
+    const { data: postazioni } = await db.from('pos_postazione').select('locale, stampante, ripiego_s');
     const postazioneDi = (dove: string, stampante: string) => (postazioni ?? []).find((p) => p.locale === dove && p.stampante === stampante) ?? null;
-    const { data: aSchermo } = await db.from('pos_stampa').select('id, locale, stampante, stato, vista_il, creato_il').eq('stato', 'a_schermo').is('vista_il', null).order('creato_il').limit(50);
+    /* solo la giornata di oggi: senza questo limite, con ripiego_s = 0
+       («mai») e uno schermo spento le righe non escono mai da questo
+       insieme e la finestra di 50 resta occupata per sempre — gli altri
+       locali smettono di essere esaminati */
+    const inizioOggi = inizioGiornata(new Date(), oraLocale(new Date()).minuti);
+    const { data: aSchermo } = await db.from('pos_stampa').select('id, locale, stampante, stato, vista_il, creato_il').eq('stato', 'a_schermo').is('vista_il', null).gte('creato_il', inizioOggi.toISOString()).order('creato_il').limit(50);
     let ripiegate = 0;
     for (const s of aSchermo ?? []) {
       if (vivi.has(s.locale as string)) continue;
@@ -1684,11 +1690,21 @@ Deno.serve(async (req) => {
     const ora = adesso();
     const righe = Array.isArray(b.postazioni) ? b.postazioni as Riga[] : [];
     const chiavi: { locale: string; stampante: string; nome: string; chiave: string }[] = [];
+    /* si valida tutto PRIMA di scrivere: con [valida, invalida] la prima
+       non deve gia' essere in banca dati quando la seconda respinge */
+    for (const p of righe) {
+      const locale = String(p.locale ?? ''), stampante = String(p.stampante ?? '');
+      if (!locale || !['cucina', 'bar'].includes(stampante)) return risposta({ errore: 'ogni postazione ha locale e stampante (cucina o bar)' }, 400);
+    }
     try {
       for (const p of righe) {
         const locale = String(p.locale ?? ''), stampante = String(p.stampante ?? '');
-        if (!locale || !['cucina', 'bar'].includes(stampante)) return risposta({ errore: 'ogni postazione ha locale e stampante (cucina o bar)' }, 400);
-        const riga: Riga = { locale, stampante, nome: String(p.nome ?? '').trim() || `${locale} ${stampante}`, schermo: !!p.schermo, stampa_sempre: p.stampa_sempre !== false, ripiego_s: Math.max(0, Number(p.ripiego_s ?? 30) || 0), aggiornato_il: ora };
+        /* un valore non numerico ("" o "trenta") torna al default, non a
+           zero: zero significa «mai la carta», che non e' quello che si
+           voleva scrivendo un valore sbagliato */
+        const n = Number(p.ripiego_s);
+        const ripiego_s = Number.isFinite(n) ? Math.max(0, Math.round(n)) : RIPIEGO_S;
+        const riga: Riga = { locale, stampante, nome: String(p.nome ?? '').trim() || `${locale} ${stampante}`, schermo: !!p.schermo, stampa_sempre: p.stampa_sempre !== false, ripiego_s, aggiornato_il: ora };
         /* la chiave si vede una volta sola: qui resta l'impronta */
         if (p.nuova_chiave) { const chiave = chiaveCasuale(); riga.chiave_hash = await impronta(chiave); chiavi.push({ locale, stampante, nome: String(riga.nome), chiave }); }
         else { const { data: e } = await db.from('pos_postazione').select('chiave_hash').eq('locale', locale).eq('stampante', stampante).maybeSingle(); riga.chiave_hash = e?.chiave_hash ?? null; }
