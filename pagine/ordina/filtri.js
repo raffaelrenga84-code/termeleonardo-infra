@@ -1,60 +1,61 @@
 /* ============================================================
-   filtri.js — la scelta rapida del menu dal QR: senza glutine, vegano,
-   senza lattosio.
+   filtri.js — la scelta rapida del menu dal QR: senza glutine,
+   vegetariano, vegano, senza lattosio.
 
-   «Metterei un filtro fuori da tutto: prodotti senza glutine, prodotti
-   vegani e prodotti senza lattosio, cosi' fanno prima a scegliere; sono
-   due o tre prodotti» (la proprieta', 6 settembre 2026).
+   «Metterei un filtro fuori da tutto: prodotti senza glutine, vegani e senza
+   lattosio, cosi' fanno prima a scegliere; sono due o tre prodotti» e poi
+   «conviene mettere una lista di quei prodotti fuori dai pulsanti: siccome
+   sono pochi uno li vede subito senza andare in cerca» (la proprieta', 6
+   settembre 2026). Quindi niente pulsanti: i piatti marcati stanno in una
+   lista gia' aperta sopra le categorie del cibo, ognuno con le sue etichette.
 
-   DUE FONTI DIVERSE, APPOSTA. Senza glutine e senza lattosio si leggono
-   dagli allergeni del menu stampato (le sigle GL e LA, in pos_articolo
-   .allergeni): sono l'informazione che l'hotel dichiara gia' per legge.
-   Vegetariano e vegano NO: la carne non e' un allergene, e da «nessun
-   allergene» non si deduce niente — servono le spunte `vegetariano` e
-   `vegano` che la reception mette nel back office (POS · Menu). Un vegano
-   dedotto sbagliato e' peggio di nessuno. Un vegano e' anche vegetariano.
+   QUATTRO SPUNTE DELLA RECEPTION, NON DEDUZIONI. Le proprieta' vivono in
+   pos_articolo (senza_glutine, vegetariano, vegano, senza_lattosio) e le
+   mette la reception nel back office (POS · Menu). Dagli allergeni non si
+   deduce: una bistecca non ha glutine, ma non e' un «prodotto senza glutine»
+   del menu, e la carne non e' un allergene, quindi «vegano» non si legge da
+   nessuna sigla. Gli allergeni scritti restano pero' un freno: una spunta
+   «senza glutine» su un piatto con la sigla GL scritta non vince, perche' la
+   sigla e' la dichiarazione di legge e la spunta un clic di troppo.
 
-   CHI NON HA GLI ALLERGENI SCRITTI NON PASSA. `allergeni` a null vuol dire
-   «non ancora compilato», non «nessun allergene»: un piatto senza sigle
-   scritte non si promette a un celiaco. La stringa vuota invece e' stata
-   scritta (il menu stampato dice: niente allergeni) e passa.
-
-   Puro: niente DOM, niente rete. Lo importa pagine/ordina/index.html e
-   lo provano le prove in Deno.
+   Un vegano e' anche vegetariano. Puro: niente DOM, niente rete. Lo importa
+   pagine/ordina/index.html e lo provano le prove in Deno.
    ============================================================ */
 'use strict';
 
-/** I tre filtri, nell'ordine in cui compaiono. */
+/** Le quattro etichette, nell'ordine in cui compaiono. */
 export const FILTRI = ['glutine', 'vegetariano', 'vegano', 'lattosio'];
 
+const SPUNTA = { glutine: 'senza_glutine', vegetariano: 'vegetariano', vegano: 'vegano', lattosio: 'senza_lattosio' };
 const SIGLA = { glutine: 'GL', lattosio: 'LA' };
 
-const sigle = (a) => (typeof a.allergeni === 'string' ? a.allergeni : null);
+const haSigla = (a, s) => typeof a.allergeni === 'string' && a.allergeni.split('-').map((x) => x.trim().toUpperCase()).includes(s);
 
-/** Vero se l'articolo entra nel filtro. */
+/** Vero se l'articolo porta quell'etichetta. */
 export function passaFiltro(a, filtro) {
   if (!a) return false;
-  if (filtro === 'vegano') return a.vegano === true;
-  /* un piatto vegano e' anche vegetariano: chi cerca «vegetariano» lo vede */
   if (filtro === 'vegetariano') return a.vegetariano === true || a.vegano === true;
+  const campo = SPUNTA[filtro];
+  if (!campo || a[campo] !== true) return false;
   const s = SIGLA[filtro];
-  if (!s) return false;
-  const scritti = sigle(a);
-  if (scritti === null) return false;
-  return !scritti.split('-').map((x) => x.trim().toUpperCase()).includes(s);
+  return !(s && haSigla(a, s));
 }
 
-/** I filtri che hanno almeno un articolo: gli altri non si mostrano. */
-export function filtriDisponibili(articoli) {
-  const lista = Array.isArray(articoli) ? articoli : [];
-  return FILTRI.filter((f) => lista.some((a) => passaFiltro(a, f)));
+/** Le etichette di un articolo, nell'ordine fisso: vuoto per i piatti normali. */
+export function etichetteDi(a) {
+  return FILTRI.filter((f) => passaFiltro(a, f));
+}
+
+/** I piatti della scelta rapida: quelli con almeno un'etichetta, nell'ordine del menu. */
+export function sceltaRapida(articoli) {
+  return (Array.isArray(articoli) ? articoli : []).filter((a) => etichetteDi(a).length > 0);
 }
 
 export const TESTI_FILTRI = {
-  it: { titolo: 'Scelta rapida', glutine: 'Senza glutine', vegetariano: 'Vegetariano', vegano: 'Vegano', lattosio: 'Senza lattosio', nessuno: 'Nessun piatto in questa scelta.' },
-  en: { titolo: 'Quick picks', glutine: 'Gluten-free', vegetariano: 'Vegetarian', vegano: 'Vegan', lattosio: 'Lactose-free', nessuno: 'No dishes match this choice.' },
-  de: { titolo: 'Schnellauswahl', glutine: 'Glutenfrei', vegetariano: 'Vegetarisch', vegano: 'Vegan', lattosio: 'Laktosefrei', nessuno: 'Keine Gerichte in dieser Auswahl.' },
-  fr: { titolo: 'Choix rapide', glutine: 'Sans gluten', vegetariano: 'Végétarien', vegano: 'Végan', lattosio: 'Sans lactose', nessuno: 'Aucun plat pour ce choix.' },
+  it: { titolo: 'Scelta rapida', glutine: 'Senza glutine', vegetariano: 'Vegetariano', vegano: 'Vegano', lattosio: 'Senza lattosio' },
+  en: { titolo: 'Quick picks', glutine: 'Gluten-free', vegetariano: 'Vegetarian', vegano: 'Vegan', lattosio: 'Lactose-free' },
+  de: { titolo: 'Schnellauswahl', glutine: 'Glutenfrei', vegetariano: 'Vegetarisch', vegano: 'Vegan', lattosio: 'Laktosefrei' },
+  fr: { titolo: 'Choix rapide', glutine: 'Sans gluten', vegetariano: 'Végétarien', vegano: 'Végan', lattosio: 'Sans lactose' },
 };
 
 export const ICONE_FILTRI = { glutine: '🌾', vegetariano: '🥗', vegano: '🌱', lattosio: '🥛' };

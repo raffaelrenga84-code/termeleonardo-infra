@@ -1,66 +1,72 @@
 /* ============================================================
    filtri.test.ts — la scelta rapida del menu dal QR.
 
-   «Metterei un filtro: prodotti senza glutine, vegani e senza lattosio,
-   cosi' fanno prima a scegliere; sono due o tre prodotti» (la proprieta',
-   6 settembre 2026). Senza glutine e senza lattosio si leggono dagli
-   allergeni del menu stampato (GL, LA); vegano da una spunta a parte.
+   Quattro spunte della reception (senza glutine, vegetariano, vegano, senza
+   lattosio), una lista gia' aperta sopra le categorie del cibo con i piatti
+   marcati e le loro etichette (la proprieta', 6 settembre 2026). Dagli
+   allergeni non si deduce niente; una sigla scritta pero' frena una spunta
+   sbagliata.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { FILTRI, filtriDisponibili, passaFiltro, TESTI_FILTRI } from './filtri.js';
+import { etichetteDi, FILTRI, passaFiltro, sceltaRapida, TESTI_FILTRI } from './filtri.js';
 
-const penne = { id: 'p', nome: 'Penne Glutenfree', allergeni: '' };
-const pinsa = { id: 'i', nome: 'Pinsa', allergeni: 'GL-LA' };
+const penne = { id: 'p', nome: 'Penne Glutenfree', allergeni: '', senza_glutine: true };
+const pinsa = { id: 'i', nome: 'Pinsa vegetariana', allergeni: 'GL-LA', vegetariano: true };
 const burger = { id: 'b', nome: 'Veggie', allergeni: 'GL', vegano: true };
-const frittata = { id: 'f', nome: 'Frittata', allergeni: 'U', vegetariano: true };
+const bistecca = { id: 's', nome: 'Bistecca', allergeni: '' };
 const vino = { id: 'v', nome: 'Vino', allergeni: null };
 
-Deno.test('senza glutine: solo chi ha gli allergeni SCRITTI e senza GL — chi non li ha scritti non si promette', () => {
-  assert(passaFiltro(penne, 'glutine'), 'allergeni scritti e vuoti: senza glutine');
-  assert(!passaFiltro(pinsa, 'glutine'), 'GL dentro');
-  assert(!passaFiltro(vino, 'glutine'), 'allergeni mai scritti: non si sa, quindi no — un celiaco non si tradisce');
-  assert(!passaFiltro({ id: 'x', nome: 'x' }, 'glutine'));
+Deno.test('senza glutine e senza lattosio sono spunte, non deduzioni: una bistecca senza allergeni non e un prodotto senza glutine', () => {
+  assert(passaFiltro(penne, 'glutine'));
+  assert(!passaFiltro(bistecca, 'glutine'), 'niente GL scritto ma nessuna spunta: non compare');
+  assert(!passaFiltro(vino, 'glutine'));
+  assert(!passaFiltro({ ...penne, senza_glutine: 'si' }, 'glutine'), 'solo il vero booleano');
+  assert(passaFiltro({ ...bistecca, senza_lattosio: true }, 'lattosio'));
+  assert(!passaFiltro(bistecca, 'lattosio'));
 });
 
-Deno.test('senza lattosio: stessa regola, su LA', () => {
-  assert(passaFiltro(penne, 'lattosio'));
-  assert(passaFiltro(burger, 'lattosio'), 'GL ma non LA');
-  assert(!passaFiltro(pinsa, 'lattosio'));
-  assert(!passaFiltro(vino, 'lattosio'));
+Deno.test('una sigla scritta frena una spunta sbagliata: GL scritto e spunta senza glutine non passa', () => {
+  assert(!passaFiltro({ ...pinsa, senza_glutine: true }, 'glutine'), 'GL e scritto: la spunta non vince');
+  assert(!passaFiltro({ ...pinsa, senza_lattosio: true }, 'lattosio'), 'LA e scritto');
+  assert(passaFiltro({ ...burger, senza_lattosio: true }, 'lattosio'), 'GL scritto ma non LA: senza lattosio passa');
+  assert(passaFiltro({ ...bistecca, allergeni: null, senza_glutine: true }, 'glutine'), 'senza allergeni scritti la spunta vale');
 });
 
-Deno.test('vegano: solo la spunta, mai dedotto dagli allergeni', () => {
+Deno.test('vegetariano e vegano: solo le spunte; un vegano e anche vegetariano', () => {
+  assert(passaFiltro(pinsa, 'vegetariano'));
+  assert(passaFiltro(burger, 'vegetariano'), 'vegano, quindi anche vegetariano');
   assert(passaFiltro(burger, 'vegano'));
-  assert(!passaFiltro(penne, 'vegano'), 'senza allergeni non vuol dire vegano');
-  assert(!passaFiltro({ ...burger, vegano: false }, 'vegano'));
+  assert(!passaFiltro(pinsa, 'vegano'), 'vegetariano non vuol dire vegano');
+  assert(!passaFiltro(bistecca, 'vegetariano'));
   assert(!passaFiltro({ ...burger, vegano: 'si' }, 'vegano'), 'solo il vero booleano');
 });
 
-Deno.test('vegetariano: la spunta, e anche chi e vegano (un vegano e anche vegetariano)', () => {
-  assert(passaFiltro(frittata, 'vegetariano'));
-  assert(passaFiltro(burger, 'vegetariano'), 'vegano, quindi anche vegetariano');
-  assert(!passaFiltro(frittata, 'vegano'), 'vegetariano non vuol dire vegano');
-  assert(!passaFiltro(penne, 'vegetariano'), 'senza spunta no, anche senza allergeni');
-});
-
-Deno.test('un filtro sconosciuto non passa niente', () => {
+Deno.test('un filtro sconosciuto non passa niente, e l ordine delle etichette e fisso', () => {
   assert(!passaFiltro(penne, 'altro'));
+  assert(!passaFiltro(null, 'glutine'));
   assertEquals(FILTRI, ['glutine', 'vegetariano', 'vegano', 'lattosio']);
 });
 
-Deno.test('si offrono solo i filtri che hanno almeno un piatto, nell ordine fisso', () => {
-  assertEquals(filtriDisponibili([penne, pinsa, vino]), ['glutine', 'lattosio']);
-  assertEquals(filtriDisponibili([burger]), ['vegetariano', 'vegano', 'lattosio']);
-  assertEquals(filtriDisponibili([frittata]), ['glutine', 'vegetariano', 'lattosio'], 'la frittata ha le uova scritte e niente GL: e anche senza glutine');
-  assertEquals(filtriDisponibili([vino]), []);
-  assertEquals(filtriDisponibili([]), []);
+Deno.test('le etichette di un piatto, nell ordine fisso', () => {
+  assertEquals(etichetteDi(penne), ['glutine']);
+  assertEquals(etichetteDi(burger), ['vegetariano', 'vegano']);
+  assertEquals(etichetteDi({ ...burger, senza_lattosio: true }), ['vegetariano', 'vegano', 'lattosio']);
+  assertEquals(etichetteDi(bistecca), []);
+  assertEquals(etichetteDi(vino), []);
 });
 
-Deno.test('i testi ci sono nelle quattro lingue, per i tre filtri e il titolo', () => {
+Deno.test('la scelta rapida sono i piatti con almeno un etichetta, nell ordine del menu', () => {
+  assertEquals(sceltaRapida([bistecca, penne, vino, burger, pinsa]).map((a) => a.id), ['p', 'b', 'i']);
+  assertEquals(sceltaRapida([bistecca, vino]), []);
+  assertEquals(sceltaRapida([]), []);
+  assertEquals(sceltaRapida(null), []);
+});
+
+Deno.test('i testi ci sono nelle quattro lingue, per le quattro etichette e il titolo', () => {
   for (const l of ['it', 'en', 'de', 'fr']) {
     const t = (TESTI_FILTRI as Record<string, Record<string, string>>)[l];
     assert(t, l);
-    for (const k of [...FILTRI, 'titolo', 'nessuno']) assert(typeof t[k] === 'string' && t[k].length > 2, l + ' ' + k);
+    for (const k of [...FILTRI, 'titolo']) assert(typeof t[k] === 'string' && t[k].length > 2, l + ' ' + k);
   }
   assertEquals(TESTI_FILTRI.it.glutine, 'Senza glutine');
   assertEquals(TESTI_FILTRI.it.vegetariano, 'Vegetariano');
