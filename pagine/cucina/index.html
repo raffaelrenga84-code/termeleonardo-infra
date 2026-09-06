@@ -34,13 +34,25 @@ header .spia.cloud{color:#E3C57A;}
 header .spia.giu{color:#F08A7E;}
 main{flex:1 1 auto;overflow:auto;padding:14px;}
 /* le schede: tante quante ne stanno, larghe almeno 300px */
-main.griglia{display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:14px;align-content:start;}
+/* due colonne, come i monitor dei fast food: a sinistra quello che arriva,
+   a destra quello che si sta facendo («buoni nuovi tutti a sinistra, in
+   preparazione tutti a destra», la proprieta', 6 settembre 2026) */
+main.griglia{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-content:start;}
+.colonna{display:flex;flex-direction:column;gap:12px;min-width:0;}
+.colonna h2{margin:0;font-size:22px;letter-spacing:.08em;text-transform:uppercase;color:#9DB3A6;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #24332B;padding-bottom:6px;}
+.colonna h2 .conta{background:#24332B;color:#fff;border-radius:999px;padding:2px 12px;font-size:20px;}
+.colonna.lavoro h2{color:#8FD3A6;border-bottom-color:#2E6B45;}
+.colonna.lavoro h2 .conta{background:#2E6B45;}
+.cartelle{display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:14px;align-content:start;}
+.colonna .niente{color:#5A6E62;font-size:24px;padding:20px 0;}
 main.vuoto{display:flex;align-items:center;justify-content:center;font-size:40px;color:#5A6E62;text-align:center;}
 .scheda{background:#fff;color:#12201A;border-radius:14px;border-top:12px solid #9E9E9E;padding:10px 14px 14px;display:flex;flex-direction:column;gap:8px;}
 .scheda.verde{background:#EAF6EC;border-top-color:#2E9E52;}
 .scheda.giallo{background:#FBF3DC;border-top-color:#D9A517;}
 .scheda.rosso{background:#FBE3DE;border-top-color:#C0392B;}
-.scheda.presa{opacity:.85;}
+/* in preparazione: verde, col bordo, e da quanti minuti ci si lavora */
+.scheda.presa{background:#E3F0EA;border-top-color:#2E6B45;box-shadow:inset 0 0 0 3px #2E6B45;}
+.lavoro-da{align-self:flex-start;background:#2E6B45;color:#fff;font-size:20px;font-weight:700;padding:4px 10px;border-radius:8px;}
 .scheda.scelta{outline:5px solid #8FC4BC;outline-offset:2px;}
 .alto{display:flex;align-items:baseline;gap:10px;}
 .numero{background:#12201A;color:#fff;border-radius:8px;font-size:16px;font-weight:700;padding:2px 9px;}
@@ -88,6 +100,7 @@ footer .etichetta{font-size:16px;letter-spacing:.08em;text-transform:uppercase;c
 /* un tablet in verticale: una colonna sola, ma i caratteri restano grandi */
 @media (max-width: 700px){
   main.griglia{grid-template-columns:1fr;}
+  .cartelle{grid-template-columns:1fr;}
   main.vuoto{font-size:30px;}
   .grande{font-size:34px;}
 }
@@ -109,7 +122,7 @@ footer .etichetta{font-size:16px;letter-spacing:.08em;text-transform:uppercase;c
 
 <script type="module">
 'use strict';
-import { colorePerAttesa, minutiDa, nuovi, ordina, resa, tastoPer, TESTI } from '/cucina/schermo.js';
+import { colorePerAttesa, minutiDa, nuovi, ordina, resa, tastoPer, TESTI, perColonne } from '/cucina/schermo.js';
 import { creaServer } from '/pos/server.js';
 
 const CLOUD = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos';
@@ -238,6 +251,7 @@ function scheda(s, i) {
   const meta = [b.portata, b.ora, b.cameriere].filter(Boolean).map(esc).join(' · ');
   return `<article class="scheda ${colore}${presa ? ' presa' : ''}${s.id === SCELTA ? ' scelta' : ''}" data-id="${esc(s.id)}">
     <div class="alto">${i < 9 ? `<span class="numero">${i + 1}</span>` : ''}<span class="tavolo">${esc(b.tavolo || 'Comanda')}</span><span class="attesa ${colore}">${minuti}′</span></div>
+    ${presa ? `<div class="lavoro-da">${TESTI.inLavoro} · ${minutiDa(s.presa_il, Date.now() + SCARTO)}′</div>` : ''}
     ${b.tipo && b.tipo !== 'COMANDA' ? `<div class="tipo">${esc(b.tipo)}</div>` : ''}
     ${b.portareA ? `<div class="avviso">Portare al ${esc(b.portareA)}</div>` : ''}
     ${b.avviso ? `<div class="avviso">${esc(b.avviso)}</div>` : ''}
@@ -256,7 +270,14 @@ function disegna() {
   const g = $('schede');
   if (LISTA.length) {
     g.className = 'griglia';
-    g.innerHTML = LISTA.map(scheda).join('');
+    /* due colonne: da fare a sinistra, in preparazione a destra; i numeri
+       da tastiera seguono le colonne, prima la sinistra poi la destra */
+    const c = perColonne(LISTA);
+    LISTA = [...c.nuove, ...c.inPrep];
+    let i = 0;
+    const colonna = (classe, titolo, lista) => `<section class="colonna ${classe}"><h2><span>${esc(titolo)}</span><span class="conta">${lista.length}</span></h2>
+      <div class="cartelle">${lista.length ? lista.map((s) => scheda(s, i++)).join('') : '<div class="niente">—</div>'}</div></section>`;
+    g.innerHTML = colonna('nuove', TESTI.daFare, c.nuove) + colonna('lavoro', TESTI.inLavoro, c.inPrep);
   } else {
     g.className = 'vuoto';
     g.textContent = TESTI.vuoto;

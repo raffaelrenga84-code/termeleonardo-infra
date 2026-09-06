@@ -8,7 +8,7 @@
    i tasti della tastiera, per chi lo schermo lo tocca poco.
    ============================================================ */
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { colorePerAttesa, minutiDa, nuovi, ordina, resa, SOGLIE_MIN, tastoPer, TESTI } from './schermo.js';
+import { colorePerAttesa, minutiDa, nuovi, ordina, resa, SOGLIE_MIN, tastoPer, TESTI, perColonne } from './schermo.js';
 
 const T = (s: string) => new Date(s).getTime();
 
@@ -128,7 +128,7 @@ Deno.test('la tastiera: i numeri scelgono, p prende, Invio manda in tavola, Back
 Deno.test('i testi della pagina ci sono tutti, e sono in italiano', () => {
   assertEquals(
     Object.keys(TESTI).sort(),
-    ['cloud', 'inizia', 'pc', 'presa', 'pronta', 'riapri', 'senzaRete', 'ultime', 'vuoto'],
+    ['cloud', 'daFare', 'inLavoro', 'inizia', 'pc', 'presa', 'pronta', 'riapri', 'senzaRete', 'ultime', 'vuoto'],
   );
   assertEquals(TESTI.inizia, 'Tocca per iniziare');
   assertEquals(TESTI.vuoto, 'Nessuna comanda in attesa');
@@ -140,4 +140,14 @@ Deno.test('i testi della pagina ci sono tutti, e sono in italiano', () => {
   assertEquals(TESTI.senzaRete, 'senza rete');
   assertEquals(TESTI.ultime, 'Ultime pronte');
   for (const t of Object.values(TESTI)) assert(typeof t === 'string' && t.length > 0);
+});
+
+Deno.test('due colonne: a sinistra le comande da fare, a destra quelle in preparazione, ciascuna nel suo ordine', () => {
+  /* «buoni nuovi tutti a sinistra, in preparazione tutti a destra» (la proprieta', 6 settembre 2026) */
+  const a = { id: 'a', presa_il: null }, b = { id: 'b', presa_il: '2026-09-06T10:00:00Z' }, c = { id: 'c' }, d = { id: 'd', presa_il: '2026-09-06T10:01:00Z' };
+  const col = perColonne([a, b, c, d]);
+  assertEquals(col.nuove.map((s) => s.id), ['a', 'c']);
+  assertEquals(col.inPrep.map((s) => s.id), ['b', 'd']);
+  assertEquals(perColonne(null), { nuove: [], inPrep: [] });
+  assertEquals([TESTI.daFare, TESTI.inLavoro], ['Da fare', 'In preparazione']);
 });

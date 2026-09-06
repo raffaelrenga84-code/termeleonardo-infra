@@ -115,7 +115,17 @@ export function tastoPer(key, quante) {
 }
 
 /** Le scritte fisse dello schermo, tutte qui e tutte in italiano. */
+/** Le due colonne, come i monitor dei fast food: a sinistra quello che
+    arriva, a destra quello che si sta facendo («buoni nuovi tutti a
+    sinistra, in preparazione tutti a destra», la proprieta', 6 settembre
+    2026). L'ordine dato (per anzianita') resta dentro ogni colonna. */
+export function perColonne(biglietti) {
+  const lista = Array.isArray(biglietti) ? biglietti : [];
+  return { nuove: lista.filter((s) => !s.presa_il), inPrep: lista.filter((s) => !!s.presa_il) };
+}
+
 export const TESTI = {
+  daFare: 'Da fare', inLavoro: 'In preparazione',
   inizia: 'Tocca per iniziare',
   vuoto: 'Nessuna comanda in attesa',
   presa: 'In preparazione',

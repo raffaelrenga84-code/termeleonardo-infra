@@ -167,3 +167,12 @@ Deno.test('sulla TV basta il codice: /tv/CODICE o ?k=, locale e stampante facolt
   assert(m.includes("history.replaceState(null, '', dalPercorso ? '/cucina' : location.pathname)"), 'e la barra torna pulita');
   assert(m.includes("const qs = P.l && P.s ?"), 'locale e stampante si mandano solo se ci sono');
 });
+
+Deno.test('due colonne: da fare a sinistra, in preparazione a destra, verde e con i minuti di lavoro', () => {
+  /* «buoni nuovi tutti a sinistra, in preparazione tutti a destra... deve
+     essere super funzionale» (la proprieta', 6 settembre 2026) */
+  assert(m.includes('const c = perColonne(LISTA);') && m.includes('LISTA = [...c.nuove, ...c.inPrep];'), 'le colonne le decide il modulo puro, e i numeri da tastiera le seguono');
+  assert(m.includes("colonna('nuove', TESTI.daFare, c.nuove) + colonna('lavoro', TESTI.inLavoro, c.inPrep)"), 'prima la sinistra, poi la destra');
+  assert(P.includes('main.griglia{display:grid;grid-template-columns:1fr 1fr;') && P.includes('.colonna.lavoro h2{'), 'due colonne vere, quella di destra verde');
+  assert(P.includes('.scheda.presa{background:#E3F0EA;border-top-color:#2E6B45;') && m.includes('class="lavoro-da"'), 'la scheda in preparazione cambia colore e dice da quanto');
+});
