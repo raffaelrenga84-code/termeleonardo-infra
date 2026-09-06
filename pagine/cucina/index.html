@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#101814" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Monitor cucina — Hotel Terme Leonardo</title>
+<link rel="icon" href="/ingresso/icona-192.png" type="image/png" />
+<style>
+/* LO SCHERMO DI CUCINA E DI BAR. «Come riusciamo a fare un monitor per
+   ordini al posto dei biglietti stampati?» (la proprieta', 6 settembre
+   2026). Sta appeso: si legge da due metri e si tocca con le mani
+   occupate. Sfondo scuro perche' una TV accesa tutto il giorno in cucina
+   non deve abbagliare; le schede chiare sopra, che il biglietto di carta
+   era bianco e l'occhio lo cerca cosi'. Verde, giallo e rosso dicono da
+   quanto aspetta una comanda: e' l'unica cosa da capire di corsa. */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{margin:0;display:flex;flex-direction:column;background:#101814;color:#E8F0EA;
+  font:18px/1.35 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none;}
+header{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:14px;padding:0 18px;background:#16221C;border-bottom:1px solid #24352C;}
+header .nome{flex:1;font-size:22px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+header .spia{font-size:16px;color:#9FB3A7;white-space:nowrap;}
+header .spia.locale{color:#7FD69B;}
+header .spia.cloud{color:#E3C57A;}
+header .spia.giu{color:#F08A7E;}
+main{flex:1 1 auto;overflow:auto;padding:14px;}
+/* le schede: tante quante ne stanno, larghe almeno 300px */
+main.griglia{display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:14px;align-content:start;}
+main.vuoto{display:flex;align-items:center;justify-content:center;font-size:40px;color:#5A6E62;text-align:center;}
+.scheda{background:#fff;color:#12201A;border-radius:14px;border-top:12px solid #9E9E9E;padding:10px 14px 14px;display:flex;flex-direction:column;gap:8px;}
+.scheda.verde{background:#EAF6EC;border-top-color:#2E9E52;}
+.scheda.giallo{background:#FBF3DC;border-top-color:#D9A517;}
+.scheda.rosso{background:#FBE3DE;border-top-color:#C0392B;}
+.scheda.presa{opacity:.85;}
+.scheda.scelta{outline:5px solid #8FC4BC;outline-offset:2px;}
+.alto{display:flex;align-items:baseline;gap:10px;}
+.numero{background:#12201A;color:#fff;border-radius:8px;font-size:16px;font-weight:700;padding:2px 9px;}
+.tavolo{flex:1;font-size:34px;font-weight:700;line-height:1.1;}
+.attesa{font-size:30px;font-weight:700;}
+.attesa.verde{color:#22803F;}
+.attesa.giallo{color:#8A6600;}
+.attesa.rosso{color:#B02A1C;}
+.tipo{align-self:flex-start;background:#12201A;color:#fff;font-size:22px;font-weight:700;letter-spacing:.06em;padding:2px 12px;border-radius:8px;}
+/* «portare al ristorante» e «cucina chiusa: al bancone» stanno in cima e
+   in giallo: sono le due cose che, se sfuggono, fanno telefonare */
+.avviso{background:#FFE68A;color:#4A3A00;font-size:22px;font-weight:700;padding:6px 10px;border-radius:8px;}
+.meta{font-size:20px;color:#3C5346;text-transform:capitalize;}
+.vitto{font-size:22px;font-weight:700;color:#B02A1C;}
+.righe{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.righe li{font-size:26px;line-height:1.25;padding-top:6px;border-top:1px solid rgba(0,0,0,.12);}
+.righe .q{font-weight:800;}
+.righe .var,.righe .nota{display:block;font-size:22px;margin-left:16px;font-weight:600;}
+.righe .var{color:#1F6B4F;}
+.righe .nota{color:#B02A1C;}
+.testo{margin:0;font:22px/1.3 ui-monospace,Consolas,monospace;white-space:pre-wrap;}
+.fallita{font-size:18px;font-weight:600;color:#B02A1C;}
+.tasti{display:flex;gap:10px;margin-top:auto;padding-top:6px;}
+.tasto{flex:1;border:0;border-radius:10px;padding:14px 8px;font:700 22px inherit;background:#1A3626;color:#fff;cursor:pointer;}
+.tasto.sec{background:#fff;color:#1A3626;border:3px solid #1A3626;}
+footer{flex:0 0 auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 18px;background:#16221C;border-top:1px solid #24352C;}
+footer[hidden]{display:none;}
+footer .etichetta{font-size:16px;letter-spacing:.08em;text-transform:uppercase;color:#9FB3A7;}
+.ultime{display:flex;gap:10px;flex-wrap:wrap;}
+.pronta{display:flex;align-items:center;gap:10px;background:#22332B;border-radius:10px;padding:6px 10px;font-size:20px;}
+.riapri{border:0;border-radius:8px;background:#3C5346;color:#fff;font:600 18px inherit;padding:6px 14px;cursor:pointer;}
+.velo{position:fixed;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;padding:30px;text-align:center;background:#101814;}
+.velo[hidden]{display:none;}
+.grande{margin:0;max-width:16em;font-size:44px;font-weight:700;line-height:1.25;}
+.messaggio{position:fixed;left:50%;bottom:26px;z-index:6;transform:translateX(-50%);margin:0;padding:12px 22px;border-radius:12px;
+  background:#C0392B;color:#fff;font-size:22px;font-weight:600;}
+.messaggio[hidden]{display:none;}
+/* un tablet in verticale: una colonna sola, ma i caratteri restano grandi */
+@media (max-width: 700px){
+  main.griglia{grid-template-columns:1fr;}
+  main.vuoto{font-size:30px;}
+  .grande{font-size:34px;}
+}
+</style>
+</head>
+<body>
+<header>
+  <span class="nome" id="nome">Monitor cucina</span>
+  <span class="spia" id="spia"></span>
+</header>
+<main id="schede" class="griglia"></main>
+<footer id="striscia" hidden>
+  <span class="etichetta" id="etichettaUltime"></span>
+  <div class="ultime" id="ultime"></div>
+</footer>
+<div class="velo" id="inizia"><p class="grande" id="testoInizia"></p></div>
+<div class="velo" id="blocco" hidden><p class="grande" id="testoBlocco"></p></div>
+<p class="messaggio" id="messaggio" hidden></p>
+
+<script type="module">
+'use strict';
+import { colorePerAttesa, minutiDa, nuovi, ordina, resa, tastoPer, TESTI } from '/cucina/schermo.js';
+import { creaServer } from '/pos/server.js';
+
+const CLOUD = 'https://mvuiuwakuseockotlcnp.supabase.co/functions/v1/pos';
+const GIRO_MS = 3000;              // ogni tre secondi: una comanda non deve aspettare
+const QUANTE_PRONTE = 5;           // le ultime pronte tenute in fondo, in memoria
+/* Se la pagina arriva dal PC del Bistrot (http://IP:8080/cucina) il server
+   locale e' quello: sullo schermo non c'e' niente da impostare. Stessa
+   regola del palmare (pagine/pos/index.html, 5 settembre 2026). */
+const DAL_PC = location.protocol === 'http:' && /^\d+\.\d+\.\d+\.\d+$/.test(location.hostname);
+const SERVER_LOCALE = DAL_PC ? location.origin : (localStorage.getItem('posServerLocale') || '');
+
+const $ = (id) => document.getElementById(id);
+/* niente di quello che arriva dalla rete entra come HTML */
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* La postazione: una volta dall'indirizzo (?l=&s=&k=), poi resta sullo
+   schermo. L'indirizzo si ripulisce subito: la chiave non deve restare
+   scritta sulla barra di una TV appesa in cucina. */
+const Q = new URLSearchParams(location.search);
+function postazione() {
+  const l = Q.get('l'), s = Q.get('s'), k = Q.get('k');
+  if (l && s && k) {
+    const p = { l, s, k };
+    localStorage.setItem('cucinaPostazione', JSON.stringify(p));
+    history.replaceState(null, '', location.pathname);
+    return p;
+  }
+  try {
+    const p = JSON.parse(localStorage.getItem('cucinaPostazione') || 'null');
+    return p && p.l && p.s && p.k ? p : null;
+  } catch { return null; }
+}
+const P = postazione();
+
+const server = creaServer({
+  locale: SERVER_LOCALE, cloud: CLOUD,
+  ping: (u) => fetch(u + '?a=stato-locale', { signal: AbortSignal.timeout(900) }).then((r) => r.ok),
+});
+
+let LISTA = [];          // i biglietti dell'ultimo giro, gia' ordinati
+let VISTI = [];          // gli id del giro prima: le novita' fanno suonare
+let PRIMO = true;        // al primo giro non si suona: sarebbero tutte nuove
+let SCELTA = null;       // l'id della scheda scelta con la tastiera
+let ULTIME = [];         // le ultime pronte, per il ripensamento
+let SCARTO = 0;          // millisecondi fra l'orologio del server e quello della TV
+let RETE = false, ULTIMO_GIRO = null, INGIRO = false, TIMER = null, TIMER_MESSAGGIO = null;
+let AUDIO = null, WAKE = null;
+
+function spia() {
+  const dove = !RETE ? TESTI.senzaRete : (server.stato() === 'locale' ? TESTI.pc : TESTI.cloud);
+  const ora = ULTIMO_GIRO ? ULTIMO_GIRO.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
+  const s = $('spia');
+  s.className = 'spia ' + (RETE ? server.stato() : 'giu');
+  s.textContent = ora ? `${dove} · ${ora}` : dove;
+}
+
+async function chiama(azione, opz = {}) {
+  const base = await server.base();
+  const qs = `&locale=${encodeURIComponent(P.l)}&stampante=${encodeURIComponent(P.s)}`;
+  let r;
+  try {
+    r = await fetch(`${base}?a=${azione}${qs}`, {
+      method: opz.method || 'GET',
+      headers: { 'content-type': 'application/json', 'x-schermo-chiave': P.k },
+      body: opz.body,
+      signal: AbortSignal.timeout(8000),
+    });
+  } catch (e) {
+    /* il PC ha smesso di rispondere a meta' strada: si passa al cloud e si
+       ritenta una volta sola (dopo localeCaduto lo stato e' gia' «cloud») */
+    if (server.stato() === 'locale') { server.localeCaduto(); return chiama(azione, opz); }
+    RETE = false; spia();
+    throw new TypeError('rete: ' + e.message);
+  }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const err = new Error(j.errore || `errore ${r.status}`); err.stato = r.status; throw err; }
+  return j;
+}
+
+/* Un fischio corto quando arriva una comanda nuova. L'AudioContext nasce
+   al primo tocco: senza un gesto il browser non lascia suonare niente. */
+function suona() {
+  if (!AUDIO) return;
+  try {
+    const o = AUDIO.createOscillator(), g = AUDIO.createGain();
+    o.type = 'sine';
+    o.frequency.value = 880;
+    g.gain.value = 0.2;
+    o.connect(g); g.connect(AUDIO.destination);
+    o.start();
+    o.stop(AUDIO.currentTime + 0.15);
+  } catch { /* senza suono si lavora lo stesso */ }
+}
+
+/* Lo schermo resta acceso finche' e' in vista: una TV che si spegne a meta'
+   servizio e' un biglietto perso. Il permesso decade quando la pagina va in
+   secondo piano, quindi si richiede al ritorno. */
+async function tieniAcceso() {
+  try { WAKE = (await navigator.wakeLock?.request('screen')) || null; } catch { WAKE = null; }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  tieniAcceso();
+  if (TIMER) giro();
+});
+
+function scheda(s, i) {
+  const b = resa(s);
+  const minuti = minutiDa(s.creato_il, Date.now() + SCARTO);
+  const colore = colorePerAttesa(minuti);
+  const presa = !!s.presa_il;
+  const righe = b.righe.map((r) => `<li><span class="q">${esc(r.quantita)} ×</span> ${esc(r.nome)}` +
+    (r.variante ? `<span class="var">+ ${esc(r.variante)}</span>` : '') +
+    (r.nota ? `<span class="nota">&gt; ${esc(r.nota)}</span>` : '') + '</li>').join('');
+  const corpo = b.righe.length ? `<ul class="righe">${righe}</ul>` : (b.testo ? `<pre class="testo">${esc(b.testo)}</pre>` : '');
+  const meta = [b.portata, b.ora, b.cameriere].filter(Boolean).map(esc).join(' · ');
+  return `<article class="scheda ${colore}${presa ? ' presa' : ''}${s.id === SCELTA ? ' scelta' : ''}" data-id="${esc(s.id)}">
+    <div class="alto">${i < 9 ? `<span class="numero">${i + 1}</span>` : ''}<span class="tavolo">${esc(b.tavolo || 'Comanda')}</span><span class="attesa ${colore}">${minuti}′</span></div>
+    ${b.tipo && b.tipo !== 'COMANDA' ? `<div class="tipo">${esc(b.tipo)}</div>` : ''}
+    ${b.portareA ? `<div class="avviso">Portare al ${esc(b.portareA)}</div>` : ''}
+    ${b.avviso ? `<div class="avviso">${esc(b.avviso)}</div>` : ''}
+    ${meta ? `<div class="meta">${meta}</div>` : ''}
+    ${b.noteVitto ? `<div class="vitto">${esc(b.noteVitto)}</div>` : ''}
+    ${corpo}
+    ${s.stato === 'errore' ? '<div class="fallita">stampa fallita</div>' : ''}
+    <div class="tasti">
+      ${presa ? '' : `<button class="tasto sec" data-p="presa">${TESTI.presa}</button>`}
+      <button class="tasto" data-p="pronta">${TESTI.pronta}</button>
+    </div>
+  </article>`;
+}
+
+function disegna() {
+  const g = $('schede');
+  if (LISTA.length) {
+    g.className = 'griglia';
+    g.innerHTML = LISTA.map(scheda).join('');
+  } else {
+    g.className = 'vuoto';
+    g.textContent = TESTI.vuoto;
+  }
+  $('striscia').hidden = ULTIME.length === 0;
+  $('ultime').innerHTML = ULTIME.map((u) =>
+    `<span class="pronta"><b>${esc(u.tavolo)}</b><button class="riapri" data-r="${esc(u.id)}">${TESTI.riapri}</button></span>`).join('');
+}
+
+function messaggio(t) {
+  const m = $('messaggio');
+  m.textContent = t;
+  m.hidden = false;
+  clearTimeout(TIMER_MESSAGGIO);
+  TIMER_MESSAGGIO = setTimeout(() => { m.hidden = true; }, 3000);
+}
+
+function blocca(t) {
+  if (TIMER) { clearInterval(TIMER); TIMER = null; }
+  $('inizia').hidden = true;
+  $('testoBlocco').textContent = t;
+  $('blocco').hidden = false;
+}
+const NON_RICONOSCIUTO = 'Schermo non riconosciuto: chiedere un link nuovo dal back office';
+
+async function giro() {
+  if (INGIRO || !P) return;      // un giro alla volta: se il server e' lento si salta un colpo
+  INGIRO = true;
+  try {
+    const d = await chiama('schermo');
+    /* i minuti si contano sull'orologio del server: quello di una TV o di
+       un tablet appeso puo' essere avanti di ore */
+    SCARTO = d.adesso ? new Date(d.adesso).getTime() - Date.now() : 0;
+    if (d.postazione && d.postazione.nome) $('nome').textContent = d.postazione.nome;
+    LISTA = ordina(d.biglietti);
+    const ids = LISTA.map((s) => s.id);
+    if (!PRIMO && nuovi(VISTI, ids).length) suona();
+    PRIMO = false;
+    VISTI = ids;
+    if (SCELTA && !ids.includes(SCELTA)) SCELTA = null;
+    RETE = true;
+    ULTIMO_GIRO = new Date();
+    disegna();
+  } catch (e) {
+    if (e.stato === 401) blocca(NON_RICONOSCIUTO);
+    else if (e instanceof TypeError) RETE = false;
+    else { RETE = false; messaggio(e.message); }
+  } finally {
+    INGIRO = false;
+    spia();
+  }
+}
+
+/* «In preparazione», «Pronto», «Riapri»: un passo solo, poi si rigira
+   subito, cosi' la scheda sparisce sotto il dito che l'ha toccata. */
+async function passo(id, quale) {
+  if (!id) return;
+  const prima = LISTA.find((s) => s.id === id);
+  try {
+    await chiama('schermo-stato', { method: 'POST', body: JSON.stringify({ id, passo: quale }) });
+  } catch (e) {
+    if (e.stato === 401) blocca(NON_RICONOSCIUTO);
+    else messaggio(e instanceof TypeError ? TESTI.senzaRete : e.message);   // 409 «troppo tardi per riaprire», 403, 404, 400
+    return;
+  }
+  if (quale === 'pronta' && prima) {
+    const b = resa(prima);
+    ULTIME = [{ id, tavolo: b.tavolo || 'Comanda' }, ...ULTIME.filter((u) => u.id !== id)].slice(0, QUANTE_PRONTE);
+  }
+  if (quale === 'riapri') ULTIME = ULTIME.filter((u) => u.id !== id);
+  if (SCELTA === id) SCELTA = null;
+  giro();
+}
+
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-p]');
+  if (t) {
+    const dove = t.closest('.scheda');
+    if (dove) passo(dove.dataset.id, t.dataset.p);
+    return;
+  }
+  const r = e.target.closest('[data-r]');
+  if (r) passo(r.dataset.r, 'riapri');
+});
+
+/* La tastiera attaccata alla TV: costa niente e con le mani unte si usa
+   meglio del vetro. 1..9 scelgono la scheda, «p» la prende in carico,
+   Invio la manda in tavola, Backspace riapre l'ultima pronta. */
+document.addEventListener('keydown', (e) => {
+  if (!$('inizia').hidden || !$('blocco').hidden) return;
+  const a = tastoPer(e.key, LISTA.length);
+  if (!a) return;
+  e.preventDefault();
+  if (a.azione === 'scegli') { SCELTA = LISTA[a.indice].id; disegna(); return; }
+  if (a.azione === 'riapri') { if (ULTIME.length) passo(ULTIME[0].id, 'riapri'); return; }
+  const s = LISTA.find((x) => x.id === SCELTA) || LISTA[0];
+  if (s) passo(s.id, a.azione);
+});
+
+function avvia() {
+  $('inizia').hidden = true;
+  try { AUDIO = new (window.AudioContext || window.webkitAudioContext)(); } catch { AUDIO = null; }
+  tieniAcceso();
+  giro();
+  TIMER = setInterval(giro, GIRO_MS);
+}
+
+$('testoInizia').textContent = TESTI.inizia;
+$('etichettaUltime').textContent = TESTI.ultime;
+disegna();
+spia();
+if (P) $('inizia').addEventListener('click', avvia);
+else blocca('Manca la chiave: aprire il link dato dal back office');
+</script>
+</body>
+</html>
