@@ -376,3 +376,18 @@ Deno.test('con la tastiera aperta la ricerca ha tutto lo schermo, e una ✕ la c
   assert(P.includes('let cercaFocus = false;') && P.includes("c.onfocus = () => { cercaFocus = true;") && P.includes('setTimeout(() => { if (cercaFocus) return;'), 'il fuoco accende il modo, il fuoco perso lo spegne con un attimo di ritardo');
   assert(P.includes('id="cercaVia"') && P.includes("cercaVia.onclick = () => { cerca = ''; cercaFocus = false; disegna(); }"), 'la ✕ svuota e chiude');
 });
+
+Deno.test('il palmare vede «pronto in cucina»: bollino verde sul tavolo, riga nel pannello del conto', () => {
+  /* Task 6 del piano Monitor cucina (6 settembre 2026): sala (cloud e PC del
+     Bistrot) manda pronto_in_cucina e pronto_alle per ogni conto; qui solo
+     la lettura, senza toccare ricerca o compatta */
+  const stato = m.slice(m.indexOf('const conStato = (t) =>'), m.indexOf('const barra ='));
+  assert(stato.includes('pronto_in_cucina'), 'conStato guarda pronto_in_cucina di ogni conto aperto');
+  assert(stato.includes('bollinoPronto'), 'il bollino nel nome del tavolo');
+  assert(m.includes("c.pronto ? ' pronto' : ''"), 'la classe si aggiunge accanto a stato, non al posto suo');
+  assert(m.includes('class="tavoloVoce ${c.stato}${c.pronto') && m.includes('class="tavolo ${c.stato}${c.pronto'), 'in tutte e due le viste, elenco e piantina');
+  assert(P.includes('.tavoloVoce.pronto') && P.includes('.tavolo.pronto'), 'la classe pronto in CSS, sulla piantina e sull elenco');
+  const pan = m.slice(m.indexOf('const pannelloConto = (c) =>'), m.indexOf('const pannelloSpostaTavolo'));
+  assert(pan.includes('Pronto in cucina alle'), 'la riga in cima al pannello del conto');
+  assert(pan.includes('c.pronto_in_cucina'), 'solo se il server lo dice');
+});

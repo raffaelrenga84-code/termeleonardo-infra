@@ -85,6 +85,8 @@ button{font:inherit;cursor:pointer;color:inherit;}
 .tavolo.attesa,.tavoloVoce.attesa{background:#FFF3D6;border-color:var(--oro);}
 .tavolo.da_inviare,.tavoloVoce.da_inviare{border-style:dashed;}
 .tavolo.conto_chiesto,.tavoloVoce.conto_chiesto{background:#FBE9E7;border-color:var(--allarme);}
+.tavoloVoce.pronto,.tavolo.pronto{box-shadow:0 0 0 3px var(--verde);}
+.bollinoPronto{background:var(--verde);color:#fff;border-radius:999px;padding:1px 7px;font-size:11px;margin-left:6px;}
 /* tavolo: i conti */
 .riquadro{background:#fff;border:1px solid var(--pietra);border-radius:14px;padding:14px;margin:12px;}
 .contoRiga{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-top:1px solid #F0EBE1;font-size:17px;}
@@ -194,6 +196,7 @@ button{font:inherit;cursor:pointer;color:inherit;}
 .velo{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;z-index:20;}
 .pannello{background:#fff;width:100%;max-height:88%;overflow:auto;border-radius:18px 18px 0 0;padding:16px;}
 .pannello h3{margin:0 0 8px;color:var(--verde);}
+.prontoRiga{color:var(--verde);font-size:14px;margin-bottom:8px;}
 .pannello label{display:block;font-size:13px;color:var(--verde-medio);font-weight:600;margin-top:12px;}
 .pannello input,.pannello textarea{width:100%;padding:12px;font:inherit;border:1px solid #DCD6CB;border-radius:10px;background:#FCFBF8;margin-top:4px;}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
@@ -509,22 +512,26 @@ async function schermataSala() {
         : aperti.some((c) => c.stato === 'conto_chiesto') ? 'conto_chiesto'
         : aperti.some((c) => c.attesa) ? 'attesa'
         : aperti.some((c) => c.da_inviare) ? 'da_inviare' : 'aperto';
+      /* la cucina ha detto pronto su un conto di questo tavolo negli
+         ultimi 20 minuti (Task 6, Monitor cucina, 6 settembre 2026) */
+      const pronto = aperti.some((c) => c.pronto_in_cucina);
       const tot = aperti.reduce((x, c) => x + c.totale_cent, 0);
       const ultima = aperti.map((c) => c.ultima).sort().pop();
-      return { stato, aperti, dentro: `<b>${esc(String(t.nome).replace(/^Tavolo\s*/i, 'T'))}</b>` +
+      return { stato, pronto, aperti, dentro: `<b>${esc(String(t.nome).replace(/^Tavolo\s*/i, 'T'))}</b>` +
+        (pronto ? '<span class="bollinoPronto">pronto</span>' : '') +
         (aperti.length ? `<span>${euro(tot)}</span><span class="mini">${minuti(ultima)}'</span>` : `<span class="mini">${t.posti} posti</span>`) };
     };
     const barra = `<div class="zone">${s.zone.map((z) => `<button data-z="${esc(z.id)}" class="${z.id === ZONA ? 'attiva' : ''}">${esc(z.nome)}</button>`).join('')}
       <button id="cambiaVista" class="vista">${VISTA_SALA === 'elenco' ? 'Piantina' : 'Elenco'}</button></div>`;
     const corpo = VISTA_SALA === 'elenco'
-      ? `<div class="elencoTavoli">${tavoli.map((t) => { const c = conStato(t); return `<button class="tavoloVoce ${c.stato}" data-t="${esc(t.id)}">${c.dentro}</button>`; }).join('') || '<p class="mini" style="padding:16px;">Questa zona non ha tavoli. Si importano da Fidra con l’estensione, o si aggiungono dal back office.</p>'}</div>`
+      ? `<div class="elencoTavoli">${tavoli.map((t) => { const c = conStato(t); return `<button class="tavoloVoce ${c.stato}${c.pronto ? ' pronto' : ''}" data-t="${esc(t.id)}">${c.dentro}</button>`; }).join('') || '<p class="mini" style="padding:16px;">Questa zona non ha tavoli. Si importano da Fidra con l’estensione, o si aggiungono dal back office.</p>'}</div>`
       : (() => {
         /* le posizioni sono percentuali della pianta di Fidra, che e'
            larga: sul palmare la pianta si allarga finche' i tavoli non si
            accavallano piu', e si scorre col dito (pianta.js) */
         const app = $('app');
         const m = misuraPianta({ tavoli, larghezza: app.clientWidth - 20, altezzaDisponibile: app.clientHeight - 74 });
-        return `<div class="piantaScorri"><div class="piantina" id="piantina" style="width:${m.larghezza}px;height:${m.altezza}px;"><div class="campo">${tavoli.map((t) => { const c = conStato(t); return `<button class="tavolo ${c.stato}" data-t="${esc(t.id)}" style="left:${t.x}%;top:${t.y}%;">${c.dentro}</button>`; }).join('')}</div></div></div>`;
+        return `<div class="piantaScorri"><div class="piantina" id="piantina" style="width:${m.larghezza}px;height:${m.altezza}px;"><div class="campo">${tavoli.map((t) => { const c = conStato(t); return `<button class="tavolo ${c.stato}${c.pronto ? ' pronto' : ''}" data-t="${esc(t.id)}" style="left:${t.x}%;top:${t.y}%;">${c.dentro}</button>`; }).join('')}</div></div></div>`;
       })();
     /* gli ordini dal QR sul tavolo degli ultimi venti minuti: in cima, in
        oro, con da quanto sono arrivati — il cameriere li porta anche se
@@ -571,6 +578,7 @@ function schermataTavolo(t) {
   const pannelloConto = (c) => {
     const velo = document.createElement('div'); velo.className = 'velo';
     velo.innerHTML = `<div class="pannello">
+      ${c.pronto_in_cucina ? `<div class="prontoRiga">✅ Pronto in cucina alle ${new Date(c.pronto_alle).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</div>` : ''}
       <h3>${esc(c.titolo || titoloConto(c))}</h3>
       <label>Nome di chi paga (facoltativo)</label>
       <input id="pcNome" maxlength="40" placeholder="es. Rossi, amici della 229" value="${esc(c.nome || '')}" />
