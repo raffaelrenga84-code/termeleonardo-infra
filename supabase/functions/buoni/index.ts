@@ -22,6 +22,11 @@
                           e solo se riesce si annulla — vedi rimborso.ts per
                           il perché e per tutte le regole
      GET  ?a=elenco     → ultimi buoni, con filtri
+     GET  ?a=pdf&numero=…       → il buono in PDF sulla carta intestata; se è
+                                  ancora in attesa esce come bozza (il foglio
+                                  lo disegna pdf-buono.ts)
+     POST ?a=manda      → manda il buono per email all'acquirente o a chi lo
+                          riceve, col PDF allegato, e segna la consegna
    Pubblico:
      GET  ?a=verifica&codice=…  → validità, senza dati personali (la usa la
                                   reception per controllare un codice)
@@ -33,6 +38,12 @@
                                   dentro l'email (vedi il commento sopra
                                   l'azione più sotto: disegna qualunque
                                   testo le si passi, non guarda il database)
+     GET  ?a=pdf&codice=…       → lo stesso foglio in PDF, per chi ha il
+                                  codice: quello che la pagina pubblica
+                                  mostra e allega alle email
+     POST ?a=pdf                → la bozza filigranata di un buono non ancora
+                                  emesso, dai campi mandati nel corpo: serve
+                                  all'anteprima del modulo d'acquisto
      POST ?a=acquista   → acquisto dal sito: buono in attesa + link carta
    Stripe:
      POST ?a=webhook    → incasso confermato: emette il codice da sé
