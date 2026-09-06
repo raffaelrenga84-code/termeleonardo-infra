@@ -10,6 +10,8 @@
    ============================================================ */
 import type { Db, Riga } from './db.ts';
 import { escpos } from '../supabase/functions/pos/comanda.ts';
+import { daRipiegare, inizioGiornata } from '../supabase/functions/pos/schermo.ts';
+import { oraLocale } from '../supabase/functions/pos/fasce.ts';
 
 export type Destinazione = { host: string; porta: number };
 export type Connessione = { write(b: Uint8Array): Promise<number>; close(): void };
@@ -50,7 +52,23 @@ export function destinazione(s: string | undefined): Destinazione | null {
 /** Stampa quello che aspetta. Un biglietto senza stampante configurata
     resta in coda; uno che la stampante rifiuta va in errore (lo si vede
     nel back office) e non blocca gli altri. */
-export async function giroStampe(db: Db, stampanti: Stampanti, connetti: Connetti = connettiVero): Promise<number> {
+export async function giroStampe(db: Db, stampanti: Stampanti, connetti: Connetti = connettiVero, adesso: Date = new Date()): Promise<number> {
+  /* uno schermo spento non fa perdere niente: la carta esce dopo
+     ripiego_s secondi se nessuno schermo ha mostrato il biglietto
+     (daRipiegare, schermo.ts) */
+  const postazioni = db.prepare('select locale, stampante, ripiego_s from pos_postazione').all() as Riga[];
+  const postazioneDi = (locale: string, stampante: string) => postazioni.find((p) => p.locale === locale && p.stampante === stampante) ?? null;
+  /* solo la giornata di oggi: senza questo limite, con ripiego_s = 0
+     («mai») e uno schermo spento le righe non escono mai da questo
+     insieme e la finestra resta occupata per sempre */
+  const inizioOggi = inizioGiornata(adesso, oraLocale(adesso).minuti);
+  const aSchermo = db.prepare("select id, locale, stampante, stato, vista_il, creato_il from pos_stampa where stato = 'a_schermo' and vista_il is null and creato_il >= ? order by creato_il").all(inizioOggi.toISOString()) as Riga[];
+  const oraRipiego = adesso.toISOString();
+  for (const s of aSchermo) {
+    if (daRipiegare(s as { stato: unknown; vista_il?: unknown; creato_il: unknown }, postazioneDi(String(s.locale), String(s.stampante)), adesso)) {
+      db.prepare("update pos_stampa set stato = 'da_stampare', aggiornato_il = ?, allineato = 0 where id = ?").run(oraRipiego, String(s.id));
+    }
+  }
   const daFare = db.prepare("select * from pos_stampa where stato = 'da_stampare' order by creato_il, rowid limit 50").all() as Riga[];
   let fatte = 0;
   for (const s of daFare) {

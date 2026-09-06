@@ -15,6 +15,7 @@ const FILE: Record<string, string> = {
   '/pos/manifest.webmanifest': 'manifest.webmanifest',
   '/ingresso/icona-192.png': 'ingresso/icona-192.png',
   '/ingresso/icona-512.png': 'ingresso/icona-512.png',
+  '/cucina/schermo.js': 'cucina/schermo.js',
 };
 
 const tipoDi = (file: string): string =>
@@ -28,6 +29,7 @@ export function fileDellaPagina(pathname: string): { file: string; tipo: string 
   const p = String(pathname ?? '').replace(/\/+$/, '');
   if (p === '' && String(pathname) === '/') return { file: 'index.html', tipo: 'text/html; charset=utf-8' };
   if (p === '/pos') return { file: 'index.html', tipo: 'text/html; charset=utf-8' };
+  if (p === '/cucina') return { file: 'cucina/index.html', tipo: 'text/html; charset=utf-8' };
   const file = FILE[p];
   return file ? { file, tipo: tipoDi(file) } : null;
 }

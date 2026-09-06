@@ -7,6 +7,7 @@
 import { assert, assertEquals } from 'jsr:@std/assert';
 import { apri, creaSchema } from './db.ts';
 import { esegui, type Richiesta } from './azioni.ts';
+import { impronta } from '../supabase/functions/pos/schermo.ts';
 
 const cfg = { locale: 'L1' };
 
@@ -441,4 +442,76 @@ Deno.test('a cucina chiusa (orari_cucina del locale) il biglietto della cucina e
   const cucina = stampe.find((s) => s.testo.includes('Tagliatelle'))!;
   assertEquals(cucina.testo.split('\n')[1], '>>> CUCINA CHIUSA: AL BANCONE');
   assert(!stampe.find((s) => s.testo.includes('Birra'))!.testo.includes('CUCINA CHIUSA'), 'il biglietto del bar e normale');
+});
+
+/* ---------- il monitor cucina sul PC del Bistrot (6 settembre 2026) ---------- */
+
+const reqSchermo = (chiave: string, corpo: unknown = null, metodo = 'GET'): Richiesta =>
+  ({ metodo, query: { locale: 'L1', stampante: 'bar' }, corpo, intestazioni: { 'x-schermo-chiave': chiave } });
+
+Deno.test('schermo: mostra solo i biglietti non ancora pronti e scrive vista_il; la chiave sbagliata e rifiutata', async () => {
+  const db = base();
+  const chiaveHash = await impronta('ABCDEFGHJKLMNPQR');
+  db.prepare("insert into pos_postazione (locale, stampante, nome, schermo, stampa_sempre, ripiego_s, chiave_hash) values ('L1', 'bar', 'Banco', 1, 0, 30, ?)").run(chiaveHash);
+  const fa = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+  db.prepare(`insert into pos_stampa (id, locale, stampante, testo, stato, creato_il, aggiornato_il, allineato, biglietto, conto) values (?, 'L1', 'bar', 'BEVANDE', 'a_schermo', ?, ?, 0, ?, 'CT1')`)
+    .run('P1', fa(5), fa(5), JSON.stringify({ righe: [] }));
+  db.prepare(`insert into pos_stampa (id, locale, stampante, testo, stato, creato_il, aggiornato_il, allineato, biglietto, conto, pronta_il) values (?, 'L1', 'bar', 'GIA PRONTO', 'a_schermo', ?, ?, 0, ?, 'CT1', ?)`)
+    .run('P2', fa(6), fa(6), JSON.stringify({ righe: [] }), fa(1));
+
+  const sbagliata = await esegui(db, 'schermo', reqSchermo('CHIAVE-SBAGLIATA'), cfg);
+  assertEquals(sbagliata, { stato: 401, corpo: { errore: 'schermo non riconosciuto' } });
+
+  const r = await esegui(db, 'schermo', reqSchermo('ABCDEFGHJKLMNPQR'), cfg);
+  assertEquals(r.stato, 200);
+  const corpo = r.corpo as { postazione: { nome: string }; biglietti: { id: string; vista_il: string | null; biglietto: { righe: unknown[] } }[] };
+  assertEquals(corpo.postazione.nome, 'Banco');
+  assertEquals(corpo.biglietti.length, 1, 'solo il biglietto non ancora pronto');
+  assertEquals(corpo.biglietti[0].id, 'P1');
+  assert(Array.isArray(corpo.biglietti[0].biglietto.righe), 'il biglietto torna come oggetto');
+  assert(!!corpo.biglietti[0].vista_il, 'la risposta porta gia il vista_il');
+  const riga = db.prepare('select vista_il from pos_stampa where id = ?').get('P1') as { vista_il: string | null };
+  assert(!!riga.vista_il, 'e resta scritto nel database');
+
+  const metodoSbagliato = await esegui(db, 'schermo', reqSchermo('ABCDEFGHJKLMNPQR', null, 'POST'), cfg);
+  assertEquals(metodoSbagliato, { stato: 405, corpo: { errore: 'metodo non ammesso' } });
+});
+
+Deno.test('schermo-stato: pronta scrive pronta_il, pronta_da e allineato = 0; di un altra stampante e vietato; metodo sbagliato 405', async () => {
+  const db = base();
+  const chiaveHash = await impronta('ABCDEFGHJKLMNPQR');
+  db.prepare("insert into pos_postazione (locale, stampante, nome, schermo, stampa_sempre, ripiego_s, chiave_hash) values ('L1', 'bar', 'Banco', 1, 0, 30, ?)").run(chiaveHash);
+  db.exec(`insert into pos_stampa (id, locale, stampante, testo, stato, creato_il, aggiornato_il, allineato, conto) values
+    ('P1', 'L1', 'bar', 'BEVANDE', 'a_schermo', '2026-09-04T10:00:00Z', '2026-09-04T10:00:00Z', 1, 'CT1'),
+    ('P2', 'L1', 'cucina', 'PASTA', 'a_schermo', '2026-09-04T10:00:00Z', '2026-09-04T10:00:00Z', 1, 'CT1')`);
+
+  const metodoSbagliato = await esegui(db, 'schermo-stato', reqSchermo('ABCDEFGHJKLMNPQR', { id: 'P1', passo: 'pronta' }, 'GET'), cfg);
+  assertEquals(metodoSbagliato, { stato: 405, corpo: { errore: 'metodo non ammesso' } });
+
+  const pronta = await esegui(db, 'schermo-stato', reqSchermo('ABCDEFGHJKLMNPQR', { id: 'P1', passo: 'pronta' }, 'POST'), cfg);
+  assertEquals(pronta.stato, 200);
+  assertEquals((pronta.corpo as { esito: string; pronta_da: string }).pronta_da, 'Banco');
+  const riga = db.prepare('select pronta_il, pronta_da, presa_il, allineato from pos_stampa where id = ?').get('P1') as Record<string, unknown>;
+  assert(!!riga.pronta_il, 'pronta_il scritto'); assertEquals(riga.pronta_da, 'Banco');
+  assert(!!riga.presa_il, 'pronta prende anche presa_il se non c era gia'); assertEquals(riga.allineato, 0);
+
+  const altra = await esegui(db, 'schermo-stato', reqSchermo('ABCDEFGHJKLMNPQR', { id: 'P2', passo: 'pronta' }, 'POST'), cfg);
+  assertEquals(altra, { stato: 403, corpo: { errore: "di un'altra postazione" } });
+
+  const ignoto = await esegui(db, 'schermo-stato', reqSchermo('ABCDEFGHJKLMNPQR', { id: 'non-esiste', passo: 'pronta' }, 'POST'), cfg);
+  assertEquals(ignoto, { stato: 404, corpo: { errore: 'biglietto non trovato' } });
+});
+
+Deno.test('la sala dice pronto_in_cucina per il conto con un biglietto pronto da pochi minuti', async () => {
+  const db = base();
+  const c = await esegui(db, 'conto', req('POST', { tavolo: 'T7', tipo: 'esterno', coperti: 2 }), cfg);
+  const conto = (c.corpo as { conto: { id: string } }).conto.id;
+  const cinqueMinFa = new Date(Date.now() - 5 * 60_000).toISOString();
+  db.prepare(`insert into pos_stampa (id, locale, stampante, testo, stato, creato_il, aggiornato_il, allineato, conto, pronta_il) values ('P1', 'L1', 'cucina', 'X', 'stampata', ?, ?, 0, ?, ?)`)
+    .run(cinqueMinFa, cinqueMinFa, conto, cinqueMinFa);
+  const sala = await esegui(db, 'sala', req('GET', null, { locale: 'L1' }), cfg);
+  const t7 = (sala.corpo as { tavoli: { id: string; conti: { id: string; pronto_in_cucina: boolean; pronto_alle: string | null }[] }[] }).tavoli.find((t) => t.id === 'T7')!;
+  const contoRiga = t7.conti.find((x) => x.id === conto)!;
+  assertEquals(contoRiga.pronto_in_cucina, true);
+  assertEquals(contoRiga.pronto_alle, cinqueMinFa);
 });

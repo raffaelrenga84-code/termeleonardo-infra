@@ -19,7 +19,7 @@ import { applicaFascia, fasciaAttiva, oraLocale, prezzoInFascia } from '../supab
 import type { Fascia, PrezzoFascia } from '../supabase/functions/pos/fasce.ts';
 import { localeChePrepara, portareA, siStampa } from '../supabase/functions/pos/dove.ts';
 import { stampanteAdesso } from '../supabase/functions/pos/orari.ts';
-import { statoIniziale } from '../supabase/functions/pos/schermo.ts';
+import { daMostrare, impronta, inizioGiornata, passo, prontoInCucina, statoIniziale } from '../supabase/functions/pos/schermo.ts';
 
 export type Richiesta = { metodo: string; query: Record<string, string>; corpo: unknown; intestazioni: Record<string, string> };
 export type Risposta = { stato: number; corpo: unknown };
@@ -61,6 +61,16 @@ const righeDelConto = (db: Db, conto: string): RigaStampabile[] =>
     where r.conto = ? order by r.creata_il, r.rowid`).all(conto) as unknown as RigaStampabile[];
 
 const contoDi = (db: Db, id: string): Riga | undefined => db.prepare('select * from pos_conto where id = ?').get(id) as Riga | undefined;
+
+/* ---------- lo schermo di una postazione (monitor cucina): stessa regola del cloud, in SQL ---------- */
+async function postazioneDelloSchermo(db: Db, req: Richiesta): Promise<Riga | null> {
+  const chiave = testa(req, 'x-schermo-chiave');
+  const locale = req.query.locale || '', stampante = req.query.stampante || '';
+  if (!chiave || !locale || !stampante) return null;
+  const p = db.prepare('select * from pos_postazione where locale = ? and stampante = ?').get(locale, stampante) as Riga | undefined;
+  if (!p || !p.chiave_hash || p.chiave_hash !== await impronta(chiave)) return null;
+  return p;
+}
 
 /* Come si chiama un conto in sala: il nome che il cameriere gli ha
    scritto sopra, se no la camera, se no «Esterno». Stessa regola del
@@ -185,8 +195,15 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
     const righe = ids.length
       ? db.prepare(`select conto, quantita, prezzo_cent, stato, creata_il from pos_riga where conto in (${segnaposto(ids.length)})`).all(...ids) as Riga[]
       : [];
+    /* i biglietti pronti in cucina negli ultimi venti minuti: il palmare
+       segnala al cameriere che puo' andare a ritirare (prontoInCucina, schermo.ts) */
+    const pronte = ids.length
+      ? db.prepare(`select conto, pronta_il from pos_stampa where conto in (${segnaposto(ids.length)}) and pronta_il is not null and pronta_il >= ?`)
+          .all(...ids, new Date(Date.now() - 20 * 60 * 1000).toISOString()) as Riga[]
+      : [];
     const contiPronti = conti.map((c) => {
       const rr = righe.filter((r) => r.conto === c.id);
+      const p = prontoInCucina(pronte.filter((s) => s.conto === c.id), new Date());
       return {
         id: c.id, tavolo: c.tavolo, tipo: c.tipo, camera: c.camera, ospite: c.ospite, coperti: c.coperti, stato: c.stato,
         nome: c.nome ?? null, titolo: titoloConto(c),
@@ -194,6 +211,7 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
         attesa: rr.some((r) => r.stato === 'inviata'),
         da_inviare: rr.some((r) => r.stato === 'da_inviare'),
         ultima: rr.map((r) => String(r.creata_il)).sort().pop() ?? c.aperto_il,
+        pronto_in_cucina: p.pronto, pronto_alle: p.alle,
       };
     });
     return ok({ zone, tavoli: tavoli.map((t) => ({ ...t, conti: contiPronti.filter((c) => c.tavolo === t.id) })) });
@@ -511,6 +529,44 @@ export async function esegui(db: Db, azione: string, req: Richiesta, cfg: Config
       });
     }
     return ok({ conto: contoDi(db, String(c.id)), totale_cent: totale });
+  }
+
+  /* ================= il monitor cucina (chiave dello schermo) ================= */
+
+  if (azione === 'schermo') {
+    const p = await postazioneDelloSchermo(db, req);
+    if (!p) return errore('schermo non riconosciuto', 401);
+    if (req.metodo !== 'GET') return errore('metodo non ammesso', 405);
+    const ora = new Date();
+    const inizio = inizioGiornata(ora, oraLocale(ora).minuti);
+    const stampe = db.prepare(`select id, stato, creato_il, vista_il, presa_il, pronta_il, biglietto, testo, stampante, conto
+      from pos_stampa where locale = ? and stampante = ? and pronta_il is null and creato_il >= ? order by creato_il limit 200`)
+      .all(String(p.locale), String(p.stampante), inizio.toISOString()) as Riga[];
+    const biglietti = stampe.filter((s) => daMostrare(s as { pronta_il?: unknown; creato_il: unknown }, inizio));
+    /* da qui in poi il ripiego non scatta: uno schermo l'ha mostrato */
+    const nonViste = biglietti.filter((s) => !s.vista_il).map((s) => String(s.id));
+    const adessoIso = ora.toISOString();
+    if (nonViste.length) {
+      db.prepare(`update pos_stampa set vista_il = ?, aggiornato_il = ?, allineato = 0 where id in (${segnaposto(nonViste.length)}) and vista_il is null`)
+        .run(adessoIso, adessoIso, ...nonViste);
+    }
+    return ok({ postazione: { nome: p.nome }, biglietti: biglietti.map(conJson(['biglietto'])).map((s) => ({ ...s, vista_il: s.vista_il ?? adessoIso })), adesso: adessoIso });
+  }
+
+  if (azione === 'schermo-stato') {
+    const no = soloPost(); if (no) return no;
+    const p = await postazioneDelloSchermo(db, req);
+    if (!p) return errore('schermo non riconosciuto', 401);
+    const s = db.prepare('select id, locale, stampante, presa_il, pronta_il from pos_stampa where id = ?').get(String(b.id ?? '')) as Riga | undefined;
+    if (!s) return errore('biglietto non trovato', 404);
+    if (s.locale !== p.locale || s.stampante !== p.stampante) return errore("di un'altra postazione", 403);
+    const esito = passo(s, String(b.passo ?? ''), new Date(), String(p.nome));
+    if ('errore' in esito) return errore(esito.errore, esito.stato);
+    const ora = adesso();
+    const chiavi = Object.keys(esito.campi);
+    db.prepare(`update pos_stampa set ${chiavi.map((k) => `${k} = ?`).join(', ')}, aggiornato_il = ?, allineato = 0 where id = ?`)
+      .run(...chiavi.map((k) => esito.campi[k]), ora, String(s.id));
+    return ok({ esito: 'ok', ...esito.campi });
   }
 
   return errore('azione sconosciuta', 404);

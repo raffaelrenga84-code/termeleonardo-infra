@@ -47,6 +47,25 @@ Deno.test('gli indirizzi delle stampanti li comanda il back office; il config.js
   assertEquals(stampantiDi(db, 'ignoto', { bar: '10.0.0.2:9100' }), { cucina: undefined, bar: '10.0.0.2:9100' });
 });
 
+Deno.test('un biglietto a schermo che nessuno ha visto esce di carta dopo ripiego_s', async () => {
+  const db = apri(':memory:'); creaSchema(db);
+  const adesso = new Date('2026-09-04T10:00:00Z');
+  const fa = (s: number) => new Date(adesso.getTime() - s * 1000).toISOString();
+  db.exec(`insert into pos_locale (id, nome, aggiornato_il) values ('L1', 'Bistrot', '2026-09-04T10:00:00Z');
+    insert into pos_postazione (locale, stampante, nome, schermo, stampa_sempre, ripiego_s) values ('L1', 'bar', 'Banco', 1, 0, 30)`);
+  db.prepare(`insert into pos_stampa (id, locale, stampante, testo, stato, creato_il, aggiornato_il, allineato) values (?, 'L1', 'bar', 'VECCHIO', 'a_schermo', ?, ?, 0)`)
+    .run('P1', fa(60), fa(60));
+  db.prepare(`insert into pos_stampa (id, locale, stampante, testo, stato, creato_il, aggiornato_il, allineato) values (?, 'L1', 'bar', 'NUOVO', 'a_schermo', ?, ?, 0)`)
+    .run('P2', fa(10), fa(10));
+  db.prepare(`insert into pos_stampa (id, locale, stampante, testo, stato, creato_il, aggiornato_il, allineato, vista_il) values (?, 'L1', 'bar', 'VISTO', 'a_schermo', ?, ?, 0, ?)`)
+    .run('P3', fa(60), fa(60), fa(60));
+  const finta = () => Promise.resolve({ write: (b: Uint8Array) => Promise.resolve(b.length), close: () => {} });
+  const n = await giroStampe(db, { bar: '192.168.0.61:9101' }, finta as never, adesso);
+  assertEquals(n, 1, 'solo il biglietto vecchio e non visto esce di carta');
+  const righe = db.prepare('select id, stato from pos_stampa order by id').all() as { id: string; stato: string }[];
+  assertEquals(righe, [{ id: 'P1', stato: 'stampata' }, { id: 'P2', stato: 'a_schermo' }, { id: 'P3', stato: 'a_schermo' }]);
+});
+
 Deno.test('senza indirizzo per quella stampante il biglietto resta in coda, non sparisce', async () => {
   const db = apri(':memory:'); creaSchema(db);
   db.exec(`insert into pos_locale (id, nome, aggiornato_il) values ('L1', 'Bistrot', '2026-09-04T10:00:00Z');

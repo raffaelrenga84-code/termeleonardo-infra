@@ -36,7 +36,7 @@ const log = (m: string) => console.log(new Date().toISOString().slice(11, 19), m
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type, x-pos-dispositivo, x-pos-sessione',
+  'Access-Control-Allow-Headers': 'content-type, x-pos-dispositivo, x-pos-sessione, x-schermo-chiave',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
