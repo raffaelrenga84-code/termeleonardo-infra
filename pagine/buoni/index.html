@@ -958,11 +958,28 @@ function dettagliBuono(b) {
    dall'elenco dopo l'altro lascerebbe ogni foglio in memoria per tutta la
    giornata di back office. */
 let urlBuonoMostrato = '';
+/* Chi ha diritto a scrivere in urlBuonoMostrato / #bAnteprima / #bScarica.
+   mostraFatto chiede il PDF con una fetch, e due chiamate (l'operatore apre
+   il buono A e poi il buono B dall'elenco prima che il PDF di A sia
+   arrivato) possono rispondere in un ordine qualunque: se la risposta di A
+   arriva DOPO quella di B, senza un modo per riconoscerlo revocherebbe il
+   foglio di B — quello che si vede adesso — e riscriverebbe #bAnteprima e
+   #bScarica (cercati per id, quindi validi per il buono di chiunque) col
+   PDF sbagliato: il pannello mostrerebbe, stampasse o scaricasse il buono
+   di un altro cliente. Un numero di giro, non un booleano: ogni chiamata
+   prende il numero corrente incrementato (`mio`), e quando la sua risposta
+   arriva la confronta con quello ATTUALE — se sono diversi la sua risposta
+   non e' piu' di nessuno: revoca il blob appena ricevuto (nessuno lo usera'
+   mai) e non tocca altro. Solo la chiamata vincente (l'ultima aperta)
+   revoca il foglio mostrato prima di lei. */
+let giroBuono = 0;
 
 /* Il pannello del buono: numero, dati, anteprima e modi per consegnarlo.
    Lo usa sia l'emissione sia l'elenco, dove serve a rimandare un buono
    che il cliente non ha ricevuto o si e' trovato nella posta indesiderata. */
 function mostraFatto(b, contenitore = 'fFatto') {
+  /* il numero di questo giro: vedi il commento sopra giroBuono */
+  const mio = ++giroBuono;
   const attesa = b.stato === 'attesa';
   /* il link vale per UN buono solo: azzerarlo qui evita che finisca
      nell email del buono successivo (il cliente pagherebbe l altro) */
@@ -1026,14 +1043,21 @@ function mostraFatto(b, contenitore = 'fFatto') {
      al momento in cui il nuovo e' davvero arrivato: se questa richiesta
      fallisse, il vecchio foglio (magari ancora aperto in un'altra scheda
      del browser) resterebbe valido invece di sparire per un errore che non
-     lo riguarda. */
+     lo riguarda.
+     PRIMA di tutto pero' il controllo del giro (vedi il commento sopra
+     giroBuono): se nel frattempo si e' aperto un altro buono, `mio` non e'
+     piu' il giro corrente, e questa risposta e in ritardo non ha piu' un
+     pannello da riempire — solo un blob da revocare, perche' e' suo e di
+     nessun altro. */
   pdfUrl('?a=pdf&numero=' + encodeURIComponent(b.numero)).then((url) => {
+    if (mio !== giroBuono) { URL.revokeObjectURL(url); return; }
     if (urlBuonoMostrato) URL.revokeObjectURL(urlBuonoMostrato);
     urlBuonoMostrato = url;
     if (!$('bAnteprima')) return;
     iframePdf($('bAnteprima'), url);
     if ($('bScarica')) $('bScarica').href = url;
   }).catch((e) => {
+    if (mio !== giroBuono) return;
     if ($('bAnteprima')) $('bAnteprima').innerHTML = `<span class="errore">${esc(e.message)}</span>`;
   });
 

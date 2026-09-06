@@ -88,6 +88,22 @@ Deno.test('antStampa non apre la finestra senza controllare se il browser l ha b
   assert(ant.includes('apriPdfGuardato('), 'lo stesso percorso guardato di apriPdf (bStampa, bStampaBozza)');
 });
 
+Deno.test('due buoni aperti di fila non si rubano l anteprima: mostraFatto ha un numero di giro', () => {
+  assert(BACKOFFICE.includes('let giroBuono = 0;'), 'un contatore di modulo, non per chiamata');
+  assert(BACKOFFICE.includes('const mio = ++giroBuono;'), 'ogni chiamata a mostraFatto prende il proprio numero');
+  const risposta = fra(BACKOFFICE, "pdfUrl('?a=pdf&numero=", "if ($('bRipristina'))");
+  const controllo = risposta.indexOf('mio !== giroBuono');
+  assert(controllo >= 0, 'la risposta si confronta col giro corrente prima di fare qualunque cosa');
+  const revocaPropria = risposta.indexOf('URL.revokeObjectURL(url)');
+  assert(revocaPropria > controllo, 'chi ha perso il giro revoca il blob appena ricevuto: non e di nessuno');
+  const revocaPrecedente = risposta.indexOf('URL.revokeObjectURL(urlBuonoMostrato)');
+  assert(revocaPrecedente > controllo, 'il controllo del giro viene prima della revoca del foglio gia mostrato');
+  const repaint = risposta.indexOf("iframePdf($('bAnteprima')");
+  assert(repaint > controllo, 'e prima di riscrivere il pannello con #bAnteprima/#bScarica');
+  assertEquals((risposta.match(/mio !== giroBuono/g) || []).length, 2,
+    'il controllo c e anche nel ramo di errore (.catch), non solo in quello buono');
+});
+
 Deno.test('le email del buono le manda il server con il PDF allegato, non Outlook a mano', () => {
   assert(BACKOFFICE.includes("chiama('?a=manda'"), 'l invio e una chiamata al server');
   assert(BACKOFFICE.includes('JSON.stringify({ numero: b.numero, a: chi })'), 'il buono e a chi mandarlo');
